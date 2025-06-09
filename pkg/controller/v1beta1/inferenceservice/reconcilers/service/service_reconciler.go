@@ -261,7 +261,7 @@ func (r *ServiceReconciler) checkServiceExist(ctx context.Context, client client
 			if !forceStopRuntime {
 				return constants.CheckResultCreate, nil, nil
 			}
-			return constants.CheckResultUnknown, nil, nil
+			return constants.CheckResultSkipped, nil, nil
 		}
 		return constants.CheckResultUnknown, nil, err
 	}
@@ -300,8 +300,8 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context) ([]*corev1.Service, e
 		case constants.CheckResultUpdate:
 			opErr = r.client.Update(ctx, svc)
 		case constants.CheckResultDelete:
-			log.Info("Deleting service", "namespace", svc.Namespace, "name", svc.Name)
 			if svc.GetDeletionTimestamp() == nil { // check if the service was already deleted
+				log.Info("Deleting service", "namespace", svc.Namespace, "name", svc.Name)
 				opErr = r.client.Delete(ctx, svc)
 			}
 		}

@@ -86,7 +86,7 @@ func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infe
 	}
 	if forceStopRuntime {
 		if ctrl := metav1.GetControllerOf(existingIngress); ctrl != nil && ctrl.UID == isvc.UID {
-			log.Info("The InferenceService ", isvc.Name, " is marked as stopped — delete its associated ingress")
+			log.Info("The InferenceService is marked as stopped — deleting its associated ingress", "name", isvc.Name)
 			if err := r.client.Delete(ctx, existingIngress); err != nil {
 				return err
 			}

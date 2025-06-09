@@ -552,7 +552,7 @@ func (r *RawHTTPRouteReconciler) reconcilePredictorHTTPRoute(ctx context.Context
 	}
 	if forceStopRuntime {
 		if ctrl := metav1.GetControllerOf(existingHttpRoute); ctrl != nil && ctrl.UID == isvc.UID {
-			log.Info("The InferenceService ", httpRouteName, " is marked as stopped — delete its associated http route")
+			log.Info("The InferenceService is marked as stopped — deleting its associated http route", "name", httpRouteName)
 			if err := r.client.Delete(ctx, existingHttpRoute); err != nil {
 				return fmt.Errorf("failed to delete HTTPRoute %s/%s: %w", desired.Namespace, desired.Name, err)
 			}
@@ -696,7 +696,7 @@ func (r *RawHTTPRouteReconciler) reconcileTopLevelHTTPRoute(ctx context.Context,
 	}
 	if forceStopRuntime {
 		if ctrl := metav1.GetControllerOf(existingHttpRoute); ctrl != nil && ctrl.UID == isvc.UID {
-			log.Info("The InferenceService ", isvc.Name, " is marked as stopped — delete its associated top level http route")
+			log.Info("The InferenceService is marked as stopped — deleting its associated top level http route", "name", isvc.Name)
 			if err := r.client.Delete(ctx, existingHttpRoute); err != nil {
 				return fmt.Errorf("failed to delete HTTPRoute %s/%s: %w", desired.Namespace, desired.Name, err)
 			}

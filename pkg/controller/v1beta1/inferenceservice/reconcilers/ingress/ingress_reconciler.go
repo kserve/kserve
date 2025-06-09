@@ -348,7 +348,7 @@ func (ir *IngressReconciler) reconcileExternalService(ctx context.Context, isvc 
 		// Delete the service
 		if getExistingErr == nil {
 			// Make sure that we only delete services owned by the isvc
-			if existing.OwnerReferences[0].UID == isvc.UID {
+			if ctrl := metav1.GetControllerOf(existing); ctrl != nil && ctrl.UID == isvc.UID {
 				log.Info("The InferenceService ", isvc.Name, " is marked as stopped — delete its associated Service")
 				if err := ir.client.Delete(ctx, existing); err != nil {
 					return err

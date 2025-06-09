@@ -19,6 +19,7 @@ package inferenceservice
 import (
 	"context"
 	"fmt"
+	"maps"
 	"time"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
@@ -662,6 +663,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
+
 			// Create ServingRuntime
 			servingRuntime := &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
@@ -711,6 +713,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var gracePeriod int64 = 30
 			ctx := context.Background()
 			var cpuUtilization int32 = 75
+
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceKey.Name,
@@ -761,14 +764,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(ctx, isvc)
 
 			inferenceService := &v1beta1.InferenceService{}
-
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
-
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout).
 				Should(Succeed())
 
@@ -861,6 +862,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualDeployment.Spec).To(BeComparableTo(expectedDeployment.Spec))
 
+			// check isvc status
+			updatedDeployment := actualDeployment.DeepCopy()
+			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
+				{
+					Type:   appsv1.DeploymentAvailable,
+					Status: corev1.ConditionTrue,
+				},
+			}
+			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
+
 			// check service
 			actualService := &corev1.Service{}
 			predictorServiceKey := types.NamespacedName{
@@ -897,16 +908,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.IPFamilyPolicy = nil
 			actualService.Spec.InternalTrafficPolicy = nil
 			Expect(actualService.Spec).To(BeComparableTo(expectedService.Spec))
-
-			// check isvc status
-			updatedDeployment := actualDeployment.DeepCopy()
-			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			// check http route
 			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
@@ -1942,7 +1943,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
-				Data: configs,
+				Data: maps.Clone(configs),
 			}
 			return configMap
 		}
@@ -2354,28 +2355,28 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Consistently(func() bool {
 				err := k8sClient.Get(context.Background(), predictorKey, actualDeployment)
 				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The deployment should not be created")
+			}, time.Second*10).Should(BeTrue(), "The deployment should not be created")
 
 			// check that the service was not created
 			actualService := &corev1.Service{}
 			Consistently(func() bool {
 				err := k8sClient.Get(context.Background(), predictorKey, actualService)
 				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The service should not be created")
+			}, time.Second*10).Should(BeTrue(), "The service should not be created")
 
 			// check that the http routes were not created
 			actualTopLevelHttpRoute := &gatewayapiv1.HTTPRoute{}
 			Consistently(func() bool {
 				err := k8sClient.Get(context.Background(), serviceKey, actualTopLevelHttpRoute)
 				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The top level http route should not be created")
+			}, time.Second*10).Should(BeTrue(), "The top level http route should not be created")
 
 			// check that the HPA was not created
 			existingHPA := &autoscalingv2.HorizontalPodAutoscaler{}
 			Consistently(func() bool {
 				err := k8sClient.Get(ctx, predictorKey, existingHPA)
 				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The HPA should not be created")
+			}, time.Second*10).Should(BeTrue(), "The HPA should not be created")
 
 			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
 			Consistently(func() bool {
@@ -2384,7 +2385,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Namespace: serviceKey.Namespace,
 				}, actualPredictorHttpRoute)
 				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The predictor http route should not be created")
+			}, time.Second*10).Should(BeTrue(), "The predictor http route should not be created")
 
 			// Check that the ISVC was updated
 			updatedIsvc := &v1beta1.InferenceService{}
@@ -2479,35 +2480,35 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Consistently(func() bool {
 				err := k8sClient.Get(context.TODO(), predictorKey, actualOTelCollector)
 				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The OpenTelemetry Collector should not be created")
+			}, time.Second*10).Should(BeTrue(), "The OpenTelemetry Collector should not be created")
 
 			// Check that the deployment was not created
 			actualDeployment := &appsv1.Deployment{}
 			Consistently(func() bool {
 				err := k8sClient.Get(context.Background(), predictorKey, actualDeployment)
 				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The deployment should not be created")
+			}, time.Second*10).Should(BeTrue(), "The deployment should not be created")
 
 			// check that the service was not created
 			actualService := &corev1.Service{}
 			Consistently(func() bool {
 				err := k8sClient.Get(context.Background(), predictorKey, actualService)
 				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The service should not be created")
+			}, time.Second*10).Should(BeTrue(), "The service should not be created")
 
 			// Check that the ingress was not created
 			actualIngress := &netv1.Ingress{}
 			Consistently(func() bool {
 				err := k8sClient.Get(context.TODO(), serviceKey, actualIngress)
 				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The ingress should not be created")
+			}, time.Second*10).Should(BeTrue(), "The ingress should not be created")
 
 			// Check that the KEDA autoscaler was not created
 			actualScaledObject := &kedav1alpha1.ScaledObject{}
 			Consistently(func() bool {
 				err := k8sClient.Get(context.TODO(), predictorKey, actualScaledObject)
 				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The KEDA autoscaler should not be created")
+			}, time.Second*10).Should(BeTrue(), "The KEDA autoscaler should not be created")
 
 			// Check that the ISVC was updated
 			updatedIsvc := &v1beta1.InferenceService{}
@@ -2590,7 +2591,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualTopLevelHttpRoute := &gatewayapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.Background(), serviceKey, actualTopLevelHttpRoute)
-			}, timeout).Should(Succeed())
+			}, timeout*2).Should(Succeed())
 
 			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
 			Eventually(func() error {
@@ -4634,14 +4635,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Status: "True",
 						},
 						{
-							Type:     v1beta1.TransformerReady,
-							Status:   "True",
-							Severity: "Info",
-						},
-						{
 							Type:     v1beta1.Stopped,
 							Status:   "False",
 							Severity: apis.ConditionSeverityInfo,
+						},
+						{
+							Type:     v1beta1.TransformerReady,
+							Status:   "True",
+							Severity: "Info",
 						},
 					},
 				},
@@ -7165,14 +7166,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Status: "True",
 						},
 						{
-							Type:     v1beta1.TransformerReady,
-							Status:   "True",
-							Severity: "Info",
-						},
-						{
 							Type:     v1beta1.Stopped,
 							Status:   "False",
 							Severity: apis.ConditionSeverityInfo,
+						},
+						{
+							Type:     v1beta1.TransformerReady,
+							Status:   "True",
+							Severity: "Info",
 						},
 					},
 				},

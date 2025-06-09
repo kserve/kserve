@@ -220,7 +220,7 @@ func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client 
 			if !forceStopRuntime {
 				return constants.CheckResultCreate, nil, nil
 			}
-			return constants.CheckResultUnknown, nil, nil
+			return constants.CheckResultSkipped, nil, nil
 		}
 		return constants.CheckResultUnknown, nil, err
 	}
