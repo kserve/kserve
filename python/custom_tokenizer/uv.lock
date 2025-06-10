@@ -459,13 +459,13 @@ requires-dist = [
     { name = "grpc-interceptor", specifier = ">=0.15.4,<1.0.0" },
     { name = "grpcio", specifier = ">=1.60.0,<2.0.0" },
     { name = "httpx", specifier = ">=0.27.2,<1.0.0" },
-    { name = "huggingface-hub", extras = ["hf-transfer"], marker = "extra == 'storage'", specifier = ">=0.30.0,<1.0.0" },
+    { name = "huggingface-hub", extras = ["hf-transfer"], marker = "extra == 'storage'", specifier = ">=0.32.0" },
     { name = "kubernetes", specifier = ">=23.3.0" },
     { name = "numpy", specifier = ">=1.26.0,<3.0.0" },
     { name = "orjson", specifier = ">=3.9.15,<4.0.0" },
     { name = "pandas", specifier = ">=2.2.0,<3.0.0" },
     { name = "prometheus-client", specifier = ">=0.20.0,<1.0.0" },
-    { name = "protobuf", specifier = ">=4.25.4,<7.0.0" },
+    { name = "protobuf", specifier = ">=4.25.4,<5.0.0" },
     { name = "psutil", specifier = ">=5.9.6,<6.0.0" },
     { name = "pydantic", specifier = ">=2.5.0,<3.0.0" },
     { name = "python-dateutil", specifier = ">=2.8.0,<3.0.0" },
@@ -476,7 +476,7 @@ requires-dist = [
     { name = "tabulate", specifier = ">=0.9.0,<1.0.0" },
     { name = "timing-asgi", specifier = ">=0.3.0,<1.0.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.6,<1.0.0" },
-    { name = "vllm", marker = "extra == 'llm'", specifier = "==0.8.5" },
+    { name = "vllm", marker = "extra == 'llm'", specifier = "==0.9.0.1" },
 ]
 provides-extras = ["storage", "logging", "ray", "llm"]
 
