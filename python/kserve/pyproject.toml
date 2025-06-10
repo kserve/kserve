@@ -17,7 +17,7 @@ dependencies = [
     "psutil<6.0.0,>=5.9.6",
     "grpcio<2.0.0,>=1.60.0",
     "grpc-interceptor<1.0.0,>=0.15.4",
-    "protobuf<7.0.0,>=4.25.4",
+    "protobuf<5.0.0,>=4.25.4",
     "prometheus-client<1.0.0,>=0.20.0",
     "orjson<4.0.0,>=3.9.15",
     "httpx<1.0.0,>=0.27.2",
@@ -52,27 +52,7 @@ classifiers = [
 [project.urls]
 repository = "https://github.com/kserve/kserve/tree/master/python/kserve"
 
-# Storage dependencies. They can be opted into by apps.
-requests = { version = "^2.32.2", optional = true }
-google-cloud-storage = { version = "^2.14.0", optional = true }
-azure-storage-blob = { version = "^12.20.0", optional = true }
-azure-storage-file-share = { version = "^12.16.0", optional = true }
-azure-identity = { version = "^1.15.0", optional = true }
-boto3 = { version = "^1.29.0", optional = true }
-huggingface-hub = { version = ">=0.32.0", extras = [
-  "hf-transfer",
-], optional = true }
-
-# Logging dependencies. They can be opted into by apps.
-asgi-logger = { version = "^0.1.0", optional = true }
-
-# Ray dependency
-ray = { version = ">=2.43.0", extras = ["serve"], optional = true }
-
-# OpenAI Types dependency
-vllm = { version = "0.9.0.1", optional = true }
-
-[tool.poetry.extras]
+[project.optional-dependencies]
 storage = [
     "requests<3.0.0,>=2.32.2",
     "google-cloud-storage<3.0.0,>=2.14.0",
@@ -80,7 +60,7 @@ storage = [
     "azure-storage-file-share<13.0.0,>=12.16.0",
     "azure-identity<2.0.0,>=1.15.0",
     "boto3<2.0.0,>=1.29.0",
-    "huggingface-hub[hf-transfer]<1.0.0,>=0.30.0",
+    "huggingface-hub[hf-transfer]>=0.32.0",
 ]
 logging = [
     "asgi-logger<1.0.0,>=0.1.0",
@@ -89,7 +69,7 @@ ray = [
     "ray[serve]>=2.43.0",
 ]
 llm = [
-    "vllm==0.8.5",
+    "vllm==0.9.0.1",
 ]
 
 [dependency-groups]
