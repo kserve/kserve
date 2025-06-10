@@ -99,7 +99,7 @@ RUN cd vllm && \
 
 # Install vLLM cpu requirements
 RUN cd vllm && \
-    uv pip install --no-cache -v -r requirements/cpu.txt && \
+    uv pip install --index-strategy unsafe-best-match --no-cache -v -r requirements/cpu.txt && \
     uv cache clean
 
 # Build vLLM wheel
