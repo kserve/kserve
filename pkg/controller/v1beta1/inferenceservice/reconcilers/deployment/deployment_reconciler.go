@@ -227,7 +227,11 @@ func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client 
 
 	// existed, but marked for deletion
 	if forceStopRuntime {
-		return constants.CheckResultDelete, existingDeployment, nil
+		ctrl := metav1.GetControllerOf(deployment)
+		existingCtrl := metav1.GetControllerOf(existingDeployment)
+		if ctrl != nil && existingCtrl != nil && ctrl.UID == existingCtrl.UID {
+			return constants.CheckResultDelete, existingDeployment, nil
+		}
 	}
 
 	// existed, check equivalence

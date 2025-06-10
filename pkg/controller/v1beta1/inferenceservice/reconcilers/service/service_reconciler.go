@@ -268,7 +268,11 @@ func (r *ServiceReconciler) checkServiceExist(ctx context.Context, client client
 
 	// existed, but marked for deletion
 	if forceStopRuntime {
-		return constants.CheckResultDelete, existingService, nil
+		ctrl := metav1.GetControllerOf(svc)
+		existingCtrl := metav1.GetControllerOf(existingService)
+		if ctrl != nil && existingCtrl != nil && ctrl.UID == existingCtrl.UID {
+			return constants.CheckResultDelete, existingService, nil
+		}
 	}
 
 	// existed, check equivalent
