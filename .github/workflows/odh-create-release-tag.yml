@@ -22,8 +22,6 @@ jobs:
           ref: ${{ github.ref }}
           fetch-depth: 0
       
-      - name: Get latest tag
-        id: get_tag
       - name: print tag
         id: print_tag
         run: | 
