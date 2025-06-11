@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"strings"
 
+	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -37,6 +38,10 @@ type InferenceServiceSpec struct {
 	// transformer service calls to predictor service.
 	// +optional
 	Transformer *TransformerSpec `json:"transformer,omitempty"`
+
+	// TrafficPolicy defines the traffic policy for the inference service
+	// +optional
+	TrafficPolicy *TrafficPolicy `json:"trafficPolicy,omitempty"`
 }
 
 // LoggerType controls the scope of log publishing
@@ -101,6 +106,19 @@ type Batcher struct {
 	// Specifies the timeout of a batch
 	// +optional
 	Timeout *int `json:"timeout,omitempty"`
+}
+
+// RateLimit specifies the rate limit configuration
+// Currently only global rate limit is supported
+type RateLimit struct {
+	// GlobalRateLimit defines global rate limit configuration.
+	Global egv1a1.GlobalRateLimit `json:"global"`
+}
+
+type TrafficPolicy struct {
+	// RateLimit defines the configuration for token based rate limiting for LLMs.
+	// +optional
+	RateLimit *RateLimit `json:"rateLimit,omitempty"`
 }
 
 // InferenceService is the Schema for the InferenceServices API

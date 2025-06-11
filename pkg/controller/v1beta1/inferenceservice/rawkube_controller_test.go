@@ -21,19 +21,20 @@ import (
 	"fmt"
 	"time"
 
-	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
-	apierr "k8s.io/apimachinery/pkg/api/errors"
-
+	aigwv1a1 "github.com/envoyproxy/ai-gateway/api/v1alpha1"
+	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -41,8 +42,10 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -54,7 +57,7 @@ import (
 var _ = Describe("v1beta1 inference service controller", func() {
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 	const (
-		timeout  = time.Second * 60
+		timeout  = time.Second * 10
 		interval = time.Millisecond * 250
 		domain   = "example.com"
 	)
@@ -232,9 +235,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -355,7 +358,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			// check http route
-			actualTopLevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualTopLevelHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      serviceKey.Name,
@@ -363,24 +366,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}, actualTopLevelHttpRoute)
 			}, timeout).Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
-			expectedTopLevelHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedTopLevelHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(topLevelHost), gwapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -393,32 +396,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("30s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("30s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -426,7 +429,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualTopLevelHttpRoute.Spec).To(BeComparableTo(expectedTopLevelHttpRoute.Spec))
 
-			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualPredictorHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      predictorServiceKey.Name,
@@ -434,24 +437,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}, actualPredictorHttpRoute)
 			}, timeout).Should(Succeed())
 			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedPredictorHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(predictorHost)},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -464,32 +467,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("30s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("30s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -498,20 +501,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
 
 			// Mark the Ingress as accepted to make isvc ready
-			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
-				RouteStatus: gatewayapiv1.RouteStatus{
-					Parents: []gatewayapiv1.RouteParentStatus{
+			httpRouteStatus := gwapiv1.HTTPRouteStatus{
+				RouteStatus: gwapiv1.RouteStatus{
+					Parents: []gwapiv1.RouteParentStatus{
 						{
-							ParentRef: gatewayapiv1.ParentReference{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							ParentRef: gwapiv1.ParentReference{
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 							ControllerName: "istio.io/gateway-controller",
 							Conditions: []metav1.Condition{
 								{
-									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Type:               string(gwapiv1.ListenerConditionAccepted),
 									Status:             metav1.ConditionTrue,
 									Reason:             "Accepted",
 									Message:            "Route was valid",
@@ -784,9 +787,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -904,7 +907,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			// check http route
-			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualToplevelHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      serviceKey.Name,
@@ -913,24 +916,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
-			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedToplevelHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(topLevelHost), gwapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -943,32 +946,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -976,7 +979,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualToplevelHttpRoute.Spec).To(BeComparableTo(expectedToplevelHttpRoute.Spec))
 
-			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualPredictorHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      predictorServiceKey.Name,
@@ -985,24 +988,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(Succeed())
 			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedPredictorHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(predictorHost)},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -1015,32 +1018,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -1049,20 +1052,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
 
 			// Mark the Ingress as accepted to make isvc ready
-			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
-				RouteStatus: gatewayapiv1.RouteStatus{
-					Parents: []gatewayapiv1.RouteParentStatus{
+			httpRouteStatus := gwapiv1.HTTPRouteStatus{
+				RouteStatus: gwapiv1.RouteStatus{
+					Parents: []gwapiv1.RouteParentStatus{
 						{
-							ParentRef: gatewayapiv1.ParentReference{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							ParentRef: gwapiv1.ParentReference{
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 							ControllerName: "istio.io/gateway-controller",
 							Conditions: []metav1.Condition{
 								{
-									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Type:               string(gwapiv1.ListenerConditionAccepted),
 									Status:             metav1.ConditionTrue,
 									Reason:             "Accepted",
 									Message:            "Route was valid",
@@ -1310,9 +1313,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -1433,7 +1436,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			// check http Route
-			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualToplevelHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      serviceKey.Name,
@@ -1442,24 +1445,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
-			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedToplevelHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(topLevelHost), gwapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -1472,32 +1475,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -1505,7 +1508,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualToplevelHttpRoute.Spec).To(BeComparableTo(expectedToplevelHttpRoute.Spec))
 
-			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualPredictorHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      predictorServiceKey.Name,
@@ -1514,24 +1517,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(Succeed())
 			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedPredictorHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(predictorHost)},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -1544,32 +1547,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -1578,20 +1581,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
 
 			// Mark the Ingress as accepted to make isvc ready
-			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
-				RouteStatus: gatewayapiv1.RouteStatus{
-					Parents: []gatewayapiv1.RouteParentStatus{
+			httpRouteStatus := gwapiv1.HTTPRouteStatus{
+				RouteStatus: gwapiv1.RouteStatus{
+					Parents: []gwapiv1.RouteParentStatus{
 						{
-							ParentRef: gatewayapiv1.ParentReference{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							ParentRef: gwapiv1.ParentReference{
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 							ControllerName: "istio.io/gateway-controller",
 							Conditions: []metav1.Condition{
 								{
-									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Type:               string(gwapiv1.ListenerConditionAccepted),
 									Status:             metav1.ConditionTrue,
 									Reason:             "Accepted",
 									Message:            "Route was valid",
@@ -1688,6 +1691,338 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return false
 				}
 			}, timeout, interval).Should(BeTrue())
+		})
+
+		Context("When creating inference service with AI gateway enabled", func() {
+			It("Should create AIServiceBackend, AIGatewayRoute and BackendTrafficPolicy resources", func() {
+				// Create InferenceService config configmap with required configs
+				configMap := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.InferenceServiceConfigMapName,
+						Namespace: constants.KServeNamespace,
+					},
+					Data: configs,
+				}
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(context.TODO(), configMap)
+
+				servingRuntime := &v1alpha1.ServingRuntime{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "hf-serving-raw",
+						Namespace: "default",
+					},
+					Spec: v1alpha1.ServingRuntimeSpec{
+						SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+							{
+								Name:       "huggingface",
+								Version:    proto.String("1"),
+								AutoSelect: proto.Bool(true),
+							},
+						},
+						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:    "kserve-container",
+									Image:   "kserve/huggingface:0.15.0",
+									Command: []string{"/usr/bin/huggingface_model_server"},
+									Args: []string{
+										"--port=9000",
+									},
+									Resources: defaultResource,
+								},
+							},
+						},
+						Disabled: proto.Bool(false),
+					},
+				}
+				k8sClient.Create(context.TODO(), servingRuntime)
+				defer k8sClient.Delete(context.TODO(), servingRuntime)
+
+				By("By creating a new InferenceService with AI gateway annotation")
+				serviceName := "ai-gateway-test"
+
+				aiGatewayIsvc := &v1beta1.InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      serviceName,
+						Namespace: "default",
+						Annotations: map[string]string{
+							constants.DeploymentMode:               string(constants.RawDeployment),
+							constants.EnableAIGatewayAnnotationKey: "true",
+						},
+					},
+					Spec: v1beta1.InferenceServiceSpec{
+						Predictor: v1beta1.PredictorSpec{
+							ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+								MinReplicas: ptr.To(int32(1)),
+								MaxReplicas: int32(3),
+							},
+							Model: &v1beta1.ModelSpec{
+								ModelFormat: v1beta1.ModelFormat{
+									Name:    "huggingface",
+									Version: proto.String("1"),
+								},
+								PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+									StorageURI: proto.String("microsoft/DialoGPT-medium"),
+									Container: corev1.Container{
+										Resources: defaultResource,
+										Args: []string{
+											"--model_id",
+											"llama-2-7b-chat-hf",
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				aiGatewayIsvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+				Expect(k8sClient.Create(context.TODO(), aiGatewayIsvc)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(context.TODO(), aiGatewayIsvc)
+
+				// Wait for deployment to be created
+				By("Waiting for the predictor deployment to be created")
+				predictorDeployment := &appsv1.Deployment{}
+				Eventually(func() bool {
+					err := k8sClient.Get(context.TODO(), types.NamespacedName{
+						Name:      constants.PredictorServiceName(serviceName),
+						Namespace: "default",
+					}, predictorDeployment)
+					return err == nil
+				}, timeout, interval).Should(BeTrue())
+
+				// Mark the deployment as available so that the ingress resource can be created
+				By("Marking the predictor deployment as available")
+				predictorDeployment.Status.Conditions = []appsv1.DeploymentCondition{
+					{
+						Type:   appsv1.DeploymentAvailable,
+						Status: corev1.ConditionTrue,
+					},
+				}
+				Expect(k8sClient.Status().Update(context.TODO(), predictorDeployment)).NotTo(HaveOccurred())
+
+				By("Updating HTTPRoute status to mark routes as ready")
+				// Get the HTTPRoutes created for this InferenceService
+				predictorHttpRoute := &gwapiv1.HTTPRoute{}
+				topLevelHttpRoute := &gwapiv1.HTTPRoute{}
+				Eventually(func() bool {
+					return k8sClient.Get(context.TODO(),
+						client.ObjectKey{Name: constants.PredictorServiceName(serviceName), Namespace: "default"},
+						predictorHttpRoute) == nil
+				}, timeout, interval).Should(BeTrue())
+				Eventually(func() bool {
+					return k8sClient.Get(context.TODO(),
+						client.ObjectKey{Name: serviceName, Namespace: "default"},
+						topLevelHttpRoute) == nil
+				}, timeout, interval).Should(BeTrue())
+				routeStatus := gwapiv1.HTTPRouteStatus{
+					RouteStatus: gwapiv1.RouteStatus{
+						Parents: []gwapiv1.RouteParentStatus{
+							{
+								ParentRef: gwapiv1.ParentReference{
+									Name: gwapiv1.ObjectName(kserveGateway.Name),
+								},
+								ControllerName: "gateway.envoyproxy.io/gatewayclass-controller",
+								Conditions: []metav1.Condition{
+									{
+										Type:               string(gwapiv1.RouteConditionAccepted),
+										Status:             metav1.ConditionTrue,
+										Reason:             string(gwapiv1.RouteReasonAccepted),
+										Message:            "Route was valid",
+										LastTransitionTime: metav1.Now(),
+									},
+									{
+										Type:               string(gwapiv1.RouteConditionResolvedRefs),
+										Status:             metav1.ConditionTrue,
+										Reason:             string(gwapiv1.RouteReasonResolvedRefs),
+										LastTransitionTime: metav1.Now(),
+									},
+								},
+							},
+						},
+					},
+				}
+				// Update HTTPRoute status to mark it as ready
+				predictorHttpRoute.Status = routeStatus
+				topLevelHttpRoute.Status = routeStatus
+
+				err := k8sClient.Status().Update(context.TODO(), predictorHttpRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = k8sClient.Status().Update(context.TODO(), topLevelHttpRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Create expected AIServiceBackend resource
+				expectedAIServiceBackend := &aigwv1a1.AIServiceBackend{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      serviceName,
+						Namespace: kserveGateway.Namespace,
+						Labels: map[string]string{
+							constants.InferenceServiceNameLabel:      serviceName,
+							constants.InferenceServiceNamespaceLabel: "default",
+						},
+					},
+					Spec: aigwv1a1.AIServiceBackendSpec{
+						APISchema: aigwv1a1.VersionedAPISchema{
+							Name: aigwv1a1.APISchemaOpenAI,
+						},
+						BackendRef: gwapiv1.BackendObjectReference{
+							Group:     ptr.To(gwapiv1.Group("")),
+							Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+							Name:      gwapiv1.ObjectName(constants.PredictorServiceName(serviceName)),
+							Namespace: ptr.To(gwapiv1.Namespace("default")),
+							Port:      ptr.To(gwapiv1.PortNumber(constants.CommonDefaultHttpPort)),
+						},
+						Timeouts: &gwapiv1.HTTPRouteTimeouts{
+							Request: ptr.To(gwapiv1.Duration(fmt.Sprintf("%ds", constants.DefaultTimeoutSeconds))),
+						},
+					},
+				}
+
+				// Create expected AIGatewayRoute resource
+				expectedAIGatewayRoute := &aigwv1a1.AIGatewayRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      serviceName,
+						Namespace: kserveGateway.Namespace,
+						Labels: map[string]string{
+							constants.InferenceServiceNameLabel:      serviceName,
+							constants.InferenceServiceNamespaceLabel: "default",
+						},
+					},
+					Spec: aigwv1a1.AIGatewayRouteSpec{
+						TargetRefs: []gwapiv1a2.LocalPolicyTargetReferenceWithSectionName{
+							{
+								LocalPolicyTargetReference: gwapiv1a2.LocalPolicyTargetReference{
+									Group: gwapiv1a2.GroupName,
+									Kind:  constants.KindGateway,
+									Name:  gwapiv1a2.ObjectName(kserveGateway.Name),
+								},
+							},
+						},
+						APISchema: aigwv1a1.VersionedAPISchema{
+							Name: aigwv1a1.APISchemaOpenAI,
+						},
+						Rules: []aigwv1a1.AIGatewayRouteRule{
+							{
+								Matches: []aigwv1a1.AIGatewayRouteRuleMatch{
+									{
+										Headers: []gwapiv1.HTTPHeaderMatch{
+											{
+												Name:  gwapiv1.HTTPHeaderName(aigwv1a1.AIModelHeaderKey),
+												Value: serviceName,
+												Type:  ptr.To(gwapiv1.HeaderMatchExact),
+											},
+										},
+									},
+								},
+								BackendRefs: []aigwv1a1.AIGatewayRouteRuleBackendRef{
+									{
+										Name:   serviceName,
+										Weight: 1,
+									},
+								},
+							},
+						},
+						LLMRequestCosts: []aigwv1a1.LLMRequestCost{
+							{
+								MetadataKey: constants.MetadataKeyInputToken,
+								Type:        aigwv1a1.LLMRequestCostTypeInputToken,
+							},
+							{
+								MetadataKey: constants.MetadataKeyOutputToken,
+								Type:        aigwv1a1.LLMRequestCostTypeOutputToken,
+							},
+							{
+								MetadataKey: constants.MetadataKeyTotalToken,
+								Type:        aigwv1a1.LLMRequestCostTypeTotalToken,
+							},
+						},
+					},
+				}
+
+				// Create expected BackendTrafficPolicy resource
+				expectedBackendTrafficPolicy := &egv1a1.BackendTrafficPolicy{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      serviceName,
+						Namespace: kserveGateway.Namespace,
+						Labels: map[string]string{
+							constants.InferenceServiceNameLabel:      serviceName,
+							constants.InferenceServiceNamespaceLabel: "default",
+						},
+					},
+					Spec: egv1a1.BackendTrafficPolicySpec{
+						PolicyTargetReferences: egv1a1.PolicyTargetReferences{
+							TargetRefs: []gwapiv1a2.LocalPolicyTargetReferenceWithSectionName{
+								{
+									LocalPolicyTargetReference: gwapiv1a2.LocalPolicyTargetReference{
+										Group: gwapiv1a2.GroupName,
+										Kind:  constants.KindGateway,
+										Name:  gwapiv1a2.ObjectName(kserveGateway.Name),
+									},
+								},
+							},
+						},
+					},
+				}
+
+				By("Expecting AIServiceBackend to be created")
+				aiServiceBackend := &aigwv1a1.AIServiceBackend{}
+				aiServiceBackendKey := types.NamespacedName{Name: serviceName, Namespace: kserveGateway.Namespace}
+				Eventually(func() bool {
+					err := k8sClient.Get(context.TODO(), aiServiceBackendKey, aiServiceBackend)
+					return err == nil
+				}, timeout, interval).Should(BeTrue())
+
+				By("Expecting AIGatewayRoute to be created")
+				aiGatewayRoute := &aigwv1a1.AIGatewayRoute{}
+				aiGatewayRouteKey := types.NamespacedName{Name: serviceName, Namespace: kserveGateway.Namespace}
+				Eventually(func() bool {
+					err := k8sClient.Get(context.TODO(), aiGatewayRouteKey, aiGatewayRoute)
+					return err == nil
+				}, timeout, interval).Should(BeTrue())
+
+				By("Expecting BackendTrafficPolicy to be created")
+				backendTrafficPolicy := &egv1a1.BackendTrafficPolicy{}
+				backendTrafficPolicyKey := types.NamespacedName{Name: serviceName, Namespace: kserveGateway.Namespace}
+				Eventually(func() bool {
+					err := k8sClient.Get(context.TODO(), backendTrafficPolicyKey, backendTrafficPolicy)
+					return err == nil
+				}, timeout, interval).Should(BeTrue())
+
+				By("Verifying AIServiceBackend specification matches expected")
+				Expect(aiServiceBackend.Labels[constants.InferenceServiceNameLabel]).To(BeComparableTo(serviceName))
+				Expect(aiServiceBackend.Labels[constants.InferenceServiceNamespaceLabel]).To(BeComparableTo("default"))
+				Expect(aiServiceBackend.Spec).To(BeComparableTo(expectedAIServiceBackend.Spec))
+
+				By("Verifying AIGatewayRoute specification matches expected")
+				Expect(aiGatewayRoute.Labels[constants.InferenceServiceNameLabel]).To(BeComparableTo(serviceName))
+				Expect(aiGatewayRoute.Labels[constants.InferenceServiceNamespaceLabel]).To(BeComparableTo("default"))
+				Expect(aiGatewayRoute.Spec).To(BeComparableTo(expectedAIGatewayRoute.Spec))
+
+				By("Verifying BackendTrafficPolicy specification matches expected")
+				Expect(backendTrafficPolicy.Labels[constants.InferenceServiceNameLabel]).To(BeComparableTo(serviceName))
+				Expect(backendTrafficPolicy.Labels[constants.InferenceServiceNamespaceLabel]).To(BeComparableTo("default"))
+				Expect(backendTrafficPolicy.Spec).To(BeComparableTo(expectedBackendTrafficPolicy.Spec))
+
+				By("Verifying InferenceService is marked as ready")
+
+				// Check that the InferenceService is now ready
+				Eventually(func() bool {
+					updatedIsvc := &v1beta1.InferenceService{}
+					err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceName, Namespace: "default"}, updatedIsvc)
+					if err != nil {
+						return false
+					}
+					return updatedIsvc.Status.IsReady()
+				}, timeout, interval).Should(BeTrue())
+
+				// Verify the InferenceService status has the URL set
+				finalIsvc := &v1beta1.InferenceService{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceName, Namespace: "default"}, finalIsvc)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(finalIsvc.Status.URL).NotTo(BeNil())
+				Expect(finalIsvc.Status.URL.String()).To(ContainSubstring(serviceName))
+			})
 		})
 	})
 
@@ -2030,9 +2365,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -2153,7 +2488,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			// check ingress not created
-			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualToplevelHttpRoute := &gwapiv1.HTTPRoute{}
 			Consistently(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      serviceKey.Name,
@@ -2161,7 +2496,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}, actualToplevelHttpRoute)
 			}, timeout).
 				Should(Not(Succeed()))
-			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualPredictorHttpRoute := &gwapiv1.HTTPRoute{}
 			Consistently(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      predictorServiceKey.Name,
@@ -2443,9 +2778,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -2566,7 +2901,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			// check http route
-			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualToplevelHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      serviceKey.Name,
@@ -2575,24 +2910,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s.%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
-			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s.%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedToplevelHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(topLevelHost), gwapiv1.Hostname(fmt.Sprintf("%s.%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -2605,32 +2940,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -2638,7 +2973,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualToplevelHttpRoute.Spec).To(BeComparableTo(expectedToplevelHttpRoute.Spec))
 
-			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualPredictorHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      predictorServiceKey.Name,
@@ -2647,24 +2982,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(Succeed())
 			predictorHost := fmt.Sprintf("%s.%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedPredictorHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(predictorHost)},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -2677,32 +3012,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -2711,20 +3046,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
 
 			// Mark the Ingress as accepted to make isvc ready
-			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
-				RouteStatus: gatewayapiv1.RouteStatus{
-					Parents: []gatewayapiv1.RouteParentStatus{
+			httpRouteStatus := gwapiv1.HTTPRouteStatus{
+				RouteStatus: gwapiv1.RouteStatus{
+					Parents: []gwapiv1.RouteParentStatus{
 						{
-							ParentRef: gatewayapiv1.ParentReference{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							ParentRef: gwapiv1.ParentReference{
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 							ControllerName: "istio.io/gateway-controller",
 							Conditions: []metav1.Condition{
 								{
-									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Type:               string(gwapiv1.ListenerConditionAccepted),
 									Status:             metav1.ConditionTrue,
 									Reason:             "Accepted",
 									Message:            "Route was valid",
@@ -3056,9 +3391,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -3158,9 +3493,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      transformerDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + transformerDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Transformer.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + transformerDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Transformer.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.DeploymentMode:  string(constants.RawDeployment),
@@ -3316,7 +3651,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.TODO(), updatedTransformerDeployment)).NotTo(HaveOccurred())
 
 			// check http route
-			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualToplevelHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      serviceKey.Name,
@@ -3325,24 +3660,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
-			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedToplevelHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(topLevelHost), gwapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -3355,32 +3690,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(transformerServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(transformerServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("30s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("30s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -3388,7 +3723,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualToplevelHttpRoute.Spec).To(BeComparableTo(expectedToplevelHttpRoute.Spec))
 
-			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualPredictorHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      predictorServiceKey.Name,
@@ -3397,24 +3732,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(Succeed())
 			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedPredictorHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(predictorHost)},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -3427,32 +3762,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -3460,7 +3795,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
 
-			actualTransformerHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualTransformerHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      transformerServiceKey.Name,
@@ -3469,24 +3804,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(Succeed())
 			transformerHost := fmt.Sprintf("%s-%s.%s", transformerServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedTransformerHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(transformerHost)},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedTransformerHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(transformerHost)},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -3499,32 +3834,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(transformerServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(transformerServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("30s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("30s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -3533,20 +3868,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualTransformerHttpRoute.Spec).To(BeComparableTo(expectedTransformerHttpRoute.Spec))
 
 			// Mark the Ingress as accepted to make isvc ready
-			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
-				RouteStatus: gatewayapiv1.RouteStatus{
-					Parents: []gatewayapiv1.RouteParentStatus{
+			httpRouteStatus := gwapiv1.HTTPRouteStatus{
+				RouteStatus: gwapiv1.RouteStatus{
+					Parents: []gwapiv1.RouteParentStatus{
 						{
-							ParentRef: gatewayapiv1.ParentReference{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							ParentRef: gwapiv1.ParentReference{
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 							ControllerName: "istio.io/gateway-controller",
 							Conditions: []metav1.Condition{
 								{
-									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Type:               string(gwapiv1.ListenerConditionAccepted),
 									Status:             metav1.ConditionTrue,
 									Reason:             "Accepted",
 									Message:            "Route was valid",
@@ -3955,9 +4290,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -4057,9 +4392,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      explainerDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + explainerDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Explainer.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + explainerDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Explainer.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.DeploymentMode:  string(constants.RawDeployment),
@@ -4218,7 +4553,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.TODO(), updatedExplainerDeployment)).NotTo(HaveOccurred())
 
 			// check http route
-			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualToplevelHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      serviceKey.Name,
@@ -4226,24 +4561,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}, actualToplevelHttpRoute)
 			}, timeout).Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
-			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedToplevelHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(topLevelHost), gwapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.ExplainPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -4256,38 +4591,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(explainerServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(explainerServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("30s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("30s")),
 							},
 						},
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -4300,32 +4635,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -4333,7 +4668,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualToplevelHttpRoute.Spec).To(BeComparableTo(expectedToplevelHttpRoute.Spec))
 
-			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualPredictorHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      predictorServiceKey.Name,
@@ -4342,24 +4677,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(Succeed())
 			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedPredictorHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(predictorHost)},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -4372,32 +4707,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -4405,7 +4740,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
 
-			actualExplainerHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualExplainerHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      explainerServiceKey.Name,
@@ -4414,24 +4749,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(Succeed())
 			explainerHost := fmt.Sprintf("%s-%s.%s", explainerServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedExplainerHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(explainerHost)},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedExplainerHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(explainerHost)},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -4444,32 +4779,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(explainerServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(explainerServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("30s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("30s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -4478,20 +4813,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualExplainerHttpRoute.Spec).To(BeComparableTo(expectedExplainerHttpRoute.Spec))
 
 			// Mark the Ingress as accepted to make isvc ready
-			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
-				RouteStatus: gatewayapiv1.RouteStatus{
-					Parents: []gatewayapiv1.RouteParentStatus{
+			httpRouteStatus := gwapiv1.HTTPRouteStatus{
+				RouteStatus: gwapiv1.RouteStatus{
+					Parents: []gwapiv1.RouteParentStatus{
 						{
-							ParentRef: gatewayapiv1.ParentReference{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							ParentRef: gwapiv1.ParentReference{
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 							ControllerName: "istio.io/gateway-controller",
 							Conditions: []metav1.Condition{
 								{
-									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Type:               string(gwapiv1.ListenerConditionAccepted),
 									Status:             metav1.ConditionTrue,
 									Reason:             "Accepted",
 									Message:            "Route was valid",
@@ -4864,9 +5199,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -4987,7 +5322,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			// check http route
-			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualToplevelHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      serviceKey.Name,
@@ -4997,24 +5332,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
 			prefixUrlPath := fmt.Sprintf("/serving/%s/%s", serviceKey.Namespace, serviceKey.Name)
-			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace)), "example.com"},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedToplevelHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(topLevelHost), gwapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace)), "example.com"},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -5027,38 +5362,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("30s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("30s")),
 							},
 						},
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(prefixUrlPath + "/"),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -5071,32 +5406,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("30s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("30s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -5104,7 +5439,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualToplevelHttpRoute.Spec).To(BeComparableTo(expectedToplevelHttpRoute.Spec))
 
-			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualPredictorHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      predictorServiceKey.Name,
@@ -5113,24 +5448,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(Succeed())
 			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedPredictorHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(predictorHost)},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -5143,32 +5478,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("30s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("30s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -5177,20 +5512,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
 
 			// Mark the Ingress as accepted to make isvc ready
-			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
-				RouteStatus: gatewayapiv1.RouteStatus{
-					Parents: []gatewayapiv1.RouteParentStatus{
+			httpRouteStatus := gwapiv1.HTTPRouteStatus{
+				RouteStatus: gwapiv1.RouteStatus{
+					Parents: []gwapiv1.RouteParentStatus{
 						{
-							ParentRef: gatewayapiv1.ParentReference{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							ParentRef: gwapiv1.ParentReference{
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 							ControllerName: "istio.io/gateway-controller",
 							Conditions: []metav1.Condition{
 								{
-									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Type:               string(gwapiv1.ListenerConditionAccepted),
 									Status:             metav1.ConditionTrue,
 									Reason:             "Accepted",
 									Message:            "Route was valid",
@@ -5527,9 +5862,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -5629,9 +5964,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      transformerDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + transformerDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Transformer.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + transformerDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Transformer.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.DeploymentMode:  string(constants.RawDeployment),
@@ -5787,7 +6122,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.TODO(), updatedTransformerDeployment)).NotTo(HaveOccurred())
 
 			// check http route
-			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualToplevelHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      serviceKey.Name,
@@ -5797,24 +6132,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
 			prefixUrlPath := fmt.Sprintf("/serving/%s/%s", serviceKey.Namespace, serviceKey.Name)
-			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace)), "example.com"},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedToplevelHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(topLevelHost), gwapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace)), "example.com"},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -5827,38 +6162,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(transformerServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(transformerServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("30s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("30s")),
 							},
 						},
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(prefixUrlPath + "/"),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -5871,32 +6206,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(transformerServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(transformerServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("30s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("30s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -5904,7 +6239,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualToplevelHttpRoute.Spec).To(BeComparableTo(expectedToplevelHttpRoute.Spec))
 
-			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualPredictorHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      predictorServiceKey.Name,
@@ -5913,24 +6248,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(Succeed())
 			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedPredictorHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(predictorHost)},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -5943,32 +6278,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -5976,7 +6311,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
 
-			actualTransformerHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualTransformerHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      transformerServiceKey.Name,
@@ -5985,24 +6320,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(Succeed())
 			transformerHost := fmt.Sprintf("%s-%s.%s", transformerServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedTransformerHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(transformerHost)},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedTransformerHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(transformerHost)},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -6015,32 +6350,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(transformerServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(transformerServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("30s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("30s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -6049,20 +6384,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualTransformerHttpRoute.Spec).To(BeComparableTo(expectedTransformerHttpRoute.Spec))
 
 			// Mark the Ingress as accepted to make isvc ready
-			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
-				RouteStatus: gatewayapiv1.RouteStatus{
-					Parents: []gatewayapiv1.RouteParentStatus{
+			httpRouteStatus := gwapiv1.HTTPRouteStatus{
+				RouteStatus: gwapiv1.RouteStatus{
+					Parents: []gwapiv1.RouteParentStatus{
 						{
-							ParentRef: gatewayapiv1.ParentReference{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							ParentRef: gwapiv1.ParentReference{
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 							ControllerName: "istio.io/gateway-controller",
 							Conditions: []metav1.Condition{
 								{
-									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Type:               string(gwapiv1.ListenerConditionAccepted),
 									Status:             metav1.ConditionTrue,
 									Reason:             "Accepted",
 									Message:            "Route was valid",
@@ -6473,9 +6808,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -6575,9 +6910,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      explainerDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + explainerDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Explainer.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + explainerDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Explainer.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.DeploymentMode:  string(constants.RawDeployment),
@@ -6736,7 +7071,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.TODO(), updatedExplainerDeployment)).NotTo(HaveOccurred())
 
 			// check http route
-			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualToplevelHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      serviceKey.Name,
@@ -6746,24 +7081,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
 			prefixUrlPath := fmt.Sprintf("/serving/%s/%s", serviceKey.Namespace, serviceKey.Name)
-			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace)), "example.com"},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedToplevelHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(topLevelHost), gwapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace)), "example.com"},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.ExplainPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -6776,38 +7111,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(explainerServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(explainerServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("30s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("30s")),
 							},
 						},
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -6820,38 +7155,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
 							},
 						},
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(prefixUrlPath + constants.PathBasedExplainPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -6864,38 +7199,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(explainerServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(explainerServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("30s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("30s")),
 							},
 						},
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(prefixUrlPath + "/"),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -6908,32 +7243,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -6941,7 +7276,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualToplevelHttpRoute.Spec).To(BeComparableTo(expectedToplevelHttpRoute.Spec))
 
-			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualPredictorHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      predictorServiceKey.Name,
@@ -6950,24 +7285,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(Succeed())
 			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedPredictorHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(predictorHost)},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -6980,32 +7315,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("60s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -7013,7 +7348,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
 
-			actualExplainerHttpRoute := &gatewayapiv1.HTTPRoute{}
+			actualExplainerHttpRoute := &gwapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{
 					Name:      explainerServiceKey.Name,
@@ -7022,24 +7357,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(Succeed())
 			explainerHost := fmt.Sprintf("%s-%s.%s", explainerServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedExplainerHttpRoute := gatewayapiv1.HTTPRoute{
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(explainerHost)},
-					Rules: []gatewayapiv1.HTTPRouteRule{
+			expectedExplainerHttpRoute := gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Hostnames: []gwapiv1.Hostname{gwapiv1.Hostname(explainerHost)},
+					Rules: []gwapiv1.HTTPRouteRule{
 						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
+							Matches: []gwapiv1.HTTPRouteMatch{
 								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+									Path: &gwapiv1.HTTPPathMatch{
+										Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 										Value: ptr.To(constants.FallbackPrefix()),
 									},
 								},
 							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
+							Filters: []gwapiv1.HTTPRouteFilter{
 								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
+									Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+										Set: []gwapiv1.HTTPHeader{
 											{
 												Name:  constants.IsvcNameHeader,
 												Value: serviceKey.Name,
@@ -7052,32 +7387,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									},
 								},
 							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
 								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(explainerServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+									BackendRef: gwapiv1.BackendRef{
+										BackendObjectReference: gwapiv1.BackendObjectReference{
+											Group:     (*gwapiv1.Group)(ptr.To("")),
+											Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+											Name:      gwapiv1.ObjectName(explainerServiceKey.Name),
+											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
+											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 										Weight: ptr.To(int32(1)),
 									},
 								},
 							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("30s")),
+							Timeouts: &gwapiv1.HTTPRouteTimeouts{
+								Request: ptr.To(gwapiv1.Duration("30s")),
 							},
 						},
 					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
 							{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 						},
 					},
@@ -7086,20 +7421,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualExplainerHttpRoute.Spec).To(BeComparableTo(expectedExplainerHttpRoute.Spec))
 
 			// Mark the Ingress as accepted to make isvc ready
-			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
-				RouteStatus: gatewayapiv1.RouteStatus{
-					Parents: []gatewayapiv1.RouteParentStatus{
+			httpRouteStatus := gwapiv1.HTTPRouteStatus{
+				RouteStatus: gwapiv1.RouteStatus{
+					Parents: []gwapiv1.RouteParentStatus{
 						{
-							ParentRef: gatewayapiv1.ParentReference{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							ParentRef: gwapiv1.ParentReference{
+								Name:      gwapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gwapiv1.Kind(constants.KindGateway)),
+								Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gwapiv1.Namespace(kserveGateway.Namespace)),
 							},
 							ControllerName: "istio.io/gateway-controller",
 							Conditions: []metav1.Condition{
 								{
-									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Type:               string(gwapiv1.ListenerConditionAccepted),
 									Status:             metav1.ConditionTrue,
 									Reason:             "Accepted",
 									Message:            "Route was valid",
@@ -7834,9 +8169,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,

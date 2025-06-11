@@ -46,7 +46,8 @@ var (
 var (
 	InferenceServiceName                  = "inferenceservice"
 	InferenceServiceAPIName               = "inferenceservices"
-	InferenceServicePodLabelKey           = KServeAPIGroupName + "/" + InferenceServiceName
+	InferenceServiceNameLabel             = KServeAPIGroupName + "/" + InferenceServiceName
+	InferenceServiceNamespaceLabel        = KServeAPIGroupName + "/" + InferenceServiceName + "-namespace"
 	InferenceServiceGenerationPodLabelKey = "isvc.generation"
 	InferenceServiceConfigMapName         = "inferenceservice-config"
 )
@@ -108,6 +109,7 @@ var (
 	QueueProxyAggregatePrometheusMetricsPort    = "9088"
 	DefaultPodPrometheusPort                    = "9091"
 	NodeGroupAnnotationKey                      = KServeAPIGroupName + "/nodegroup"
+	EnableAIGatewayAnnotationKey                = KServeAPIGroupName + "/enable-aigateway"
 )
 
 // InferenceService Internal Annotations
@@ -323,18 +325,14 @@ const (
 	AggregateMetricsPortName            = "aggr-metric"
 )
 
+const DefaultTimeoutSeconds int64 = 60
+
 // Labels to put on kservice
 const (
 	KServiceComponentLabel = "component"
 	KServiceModelLabel     = "model"
 	KServiceEndpointLabel  = "endpoint"
 	KServeWorkloadKind     = KServeAPIGroupName + "/kind"
-)
-
-// Labels for TrainedModel
-const (
-	ParentInferenceServiceLabel = "inferenceservice"
-	InferenceServiceLabel       = "serving.kserve.io/inferenceservice"
 )
 
 // InferenceService canary constants
@@ -503,13 +501,15 @@ const (
 
 // CRD Kinds
 const (
-	IstioVirtualServiceKind = "VirtualService"
-	KnativeServiceKind      = "Service"
-	HTTPRouteKind           = "HTTPRoute"
-	GatewayKind             = "Gateway"
-	ServiceKind             = "Service"
-	KedaScaledObjectKind    = "ScaledObject"
-	OpenTelemetryCollector  = "OpenTelemetryCollector"
+	KindIstioVirtualService  = "VirtualService"
+	KindKnativeService       = "Service"
+	KindHTTPRoute            = "HTTPRoute"
+	KindGateway              = "Gateway"
+	KindService              = "Service"
+	KindKedaScaledObject     = "ScaledObject"
+	KindAIServiceBackend     = "AIServiceBackend"
+	KindBackendTrafficPolicy = "BackendTrafficPolicy"
+	OpenTelemetryCollector   = "OpenTelemetryCollector"
 )
 
 // MultiNode environment variables
@@ -530,6 +530,14 @@ const (
 var (
 	MultiNodeRoleLabelKey = "multinode/role"
 	MultiNodeHead         = "head"
+)
+
+// AI Gateway constants
+const (
+	// LLM Cost Metadata keys
+	MetadataKeyInputToken  = "llm_input_token"  // #nosec G101: Potential hardcoded credentials
+	MetadataKeyOutputToken = "llm_output_token" // #nosec G101: Potential hardcoded credentials
+	MetadataKeyTotalToken  = "llm_total_token"  // #nosec G101: Potential hardcoded credentials
 )
 
 // GetRawServiceLabel generate native service label

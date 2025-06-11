@@ -46,7 +46,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 	pod := &corev1.Pod{}
 
 	if err := mutator.Decoder.Decode(req, pod); err != nil {
-		log.Error(err, "Failed to decode pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
+		log.Error(err, "Failed to decode pod", "name", pod.Labels[constants.InferenceServiceNameLabel])
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
@@ -64,13 +64,13 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 	pod.Namespace = req.AdmissionRequest.Namespace
 
 	if err := mutator.mutate(pod, configMap); err != nil {
-		log.Error(err, "Failed to mutate pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
+		log.Error(err, "Failed to mutate pod", "name", pod.Labels[constants.InferenceServiceNameLabel])
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
 	patch, err := json.Marshal(pod)
 	if err != nil {
-		log.Error(err, "Failed to marshal pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
+		log.Error(err, "Failed to marshal pod", "name", pod.Labels[constants.InferenceServiceNameLabel])
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
@@ -138,6 +138,6 @@ func (mutator *Mutator) mutate(pod *corev1.Pod, configMap *corev1.ConfigMap) err
 
 func needMutate(pod *corev1.Pod) bool {
 	// Skip webhook if pod not managed by kserve
-	_, ok := pod.Labels[constants.InferenceServicePodLabelKey]
+	_, ok := pod.Labels[constants.InferenceServiceNameLabel]
 	return ok
 }

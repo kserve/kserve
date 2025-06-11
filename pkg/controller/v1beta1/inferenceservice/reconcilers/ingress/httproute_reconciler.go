@@ -28,13 +28,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
-	"knative.dev/pkg/apis"
 	knapis "knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -46,7 +46,7 @@ const (
 	HTTPRouteParentStatusNotAvailable = "ParentStatusNotAvailable"
 )
 
-var DefaultTimeout = toGatewayAPIDuration(60)
+var DefaultTimeout = toGatewayAPIDuration(constants.DefaultTimeoutSeconds)
 
 type RawHTTPRouteReconciler struct {
 	client        client.Client
@@ -67,8 +67,8 @@ func NewRawHTTPRouteReconciler(client client.Client, scheme *runtime.Scheme, ing
 }
 
 // toGatewayAPIDuration converts seconds to gatewayapiv1.Duration
-func toGatewayAPIDuration(seconds int64) *gatewayapiv1.Duration {
-	duration := gatewayapiv1.Duration(fmt.Sprintf("%ds", seconds))
+func toGatewayAPIDuration(seconds int64) *gwapiv1.Duration {
+	duration := gwapiv1.Duration(fmt.Sprintf("%ds", seconds))
 	return &duration
 }
 
@@ -95,20 +95,20 @@ func getRawServiceHost(isvc *v1beta1.InferenceService) string {
 	return network.GetServiceHostname(predictorName, isvc.Namespace)
 }
 
-func createHTTPRouteMatch(prefix string) gatewayapiv1.HTTPRouteMatch {
-	return gatewayapiv1.HTTPRouteMatch{
-		Path: &gatewayapiv1.HTTPPathMatch{
-			Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+func createHTTPRouteMatch(prefix string) gwapiv1.HTTPRouteMatch {
+	return gwapiv1.HTTPRouteMatch{
+		Path: &gwapiv1.HTTPPathMatch{
+			Type:  ptr.To(gwapiv1.PathMatchRegularExpression),
 			Value: ptr.To(prefix),
 		},
 	}
 }
 
-func addIsvcHeaders(name string, namespace string) gatewayapiv1.HTTPRouteFilter {
-	return gatewayapiv1.HTTPRouteFilter{
-		Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-		RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-			Set: []gatewayapiv1.HTTPHeader{
+func addIsvcHeaders(name string, namespace string) gwapiv1.HTTPRouteFilter {
+	return gwapiv1.HTTPRouteFilter{
+		Type: gwapiv1.HTTPRouteFilterRequestHeaderModifier,
+		RequestHeaderModifier: &gwapiv1.HTTPHeaderFilter{
+			Set: []gwapiv1.HTTPHeader{
 				{
 					Name:  constants.IsvcNameHeader,
 					Value: name,
@@ -122,29 +122,29 @@ func addIsvcHeaders(name string, namespace string) gatewayapiv1.HTTPRouteFilter 
 	}
 }
 
-func createHTTPRouteRule(routeMatches []gatewayapiv1.HTTPRouteMatch, filters []gatewayapiv1.HTTPRouteFilter,
-	serviceName, namespace string, port int32, timeout *gatewayapiv1.Duration,
-) gatewayapiv1.HTTPRouteRule {
-	var backendRefs []gatewayapiv1.HTTPBackendRef
+func createHTTPRouteRule(routeMatches []gwapiv1.HTTPRouteMatch, filters []gwapiv1.HTTPRouteFilter,
+	serviceName, namespace string, port int32, timeout *gwapiv1.Duration,
+) gwapiv1.HTTPRouteRule {
+	var backendRefs []gwapiv1.HTTPBackendRef
 	if serviceName != "" {
-		backendRefs = []gatewayapiv1.HTTPBackendRef{
+		backendRefs = []gwapiv1.HTTPBackendRef{
 			{
-				BackendRef: gatewayapiv1.BackendRef{
-					BackendObjectReference: gatewayapiv1.BackendObjectReference{
-						Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-						Name:      gatewayapiv1.ObjectName(serviceName),
-						Namespace: (*gatewayapiv1.Namespace)(&namespace),
-						Port:      (*gatewayapiv1.PortNumber)(&port),
+				BackendRef: gwapiv1.BackendRef{
+					BackendObjectReference: gwapiv1.BackendObjectReference{
+						Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+						Name:      gwapiv1.ObjectName(serviceName),
+						Namespace: (*gwapiv1.Namespace)(&namespace),
+						Port:      (*gwapiv1.PortNumber)(&port),
 					},
 				},
 			},
 		}
 	}
-	return gatewayapiv1.HTTPRouteRule{
+	return gwapiv1.HTTPRouteRule{
 		Matches:     routeMatches,
 		Filters:     filters,
 		BackendRefs: backendRefs,
-		Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+		Timeouts: &gwapiv1.HTTPRouteTimeouts{
 			Request: timeout,
 		},
 	}
@@ -152,12 +152,12 @@ func createHTTPRouteRule(routeMatches []gatewayapiv1.HTTPRouteMatch, filters []g
 
 func createRawPredictorHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig,
 	isvcConfig *v1beta1.InferenceServicesConfig,
-) (*gatewayapiv1.HTTPRoute, error) {
-	var httpRouteRules []gatewayapiv1.HTTPRouteRule
-	var allowedHosts []gatewayapiv1.Hostname
+) (*gwapiv1.HTTPRoute, error) {
+	var httpRouteRules []gwapiv1.HTTPRouteRule
+	var allowedHosts []gwapiv1.Hostname
 
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
-		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+		isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 			Type:   v1beta1.IngressReady,
 			Status: corev1.ConditionFalse,
 			Reason: "Predictor ingress not created",
@@ -167,15 +167,15 @@ func createRawPredictorHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 	predictorName := constants.PredictorServiceName(isvc.Name)
 
 	// Add isvc name and namespace headers
-	filters := []gatewayapiv1.HTTPRouteFilter{addIsvcHeaders(isvc.Name, isvc.Namespace)}
+	filters := []gwapiv1.HTTPRouteFilter{addIsvcHeaders(isvc.Name, isvc.Namespace)}
 
 	// Add predictor host rules
 	predictorHost, err := GenerateDomainName(predictorName, isvc.ObjectMeta, ingressConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate predictor ingress host: %w", err)
 	}
-	allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(predictorHost))
-	routeMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.FallbackPrefix())}
+	allowedHosts = append(allowedHosts, gwapiv1.Hostname(predictorHost))
+	routeMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.FallbackPrefix())}
 	timeout := DefaultTimeout
 	if isvc.Spec.Predictor.TimeoutSeconds != nil {
 		timeout = toGatewayAPIDuration(*isvc.Spec.Predictor.TimeoutSeconds)
@@ -188,24 +188,24 @@ func createRawPredictorHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 	labels := utils.Filter(isvc.Labels, func(key string) bool {
 		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
 	})
-	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
-	httpRoute := gatewayapiv1.HTTPRoute{
+	gwNamespace, gwName := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
+	httpRoute := gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        constants.PredictorServiceName(isvc.Name),
 			Namespace:   isvc.Namespace,
 			Annotations: annotations,
 			Labels:      labels,
 		},
-		Spec: gatewayapiv1.HTTPRouteSpec{
+		Spec: gwapiv1.HTTPRouteSpec{
 			Hostnames: allowedHosts,
 			Rules:     httpRouteRules,
-			CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-				ParentRefs: []gatewayapiv1.ParentReference{
+			CommonRouteSpec: gwapiv1.CommonRouteSpec{
+				ParentRefs: []gwapiv1.ParentReference{
 					{
-						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
-						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
-						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
+						Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+						Kind:      (*gwapiv1.Kind)(ptr.To(constants.KindGateway)),
+						Namespace: (*gwapiv1.Namespace)(&gwNamespace),
+						Name:      gwapiv1.ObjectName(gwName),
 					},
 				},
 			},
@@ -216,12 +216,12 @@ func createRawPredictorHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 
 func createRawTransformerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig,
 	isvcConfig *v1beta1.InferenceServicesConfig,
-) (*gatewayapiv1.HTTPRoute, error) {
-	var httpRouteRules []gatewayapiv1.HTTPRouteRule
-	var allowedHosts []gatewayapiv1.Hostname
+) (*gwapiv1.HTTPRoute, error) {
+	var httpRouteRules []gwapiv1.HTTPRouteRule
+	var allowedHosts []gwapiv1.Hostname
 
 	if !isvc.Status.IsConditionReady(v1beta1.TransformerReady) {
-		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+		isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 			Type:   v1beta1.IngressReady,
 			Status: corev1.ConditionFalse,
 			Reason: "Transformer ingress not created",
@@ -231,14 +231,14 @@ func createRawTransformerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig
 	transformerName := constants.TransformerServiceName(isvc.Name)
 
 	// Add isvc name and namespace headers
-	filters := []gatewayapiv1.HTTPRouteFilter{addIsvcHeaders(isvc.Name, isvc.Namespace)}
+	filters := []gwapiv1.HTTPRouteFilter{addIsvcHeaders(isvc.Name, isvc.Namespace)}
 
 	transformerHost, err := GenerateDomainName(transformerName, isvc.ObjectMeta, ingressConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate transformer ingress host: %w", err)
 	}
-	allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(transformerHost))
-	routeMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.FallbackPrefix())}
+	allowedHosts = append(allowedHosts, gwapiv1.Hostname(transformerHost))
+	routeMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.FallbackPrefix())}
 	timeout := DefaultTimeout
 	if isvc.Spec.Transformer.TimeoutSeconds != nil {
 		timeout = toGatewayAPIDuration(*isvc.Spec.Transformer.TimeoutSeconds)
@@ -252,24 +252,24 @@ func createRawTransformerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig
 	labels := utils.Filter(isvc.Labels, func(key string) bool {
 		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
 	})
-	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
-	httpRoute := gatewayapiv1.HTTPRoute{
+	gwNamespace, gwName := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
+	httpRoute := gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        constants.TransformerServiceName(isvc.Name),
 			Namespace:   isvc.Namespace,
 			Annotations: annotations,
 			Labels:      labels,
 		},
-		Spec: gatewayapiv1.HTTPRouteSpec{
+		Spec: gwapiv1.HTTPRouteSpec{
 			Hostnames: allowedHosts,
 			Rules:     httpRouteRules,
-			CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-				ParentRefs: []gatewayapiv1.ParentReference{
+			CommonRouteSpec: gwapiv1.CommonRouteSpec{
+				ParentRefs: []gwapiv1.ParentReference{
 					{
-						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
-						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
-						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
+						Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+						Kind:      (*gwapiv1.Kind)(ptr.To(constants.KindGateway)),
+						Namespace: (*gwapiv1.Namespace)(&gwNamespace),
+						Name:      gwapiv1.ObjectName(gwName),
 					},
 				},
 			},
@@ -280,12 +280,12 @@ func createRawTransformerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig
 
 func createRawExplainerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig,
 	isvcConfig *v1beta1.InferenceServicesConfig,
-) (*gatewayapiv1.HTTPRoute, error) {
-	var httpRouteRules []gatewayapiv1.HTTPRouteRule
-	var allowedHosts []gatewayapiv1.Hostname
+) (*gwapiv1.HTTPRoute, error) {
+	var httpRouteRules []gwapiv1.HTTPRouteRule
+	var allowedHosts []gwapiv1.Hostname
 
 	if !isvc.Status.IsConditionReady(v1beta1.ExplainerReady) {
-		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+		isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 			Type:   v1beta1.IngressReady,
 			Status: corev1.ConditionFalse,
 			Reason: "Explainer ingress not created",
@@ -295,16 +295,16 @@ func createRawExplainerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 	explainerName := constants.ExplainerServiceName(isvc.Name)
 
 	// Add isvc name and namespace headers
-	filters := []gatewayapiv1.HTTPRouteFilter{addIsvcHeaders(isvc.Name, isvc.Namespace)}
+	filters := []gwapiv1.HTTPRouteFilter{addIsvcHeaders(isvc.Name, isvc.Namespace)}
 
 	explainerHost, err := GenerateDomainName(explainerName, isvc.ObjectMeta, ingressConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate explainer ingress host: %w", err)
 	}
-	allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(explainerHost))
+	allowedHosts = append(allowedHosts, gwapiv1.Hostname(explainerHost))
 
 	// Add explainer host rules
-	routeMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.FallbackPrefix())}
+	routeMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.FallbackPrefix())}
 	timeout := DefaultTimeout
 	if isvc.Spec.Explainer.TimeoutSeconds != nil {
 		timeout = toGatewayAPIDuration(*isvc.Spec.Explainer.TimeoutSeconds)
@@ -318,24 +318,24 @@ func createRawExplainerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 	labels := utils.Filter(isvc.Labels, func(key string) bool {
 		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
 	})
-	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
-	httpRoute := gatewayapiv1.HTTPRoute{
+	gwNamespace, gwName := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
+	httpRoute := gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        constants.ExplainerServiceName(isvc.Name),
 			Namespace:   isvc.Namespace,
 			Annotations: annotations,
 			Labels:      labels,
 		},
-		Spec: gatewayapiv1.HTTPRouteSpec{
+		Spec: gwapiv1.HTTPRouteSpec{
 			Hostnames: allowedHosts,
 			Rules:     httpRouteRules,
-			CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-				ParentRefs: []gatewayapiv1.ParentReference{
+			CommonRouteSpec: gwapiv1.CommonRouteSpec{
+				ParentRefs: []gwapiv1.ParentReference{
 					{
-						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
-						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
-						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
+						Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+						Kind:      (*gwapiv1.Kind)(ptr.To(constants.KindGateway)),
+						Namespace: (*gwapiv1.Namespace)(&gwNamespace),
+						Name:      gwapiv1.ObjectName(gwName),
 					},
 				},
 			},
@@ -346,12 +346,12 @@ func createRawExplainerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 
 func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig,
 	isvcConfig *v1beta1.InferenceServicesConfig,
-) (*gatewayapiv1.HTTPRoute, error) {
-	var httpRouteRules []gatewayapiv1.HTTPRouteRule
-	var allowedHosts []gatewayapiv1.Hostname
+) (*gwapiv1.HTTPRoute, error) {
+	var httpRouteRules []gwapiv1.HTTPRouteRule
+	var allowedHosts []gwapiv1.Hostname
 
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
-		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+		isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 			Type:   v1beta1.IngressReady,
 			Status: corev1.ConditionFalse,
 			Reason: "Predictor ingress not created",
@@ -366,29 +366,29 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate top level ingress host: %w", err)
 	}
-	allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(topLevelHost))
+	allowedHosts = append(allowedHosts, gwapiv1.Hostname(topLevelHost))
 	domainList := []string{ingressConfig.IngressDomain}
 	additionalHosts := GetAdditionalHosts(&domainList, topLevelHost, ingressConfig)
 	// Add additional hosts to allowed hosts
 	if additionalHosts != nil {
-		hostMap := make(map[gatewayapiv1.Hostname]bool, len(allowedHosts))
+		hostMap := make(map[gwapiv1.Hostname]bool, len(allowedHosts))
 		for _, host := range allowedHosts {
 			hostMap[host] = true
 		}
 		for _, additionalHost := range *additionalHosts {
-			gwHost := gatewayapiv1.Hostname(additionalHost)
+			gwHost := gwapiv1.Hostname(additionalHost)
 			if _, found := hostMap[gwHost]; !found {
 				allowedHosts = append(allowedHosts, gwHost)
 			}
 		}
 	}
 	// Add isvc name and namespace headers
-	filters := []gatewayapiv1.HTTPRouteFilter{addIsvcHeaders(isvc.Name, isvc.Namespace)}
+	filters := []gwapiv1.HTTPRouteFilter{addIsvcHeaders(isvc.Name, isvc.Namespace)}
 
 	if isvc.Spec.Explainer != nil {
 		// Scenario: When explainer present
 		if !isvc.Status.IsConditionReady(v1beta1.ExplainerReady) {
-			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+			isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 				Type:   v1beta1.IngressReady,
 				Status: corev1.ConditionFalse,
 				Reason: "Explainer ingress not created",
@@ -401,14 +401,14 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 		}
 		// Add toplevel host :explain route
 		// :explain routes to the explainer when there is only explainer
-		explainRouteMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.ExplainPrefix())}
+		explainRouteMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.ExplainPrefix())}
 		httpRouteRules = append(httpRouteRules, createHTTPRouteRule(explainRouteMatch, filters,
 			explainerName, isvc.Namespace, constants.CommonDefaultHttpPort, timeout))
 	}
 	if isvc.Spec.Transformer != nil {
 		// Scenario: When predictor with transformer and with/without explainer present
 		if !isvc.Status.IsConditionReady(v1beta1.TransformerReady) {
-			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+			isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 				Type:   v1beta1.IngressReady,
 				Status: corev1.ConditionFalse,
 				Reason: "Transformer ingress not created",
@@ -420,7 +420,7 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 			timeout = toGatewayAPIDuration(*isvc.Spec.Transformer.TimeoutSeconds)
 		}
 		// :predict routes to the transformer when there are both predictor and transformer
-		routeMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.FallbackPrefix())}
+		routeMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.FallbackPrefix())}
 		httpRouteRules = append(httpRouteRules, createHTTPRouteRule(routeMatch, filters, transformerName, isvc.Namespace, constants.CommonDefaultHttpPort, timeout))
 	} else {
 		// Scenario: When predictor without transformer and with/without explainer present
@@ -429,7 +429,7 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 			timeout = toGatewayAPIDuration(*isvc.Spec.Predictor.TimeoutSeconds)
 		}
 		// Add toplevel host rules for predictor which routes all traffic to predictor
-		routeMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.FallbackPrefix())}
+		routeMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.FallbackPrefix())}
 		httpRouteRules = append(httpRouteRules, createHTTPRouteRule(routeMatch, filters, predictorName, isvc.Namespace, constants.CommonDefaultHttpPort, timeout))
 	}
 
@@ -442,7 +442,7 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 		}
 		path = strings.TrimSuffix(path, "/") // remove trailing "/" if present
 		// Include ingressDomain to the allowed hosts
-		allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(ingressConfig.IngressDomain))
+		allowedHosts = append(allowedHosts, gwapiv1.Hostname(ingressConfig.IngressDomain))
 
 		if isvc.Spec.Explainer != nil {
 			timeout := DefaultTimeout
@@ -450,7 +450,7 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 				timeout = toGatewayAPIDuration(*isvc.Spec.Explainer.TimeoutSeconds)
 			}
 			// Add path based routing rule for :explain endpoint
-			explainerPathRouteMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(path + constants.PathBasedExplainPrefix())}
+			explainerPathRouteMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatch(path + constants.PathBasedExplainPrefix())}
 			httpRouteRules = append(httpRouteRules, createHTTPRouteRule(explainerPathRouteMatch, filters, explainerName, isvc.Namespace,
 				constants.CommonDefaultHttpPort, timeout))
 		}
@@ -461,7 +461,7 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 				timeout = toGatewayAPIDuration(*isvc.Spec.Transformer.TimeoutSeconds)
 			}
 			// :predict routes to the transformer when there are both predictor and transformer
-			pathRouteMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(path + "/")}
+			pathRouteMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatch(path + "/")}
 			httpRouteRules = append(httpRouteRules, createHTTPRouteRule(pathRouteMatch, filters, transformerName, isvc.Namespace,
 				constants.CommonDefaultHttpPort, timeout))
 		} else {
@@ -470,7 +470,7 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 				timeout = toGatewayAPIDuration(*isvc.Spec.Predictor.TimeoutSeconds)
 			}
 			// :predict routes to the predictor when there is only predictor
-			pathRouteMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(path + "/")}
+			pathRouteMatch := []gwapiv1.HTTPRouteMatch{createHTTPRouteMatch(path + "/")}
 			httpRouteRules = append(httpRouteRules, createHTTPRouteRule(pathRouteMatch, filters, predictorName, isvc.Namespace,
 				constants.CommonDefaultHttpPort, timeout))
 		}
@@ -482,24 +482,24 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 	labels := utils.Filter(isvc.Labels, func(key string) bool {
 		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
 	})
-	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
-	httpRoute := gatewayapiv1.HTTPRoute{
+	gwNamespace, gwName := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
+	httpRoute := gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        isvc.Name,
 			Namespace:   isvc.Namespace,
 			Annotations: annotations,
 			Labels:      labels,
 		},
-		Spec: gatewayapiv1.HTTPRouteSpec{
+		Spec: gwapiv1.HTTPRouteSpec{
 			Hostnames: allowedHosts,
 			Rules:     httpRouteRules,
-			CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-				ParentRefs: []gatewayapiv1.ParentReference{
+			CommonRouteSpec: gwapiv1.CommonRouteSpec{
+				ParentRefs: []gwapiv1.ParentReference{
 					{
-						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
-						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
-						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
+						Group:     (*gwapiv1.Group)(&gwapiv1.GroupVersion.Group),
+						Kind:      (*gwapiv1.Kind)(ptr.To(constants.KindGateway)),
+						Namespace: (*gwapiv1.Namespace)(&gwNamespace),
+						Name:      gwapiv1.ObjectName(gwName),
 					},
 				},
 			},
@@ -508,12 +508,14 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 	return &httpRoute, nil
 }
 
-func semanticHttpRouteEquals(desired, existing *gatewayapiv1.HTTPRoute) bool {
-	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec)
+func semanticHttpRouteEquals(desired, existing *gwapiv1.HTTPRoute) bool {
+	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) &&
+		equality.Semantic.DeepEqual(desired.ObjectMeta.Annotations, existing.ObjectMeta.Annotations) &&
+		equality.Semantic.DeepEqual(desired.ObjectMeta.Labels, existing.ObjectMeta.Labels)
 }
 
 // isHTTPRouteReady checks if the HTTPRoute is ready. If not, returns the reason and message.
-func isHTTPRouteReady(httpRouteStatus gatewayapiv1.HTTPRouteStatus) (bool, *string, *string) {
+func isHTTPRouteReady(httpRouteStatus gwapiv1.HTTPRouteStatus) (bool, *string, *string) {
 	if len(httpRouteStatus.Parents) == 0 {
 		return false, ptr.To(HTTPRouteParentStatusNotAvailable), ptr.To(HTTPRouteNotReady)
 	}
@@ -538,7 +540,7 @@ func (r *RawHTTPRouteReconciler) reconcilePredictorHTTPRoute(ctx context.Context
 	if err := controllerutil.SetControllerReference(isvc, desired, r.scheme); err != nil {
 		log.Error(err, "Failed to set controller reference for predictor HttpRoute", "name", desired.Name)
 	}
-	existing := &gatewayapiv1.HTTPRoute{}
+	existing := &gwapiv1.HTTPRoute{}
 	err = r.client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: isvc.Namespace}, existing)
 	if err != nil {
 		if apierr.IsNotFound(err) {
@@ -579,7 +581,7 @@ func (r *RawHTTPRouteReconciler) reconcileTransformerHTTPRoute(ctx context.Conte
 	if err := controllerutil.SetControllerReference(isvc, desired, r.scheme); err != nil {
 		log.Error(err, "Failed to set controller reference for transformer HttpRoute", "name", desired.Name)
 	}
-	existing := &gatewayapiv1.HTTPRoute{}
+	existing := &gwapiv1.HTTPRoute{}
 	err = r.client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: isvc.Namespace}, existing)
 	if err != nil {
 		if apierr.IsNotFound(err) {
@@ -620,7 +622,7 @@ func (r *RawHTTPRouteReconciler) reconcileExplainerHTTPRoute(ctx context.Context
 	if err := controllerutil.SetControllerReference(isvc, desired, r.scheme); err != nil {
 		log.Error(err, "Failed to set controller reference for explainer HttpRoute", "name", desired.Name)
 	}
-	existing := &gatewayapiv1.HTTPRoute{}
+	existing := &gwapiv1.HTTPRoute{}
 	err = r.client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: isvc.Namespace}, existing)
 	if err != nil {
 		if apierr.IsNotFound(err) {
@@ -663,7 +665,7 @@ func (r *RawHTTPRouteReconciler) reconcileTopLevelHTTPRoute(ctx context.Context,
 		return err
 	}
 	// reconcile httpRoute
-	existingHttpRoute := &gatewayapiv1.HTTPRoute{}
+	existingHttpRoute := &gwapiv1.HTTPRoute{}
 	err = r.client.Get(ctx, types.NamespacedName{
 		Namespace: isvc.Namespace,
 		Name:      isvc.Name,
@@ -697,8 +699,83 @@ func (r *RawHTTPRouteReconciler) reconcileTopLevelHTTPRoute(ctx context.Context,
 	return nil
 }
 
+// checkHTTPRouteStatuses checks the status of all HTTPRoutes for the given InferenceService
+// and sets the appropriate condition on the InferenceService status
+func (r *RawHTTPRouteReconciler) checkHTTPRouteStatuses(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error) {
+	// Check HTTPRoute statuses for all components
+	type httpRouteCheck struct {
+		name      string
+		component string
+	}
+
+	checks := []httpRouteCheck{
+		{
+			name:      constants.PredictorServiceName(isvc.Name),
+			component: "Predictor",
+		},
+	}
+
+	if isvc.Spec.Transformer != nil {
+		checks = append(checks, httpRouteCheck{
+			name:      constants.TransformerServiceName(isvc.Name),
+			component: "Transformer",
+		})
+	}
+	if isvc.Spec.Explainer != nil {
+		checks = append(checks, httpRouteCheck{
+			name:      constants.ExplainerServiceName(isvc.Name),
+			component: "Explainer",
+		})
+	}
+	checks = append(checks, httpRouteCheck{
+		name:      isvc.Name,
+		component: "InferenceService",
+	})
+
+	for _, check := range checks {
+		httpRoute := &gwapiv1.HTTPRoute{}
+		if err := r.client.Get(ctx, types.NamespacedName{
+			Name:      check.name,
+			Namespace: isvc.Namespace,
+		}, httpRoute); err != nil {
+			if apierr.IsNotFound(err) {
+				// HTTPRoute not found means the component deployment is not ready yet, so we set the IngressReady condition to False
+				// and requeue the request with backoff period.
+				isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
+					Type:    v1beta1.IngressReady,
+					Status:  corev1.ConditionFalse,
+					Reason:  check.component + " Deployment NotReady",
+					Message: check.component + " HTTPRoute not created",
+				})
+				return ctrl.Result{Requeue: true}, nil
+			}
+			// Return any other errors
+			return ctrl.Result{}, err
+		}
+		// Check if the HTTPRoute is ready
+		// If not, set the IngressReady condition to False and requeue the request with backoff period.
+		if ready, reason, message := isHTTPRouteReady(httpRoute.Status); !ready {
+			log.Info(check.component+" HTTPRoute not ready", "reason", *reason, "message", *message)
+			isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
+				Type:    v1beta1.IngressReady,
+				Status:  corev1.ConditionFalse,
+				Reason:  *reason,
+				Message: fmt.Sprintf("%s %s", check.component, *message),
+			})
+			return ctrl.Result{Requeue: true}, nil
+		}
+	}
+
+	// If we are here, then all the HTTPRoutes are ready, Mark ingress as ready
+	isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
+		Type:   v1beta1.IngressReady,
+		Status: corev1.ConditionTrue,
+	})
+	return ctrl.Result{}, nil
+}
+
 // ReconcileHTTPRoute reconciles the HTTPRoute resource
-func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
+func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error) {
 	var err error
 	isInternal := false
 	// disable ingress creation if service is labelled with cluster local or kserve domain is cluster local
@@ -710,118 +787,42 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 	}
 	if !isInternal && !r.ingressConfig.DisableIngressCreation {
 		if err := r.reconcilePredictorHTTPRoute(ctx, isvc); err != nil {
-			return err
+			return ctrl.Result{}, err
 		}
 		if isvc.Spec.Transformer != nil {
 			if err := r.reconcileTransformerHTTPRoute(ctx, isvc); err != nil {
-				return err
+				return ctrl.Result{}, err
 			}
 		}
 		if isvc.Spec.Explainer != nil {
 			if err := r.reconcileExplainerHTTPRoute(ctx, isvc); err != nil {
-				return err
+				return ctrl.Result{}, err
 			}
 		}
 		if err := r.reconcileTopLevelHTTPRoute(ctx, isvc); err != nil {
-			return err
+			return ctrl.Result{}, err
 		}
 
-		// Check Predictor HTTPRoute status
-		httpRoute := &gatewayapiv1.HTTPRoute{}
-		if err := r.client.Get(ctx, types.NamespacedName{
-			Name:      constants.PredictorServiceName(isvc.Name),
-			Namespace: isvc.Namespace,
-		}, httpRoute); err != nil {
-			return err
+		// Check HTTPRoute statuses for all components
+		if result, err := r.checkHTTPRouteStatuses(ctx, isvc); err != nil || result.Requeue {
+			return result, err
 		}
-		if ready, reason, message := isHTTPRouteReady(httpRoute.Status); !ready {
-			log.Info("Predictor HTTPRoute not ready", "reason", *reason, "message", *message)
-			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
-				Type:    v1beta1.IngressReady,
-				Status:  corev1.ConditionFalse,
-				Reason:  *reason,
-				Message: fmt.Sprintf("%s %s", "Predictor", *message),
-			})
-			return nil
-		}
-		// Check Transformer HTTPRoute stauts
-		if isvc.Spec.Transformer != nil {
-			httpRoute = &gatewayapiv1.HTTPRoute{}
-			if err := r.client.Get(ctx, types.NamespacedName{
-				Name:      constants.TransformerServiceName(isvc.Name),
-				Namespace: isvc.Namespace,
-			}, httpRoute); err != nil {
-				return err
-			}
-			if ready, reason, message := isHTTPRouteReady(httpRoute.Status); !ready {
-				isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
-					Type:    v1beta1.IngressReady,
-					Status:  corev1.ConditionFalse,
-					Reason:  *reason,
-					Message: fmt.Sprintf("%s %s", "Transformer", *message),
-				})
-				return nil
-			}
-		}
-		// Check Explainer HTTPRoute stauts
-		if isvc.Spec.Explainer != nil {
-			httpRoute = &gatewayapiv1.HTTPRoute{}
-			if err := r.client.Get(ctx, types.NamespacedName{
-				Name:      constants.ExplainerServiceName(isvc.Name),
-				Namespace: isvc.Namespace,
-			}, httpRoute); err != nil {
-				return err
-			}
-			if ready, reason, message := isHTTPRouteReady(httpRoute.Status); !ready {
-				isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
-					Type:    v1beta1.IngressReady,
-					Status:  corev1.ConditionFalse,
-					Reason:  *reason,
-					Message: fmt.Sprintf("%s %s", "Explainer", *message),
-				})
-				return nil
-			}
-		}
-		// Check Top level HTTPRoute status
-		httpRoute = &gatewayapiv1.HTTPRoute{}
-		if err := r.client.Get(ctx, types.NamespacedName{
-			Name:      isvc.Name,
-			Namespace: isvc.Namespace,
-		}, httpRoute); err != nil {
-			return err
-		}
-		if ready, reason, message := isHTTPRouteReady(httpRoute.Status); !ready {
-			log.Info("Top level HTTPRoute not ready", "reason", *reason, "message", *message)
-			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
-				Type:    v1beta1.IngressReady,
-				Status:  corev1.ConditionFalse,
-				Reason:  *reason,
-				Message: fmt.Sprintf("%s %s", "TopLevel", *message),
-			})
-			return nil
-		}
-		// If we are here, then all the HTTPRoutes are ready, Mark ingress as ready
-		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
-			Type:   v1beta1.IngressReady,
-			Status: corev1.ConditionTrue,
-		})
 	} else {
 		// Ingress creation is disabled. We set it to true as the isvc condition depends on it.
-		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+		isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 			Type:   v1beta1.IngressReady,
 			Status: corev1.ConditionTrue,
 		})
 	}
-	isvc.Status.URL, err = createRawURL(isvc, r.ingressConfig)
-	if err != nil {
-		return err
+	if isvc.Status.URL, err = createRawURL(isvc, r.ingressConfig); err != nil {
+		return ctrl.Result{}, err
 	}
 	isvc.Status.Address = &duckv1.Addressable{
-		URL: &apis.URL{
+		URL: &knapis.URL{
 			Host:   getRawServiceHost(isvc),
 			Scheme: r.ingressConfig.UrlScheme,
 			Path:   "",
 		},
 	}
-	return nil
+	return ctrl.Result{}, nil
 }

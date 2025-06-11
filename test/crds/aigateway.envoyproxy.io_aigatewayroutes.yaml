@@ -1,0 +1,467 @@
+# Copyright Envoy AI Gateway Authors
+# SPDX-License-Identifier: Apache-2.0
+# The full text of the Apache license is available in the LICENSE file at
+# the root of the repo.
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.1
+  name: aigatewayroutes.aigateway.envoyproxy.io
+spec:
+  group: aigateway.envoyproxy.io
+  names:
+    kind: AIGatewayRoute
+    listKind: AIGatewayRouteList
+    plural: aigatewayroutes
+    singular: aigatewayroute
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          AIGatewayRoute combines multiple AIServiceBackends and attaching them to Gateway(s) resources.
+
+          This serves as a way to define a "unified" AI API for a Gateway which allows downstream
+          clients to use a single schema API to interact with multiple AI backends.
+
+          The schema field is used to determine the structure of the requests that the Gateway will
+          receive. And then the Gateway will route the traffic to the appropriate AIServiceBackend based
+          on the output schema of the AIServiceBackend while doing the other necessary jobs like
+          upstream authentication, rate limit, etc.
+
+          For Advanced Users: Envoy AI Gateway will generate the following k8s resources corresponding to the AIGatewayRoute:
+
+            - Deployment, Service, and ConfigMap of the k8s API for the AI Gateway filter.
+              The name of these resources are `ai-eg-route-extproc-${name}`.
+            - HTTPRoute of the Gateway API as a top-level resource to bind all backends.
+              The name of the HTTPRoute is the same as the AIGatewayRoute.
+            - EnvoyExtensionPolicy of the Envoy Gateway API to attach the AI Gateway filter into the HTTPRoute.
+              The name of the EnvoyExtensionPolicy is `ai-eg-route-extproc-${name}` which is the same as the Deployment, etc.
+            - HTTPRouteFilter of the Envoy Gateway API per namespace for automatic hostname rewrite.
+              The name of the HTTPRouteFilter is `ai-eg-host-rewrite`.
+
+          All of these resources are created in the same namespace as the AIGatewayRoute. Note that this is the implementation
+          detail subject to change. If you want to customize the default behavior of the Envoy AI Gateway, you can use these
+          resources as a reference and create your own resources. Alternatively, you can use EnvoyPatchPolicy API of the Envoy
+          Gateway to patch the generated resources. For example, you can insert a custom filter into the filter chain.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the details of the AIGatewayRoute.
+            properties:
+              filterConfig:
+                description: |-
+                  FilterConfig is the configuration for the AI Gateway filter inserted in the generated HTTPRoute.
+
+                  An AI Gateway filter is responsible for the transformation of the request and response
+                  as well as the routing behavior based on the model name extracted from the request content, etc.
+
+                  Currently, the filter is only implemented as an external processor filter, which might be
+                  extended to other types of filters in the future. See https://github.com/envoyproxy/ai-gateway/issues/90
+                properties:
+                  externalProcessor:
+                    description: |-
+                      ExternalProcessor is the configuration for the external processor filter.
+                      This is optional, and if not set, the default values of Deployment spec will be used.
+                    properties:
+                      replicas:
+                        description: Replicas is the number of desired pods of the
+                          external processor deployment.
+                        format: int32
+                        type: integer
+                      resources:
+                        description: |-
+                          Resources required by the external processor container.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        properties:
+                          claims:
+                            description: |-
+                              Claims lists the names of resources, defined in spec.resourceClaims,
+                              that are used by this container.
+
+                              This is an alpha field and requires enabling the
+                              DynamicResourceAllocation feature gate.
+
+                              This field is immutable. It can only be set for containers.
+                            items:
+                              description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                              properties:
+                                name:
+                                  description: |-
+                                    Name must match the name of one entry in pod.spec.resourceClaims of
+                                    the Pod where this field is used. It makes that resource available
+                                    inside a container.
+                                  type: string
+                                request:
+                                  description: |-
+                                    Request is the name chosen for a request in the referenced claim.
+                                    If empty, everything from the claim is made available, otherwise
+                                    only the result of this request.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            type: array
+                            x-kubernetes-list-map-keys:
+                            - name
+                            x-kubernetes-list-type: map
+                          limits:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: |-
+                              Limits describes the maximum amount of compute resources allowed.
+                              More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                            type: object
+                          requests:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: |-
+                              Requests describes the minimum amount of compute resources required.
+                              If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                              otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                              More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                            type: object
+                        type: object
+                    type: object
+                  type:
+                    default: ExternalProcessor
+                    description: |-
+                      Type specifies the type of the filter configuration.
+
+                      Currently, only ExternalProcessor is supported, and default is ExternalProcessor.
+                    enum:
+                    - ExternalProcessor
+                    - DynamicModule
+                    type: string
+                required:
+                - type
+                type: object
+              llmRequestCosts:
+                description: "LLMRequestCosts specifies how to capture the cost of
+                  the LLM-related request, notably the token usage.\nThe AI Gateway
+                  filter will capture each specified number and store it in the Envoy's
+                  dynamic\nmetadata per HTTP request. The namespaced key is \"io.envoy.ai_gateway\",\n\nFor
+                  example, let's say we have the following LLMRequestCosts configuration:\n```yaml\n\tllmRequestCosts:\n\t-
+                  metadataKey: llm_input_token\n\t  type: InputToken\n\t- metadataKey:
+                  llm_output_token\n\t  type: OutputToken\n\t- metadataKey: llm_total_token\n\t
+                  \ type: TotalToken\n```\nThen, with the following BackendTrafficPolicy
+                  of Envoy Gateway, you can have three\nrate limit buckets for each
+                  unique x-user-id header value. One bucket is for the input token,\nthe
+                  other is for the output token, and the last one is for the total
+                  token.\nEach bucket will be reduced by the corresponding token usage
+                  captured by the AI Gateway filter.\n\n```yaml\n\tapiVersion: gateway.envoyproxy.io/v1alpha1\n\tkind:
+                  BackendTrafficPolicy\n\tmetadata:\n\t  name: some-example-token-rate-limit\n\t
+                  \ namespace: default\n\tspec:\n\t  targetRefs:\n\t  - group: gateway.networking.k8s.io\n\t
+                  \    kind: HTTPRoute\n\t     name: usage-rate-limit\n\t  rateLimit:\n\t
+                  \   type: Global\n\t    global:\n\t      rules:\n\t        - clientSelectors:\n\t
+                  \           # Do the rate limiting based on the x-user-id header.\n\t
+                  \           - headers:\n\t                - name: x-user-id\n\t
+                  \                 type: Distinct\n\t          limit:\n\t            #
+                  Configures the number of \"tokens\" allowed per hour.\n\t            requests:
+                  10000\n\t            unit: Hour\n\t          cost:\n\t            request:\n\t
+                  \             from: Number\n\t              # Setting the request
+                  cost to zero allows to only check the rate limit budget,\n\t              #
+                  and not consume the budget on the request path.\n\t              number:
+                  0\n\t            # This specifies the cost of the response retrieved
+                  from the dynamic metadata set by the AI Gateway filter.\n\t            #
+                  The extracted value will be used to consume the rate limit budget,
+                  and subsequent requests will be rate limited\n\t            # if
+                  the budget is exhausted.\n\t            response:\n\t              from:
+                  Metadata\n\t              metadata:\n\t                namespace:
+                  io.envoy.ai_gateway\n\t                key: llm_input_token\n\t
+                  \       - clientSelectors:\n\t            - headers:\n\t                -
+                  name: x-user-id\n\t                  type: Distinct\n\t          limit:\n\t
+                  \           requests: 10000\n\t            unit: Hour\n\t          cost:\n\t
+                  \           request:\n\t              from: Number\n\t              number:
+                  0\n\t            response:\n\t              from: Metadata\n\t              metadata:\n\t
+                  \               namespace: io.envoy.ai_gateway\n\t                key:
+                  llm_output_token\n\t        - clientSelectors:\n\t            -
+                  headers:\n\t                - name: x-user-id\n\t                  type:
+                  Distinct\n\t          limit:\n\t            requests: 10000\n\t
+                  \           unit: Hour\n\t          cost:\n\t            request:\n\t
+                  \             from: Number\n\t              number: 0\n\t            response:\n\t
+                  \             from: Metadata\n\t              metadata:\n\t                namespace:
+                  io.envoy.ai_gateway\n\t                key: llm_total_token\n```"
+                items:
+                  description: LLMRequestCost configures each request cost.
+                  properties:
+                    cel:
+                      description: "CEL is the CEL expression to calculate the cost
+                        of the request.\nThe CEL expression must return a signed or
+                        unsigned integer. If the\nreturn value is negative, it will
+                        be error.\n\nThe expression can use the following variables:\n\n\t*
+                        model: the model name extracted from the request content.
+                        Type: string.\n\t* backend: the backend name in the form of
+                        \"name.namespace\". Type: string.\n\t* input_tokens: the number
+                        of input tokens. Type: unsigned integer.\n\t* output_tokens:
+                        the number of output tokens. Type: unsigned integer.\n\t*
+                        total_tokens: the total number of tokens. Type: unsigned integer.\n\nFor
+                        example, the following expressions are valid:\n\n\t* \"model
+                        == 'llama' ?  input_tokens + output_token * 0.5 : total_tokens\"\n\t*
+                        \"backend == 'foo.default' ?  input_tokens + output_tokens
+                        : total_tokens\"\n\t* \"input_tokens + output_tokens + total_tokens\"\n\t*
+                        \"input_tokens * output_tokens\""
+                      type: string
+                    metadataKey:
+                      description: MetadataKey is the key of the metadata to store
+                        this cost of the request.
+                      type: string
+                    type:
+                      description: |-
+                        Type specifies the type of the request cost. The default is "OutputToken",
+                        and it uses "output token" as the cost. The other types are "InputToken", "TotalToken",
+                        and "CEL".
+                      enum:
+                      - OutputToken
+                      - InputToken
+                      - TotalToken
+                      - CEL
+                      type: string
+                  required:
+                  - metadataKey
+                  - type
+                  type: object
+                maxItems: 36
+                type: array
+              rules:
+                description: |-
+                  Rules is the list of AIGatewayRouteRule that this AIGatewayRoute will match the traffic to.
+                  Each rule is a subset of the HTTPRoute in the Gateway API (https://gateway-api.sigs.k8s.io/api-types/httproute/).
+
+                  AI Gateway controller will generate a HTTPRoute based on the configuration given here with the additional
+                  modifications to achieve the necessary jobs, notably inserting the AI Gateway filter responsible for
+                  the transformation of the request and response, etc.
+
+                  In the matching conditions in the AIGatewayRouteRule, `x-ai-eg-model` header is available
+                  if we want to describe the routing behavior based on the model name. The model name is extracted
+                  from the request content before the routing decision.
+
+                  How multiple rules are matched is the same as the Gateway API. See for the details:
+                  https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io%2fv1.HTTPRoute
+                items:
+                  description: AIGatewayRouteRule is a rule that defines the routing
+                    behavior of the AIGatewayRoute.
+                  properties:
+                    backendRefs:
+                      description: |-
+                        BackendRefs is the list of AIServiceBackend that this rule will route the traffic to.
+                        Each backend can have a weight that determines the traffic distribution.
+
+                        The namespace of each backend is "local", i.e. the same namespace as the AIGatewayRoute.
+                      items:
+                        description: AIGatewayRouteRuleBackendRef is a reference to
+                          a AIServiceBackend with a weight.
+                        properties:
+                          name:
+                            description: Name is the name of the AIServiceBackend.
+                            minLength: 1
+                            type: string
+                          weight:
+                            default: 1
+                            description: |-
+                              Weight is the weight of the AIServiceBackend. This is exactly the same as the weight in
+                              the BackendRef in the Gateway API. See for the details:
+                              https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io%2fv1.BackendRef
+
+                              Default is 1.
+                            minimum: 0
+                            type: integer
+                        required:
+                        - name
+                        type: object
+                      maxItems: 128
+                      type: array
+                    matches:
+                      description: |-
+                        Matches is the list of AIGatewayRouteMatch that this rule will match the traffic to.
+                        This is a subset of the HTTPRouteMatch in the Gateway API. See for the details:
+                        https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io%2fv1.HTTPRouteMatch
+                      items:
+                        properties:
+                          headers:
+                            description: |-
+                              Headers specifies HTTP request header matchers. See HeaderMatch in the Gateway API for the details:
+                              https://gateway-api.sigs.k8s.io/reference/spec/#gateway.networking.k8s.io%2fv1.HTTPHeaderMatch
+
+                              Currently, only the exact header matching is supported.
+                            items:
+                              description: |-
+                                HTTPHeaderMatch describes how to select a HTTP route by matching HTTP request
+                                headers.
+                              properties:
+                                name:
+                                  description: |-
+                                    Name is the name of the HTTP Header to be matched. Name matching MUST be
+                                    case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+
+                                    If multiple entries specify equivalent header names, only the first
+                                    entry with an equivalent name MUST be considered for a match. Subsequent
+                                    entries with an equivalent header name MUST be ignored. Due to the
+                                    case-insensitivity of header names, "foo" and "Foo" are considered
+                                    equivalent.
+
+                                    When a header is repeated in an HTTP request, it is
+                                    implementation-specific behavior as to how this is represented.
+                                    Generally, proxies should follow the guidance from the RFC:
+                                    https://www.rfc-editor.org/rfc/rfc7230.html#section-3.2.2 regarding
+                                    processing a repeated header, with special handling for "Set-Cookie".
+                                  maxLength: 256
+                                  minLength: 1
+                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                  type: string
+                                type:
+                                  default: Exact
+                                  description: |-
+                                    Type specifies how to match against the value of the header.
+
+                                    Support: Core (Exact)
+
+                                    Support: Implementation-specific (RegularExpression)
+
+                                    Since RegularExpression HeaderMatchType has implementation-specific
+                                    conformance, implementations can support POSIX, PCRE or any other dialects
+                                    of regular expressions. Please read the implementation's documentation to
+                                    determine the supported dialect.
+                                  enum:
+                                  - Exact
+                                  - RegularExpression
+                                  type: string
+                                value:
+                                  description: Value is the value of HTTP Header to
+                                    be matched.
+                                  maxLength: 4096
+                                  minLength: 1
+                                  type: string
+                              required:
+                              - name
+                              - value
+                              type: object
+                            maxItems: 16
+                            type: array
+                            x-kubernetes-list-map-keys:
+                            - name
+                            x-kubernetes-list-type: map
+                            x-kubernetes-validations:
+                            - message: currently only exact match is supported
+                              rule: self.all(match, match.type != 'RegularExpression')
+                        type: object
+                      maxItems: 128
+                      type: array
+                  type: object
+                maxItems: 128
+                type: array
+              schema:
+                description: |-
+                  APISchema specifies the API schema of the input that the target Gateway(s) will receive.
+                  Based on this schema, the ai-gateway will perform the necessary transformation to the
+                  output schema specified in the selected AIServiceBackend during the routing process.
+
+                  Currently, the only supported schema is OpenAI as the input schema.
+                properties:
+                  name:
+                    description: Name is the name of the API schema of the AIGatewayRoute
+                      or AIServiceBackend.
+                    enum:
+                    - OpenAI
+                    - AWSBedrock
+                    type: string
+                  version:
+                    description: Version is the version of the API schema.
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-validations:
+                - rule: self.name == 'OpenAI'
+              targetRefs:
+                description: TargetRefs are the names of the Gateway resources this
+                  AIGatewayRoute is being attached to.
+                items:
+                  description: |-
+                    LocalPolicyTargetReferenceWithSectionName identifies an API object to apply a
+                    direct policy to. This should be used as part of Policy resources that can
+                    target single resources. For more information on how this policy attachment
+                    mode works, and a sample Policy resource, refer to the policy attachment
+                    documentation for Gateway API.
+
+                    Note: This should only be used for direct policy attachment when references
+                    to SectionName are actually needed. In all other cases,
+                    LocalPolicyTargetReference should be used.
+                  properties:
+                    group:
+                      description: Group is the group of the target resource.
+                      maxLength: 253
+                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                    kind:
+                      description: Kind is kind of the target resource.
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                      type: string
+                    name:
+                      description: Name is the name of the target resource.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                    sectionName:
+                      description: |-
+                        SectionName is the name of a section within the target resource. When
+                        unspecified, this targetRef targets the entire resource. In the following
+                        resources, SectionName is interpreted as the following:
+
+                        * Gateway: Listener name
+                        * HTTPRoute: HTTPRouteRule name
+                        * Service: Port name
+
+                        If a SectionName is specified, but does not exist on the targeted object,
+                        the Policy must fail to attach, and the policy implementation should record
+                        a `ResolvedRefs` or similar Condition in the Policy's status.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - group
+                  - kind
+                  - name
+                  type: object
+                maxItems: 128
+                minItems: 1
+                type: array
+            required:
+            - rules
+            - schema
+            - targetRefs
+            type: object
+        type: object
+    served: true
+    storage: true

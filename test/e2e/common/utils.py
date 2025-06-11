@@ -201,7 +201,7 @@ async def explain_response(
         logger.info("Sending request data: %s", data)
         try:
             # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-            await asyncio.sleep(5)
+            await asyncio.sleep(10)
             response = await client.explain(
                 url, model_name=service_name, data=data, headers=headers
             )
@@ -336,9 +336,22 @@ def generate(
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
     chat_completions=True,
+    raw_response=False,
+    disable_openai_prefix=False,
+    network_layer: str = "istio",
 ):
     url_suffix = "v1/chat/completions" if chat_completions else "v1/completions"
-    res = _openai_request(service_name, input_json, version, url_suffix)
+    res = _openai_request(
+        service_name,
+        input_json,
+        version,
+        url_suffix,
+        disable_openai_prefix=disable_openai_prefix,
+        network_layer=network_layer,
+    )
+    if raw_response:
+        logger.info("Raw response: %s", res.content)
+        return res
     return _process_non_streaming_response(res)
 
 
@@ -361,7 +374,11 @@ def rerank(
 
 
 def _get_openai_endpoint_and_host(
-    service_name, url_suffix, version=constants.KSERVE_V1BETA1_VERSION
+    service_name,
+    url_suffix,
+    version=constants.KSERVE_V1BETA1_VERSION,
+    disable_openai_prefix=False,
+    network_layer: str = "istio",
 ):
     """
     Get the OpenAI endpoint for the given service name.
@@ -369,6 +386,8 @@ def _get_openai_endpoint_and_host(
         service_name: The name of the inference service
         url_suffix: The suffix for the OpenAI endpoint (e.g., "v1/chat/completions")
         version: The version of the inference service. Defaults to v1beta1
+        disable_openai_prefix: Whether to disable the OpenAI route prefix
+        network_layer: The network layer to use for the endpoint (e.g., "istio", "envoy-gatewayapi", etc.)
     Returns:
         A tuple containing the OpenAI endpoint URL and the host name
     """
@@ -378,8 +397,9 @@ def _get_openai_endpoint_and_host(
     isvc = kfs_client.get(
         service_name, namespace=KSERVE_TEST_NAMESPACE, version=version
     )
-    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
-    return f"{scheme}://{cluster_ip}{path}/openai/{url_suffix}", host
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc, network_layer)
+    prefix = "openai/" if not disable_openai_prefix else ""
+    return f"{scheme}://{cluster_ip}{path}/{prefix}{url_suffix}", host
 
 
 def _openai_request(
@@ -388,12 +408,20 @@ def _openai_request(
     version=constants.KSERVE_V1BETA1_VERSION,
     url_suffix="",
     stream=False,
+    disable_openai_prefix=False,
+    network_layer: str = "istio",
 ):
     with open(input_json) as json_file:
         data = json.load(json_file)
 
-        url, host = _get_openai_endpoint_and_host(service_name, url_suffix, version)
-        headers = {"Host": host, "Content-Type": "application/json"}
+        url, host = _get_openai_endpoint_and_host(
+            service_name, url_suffix, version, disable_openai_prefix, network_layer
+        )
+        headers = {
+            "Host": host,
+            "Content-Type": "application/json",
+            "x-user-id": "test-user",
+        }
 
         logger.info("Sending Header = %s", headers)
         logger.info("Sending url = %s", url)
@@ -417,13 +445,21 @@ def chat_completion_stream(
     service_name,
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
-):
+    disable_openai_prefix=False,
+    network_layer: str = "istio",
+) -> tuple[str, List[str], dict]:
     """
     Make a chat completion streaming request to the inference service and collect all chunks.
-    Returns a tuple containing full response text and all chunks received.
+    Returns a tuple containing full response text, all chunks received, response headers.
     """
     res = _openai_request(
-        service_name, input_json, version, "v1/chat/completions", stream=True
+        service_name,
+        input_json,
+        version,
+        "v1/chat/completions",
+        stream=True,
+        disable_openai_prefix=disable_openai_prefix,
+        network_layer=network_layer,
     )
 
     chunks = []
@@ -441,7 +477,7 @@ def chat_completion_stream(
                     if content:
                         chunks.append(content)
                         full_content += content
-    return full_content, chunks
+    return full_content, chunks, res.headers
 
 
 def completion_stream(
