@@ -26914,6 +26914,8 @@ spec:
               observedGeneration:
                 format: int64
                 type: integer
+              servingRuntimeName:
+                type: string
               url:
                 type: string
             type: object
