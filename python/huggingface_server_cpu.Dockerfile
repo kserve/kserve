@@ -54,6 +54,7 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 ARG TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
 ARG IPEX_EXTRA_INDEX_URL="https://pytorch-extension.intel.com/release-whl/stable/cpu/us/"
 ARG TORCH_VERSION=2.7.0
+ARG INTEL_EXTENSION_FOR_PYTORCH_VERSION=2.7.0
 ARG TORCHVISION_VERSION=0.22.0
 
 # Install kserve using UV
@@ -66,19 +67,15 @@ RUN cd kserve && \
 # Install huggingfaceserver using UV
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && \
-    uv pip install --extra-index-url ${TORCH_EXTRA_INDEX_URL} \
-        'torch~='${TORCH_VERSION} \
-        'torchaudio~='${TORCH_VERSION} \
-        'torchvision~='${TORCHVISION_VERSION} && \
-    poetry lock --no-update && \
-    poetry install --no-interaction --no-cache && rm -rf ~/.cache/pypoetry
-
-    # uv sync --active --no-cache && \
-    # uv cache clean && \
-    # rm -rf ~/.cache/uv
-
+    uv pip install --no-cache-dir --index-url ${TORCH_EXTRA_INDEX_URL} \
+        torch==${TORCH_VERSION} \
+        torchvision \
+        torchaudio && \
+    uv sync --active --no-cache && \
+    uv cache clean && \
+    rm -rf ~/.cache/uv
 RUN pip install --no-cache --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-index-url ${IPEX_EXTRA_INDEX_URL} \
-    'intel_extension_for_pytorch~='${TORCH_VERSION} \
+    'intel_extension_for_pytorch~='${INTEL_EXTENSION_FOR_PYTORCH_VERSION} \
     intel-openmp
 
 # install vllm
@@ -99,7 +96,7 @@ RUN cd vllm && \
 
 # Install vLLM cpu requirements
 RUN cd vllm && \
-    uv pip install --index-strategy unsafe-best-match --no-cache -v -r requirements/cpu.txt && \
+    uv pip install --no-cache -v --index-strategy unsafe-best-match -r requirements/cpu.txt && \
     uv cache clean
 
 # Build vLLM wheel

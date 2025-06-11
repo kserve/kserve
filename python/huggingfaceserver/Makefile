@@ -10,11 +10,21 @@ install_dependencies:
 	uv sync --active --group test
 
 install_cpu_dependencies:
-	poetry source add --priority=supplemental pytorch-cpu ${TORCH_EXTRA_INDEX_URL}
-	poetry add --source pytorch-cpu 'torch~='${TORCH_VERSION} 'torchaudio~='${TORCH_VERSION} 'torchvision~='${TORCHVISION_VERSION}
-	poetry lock --no-update
-	pip install --no-cache-dir --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-index-url ${IPEX_EXTRA_INDEX_URL} 'intel_extension_for_pytorch~='${TORCH_VERSION}
-	poetry install --with=test --no-interaction --no-root
+	uv add --active \
+		"torch~=${TORCH_VERSION}" \
+		"torchaudio~=${TORCH_VERSION}" \
+		"torchvision~=${TORCHVISION_VERSION}" \
+		--index ${TORCH_EXTRA_INDEX_URL} \
+		--index-strategy unsafe-best-match
+	
+	uv lock
+
+	uv add --active \
+		"intel_extension_for_pytorch~=${TORCH_VERSION}" \
+		--index ${IPEX_EXTRA_INDEX_URL} \
+		--index-strategy unsafe-best-match
+
+	uv sync --active --no-cache --dev --group test
 
 test: type_check
 	pytest -W ignore

@@ -314,7 +314,7 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
+      - name: Install UV
         run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
@@ -394,7 +394,7 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
+      - name: Install UV
         run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
@@ -468,18 +468,19 @@ jobs:
         with:
           directory: ./tmp
 
-      # - name: Install Poetry and version plugin
-      #   run: ./test/scripts/gh-actions/setup-poetry.sh
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-poetry.sh
 
-      - name: Install uv and create virtual environment
-        run: |
-          pip install uv
-          uv venv python/kserve/.venv
+        # TODO: remove
+      # - name: Install uv and create virtual environment
+      #   run: |
+      #     pip install uv
+      #     uv venv python/kserve/.venv
 
       - name: Install KServe
         run: |
-          export VIRTUAL_ENV=python/kserve/.venv
-          source $VIRTUAL_ENV/bin/activate
+          # export VIRTUAL_ENV=python/kserve/.venv
+          # source $VIRTUAL_ENV/bin/activate
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
@@ -560,7 +561,7 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
+      - name: Install UV
         run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
@@ -629,7 +630,7 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
+      - name: Install UV
         run: ./test/scripts/gh-actions/setup-poetry.sh
       - name: Install KServe
         run: |
@@ -679,7 +680,7 @@ jobs:
       - name: Download base images
         uses: ./.github/actions/base-download
 
-      - name: Install Poetry and version plugin
+      - name: Install UV
         run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install Kserve from helm
@@ -768,7 +769,7 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
+      - name: Install UV
         run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
@@ -875,7 +876,7 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
+      - name: Install UV
         run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
@@ -943,7 +944,7 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
+      - name: Install UV
         run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
@@ -1002,7 +1003,7 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
+      - name: Install UV
         run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
@@ -1105,7 +1106,7 @@ jobs:
           minikube ssh -n minikube-m02 -- sudo mkdir -p -m=777 /models
           minikube ssh -n minikube-m03 -- sudo mkdir -p -m=777 /models
 
-      - name: Install Poetry and version plugin
+      - name: Install UV
         run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
