@@ -33,10 +33,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Kerberos-related packages
-RUN uv pip install --no-cache \
-    krbcontext==0.10 \
-    hdfs~=2.6.0 \
-    requests-kerberos==0.14.0
+COPY storage/pyproject.toml storage/uv.lock storage/
+RUN cd storage && uv sync --extra hdfs --active --no-cache
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
