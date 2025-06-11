@@ -71,7 +71,7 @@ RUN cd huggingfaceserver && \
         'torch~='${TORCH_VERSION} \
         'torchaudio~='${TORCH_VERSION} \
         'torchvision~='${TORCHVISION_VERSION} && \
-    poetry lock && \
+    poetry lock --no-update && \
     poetry install --no-interaction --no-cache && rm -rf ~/.cache/pypoetry
 
 RUN pip install --no-cache-dir --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-index-url ${IPEX_EXTRA_INDEX_URL} \
