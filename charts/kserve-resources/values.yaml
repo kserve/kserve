@@ -135,6 +135,8 @@ kserve:
     # For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
     securityContext:
       runAsNonRoot: true
+      seccompProfile:
+          type: RuntimeDefault
 
     # -- Container Security Context to be set on the controller component container.
     # For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
