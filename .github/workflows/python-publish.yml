@@ -26,9 +26,16 @@ jobs:
       - name: Install Poetry and version plugin
         run: ./test/scripts/gh-actions/setup-poetry.sh
 
-      - name: Build and publish
+      - name: KServe - Build and publish
         env:
           POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_TOKEN }}
         run: |
           cd python/kserve
+          poetry publish --build
+
+      - name: KServe Storage - Build and publish
+        env:
+          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          cd python/storage
           poetry publish --build
