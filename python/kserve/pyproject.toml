@@ -62,6 +62,9 @@ boto3 = { version = "^1.29.0", optional = true }
 huggingface-hub = { version = ">=0.32.0", extras = [
   "hf-transfer",
 ], optional = true }
+krbcontext = { version = "0.10", optional = true }
+hdfs = { version = "~2.6.0", optional = true }
+requests-kerberos = { version = "0.14.0", optional = true }
 
 # Logging dependencies. They can be opted into by apps.
 asgi-logger = { version = "^0.1.0", optional = true }
@@ -81,6 +84,9 @@ storage = [
   "azure-identity",
   "boto3",
   "huggingface-hub",
+  "krbcontext",
+  "hdfs",
+  "requests-kerberos",
 
 ]
 logging = ["asgi-logger"]
