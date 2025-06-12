@@ -36,6 +36,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/credentials/s3"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 const (
@@ -54,6 +55,8 @@ const (
 	ModelInitModeEnv                        = "MODEL_INIT_MODE"
 	CpuModelcarDefault                      = "10m"
 	MemoryModelcarDefault                   = "15Mi"
+	EnableRemoteStorageEnvAnnotation        = "kserve.io/enable-remote-storage-env"
+	RemoteStorageEnvVarName                 = "REMOTE_STORAGE_URI"
 )
 
 type StorageInitializerConfig struct {
@@ -69,6 +72,7 @@ type StorageInitializerConfig struct {
 	EnableDirectPvcVolumeMount bool   `json:"enableDirectPvcVolumeMount"`
 	EnableOciImageSource       bool   `json:"enableModelcar"`
 	UidModelcar                *int64 `json:"uidModelcar"`
+	EnableRemoteStorageEnv     bool   `json:"enableRemoteStorageEnv"`
 }
 
 type StorageInitializerInjector struct {
@@ -206,6 +210,16 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 		return nil
 	}
 
+	enabledRemoteEnv := mi.config.EnableRemoteStorageEnv
+	if ann, ok := pod.Annotations[EnableRemoteStorageEnvAnnotation]; ok {
+		switch strings.ToLower(ann) {
+		case "true":
+			enabledRemoteEnv = true
+		case "false":
+			enabledRemoteEnv = false
+		}
+	}
+
 	// Don't inject if model agent is injected
 	if _, ok := pod.ObjectMeta.Annotations[constants.AgentShouldInjectAnnotationKey]; ok {
 		return nil
@@ -236,6 +250,13 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 	userContainer := getContainerWithName(pod, constants.InferenceServiceContainerName)
 	transformerContainer := getContainerWithName(pod, constants.TransformerContainerName)
 	workerContainer := getContainerWithName(pod, constants.WorkerContainerName)
+
+	if enabledRemoteEnv {
+		if _, exists := utils.GetEnvVarValue(userContainer.Env, RemoteStorageEnvVarName); exists {
+			return fmt.Errorf("container %s already defines %s", userContainer.Name, RemoteStorageEnvVarName)
+		}
+		addOrReplaceEnv(userContainer, RemoteStorageEnvVarName, srcURI)
+	}
 
 	if userContainer == nil {
 		if workerContainer == nil {
