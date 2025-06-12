@@ -451,13 +451,20 @@ func TestCreateLocalModelAgentDaemonSet(t *testing.T) {
 
 		// Check container security context
 		require.NotNil(t, container.SecurityContext, "Container security context should be set")
-		require.False(t, *container.SecurityContext.Privileged, "Container should not be privileged")
-		require.NotNil(t, container.SecurityContext.Capabilities, "Container capabilities should be set")
-		require.Contains(t, container.SecurityContext.Capabilities.Drop, corev1.Capability("ALL"), "All capabilities should be dropped")
-		require.False(t, *container.SecurityContext.AllowPrivilegeEscalation, "Privilege escalation should not be allowed")
-		require.True(t, *container.SecurityContext.RunAsNonRoot, "Container should run as non-root")
-		require.True(t, *container.SecurityContext.ReadOnlyRootFilesystem, "Root filesystem should be read-only")
-		require.Equal(t, int64(1000), *container.SecurityContext.RunAsUser, "Container should run as user ID 1000")
+		expectedSecurityContext := &corev1.SecurityContext{
+			Privileged:               &[]bool{false}[0],
+			AllowPrivilegeEscalation: &[]bool{false}[0],
+			RunAsNonRoot:             &[]bool{true}[0],
+			ReadOnlyRootFilesystem:   &[]bool{true}[0],
+			RunAsUser:                &[]int64{1000}[0],
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		}
+		require.Equal(t, expectedSecurityContext, container.SecurityContext, "Container security context should match expected configuration")
 
 		// Check resource requests and limits
 		require.Equal(t, resource.MustParse(localModelConfig.LocalModelAgentCpuRequest),

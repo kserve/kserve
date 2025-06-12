@@ -74,10 +74,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.localmodel.agent.resources.limits.memory | string | `"300Mi"` |  |
 | kserve.localmodel.agent.resources.requests.cpu | string | `"100m"` |  |
 | kserve.localmodel.agent.resources.requests.memory | string | `"200Mi"` |  |
-| kserve.localmodel.agent.securityContext.runAsNonRoot | bool | `true` |  |
-| kserve.localmodel.agent.securityContext.runAsUser | int | `1000` |  |
 | kserve.localmodel.agent.tag | string | `"v0.15.2"` |  |
-| kserve.localmodel.agent.tolerations | list | `[]` |  |
 | kserve.localmodel.controller.image | string | `"kserve/kserve-localmodel-controller"` |  |
 | kserve.localmodel.controller.tag | string | `"v0.15.2"` |  |
 | kserve.localmodel.disableVolumeManagement | bool | `false` |  |

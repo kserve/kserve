@@ -222,6 +222,9 @@ func createLocalModelAgentDaemonSet(nodeGroup v1alpha1.LocalModelNodeGroup, loca
 								RunAsNonRoot:             ptr.To(true),
 								ReadOnlyRootFilesystem:   ptr.To(true),
 								RunAsUser:                ptr.To(int64(1000)),
+								SeccompProfile: &corev1.SeccompProfile{
+									Type: corev1.SeccompProfileTypeRuntimeDefault,
+								},
 							},
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{
