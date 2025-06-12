@@ -62,6 +62,16 @@ func (c *CustomExplainer) GetStorageUri() *string {
 	return nil
 }
 
+func (c *CustomExplainer) GetStorageMountPath() *string {
+	// return the CustomSpecStorageUri env variable value if set on the spec
+	for _, envVar := range c.Containers[0].Env {
+		if envVar.Name == constants.CustomSpecStorageMountPathKey {
+			return &envVar.Value
+		}
+	}
+	return nil
+}
+
 func (c *CustomExplainer) GetStorageSpec() *StorageSpec {
 	return nil
 }
