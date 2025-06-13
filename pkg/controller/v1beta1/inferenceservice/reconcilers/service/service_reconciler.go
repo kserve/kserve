@@ -285,6 +285,8 @@ func (r *ServiceReconciler) cleanHeadSvc(ctx context.Context) error {
 
 // checkServiceExist checks if the service exists?
 func (r *ServiceReconciler) checkServiceExist(ctx context.Context, client client.Client, svc *corev1.Service) (constants.CheckResultType, *corev1.Service, error) {
+	forceStopRuntime := utils.GetForceStopRuntime(svc)
+
 	// get service
 	existingService := &corev1.Service{}
 	err := client.Get(ctx, types.NamespacedName{
@@ -293,9 +295,21 @@ func (r *ServiceReconciler) checkServiceExist(ctx context.Context, client client
 	}, existingService)
 	if err != nil {
 		if apierr.IsNotFound(err) {
-			return constants.CheckResultCreate, nil, nil
+			if !forceStopRuntime {
+				return constants.CheckResultCreate, nil, nil
+			}
+			return constants.CheckResultSkipped, nil, nil
 		}
 		return constants.CheckResultUnknown, nil, err
+	}
+
+	// existed, but marked for deletion
+	if forceStopRuntime {
+		ctrl := metav1.GetControllerOf(svc)
+		existingCtrl := metav1.GetControllerOf(existingService)
+		if ctrl != nil && existingCtrl != nil && ctrl.UID == existingCtrl.UID {
+			return constants.CheckResultDelete, existingService, nil
+		}
 	}
 
 	// existed, check equivalent
@@ -326,6 +340,11 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context) ([]*corev1.Service, e
 			opErr = r.client.Create(ctx, svc)
 		case constants.CheckResultUpdate:
 			opErr = r.client.Update(ctx, svc)
+		case constants.CheckResultDelete:
+			if svc.GetDeletionTimestamp() == nil { // check if the service was already deleted
+				log.Info("Deleting service", "namespace", svc.Namespace, "name", svc.Name)
+				opErr = r.client.Delete(ctx, svc)
+			}
 		}
 
 		if opErr != nil {

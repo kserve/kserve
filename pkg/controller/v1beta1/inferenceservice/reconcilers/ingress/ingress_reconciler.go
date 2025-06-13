@@ -87,10 +87,11 @@ func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infere
 		return errors.Wrapf(err, "fails to reconcile external name service")
 	}
 
-	if isvc.GetForceStopRuntime() {
+	if utils.GetForceStopRuntime(isvc) {
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 			Type:   v1beta1.IngressReady,
 			Status: corev1.ConditionFalse,
+			Reason: v1beta1.StoppedISVCReason,
 		})
 
 		return nil
@@ -260,7 +261,7 @@ func (ir *IngressReconciler) reconcileVirtualService(ctx context.Context, isvc *
 	existing := &istioclientv1beta1.VirtualService{}
 	getExistingErr := ir.client.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace}, existing)
 
-	if !isvc.GetForceStopRuntime() {
+	if !utils.GetForceStopRuntime(isvc) {
 		// When Istio virtual host is disabled, we return the underlying component url.
 		// When Istio virtual host is enabled. we return the url using inference service virtual host name and redirect to the corresponding transformer, predictor or explainer url.
 		if !disableIstioVirtualHost {
@@ -333,7 +334,7 @@ func (ir *IngressReconciler) reconcileExternalService(ctx context.Context, isvc 
 		return err
 	}
 
-	if !isvc.GetForceStopRuntime() {
+	if !utils.GetForceStopRuntime(isvc) {
 		// When Istio virtual host is disabled, we return the underlying component url.
 		// When Istio virtual host is enabled. we return the url using inference service virtual host name and redirect to the corresponding transformer, predictor or explainer url.
 		if !disableIstioVirtualHost {
@@ -370,7 +371,7 @@ func (ir *IngressReconciler) reconcileExternalService(ctx context.Context, isvc 
 		// Delete the service
 		if getExistingErr == nil {
 			// Make sure that we only delete services owned by the isvc
-			if existing.OwnerReferences[0].UID == isvc.UID {
+			if ctrl := metav1.GetControllerOf(existing); ctrl != nil && ctrl.UID == isvc.UID {
 				log.Info("The InferenceService ", isvc.Name, " is marked as stopped — delete its associated Service")
 				if err := ir.client.Delete(ctx, existing); err != nil {
 					return err

@@ -17,11 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	"strings"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 // InferenceServiceSpec is the top level type for this resource
@@ -139,16 +135,4 @@ type InferenceServiceList struct {
 
 func init() {
 	SchemeBuilder.Register(&InferenceService{}, &InferenceServiceList{})
-}
-
-func (isvc *InferenceService) GetForceStopRuntime() bool {
-	forceStopRuntime := false
-	if isvc == nil || isvc.Annotations == nil {
-		return forceStopRuntime
-	}
-	if val, exist := isvc.Annotations[constants.StopAnnotationKey]; exist {
-		forceStopRuntime = strings.EqualFold(val, "true")
-	}
-
-	return forceStopRuntime
 }

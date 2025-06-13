@@ -72,36 +72,61 @@ func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infe
 	if r.ingressConfig.IngressDomain == constants.ClusterLocalDomain {
 		isInternal = true
 	}
+
+	existingIngress := &netv1.Ingress{}
+	getExistingErr := r.client.Get(ctx, types.NamespacedName{
+		Namespace: isvc.Namespace,
+		Name:      isvc.Name,
+	}, existingIngress)
+	ingressIsNotFound := apierr.IsNotFound(getExistingErr)
+	if getExistingErr != nil && !ingressIsNotFound {
+		return fmt.Errorf("failed to get existing ingress: %w", getExistingErr)
+	}
+
+	// ISVC is stopped, delete the ingress if it exists, otherwise, do nothing
+	forceStopRuntime := utils.GetForceStopRuntime(isvc)
+	if (getExistingErr != nil && ingressIsNotFound) && forceStopRuntime {
+		return nil
+	}
+	if forceStopRuntime {
+		if ctrl := metav1.GetControllerOf(existingIngress); ctrl != nil && ctrl.UID == isvc.UID {
+			log.Info("The InferenceService is marked as stopped — deleting its associated ingress", "name", isvc.Name)
+			if err := r.client.Delete(ctx, existingIngress); err != nil {
+				return err
+			}
+		}
+
+		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+			Type:   v1beta1.IngressReady,
+			Status: corev1.ConditionFalse,
+			Reason: v1beta1.StoppedISVCReason,
+		})
+
+		return nil
+	}
+
+	// Create or update ingress to match the desired state
 	if !isInternal && !r.ingressConfig.DisableIngressCreation {
 		ingress, err := createRawIngress(ctx, r.scheme, isvc, r.ingressConfig, r.client, r.isvcConfig)
-
+		if err != nil {
+			return err
+		}
 		if ingress == nil {
 			return nil
 		}
-		if err != nil {
-			return err
-		}
-		// reconcile ingress
-		existingIngress := &netv1.Ingress{}
-		err = r.client.Get(ctx, types.NamespacedName{
-			Namespace: isvc.Namespace,
-			Name:      isvc.Name,
-		}, existingIngress)
-		if err != nil {
-			if apierr.IsNotFound(err) {
-				err = r.client.Create(ctx, ingress)
-				log.Info("creating ingress", "ingressName", isvc.Name, "err", err)
-			} else {
+
+		if getExistingErr != nil && ingressIsNotFound {
+			log.Info("creating ingress", "ingressName", isvc.Name, "err", err)
+			if err := r.client.Create(ctx, ingress); err != nil {
+				log.Error(err, "Failed to create ingress", "name", ingress.Name)
 				return err
 			}
-		} else {
-			if !semanticIngressEquals(ingress, existingIngress) {
-				err = r.client.Update(ctx, ingress)
-				log.Info("updating ingress", "ingressName", isvc.Name, "err", err)
+		} else if !semanticIngressEquals(ingress, existingIngress) {
+			log.Info("updating ingress", "ingressName", isvc.Name, "err", err)
+			if err := r.client.Update(ctx, ingress); err != nil {
+				log.Error(err, "Failed to update ingress", "name", ingress.Name)
+				return err
 			}
-		}
-		if err != nil {
-			return err
 		}
 	}
 
@@ -136,6 +161,7 @@ func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infe
 		Type:   v1beta1.IngressReady,
 		Status: corev1.ConditionTrue,
 	})
+
 	return nil
 }
 
