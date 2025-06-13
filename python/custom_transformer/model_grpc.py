@@ -19,7 +19,6 @@ import io
 from PIL import Image
 from torchvision import transforms
 from kserve import Model, ModelServer, model_server, InferInput, InferRequest, logging
-from kserve.model import PredictorConfig
 
 
 def image_transform(data):
@@ -47,9 +46,8 @@ class ImageTransformer(Model):
     def __init__(
         self,
         name: str,
-        predictor_config: PredictorConfig,
     ):
-        super().__init__(name, predictor_config)
+        super().__init__(name)
         self.ready = True
 
     def preprocess(
@@ -77,15 +75,5 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     if args.configure_logging:
         logging.configure_logging(args.log_config_file)
-    model = ImageTransformer(
-        args.model_name,
-        PredictorConfig(
-            args.predictor_host,
-            args.predictor_protocol,
-            args.predictor_use_ssl,
-            args.predictor_request_timeout_seconds,
-            args.predictor_request_retries,
-            args.enable_predictor_health_check,
-        ),
-    )
+    model = ImageTransformer(args.model_name)
     ModelServer(workers=1).start([model])
