@@ -54,19 +54,11 @@ type LLMInferenceServiceSpec struct {
 	Type string `json:"type"`
 
 	// Model specification.
-	Model ModelSpec `json:"model"`
-
-	// Template for the main pod spec. In a multi-node case, this configures the "head" pod.
-	// +optional
-	Template *corev1.PodSpec `json:"template,omitempty"`
+	Model LLMModelSpec `json:"model"`
 
 	// WorkloadSpec configurations of the inference deployment.
 	// +optional
 	*WorkloadSpec `json:",inline,omitempty"`
-
-	// Parallelism configurations for the runtime.
-	// +optional
-	Parallelism *ParallelismSpec `json:"parallelism,omitempty"`
 
 	// Router configuration for the service.
 	// +optional
@@ -85,6 +77,10 @@ type WorkloadSpec struct {
 	// Number of replicas for the deployment.
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
+
+	// Parallelism configurations for the runtime.
+	// +optional
+	Parallelism *ParallelismSpec `json:"parallelism,omitempty"`
 
 	// Template for the worker pod spec. In a multi-node case, this configures the "worker" pod.
 	// +optional

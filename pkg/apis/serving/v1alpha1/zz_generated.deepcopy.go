@@ -628,19 +628,9 @@ func (in *LLMInferenceServiceList) DeepCopyObject() runtime.Object {
 func (in *LLMInferenceServiceSpec) DeepCopyInto(out *LLMInferenceServiceSpec) {
 	*out = *in
 	in.Model.DeepCopyInto(&out.Model)
-	if in.Template != nil {
-		in, out := &in.Template, &out.Template
-		*out = new(v1.PodSpec)
-		(*in).DeepCopyInto(*out)
-	}
 	if in.WorkloadSpec != nil {
 		in, out := &in.WorkloadSpec, &out.WorkloadSpec
 		*out = new(WorkloadSpec)
-		(*in).DeepCopyInto(*out)
-	}
-	if in.Parallelism != nil {
-		in, out := &in.Parallelism, &out.Parallelism
-		*out = new(ParallelismSpec)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.Router != nil {
@@ -1704,6 +1694,11 @@ func (in *WorkloadSpec) DeepCopyInto(out *WorkloadSpec) {
 		in, out := &in.Replicas, &out.Replicas
 		*out = new(int32)
 		**out = **in
+	}
+	if in.Parallelism != nil {
+		in, out := &in.Parallelism, &out.Parallelism
+		*out = new(ParallelismSpec)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.Template != nil {
 		in, out := &in.Template, &out.Template
