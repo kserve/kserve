@@ -81,21 +81,23 @@ export KSERVE_CONTROLLER_IMAGE=${KO_DOCKER_REPO}/kserve-controller:${TAG}
 
 4. Set environment variables
 
-   1. `$ export RUNNING_LOCAL=true`
-   2. For Graph tests:  
-      `$ export BUILD_GRAPH_IMAGES=true` will build images, false, to not build images, defaults to true  
-      `$ export QUAY_REPO=quay.io/<your_username>` to push images to quay  
-      `$ export BUILDER=podman` to use podman BUILDER=docker to use docker, defaults to docker  
-      `$ export ERROR_404_ISVC_IMAGE=$QUAY_REPO/kserve/error-404-isvc:latest`  
-      `$ export SUCCESS_200_ISVC_IMAGE=$QUAY_REPO/kserve/success-200-isvc:latest`
+**NOTE** To build kserve images `$ export BUILD_KSERVE_IMAGES=true`
 
-5. Run fvt tests
+1.  `$ export RUNNING_LOCAL=true`
+2.  For Graph tests:  
+    `$ export BUILD_GRAPH_IMAGES=true` will build images, false, to not build images, defaults to true  
+    `$ export QUAY_REPO=quay.io/<your_username>` to push images to quay  
+    `$ export BUILDER=podman` to use podman BUILDER=docker to use docker, defaults to docker  
+    `$ export ERROR_404_ISVC_IMAGE=$QUAY_REPO/kserve/error-404-isvc:latest`  
+    `$ export SUCCESS_200_ISVC_IMAGE=$QUAY_REPO/kserve/success-200-isvc:latest`
 
-   1. Run the e2e test script (includes setup commands inside)
+3.  Run fvt tests
 
-   $ cd ../../
+    1.  Run the e2e test script (includes setup commands inside)
 
-   $ ./test/scripts/openshift-ci/run-e2e-tests.sh \<marker\>
+    $ cd ../../
+
+    $ ./test/scripts/openshift-ci/run-e2e-tests.sh \<marker\>
 
 Ex: $ SETUP_E2E=true ./test/scripts/openshift-ci/run-e2e-tests.sh predictor
 

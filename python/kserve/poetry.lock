@@ -803,6 +803,23 @@ files = [
 colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
+name = "colorlog"
+version = "6.9.0"
+description = "Add colours to the output of Python's logging module."
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "colorlog-6.9.0-py3-none-any.whl", hash = "sha256:5906e71acd67cb07a71e779c47c4bcb45fb8c2993eebe9e5adcd6a6f1b283eff"},
+    {file = "colorlog-6.9.0.tar.gz", hash = "sha256:bfba54a1b93b94f54e1f4fe48395725a3d92fd2a4af702f6bd70946bdc0c6ac2"},
+]
+
+[package.dependencies]
+colorama = {version = "*", markers = "sys_platform == \"win32\""}
+
+[package.extras]
+development = ["black", "flake8", "mypy", "pytest", "types-colorama"]
+
+[[package]]
 name = "compressed-tensors"
 version = "0.9.3"
 description = "Library for utilization of compressed safetensors of neural network models"
@@ -4434,6 +4451,23 @@ files = [
 ]
 
 [[package]]
+name = "python-simple-logger"
+version = "2.0.13"
+description = "A simple logger for python"
+optional = false
+python-versions = "~=3.9"
+files = [
+    {file = "python_simple_logger-2.0.13.tar.gz", hash = "sha256:24f66784e48f6fa635de9d0d9738e41516adebfb930b4ee88b938ca06bbb18e9"},
+]
+
+[package.dependencies]
+colorlog = ">=6.7.0,<7"
+
+[package.extras]
+dev = ["ipdb (>=0.13.13)", "ipython (>=8.18.1)"]
+tests = ["pytest (>=8.3.5)", "pytest-cov (>=6.1.1)"]
+
+[[package]]
 name = "pytz"
 version = "2025.2"
 description = "World timezone definitions, modern and historical"
@@ -5354,6 +5388,19 @@ requests = ">=2.26.0"
 
 [package.extras]
 blobfile = ["blobfile (>=2)"]
+
+[[package]]
+name = "timeout-sampler"
+version = "1.0.3"
+description = "Timeout utility class to wait for any function output and interact with it in given time"
+optional = false
+python-versions = "<4.0,>=3.9"
+files = [
+    {file = "timeout_sampler-1.0.3.tar.gz", hash = "sha256:e07826c346fc591422fc94664c776c139341198edefde69d25732893c4f09188"},
+]
+
+[package.dependencies]
+python-simple-logger = ">=1.0.8"
 
 [[package]]
 name = "timing-asgi"
@@ -6431,4 +6478,4 @@ storage = ["azure-identity", "azure-storage-blob", "azure-storage-file-share", "
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "eea3b437e01ce0e3b957c4c37e183f25f9185f662d32895ce0241eeee84c1873"
+content-hash = "c069ef41c6a2480216480bbd802df54cea7b919330ac5aa01322aecbe36013dc"
