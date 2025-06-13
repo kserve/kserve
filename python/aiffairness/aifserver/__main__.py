@@ -70,7 +70,6 @@ if __name__ == "__main__":
         logging.configure_logging(args.log_config_file)
     model = AIFModel(
         name=args.model_name,
-        predictor_host=args.predictor_host,
         feature_names=args.feature_names,
         label_names=args.label_names,
         favorable_label=args.favorable_label,
