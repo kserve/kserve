@@ -1257,7 +1257,8 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 						Value: "{\"bucket\":\"test-bucket\",\"type\":\"s3\"}",
 					},
 				},
-			})},
+			}),
+		},
 		"default storage key": {
 			secret: &corev1.Secret{
 				TypeMeta: metav1.TypeMeta{

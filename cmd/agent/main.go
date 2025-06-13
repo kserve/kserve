@@ -291,7 +291,7 @@ func startLogger(workers int, logStorePath *string, logStoreFormat *string, log 
 		os.Exit(-1)
 	}
 
-	var annotationKVPair = map[string]string{}
+	annotationKVPair := map[string]string{}
 	for _, annotations := range *metadataAnnotations {
 		k, v, found := strings.Cut(annotations, "=")
 		if found {
