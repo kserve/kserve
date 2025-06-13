@@ -30,7 +30,7 @@ from kserve import (
     InferResponse,
     logging,
 )
-from kserve.model import PredictorProtocol, PredictorConfig
+from kserve.model import PredictorProtocol
 
 
 def image_transform(model_name, data):
@@ -60,16 +60,8 @@ def image_transform(model_name, data):
 
 
 class ImageTransformer(Model):
-    def __init__(
-        self,
-        name: str,
-        predictor_config: PredictorConfig,
-    ):
-        super().__init__(
-            name,
-            predictor_config,
-            return_response_headers=True,
-        )
+    def __init__(self, name: str):
+        super().__init__(name, return_response_headers=True)
         self.ready = True
 
     def preprocess(
@@ -129,15 +121,5 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     if args.configure_logging:
         logging.configure_logging(args.log_config_file)
-    model = ImageTransformer(
-        args.model_name,
-        PredictorConfig(
-            args.predictor_host,
-            args.predictor_protocol,
-            args.predictor_use_ssl,
-            args.predictor_request_timeout_seconds,
-            args.predictor_request_retries,
-            args.enable_predictor_health_check,
-        ),
-    )
+    model = ImageTransformer(args.model_name)
     ModelServer().start([model])
