@@ -76,7 +76,7 @@ func TestLogger(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	StartDispatcher(5, logger)
+	StartDispatcher(5, &MockStore{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
 		"default", httpProxy, nil, "", nil, true)
@@ -148,7 +148,7 @@ func TestLoggerWithMetadata(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	StartDispatcher(5, logger)
+	StartDispatcher(5, &MockStore{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
 		"default", httpProxy, []string{"Foo", "Fizz"}, "", nil, true)
@@ -220,7 +220,7 @@ func TestLoggerWithAnnotation(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	StartDispatcher(5, logger)
+	StartDispatcher(5, &MockStore{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
 		"default", httpProxy, nil, "", map[string]string{"Foo": "Bar", "Fizz": "Buzz"}, true)
@@ -265,7 +265,7 @@ func TestBadResponse(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	StartDispatcher(1, logger)
+	StartDispatcher(1, &MockStore{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
 		"default", httpProxy, nil, "", nil, true)
@@ -273,4 +273,80 @@ func TestBadResponse(t *testing.T) {
 	oh.ServeHTTP(w, r)
 	g.Expect(w.Code).To(gomega.Equal(400))
 	g.Expect(w.Body.String()).To(gomega.Equal(predictorResponse))
+}
+
+func TestLoggerWithS3Store(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
+	predictorResponse := []byte(`{"instances":[[4,5,6]]}`)
+
+	responseChan := make(chan string)
+	// Start a local HTTP server
+	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		b, err := io.ReadAll(req.Body)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		responseChan <- string(b)
+		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
+		_, err = rw.Write([]byte(`ok`))
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	}))
+	// Close the server when test finishes
+	defer logSvc.Close()
+
+	// Start a local HTTP server
+	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		b, err := io.ReadAll(req.Body)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
+		_, err = rw.Write(predictorResponse)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	}))
+	// Close the server when test finishes
+	defer predictor.Close()
+
+	reader := bytes.NewReader(predictorRequest)
+	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
+	w := httptest.NewRecorder()
+	logger, _ := pkglogging.NewLogger("", "INFO")
+	logf.SetLogger(zap.New())
+
+	sourceUri, err := url.Parse("http://localhost:9081/")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	targetUri, err := url.Parse(predictor.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	path := "path/"
+	params := map[string]string{
+		"format": "json",
+		"region": "us-west-2",
+	}
+	key := "/secrets/s3/credentials"
+	spec := &v1beta1.StorageSpec{
+		Path:       &path,
+		Parameters: &params,
+		StorageKey: &key,
+	}
+	store := NewMockStore(spec)
+
+	StartDispatcher(5, store, logger)
+	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
+
+	logSvcUrl, err := url.Parse("s3://bucket")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
+		"default", httpProxy, nil, "", map[string]string{}, true)
+
+	oh.ServeHTTP(w, r)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+
+	// get logRequest
+	req := <-store.ResponseChan
+	g.Expect(req.ReqType).To(gomega.Equal(CEInferenceRequest))
+	// get logResponse
+	res := <-store.ResponseChan
+	g.Expect(res.ReqType).To(gomega.Equal(CEInferenceResponse))
 }
