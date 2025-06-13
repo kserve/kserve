@@ -48,7 +48,7 @@ class RequestLogger:
                 prompt_token_ids = prompt_token_ids[:max_log_len]
 
         trace_logger.info(
-            "Received request %s: prompt: %r, "
+            "Received request: %s, prompt: %r, prompt_embeds: %s, "
             "params: %s, prompt_token_ids: %s, "
             "lora_request: %s, prompt_adapter_request: %s.",
             request_id,
