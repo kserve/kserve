@@ -57,6 +57,8 @@ const (
 	InferenceGraphLabel          = "serving.kserve.io/inferencegraph"
 	RouterReadinessEndpoint      = "/readyz"
 	RouterPort                   = 8080
+	InferenceGraphAuthCRBName    = "kserve-inferencegraph-auth-verifiers"
+	InferenceGraphFinalizerName  = "inferencegraph.finalizers"
 )
 
 // TrainedModel Constants
@@ -108,6 +110,7 @@ var (
 	QueueProxyAggregatePrometheusMetricsPort    = "9088"
 	DefaultPodPrometheusPort                    = "9091"
 	NodeGroupAnnotationKey                      = KServeAPIGroupName + "/nodegroup"
+	EnableAuthAnnotationKey                     = KServeAPIGroupName + "/enable-auth"
 )
 
 // InferenceService Internal Annotations
