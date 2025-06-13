@@ -167,10 +167,6 @@ type GatewaySpec struct {
 	// References to custom gateways.
 	// +optional
 	Refs []UntypedObjectReference `json:"refs,omitempty"`
-
-	// Spec custom spec of the Gateway
-	// +optional
-	Spec *gatewayapi.GatewaySpec `json:"spec,omitempty"`
 }
 
 // IngressSpec defines the configuration for Ingress.

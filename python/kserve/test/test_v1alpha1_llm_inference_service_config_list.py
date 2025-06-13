@@ -55,8 +55,7 @@ class TestV1alpha1LLMInferenceServiceConfigList(unittest.TestCase):
             return V1alpha1LLMInferenceServiceConfigList(
                 api_version="0",
                 items=[
-                    kserve.models.v1alpha1
-                    / llm_inference_service_config.v1alpha1.LLMInferenceServiceConfig(
+                    kserve.models.v1alpha1_llm_inference_service_config.V1alpha1LLMInferenceServiceConfig(
                         api_version="0",
                         kind="0",
                         metadata=None,
@@ -70,8 +69,7 @@ class TestV1alpha1LLMInferenceServiceConfigList(unittest.TestCase):
         else:
             return V1alpha1LLMInferenceServiceConfigList(
                 items=[
-                    kserve.models.v1alpha1
-                    / llm_inference_service_config.v1alpha1.LLMInferenceServiceConfig(
+                    kserve.models.v1alpha1_llm_inference_service_config.V1alpha1LLMInferenceServiceConfig(
                         api_version="0",
                         kind="0",
                         metadata=None,
