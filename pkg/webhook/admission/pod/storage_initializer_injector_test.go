@@ -167,6 +167,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -228,6 +234,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      StorageInitializerVolumeName,
@@ -290,6 +302,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      StorageInitializerVolumeName,
@@ -352,6 +370,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      StorageInitializerVolumeName,
@@ -413,6 +437,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
@@ -497,6 +527,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "<scheme-placeholder>://foo/bar",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -771,6 +807,12 @@ func TestCredentialInjection(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -871,6 +913,7 @@ func TestCredentialInjection(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env:  []corev1.EnvVar{{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"}},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -972,6 +1015,12 @@ func TestCredentialInjection(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "<scheme-placeholder>://foo/bar",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1067,6 +1116,7 @@ func TestCredentialInjection(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env:  []corev1.EnvVar{{Name: constants.RemoteStorageEnvVarName, Value: "<scheme-placeholder>://foo/bar"}},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1183,6 +1233,12 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1415,6 +1471,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"}},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1516,6 +1574,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"}},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1636,6 +1696,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"}},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1758,6 +1820,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"}},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1873,6 +1937,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"}},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1979,6 +2045,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"}},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -2110,6 +2178,12 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
@@ -2159,6 +2233,12 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
@@ -2209,6 +2289,12 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
@@ -2259,6 +2345,12 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
@@ -2349,6 +2441,10 @@ func TestTransformerCollocation(t *testing.T) {
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: constants.DefaultModelLocalMountPath,
 								},
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -2366,6 +2462,12 @@ func TestTransformerCollocation(t *testing.T) {
 						{
 							Name:  constants.TransformerContainerName,
 							Image: "test/image:latest",
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
@@ -2461,6 +2563,10 @@ func TestTransformerCollocation(t *testing.T) {
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: constants.DefaultModelLocalMountPath,
 								},
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -2474,6 +2580,12 @@ func TestTransformerCollocation(t *testing.T) {
 						{
 							Name:  constants.TransformerContainerName,
 							Image: "test/image:latest",
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
@@ -2532,6 +2644,10 @@ func TestTransformerCollocation(t *testing.T) {
 								{
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: constants.DefaultModelLocalMountPath,
+								},
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
 								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
@@ -2767,6 +2883,12 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "s3://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -2839,6 +2961,12 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "https://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3268,6 +3396,12 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3342,6 +3476,10 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo"}},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3421,6 +3559,10 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo"}},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3492,6 +3634,10 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo"}},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3560,6 +3706,12 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3634,6 +3786,13 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
+
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3708,6 +3867,12 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3781,6 +3946,12 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3854,6 +4025,12 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3928,6 +4105,12 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -4067,6 +4250,12 @@ func TestLocalModelPVC(t *testing.T) {
 				Containers: []corev1.Container{
 					{
 						Name: constants.InferenceServiceContainerName,
+						Env: []corev1.EnvVar{
+							{
+								Name:  constants.RemoteStorageEnvVarName,
+								Value: scenario.storageUri,
+							},
+						},
 						VolumeMounts: []corev1.VolumeMount{
 							{
 								Name:      "kserve-pvc-source",
@@ -4107,188 +4296,6 @@ func TestLocalModelPVC(t *testing.T) {
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
-		}
-	}
-}
-
-// -------- RemoteStorage URI Injection --------------
-func TestRemoteStorageUriInjection(t *testing.T) {
-	scenarios := map[string]struct {
-		original             *corev1.Pod
-		cfg                  *StorageInitializerConfig
-		expectedRemoteEnvVar *corev1.EnvVar
-		expectErr            bool
-	}{
-		"ConfigDisabled_NoEnv": {
-			original: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo/bar",
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-							Env:  []corev1.EnvVar{},
-						},
-					},
-				},
-			},
-			cfg: &StorageInitializerConfig{
-				EnableRemoteStorageEnv: false,
-				CpuRequest:             StorageInitializerDefaultCPURequest,
-				CpuLimit:               StorageInitializerDefaultCPULimit,
-				MemoryRequest:          StorageInitializerDefaultMemoryRequest,
-				MemoryLimit:            StorageInitializerDefaultMemoryLimit,
-			},
-			expectedRemoteEnvVar: nil,
-		},
-
-		"ConfigEnabled_EnvInjected": {
-			original: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo/bar",
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-							Env:  []corev1.EnvVar{},
-						},
-					},
-				},
-			},
-			cfg: &StorageInitializerConfig{
-				EnableRemoteStorageEnv: true,
-				CpuRequest:             StorageInitializerDefaultCPURequest,
-				CpuLimit:               StorageInitializerDefaultCPULimit,
-				MemoryRequest:          StorageInitializerDefaultMemoryRequest,
-				MemoryLimit:            StorageInitializerDefaultMemoryLimit,
-			},
-			expectedRemoteEnvVar: &corev1.EnvVar{
-				Name:  constants.RemoteStorageEnvVarName,
-				Value: "gs://foo/bar",
-			},
-		},
-
-		"AnnotationOverride_EnvInjected": {
-			original: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo/bar",
-						constants.EnableRemoteStorageEnvAnnotation:                 "true",
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-							Env:  []corev1.EnvVar{},
-						},
-					},
-				},
-			},
-			cfg: &StorageInitializerConfig{
-				EnableRemoteStorageEnv: false,
-				CpuRequest:             StorageInitializerDefaultCPURequest,
-				CpuLimit:               StorageInitializerDefaultCPULimit,
-				MemoryRequest:          StorageInitializerDefaultMemoryRequest,
-				MemoryLimit:            StorageInitializerDefaultMemoryLimit,
-			},
-			expectedRemoteEnvVar: &corev1.EnvVar{
-				Name:  constants.RemoteStorageEnvVarName,
-				Value: "gs://foo/bar",
-			},
-		},
-
-		"AnnotationFalse_NoInject": {
-			original: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo/bar",
-						constants.EnableRemoteStorageEnvAnnotation:                 "false",
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name: constants.InferenceServiceContainerName,
-						Env:  []corev1.EnvVar{},
-					}},
-				},
-			},
-			cfg: &StorageInitializerConfig{
-				EnableRemoteStorageEnv: true,
-				CpuRequest:             StorageInitializerDefaultCPURequest,
-				CpuLimit:               StorageInitializerDefaultCPULimit,
-				MemoryRequest:          StorageInitializerDefaultMemoryRequest,
-				MemoryLimit:            StorageInitializerDefaultMemoryLimit,
-			},
-			expectedRemoteEnvVar: nil,
-		},
-
-		"DuplicateEnv_Error": {
-			original: &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo/bar",
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name: constants.InferenceServiceContainerName,
-						Env: []corev1.EnvVar{{
-							Name:  constants.RemoteStorageEnvVarName,
-							Value: "should_not_be_overwritten",
-						}},
-					}},
-				},
-			},
-			cfg: &StorageInitializerConfig{
-				EnableRemoteStorageEnv: true,
-				CpuRequest:             StorageInitializerDefaultCPURequest,
-				CpuLimit:               StorageInitializerDefaultCPULimit,
-				MemoryRequest:          StorageInitializerDefaultMemoryRequest,
-				MemoryLimit:            StorageInitializerDefaultMemoryLimit,
-			},
-			expectedRemoteEnvVar: nil,
-			expectErr:            true,
-		},
-	}
-
-	for name, scenario := range scenarios {
-		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(
-				c, clientset, &corev1.ConfigMap{Data: map[string]string{}},
-			),
-			config: scenario.cfg,
-			client: c,
-		}
-
-		err := injector.InjectStorageInitializer(scenario.original)
-
-		if scenario.expectErr {
-			if err == nil {
-				t.Errorf("Test %q expected error, got nil", name)
-			}
-			continue
-		}
-		if err != nil {
-			t.Errorf("Test %q unexpected inject error: %v", name, err)
-			continue
-		}
-
-		var gotEnvVar *corev1.EnvVar
-		for _, env := range scenario.original.Spec.Containers[0].Env {
-			if env.Name == constants.RemoteStorageEnvVarName {
-				gotEnvVar = &env
-				break
-			}
-		}
-		if diff, _ := kmp.SafeDiff(scenario.expectedRemoteEnvVar, gotEnvVar); diff != "" {
-			t.Errorf("Test %q mismatch (-want +got):\n%s", name, diff)
 		}
 	}
 }
