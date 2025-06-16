@@ -64,7 +64,7 @@ var (
 	sourceUri           = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
 	logMode             = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
 	logStorePath        = flag.String("log-store-path", "", "The path to the log output")
-	logStoreFormat      = flag.String("log-store-format", "", "Format for log output, 'json' or 'yaml'")
+	logStoreFormat      = flag.String("log-store-format", "json", "Format for log output, 'json' or 'yaml'")
 	inferenceService    = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
 	namespace           = flag.String("namespace", "", "The namespace to add as header to log events")
 	endpoint            = flag.String("endpoint", "", "The endpoint name to add as header to log events")
@@ -291,7 +291,7 @@ func startLogger(workers int, logStorePath *string, logStoreFormat *string, log 
 		os.Exit(-1)
 	}
 
-	var annotationKVPair map[string]string = map[string]string{}
+	annotationKVPair := map[string]string{}
 	for _, annotations := range *metadataAnnotations {
 		k, v, found := strings.Cut(annotations, "=")
 		if found {

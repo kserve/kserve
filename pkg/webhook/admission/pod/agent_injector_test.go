@@ -76,8 +76,8 @@ var (
 	loggerConfigWithStorage = &LoggerConfig{
 		Image:      "gcr.io/kserve/agent:latest",
 		DefaultUrl: "http://httpbin.org/",
-		Store: &LoggerStorageSpec{
-			StorageSpec: &v1beta1.StorageSpec{
+		Store: &v1beta1.LoggerStorageSpec{
+			StorageSpec: v1beta1.StorageSpec{
 				Path:       &storagePath,
 				Parameters: &storageParameters,
 				StorageKey: &storageKey,
@@ -1799,8 +1799,8 @@ func TestGetLoggerConfigs(t *testing.T) {
 					CpuLimit:      "1",
 					MemoryRequest: "200Mi",
 					MemoryLimit:   "1Gi",
-					Store: &LoggerStorageSpec{
-						StorageSpec: &v1beta1.StorageSpec{
+					Store: &v1beta1.LoggerStorageSpec{
+						StorageSpec: v1beta1.StorageSpec{
 							Path:       &storagePath,
 							Parameters: &storageParameters,
 							StorageKey: &storageKey,
