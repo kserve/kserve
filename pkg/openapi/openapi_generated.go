@@ -810,7 +810,7 @@ func schema_pkg_apis_serving_v1alpha1_LLMInferenceService(ref common.ReferenceCa
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "LLMInferenceService is the Schema for the llminferenceservices API.",
+				Description: "LLMInferenceService is the Schema for the llminferenceservices API, representing a single LLM deployment. It orchestrates the creation of underlying Kubernetes resources like Deployments and Services, and configures networking for exposing the model.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -857,7 +857,7 @@ func schema_pkg_apis_serving_v1alpha1_LLMInferenceServiceConfig(ref common.Refer
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "LLMInferenceServiceConfig is the Schema for the llminferenceserviceconfigs API.",
+				Description: "LLMInferenceServiceConfig is the Schema for the llminferenceserviceconfigs API. It acts as a template to provide base configurations that can be inherited by multiple LLMInferenceService instances.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -886,17 +886,11 @@ func schema_pkg_apis_serving_v1alpha1_LLMInferenceServiceConfig(ref common.Refer
 							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceSpec"),
 						},
 					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceConfigStatus"),
-						},
-					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceConfigStatus", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 

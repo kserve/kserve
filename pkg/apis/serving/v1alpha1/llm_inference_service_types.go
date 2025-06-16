@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -26,9 +25,12 @@ import (
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-// LLMInferenceService is the Schema for the llminferenceservices API.
+// LLMInferenceService is the Schema for the llminferenceservices API, representing a single LLM deployment.
+// It orchestrates the creation of underlying Kubernetes resources like Deployments and Services,
+// and configures networking for exposing the model.
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 type LLMInferenceService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -38,169 +40,208 @@ type LLMInferenceService struct {
 }
 
 // LLMInferenceServiceConfig is the Schema for the llminferenceserviceconfigs API.
+// It acts as a template to provide base configurations that can be inherited by multiple LLMInferenceService instances.
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 type LLMInferenceServiceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   LLMInferenceServiceSpec         `json:"spec,omitempty"`
-	Status LLMInferenceServiceConfigStatus `json:"status,omitempty"`
+	Spec LLMInferenceServiceSpec `json:"spec,omitempty"`
 }
 
-// LLMInferenceServiceSpec defines the desired state of LLMInferenceService
+// LLMInferenceServiceSpec defines the desired state of LLMInferenceService.
 type LLMInferenceServiceSpec struct {
-	// Type of the deployment, e.g., 'default' or 'llm-d'. 'default' uses Raw deployments.
+	// Type of the deployment, e.g., 'default' or 'llm-d'.
+	// 'default' uses standard Kubernetes Deployments. 'llm-d' would imply a specific disaggregated architecture.
 	Type string `json:"type"`
 
-	// Model specification.
+	// Model specification, including its URI, potential LoRA adapters, and storage details.
 	Model LLMModelSpec `json:"model"`
 
-	// WorkloadSpec configurations of the inference deployment.
+	// WorkloadSpec configurations for the primary inference deployment.
+	// In a standard setup, this defines the main model server deployment.
+	// In a disaggregated setup (when 'prefill' is specified), this configures the 'decode' workload.
 	// +optional
-	*WorkloadSpec `json:",inline,omitempty"`
+	WorkloadSpec `json:",inline,omitempty"`
 
-	// Router configuration for the service.
+	// Router configuration for how the service is exposed. This section dictates the creation and management
+	// of networking resources like Ingress or Gateway API objects (HTTPRoute, Gateway).
 	// +optional
 	Router *RouterSpec `json:"router,omitempty"`
 
 	// Prefill configuration for disaggregated serving.
+	// When this section is included, the controller creates a separate deployment for prompt processing (prefill)
+	// in addition to the main 'decode' deployment, inspired by the llm-d architecture.
+	// This allows for independent scaling and hardware allocation for prefill and decode steps.
 	// +optional
 	Prefill *WorkloadSpec `json:"prefill,omitempty"`
 
-	// BaseRefs allows inheriting configuration from a LLMInferenceServiceConfig.
+	// BaseRefs allows inheriting and overriding configurations from one or more LLMInferenceServiceConfig instances.
+	// The controller merges these base configurations, with the current LLMInferenceService spec taking the highest precedence.
+	// When multiple baseRefs are provided, the last one in the list overrides previous ones.
 	// +optional
 	BaseRefs []corev1.LocalObjectReference `json:"baseRefs,omitempty"`
 }
 
+// WorkloadSpec defines the configuration for a deployment workload, such as replicas and pod specifications.
 type WorkloadSpec struct {
 	// Number of replicas for the deployment.
 	// +optional
 	Replicas *int32 `json:"replicas,omitempty"`
 
-	// Parallelism configurations for the runtime.
+	// Parallelism configurations for the runtime, such as tensor and pipeline parallelism.
+	// These values are used to configure the underlying inference runtime (e.g., vLLM).
 	// +optional
 	Parallelism *ParallelismSpec `json:"parallelism,omitempty"`
 
-	// Template for the worker pod spec. In a multi-node case, this configures the "worker" pod.
+	// Template for the main pod spec.
+	// In a multi-node deployment, this configures the "head" or "master" pod.
+	// In a disaggregated deployment, this configures the "decode" pod if it's the top-level template,
+	// or the "prefill" pod if it's within the Prefill block.
 	// +optional
 	Template *corev1.PodSpec `json:"template,omitempty"`
 
 	// Worker configuration for multi-node deployments.
+	// The presence of this field triggers the creation of a multi-node (distributed) setup.
+	// This spec defines the configuration for the worker pods, while the main 'Template' field defines the head pod.
+	// The controller is responsible for enabling discovery between head and worker pods.
 	// +optional
 	Worker *corev1.PodSpec `json:"worker,omitempty"`
 }
 
-// LLMModelSpec defines the model source.
+// LLMModelSpec defines the model source and its characteristics.
 type LLMModelSpec struct {
-	// URI of the model, e.g., hf://meta-llama/Llama-4-Scout-17B-16E-Instruct.
+	// URI of the model, specifying its location, e.g., hf://meta-llama/Llama-4-Scout-17B-16E-Instruct
+	// The storage-initializer init container uses this URI to download the model.
 	URI apis.URL `json:"uri"`
 
 	// Name is the name of the model as it will be set in the "model" parameter for an incoming request.
-	// If omitted, it will default to `metadata.name`, for LoRA adapters, this is required.
+	// If omitted, it will default to `metadata.name`. For LoRA adapters, this field is required.
 	// +optional
 	Name *string `json:"name,omitempty"`
 
 	// Criticality defines how important it is to serve the model compared to other models.
+	// This is used by the Inference Gateway scheduler.
 	// +optional
 	Criticality *igwapi.Criticality `json:"criticality,omitempty"`
 
-	// LoRA adapters configurations.
+	// LoRA (Low-Rank Adaptation) adapters configurations.
+	// Allows for specifying one or more LoRA adapters to be applied to the base model.
 	// +optional
 	LoRA *LoRASpec `json:"lora,omitempty"`
 
+	// Storage specification for the model, such as path and credentials.
+	// This is used by the storage-initializer to correctly download the model from the specified URI.
 	Storage *StorageSpec `json:"storage,omitempty"`
 }
 
+// LoRASpec defines the configuration for LoRA adapters.
 type LoRASpec struct {
-	// Adapters is the static specification for LoRA adapters.
+	// Adapters is the static specification for one or more LoRA adapters.
+	// Each adapter is defined by its own ModelSpec.
 	// +optional
 	Adapters []ModelSpec `json:"adapters,omitempty"`
 }
 
-// RouterSpec defines the routing configuration.
+// RouterSpec defines the routing configuration for exposing the service.
+// It supports Kubernetes Ingress and the Gateway API. The fields are mutually exclusive.
 type RouterSpec struct {
-	// Route configuration. An empty object automatically creates an HTTPRoute.
+	// Route configuration for the Gateway API.
+	// If an empty object `{}` is provided, the controller creates and manages a new HTTPRoute.
 	// +optional
 	Route *GatewayRoutesSpec `json:"route,omitempty"`
 
-	// Gateway configuration. An empty object automatically creates a Gateway.
+	// Gateway configuration for the Gateway API, mutually exclusive with Ingress.
+	// If an empty object `{}` is provided, the controller uses a default Gateway.
+	// This must be used in conjunction with the 'Route' field for managed Gateway API resources.
 	// +optional
 	Gateway *GatewaySpec `json:"gateway,omitempty"`
 
-	// Ingress configuration. Mutually exclusive with route and gateway.
-	// An empty object automatically creates an Ingress.
+	// Ingress configuration. This is mutually exclusive with Route and Gateway.
+	// If an empty object `{}` is provided, the controller creates and manages a default Ingress resource.
 	// +optional
 	Ingress *IngressSpec `json:"ingress,omitempty"`
 
-	// Scheduler configuration for Inference Gateway.
+	// Scheduler configuration for the Inference Gateway extension.
+	// If this field is non-empty, an InferenceModel resource will be created to integrate with the gateway's scheduler.
 	// +optional
 	Scheduler *SchedulerSpec `json:"scheduler,omitempty"`
 }
 
-// GatewayRoutesSpec defines the configuration for a route.
+// GatewayRoutesSpec defines the configuration for a Gateway API route.
 type GatewayRoutesSpec struct {
 	// HTTP route configuration.
 	// +optional
 	HTTP *HTTPRouteSpec `json:"http,omitempty"`
 }
 
-// HTTPRouteSpec HTTPRoute configurations.
-// Spec and Refs are mutually exclusive.
+// HTTPRouteSpec defines configurations for a Gateway API HTTPRoute.
+// 'Spec' and 'Refs' are mutually exclusive and determine whether the route is managed by the controller or user-managed.
 type HTTPRouteSpec struct {
-	// References to custom routes.
+	// Refs provides references to existing, user-managed HTTPRoute objects ("Bring Your Own" route).
+	// The controller will validate the existence of these routes but will not modify them.
 	// +optional
 	Refs []corev1.LocalObjectReference `json:"refs,omitempty"`
 
-	// Spec custom spec of the HTTPRoute.
+	// Spec allows for providing a custom specification for an HTTPRoute.
+	// If provided, the controller will create and manage an HTTPRoute with this specification.
 	// +optional
 	Spec *gatewayapi.HTTPRouteSpec `json:"spec,omitempty"`
 }
 
-// GatewaySpec defines the configuration for Gateway.
-// Spec and Refs are mutually exclusive.
+// GatewaySpec defines the configuration for a Gateway API Gateway.
 type GatewaySpec struct {
-	// References to custom gateways.
+	// Refs provides references to existing, user-managed Gateway objects ("Bring Your Own" gateway).
+	// The controller will use the specified Gateway instead of creating one.
 	// +optional
 	Refs []UntypedObjectReference `json:"refs,omitempty"`
 }
 
-// IngressSpec defines the configuration for Ingress.
-// Spec and Refs are mutually exclusive.
+// IngressSpec defines the configuration for a Kubernetes Ingress.
 type IngressSpec struct {
-	// Reference to custom ingress(es).
+	// Refs provides a reference to an existing, user-managed Ingress object ("Bring Your Own" ingress).
+	// The controller will not create an Ingress but will use the referenced one to populate status URLs.
 	// +optional
 	Refs []UntypedObjectReference `json:"refs,omitempty"`
-
-	// Spec custom spec of the Ingress.
-	// +optional
-	Spec *networkingv1.IngressSpec `json:"spec,omitempty"`
 }
 
 // SchedulerSpec defines the Inference Gateway extension configuration.
 type SchedulerSpec struct {
-	// Pool configuration for the InferencePool.
+	// Pool configuration for the InferencePool, which is part of the Inference Gateway extension.
 	// +optional
 	Pool *InferencePoolSpec `json:"pool,omitempty"`
 
-	// Template is the Inference Gateway Extension pod template.
+	// Template for the Inference Gateway Extension pod spec.
+	// +optional
 	Template *corev1.PodSpec `json:"template,omitempty"`
 }
 
+// InferencePoolSpec defines the configuration for an InferencePool.
+// 'Spec' and 'Ref' are mutually exclusive.
 type InferencePoolSpec struct {
+	// Spec defines an inline InferencePool specification.
+	// +optional
 	Spec *igwapi.InferencePoolSpec `json:"spec,omitempty"`
 
+	// Ref is a reference to an existing InferencePool.
+	// +optional
 	Ref *corev1.LocalObjectReference `json:"ref,omitempty"`
 }
 
+// ParallelismSpec defines the parallelism parameters for distributed inference.
 type ParallelismSpec struct {
-	Tensor   *int64 `json:"tensor,omitempty"`
+	// Tensor parallelism size.
+	// +optional
+	Tensor *int64 `json:"tensor,omitempty"`
+	// Pipeline parallelism size.
+	// +optional
 	Pipeline *int64 `json:"pipeline,omitempty"`
 	// TODO more to be added ...
 }
 
-// StorageSpec is a copy of the v1beta1.StorageSpec as the v1beta1 package depends on the v1alpha1 and that
-// creates import cycles.
+// StorageSpec is a copy of the v1beta1.StorageSpec. It is duplicated here to avoid
+// import cycles between the v1alpha1 and v1beta1 API packages.
 type StorageSpec struct {
 	// The path to the model object in the storage. It cannot co-exist
 	// with the storageURI.
@@ -217,27 +258,30 @@ type StorageSpec struct {
 	StorageKey *string `json:"key,omitempty"`
 }
 
+// UntypedObjectReference is a reference to an object without a specific Group/Version/Kind.
+// It's used for referencing networking resources like Gateways and Ingresses where the exact type
+// might be inferred or is not strictly required by this controller.
 type UntypedObjectReference struct {
-	Name      gatewayapi.ObjectName `json:"name,omitempty"`
-	Namespace gatewayapi.Namespace  `json:"namespace,omitempty"`
+	// Name of the referenced object.
+	Name gatewayapi.ObjectName `json:"name,omitempty"`
+	// Namespace of the referenced object.
+	Namespace gatewayapi.Namespace `json:"namespace,omitempty"`
 }
 
-// LLMInferenceServiceStatus defines the observed state of LLMInferenceService
+// LLMInferenceServiceStatus defines the observed state of LLMInferenceService.
 type LLMInferenceServiceStatus struct {
-	// URL of the service.
+	// URL of the publicly exposed service.
 	// +optional
 	URL *apis.URL `json:"url,omitempty"`
 
+	// Conditions of the resource.
 	duckv1.Status `json:",inline"`
 
-	// Cluster-local URL(s)
+	// Addressable endpoint for the service, including cluster-local URLs.
 	duckv1.AddressStatus `json:",inline,omitempty"`
 }
 
-// LLMInferenceServiceConfigStatus defines the observed state of LLMInferenceServiceConfig
-type LLMInferenceServiceConfigStatus struct {
-	duckv1.Status `json:",inline"`
-}
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // LLMInferenceServiceList is the list type for LLMInferenceService.
 // +k8s:openapi-gen=true
@@ -247,6 +291,8 @@ type LLMInferenceServiceList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []LLMInferenceService `json:"items"`
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // LLMInferenceServiceConfigList is the list type for LLMInferenceServiceConfig.
 // +k8s:openapi-gen=true

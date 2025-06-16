@@ -1,6 +1,6 @@
 # V1alpha1LLMInferenceService
 
-LLMInferenceService is the Schema for the llminferenceservices API.
+LLMInferenceService is the Schema for the llminferenceservices API, representing a single LLM deployment. It orchestrates the creation of underlying Kubernetes resources like Deployments and Services, and configures networking for exposing the model.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

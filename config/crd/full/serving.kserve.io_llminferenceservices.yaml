@@ -7405,114 +7405,6 @@ spec:
                               type: string
                           type: object
                         type: array
-                      spec:
-                        properties:
-                          defaultBackend:
-                            properties:
-                              resource:
-                                properties:
-                                  apiGroup:
-                                    type: string
-                                  kind:
-                                    type: string
-                                  name:
-                                    type: string
-                                required:
-                                - kind
-                                - name
-                                type: object
-                                x-kubernetes-map-type: atomic
-                              service:
-                                properties:
-                                  name:
-                                    type: string
-                                  port:
-                                    properties:
-                                      name:
-                                        type: string
-                                      number:
-                                        format: int32
-                                        type: integer
-                                    type: object
-                                    x-kubernetes-map-type: atomic
-                                required:
-                                - name
-                                type: object
-                            type: object
-                          ingressClassName:
-                            type: string
-                          rules:
-                            items:
-                              properties:
-                                host:
-                                  type: string
-                                http:
-                                  properties:
-                                    paths:
-                                      items:
-                                        properties:
-                                          backend:
-                                            properties:
-                                              resource:
-                                                properties:
-                                                  apiGroup:
-                                                    type: string
-                                                  kind:
-                                                    type: string
-                                                  name:
-                                                    type: string
-                                                required:
-                                                - kind
-                                                - name
-                                                type: object
-                                                x-kubernetes-map-type: atomic
-                                              service:
-                                                properties:
-                                                  name:
-                                                    type: string
-                                                  port:
-                                                    properties:
-                                                      name:
-                                                        type: string
-                                                      number:
-                                                        format: int32
-                                                        type: integer
-                                                    type: object
-                                                    x-kubernetes-map-type: atomic
-                                                required:
-                                                - name
-                                                type: object
-                                            type: object
-                                          path:
-                                            type: string
-                                          pathType:
-                                            type: string
-                                        required:
-                                        - backend
-                                        - pathType
-                                        type: object
-                                      type: array
-                                      x-kubernetes-list-type: atomic
-                                  required:
-                                  - paths
-                                  type: object
-                              type: object
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          tls:
-                            items:
-                              properties:
-                                hosts:
-                                  items:
-                                    type: string
-                                  type: array
-                                  x-kubernetes-list-type: atomic
-                                secretName:
-                                  type: string
-                              type: object
-                            type: array
-                            x-kubernetes-list-type: atomic
-                        type: object
                     type: object
                   route:
                     properties:
@@ -19713,3 +19605,5 @@ spec:
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}

@@ -388,7 +388,7 @@
       }
     },
     "v1alpha1.LLMInferenceService": {
-      "description": "LLMInferenceService is the Schema for the llminferenceservices API.",
+      "description": "LLMInferenceService is the Schema for the llminferenceservices API, representing a single LLM deployment. It orchestrates the creation of underlying Kubernetes resources like Deployments and Services, and configures networking for exposing the model.",
       "type": "object",
       "properties": {
         "apiVersion": {
@@ -414,7 +414,7 @@
       }
     },
     "v1alpha1.LLMInferenceServiceConfig": {
-      "description": "LLMInferenceServiceConfig is the Schema for the llminferenceserviceconfigs API.",
+      "description": "LLMInferenceServiceConfig is the Schema for the llminferenceserviceconfigs API. It acts as a template to provide base configurations that can be inherited by multiple LLMInferenceService instances.",
       "type": "object",
       "properties": {
         "apiVersion": {
@@ -432,10 +432,6 @@
         "spec": {
           "default": {},
           "$ref": "#/definitions/v1alpha1.LLMInferenceServiceSpec"
-        },
-        "status": {
-          "default": {},
-          "$ref": "#/definitions/v1alpha1.LLMInferenceServiceConfigStatus"
         }
       }
     },
