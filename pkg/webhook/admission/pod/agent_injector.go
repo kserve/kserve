@@ -59,22 +59,17 @@ type AgentConfig struct {
 	MemoryLimit   string `json:"memoryLimit"`
 }
 
-type LoggerStorageSpec struct {
-	*v1beta1.StorageSpec
-	ServiceAccountName *string `json:"serviceAccountName,omitempty"`
-}
-
 type LoggerConfig struct {
-	Image         string             `json:"image"`
-	CpuRequest    string             `json:"cpuRequest"`
-	CpuLimit      string             `json:"cpuLimit"`
-	MemoryRequest string             `json:"memoryRequest"`
-	MemoryLimit   string             `json:"memoryLimit"`
-	DefaultUrl    string             `json:"defaultUrl"`
-	CaBundle      string             `json:"caBundle"`
-	CaCertFile    string             `json:"caCertFile"`
-	TlsSkipVerify bool               `json:"tlsSkipVerify"`
-	Store         *LoggerStorageSpec `json:"storage"`
+	Image         string                     `json:"image"`
+	CpuRequest    string                     `json:"cpuRequest"`
+	CpuLimit      string                     `json:"cpuLimit"`
+	MemoryRequest string                     `json:"memoryRequest"`
+	MemoryLimit   string                     `json:"memoryLimit"`
+	DefaultUrl    string                     `json:"defaultUrl"`
+	CaBundle      string                     `json:"caBundle"`
+	CaCertFile    string                     `json:"caCertFile"`
+	TlsSkipVerify bool                       `json:"tlsSkipVerify"`
+	Store         *v1beta1.LoggerStorageSpec `json:"storage"`
 }
 
 type AgentInjector struct {

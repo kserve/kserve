@@ -1038,11 +1038,13 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	namespace := "default"
 	builder := NewCredentialBuilder(c, clientset, configMap)
+	secretName := "secret-name"
 
 	scenarios := map[string]struct {
 		secret            *corev1.Secret
 		storageKey        string
 		storageSecretName string
+		secretName        *string
 		overrideParams    map[string]string
 		container         *corev1.Container
 		shouldFail        bool
@@ -1201,6 +1203,61 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			},
 			shouldFail: true,
 			matcher:    gomega.HaveOccurred(),
+		},
+		"storage secret name specified": {
+			secret: &corev1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: namespace,
+				},
+				StringData: map[string]string{"minio": "{\n      \"type\": \"s3\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"},
+			},
+			storageKey:     "minio",
+			secretName:     &secretName,
+			overrideParams: map[string]string{"type": "s3", "bucket": "test-bucket"},
+			container: &corev1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+			},
+			shouldFail: false,
+			matcher: gomega.Equal(&corev1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+				Env: []corev1.EnvVar{
+					{
+						Name:  "STORAGE_CONFIG",
+						Value: "",
+						ValueFrom: &corev1.EnvVarSource{
+							FieldRef:         nil,
+							ResourceFieldRef: nil,
+							ConfigMapKeyRef:  nil,
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: secretName,
+								},
+								Key:      "minio",
+								Optional: nil,
+							},
+						},
+					},
+					{
+						Name:  "STORAGE_OVERRIDE_CONFIG",
+						Value: "{\"bucket\":\"test-bucket\",\"type\":\"s3\"}",
+					},
+				},
+			}),
 		},
 		"default storage key": {
 			secret: &corev1.Secret{
@@ -1532,7 +1589,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 		if err := c.Create(t.Context(), tc.secret); err != nil {
 			t.Errorf("Failed to create secret %s: %v", "storage-secret", err)
 		}
-		err := builder.CreateStorageSpecSecretEnvs(namespace, nil, tc.storageKey, nil, nil, tc.overrideParams, tc.container)
+		err := builder.CreateStorageSpecSecretEnvs(namespace, nil, tc.storageKey, tc.secretName, nil, tc.overrideParams, tc.container)
 		if !tc.shouldFail {
 			g.Expect(err).ShouldNot(gomega.HaveOccurred())
 			g.Expect(tc.container).Should(tc.matcher)
