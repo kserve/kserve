@@ -29,6 +29,7 @@ class RequestLogger:
         request_id: str,
         prompt: Optional[Union[str, List[str]]] = None,
         prompt_token_ids: Optional[List[int]] = None,
+        prompt_embeds: Optional[Any] = None,
         params: Optional[Any] = None,
         lora_request: Optional[Any] = None,
         prompt_adapter_request: Optional[Any] = None,
@@ -48,11 +49,12 @@ class RequestLogger:
                 prompt_token_ids = prompt_token_ids[:max_log_len]
 
         trace_logger.info(
-            "Received request %s: prompt: %r, "
+            "Received request: %s, prompt: %r, prompt_embeds: %s, "
             "params: %s, prompt_token_ids: %s, "
             "lora_request: %s, prompt_adapter_request: %s.",
             request_id,
             prompt,
+            prompt_embeds,
             params,
             prompt_token_ids,
             lora_request,
