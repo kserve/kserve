@@ -23,7 +23,6 @@ import torch.nn.functional as F
 from accelerate import init_empty_weights
 from kserve import Model
 from kserve.logging import logger
-from kserve.model import PredictorConfig
 from kserve.protocol.infer_type import InferInput, InferRequest, InferResponse
 from kserve.utils.utils import (
     from_np_dtype,
@@ -64,6 +63,7 @@ from kserve.protocol.rest.openai.types import (
     RerankRequest,
     UsageInfo,
 )
+from kserve import context as kserve_context
 
 
 class HuggingfaceEncoderModel(
@@ -101,10 +101,9 @@ class HuggingfaceEncoderModel(
         tokenizer_revision: Optional[str] = None,
         trust_remote_code: bool = False,
         return_probabilities: bool = False,
-        predictor_config: Optional[PredictorConfig] = None,
         request_logger: Optional[RequestLogger] = None,
     ):
-        super().__init__(model_name, predictor_config)
+        super().__init__(model_name)
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model_id_or_path = model_id_or_path
         self.do_lower_case = do_lower_case
@@ -183,7 +182,9 @@ class HuggingfaceEncoderModel(
         logger.info("Successfully loaded tokenizer")
 
         # load huggingface model using from_pretrained for inference mode
-        if not self.predictor_host:
+        # If predictor_host is not set
+        predictor_config = kserve_context.get_predictor_config()
+        if predictor_config is None or predictor_config.predictor_host is None:
             self._model = model_cls.from_pretrained(
                 model_id_or_path,
                 revision=self.model_revision,
@@ -219,7 +220,8 @@ class HuggingfaceEncoderModel(
             request_id = "N.A."
         self._log_request(request_id, instances)
         # Serialize to tensor
-        if self.predictor_host:
+        predictor_config = kserve_context.get_predictor_config()
+        if predictor_config and predictor_config.predictor_host:
             inputs = self._tokenizer(
                 instances,
                 max_length=self.max_length,
@@ -268,7 +270,8 @@ class HuggingfaceEncoderModel(
         input_batch: Union[BatchEncoding, InferRequest],
         context: Dict[str, Any],
     ) -> Union[Tensor, InferResponse]:
-        if self.predictor_host:
+        predictor_config = kserve_context.get_predictor_config()
+        if predictor_config and predictor_config.predictor_host:
             # when predictor_host is provided, serialize the tensor and send to optimized model serving runtime
             # like NVIDIA triton inference server
             return await super().predict(input_batch, context)

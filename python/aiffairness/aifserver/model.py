@@ -11,16 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Dict
 
+from typing import Dict
 import asyncio
-import kserve
+
+import nest_asyncio
 import numpy as np
 import pandas as pd
 from aif360.metrics import BinaryLabelDatasetMetric
 from aif360.datasets import BinaryLabelDataset
 
-import nest_asyncio
+import kserve
 
 nest_asyncio.apply()
 
@@ -29,7 +30,6 @@ class AIFModel(kserve.Model):
     def __init__(
         self,
         name: str,
-        predictor_host: str,
         feature_names: list,
         label_names: list,
         favorable_label: float,
@@ -39,7 +39,6 @@ class AIFModel(kserve.Model):
     ):
         super().__init__(name)
         self.name = name
-        self.predictor_host = predictor_host
         self.ready = False
         self.feature_names = feature_names
         self.label_names = label_names
