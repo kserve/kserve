@@ -124,6 +124,12 @@ parser.add_argument(
     help="allow loading of models and tokenizers with custom code",
 )
 parser.add_argument(
+    "--use_id2label",
+    action="store_true",
+    default=False,
+    help="use model's id2label mapping for classification outputs",
+)
+parser.add_argument(
     "--tensor_input_names",
     type=list_of_strings,
     default=None,
@@ -299,6 +305,7 @@ def load_model():
                 predictor_config=predictor_config,
                 request_logger=request_logger,
                 return_probabilities=kwargs.get("return_probabilities", False),
+                use_id2label=kwargs.get("use_id2label", False),
             )
     model.load()
     return model
