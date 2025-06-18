@@ -129,7 +129,7 @@ type LLMModelSpec struct {
 
 	// Storage specification for the model, such as path and credentials.
 	// This is used by the storage-initializer to correctly download the model from the specified URI.
-	Storage *StorageSpec `json:"storage,omitempty"`
+	Storage *LLMStorageSpec `json:"storage,omitempty"`
 }
 
 // LoRASpec defines the configuration for LoRA adapters.
@@ -236,16 +236,13 @@ type ParallelismSpec struct {
 	// TODO more to be added ...
 }
 
-// StorageSpec is a copy of the v1beta1.StorageSpec. It is duplicated here to avoid
+// LLMStorageSpec is a copy of the v1beta1.StorageSpec. It is duplicated here to avoid
 // import cycles between the v1alpha1 and v1beta1 API packages.
-type StorageSpec struct {
+type LLMStorageSpec struct {
 	// The path to the model object in the storage. It cannot co-exist
 	// with the storageURI.
 	// +optional
 	Path *string `json:"path,omitempty"`
-	// The path to the model schema file in the storage.
-	// +optional
-	SchemaPath *string `json:"schemaPath,omitempty"`
 	// Parameters to override the default storage credentials and config.
 	// +optional
 	Parameters *map[string]string `json:"parameters,omitempty"`

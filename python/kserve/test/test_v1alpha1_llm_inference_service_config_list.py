@@ -60,7 +60,6 @@ class TestV1alpha1LLMInferenceServiceConfigList(unittest.TestCase):
                         kind="0",
                         metadata=None,
                         spec=None,
-                        status=None,
                     )
                 ],
                 kind="0",
