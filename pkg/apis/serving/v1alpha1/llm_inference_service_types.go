@@ -52,10 +52,6 @@ type LLMInferenceServiceConfig struct {
 
 // LLMInferenceServiceSpec defines the desired state of LLMInferenceService.
 type LLMInferenceServiceSpec struct {
-	// Type of the deployment, e.g., 'default' or 'llm-d'.
-	// 'default' uses standard Kubernetes Deployments. 'llm-d' would imply a specific disaggregated architecture.
-	Type string `json:"type"`
-
 	// Model specification, including its URI, potential LoRA adapters, and storage details.
 	Model LLMModelSpec `json:"model"`
 
