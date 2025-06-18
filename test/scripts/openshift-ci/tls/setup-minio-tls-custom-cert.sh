@@ -57,6 +57,10 @@ fi
 kustomize build $PROJECT_ROOT/test/overlays/openshift-ci/minio-tls-custom-cert |
   oc apply -n kserve --server-side=true -f -
 
+# Wait for minio pod to be ready
+echo "Waiting for minio-tls-custom pod to be ready..."
+oc wait --for=condition=ready pod -l app=minio-tls-custom -n kserve --timeout=300s
+
 echo "Configuring MinIO for TLS with custom certificate and adding models to storage ..."
 # Create custom certs
 ${PROJECT_ROOT}/test/scripts/openshift-ci/tls/generate-custom-certs.sh
@@ -67,12 +71,37 @@ fi
 oc create secret generic minio-tls-custom --from-file=${TLS_DIR}/certs/custom/root.crt  --from-file=${TLS_DIR}/certs/custom/custom.crt --from-file=${TLS_DIR}/certs/custom/custom.key -n kserve
 # Mount certificates to minio-tls-custom container
 oc patch deployment minio-tls-custom -n kserve -p '{"spec":{"template":{"spec":{"containers":[{"name":"minio-tls-custom","volumeMounts":[{"mountPath":".minio/certs","name":"minio-tls-custom"}]}], "volumes":[{"name":"minio-tls-custom","projected":{"defaultMode":420,"sources":[{"secret":{"name":"minio-tls-custom","items":[{"key":"custom.crt","path":"public.crt"},{"key":"custom.key", "path":"private.key"},{"key":"root.crt","path":"CAs/root.crt"}]}}]}}]}}}}'
+
+# Wait for patched deployment to be ready
+echo "Waiting for patched minio-tls-custom deployment to be ready..."
+oc rollout status deployment/minio-tls-custom -n kserve --timeout=300s
+
 # Expose the route with tls enabled
 oc create route reencrypt minio-tls-custom-service \
   --service=minio-tls-custom-service \
   --dest-ca-cert="${TLS_DIR}/certs/custom/root.crt" \
   -n kserve && sleep 5
 MINIO_TLS_CUSTOM_ROUTE=$(oc get routes -n kserve minio-tls-custom-service -o jsonpath="{.spec.host}")
+
+# Wait for minio TLS endpoint to be accessible
+echo "Waiting for minio TLS custom endpoint to be accessible..."
+timeout=60
+counter=0
+while [ $counter -lt $timeout ]; do
+  if curl -f -s -k "https://$MINIO_TLS_CUSTOM_ROUTE/minio/health/live" >/dev/null 2>&1; then
+    echo "Minio TLS custom is ready!"
+    break
+  fi
+  echo "Waiting for minio TLS custom to be ready... ($counter/$timeout)"
+  sleep 2
+  counter=$((counter + 2))
+done
+
+if [ $counter -ge $timeout ]; then
+  echo "Timeout waiting for minio TLS custom to be ready"
+  exit 1
+fi
+
 # Upload the model
 mc alias set storage-tls-custom https://$MINIO_TLS_CUSTOM_ROUTE minio minio123 --insecure
 if ! mc ls storage-tls-custom/example-models --insecure >/dev/null 2>&1; then

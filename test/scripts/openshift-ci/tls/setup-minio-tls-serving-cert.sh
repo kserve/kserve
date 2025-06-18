@@ -49,7 +49,11 @@ fi
 
 # Create tls minio resources
 kustomize build $PROJECT_ROOT/test/overlays/openshift-ci/minio-tls-serving-cert |
-  oc apply -n kserve --server-side=true -f - && sleep 5
+  oc apply -n kserve --server-side=true -f - 
+
+# Wait for minio pod to be ready
+echo "Waiting for minio-tls-serving pod to be ready..."
+oc wait --for=condition=ready pod -l app=minio-tls-serving -n kserve --timeout=300s
 
 echo "Configuring MinIO for TLS with Openshift serving certificate and adding models to storage"
 # Add openshift generated serving certificates to certs directory
@@ -64,6 +68,26 @@ oc create route reencrypt minio-tls-serving-service \
   --dest-ca-cert="${TLS_DIR}/certs/serving/tls.crt" \
   -n kserve && sleep 5
 MINIO_TLS_SERVING_ROUTE=$(oc get routes -n kserve minio-tls-serving-service -o jsonpath="{.spec.host}")
+
+# Wait for minio TLS endpoint to be accessible
+echo "Waiting for minio TLS endpoint to be accessible..."
+timeout=60
+counter=0
+while [ $counter -lt $timeout ]; do
+  if curl -f -s -k "https://$MINIO_TLS_SERVING_ROUTE/minio/health/live" >/dev/null 2>&1; then
+    echo "Minio TLS serving is ready!"
+    break
+  fi
+  echo "Waiting for minio TLS serving to be ready... ($counter/$timeout)"
+  sleep 2
+  counter=$((counter + 2))
+done
+
+if [ $counter -ge $timeout ]; then
+  echo "Timeout waiting for minio TLS serving to be ready"
+  exit 1
+fi
+
 # Upload the model
 mc alias set storage-tls-serving https://$MINIO_TLS_SERVING_ROUTE minio minio123 --insecure
 if ! mc ls storage-tls-serving/example-models --insecure >/dev/null 2>&1; then
