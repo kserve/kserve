@@ -28,6 +28,9 @@ azure-storage-file-share = { version = "^12.16.0"}
 azure-identity = { version = "^1.15.0"}
 boto3 = { version = "^1.29.0"}
 huggingface-hub = { version = "^0.30.0", extras = ["hf-transfer"]}
+krbcontext = { version = "0.10", optional = true }
+hdfs = { version = "~2.6.0", optional = true }
+requests-kerberos = { version = "0.14.0", optional = true }
 
 
 #[tool.poetry-version-plugin]

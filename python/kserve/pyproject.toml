@@ -81,6 +81,9 @@ storage = [
   "azure-identity",
   "boto3",
   "huggingface-hub",
+  "krbcontext",
+  "hdfs",
+  "requests-kerberos",
 
 ]
 logging = ["asgi-logger"]
