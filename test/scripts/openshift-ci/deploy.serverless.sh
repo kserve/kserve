@@ -117,6 +117,7 @@ spec:
       kubernetes.podspec-persistent-volume-write: enabled
       kubernetes.podspec-tolerations: enabled
       kubernetes.podspec-schedulername: enabled
+      multi-container-probing: enabled
     istio:
       local-gateway.knative-serving.knative-local-gateway: knative-local-gateway.istio-system.svc.cluster.local
   controller-custom-certs:
