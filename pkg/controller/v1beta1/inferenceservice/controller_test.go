@@ -876,6 +876,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	})
 
 	Context("When creating inference service with `serving.kserve.io/stop`", func() {
+		// --- Default values ---
 		defaultIsvc := func(namespace string, name string, storageUri string) *v1beta1.InferenceService {
 			predictor := v1beta1.PredictorSpec{
 				ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
@@ -960,6 +961,149 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			return configMap
 		}
 
+		// --- Reusable Check Functions ---
+		// Wait for the Knative Service to exist and for its status URL and conditions to be ready.
+		expectKsvcToBeReady := func(ctx context.Context, serviceKey types.NamespacedName, predictorServiceKey types.NamespacedName) {
+			// Predictor knative service
+			predictorService := &knservingv1.Service{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, predictorServiceKey, predictorService)
+				return err == nil
+			}, 30*time.Second).Should(BeTrue())
+
+			// Add a url to the predictor knative service so the services can be made
+			updatedPredictorService := predictorService.DeepCopy()
+			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+			updatedPredictorService.Status.URL = predictorUrl
+			updatedPredictorService.Status.Conditions = duckv1.Conditions{
+				{
+					Type:   knservingv1.ServiceConditionReady,
+					Status: "True",
+				},
+				{
+					Type:   knservingv1.ServiceConditionRoutesReady,
+					Status: "True",
+				},
+				{
+					Type:   knservingv1.ServiceConditionConfigurationsReady,
+					Status: "True",
+				},
+			}
+			updatedPredictorService.Status.LatestCreatedRevisionName = "revision-v1"
+			updatedPredictorService.Status.LatestReadyRevisionName = "revision-v1"
+			Expect(k8sClient.Status().Update(ctx, updatedPredictorService)).NotTo(HaveOccurred())
+		}
+
+		// Wait for the ISVC to exist.
+		expectIsvcToBePresent := func(ctx context.Context, serviceKey types.NamespacedName) v1beta1.InferenceService {
+			// Check that the ISVC was updated
+			updatedIsvc := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			return *updatedIsvc
+		}
+
+		// Wait for the Istio VirtualService to exist.
+		expectVirtualServiceToBePresent := func(ctx context.Context, serviceKey types.NamespacedName) {
+			// Check that the virtual service is present
+			virtualService := &istioclientv1beta1.VirtualService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, virtualService)
+				return err == nil
+			}, timeout).
+				Should(BeTrue())
+		}
+
+		// Wait for the Kubernetes Service to exist.
+		expectK8sServiceToBePresent := func(ctx context.Context, serviceKey types.NamespacedName) {
+			// Check that the service is present
+			service := &corev1.Service{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, service)
+				return err == nil
+			}, timeout).
+				Should(BeTrue())
+		}
+
+		// Wait for the InferenceService's Stopped condition to be false.
+		expectIsvcFalseStoppedStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
+			// Check that the stopped condition is false
+			updatedIsvc := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err == nil {
+					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
+					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionFalse {
+						return true
+					}
+				}
+				return false
+			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to false")
+		}
+
+		// Wait for the InferenceService's Stopped condition to be true.
+		expectIsvcTrueStoppedStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
+			// Check that the ISVC status reflects that it is stopped
+			updatedIsvc := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err == nil {
+					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
+					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionTrue {
+						return true
+					}
+				}
+				return false
+			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
+		}
+
+		// Wait for the InferenceService's PredictorReady and IngressReady condition.
+		expectIsvcReadyStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
+			updatedIsvc := &v1beta1.InferenceService{}
+			// Check that the inference service is ready
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err != nil {
+					return false
+				}
+				readyCond := updatedIsvc.Status.GetCondition(v1beta1.PredictorReady)
+				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
+			}, timeout, interval).Should(BeTrue(), "The predictor should be ready")
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err != nil {
+					return false
+				}
+				readyCond := updatedIsvc.Status.GetCondition(v1beta1.IngressReady)
+				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
+			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
+		}
+
+		// Checks that any Kubernetes object to be not found.
+		expectResourceIsDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, objKey, obj)
+				return apierr.IsNotFound(err)
+			}, time.Second*10, interval).Should(BeTrue(), "%T %s should not be created", obj, objKey.Name)
+		}
+
+		// Wait for any Kubernetes object to be not found.
+		expectResourceToBeDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, objKey, obj)
+				return apierr.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue(), "%T %s should be deleted", obj, objKey.Name)
+		}
+
 		It("Should keep the knative service/virtualService/service when the annotation is set to false", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
@@ -987,91 +1131,22 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(ctx, isvc)
 
 			// Knative service
-			actualService := &knservingv1.Service{}
 			predictorServiceKey := types.NamespacedName{
 				Name:      constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace,
 			}
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), predictorServiceKey, actualService)
-				return err == nil
-			}, 30*time.Second).Should(BeTrue())
-
-			// Add a url to the knative service so the services can be made
-			copiedKsvc := actualService.DeepCopy()
-			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
-			copiedKsvc.Status.URL = predictorUrl
-			copiedKsvc.Status.Conditions = duckv1.Conditions{
-				{
-					Type:   knservingv1.ServiceConditionReady,
-					Status: "True",
-				},
-				{
-					Type:   knservingv1.ServiceConditionRoutesReady,
-					Status: "True",
-				},
-				{
-					Type:   knservingv1.ServiceConditionConfigurationsReady,
-					Status: "True",
-				},
-			}
-			copiedKsvc.Status.LatestCreatedRevisionName = "revision-v1"
-			copiedKsvc.Status.LatestReadyRevisionName = "revision-v1"
-			Expect(k8sClient.Status().Update(context.TODO(), copiedKsvc)).NotTo(HaveOccurred())
+			expectKsvcToBeReady(context.Background(), serviceKey, predictorServiceKey)
 
 			// Check that the ISVC was updated
-			updatedIsvc := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			expectIsvcToBePresent(ctx, serviceKey)
 
-			// Check that the virtual service is present
-			virtualService := &istioclientv1beta1.VirtualService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), serviceKey, virtualService)
-				return err == nil
-			}, timeout).
-				Should(BeTrue())
+			// Check the services
+			expectVirtualServiceToBePresent(context.Background(), serviceKey)
+			expectK8sServiceToBePresent(context.Background(), serviceKey)
 
-			// Check that the service is present
-			service := &corev1.Service{}
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), serviceKey, service)
-				return err == nil
-			}, timeout).
-				Should(BeTrue())
-
-			// Check that the stopped condition is false
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err == nil {
-					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
-					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionFalse {
-						return true
-					}
-				}
-				return false
-			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to false")
-
-			// Check that the inference service is ready
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err != nil {
-					return false
-				}
-				readyCond := updatedIsvc.Status.GetCondition(v1beta1.PredictorReady)
-				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
-			}, timeout, interval).Should(BeTrue(), "The predictor should be ready")
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err != nil {
-					return false
-				}
-				readyCond := updatedIsvc.Status.GetCondition(v1beta1.IngressReady)
-				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
-			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
+			// Check the ISVC statuses
+			expectIsvcFalseStoppedStatus(ctx, serviceKey)
+			expectIsvcReadyStatus(ctx, serviceKey)
 		})
 
 		It("Should delete the knative service/virtualService/service when the annotation is set to true", func() {
@@ -1101,49 +1176,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(ctx, isvc)
 
 			// Check that the KSVC does not exist
-			actualService := &knservingv1.Service{}
 			predictorServiceKey := types.NamespacedName{
 				Name:      constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace,
 			}
-			Consistently(func() bool {
-				err := k8sClient.Get(context.TODO(), predictorServiceKey, actualService)
-				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The ksvc should not be created")
+			expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
 
-			// Check that the virtual service was not created
-			virtualService := &istioclientv1beta1.VirtualService{}
-			Consistently(func() bool {
-				err := k8sClient.Get(context.TODO(), serviceKey, virtualService)
-				return apierr.IsNotFound(err)
-			}, timeout).
-				Should(BeTrue(), "The virtual service should not be created")
-
-			// Check that the service was not created
-			service := &corev1.Service{}
-			Consistently(func() bool {
-				err := k8sClient.Get(context.TODO(), serviceKey, service)
-				return apierr.IsNotFound(err)
-			}, timeout).
-				Should(BeTrue(), "The service should not be created")
+			// Check that the services were not created
+			expectResourceIsDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
+			expectResourceIsDeleted(context.Background(), &corev1.Service{}, serviceKey)
 
 			// Check that the ISVC status reflects that it is stopped
-			updatedIsvc := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err == nil {
-					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
-					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionTrue {
-						return true
-					}
-				}
-				return false
-			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
+			expectIsvcTrueStoppedStatus(ctx, serviceKey)
 		})
 
 		It("Should delete the knative service/virtualService/service when the annotation is updated to true on an existing ISVC", func() {
@@ -1173,122 +1217,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(ctx, isvc)
 
 			// Knative service
-			actualService := &knservingv1.Service{}
 			predictorServiceKey := types.NamespacedName{
 				Name:      constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace,
 			}
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), predictorServiceKey, actualService)
-				return err == nil
-			}, timeout).
-				Should(BeTrue())
+			expectKsvcToBeReady(context.Background(), serviceKey, predictorServiceKey)
 
-			// Add a url to the knative service so the services can be made
-			copiedKsvc := actualService.DeepCopy()
-			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
-			copiedKsvc.Status.URL = predictorUrl
-			copiedKsvc.Status.Conditions = duckv1.Conditions{
-				{
-					Type:   knservingv1.ServiceConditionReady,
-					Status: "True",
-				},
-				{
-					Type:   knservingv1.ServiceConditionRoutesReady,
-					Status: "True",
-				},
-				{
-					Type:   knservingv1.ServiceConditionConfigurationsReady,
-					Status: "True",
-				},
-			}
-			copiedKsvc.Status.LatestCreatedRevisionName = "revision-v1"
-			copiedKsvc.Status.LatestReadyRevisionName = "revision-v1"
-			Expect(k8sClient.Status().Update(context.TODO(), copiedKsvc)).NotTo(HaveOccurred())
+			// Check that the ISVC was updated
+			expectIsvcToBePresent(ctx, serviceKey)
 
-			actualIsvc := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, expectedRequest.NamespacedName, actualIsvc)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			// Check the services
+			expectVirtualServiceToBePresent(context.Background(), serviceKey)
+			expectK8sServiceToBePresent(context.Background(), serviceKey)
 
-			// Check that the virtual service is present
-			virtualService := &istioclientv1beta1.VirtualService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), serviceKey, virtualService)
-				return err == nil
-			}, timeout).
-				Should(BeTrue())
-
-			// Check that the service is present
-			service := &corev1.Service{}
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), serviceKey, service)
-				return err == nil
-			}, timeout).
-				Should(BeTrue())
-
-			// Check that the inference service is ready
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, actualIsvc)
-				if err != nil {
-					return false
-				}
-				readyCond := actualIsvc.Status.GetCondition(v1beta1.PredictorReady)
-				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
-			}, timeout, interval).Should(BeTrue(), "The predictor should be ready before updating the annotation")
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, actualIsvc)
-				if err != nil {
-					return false
-				}
-				readyCond := actualIsvc.Status.GetCondition(v1beta1.IngressReady)
-				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
-			}, timeout, interval).Should(BeTrue(), "The ingress should be ready before updating the annotation")
+			// Check the ISVC statuses
+			expectIsvcFalseStoppedStatus(ctx, serviceKey)
+			expectIsvcReadyStatus(ctx, serviceKey)
 
 			// Stop the inference service
+			actualIsvc := expectIsvcToBePresent(ctx, serviceKey)
 			updatedIsvc := actualIsvc.DeepCopy()
 			updatedIsvc.Annotations[constants.StopAnnotationKey] = "true"
 			Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
 
 			// Check that the KSVC was deleted
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), predictorServiceKey, actualService)
-				return apierr.IsNotFound(err)
-			}, time.Second*30).Should(BeTrue(), "The ksvc should eventually be deleted")
+			expectResourceToBeDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
 
-			// Check that the virtual service is deleted
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), serviceKey, virtualService)
-				return apierr.IsNotFound(err)
-			}, timeout).
-				Should(BeTrue(), "The virtual service should be deleted")
-
-			// Check that the service is deleted
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), serviceKey, service)
-				return apierr.IsNotFound(err)
-			}, timeout).
-				Should(BeTrue(), "The service should be deleted")
+			// Check that the services are deleted
+			expectResourceToBeDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
+			expectResourceToBeDeleted(context.Background(), &corev1.Service{}, serviceKey)
 
 			// Check that the ISVC status reflects that it is stopped
-			updatedStoppedIsvc := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedStoppedIsvc)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedStoppedIsvc)
-				if err == nil {
-					stopped_cond := updatedStoppedIsvc.Status.GetCondition(v1beta1.Stopped)
-					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionTrue {
-						return true
-					}
-				}
-				return false
-			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
+			expectIsvcTrueStoppedStatus(ctx, serviceKey)
 		})
 
 		It("Should create the knative service/virtualService/service when the annotation is updated to false on an existing ISVC that is stopped", func() {
@@ -1318,127 +1278,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(ctx, isvc)
 
 			// Check that the KSVC does not exist
-			actualService := &knservingv1.Service{}
 			predictorServiceKey := types.NamespacedName{
 				Name:      constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace,
 			}
-			Consistently(func() bool {
-				err := k8sClient.Get(context.TODO(), predictorServiceKey, actualService)
-				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The ksvc should not be created")
+			expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
 
-			// Check that the virtual service was not created
-			virtualService := &istioclientv1beta1.VirtualService{}
-			Consistently(func() bool {
-				err := k8sClient.Get(context.TODO(), serviceKey, virtualService)
-				return apierr.IsNotFound(err)
-			}, timeout).
-				Should(BeTrue(), "The virtual service should not be created")
-
-			// Check that the service was not created
-			service := &corev1.Service{}
-			Consistently(func() bool {
-				err := k8sClient.Get(context.TODO(), serviceKey, service)
-				return apierr.IsNotFound(err)
-			}, timeout).
-				Should(BeTrue(), "The service should not be created")
+			// Check that the services were not created
+			expectResourceIsDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
+			expectResourceIsDeleted(context.Background(), &corev1.Service{}, serviceKey)
 
 			// Check that the ISVC status reflects that it is stopped
-			actualIsvc := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, actualIsvc)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, actualIsvc)
-				if err == nil {
-					stopped_cond := actualIsvc.Status.GetCondition(v1beta1.Stopped)
-					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionTrue {
-						return true
-					}
-				}
-				return false
-			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
+			actualIsvc := expectIsvcToBePresent(ctx, serviceKey)
+			expectIsvcTrueStoppedStatus(ctx, serviceKey)
 
 			// Resume the inference service
 			updatedIsvc := actualIsvc.DeepCopy()
 			updatedIsvc.Annotations[constants.StopAnnotationKey] = "false"
 			Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
 
-			// Check that the knative service was created
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), predictorServiceKey, actualService)
-				return err == nil
-			}, 30*time.Second).Should(BeTrue())
+			// Knative service
+			expectKsvcToBeReady(context.Background(), serviceKey, predictorServiceKey)
 
-			// Add a url to the knative service so the services can be made
-			copiedKsvc := actualService.DeepCopy()
-			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
-			copiedKsvc.Status.URL = predictorUrl
-			copiedKsvc.Status.Conditions = duckv1.Conditions{
-				{
-					Type:   knservingv1.ServiceConditionReady,
-					Status: "True",
-				},
-				{
-					Type:   knservingv1.ServiceConditionRoutesReady,
-					Status: "True",
-				},
-				{
-					Type:   knservingv1.ServiceConditionConfigurationsReady,
-					Status: "True",
-				},
-			}
-			copiedKsvc.Status.LatestCreatedRevisionName = "revision-v1"
-			copiedKsvc.Status.LatestReadyRevisionName = "revision-v1"
-			Expect(k8sClient.Status().Update(context.TODO(), copiedKsvc)).NotTo(HaveOccurred())
+			// Check that the ISVC was updated
+			expectIsvcToBePresent(ctx, serviceKey)
 
-			// Check that the virtual service is present
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), serviceKey, virtualService)
-				return err == nil
-			}, timeout).
-				Should(BeTrue())
+			// Check the services
+			expectVirtualServiceToBePresent(context.Background(), serviceKey)
+			expectK8sServiceToBePresent(context.Background(), serviceKey)
 
-			// Check that the service is present
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), serviceKey, service)
-				return err == nil
-			}, timeout).
-				Should(BeTrue())
-
-			// Check that the stopped condition is false
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err == nil {
-					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
-					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionFalse {
-						return true
-					}
-				}
-				return false
-			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to false")
-
-			// Check that the inference service is ready
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, actualIsvc)
-				if err != nil {
-					return false
-				}
-				readyCond := actualIsvc.Status.GetCondition(v1beta1.PredictorReady)
-				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
-			}, timeout, interval).Should(BeTrue(), "The predictor should be ready")
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, actualIsvc)
-				if err != nil {
-					return false
-				}
-				readyCond := actualIsvc.Status.GetCondition(v1beta1.IngressReady)
-				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
-			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
+			// Check the ISVC statuses
+			expectIsvcFalseStoppedStatus(ctx, serviceKey)
+			expectIsvcReadyStatus(ctx, serviceKey)
 		})
 	})
 
