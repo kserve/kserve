@@ -1224,7 +1224,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			expectKsvcToBeReady(context.Background(), serviceKey, predictorServiceKey)
 
 			// Check that the ISVC was updated
-			actualIsvc := expectIsvcToBePresent(ctx, serviceKey)
+			expectIsvcToBePresent(ctx, serviceKey)
 
 			// Check the services
 			expectVirtualServiceToBePresent(context.Background(), serviceKey)
@@ -1235,6 +1235,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			expectIsvcReadyStatus(ctx, serviceKey)
 
 			// Stop the inference service
+			actualIsvc := expectIsvcToBePresent(ctx, serviceKey)
 			updatedIsvc := actualIsvc.DeepCopy()
 			updatedIsvc.Annotations[constants.StopAnnotationKey] = "true"
 			Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
