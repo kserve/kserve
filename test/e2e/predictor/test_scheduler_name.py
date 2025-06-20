@@ -48,7 +48,7 @@ def get_pods(service_name: str) -> list[client.V1Pod]:
 @pytest.mark.asyncio(scope="session")
 async def test_scheduler_name(rest_v1_client):
     scheduler_name = "kserve-scheduler"
-    service_name = "isvc-sklearn"
+    service_name = "isvc-sklearn-scheduler"
     logger.info("Creating InferenceService %s", service_name)
 
     predictor = V1beta1PredictorSpec(
