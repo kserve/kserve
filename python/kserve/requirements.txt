@@ -29,7 +29,9 @@ jmespath==0.10.0
 googleapis_common_protos==1.53.0
 cachetools==4.2.2
 google_auth==1.34.0
-cffi==1.14.6
+# AIP: Relax cffi to unblock customers. AIP-9227.
+# cffi==1.14.6
+cffi>=1.14.6
 deprecation==2.1.0
 cryptography==3.4.7
 idna==3.2
