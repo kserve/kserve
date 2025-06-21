@@ -962,8 +962,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		}
 
 		// --- Reusable Check Functions ---
-		// Wait for the Knative Service to exist and for its status URL and conditions to be ready.
-		expectKsvcToBeReady := func(ctx context.Context, serviceKey types.NamespacedName, predictorServiceKey types.NamespacedName) {
+		// Wait for the Predictor's Knative Service to exist and for its status URL and conditions to be ready.
+		expectPredictorKsvcToBeReady := func(ctx context.Context, serviceKey types.NamespacedName, predictorServiceKey types.NamespacedName) {
 			// Predictor knative service
 			predictorService := &knservingv1.Service{}
 			Eventually(func() bool {
@@ -992,6 +992,37 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			updatedPredictorService.Status.LatestCreatedRevisionName = "revision-v1"
 			updatedPredictorService.Status.LatestReadyRevisionName = "revision-v1"
 			Expect(k8sClient.Status().Update(ctx, updatedPredictorService)).NotTo(HaveOccurred())
+		}
+		// Wait for the Transformer's Knative Service to exist and for its status URL and conditions to be ready.
+		expectTransformerKsvcToBeReady := func(ctx context.Context, serviceKey types.NamespacedName, transformerServiceKey types.NamespacedName) {
+			// Transformer knative service
+			transformerService := &knservingv1.Service{}
+			Eventually(func() bool {
+				err := k8sClient.Get(context.TODO(), transformerServiceKey, transformerService)
+				return err == nil
+			}, 30*time.Second).Should(BeTrue())
+
+			// Add a url to the transformer knative service so the services can be made
+			updatedTransformerService := transformerService.DeepCopy()
+			transformerUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.TransformerServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+			updatedTransformerService.Status.URL = transformerUrl
+			updatedTransformerService.Status.Conditions = duckv1.Conditions{
+				{
+					Type:   knservingv1.ServiceConditionReady,
+					Status: "True",
+				},
+				{
+					Type:   knservingv1.ServiceConditionRoutesReady,
+					Status: "True",
+				},
+				{
+					Type:   knservingv1.ServiceConditionConfigurationsReady,
+					Status: "True",
+				},
+			}
+			updatedTransformerService.Status.LatestCreatedRevisionName = "t-revision-v1"
+			updatedTransformerService.Status.LatestReadyRevisionName = "t-revision-v1"
+			Expect(k8sClient.Status().Update(context.TODO(), updatedTransformerService)).NotTo(HaveOccurred())
 		}
 
 		// Wait for the ISVC to exist.
@@ -1088,6 +1119,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
 		}
 
+		// Wait for the InferenceService's PredictorReady and IngressReady condition.
+		expectIsvcTransformerReadyStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
+			updatedIsvc := &v1beta1.InferenceService{}
+			// Check that the transformer is ready
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err != nil {
+					return false
+				}
+				readyCond := updatedIsvc.Status.GetCondition(v1beta1.TransformerReady)
+				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
+			}, timeout, interval).Should(BeTrue(), "The transformer should be ready")
+		}
+
 		// Checks that any Kubernetes object to be not found.
 		expectResourceIsDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
 			Consistently(func() bool {
@@ -1103,213 +1148,505 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return apierr.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue(), "%T %s should be deleted", obj, objKey.Name)
 		}
+		var _ = Describe("inference service only", func() {
+			It("Should keep the knative service/virtualService/service when the annotation is set to false", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
 
-		It("Should keep the knative service/virtualService/service when the annotation is set to false", func() {
-			ctx, cancel := context.WithCancel(context.Background())
-			DeferCleanup(cancel)
+				// Config map
+				configMap := createInferenceServiceConfigMap()
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, configMap)
 
-			// Config map
-			configMap := createInferenceServiceConfigMap()
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(ctx, configMap)
+				// Serving runtime
+				serviceName := "stop-false-isvc"
+				serviceNamespace := "default"
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
+				serviceKey := expectedRequest.NamespacedName
+				storageUri := "s3://test/mnist/export"
 
-			// Serving runtime
-			serviceName := "stop-false-isvc"
-			serviceNamespace := "default"
-			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
-			serviceKey := expectedRequest.NamespacedName
-			storageUri := "s3://test/mnist/export"
+				servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
+				Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, servingRuntime)
 
-			servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
-			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(ctx, servingRuntime)
+				// Define InferenceService
+				isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
+				isvc.Annotations[constants.StopAnnotationKey] = "false"
+				Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, isvc)
 
-			// Define InferenceService
-			isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
-			isvc.Annotations[constants.StopAnnotationKey] = "false"
-			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(ctx, isvc)
+				// Knative service
+				predictorServiceKey := types.NamespacedName{
+					Name:      constants.PredictorServiceName(serviceKey.Name),
+					Namespace: serviceKey.Namespace,
+				}
+				expectPredictorKsvcToBeReady(context.Background(), serviceKey, predictorServiceKey)
 
-			// Knative service
-			predictorServiceKey := types.NamespacedName{
-				Name:      constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace,
-			}
-			expectKsvcToBeReady(context.Background(), serviceKey, predictorServiceKey)
+				// Check that the ISVC was updated
+				expectIsvcToBePresent(ctx, serviceKey)
 
-			// Check that the ISVC was updated
-			expectIsvcToBePresent(ctx, serviceKey)
+				// Check the services
+				expectVirtualServiceToBePresent(context.Background(), serviceKey)
+				expectK8sServiceToBePresent(context.Background(), serviceKey)
 
-			// Check the services
-			expectVirtualServiceToBePresent(context.Background(), serviceKey)
-			expectK8sServiceToBePresent(context.Background(), serviceKey)
+				// Check the ISVC statuses
+				expectIsvcFalseStoppedStatus(ctx, serviceKey)
+				expectIsvcReadyStatus(ctx, serviceKey)
+			})
 
-			// Check the ISVC statuses
-			expectIsvcFalseStoppedStatus(ctx, serviceKey)
-			expectIsvcReadyStatus(ctx, serviceKey)
+			It("Should delete the knative service/virtualService/service when the annotation is set to true", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
+
+				// Config map
+				configMap := createInferenceServiceConfigMap()
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, configMap)
+
+				// Serving runtime
+				serviceName := "stop-true-isvc"
+				serviceNamespace := "default"
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
+				serviceKey := expectedRequest.NamespacedName
+				storageUri := "s3://test/mnist/export"
+
+				servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
+				Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, servingRuntime)
+
+				// Define InferenceService
+				isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
+				isvc.Annotations[constants.StopAnnotationKey] = "true"
+				Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, isvc)
+
+				// Check that the KSVC does not exist
+				predictorServiceKey := types.NamespacedName{
+					Name:      constants.PredictorServiceName(serviceKey.Name),
+					Namespace: serviceKey.Namespace,
+				}
+				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
+
+				// Check that the services were not created
+				expectResourceIsDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
+				expectResourceIsDeleted(context.Background(), &corev1.Service{}, serviceKey)
+
+				// Check that the ISVC status reflects that it is stopped
+				expectIsvcTrueStoppedStatus(ctx, serviceKey)
+			})
+
+			It("Should delete the knative service/virtualService/service when the annotation is updated to true on an existing ISVC", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
+
+				// Config map
+				configMap := createInferenceServiceConfigMap()
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, configMap)
+
+				// Serving runtime
+				serviceName := "stop-edit-true-isvc"
+				serviceNamespace := "default"
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
+				serviceKey := expectedRequest.NamespacedName
+				storageUri := "s3://test/mnist/export"
+
+				servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
+				Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, servingRuntime)
+
+				// Define InferenceService
+				isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
+				isvc.Annotations[constants.StopAnnotationKey] = "false"
+				Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, isvc)
+
+				// Knative service
+				predictorServiceKey := types.NamespacedName{
+					Name:      constants.PredictorServiceName(serviceKey.Name),
+					Namespace: serviceKey.Namespace,
+				}
+				expectPredictorKsvcToBeReady(context.Background(), serviceKey, predictorServiceKey)
+
+				// Check that the ISVC was updated
+				expectIsvcToBePresent(ctx, serviceKey)
+
+				// Check the services
+				expectVirtualServiceToBePresent(context.Background(), serviceKey)
+				expectK8sServiceToBePresent(context.Background(), serviceKey)
+
+				// Check the ISVC statuses
+				expectIsvcFalseStoppedStatus(ctx, serviceKey)
+				expectIsvcReadyStatus(ctx, serviceKey)
+
+				// Stop the inference service
+				actualIsvc := expectIsvcToBePresent(ctx, serviceKey)
+				updatedIsvc := actualIsvc.DeepCopy()
+				updatedIsvc.Annotations[constants.StopAnnotationKey] = "true"
+				Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
+
+				// Check that the KSVC was deleted
+				expectResourceToBeDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
+
+				// Check that the services are deleted
+				expectResourceToBeDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
+				expectResourceToBeDeleted(context.Background(), &corev1.Service{}, serviceKey)
+
+				// Check that the ISVC status reflects that it is stopped
+				expectIsvcTrueStoppedStatus(ctx, serviceKey)
+			})
+
+			It("Should create the knative service/virtualService/service when the annotation is updated to false on an existing ISVC that is stopped", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
+
+				// Config map
+				configMap := createInferenceServiceConfigMap()
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, configMap)
+
+				// Serving runtime
+				serviceName := "stop-edit-false-isvc"
+				serviceNamespace := "default"
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
+				serviceKey := expectedRequest.NamespacedName
+				storageUri := "s3://test/mnist/export"
+
+				servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
+				Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, servingRuntime)
+
+				// Define InferenceService
+				isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
+				isvc.Annotations[constants.StopAnnotationKey] = "true"
+				Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, isvc)
+
+				// Check that the KSVC does not exist
+				predictorServiceKey := types.NamespacedName{
+					Name:      constants.PredictorServiceName(serviceKey.Name),
+					Namespace: serviceKey.Namespace,
+				}
+				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
+
+				// Check that the services were not created
+				expectResourceIsDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
+				expectResourceIsDeleted(context.Background(), &corev1.Service{}, serviceKey)
+
+				// Check that the ISVC status reflects that it is stopped
+				actualIsvc := expectIsvcToBePresent(ctx, serviceKey)
+				expectIsvcTrueStoppedStatus(ctx, serviceKey)
+
+				// Resume the inference service
+				updatedIsvc := actualIsvc.DeepCopy()
+				updatedIsvc.Annotations[constants.StopAnnotationKey] = "false"
+				Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
+
+				// Knative service
+				expectPredictorKsvcToBeReady(context.Background(), serviceKey, predictorServiceKey)
+
+				// Check that the ISVC was updated
+				expectIsvcToBePresent(ctx, serviceKey)
+
+				// Check the services
+				expectVirtualServiceToBePresent(context.Background(), serviceKey)
+				expectK8sServiceToBePresent(context.Background(), serviceKey)
+
+				// Check the ISVC statuses
+				expectIsvcFalseStoppedStatus(ctx, serviceKey)
+				expectIsvcReadyStatus(ctx, serviceKey)
+			})
 		})
 
-		It("Should delete the knative service/virtualService/service when the annotation is set to true", func() {
-			ctx, cancel := context.WithCancel(context.Background())
-			DeferCleanup(cancel)
-
-			// Config map
-			configMap := createInferenceServiceConfigMap()
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(ctx, configMap)
-
-			// Serving runtime
-			serviceName := "stop-true-isvc"
-			serviceNamespace := "default"
-			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
-			serviceKey := expectedRequest.NamespacedName
-			storageUri := "s3://test/mnist/export"
-
-			servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
-			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(ctx, servingRuntime)
-
-			// Define InferenceService
-			isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
-			isvc.Annotations[constants.StopAnnotationKey] = "true"
-			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(ctx, isvc)
-
-			// Check that the KSVC does not exist
-			predictorServiceKey := types.NamespacedName{
-				Name:      constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace,
+		var _ = Describe("inference service with a transformer", func() {
+			// --- Default values ---
+			defaultTransformerIsvc := func(namespace string, name string, storageUri string) *v1beta1.InferenceService {
+				predictor := v1beta1.PredictorSpec{
+					ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+						MinReplicas: ptr.To(int32(1)),
+						MaxReplicas: 3,
+					},
+					Tensorflow: &v1beta1.TFServingSpec{
+						PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+							StorageURI:     &storageUri,
+							RuntimeVersion: proto.String("1.14.0"),
+							Container: corev1.Container{
+								Name:      constants.InferenceServiceContainerName,
+								Resources: defaultResource,
+							},
+						},
+					},
+				}
+				transformer := &v1beta1.TransformerSpec{
+					ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+						MinReplicas: ptr.To(int32(1)),
+						MaxReplicas: 3,
+					},
+					PodSpec: v1beta1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Image:     "transformer:v1",
+								Resources: defaultResource,
+							},
+						},
+					},
+				}
+				isvc := &v1beta1.InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: namespace,
+						Annotations: map[string]string{
+							"serving.kserve.io/deploymentMode": "Serverless",
+						},
+					},
+					Spec: v1beta1.InferenceServiceSpec{
+						Predictor:   predictor,
+						Transformer: transformer,
+					},
+				}
+				return isvc
 			}
-			expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
 
-			// Check that the services were not created
-			expectResourceIsDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
-			expectResourceIsDeleted(context.Background(), &corev1.Service{}, serviceKey)
+			It("Should keep the transformer knative service/virtualService/service when the annotation is set to false", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
 
-			// Check that the ISVC status reflects that it is stopped
-			expectIsvcTrueStoppedStatus(ctx, serviceKey)
-		})
+				// Config map
+				configMap := createInferenceServiceConfigMap()
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, configMap)
 
-		It("Should delete the knative service/virtualService/service when the annotation is updated to true on an existing ISVC", func() {
-			ctx, cancel := context.WithCancel(context.Background())
-			DeferCleanup(cancel)
+				// Serving runtime
+				serviceName := "stop-transformer-false-isvc"
+				serviceNamespace := "default"
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
+				serviceKey := expectedRequest.NamespacedName
+				storageUri := "s3://test/mnist/export"
 
-			// Config map
-			configMap := createInferenceServiceConfigMap()
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(ctx, configMap)
+				servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
+				Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, servingRuntime)
 
-			// Serving runtime
-			serviceName := "stop-edit-true-isvc"
-			serviceNamespace := "default"
-			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
-			serviceKey := expectedRequest.NamespacedName
-			storageUri := "s3://test/mnist/export"
+				// Define InferenceService
+				isvc := defaultTransformerIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
+				isvc.Annotations[constants.StopAnnotationKey] = "false"
+				Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, isvc)
 
-			servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
-			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(ctx, servingRuntime)
+				// Predictor knative service
+				predictorServiceKey := types.NamespacedName{
+					Name:      constants.PredictorServiceName(serviceName),
+					Namespace: serviceKey.Namespace,
+				}
+				expectPredictorKsvcToBeReady(context.Background(), serviceKey, predictorServiceKey)
 
-			// Define InferenceService
-			isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
-			isvc.Annotations[constants.StopAnnotationKey] = "false"
-			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(ctx, isvc)
+				// Transformer knative service
+				transformerServiceKey := types.NamespacedName{
+					Name:      constants.TransformerServiceName(serviceName),
+					Namespace: serviceKey.Namespace,
+				}
+				expectTransformerKsvcToBeReady(context.Background(), serviceKey, transformerServiceKey)
 
-			// Knative service
-			predictorServiceKey := types.NamespacedName{
-				Name:      constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace,
-			}
-			expectKsvcToBeReady(context.Background(), serviceKey, predictorServiceKey)
+				// Check that the ISVC was updated
+				expectIsvcToBePresent(ctx, serviceKey)
 
-			// Check that the ISVC was updated
-			expectIsvcToBePresent(ctx, serviceKey)
+				// Check the services
+				expectVirtualServiceToBePresent(context.Background(), serviceKey)
+				expectK8sServiceToBePresent(context.Background(), serviceKey)
 
-			// Check the services
-			expectVirtualServiceToBePresent(context.Background(), serviceKey)
-			expectK8sServiceToBePresent(context.Background(), serviceKey)
+				// Check the ISVC statuses
+				expectIsvcFalseStoppedStatus(ctx, serviceKey)
+				expectIsvcReadyStatus(ctx, serviceKey)
+				expectIsvcTransformerReadyStatus(ctx, serviceKey)
+			})
 
-			// Check the ISVC statuses
-			expectIsvcFalseStoppedStatus(ctx, serviceKey)
-			expectIsvcReadyStatus(ctx, serviceKey)
+			It("Should delete the transformer knative service/virtualService/service when the annotation is set to true", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
 
-			// Stop the inference service
-			actualIsvc := expectIsvcToBePresent(ctx, serviceKey)
-			updatedIsvc := actualIsvc.DeepCopy()
-			updatedIsvc.Annotations[constants.StopAnnotationKey] = "true"
-			Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
+				// Config map
+				configMap := createInferenceServiceConfigMap()
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, configMap)
 
-			// Check that the KSVC was deleted
-			expectResourceToBeDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
+				// Serving runtime
+				serviceName := "stop-transformer-true-isvc"
+				serviceNamespace := "default"
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
+				serviceKey := expectedRequest.NamespacedName
+				storageUri := "s3://test/mnist/export"
 
-			// Check that the services are deleted
-			expectResourceToBeDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
-			expectResourceToBeDeleted(context.Background(), &corev1.Service{}, serviceKey)
+				servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
+				Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, servingRuntime)
 
-			// Check that the ISVC status reflects that it is stopped
-			expectIsvcTrueStoppedStatus(ctx, serviceKey)
-		})
+				// Define InferenceService
+				isvc := defaultTransformerIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
+				isvc.Annotations[constants.StopAnnotationKey] = "true"
+				Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, isvc)
 
-		It("Should create the knative service/virtualService/service when the annotation is updated to false on an existing ISVC that is stopped", func() {
-			ctx, cancel := context.WithCancel(context.Background())
-			DeferCleanup(cancel)
+				// Check that the KSVC does not exist
+				predictorServiceKey := types.NamespacedName{
+					Name:      constants.PredictorServiceName(serviceKey.Name),
+					Namespace: serviceKey.Namespace,
+				}
+				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
 
-			// Config map
-			configMap := createInferenceServiceConfigMap()
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(ctx, configMap)
+				// Transformer knative service
+				transformerServiceKey := types.NamespacedName{
+					Name:      constants.TransformerServiceName(serviceName),
+					Namespace: serviceKey.Namespace,
+				}
+				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, transformerServiceKey)
 
-			// Serving runtime
-			serviceName := "stop-edit-false-isvc"
-			serviceNamespace := "default"
-			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
-			serviceKey := expectedRequest.NamespacedName
-			storageUri := "s3://test/mnist/export"
+				// Check that the services were not created
+				expectResourceIsDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
+				expectResourceIsDeleted(context.Background(), &corev1.Service{}, serviceKey)
 
-			servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
-			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(ctx, servingRuntime)
+				// Check that the ISVC status reflects that it is stopped
+				expectIsvcTrueStoppedStatus(ctx, serviceKey)
+			})
 
-			// Define InferenceService
-			isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
-			isvc.Annotations[constants.StopAnnotationKey] = "true"
-			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(ctx, isvc)
+			It("Should delete the transformer knative service/virtualService/service when the annotation is updated to true on an existing ISVC", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
 
-			// Check that the KSVC does not exist
-			predictorServiceKey := types.NamespacedName{
-				Name:      constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace,
-			}
-			expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
+				// Config map
+				configMap := createInferenceServiceConfigMap()
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, configMap)
 
-			// Check that the services were not created
-			expectResourceIsDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
-			expectResourceIsDeleted(context.Background(), &corev1.Service{}, serviceKey)
+				// Serving runtime
+				serviceName := "stop-transformer-edit-isvc"
+				serviceNamespace := "default"
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
+				serviceKey := expectedRequest.NamespacedName
+				storageUri := "s3://test/mnist/export"
 
-			// Check that the ISVC status reflects that it is stopped
-			actualIsvc := expectIsvcToBePresent(ctx, serviceKey)
-			expectIsvcTrueStoppedStatus(ctx, serviceKey)
+				servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
+				Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, servingRuntime)
 
-			// Resume the inference service
-			updatedIsvc := actualIsvc.DeepCopy()
-			updatedIsvc.Annotations[constants.StopAnnotationKey] = "false"
-			Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
+				// Define InferenceService
+				isvc := defaultTransformerIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
+				isvc.Annotations[constants.StopAnnotationKey] = "false"
+				Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, isvc)
 
-			// Knative service
-			expectKsvcToBeReady(context.Background(), serviceKey, predictorServiceKey)
+				// Predictor knative service
+				predictorServiceKey := types.NamespacedName{
+					Name:      constants.PredictorServiceName(serviceName),
+					Namespace: serviceKey.Namespace,
+				}
+				expectPredictorKsvcToBeReady(context.Background(), serviceKey, predictorServiceKey)
 
-			// Check that the ISVC was updated
-			expectIsvcToBePresent(ctx, serviceKey)
+				// Transformer knative service
+				transformerServiceKey := types.NamespacedName{
+					Name:      constants.TransformerServiceName(serviceName),
+					Namespace: serviceKey.Namespace,
+				}
+				expectTransformerKsvcToBeReady(context.Background(), serviceKey, transformerServiceKey)
 
-			// Check the services
-			expectVirtualServiceToBePresent(context.Background(), serviceKey)
-			expectK8sServiceToBePresent(context.Background(), serviceKey)
+				// Check that the ISVC was updated
+				expectIsvcToBePresent(ctx, serviceKey)
 
-			// Check the ISVC statuses
-			expectIsvcFalseStoppedStatus(ctx, serviceKey)
-			expectIsvcReadyStatus(ctx, serviceKey)
+				// Check the services
+				expectVirtualServiceToBePresent(context.Background(), serviceKey)
+				expectK8sServiceToBePresent(context.Background(), serviceKey)
+
+				// Check the ISVC statuses
+				expectIsvcFalseStoppedStatus(ctx, serviceKey)
+				expectIsvcReadyStatus(ctx, serviceKey)
+				expectIsvcTransformerReadyStatus(ctx, serviceKey)
+
+				// Stop the inference service
+				actualIsvc := expectIsvcToBePresent(ctx, serviceKey)
+				updatedIsvc := actualIsvc.DeepCopy()
+				updatedIsvc.Annotations[constants.StopAnnotationKey] = "true"
+				Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
+
+				// Check that the KSVCs were deleted
+				expectResourceToBeDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
+				expectResourceToBeDeleted(context.Background(), &knservingv1.Service{}, transformerServiceKey)
+
+				// Check that the services were deleted
+				expectResourceToBeDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
+				expectResourceToBeDeleted(context.Background(), &corev1.Service{}, serviceKey)
+
+				// Check that the ISVC status reflects that it is stopped
+				expectIsvcTrueStoppedStatus(ctx, serviceKey)
+			})
+
+			It("Should create the transformer knative service/virtualService/service when the annotation is updated to false on an existing ISVC that is stopped", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
+
+				// Config map
+				configMap := createInferenceServiceConfigMap()
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, configMap)
+
+				// Serving runtime
+				serviceName := "stop-transformer-edit-false-isvc"
+				serviceNamespace := "default"
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
+				serviceKey := expectedRequest.NamespacedName
+				storageUri := "s3://test/mnist/export"
+
+				servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
+				Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, servingRuntime)
+
+				// Define InferenceService
+				isvc := defaultTransformerIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
+				isvc.Annotations[constants.StopAnnotationKey] = "true"
+				Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, isvc)
+
+				// Check that the KSVC does not exist
+				predictorServiceKey := types.NamespacedName{
+					Name:      constants.PredictorServiceName(serviceKey.Name),
+					Namespace: serviceKey.Namespace,
+				}
+				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
+
+				// Transformer knative service
+				transformerServiceKey := types.NamespacedName{
+					Name:      constants.TransformerServiceName(serviceName),
+					Namespace: serviceKey.Namespace,
+				}
+				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, transformerServiceKey)
+
+				// Check that the services were not created
+				expectResourceIsDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
+				expectResourceIsDeleted(context.Background(), &corev1.Service{}, serviceKey)
+
+				// Check that the ISVC status reflects that it is stopped
+				actualIsvc := expectIsvcToBePresent(ctx, serviceKey)
+				expectIsvcTrueStoppedStatus(ctx, serviceKey)
+
+				// Resume the inference service
+				updatedIsvc := actualIsvc.DeepCopy()
+				updatedIsvc.Annotations[constants.StopAnnotationKey] = "false"
+				Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
+
+				// Check the KSVCs
+				expectPredictorKsvcToBeReady(context.Background(), serviceKey, predictorServiceKey)
+				expectTransformerKsvcToBeReady(context.Background(), serviceKey, transformerServiceKey)
+
+				// Check that the ISVC was updated
+				expectIsvcToBePresent(ctx, serviceKey)
+
+				// Check the services
+				expectVirtualServiceToBePresent(context.Background(), serviceKey)
+				expectK8sServiceToBePresent(context.Background(), serviceKey)
+
+				// Check the ISVC statuses
+				expectIsvcFalseStoppedStatus(ctx, serviceKey)
+				expectIsvcReadyStatus(ctx, serviceKey)
+				expectIsvcTransformerReadyStatus(ctx, serviceKey)
+			})
 		})
 	})
 
