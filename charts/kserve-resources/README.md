@@ -16,7 +16,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| kserve.agent.image | string | `"kserve/agent"` |  |
+| kserve.agent.image | string | `"ghcr.io/kserve/agent"` |  |
 | kserve.agent.tag | string | `"v0.15.2"` |  |
 | kserve.controller.affinity | object | `{}` | A Kubernetes Affinity, if required. For more information, see [Affinity v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#affinity-v1-core).  For example:   affinity:     nodeAffinity:      requiredDuringSchedulingIgnoredDuringExecution:        nodeSelectorTerms:        - matchExpressions:          - key: foo.bar.com/role            operator: In            values:            - master |
 | kserve.controller.annotations | object | `{}` | Optional additional annotations to add to the controller deployment. |
@@ -37,7 +37,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.controller.gateway.localGateway.gatewayService | string | `"knative-local-gateway.istio-system.svc.cluster.local"` | localGatewayService specifies the hostname of the local gateway service. |
 | kserve.controller.gateway.localGateway.knativeGatewayService | string | `""` | knativeLocalGatewayService specifies the hostname of the Knative's local gateway service. When unset, the value of "localGatewayService" will be used. When enabling strict mTLS in Istio, KServe local gateway should be created and pointed to the Knative local gateway. |
 | kserve.controller.gateway.urlScheme | string | `"http"` | HTTP endpoint url scheme. |
-| kserve.controller.image | string | `"kserve/kserve-controller"` | KServe controller container image name. |
+| kserve.controller.image | string | `"ghcr.io/kserve/kserve-controller"` | KServe controller container image name. |
 | kserve.controller.imagePullSecrets | list | `[]` | Reference to one or more secrets to be used when pulling images. For more information, see [Pull an Image from a Private Registry](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/).  For example:  imagePullSecrets:    - name: "image-pull-secret" |
 | kserve.controller.knativeAddressableResolver | object | `{"enabled":false}` | Indicates whether to create an addressable resolver ClusterRole for Knative Eventing. This ClusterRole grants the necessary permissions for the Knative's DomainMapping reconciler to resolve InferenceService addressables. |
 | kserve.controller.labels | object | `{}` | Optional additional labels to add to the controller deployment. |
@@ -69,14 +69,14 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.inferenceservice.resources.requests.memory | string | `"2Gi"` |  |
 | kserve.localmodel.agent.affinity | object | `{}` |  |
 | kserve.localmodel.agent.hostPath | string | `"/mnt/models"` |  |
-| kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
+| kserve.localmodel.agent.image | string | `"ghcr.io/kserve/kserve-localmodelnode-agent"` |  |
 | kserve.localmodel.agent.nodeSelector | object | `{}` |  |
 | kserve.localmodel.agent.reconcilationFrequencyInSecs | int | `60` |  |
 | kserve.localmodel.agent.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.localmodel.agent.securityContext.runAsUser | int | `1000` |  |
 | kserve.localmodel.agent.tag | string | `"v0.15.2"` |  |
 | kserve.localmodel.agent.tolerations | list | `[]` |  |
-| kserve.localmodel.controller.image | string | `"kserve/kserve-localmodel-controller"` |  |
+| kserve.localmodel.controller.image | string | `"ghcr.io/kserve/kserve-localmodel-controller"` |  |
 | kserve.localmodel.controller.tag | string | `"v0.15.2"` |  |
 | kserve.localmodel.disableVolumeManagement | bool | `false` |  |
 | kserve.localmodel.enabled | bool | `false` |  |
@@ -85,20 +85,20 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.localmodel.securityContext.fsGroup | int | `1000` |  |
 | kserve.metricsaggregator.enableMetricAggregation | string | `"false"` | configures metric aggregation annotation. This adds the annotation serving.kserve.io/enable-metric-aggregation to every service with the specified boolean value. If true enables metric aggregation in queue-proxy by setting env vars in the queue proxy container to configure scraping ports. |
 | kserve.metricsaggregator.enablePrometheusScraping | string | `"false"` | If true, prometheus annotations are added to the pod to scrape the metrics. If serving.kserve.io/enable-metric-aggregation is false, the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port. |
-| kserve.router.image | string | `"kserve/router"` |  |
+| kserve.router.image | string | `"ghcr.io/kserve/router"` |  |
 | kserve.router.imagePullPolicy | string | `"IfNotPresent"` | Specifies when to pull router image from registry. |
 | kserve.router.imagePullSecrets | list | `[]` | specifies the list of secrets to be used for pulling the router image from registry. |
 | kserve.router.tag | string | `"v0.15.2"` |  |
 | kserve.security.autoMountServiceAccountToken | bool | `true` |  |
 | kserve.service.serviceClusterIPNone | bool | `false` |  |
 | kserve.servingruntime.art.defaultVersion | string | `"v0.15.2"` |  |
-| kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
+| kserve.servingruntime.art.image | string | `"ghcr.io/kserve/art-explainer"` |  |
 | kserve.servingruntime.art.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.huggingfaceserver.devShm.enabled | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver.devShm.sizeLimit | string | `""` |  |
 | kserve.servingruntime.huggingfaceserver.disabled | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver.hostIPC.enabled | bool | `false` |  |
-| kserve.servingruntime.huggingfaceserver.image | string | `"kserve/huggingfaceserver"` |  |
+| kserve.servingruntime.huggingfaceserver.image | string | `"ghcr.io/kserve/huggingfaceserver"` |  |
 | kserve.servingruntime.huggingfaceserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.huggingfaceserver.lmcacheUseExperimental | string | `"True"` |  |
 | kserve.servingruntime.huggingfaceserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
@@ -115,7 +115,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.servingruntime.huggingfaceserver_multinode.shm.enabled | bool | `true` |  |
 | kserve.servingruntime.huggingfaceserver_multinode.shm.sizeLimit | string | `"3Gi"` |  |
 | kserve.servingruntime.lgbserver.disabled | bool | `false` |  |
-| kserve.servingruntime.lgbserver.image | string | `"kserve/lgbserver"` |  |
+| kserve.servingruntime.lgbserver.image | string | `"ghcr.io/kserve/lgbserver"` |  |
 | kserve.servingruntime.lgbserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.lgbserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.lgbserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
@@ -133,7 +133,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.servingruntime.mlserver.tag | string | `"1.5.0"` |  |
 | kserve.servingruntime.modelNamePlaceholder | string | `"{{.Name}}"` |  |
 | kserve.servingruntime.paddleserver.disabled | bool | `false` |  |
-| kserve.servingruntime.paddleserver.image | string | `"kserve/paddleserver"` |  |
+| kserve.servingruntime.paddleserver.image | string | `"ghcr.io/kserve/paddleserver"` |  |
 | kserve.servingruntime.paddleserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.paddleserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.paddleserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
@@ -141,7 +141,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.servingruntime.paddleserver.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.servingruntime.paddleserver.tag | string | `"v0.15.2"` |  |
 | kserve.servingruntime.pmmlserver.disabled | bool | `false` |  |
-| kserve.servingruntime.pmmlserver.image | string | `"kserve/pmmlserver"` |  |
+| kserve.servingruntime.pmmlserver.image | string | `"ghcr.io/kserve/pmmlserver"` |  |
 | kserve.servingruntime.pmmlserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.pmmlserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.pmmlserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
@@ -149,7 +149,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.servingruntime.pmmlserver.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.servingruntime.pmmlserver.tag | string | `"v0.15.2"` |  |
 | kserve.servingruntime.sklearnserver.disabled | bool | `false` |  |
-| kserve.servingruntime.sklearnserver.image | string | `"kserve/sklearnserver"` |  |
+| kserve.servingruntime.sklearnserver.image | string | `"ghcr.io/kserve/sklearnserver"` |  |
 | kserve.servingruntime.sklearnserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.sklearnserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.sklearnserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
@@ -185,7 +185,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.servingruntime.tritonserver.securityContext.runAsUser | int | `1000` |  |
 | kserve.servingruntime.tritonserver.tag | string | `"23.05-py3"` |  |
 | kserve.servingruntime.xgbserver.disabled | bool | `false` |  |
-| kserve.servingruntime.xgbserver.image | string | `"kserve/xgbserver"` |  |
+| kserve.servingruntime.xgbserver.image | string | `"ghcr.io/kserve/xgbserver"` |  |
 | kserve.servingruntime.xgbserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.xgbserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.xgbserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
@@ -200,7 +200,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.storage.containerSecurityContext.runAsNonRoot | bool | `true` |  |
 | kserve.storage.cpuModelcar | string | `"10m"` | Model sidecar cpu requirement. |
 | kserve.storage.enableModelcar | bool | `true` | Flag for enabling model sidecar feature. |
-| kserve.storage.image | string | `"kserve/storage-initializer"` |  |
+| kserve.storage.image | string | `"ghcr.io/kserve/storage-initializer"` |  |
 | kserve.storage.memoryModelcar | string | `"15Mi"` | Model sidecar memory requirement. |
 | kserve.storage.s3 | object | `{"CABundle":"","accessKeyIdName":"AWS_ACCESS_KEY_ID","endpoint":"","region":"","secretAccessKeyName":"AWS_SECRET_ACCESS_KEY","useAnonymousCredential":"","useHttps":"","useVirtualBucket":"","verifySSL":""}` | Configurations for S3 storage |
 | kserve.storage.s3.CABundle | string | `""` | The path to the certificate bundle to use for HTTPS certificate validation. |
