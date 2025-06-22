@@ -254,7 +254,6 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 	if transformerContainer != nil {
 		if _, exists := utils.GetEnvVarValue(transformerContainer.Env, RemoteStorageEnvVarName); !exists {
 			addOrReplaceEnv(transformerContainer, RemoteStorageEnvVarName, srcURI)
-
 		}
 	}
 

@@ -1472,7 +1472,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 						{
 							Name: constants.InferenceServiceContainerName,
 							Env: []corev1.EnvVar{
-								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"}},
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1575,7 +1576,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 						{
 							Name: constants.InferenceServiceContainerName,
 							Env: []corev1.EnvVar{
-								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"}},
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1697,7 +1699,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 						{
 							Name: constants.InferenceServiceContainerName,
 							Env: []corev1.EnvVar{
-								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"}},
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1821,7 +1824,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 						{
 							Name: constants.InferenceServiceContainerName,
 							Env: []corev1.EnvVar{
-								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"}},
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1938,7 +1942,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 						{
 							Name: constants.InferenceServiceContainerName,
 							Env: []corev1.EnvVar{
-								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"}},
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -2046,7 +2051,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 						{
 							Name: constants.InferenceServiceContainerName,
 							Env: []corev1.EnvVar{
-								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"}},
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3479,7 +3485,9 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							Env: []corev1.EnvVar{
 								{
 									Name:  constants.RemoteStorageEnvVarName,
-									Value: "gs://foo"}},
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3562,7 +3570,9 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							Env: []corev1.EnvVar{
 								{
 									Name:  constants.RemoteStorageEnvVarName,
-									Value: "gs://foo"}},
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3637,7 +3647,9 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							Env: []corev1.EnvVar{
 								{
 									Name:  constants.RemoteStorageEnvVarName,
-									Value: "gs://foo"}},
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
