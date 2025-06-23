@@ -998,7 +998,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Transformer knative service
 			transformerService := &knservingv1.Service{}
 			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), transformerServiceKey, transformerService)
+				err := k8sClient.Get(ctx, transformerServiceKey, transformerService)
 				return err == nil
 			}, 30*time.Second).Should(BeTrue())
 
@@ -1022,11 +1022,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			updatedTransformerService.Status.LatestCreatedRevisionName = "t-revision-v1"
 			updatedTransformerService.Status.LatestReadyRevisionName = "t-revision-v1"
-			Expect(k8sClient.Status().Update(context.TODO(), updatedTransformerService)).NotTo(HaveOccurred())
+			Expect(k8sClient.Status().Update(ctx, updatedTransformerService)).NotTo(HaveOccurred())
 		}
 
 		// Wait for the ISVC to exist.
-		expectIsvcToBePresent := func(ctx context.Context, serviceKey types.NamespacedName) v1beta1.InferenceService {
+		expectIsvcToExist := func(ctx context.Context, serviceKey types.NamespacedName) v1beta1.InferenceService {
 			// Check that the ISVC was updated
 			updatedIsvc := &v1beta1.InferenceService{}
 			Eventually(func() bool {
@@ -1035,28 +1035,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			return *updatedIsvc
-		}
-
-		// Wait for the Istio VirtualService to exist.
-		expectVirtualServiceToBePresent := func(ctx context.Context, serviceKey types.NamespacedName) {
-			// Check that the virtual service is present
-			virtualService := &istioclientv1beta1.VirtualService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, virtualService)
-				return err == nil
-			}, timeout).
-				Should(BeTrue())
-		}
-
-		// Wait for the Kubernetes Service to exist.
-		expectK8sServiceToBePresent := func(ctx context.Context, serviceKey types.NamespacedName) {
-			// Check that the service is present
-			service := &corev1.Service{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, service)
-				return err == nil
-			}, timeout).
-				Should(BeTrue())
 		}
 
 		// Wait for the InferenceService's Stopped condition to be false.
@@ -1133,6 +1111,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue(), "The transformer should be ready")
 		}
 
+		// Waits for any Kubernestes object to be found
+		expectResourceToExist := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, objKey, obj)
+				return err == nil
+			}, timeout, interval).Should(BeTrue(), "%T %s should exist", obj, objKey.Name)
+		}
+
 		// Checks that any Kubernetes object to be not found.
 		expectResourceIsDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
 			Consistently(func() bool {
@@ -1183,11 +1169,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectPredictorKsvcToBeReady(context.Background(), serviceKey, predictorServiceKey)
 
 				// Check that the ISVC was updated
-				expectIsvcToBePresent(ctx, serviceKey)
+				expectIsvcToExist(ctx, serviceKey)
 
 				// Check the services
-				expectVirtualServiceToBePresent(context.Background(), serviceKey)
-				expectK8sServiceToBePresent(context.Background(), serviceKey)
+				expectResourceToExist(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
+				expectResourceToExist(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check the ISVC statuses
 				expectIsvcFalseStoppedStatus(ctx, serviceKey)
@@ -1269,18 +1255,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectPredictorKsvcToBeReady(context.Background(), serviceKey, predictorServiceKey)
 
 				// Check that the ISVC was updated
-				expectIsvcToBePresent(ctx, serviceKey)
+				expectIsvcToExist(ctx, serviceKey)
 
 				// Check the services
-				expectVirtualServiceToBePresent(context.Background(), serviceKey)
-				expectK8sServiceToBePresent(context.Background(), serviceKey)
+				expectResourceToExist(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
+				expectResourceToExist(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check the ISVC statuses
 				expectIsvcFalseStoppedStatus(ctx, serviceKey)
 				expectIsvcReadyStatus(ctx, serviceKey)
 
 				// Stop the inference service
-				actualIsvc := expectIsvcToBePresent(ctx, serviceKey)
+				actualIsvc := expectIsvcToExist(ctx, serviceKey)
 				updatedIsvc := actualIsvc.DeepCopy()
 				updatedIsvc.Annotations[constants.StopAnnotationKey] = "true"
 				Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
@@ -1334,7 +1320,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectResourceIsDeleted(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check that the ISVC status reflects that it is stopped
-				actualIsvc := expectIsvcToBePresent(ctx, serviceKey)
+				actualIsvc := expectIsvcToExist(ctx, serviceKey)
 				expectIsvcTrueStoppedStatus(ctx, serviceKey)
 
 				// Resume the inference service
@@ -1346,11 +1332,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectPredictorKsvcToBeReady(context.Background(), serviceKey, predictorServiceKey)
 
 				// Check that the ISVC was updated
-				expectIsvcToBePresent(ctx, serviceKey)
+				expectIsvcToExist(ctx, serviceKey)
 
 				// Check the services
-				expectVirtualServiceToBePresent(context.Background(), serviceKey)
-				expectK8sServiceToBePresent(context.Background(), serviceKey)
+				expectResourceToExist(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
+				expectResourceToExist(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check the ISVC statuses
 				expectIsvcFalseStoppedStatus(ctx, serviceKey)
@@ -1448,11 +1434,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectTransformerKsvcToBeReady(context.Background(), serviceKey, transformerServiceKey)
 
 				// Check that the ISVC was updated
-				expectIsvcToBePresent(ctx, serviceKey)
+				expectIsvcToExist(ctx, serviceKey)
 
 				// Check the services
-				expectVirtualServiceToBePresent(context.Background(), serviceKey)
-				expectK8sServiceToBePresent(context.Background(), serviceKey)
+				expectResourceToExist(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
+				expectResourceToExist(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check the ISVC statuses
 				expectIsvcFalseStoppedStatus(ctx, serviceKey)
@@ -1549,11 +1535,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectTransformerKsvcToBeReady(context.Background(), serviceKey, transformerServiceKey)
 
 				// Check that the ISVC was updated
-				expectIsvcToBePresent(ctx, serviceKey)
+				expectIsvcToExist(ctx, serviceKey)
 
 				// Check the services
-				expectVirtualServiceToBePresent(context.Background(), serviceKey)
-				expectK8sServiceToBePresent(context.Background(), serviceKey)
+				expectResourceToExist(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
+				expectResourceToExist(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check the ISVC statuses
 				expectIsvcFalseStoppedStatus(ctx, serviceKey)
@@ -1561,7 +1547,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectIsvcTransformerReadyStatus(ctx, serviceKey)
 
 				// Stop the inference service
-				actualIsvc := expectIsvcToBePresent(ctx, serviceKey)
+				actualIsvc := expectIsvcToExist(ctx, serviceKey)
 				updatedIsvc := actualIsvc.DeepCopy()
 				updatedIsvc.Annotations[constants.StopAnnotationKey] = "true"
 				Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
@@ -1623,7 +1609,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectResourceIsDeleted(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check that the ISVC status reflects that it is stopped
-				actualIsvc := expectIsvcToBePresent(ctx, serviceKey)
+				actualIsvc := expectIsvcToExist(ctx, serviceKey)
 				expectIsvcTrueStoppedStatus(ctx, serviceKey)
 
 				// Resume the inference service
@@ -1636,11 +1622,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectTransformerKsvcToBeReady(context.Background(), serviceKey, transformerServiceKey)
 
 				// Check that the ISVC was updated
-				expectIsvcToBePresent(ctx, serviceKey)
+				expectIsvcToExist(ctx, serviceKey)
 
 				// Check the services
-				expectVirtualServiceToBePresent(context.Background(), serviceKey)
-				expectK8sServiceToBePresent(context.Background(), serviceKey)
+				expectResourceToExist(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
+				expectResourceToExist(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check the ISVC statuses
 				expectIsvcFalseStoppedStatus(ctx, serviceKey)
