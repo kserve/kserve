@@ -600,7 +600,7 @@ func (r *RawHTTPRouteReconciler) reconcileTransformerHTTPRoute(ctx context.Conte
 	httpRouteName := constants.TransformerServiceName(isvc.Name)
 	existingHttpRoute := &gatewayapiv1.HTTPRoute{}
 	getExistingErr := r.client.Get(ctx, types.NamespacedName{
-		Name: desired.Name, Namespace: isvc.Namespace,
+		Name: httpRouteName, Namespace: isvc.Namespace,
 	}, existingHttpRoute)
 	httpRouteIsNotFound := apierr.IsNotFound(getExistingErr)
 	if getExistingErr != nil && !httpRouteIsNotFound {
