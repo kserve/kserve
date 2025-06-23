@@ -42,6 +42,7 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -1910,6 +1911,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 	})
 	Context("When creating inference service with raw kube predictor and `serving.kserve.io/stop`", func() {
+		// --- Default values ---
 		configs := map[string]string{
 			"explainers": `{
 				"alibi": {
@@ -2034,6 +2036,156 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			return isvc
 		}
 
+		// --- Reusable Check Functions ---
+		// Wait for the ISVC to exist.
+		expectIsvcToExist := func(ctx context.Context, serviceKey types.NamespacedName) v1beta1.InferenceService {
+			// Check that the ISVC was updated
+			updatedIsvc := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			return *updatedIsvc
+		}
+
+		// Wait for the Deployment to exist and then set the DeploymentAvailable condition to true
+		expectDeploymentToBeReady := func(ctx context.Context, predictorKey types.NamespacedName) {
+			actualDeployment := &appsv1.Deployment{}
+			Eventually(func() error { return k8sClient.Get(ctx, predictorKey, actualDeployment) }, timeout).
+				Should(Succeed())
+
+			updatedDeployment := actualDeployment.DeepCopy()
+			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
+				{
+					Type:   appsv1.DeploymentAvailable,
+					Status: corev1.ConditionTrue,
+				},
+			}
+			Expect(k8sClient.Status().Update(ctx, updatedDeployment)).NotTo(HaveOccurred())
+		}
+
+		// Waits for the http route to be ready
+		// Note: top level route uses serviceKey, predictor route uses predictorKey
+		expectHttpRouteToBeReady := func(ctx context.Context, objKey types.NamespacedName) {
+			actualHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, objKey, actualHttpRoute)
+			}, timeout).Should(Succeed())
+
+			// Mark the route as accepted to make isvc ready
+			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
+				RouteStatus: gatewayapiv1.RouteStatus{
+					Parents: []gatewayapiv1.RouteParentStatus{
+						{
+							ParentRef: gatewayapiv1.ParentReference{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+							ControllerName: "istio.io/gateway-controller",
+							Conditions: []metav1.Condition{
+								{
+									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Status:             metav1.ConditionTrue,
+									Reason:             "Accepted",
+									Message:            "Route was valid",
+									LastTransitionTime: metav1.Now(),
+								},
+							},
+						},
+					},
+				},
+			}
+			actualHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(ctx, actualHttpRoute)).NotTo(HaveOccurred())
+		}
+
+		// Wait for the InferenceService's Stopped condition to be false.
+		expectIsvcFalseStoppedStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
+			// Check that the stopped condition is false
+			updatedIsvc := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err == nil {
+					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
+					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionFalse {
+						return true
+					}
+				}
+				return false
+			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to false")
+		}
+
+		// Wait for the InferenceService's PredictorReady and IngressReady condition.
+		expectIsvcReadyStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
+			updatedIsvc := &v1beta1.InferenceService{}
+			// Check that the inference service is ready
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err != nil {
+					return false
+				}
+				readyCond := updatedIsvc.Status.GetCondition(v1beta1.PredictorReady)
+				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
+			}, timeout, interval).Should(BeTrue(), "The predictor should be ready")
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err != nil {
+					return false
+				}
+				readyCond := updatedIsvc.Status.GetCondition(v1beta1.IngressReady)
+				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
+			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
+		}
+
+		// Wait for the InferenceService's Stopped condition to be true.
+		expectIsvcTrueStoppedStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
+			// Check that the ISVC status reflects that it is stopped
+			updatedIsvc := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err == nil {
+					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
+					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionTrue {
+						return true
+					}
+				}
+				return false
+			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
+		}
+
+		// Waits for any Kubernestes object to be found
+		expectResourceToExist := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, objKey, obj)
+				return err == nil
+			}, timeout, interval).Should(BeTrue(), "%T %s should exist", obj, objKey.Name)
+		}
+
+		// Checks that any Kubernetes object does not exist
+		expectResourceDoesNotExist := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, objKey, obj)
+				return apierr.IsNotFound(err)
+			}, time.Second*10, interval).Should(BeTrue(), "%T %s should not be created", obj, objKey.Name)
+		}
+
+		// Wait for any Kubernetes object to be not found.
+		expectResourceToBeDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, objKey, obj)
+				return apierr.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue(), "%T %s should be deleted", obj, objKey.Name)
+		}
+
 		It("Should keep the httproute/service/deployment/hpa created when the annotation is set to false", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
@@ -2066,113 +2218,31 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(ctx, isvc)
 
-			actualISVC := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, actualISVC)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			expectIsvcToExist(ctx, serviceKey)
 
 			// Check the deployment
-			actualDeployment := &appsv1.Deployment{}
-			Eventually(func() error { return k8sClient.Get(context.Background(), predictorKey, actualDeployment) }, timeout).
-				Should(Succeed())
-
-			updatedDeployment := actualDeployment.DeepCopy()
-			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
+			expectDeploymentToBeReady(context.Background(), predictorKey)
 
 			// check the service
-			actualService := &corev1.Service{}
-			Eventually(func() error { return k8sClient.Get(context.Background(), predictorKey, actualService) }, timeout).
-				Should(Succeed())
+			expectResourceToExist(context.Background(), &corev1.Service{}, predictorKey)
 
-			// check the http routes
-			actualTopLevelHttpRoute := &gatewayapiv1.HTTPRoute{}
-			Eventually(func() error {
-				return k8sClient.Get(context.Background(), serviceKey, actualTopLevelHttpRoute)
-			}, timeout).Should(Succeed())
+			// top level http route
+			expectHttpRouteToBeReady(context.Background(), serviceKey)
 
-			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
-			Eventually(func() error {
-				return k8sClient.Get(context.Background(), predictorKey, actualPredictorHttpRoute)
-			}, timeout).Should(Succeed())
-
-			// Mark the Ingress as accepted to make isvc ready
-			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
-				RouteStatus: gatewayapiv1.RouteStatus{
-					Parents: []gatewayapiv1.RouteParentStatus{
-						{
-							ParentRef: gatewayapiv1.ParentReference{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-							},
-							ControllerName: "istio.io/gateway-controller",
-							Conditions: []metav1.Condition{
-								{
-									Type:               string(gatewayapiv1.ListenerConditionAccepted),
-									Status:             metav1.ConditionTrue,
-									Reason:             "Accepted",
-									Message:            "Route was valid",
-									LastTransitionTime: metav1.Now(),
-								},
-							},
-						},
-					},
-				},
-			}
-			actualPredictorHttpRoute.Status = httpRouteStatus
-			Expect(k8sClient.Status().Update(context.Background(), actualPredictorHttpRoute)).NotTo(HaveOccurred())
-			actualTopLevelHttpRoute.Status = httpRouteStatus
-			Expect(k8sClient.Status().Update(context.Background(), actualTopLevelHttpRoute)).NotTo(HaveOccurred())
+			// predictor http route
+			expectHttpRouteToBeReady(context.Background(), predictorKey)
 
 			// check the HPA
-			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
-			Eventually(func() error {
-				return k8sClient.Get(ctx, predictorKey, actualHPA)
-			}, timeout).Should(Succeed())
+			expectResourceToExist(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, predictorKey)
 
 			// Check that the ISVC was updated
-			updatedIsvc := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			expectIsvcToExist(ctx, serviceKey)
 
 			// Check that the stopped condition is false
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err == nil {
-					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
-					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionFalse {
-						return true
-					}
-				}
-				return false
-			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to false")
+			expectIsvcFalseStoppedStatus(ctx, serviceKey)
 
 			// Check that the inference service is ready
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err != nil {
-					return false
-				}
-				return updatedIsvc.Status.IsConditionReady(v1beta1.PredictorReady)
-			}, timeout, interval).Should(BeTrue(), "The predictor should be ready")
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err != nil {
-					return false
-				}
-				return updatedIsvc.Status.IsConditionReady(v1beta1.IngressReady)
-			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
+			expectIsvcReadyStatus(ctx, serviceKey)
 		})
 		It("Should keep the ingress/service/deployment/keda/otel created when gateway api is disabled and the annotation is set to false", func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -2236,81 +2306,31 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(ctx, isvc)
 
-			actualISVC := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, actualISVC)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			expectIsvcToExist(ctx, serviceKey)
 
 			// Check the OpenTelemetry Collector
-			actualOTelCollector := &otelv1beta1.OpenTelemetryCollector{}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorKey, actualOTelCollector) }, timeout).
-				Should(Succeed())
+			expectResourceToExist(context.Background(), &otelv1beta1.OpenTelemetryCollector{}, predictorKey)
 
 			// Check the deployment
-			actualDeployment := &appsv1.Deployment{}
-			Eventually(func() error { return k8sClient.Get(context.Background(), predictorKey, actualDeployment) }, timeout).
-				Should(Succeed())
-
-			updatedDeployment := actualDeployment.DeepCopy()
-			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
+			expectDeploymentToBeReady(context.Background(), predictorKey)
 
 			// Check the service
-			actualService := &corev1.Service{}
-			Eventually(func() error { return k8sClient.Get(context.Background(), predictorKey, actualService) }, timeout).
-				Should(Succeed())
+			expectResourceToExist(context.Background(), &corev1.Service{}, predictorKey)
 
 			// Check ingress
-			actualIngress := &netv1.Ingress{}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), serviceKey, actualIngress) }, timeout).
-				Should(Succeed())
+			expectResourceToExist(context.Background(), &netv1.Ingress{}, serviceKey)
 
 			// Check KEDA
-			actualScaledObject := &kedav1alpha1.ScaledObject{}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorKey, actualScaledObject) }, timeout).
-				Should(Succeed())
+			expectResourceToExist(context.Background(), &kedav1alpha1.ScaledObject{}, predictorKey)
 
 			// Check that the ISVC was updated
-			updatedIsvc := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			expectIsvcToExist(ctx, serviceKey)
 
 			// Check that the stopped condition is false
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err == nil {
-					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
-					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionFalse {
-						return true
-					}
-				}
-				return false
-			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to false")
+			expectIsvcFalseStoppedStatus(ctx, serviceKey)
 
 			// Check that the inference service is ready
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err != nil {
-					return false
-				}
-				return updatedIsvc.Status.IsConditionReady(v1beta1.PredictorReady)
-			}, timeout, interval).Should(BeTrue(), "The predictor should be ready")
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err != nil {
-					return false
-				}
-				return updatedIsvc.Status.IsConditionReady(v1beta1.IngressReady)
-			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
+			expectIsvcReadyStatus(ctx, serviceKey)
 		})
 		It("Should not create the httproute/service/deployment/hpa when the annotation is set to true", func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -2344,67 +2364,28 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(ctx, isvc)
 
-			actualISVC := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, actualISVC)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			expectIsvcToExist(ctx, serviceKey)
 
 			// Check that the deployment was not created
-			actualDeployment := &appsv1.Deployment{}
-			Consistently(func() bool {
-				err := k8sClient.Get(context.Background(), predictorKey, actualDeployment)
-				return apierr.IsNotFound(err)
-			}, time.Second*10).Should(BeTrue(), "The deployment should not be created")
+			expectResourceDoesNotExist(context.Background(), &appsv1.Deployment{}, serviceKey)
 
 			// check that the service was not created
-			actualService := &corev1.Service{}
-			Consistently(func() bool {
-				err := k8sClient.Get(context.Background(), predictorKey, actualService)
-				return apierr.IsNotFound(err)
-			}, time.Second*10).Should(BeTrue(), "The service should not be created")
+			expectResourceDoesNotExist(context.Background(), &corev1.Service{}, predictorKey)
 
 			// check that the http routes were not created
-			actualTopLevelHttpRoute := &gatewayapiv1.HTTPRoute{}
-			Consistently(func() bool {
-				err := k8sClient.Get(context.Background(), serviceKey, actualTopLevelHttpRoute)
-				return apierr.IsNotFound(err)
-			}, time.Second*10).Should(BeTrue(), "The top level http route should not be created")
+			// top level http route
+			expectResourceDoesNotExist(context.Background(), &gatewayapiv1.HTTPRoute{}, serviceKey)
+			// predictor http route
+			expectResourceDoesNotExist(context.Background(), &gatewayapiv1.HTTPRoute{}, predictorKey)
 
 			// check that the HPA was not created
-			existingHPA := &autoscalingv2.HorizontalPodAutoscaler{}
-			Consistently(func() bool {
-				err := k8sClient.Get(ctx, predictorKey, existingHPA)
-				return apierr.IsNotFound(err)
-			}, time.Second*10).Should(BeTrue(), "The HPA should not be created")
-
-			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
-			Consistently(func() bool {
-				err := k8sClient.Get(context.Background(), types.NamespacedName{
-					Name:      predictorKey.Name,
-					Namespace: serviceKey.Namespace,
-				}, actualPredictorHttpRoute)
-				return apierr.IsNotFound(err)
-			}, time.Second*10).Should(BeTrue(), "The predictor http route should not be created")
+			expectResourceDoesNotExist(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, predictorKey)
 
 			// Check that the ISVC was updated
-			updatedIsvc := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			expectIsvcToExist(ctx, serviceKey)
 
 			// Check that the ISVC status reflects that it is stopped
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err == nil {
-					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
-					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionTrue {
-						return true
-					}
-				}
-				return false
-			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
+			expectIsvcTrueStoppedStatus(ctx, serviceKey)
 		})
 
 		It("Should not create the ingress/service/deployment/keda/otel when gateway api is disabled and the annotation is set to true", func() {
@@ -2469,65 +2450,28 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(ctx, isvc)
 
-			actualISVC := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, actualISVC)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			expectIsvcToExist(ctx, serviceKey)
 
 			// Check that the OpenTelemetry Collector was not created
-			actualOTelCollector := &otelv1beta1.OpenTelemetryCollector{}
-			Consistently(func() bool {
-				err := k8sClient.Get(context.TODO(), predictorKey, actualOTelCollector)
-				return apierr.IsNotFound(err)
-			}, time.Second*10).Should(BeTrue(), "The OpenTelemetry Collector should not be created")
+			expectResourceDoesNotExist(context.Background(), &otelv1beta1.OpenTelemetryCollector{}, predictorKey)
 
 			// Check that the deployment was not created
-			actualDeployment := &appsv1.Deployment{}
-			Consistently(func() bool {
-				err := k8sClient.Get(context.Background(), predictorKey, actualDeployment)
-				return apierr.IsNotFound(err)
-			}, time.Second*10).Should(BeTrue(), "The deployment should not be created")
+			expectResourceDoesNotExist(context.Background(), &appsv1.Deployment{}, predictorKey)
 
 			// check that the service was not created
-			actualService := &corev1.Service{}
-			Consistently(func() bool {
-				err := k8sClient.Get(context.Background(), predictorKey, actualService)
-				return apierr.IsNotFound(err)
-			}, time.Second*10).Should(BeTrue(), "The service should not be created")
+			expectResourceDoesNotExist(context.Background(), &corev1.Service{}, predictorKey)
 
 			// Check that the ingress was not created
-			actualIngress := &netv1.Ingress{}
-			Consistently(func() bool {
-				err := k8sClient.Get(context.TODO(), serviceKey, actualIngress)
-				return apierr.IsNotFound(err)
-			}, time.Second*10).Should(BeTrue(), "The ingress should not be created")
+			expectResourceDoesNotExist(context.Background(), &netv1.Ingress{}, serviceKey)
 
 			// Check that the KEDA autoscaler was not created
-			actualScaledObject := &kedav1alpha1.ScaledObject{}
-			Consistently(func() bool {
-				err := k8sClient.Get(context.TODO(), predictorKey, actualScaledObject)
-				return apierr.IsNotFound(err)
-			}, time.Second*10).Should(BeTrue(), "The KEDA autoscaler should not be created")
+			expectResourceDoesNotExist(context.Background(), &kedav1alpha1.ScaledObject{}, predictorKey)
 
 			// Check that the ISVC was updated
-			updatedIsvc := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			expectIsvcToExist(ctx, serviceKey)
 
 			// Check that the ISVC status reflects that it is stopped
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err == nil {
-					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
-					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionTrue {
-						return true
-					}
-				}
-				return false
-			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
+			expectIsvcTrueStoppedStatus(ctx, serviceKey)
 		})
 
 		It("Should delete the httproute/service/deployment/hpa when the annotation is updated to true on an existing ISVC", func() {
@@ -2562,113 +2506,35 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(ctx, isvc)
 
-			actualISVC := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, actualISVC)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			expectIsvcToExist(ctx, serviceKey)
 
 			// Check the deployment
-			actualDeployment := &appsv1.Deployment{}
-			Eventually(func() error { return k8sClient.Get(context.Background(), predictorKey, actualDeployment) }, timeout).
-				Should(Succeed())
-
-			updatedDeployment := actualDeployment.DeepCopy()
-			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
+			expectDeploymentToBeReady(ctx, predictorKey)
 
 			// check the service
-			actualService := &corev1.Service{}
-			Eventually(func() error { return k8sClient.Get(context.Background(), predictorKey, actualService) }, timeout).
-				Should(Succeed())
+			expectResourceToExist(context.Background(), &corev1.Service{}, predictorKey)
 
 			// check the http routes
 			actualTopLevelHttpRoute := &gatewayapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.Background(), serviceKey, actualTopLevelHttpRoute)
 			}, timeout*2).Should(Succeed())
-
-			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
-			Eventually(func() error {
-				return k8sClient.Get(context.Background(), predictorKey, actualPredictorHttpRoute)
-			}, timeout).Should(Succeed())
-
-			// Mark the Ingress as accepted to make isvc ready
-			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
-				RouteStatus: gatewayapiv1.RouteStatus{
-					Parents: []gatewayapiv1.RouteParentStatus{
-						{
-							ParentRef: gatewayapiv1.ParentReference{
-								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-							},
-							ControllerName: "istio.io/gateway-controller",
-							Conditions: []metav1.Condition{
-								{
-									Type:               string(gatewayapiv1.ListenerConditionAccepted),
-									Status:             metav1.ConditionTrue,
-									Reason:             "Accepted",
-									Message:            "Route was valid",
-									LastTransitionTime: metav1.Now(),
-								},
-							},
-						},
-					},
-				},
-			}
-			actualPredictorHttpRoute.Status = httpRouteStatus
-			Expect(k8sClient.Status().Update(context.Background(), actualPredictorHttpRoute)).NotTo(HaveOccurred())
-			actualTopLevelHttpRoute.Status = httpRouteStatus
-			Expect(k8sClient.Status().Update(context.Background(), actualTopLevelHttpRoute)).NotTo(HaveOccurred())
+			// top level http route
+			expectHttpRouteToBeReady(context.Background(), serviceKey)
+			// predictor http route
+			expectHttpRouteToBeReady(context.Background(), predictorKey)
 
 			// check the HPA
-			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
-			Eventually(func() error {
-				return k8sClient.Get(ctx, predictorKey, actualHPA)
-			}, timeout).Should(Succeed())
+			expectResourceToExist(context.Background(), &autoscalingv2.HorizontalPodAutoscaler{}, predictorKey)
 
 			// Check that the ISVC was updated
-			updatedIsvc := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			updatedIsvc := expectIsvcToExist(ctx, serviceKey)
 
 			// Check that the stopped condition is false
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err == nil {
-					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
-					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionFalse {
-						return true
-					}
-				}
-				return false
-			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to false")
+			expectIsvcFalseStoppedStatus(ctx, serviceKey)
 
 			// Check that the inference service is ready
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err != nil {
-					return false
-				}
-				return updatedIsvc.Status.IsConditionReady(v1beta1.PredictorReady)
-			}, timeout, interval).Should(BeTrue(), "The predictor should be ready before updating the annotation")
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err != nil {
-					return false
-				}
-				return updatedIsvc.Status.IsConditionReady(v1beta1.IngressReady)
-			}, timeout, interval).Should(BeTrue(), "The ingress should be ready before updating the annotation")
+			expectIsvcReadyStatus(ctx, serviceKey)
 
 			// Stop the inference service
 			stoppedIsvc := updatedIsvc.DeepCopy()
@@ -2676,22 +2542,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Update(ctx, stoppedIsvc)).NotTo(HaveOccurred())
 
 			// Check that the deployment was deleted
-			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), predictorKey, actualDeployment)
-				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The deployment should be deleted")
+			expectResourceToBeDeleted(context.Background(), &appsv1.Deployment{}, predictorKey)
 
 			// check that the service was deleted
-			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), predictorKey, actualService)
-				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The service should be deleted")
+			expectResourceToBeDeleted(context.Background(), &corev1.Service{}, predictorKey)
 
 			// check that the http routes were deleted
-			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), serviceKey, actualTopLevelHttpRoute)
-				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The top level http route should be deleted")
+			// top level http route
+			expectResourceToBeDeleted(context.Background(), &gatewayapiv1.HTTPRoute{}, serviceKey)
+			// predictor http route
+			expectResourceToBeDeleted(context.Background(), &gatewayapiv1.HTTPRoute{}, predictorKey)
 
 			// check that the HPA was deleted
 			existingHPA := &autoscalingv2.HorizontalPodAutoscaler{}
@@ -2700,32 +2560,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return apierr.IsNotFound(err)
 			}, timeout).Should(BeTrue(), "The HPA should be deleted")
 
-			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), types.NamespacedName{
-					Name:      predictorKey.Name,
-					Namespace: serviceKey.Namespace,
-				}, actualPredictorHttpRoute)
-				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The predictor http route should be deleted")
-
 			// Check that the ISVC was updated
-			updatedStoppedIsvc := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedStoppedIsvc)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			expectIsvcToExist(ctx, serviceKey)
 
 			// Check that the ISVC status reflects that it is stopped
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedStoppedIsvc)
-				if err == nil {
-					stopped_cond := updatedStoppedIsvc.Status.GetCondition(v1beta1.Stopped)
-					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionTrue {
-						return true
-					}
-				}
-				return false
-			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
+			expectIsvcTrueStoppedStatus(ctx, serviceKey)
 		})
 
 		It("Should delete the ingress/service/deployment/keda/otel when gateway api is disabled and the annotation is updated to true on an existing ISVC", func() {
@@ -2790,81 +2629,31 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(ctx, isvc)
 
-			actualISVC := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, actualISVC)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			expectIsvcToExist(ctx, serviceKey)
 
 			// Check the OpenTelemetry Collector
-			actualOTelCollector := &otelv1beta1.OpenTelemetryCollector{}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorKey, actualOTelCollector) }, timeout).
-				Should(Succeed())
+			expectResourceToExist(context.Background(), &otelv1beta1.OpenTelemetryCollector{}, predictorKey)
 
 			// Check the deployment
-			actualDeployment := &appsv1.Deployment{}
-			Eventually(func() error { return k8sClient.Get(context.Background(), predictorKey, actualDeployment) }, timeout).
-				Should(Succeed())
-
-			updatedDeployment := actualDeployment.DeepCopy()
-			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
+			expectDeploymentToBeReady(context.Background(), predictorKey)
 
 			// Check the service
-			actualService := &corev1.Service{}
-			Eventually(func() error { return k8sClient.Get(context.Background(), predictorKey, actualService) }, timeout).
-				Should(Succeed())
+			expectResourceToExist(context.Background(), &corev1.Service{}, predictorKey)
 
 			// Check ingress
-			actualIngress := &netv1.Ingress{}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), serviceKey, actualIngress) }, timeout).
-				Should(Succeed())
+			expectResourceToExist(context.Background(), &netv1.Ingress{}, serviceKey)
 
 			// Check KEDA
-			actualScaledObject := &kedav1alpha1.ScaledObject{}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorKey, actualScaledObject) }, timeout).
-				Should(Succeed())
+			expectResourceToExist(context.Background(), &kedav1alpha1.ScaledObject{}, predictorKey)
 
 			// Check that the ISVC was updated
-			updatedIsvc := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			updatedIsvc := expectIsvcToExist(ctx, serviceKey)
 
 			// Check that the stopped condition is false
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err == nil {
-					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
-					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionFalse {
-						return true
-					}
-				}
-				return false
-			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to false")
+			expectIsvcFalseStoppedStatus(ctx, serviceKey)
 
 			// Check that the inference service is ready
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err != nil {
-					return false
-				}
-				return updatedIsvc.Status.IsConditionReady(v1beta1.PredictorReady)
-			}, timeout, interval).Should(BeTrue(), "The predictor should be ready")
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err != nil {
-					return false
-				}
-				return updatedIsvc.Status.IsConditionReady(v1beta1.IngressReady)
-			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
+			expectIsvcReadyStatus(ctx, serviceKey)
 
 			// Stop the inference service
 			stoppedIsvc := updatedIsvc.DeepCopy()
@@ -2872,53 +2661,25 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Update(ctx, stoppedIsvc)).NotTo(HaveOccurred())
 
 			// Check that the OpenTelemetry Collector was deleted
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), predictorKey, actualOTelCollector)
-				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The OpenTelemetry Collector should be deleted")
+			expectResourceToBeDeleted(context.Background(), &otelv1beta1.OpenTelemetryCollector{}, predictorKey)
 
 			// Check that the deployment was deleted
-			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), predictorKey, actualDeployment)
-				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The deployment should be deleted")
+			expectResourceToBeDeleted(context.Background(), &appsv1.Deployment{}, predictorKey)
 
 			// check that the service was deleted
-			Eventually(func() bool {
-				err := k8sClient.Get(context.Background(), predictorKey, actualService)
-				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The service should be deleted")
+			expectResourceToBeDeleted(context.Background(), &corev1.Service{}, predictorKey)
 
 			// Check that the ingress was deleted
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), serviceKey, actualIngress)
-				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The ingress should be deleted")
+			expectResourceToBeDeleted(context.Background(), &netv1.Ingress{}, serviceKey)
 
 			// Check that the KEDA autoscaler was deleted
-			Eventually(func() bool {
-				err := k8sClient.Get(context.TODO(), predictorKey, actualScaledObject)
-				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The KEDA autoscaler should be deleted")
+			expectResourceToBeDeleted(context.Background(), &kedav1alpha1.ScaledObject{}, predictorKey)
 
 			// Check that the ISVC was updated
-			updatedStoppedIsvc := &v1beta1.InferenceService{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedStoppedIsvc)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
+			expectIsvcToExist(ctx, serviceKey)
 
 			// Check that the ISVC status reflects that it is stopped
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedStoppedIsvc)
-				if err == nil {
-					stopped_cond := updatedStoppedIsvc.Status.GetCondition(v1beta1.Stopped)
-					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionTrue {
-						return true
-					}
-				}
-				return false
-			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
+			expectIsvcTrueStoppedStatus(ctx, serviceKey)
 		})
 	})
 	Context("When creating inference service with raw kube predictor and ingress creation disabled", func() {
