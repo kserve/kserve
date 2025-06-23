@@ -2201,7 +2201,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue(), "%T %s should be deleted", obj, objKey.Name)
 		}
 
-		var _ = Describe("inference service only", func() {
+		_ = Describe("inference service only", func() {
 			It("Should keep the httproute/service/deployment/hpa created when the annotation is set to false", func() {
 				ctx, cancel := context.WithCancel(context.Background())
 				DeferCleanup(cancel)
@@ -2894,7 +2894,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			})
 		})
 
-		var _ = Describe("inference service with a transformer", func() {
+		_ = Describe("inference service with a transformer", func() {
 			// --- Default values ---
 			defaultTransformerIsvc := func(serviceKey types.NamespacedName, storageUri string, autoscaler string, qty resource.Quantity) *v1beta1.InferenceService {
 				predictor := v1beta1.PredictorSpec{
