@@ -24,13 +24,6 @@ RUN go install github.com/google/go-licenses@latest
 RUN /opt/app-root/src/go/bin/go-licenses check ./cmd/... ./pkg/... --disallowed_types="forbidden,unknown"
 RUN /opt/app-root/src/go/bin/go-licenses save --save_path third_party/library ./cmd/agent
 
-# Generate third-party licenses
-COPY LICENSE LICENSE
-RUN go install github.com/google/go-licenses@latest
-# Forbidden Licenses: https://github.com/google/licenseclassifier/blob/e6a9bb99b5a6f71d5a34336b8245e305f5430f99/license_type.go#L341
-RUN go-licenses check ./cmd/... ./pkg/... --disallowed_types="forbidden,unknown"
-RUN go-licenses save --save_path third_party/library ./cmd/agent
-
 # Copy the inference-agent into a thin image
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
