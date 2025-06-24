@@ -211,13 +211,12 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		isvc.Status = v1beta1.InferenceServiceStatus{}
 		isvc.Status.DeploymentMode = deployMode
 
-		// Set the predictor's ready condition
-		predictorReadyCondition := &apis.Condition{
+		// Set the predictor's ready condition to false
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
 			Type:   v1beta1.PredictorReady,
 			Status: corev1.ConditionFalse,
 			Reason: v1beta1.StoppedISVCReason,
-		}
-		isvc.Status.SetCondition(v1beta1.PredictorReady, predictorReadyCondition)
+		})
 
 		return ctrl.Result{}, nil
 	}

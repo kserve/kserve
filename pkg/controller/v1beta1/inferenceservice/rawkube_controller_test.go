@@ -2740,6 +2740,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectResourceDoesNotExist(context.Background(), &gatewayapiv1.HTTPRoute{}, predictorKey)
 
 				// check that the predictor HPA was not created
+				expectResourceDoesNotExist(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, predictorKey)
 
 				// Check that the ISVC was updated
 				expectIsvcToExist(ctx, serviceKey)
@@ -2764,7 +2765,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				// predictor http route
 				expectHttpRouteToBeReady(context.Background(), predictorKey)
 
-				// check the predictor HPA
+				// check the HPA
 				expectResourceToExist(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, predictorKey)
 
 				// Check that the ISVC was updated

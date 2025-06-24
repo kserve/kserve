@@ -169,13 +169,12 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 			return ctrl.Result{}, nil
 		}
 
-		// Set the ready condition
-		transformerReadyCondition := &apis.Condition{
+		// Set the ready condition to false
+		isvc.Status.SetCondition(v1beta1.TransformerReady, &apis.Condition{
 			Type:   v1beta1.TransformerReady,
 			Status: corev1.ConditionFalse,
 			Reason: v1beta1.StoppedISVCReason,
-		}
-		isvc.Status.SetCondition(v1beta1.TransformerReady, transformerReadyCondition)
+		})
 	}
 	return ctrl.Result{}, nil
 }
