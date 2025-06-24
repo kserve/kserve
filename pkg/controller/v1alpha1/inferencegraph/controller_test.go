@@ -99,7 +99,6 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
 				serviceKey := expectedRequest.NamespacedName
 				ctx := context.Background()
-
 				var minScale int32 = 0
 				ig := &v1alpha1.InferenceGraph{
 					ObjectMeta: metav1.ObjectMeta{
@@ -136,7 +135,6 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
-
 		When("an InferenceGraph with nil minReplicas and 0 maxReplicas is created", func() {
 			It(fmt.Sprintf(
 				"should create a knative service with initial-scale of %d, min-scale of %d, and max-scale of 0",
@@ -159,7 +157,6 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
 				serviceKey := expectedRequest.NamespacedName
 				ctx := context.Background()
-
 				ig := &v1alpha1.InferenceGraph{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      serviceKey.Name,
@@ -194,7 +191,6 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
-
 		When("an InferenceGraph is created with an initial-scale annotation", func() {
 			It("should override the default initial scale value with the annotation value", func() {
 				// Create configmap
@@ -212,7 +208,6 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
 				serviceKey := expectedRequest.NamespacedName
 				ctx := context.Background()
-
 				var minScale int32 = 2
 				ig := &v1alpha1.InferenceGraph{
 					ObjectMeta: metav1.ObjectMeta{
@@ -253,7 +248,6 @@ var _ = Describe("Inference Graph controller test", func() {
 			})
 		})
 	})
-
 	Context("with knative configured to allow zero initial scale", func() {
 		BeforeEach(func() {
 			time.Sleep(10 * time.Second)
@@ -301,7 +295,6 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
 				serviceKey := expectedRequest.NamespacedName
 				ctx := context.Background()
-
 				var minScale int32 = 0
 				ig := &v1alpha1.InferenceGraph{
 					ObjectMeta: metav1.ObjectMeta{
@@ -338,7 +331,6 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
-
 		When("an InferenceGraph with nil minReplicas and 0 maxReplicas is created", func() {
 			It(fmt.Sprintf(
 				"should create a knative service with initial-scale of %d, min-scale of %d, and max-scale of 0",
@@ -395,7 +387,6 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
-
 		When("an InferenceGraph is created with an initial-scale annotation", func() {
 			It("should override the default initial scale value with the annotation value", func() {
 				// Create configmap

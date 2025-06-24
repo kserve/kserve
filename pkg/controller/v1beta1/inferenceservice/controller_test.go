@@ -117,7 +117,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
 				ctx := context.Background()
-
 				var minScale int32 = 0
 				isvc := &v1beta1.InferenceService{
 					ObjectMeta: metav1.ObjectMeta{
@@ -149,7 +148,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
 				}
-
 				actualService := &knservingv1.Service{}
 				Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 					Should(Succeed())
@@ -209,7 +207,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
 				}
-
 				actualService := &knservingv1.Service{}
 				Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 					Should(Succeed())
@@ -238,7 +235,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
 				ctx := context.Background()
-
 				var minScale int32 = 2
 				isvc := &v1beta1.InferenceService{
 					ObjectMeta: metav1.ObjectMeta{
@@ -273,7 +269,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
 				}
-
 				actualService := &knservingv1.Service{}
 				Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 					Should(Succeed())
@@ -332,7 +327,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
 				ctx := context.Background()
-
 				var minScale int32 = 0
 				isvc := &v1beta1.InferenceService{
 					ObjectMeta: metav1.ObjectMeta{
@@ -364,7 +358,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
 				}
-
 				actualService := &knservingv1.Service{}
 				Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 					Should(Succeed())
@@ -486,7 +479,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
 				}
-
 				actualService := &knservingv1.Service{}
 				Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 					Should(Succeed())

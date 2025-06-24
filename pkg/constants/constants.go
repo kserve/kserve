@@ -283,9 +283,8 @@ type InferenceServiceProtocol string
 
 // Knative constants
 const (
-	AutoscalerAllowZeroScaleKey = "allow-zero-initial-scale"
 	AutoscalerConfigmapName     = "config-autoscaler"
-	DefaultKnServingName        = "knative-serving"
+	AutoscalerAllowZeroScaleKey = "allow-zero-initial-scale"
 	DefaultKnServingNamespace   = "knative-serving"
 	KnativeLocalGateway         = "knative-serving/knative-local-gateway"
 	KnativeIngressGateway       = "knative-serving/knative-ingress-gateway"

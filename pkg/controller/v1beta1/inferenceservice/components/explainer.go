@@ -192,7 +192,6 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to create new knative service reconciler for explainer")
 		}
-
 		if err := controllerutil.SetControllerReference(isvc, r.Service, e.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set owner reference for explainer")
 		}
