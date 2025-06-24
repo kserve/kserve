@@ -161,3 +161,89 @@ You can provide any `$TOKEN` that is accepted by the OpenShift API server. The
 request will only be accepted if the provided token has the `get` privilege over
 `v1/Services` resources (core Kubernetes Services) in the namespace where
 the `InferenceService` lives.
+
+## Obtaining a Token that works for protected Inference Services
+
+When deploying an auth-protected model via the [Open Data Hub Dashboard](https://github.com/opendatahub-io/odh-dashboard/),
+you can obtain a long-lived ServiceAccount token pre-configured with the necessary privileges for querying the model.
+When using the CLI, you can achieve the same outcome by creating and binding the necessary privileges.
+
+First, create a ServiceAccount. This ServiceAccount will serve as the principal to which privileges
+are assigned, and from which your token will be generated:
+
+```bash
+oc create serviceaccount {inference_service_name}-sa
+```
+
+> [!NOTE]
+> The `-sa` suffix on the name ensures compatibility with ODH Dashboard.
+
+Next, define a Role that declares the privileges to interact with your
+Inference Service:
+
+```yaml
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {inference_service_name}-view-role
+  labels:
+    opendatahub.io/dashboard: 'true' # Dashboard compatibility
+rules:
+  - verbs:
+      - get
+    apiGroups:
+      - serving.kserve.io
+    resources:
+      - inferenceservices
+    resourceNames:
+      - {inference_service_name}
+```
+
+> [!NOTE]
+> The `-view-role` suffix on the name and the `opendatahub.io/dashboard=true` label ensure compatibility with ODH Dashboard.
+
+Now, bind these privileges to the ServiceAccount:
+
+```yaml
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {inference_service_name}-view
+  labels:
+    opendatahub.io/dashboard: 'true'
+subjects:
+  - kind: ServiceAccount
+    name: {inference_service_name}-sa
+roleRef:
+  apiGroup: rbac.authorization.k8s.io/v1
+  kind: Role
+  name: {inference_service_name}-view-role
+```
+
+> [!NOTE]
+> The `-view-role` suffix on the name and the `opendatahub.io/dashboard=true` label ensure compatibility with ODH Dashboard.
+    
+Finally, create a Secret to generate and hold the long-lived token:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {custom_name}-{service_account_name}
+  labels:
+    opendatahub.io/dashboard: 'true'
+  annotations:
+    kubernetes.io/service-account.name: {service_account_name}
+    openshift.io/display-name: {custom_name}
+type: kubernetes.io/service-account-token
+```
+
+> [!NOTE]
+> The `-{service_account_name}` suffix on the name of the secret and the `opendatahub.io/dashboard=true` label ensure
+> compatibility with ODH Dashboard.
+
+After the Secret is created, retrieve the token for use with the InferenceService:
+
+```bash
+oc get secret {secret_name} -o jsonpath='{.data.token}' | base64 --decode
+```
