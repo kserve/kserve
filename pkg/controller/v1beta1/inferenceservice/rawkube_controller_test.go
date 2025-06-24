@@ -3354,6 +3354,28 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: deploymentName, Namespace: serviceKey.Namespace}, originalDeployment)
 			}, timeout, interval).Should(Succeed())
 
+			predictorReadyCondition := &apis.Condition{
+				Type:   v1beta1.PredictorReady,
+				Status: corev1.ConditionTrue,
+			}
+			ingressReadyCondition := &apis.Condition{
+				Type:   v1beta1.IngressReady,
+				Status: corev1.ConditionTrue,
+			}
+			Expect(k8sClient.Get(ctx, serviceKey, inferenceService)).Should(Succeed())
+			inferenceService.Status.SetCondition(v1beta1.PredictorReady, predictorReadyCondition)
+			inferenceService.Status.SetCondition(v1beta1.IngressReady, ingressReadyCondition)
+			Expect(k8sClient.Status().Update(ctx, inferenceService)).Should(Succeed())
+
+			updatedIsvc := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err != nil {
+					return false
+				}
+				return updatedIsvc.Status.IsReady()
+			}, timeout, interval).Should(BeTrue(), "The InferenceService should be ready")
+
 			// Update the ServingRuntime spec
 			servingRuntimeToUpdate := &v1alpha1.ServingRuntime{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: servingRuntimeName, Namespace: isvcNamespace}, servingRuntimeToUpdate)).Should(Succeed())

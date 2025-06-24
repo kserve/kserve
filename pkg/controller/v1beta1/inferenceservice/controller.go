@@ -164,18 +164,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// name of our custom finalizer
 	finalizerName := "inferenceservice.finalizers"
-	// Check if auto-update is disabled, this will skip the reconciliation if the annotation is present.
-	// Used for when k8s autoreconciles the InferenceService.
-	if annotations != nil {
-		if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" {
-			// Since the finalizer is added when the InferenceService is created, then we can use
-			// the presence of it whether it is an update or initial creation of the InferenceService.
-			if len(isvc.Finalizers) > 0 {
-				r.Log.Info("Auto-update is disabled for InferenceService, skipping reconciliation", "InferenceService", isvc.Name)
-				return ctrl.Result{}, nil
-			}
-		}
-	}
+
 	// examine DeletionTimestamp to determine if object is under deletion
 	if isvc.ObjectMeta.DeletionTimestamp.IsZero() {
 		// The object is not being deleted, so if it does not have our finalizer,
@@ -210,6 +199,14 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
+	}
+	// Check if auto-update is disabled, this will skip the reconciliation if the annotation is present.
+	// Used for when k8s autoreconciles the InferenceService.
+	if annotations != nil {
+		if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" && isvc.Status.IsReady() {
+			r.Log.Info("Auto-update is disabled for InferenceService, skipping reconciliation", "InferenceService", isvc.Name)
+			return ctrl.Result{}, nil
+		}
 	}
 
 	// Abort early if the resolved deployment mode is Serverless, but Knative Services are not available
