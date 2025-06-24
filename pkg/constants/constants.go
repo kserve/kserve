@@ -72,6 +72,11 @@ var (
 	ModelConfigFileName = "models.json"
 )
 
+// Remote Storage URI
+const (
+	RemoteStorageEnvVarName = "REMOTE_STORAGE_URI"
+)
+
 // Model agent Constants
 const (
 	AgentContainerName        = "agent"
