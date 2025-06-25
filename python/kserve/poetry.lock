@@ -5804,7 +5804,7 @@ files = [
 ]
 
 [package.dependencies]
-click = ">=8.0.0,<8.2"
+click = ">=8.0.0"
 rich = ">=10.11.0"
 shellingham = ">=1.3.0"
 typing-extensions = ">=3.7.4.3"
@@ -6531,4 +6531,4 @@ storage = ["azure-identity", "azure-storage-blob", "azure-storage-file-share", "
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "af754b2bf6df5dc75fd28654faeed843852a491a6688abd2399dfc270cc06bc9"
+content-hash = "5eb31288ae324c56d4cbc8ac47e3d1528bcbb3a9421f5f68b988ca09c60145a2"
