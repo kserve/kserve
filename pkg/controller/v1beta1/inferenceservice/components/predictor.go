@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
@@ -154,7 +153,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		}
 	}
 
-	predictorName := p.getPredictorName(ctx, isvc)
+	predictorName := constants.PredictorServiceName(isvc.Name)
 
 	// Labels and annotations from predictor component
 	// Label filter will be handled in ksvc_reconciler and raw reconciler
@@ -442,24 +441,6 @@ func (p *Predictor) buildPodSpec(isvc *v1beta1.InferenceService, sRuntime v1alph
 	}
 
 	return podSpec, nil
-}
-
-func (p *Predictor) getPredictorName(ctx context.Context, isvc *v1beta1.InferenceService) string {
-	predictorName := constants.PredictorServiceName(isvc.Name)
-	if p.deploymentMode == constants.RawDeployment {
-		existing := &corev1.Service{}
-		err := p.client.Get(ctx, types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
-		if err == nil {
-			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
-		}
-	} else {
-		existing := &knservingv1.Service{}
-		err := p.client.Get(ctx, types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
-		if err == nil {
-			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
-		}
-	}
-	return predictorName
 }
 
 func (p *Predictor) buildObjectMeta(isvc *v1beta1.InferenceService, predictorName string, sRuntimeLabels, predictorLabels, sRuntimeAnnotations, annotations, predictorAnnotations map[string]string) metav1.ObjectMeta {

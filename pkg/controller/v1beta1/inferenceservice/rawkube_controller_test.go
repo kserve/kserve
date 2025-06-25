@@ -1708,7 +1708,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// check HPA is not created
 			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
 			predictorHPAKey := types.NamespacedName{
-				Name:      constants.DefaultPredictorServiceName(serviceKey.Name),
+				Name:      constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace,
 			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).

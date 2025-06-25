@@ -43,7 +43,7 @@ async def test_custom_model_http_ray(rest_v1_client):
                 command=["python", "-m", "custom_model.model_remote"],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "1", "memory": "1Gi"},
-                    limits={"cpu": "1", "memory": "2Gi"},
+                    limits={"cpu": "1", "memory": "4Gi"},
                 ),
                 ports=[V1ContainerPort(container_port=8080, protocol="TCP")],
             )

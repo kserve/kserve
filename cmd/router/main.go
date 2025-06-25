@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -49,8 +49,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 )
-
-var log = logf.Log.WithName("InferenceGraphRouter")
 
 // _isInMesh is an auxiliary global variable for isInIstioMesh function.
 var _isInMesh *bool
@@ -152,7 +150,16 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 	if val := req.Header.Get("Content-Type"); val == "" {
 		req.Header.Add("Content-Type", "application/json")
 	}
-	resp, err := http.DefaultClient.Do(req)
+
+	var client *http.Client
+	if routerTimeouts == nil || routerTimeouts.ServiceClient == nil {
+		client = http.DefaultClient
+	} else {
+		client = &http.Client{
+			Timeout: time.Duration(*routerTimeouts.ServiceClient) * time.Second,
+		}
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Error(err, "An error has occurred while calling service", "service", serviceUrl)
 		return nil, 500, err
@@ -378,8 +385,6 @@ func prepareErrorResponse(err error, errorMessage string) []byte {
 	return errorResponseBytes
 }
 
-var inferenceGraph *v1alpha1.InferenceGraphSpec
-
 func graphHandler(w http.ResponseWriter, req *http.Request) {
 	inputBytes, _ := io.ReadAll(req.Body)
 	if response, statusCode, err := routeStep(v1alpha1.GraphRootNodeName, *inferenceGraph, inputBytes, req.Header); err != nil {
@@ -414,6 +419,35 @@ func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
 	return compiled, goerrors.Join(allErrors...)
 }
 
+func getTimeout(value, defaultValue *int64) *int64 {
+	if value != nil {
+		return value
+	}
+	return defaultValue
+}
+
+func initTimeouts(graph v1alpha1.InferenceGraphSpec) {
+	defaultServerRead := int64(constants.RouterTimeoutsServerRead)
+	defaultServerWrite := int64(constants.RouterTimeoutServerWrite)
+	defaultServerIdle := int64(constants.RouterTimeoutServerIdle)
+
+	timeouts := &v1alpha1.InfereceGraphRouterTimeouts{
+		ServerRead:    &defaultServerRead,
+		ServerWrite:   &defaultServerWrite,
+		ServerIdle:    &defaultServerIdle,
+		ServiceClient: nil,
+	}
+
+	if graph.RouterTimeouts != nil {
+		timeouts.ServerRead = getTimeout(graph.RouterTimeouts.ServerRead, &defaultServerRead)
+		timeouts.ServerWrite = getTimeout(graph.RouterTimeouts.ServerWrite, &defaultServerWrite)
+		timeouts.ServerIdle = getTimeout(graph.RouterTimeouts.ServerIdle, &defaultServerIdle)
+		timeouts.ServiceClient = getTimeout(graph.RouterTimeouts.ServiceClient, nil)
+	}
+
+	routerTimeouts = timeouts
+}
+
 // Mainly used for kubernetes readiness probe. It responds with "503 shutting down" if server is shutting down,
 // otherwise returns "200 OK".
 func readyHandler(w http.ResponseWriter, req *http.Request) {
@@ -425,13 +459,17 @@ func readyHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 var (
-	enableTlsFlag          = flag.Bool("enable-tls", false, "enable TLS for the router")
-	enableAuthFlag         = flag.Bool("enable-auth", false, "protect the inference graph with authorization")
-	graphName              = flag.String("inferencegraph-name", "", "the name of the associated inference graph Kubernetes resource")
-	jsonGraph              = flag.String("graph-json", "", "serialized json graph def")
+	enableTlsFlag                                       = flag.Bool("enable-tls", false, "enable TLS for the router")
+	enableAuthFlag                                      = flag.Bool("enable-auth", false, "protect the inference graph with authorization")
+	graphName                                           = flag.String("inferencegraph-name", "", "the name of the associated inference graph Kubernetes resource")
+	jsonGraph                                           = flag.String("graph-json", "", "serialized json graph def")
+	inferenceGraph         *v1alpha1.InferenceGraphSpec = nil
 	compiledHeaderPatterns []*regexp.Regexp
-	isShuttingDown         = false
-	drainSleepDuration     = 30 * time.Second
+	isShuttingDown                                               = false
+	drainSleepDuration                                           = 30 * time.Second
+	routerTimeouts         *v1alpha1.InfereceGraphRouterTimeouts = nil
+	log                                                          = logf.Log.WithName("InferenceGraphRouter")
+	signalChan                                                   = make(chan os.Signal, 1)
 )
 
 // findBearerToken parses the standard HTTP Authorization header to find and return
@@ -595,12 +633,14 @@ func main() {
 			log.Error(err, "Failed to compile some header patterns")
 		}
 	}
+
 	inferenceGraph = &v1alpha1.InferenceGraphSpec{}
 	err := json.Unmarshal([]byte(*jsonGraph), inferenceGraph)
 	if err != nil {
 		log.Error(err, "failed to unmarshall inference graph json")
 		os.Exit(1)
 	}
+	initTimeouts(*inferenceGraph)
 
 	var entrypointHandler http.Handler
 	entrypointHandler = http.HandlerFunc(graphHandler)
@@ -613,11 +653,11 @@ func main() {
 	http.Handle("/", entrypointHandler)
 
 	server := &http.Server{
-		Addr:         ":8080",         // specify the address and port
-		Handler:      nil,             // default server mux
-		ReadTimeout:  time.Minute,     // set the maximum duration for reading the entire request, including the body
-		WriteTimeout: time.Minute,     // set the maximum duration before timing out writes of the response
-		IdleTimeout:  3 * time.Minute, // set the maximum amount of time to wait for the next request when keep-alives are enabled
+		Addr:         ":" + strconv.Itoa(constants.RouterPort),
+		Handler:      nil,                                                      // default server mux
+		ReadTimeout:  time.Duration(*routerTimeouts.ServerRead) * time.Second,  // set the maximum duration for reading the entire request, including the body
+		WriteTimeout: time.Duration(*routerTimeouts.ServerWrite) * time.Second, // set the maximum duration before timing out writes of the response
+		IdleTimeout:  time.Duration(*routerTimeouts.ServerIdle) * time.Second,  // set the maximum amount of time to wait for the next request when keep-alives are enabled
 	}
 
 	go func() {
@@ -637,7 +677,6 @@ func main() {
 }
 
 func handleSignals(server *http.Server) {
-	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 
 	sig := <-signalChan

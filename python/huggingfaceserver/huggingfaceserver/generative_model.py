@@ -31,15 +31,29 @@ from typing import (
     Tuple,
 )
 
+from fastapi import Request
 import torch
 from accelerate import init_empty_weights
+from transformers import (
+    AutoConfig,
+    AutoTokenizer,
+    GenerationConfig,
+    PreTrainedModel,
+    PreTrainedTokenizerBase,
+    PretrainedConfig,
+    StoppingCriteriaList,
+    TensorType,
+    TextIteratorStreamer,
+    set_seed,
+    PreTrainedTokenizer,
+    PreTrainedTokenizerFast,
+)
+
 from kserve.logging import logger
 from kserve.protocol.rest.openai import (
     ChatPrompt,
     OpenAIChatAdapterModel,
 )
-
-
 from kserve.protocol.rest.openai.types import (
     CompletionRequest,
     UsageInfo,
@@ -56,27 +70,12 @@ from kserve.protocol.rest.openai.types import (
     ChatCompletionContentPartTextParam,
     ChatCompletionAssistantMessageParam,
 )
-
 from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.utils.utils import generate_uuid
 from kserve.constants.constants import LLM_STATS_KEY
-from transformers import (
-    AutoConfig,
-    AutoTokenizer,
-    GenerationConfig,
-    PreTrainedModel,
-    PreTrainedTokenizerBase,
-    PretrainedConfig,
-    StoppingCriteriaList,
-    TensorType,
-    TextIteratorStreamer,
-    set_seed,
-    PreTrainedTokenizer,
-    PreTrainedTokenizerFast,
-)
 from kserve.metrics import LLMStats
-from .request_logger import RequestLogger
 
+from .request_logger import RequestLogger
 from .stop_sequence_stopping_criteria import StopSequenceStoppingCriteria
 from .task import (
     MLTask,
@@ -85,8 +84,6 @@ from .task import (
     infer_task_from_model_architecture,
 )
 from .utils import _get_and_verify_max_len
-
-from fastapi import Request
 
 AnyTokenizer = Union[PreTrainedTokenizer, PreTrainedTokenizerFast]
 
@@ -313,6 +310,7 @@ class HuggingfaceGenerativeModel(
             streamer = TextIteratorStreamer(
                 cast(AutoTokenizer, self._tokenizer),
                 skip_prompt=not echo,
+                skip_special_tokens=True,
             )
             thread = Thread(
                 target=self._model.generate, kwargs={**kwargs, "streamer": streamer}
