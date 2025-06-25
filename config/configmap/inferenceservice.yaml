@@ -617,9 +617,10 @@ data:
         "caBundleConfigMapName": "",
         "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
         "enableDirectPvcVolumeMount": true,
-        "enableModelcar": false,
+        "enableModelcar": true,
         "cpuModelcar": "10m",
-        "memoryModelcar": "15Mi"
+        "memoryModelcar": "15Mi",
+        "uidModelcar": 1010
     }
 
   credentials: |-
