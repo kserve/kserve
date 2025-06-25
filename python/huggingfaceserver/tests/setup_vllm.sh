@@ -3,7 +3,7 @@
 set -e
 
 TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
-VLLM_VERSION=v0.8.5
+VLLM_VERSION=v0.9.0.1
 VLLM_DIR=vllm-clone
 VLLM_TARGET_DEVICE="${VLLM_TARGET_DEVICE:-cpu}"
 

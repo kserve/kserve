@@ -149,7 +149,6 @@ class VLLMModel(
                     return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
                     enable_auto_tools=self.args.enable_auto_tool_choice,
                     tool_parser=self.args.tool_call_parser,
-                    enable_reasoning=self.args.enable_reasoning,
                     reasoning_parser=self.args.reasoning_parser,
                     enable_prompt_tokens_details=self.args.enable_prompt_tokens_details,
                 )

@@ -57,6 +57,9 @@ const (
 	InferenceGraphLabel          = "serving.kserve.io/inferencegraph"
 	RouterReadinessEndpoint      = "/readyz"
 	RouterPort                   = 8080
+	RouterTimeoutsServerRead     = 60
+	RouterTimeoutServerWrite     = 60
+	RouterTimeoutServerIdle      = 180
 )
 
 // TrainedModel Constants
@@ -67,6 +70,11 @@ var (
 // InferenceService MultiModel Constants
 var (
 	ModelConfigFileName = "models.json"
+)
+
+// Remote Storage URI
+const (
+	RemoteStorageEnvVarName = "REMOTE_STORAGE_URI"
 )
 
 // Model agent Constants

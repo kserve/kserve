@@ -160,7 +160,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				err := r.Client.Get(ctx, types.NamespacedName{Namespace: graph.Namespace, Name: route.ServiceName}, &isvc)
 				if err == nil {
 					if graph.Spec.Nodes[node].Steps[i].ServiceURL == "" {
-						serviceUrl, err := isvcutils.GetPredictorEndpoint(&isvc)
+						serviceUrl, err := isvcutils.GetPredictorEndpoint(ctx, r.Client, &isvc)
 						if err == nil {
 							graph.Spec.Nodes[node].Steps[i].ServiceURL = serviceUrl
 						} else {
