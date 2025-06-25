@@ -509,7 +509,9 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 }
 
 func semanticHttpRouteEquals(desired, existing *gatewayapiv1.HTTPRoute) bool {
-	return equality.Semantic.DeepDerivative(desired.Spec, existing.Spec)
+	return equality.Semantic.DeepDerivative(desired.Spec, existing.Spec) &&
+		equality.Semantic.DeepDerivative(desired.Labels, existing.Labels) &&
+		equality.Semantic.DeepDerivative(desired.Annotations, existing.Annotations)
 }
 
 // isHTTPRouteReady checks if the HTTPRoute is ready. If not, returns the reason and message.
