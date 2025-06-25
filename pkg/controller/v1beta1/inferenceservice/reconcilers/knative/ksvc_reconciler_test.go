@@ -24,7 +24,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 
-	"k8s.io/client-go/kubernetes/fake"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	knserving "knative.dev/serving/pkg/apis/serving"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -123,24 +122,13 @@ func TestCreateKnativeService(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Add required config-autoscaler ConfigMap to the fake clientset
-			clientset := fake.NewSimpleClientset(&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "config-autoscaler",
-					Namespace: "knative-serving",
-				},
-				Data: map[string]string{},
-			})
-			ksvc, err := createKnativeService(
-				context.TODO(),
-				clientset,
+			ksvc := createKnativeService(
 				tt.componentMeta,
 				tt.componentExt,
 				podSpec,
 				tt.componentStatus,
 				disallowedLabelList,
 			)
-			require.NoError(t, err, "createKnativeService should not return an error")
 			require.NotNil(t, ksvc, "createKnativeService should not return nil ksvc")
 
 			// Verify basic service properties
@@ -364,19 +352,10 @@ func TestKsvcReconciler_Reconcile(t *testing.T) {
 				err := client.Create(context.TODO(), tt.existingKsvc)
 				require.NoError(t, err)
 			}
-			clientset := fake.NewSimpleClientset(&corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "config-autoscaler",
-					Namespace: "knative-serving",
-				},
-				Data: map[string]string{},
-			})
 
 			// Create reconciler
-			reconciler, _ := NewKsvcReconciler(
-				context.TODO(),
+			reconciler := NewKsvcReconciler(
 				client,
-				clientset,
 				scheme,
 				componentMeta,
 				componentExt,
