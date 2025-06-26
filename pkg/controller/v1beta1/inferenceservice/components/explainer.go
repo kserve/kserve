@@ -154,28 +154,28 @@ func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v
 	r, err := raw.NewRawKubeReconciler(ctx, e.client, e.clientset, e.scheme, *objectMeta, metav1.ObjectMeta{},
 		&isvc.Spec.Explainer.ComponentExtensionSpec, podSpec, nil)
 	if err != nil {
-		errors.Wrapf(err, "fails to create NewRawKubeReconciler for explainer")
+		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for explainer")
 	}
 	// set Deployment Controller
 	for _, deployment := range r.Deployment.DeploymentList {
 		if err := controllerutil.SetControllerReference(isvc, deployment, e.scheme); err != nil {
-			errors.Wrapf(err, "fails to set deployment owner reference for explainer")
+			return errors.Wrapf(err, "fails to set deployment owner reference for explainer")
 		}
 	}
 	// set Service Controller
 	for _, svc := range r.Service.ServiceList {
 		if err := controllerutil.SetControllerReference(isvc, svc, e.scheme); err != nil {
-			errors.Wrapf(err, "fails to set service owner reference for explainer")
+			return errors.Wrapf(err, "fails to set service owner reference for explainer")
 		}
 	}
 	// set autoscaler Controller
 	if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, e.scheme); err != nil {
-		errors.Wrapf(err, "fails to set autoscaler owner references for explainer")
+		return errors.Wrapf(err, "fails to set autoscaler owner references for explainer")
 	}
 
 	deployment, err := r.Reconcile(ctx)
 	if err != nil {
-		errors.Wrapf(err, "fails to reconcile explainer")
+		return errors.Wrapf(err, "fails to reconcile explainer")
 	}
 	if !utils.GetForceStopRuntime(isvc) {
 		isvc.Status.PropagateRawStatus(v1beta1.ExplainerComponent, deployment, r.URL)
@@ -188,11 +188,11 @@ func (e *Explainer) reconcileExplainerKnativeDeployment(ctx context.Context, isv
 		podSpec, isvc.Status.Components[v1beta1.ExplainerComponent], e.inferenceServiceConfig.ServiceLabelDisallowedList)
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, e.scheme); err != nil {
-		errors.Wrapf(err, "fails to set owner reference for explainer")
+		return errors.Wrapf(err, "fails to set owner reference for explainer")
 	}
 	status, err := r.Reconcile(ctx)
 	if err != nil {
-		errors.Wrapf(err, "fails to reconcile explainer")
+		return errors.Wrapf(err, "fails to reconcile explainer")
 	}
 	if !utils.GetForceStopRuntime(isvc) {
 		isvc.Status.PropagateStatus(v1beta1.ExplainerComponent, status)
