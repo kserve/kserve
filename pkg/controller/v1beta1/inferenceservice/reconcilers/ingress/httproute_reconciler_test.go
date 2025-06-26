@@ -164,7 +164,7 @@ func TestGetRawServiceHost(t *testing.T) {
 	})
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			host := getRawServiceHost(context.Background(), tc.isvc, client)
+			host := getRawServiceHost(tc.isvc)
 			g.Expect(tc.expectedHost).To(BeComparableTo(host))
 		})
 	}
@@ -1188,100 +1188,6 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 				},
 			},
 		},
-		"Predictor with default suffix": {
-			isvc: &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-isvc-default",
-					Namespace: "default",
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{},
-				},
-				Status: v1beta1.InferenceServiceStatus{
-					Status: duckv1.Status{
-						Conditions: []apis.Condition{
-							{
-								Type:   v1beta1.PredictorReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
-				},
-			},
-			ingressConfig: &v1beta1.IngressConfig{
-				IngressDomain:            "example.com",
-				UrlScheme:                "http",
-				DomainTemplate:           "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
-				KserveIngressGateway:     "kserve/kserve-gateway",
-				AdditionalIngressDomains: &[]string{"additional.example.com"},
-				EnableGatewayAPI:         true,
-			},
-			expected: &gatewayapiv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-isvc-default",
-					Namespace:   "default",
-					Annotations: map[string]string{},
-					Labels:      map[string]string{},
-				},
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default-default.example.com", "test-isvc-default-default.additional.example.com"},
-					Rules: []gatewayapiv1.HTTPRouteRule{
-						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
-										Value: ptr.To("^/.*$"),
-									},
-								},
-							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
-								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
-											{
-												Name:  constants.IsvcNameHeader,
-												Value: "test-isvc-default",
-											},
-											{
-												Name:  constants.IsvcNamespaceHeader,
-												Value: "default",
-											},
-										},
-									},
-								},
-							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
-								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      "test-isvc-default-predictor-default",
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
-										},
-									},
-								},
-							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
-							},
-						},
-					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
-							{
-								Name:      "kserve-gateway",
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: ptr.To(gatewayapiv1.Namespace("kserve")),
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 
 	for name, tc := range testCases {
@@ -1303,7 +1209,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawTopLevelHTTPRoute(context.Background(), tc.isvc, tc.ingressConfig, isvcConfig, client)
+			httpRoute, err := createRawTopLevelHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig)
 
 			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
@@ -1446,99 +1352,6 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 			},
 			expected: nil,
 		},
-		"Predictor with default suffix": {
-			isvc: &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-isvc-default",
-					Namespace: "default",
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{},
-				},
-				Status: v1beta1.InferenceServiceStatus{
-					Status: duckv1.Status{
-						Conditions: []apis.Condition{
-							{
-								Type:   v1beta1.PredictorReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
-				},
-			},
-			ingressConfig: &v1beta1.IngressConfig{
-				IngressDomain:        "example.com",
-				UrlScheme:            "http",
-				DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
-				KserveIngressGateway: "kserve/kserve-gateway",
-				EnableGatewayAPI:     true,
-			},
-			expected: &gatewayapiv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-isvc-default-predictor",
-					Namespace:   "default",
-					Annotations: map[string]string{},
-					Labels:      map[string]string{},
-				},
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default-predictor-default-default.example.com"},
-					Rules: []gatewayapiv1.HTTPRouteRule{
-						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
-										Value: ptr.To("^/.*$"),
-									},
-								},
-							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
-								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
-											{
-												Name:  constants.IsvcNameHeader,
-												Value: "test-isvc-default",
-											},
-											{
-												Name:  constants.IsvcNamespaceHeader,
-												Value: "default",
-											},
-										},
-									},
-								},
-							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
-								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      "test-isvc-default-predictor-default",
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
-										},
-									},
-								},
-							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
-							},
-						},
-					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
-							{
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
-								Namespace: (*gatewayapiv1.Namespace)(ptr.To("kserve")),
-								Name:      gatewayapiv1.ObjectName("kserve-gateway"),
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 
 	for name, tc := range testCases {
@@ -1560,7 +1373,7 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawPredictorHTTPRoute(context.Background(), tc.isvc, tc.ingressConfig, isvcConfig, client)
+			httpRoute, err := createRawPredictorHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig)
 
 			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
@@ -1705,100 +1518,6 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 			},
 			expected: nil,
 		},
-		"Transformer with default suffix": {
-			isvc: &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-isvc-default",
-					Namespace: "default",
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor:   v1beta1.PredictorSpec{},
-					Transformer: &v1beta1.TransformerSpec{},
-				},
-				Status: v1beta1.InferenceServiceStatus{
-					Status: duckv1.Status{
-						Conditions: []apis.Condition{
-							{
-								Type:   v1beta1.TransformerReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
-				},
-			},
-			ingressConfig: &v1beta1.IngressConfig{
-				IngressDomain:        "example.com",
-				UrlScheme:            "http",
-				DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
-				KserveIngressGateway: "kserve/kserve-gateway",
-				EnableGatewayAPI:     true,
-			},
-			expected: &gatewayapiv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-isvc-default-transformer",
-					Namespace:   "default",
-					Annotations: map[string]string{},
-					Labels:      map[string]string{},
-				},
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default-transformer-default-default.example.com"},
-					Rules: []gatewayapiv1.HTTPRouteRule{
-						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
-										Value: ptr.To("^/.*$"),
-									},
-								},
-							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
-								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
-											{
-												Name:  constants.IsvcNameHeader,
-												Value: "test-isvc-default",
-											},
-											{
-												Name:  constants.IsvcNamespaceHeader,
-												Value: "default",
-											},
-										},
-									},
-								},
-							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
-								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      "test-isvc-default-transformer-default",
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
-										},
-									},
-								},
-							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
-							},
-						},
-					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
-							{
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
-								Namespace: (*gatewayapiv1.Namespace)(ptr.To("kserve")),
-								Name:      gatewayapiv1.ObjectName("kserve-gateway"),
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 
 	for name, tc := range testCases {
@@ -1820,7 +1539,7 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawTransformerHTTPRoute(context.Background(), tc.isvc, tc.ingressConfig, isvcConfig, client)
+			httpRoute, err := createRawTransformerHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig)
 
 			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
@@ -1965,100 +1684,6 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 			},
 			expected: nil,
 		},
-		"Explainer with default suffix": {
-			isvc: &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-isvc-default",
-					Namespace: "default",
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{},
-					Explainer: &v1beta1.ExplainerSpec{},
-				},
-				Status: v1beta1.InferenceServiceStatus{
-					Status: duckv1.Status{
-						Conditions: []apis.Condition{
-							{
-								Type:   v1beta1.ExplainerReady,
-								Status: corev1.ConditionTrue,
-							},
-						},
-					},
-				},
-			},
-			ingressConfig: &v1beta1.IngressConfig{
-				IngressDomain:        "example.com",
-				UrlScheme:            "http",
-				DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
-				KserveIngressGateway: "kserve/kserve-gateway",
-				EnableGatewayAPI:     true,
-			},
-			expected: &gatewayapiv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-isvc-default-explainer",
-					Namespace:   "default",
-					Annotations: map[string]string{},
-					Labels:      map[string]string{},
-				},
-				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default-explainer-default-default.example.com"},
-					Rules: []gatewayapiv1.HTTPRouteRule{
-						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
-										Value: ptr.To("^/.*$"),
-									},
-								},
-							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
-								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
-											{
-												Name:  constants.IsvcNameHeader,
-												Value: "test-isvc-default",
-											},
-											{
-												Name:  constants.IsvcNamespaceHeader,
-												Value: "default",
-											},
-										},
-									},
-								},
-							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
-								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      "test-isvc-default-explainer-default",
-											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
-											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
-										},
-									},
-								},
-							},
-							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: ptr.To(gatewayapiv1.Duration("60s")),
-							},
-						},
-					},
-					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-						ParentRefs: []gatewayapiv1.ParentReference{
-							{
-								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
-								Namespace: (*gatewayapiv1.Namespace)(ptr.To("kserve")),
-								Name:      gatewayapiv1.ObjectName("kserve-gateway"),
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 
 	for name, tc := range testCases {
@@ -2080,7 +1705,7 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawExplainerHTTPRoute(context.Background(), tc.isvc, tc.ingressConfig, isvcConfig, client)
+			httpRoute, err := createRawExplainerHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig)
 
 			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {

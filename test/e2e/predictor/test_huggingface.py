@@ -147,7 +147,7 @@ def test_huggingface_openai_chat_completions_streaming():
     trace_logger.info(f"Full response: {full_response}")
 
     # Verify we got a valid response
-    assert full_response.strip() == "The result of 2 + 2 is 4.<|im_end|>"
+    assert full_response.strip() == "The result of 2 + 2 is 4."
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -244,7 +244,7 @@ def test_huggingface_openai_text_completion_streaming():
         service_name, "./data/qwen_input_cmpl_stream.json"
     )
     trace_logger.info(f"Full response: {full_response}")
-    assert full_response.strip() == "The result of 2 + 2 is 4.<|endoftext|>"
+    assert full_response.strip() == "The result of 2 + 2 is 4."
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
