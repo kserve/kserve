@@ -1182,7 +1182,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue(), "%T %s should be deleted", obj, objKey.Name)
 		}
 
-		var _ = Describe("inference service only", func() {
+		Describe("inference service only", func() {
 			It("Should keep the knative service/virtualService/service when the annotation is set to false", func() {
 				ctx, cancel := context.WithCancel(context.Background())
 				DeferCleanup(cancel)
@@ -1392,7 +1392,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			})
 		})
 
-		var _ = Describe("inference service with a transformer", func() {
+		Describe("inference service with a transformer", func() {
 			// --- Default values ---
 			defaultTransformerIsvc := func(namespace string, name string, storageUri string) *v1beta1.InferenceService {
 				predictor := v1beta1.PredictorSpec{
@@ -1683,7 +1683,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			})
 		})
 
-		var _ = Describe("inference service with an explainer", func() {
+		Describe("inference service with an explainer", func() {
 			// --- Default values ---
 			defaultExplainerIsvc := func(namespace string, name string, storageUri string) *v1beta1.InferenceService {
 				predictor := v1beta1.PredictorSpec{
