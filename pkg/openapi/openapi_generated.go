@@ -28,97 +28,102 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.BuiltInAdapter":              schema_pkg_apis_serving_v1alpha1_BuiltInAdapter(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterServingRuntime":       schema_pkg_apis_serving_v1alpha1_ClusterServingRuntime(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterServingRuntimeList":   schema_pkg_apis_serving_v1alpha1_ClusterServingRuntimeList(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterStorageContainer":     schema_pkg_apis_serving_v1alpha1_ClusterStorageContainer(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterStorageContainerList": schema_pkg_apis_serving_v1alpha1_ClusterStorageContainerList(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraph":              schema_pkg_apis_serving_v1alpha1_InferenceGraph(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraphList":          schema_pkg_apis_serving_v1alpha1_InferenceGraphList(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraphSpec":          schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraphStatus":        schema_pkg_apis_serving_v1alpha1_InferenceGraphStatus(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceRouter":             schema_pkg_apis_serving_v1alpha1_InferenceRouter(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceStep":               schema_pkg_apis_serving_v1alpha1_InferenceStep(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceTarget":             schema_pkg_apis_serving_v1alpha1_InferenceTarget(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelCache":             schema_pkg_apis_serving_v1alpha1_LocalModelCache(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelCacheList":         schema_pkg_apis_serving_v1alpha1_LocalModelCacheList(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelCacheSpec":         schema_pkg_apis_serving_v1alpha1_LocalModelCacheSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNode":              schema_pkg_apis_serving_v1alpha1_LocalModelNode(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeGroup":         schema_pkg_apis_serving_v1alpha1_LocalModelNodeGroup(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeGroupList":     schema_pkg_apis_serving_v1alpha1_LocalModelNodeGroupList(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeGroupSpec":     schema_pkg_apis_serving_v1alpha1_LocalModelNodeGroupSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeList":          schema_pkg_apis_serving_v1alpha1_LocalModelNodeList(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeSpec":          schema_pkg_apis_serving_v1alpha1_LocalModelNodeSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ModelSpec":                   schema_pkg_apis_serving_v1alpha1_ModelSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntime":              schema_pkg_apis_serving_v1alpha1_ServingRuntime(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimeList":          schema_pkg_apis_serving_v1alpha1_ServingRuntimeList(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimePodSpec":       schema_pkg_apis_serving_v1alpha1_ServingRuntimePodSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimeSpec":          schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimeStatus":        schema_pkg_apis_serving_v1alpha1_ServingRuntimeStatus(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.StorageContainerSpec":        schema_pkg_apis_serving_v1alpha1_StorageContainerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.StorageHelper":               schema_pkg_apis_serving_v1alpha1_StorageHelper(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedModelFormat":        schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedUriFormat":          schema_pkg_apis_serving_v1alpha1_SupportedUriFormat(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModel":                schema_pkg_apis_serving_v1alpha1_TrainedModel(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelList":            schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelSpec":            schema_pkg_apis_serving_v1alpha1_TrainedModelSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec":             schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec":              schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher":                      schema_pkg_apis_serving_v1beta1_Batcher(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentExtensionSpec":       schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentStatusSpec":          schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomExplainer":              schema_pkg_apis_serving_v1beta1_CustomExplainer(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomPredictor":              schema_pkg_apis_serving_v1beta1_CustomPredictor(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomTransformer":            schema_pkg_apis_serving_v1beta1_CustomTransformer(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.DeployConfig":                 schema_pkg_apis_serving_v1beta1_DeployConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerConfig":              schema_pkg_apis_serving_v1beta1_ExplainerConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerExtensionSpec":       schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec":                schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainersConfig":             schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource":         schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetrics":              schema_pkg_apis_serving_v1beta1_ExternalMetrics(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.FailureInfo":                  schema_pkg_apis_serving_v1beta1_FailureInfo(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.HuggingFaceRuntimeSpec":       schema_pkg_apis_serving_v1beta1_HuggingFaceRuntimeSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceService":             schema_pkg_apis_serving_v1beta1_InferenceService(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceDefaulter":    schema_pkg_apis_serving_v1beta1_InferenceServiceDefaulter(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceList":         schema_pkg_apis_serving_v1beta1_InferenceServiceList(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceSpec":         schema_pkg_apis_serving_v1beta1_InferenceServiceSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceStatus":       schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceValidator":    schema_pkg_apis_serving_v1beta1_InferenceServiceValidator(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServicesConfig":      schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.IngressConfig":                schema_pkg_apis_serving_v1beta1_IngressConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec":                 schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LocalModelConfig":             schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                   schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget":                 schema_pkg_apis_serving_v1beta1_MetricTarget(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricsSpec":                  schema_pkg_apis_serving_v1beta1_MetricsSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelCopies":                  schema_pkg_apis_serving_v1beta1_ModelCopies(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelFormat":                  schema_pkg_apis_serving_v1beta1_ModelFormat(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelRevisionStates":          schema_pkg_apis_serving_v1beta1_ModelRevisionStates(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec":                    schema_pkg_apis_serving_v1beta1_ModelSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus":                  schema_pkg_apis_serving_v1beta1_ModelStatus(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MultiNodeConfig":              schema_pkg_apis_serving_v1beta1_MultiNodeConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec":              schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.OtelCollectorConfig":          schema_pkg_apis_serving_v1beta1_OtelCollectorConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec":                     schema_pkg_apis_serving_v1beta1_PMMLSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec":             schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodMetricSource":              schema_pkg_apis_serving_v1beta1_PodMetricSource(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodMetrics":                   schema_pkg_apis_serving_v1beta1_PodMetrics(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodSpec":                      schema_pkg_apis_serving_v1beta1_PodSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorExtensionSpec":       schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec":                schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig":               schema_pkg_apis_serving_v1beta1_ResourceConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource":         schema_pkg_apis_serving_v1beta1_ResourceMetricSource(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec":                  schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SecurityConfig":               schema_pkg_apis_serving_v1beta1_SecurityConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ServiceConfig":                schema_pkg_apis_serving_v1beta1_ServiceConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec":                  schema_pkg_apis_serving_v1beta1_StorageSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec":                schema_pkg_apis_serving_v1beta1_TFServingSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec":               schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TransformerSpec":              schema_pkg_apis_serving_v1beta1_TransformerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec":                   schema_pkg_apis_serving_v1beta1_TritonSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.WorkerSpec":                   schema_pkg_apis_serving_v1beta1_WorkerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.XGBoostSpec":                  schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.BuiltInAdapter":                schema_pkg_apis_serving_v1alpha1_BuiltInAdapter(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterServingRuntime":         schema_pkg_apis_serving_v1alpha1_ClusterServingRuntime(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterServingRuntimeList":     schema_pkg_apis_serving_v1alpha1_ClusterServingRuntimeList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterStorageContainer":       schema_pkg_apis_serving_v1alpha1_ClusterStorageContainer(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterStorageContainerList":   schema_pkg_apis_serving_v1alpha1_ClusterStorageContainerList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InfereceGraphRouterTimeouts":   schema_pkg_apis_serving_v1alpha1_InfereceGraphRouterTimeouts(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraph":                schema_pkg_apis_serving_v1alpha1_InferenceGraph(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraphList":            schema_pkg_apis_serving_v1alpha1_InferenceGraphList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraphSpec":            schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraphStatus":          schema_pkg_apis_serving_v1alpha1_InferenceGraphStatus(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceRouter":               schema_pkg_apis_serving_v1alpha1_InferenceRouter(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceStep":                 schema_pkg_apis_serving_v1alpha1_InferenceStep(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceTarget":               schema_pkg_apis_serving_v1alpha1_InferenceTarget(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceService":           schema_pkg_apis_serving_v1alpha1_LLMInferenceService(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceConfig":     schema_pkg_apis_serving_v1alpha1_LLMInferenceServiceConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceConfigList": schema_pkg_apis_serving_v1alpha1_LLMInferenceServiceConfigList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceList":       schema_pkg_apis_serving_v1alpha1_LLMInferenceServiceList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelCache":               schema_pkg_apis_serving_v1alpha1_LocalModelCache(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelCacheList":           schema_pkg_apis_serving_v1alpha1_LocalModelCacheList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelCacheSpec":           schema_pkg_apis_serving_v1alpha1_LocalModelCacheSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNode":                schema_pkg_apis_serving_v1alpha1_LocalModelNode(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeGroup":           schema_pkg_apis_serving_v1alpha1_LocalModelNodeGroup(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeGroupList":       schema_pkg_apis_serving_v1alpha1_LocalModelNodeGroupList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeGroupSpec":       schema_pkg_apis_serving_v1alpha1_LocalModelNodeGroupSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeList":            schema_pkg_apis_serving_v1alpha1_LocalModelNodeList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeSpec":            schema_pkg_apis_serving_v1alpha1_LocalModelNodeSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ModelSpec":                     schema_pkg_apis_serving_v1alpha1_ModelSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntime":                schema_pkg_apis_serving_v1alpha1_ServingRuntime(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimeList":            schema_pkg_apis_serving_v1alpha1_ServingRuntimeList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimePodSpec":         schema_pkg_apis_serving_v1alpha1_ServingRuntimePodSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimeSpec":            schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimeStatus":          schema_pkg_apis_serving_v1alpha1_ServingRuntimeStatus(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.StorageContainerSpec":          schema_pkg_apis_serving_v1alpha1_StorageContainerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.StorageHelper":                 schema_pkg_apis_serving_v1alpha1_StorageHelper(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedModelFormat":          schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedUriFormat":            schema_pkg_apis_serving_v1alpha1_SupportedUriFormat(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModel":                  schema_pkg_apis_serving_v1alpha1_TrainedModel(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelList":              schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelSpec":              schema_pkg_apis_serving_v1alpha1_TrainedModelSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec":               schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec":                schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher":                        schema_pkg_apis_serving_v1beta1_Batcher(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentExtensionSpec":         schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentStatusSpec":            schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomExplainer":                schema_pkg_apis_serving_v1beta1_CustomExplainer(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomPredictor":                schema_pkg_apis_serving_v1beta1_CustomPredictor(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomTransformer":              schema_pkg_apis_serving_v1beta1_CustomTransformer(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.DeployConfig":                   schema_pkg_apis_serving_v1beta1_DeployConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerConfig":                schema_pkg_apis_serving_v1beta1_ExplainerConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerExtensionSpec":         schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec":                  schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainersConfig":               schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource":           schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetrics":                schema_pkg_apis_serving_v1beta1_ExternalMetrics(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.FailureInfo":                    schema_pkg_apis_serving_v1beta1_FailureInfo(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.HuggingFaceRuntimeSpec":         schema_pkg_apis_serving_v1beta1_HuggingFaceRuntimeSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceService":               schema_pkg_apis_serving_v1beta1_InferenceService(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceDefaulter":      schema_pkg_apis_serving_v1beta1_InferenceServiceDefaulter(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceList":           schema_pkg_apis_serving_v1beta1_InferenceServiceList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceSpec":           schema_pkg_apis_serving_v1beta1_InferenceServiceSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceStatus":         schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceValidator":      schema_pkg_apis_serving_v1beta1_InferenceServiceValidator(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServicesConfig":        schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.IngressConfig":                  schema_pkg_apis_serving_v1beta1_IngressConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec":                   schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LocalModelConfig":               schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                     schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget":                   schema_pkg_apis_serving_v1beta1_MetricTarget(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricsSpec":                    schema_pkg_apis_serving_v1beta1_MetricsSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelCopies":                    schema_pkg_apis_serving_v1beta1_ModelCopies(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelFormat":                    schema_pkg_apis_serving_v1beta1_ModelFormat(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelRevisionStates":            schema_pkg_apis_serving_v1beta1_ModelRevisionStates(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec":                      schema_pkg_apis_serving_v1beta1_ModelSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus":                    schema_pkg_apis_serving_v1beta1_ModelStatus(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MultiNodeConfig":                schema_pkg_apis_serving_v1beta1_MultiNodeConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec":                schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.OtelCollectorConfig":            schema_pkg_apis_serving_v1beta1_OtelCollectorConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec":                       schema_pkg_apis_serving_v1beta1_PMMLSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec":               schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodMetricSource":                schema_pkg_apis_serving_v1beta1_PodMetricSource(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodMetrics":                     schema_pkg_apis_serving_v1beta1_PodMetrics(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodSpec":                        schema_pkg_apis_serving_v1beta1_PodSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorExtensionSpec":         schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec":                  schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig":                 schema_pkg_apis_serving_v1beta1_ResourceConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource":           schema_pkg_apis_serving_v1beta1_ResourceMetricSource(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec":                    schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SecurityConfig":                 schema_pkg_apis_serving_v1beta1_SecurityConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ServiceConfig":                  schema_pkg_apis_serving_v1beta1_ServiceConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec":                    schema_pkg_apis_serving_v1beta1_StorageSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec":                  schema_pkg_apis_serving_v1beta1_TFServingSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec":                 schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TransformerSpec":                schema_pkg_apis_serving_v1beta1_TransformerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec":                     schema_pkg_apis_serving_v1beta1_TritonSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.WorkerSpec":                     schema_pkg_apis_serving_v1beta1_WorkerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.XGBoostSpec":                    schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref),
 	}
 }
 
@@ -368,6 +373,46 @@ func schema_pkg_apis_serving_v1alpha1_ClusterStorageContainerList(ref common.Ref
 	}
 }
 
+func schema_pkg_apis_serving_v1alpha1_InfereceGraphRouterTimeouts(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"serverRead": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServerRead specifies the number of seconds to wait before timing out a request read by the server.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"serverWrite": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServerWrite specifies the maximum duration in seconds before timing out writes of the response.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"serverIdle": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServerIdle specifies the maximum amount of time in seconds to wait for the next request when keep-alives are enabled.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"serviceClient": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServiceClient specifies a time limit in seconds for requests made to the graph components by HTTP client.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_serving_v1alpha1_InferenceGraph(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -509,6 +554,11 @@ func schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref common.ReferenceCal
 							Format:      "int64",
 						},
 					},
+					"routerTimeouts": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InfereceGraphRouterTimeouts"),
+						},
+					},
 					"minReplicas": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
@@ -586,7 +636,7 @@ func schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceRouter", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InfereceGraphRouterTimeouts", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceRouter", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration"},
 	}
 }
 
@@ -799,6 +849,192 @@ func schema_pkg_apis_serving_v1alpha1_InferenceTarget(ref common.ReferenceCallba
 				},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_LLMInferenceService(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LLMInferenceService is the Schema for the llminferenceservices API, representing a single LLM deployment. It orchestrates the creation of underlying Kubernetes resources like Deployments and Services, and configures networking for exposing the model.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceSpec", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_LLMInferenceServiceConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LLMInferenceServiceConfig is the Schema for the llminferenceserviceconfigs API. It acts as a template to provide base configurations that can be inherited by multiple LLMInferenceService instances.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceSpec"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_LLMInferenceServiceConfigList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LLMInferenceServiceConfigList is the list type for LLMInferenceServiceConfig.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceConfig"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceConfig", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_LLMInferenceServiceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LLMInferenceServiceList is the list type for LLMInferenceService.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceService"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceService", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
 	}
 }
 
@@ -2647,7 +2883,7 @@ func schema_pkg_apis_serving_v1beta1_CustomExplainer(ref common.ReferenceCallbac
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
+							Description: "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -3137,7 +3373,7 @@ func schema_pkg_apis_serving_v1beta1_CustomPredictor(ref common.ReferenceCallbac
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
+							Description: "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -3627,7 +3863,7 @@ func schema_pkg_apis_serving_v1beta1_CustomTransformer(ref common.ReferenceCallb
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
+							Description: "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
