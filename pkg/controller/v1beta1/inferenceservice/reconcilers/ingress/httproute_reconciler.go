@@ -662,7 +662,7 @@ func (r *RawHTTPRouteReconciler) reconcileExplainerHTTPRoute(ctx context.Context
 	httpRouteName := constants.ExplainerServiceName(isvc.Name)
 	existingHttpRoute := &gatewayapiv1.HTTPRoute{}
 	getExistingErr := r.client.Get(ctx, types.NamespacedName{
-		Name: desired.Name, Namespace: isvc.Namespace,
+		Name: httpRouteName, Namespace: isvc.Namespace,
 	}, existingHttpRoute)
 	httpRouteIsNotFound := apierr.IsNotFound(getExistingErr)
 	if getExistingErr != nil && !httpRouteIsNotFound {
@@ -678,7 +678,7 @@ func (r *RawHTTPRouteReconciler) reconcileExplainerHTTPRoute(ctx context.Context
 		if ctrl := metav1.GetControllerOf(existingHttpRoute); ctrl != nil && ctrl.UID == isvc.UID {
 			log.Info("The InferenceService is marked as stopped — deleting its associated http route", "name", httpRouteName)
 			if err := r.client.Delete(ctx, existingHttpRoute); err != nil {
-				return fmt.Errorf("failed to delete HTTPRoute %s/%s: %w", desired.Namespace, desired.Name, err)
+				return fmt.Errorf("failed to delete HTTPRoute %s/%s: %w", isvc.Namespace, httpRouteName, err)
 			}
 		}
 		return nil
