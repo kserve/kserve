@@ -317,8 +317,10 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 		sRuntime = *r
 		if isClusterServingRuntime {
 			isvc.Status.ClusterServingRuntimeName = *isvc.Spec.Predictor.Model.Runtime
+			isvc.Status.ServingRuntimeName = ""
 		} else {
 			isvc.Status.ServingRuntimeName = *isvc.Spec.Predictor.Model.Runtime
+			isvc.Status.ClusterServingRuntimeName = ""
 		}
 	} else {
 		runtimes, err := isvc.Spec.Predictor.Model.GetSupportingRuntimes(ctx, p.client, isvc.Namespace, false, multiNodeEnabled)
@@ -338,8 +340,10 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 		_, _, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, runtimes[0].Name, isvc.Namespace)
 		if isClusterServingRuntime {
 			isvc.Status.ClusterServingRuntimeName = runtimes[0].Name
+			isvc.Status.ServingRuntimeName = ""
 		} else {
 			isvc.Status.ServingRuntimeName = runtimes[0].Name
+			isvc.Status.ClusterServingRuntimeName = ""
 		}
 
 		// set runtime defaults
