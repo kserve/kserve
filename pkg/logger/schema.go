@@ -18,6 +18,7 @@ package logger
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -71,7 +72,7 @@ func LoadSchema(data []byte) (*Schema, error) {
 // Data: this is reserved for the payload
 func validateSchema(schema Schema) error {
 	if schema.Format != schemaFormatJson {
-		return fmt.Errorf("schema format must be json")
+		return errors.New("schema format must be json")
 	}
 	for _, f := range schema.Fields {
 		if f.Name == protectedFieldData || f.Name == protectedFieldID {
