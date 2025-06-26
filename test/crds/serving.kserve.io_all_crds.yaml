@@ -26783,6 +26783,8 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              clusterServingRuntimeName:
+                type: string
               components:
                 additionalProperties:
                   properties:

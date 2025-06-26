@@ -5791,6 +5791,13 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref common.Reference
 							Format:      "",
 						},
 					},
+					"clusterServingRuntimeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClusterServingRuntimeName is the name of the ClusterServingRuntime that the InferenceService is using",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

@@ -3168,6 +3168,10 @@
             "default": ""
           }
         },
+        "clusterServingRuntimeName": {
+          "description": "ClusterServingRuntimeName is the name of the ClusterServingRuntime that the InferenceService is using",
+          "type": "string"
+        },
         "components": {
           "description": "Statuses for the components of the InferenceService",
           "type": "object",

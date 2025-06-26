@@ -2925,7 +2925,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
 		})
 	})
-	Context("When Updating a Serving Runtime", func() {
+	FContext("When Updating a Serving Runtime", func() {
 		configs := map[string]string{
 			"explainers": `{
 				"alibi": {

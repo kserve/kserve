@@ -400,11 +400,11 @@ func (r *InferenceServiceReconciler) servingRuntimeFunc(ctx context.Context, obj
 		return nil
 	}
 
-	var requests []reconcile.Request
+	requests := make([]reconcile.Request, 0, len(isvcList.Items))
 	for _, isvc := range isvcList.Items {
 		annotations := isvc.GetAnnotations()
 		if annotations != nil {
-			if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" {
+			if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" && isvc.Status.IsReady() {
 				r.Log.Info("Auto-update is disabled for InferenceService", "InferenceService", isvc.Name)
 				continue
 			}
@@ -417,6 +417,38 @@ func (r *InferenceServiceReconciler) servingRuntimeFunc(ctx context.Context, obj
 				},
 			})
 		}
+	}
+	return requests
+}
+
+func (r *InferenceServiceReconciler) clusterServingRuntimeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	clusterServingRuntimeObj, ok := obj.(*v1alpha1.ClusterServingRuntime)
+
+	if !ok || clusterServingRuntimeObj == nil {
+		return nil
+	}
+
+	var isvcList v1beta1.InferenceServiceList
+	if err := r.Client.List(ctx, &isvcList, client.InNamespace(clusterServingRuntimeObj.Namespace)); err != nil {
+		r.Log.Error(err, "unable to list InferenceServices", "clusterServingRuntime", clusterServingRuntimeObj.Name)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(isvcList.Items))
+	for _, isvc := range isvcList.Items {
+		annotations := isvc.GetAnnotations()
+		if annotations != nil {
+			if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" && isvc.Status.IsReady() {
+				r.Log.Info("Auto-update is disabled for InferenceService", "InferenceService", isvc.Name)
+				continue
+			}
+		}
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: isvc.Namespace,
+				Name:      isvc.Name,
+			},
+		})
 	}
 	return requests
 }
@@ -453,6 +485,9 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		if isvc.Status.ServingRuntimeName != "" {
 			return []string{isvc.Status.ServingRuntimeName}
 		}
+		if isvc.Status.ClusterServingRuntimeName != "" {
+			return []string{isvc.Status.ClusterServingRuntimeName}
+		}
 		return nil
 	}); err != nil {
 		return err
@@ -463,6 +498,18 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 			oldServingRuntime := e.ObjectOld.(*v1alpha1.ServingRuntime)
 			newServingRuntime := e.ObjectNew.(*v1alpha1.ServingRuntime)
 			return !reflect.DeepEqual(oldServingRuntime.Spec, newServingRuntime.Spec)
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+
+	// TODO: Find a way to distinguish if the ServingRuntime is a ClusterServingRuntime or not
+	clusterServingRuntimesPredicate := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldClusterServingRuntime := e.ObjectOld.(*v1alpha1.ClusterServingRuntime)
+			newClusterServingRuntime := e.ObjectNew.(*v1alpha1.ClusterServingRuntime)
+			return !reflect.DeepEqual(oldClusterServingRuntime.Spec, newClusterServingRuntime.Spec)
 		},
 		CreateFunc:  func(e event.CreateEvent) bool { return false },
 		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
@@ -525,7 +572,9 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		ctrlBuilder = ctrlBuilder.Owns(&netv1.Ingress{})
 	}
 
-	return ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate)).Complete(r)
+	return ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate)).
+		Watches(&v1alpha1.ClusterServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.clusterServingRuntimeFunc), builder.WithPredicates(clusterServingRuntimesPredicate)).
+		Complete(r)
 }
 
 func (r *InferenceServiceReconciler) deleteExternalResources(ctx context.Context, isvc *v1beta1.InferenceService) error {

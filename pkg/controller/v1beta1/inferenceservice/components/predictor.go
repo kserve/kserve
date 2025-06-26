@@ -279,7 +279,7 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 	if isvc.Spec.Predictor.Model.Runtime != nil {
 		// set runtime defaults
 		isvc.SetRuntimeDefaults()
-		r, err := isvcutils.GetServingRuntime(ctx, p.client, *isvc.Spec.Predictor.Model.Runtime, isvc.Namespace)
+		r, err, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, *isvc.Spec.Predictor.Model.Runtime, isvc.Namespace)
 		if err != nil {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.RuntimeNotRecognized,
@@ -315,8 +315,11 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 		}
 
 		sRuntime = *r
-		// Set the ServingRuntimeName in the status
-		isvc.Status.ServingRuntimeName = *isvc.Spec.Predictor.Model.Runtime
+		if isClusterServingRuntime {
+			isvc.Status.ClusterServingRuntimeName = *isvc.Spec.Predictor.Model.Runtime
+		} else {
+			isvc.Status.ServingRuntimeName = *isvc.Spec.Predictor.Model.Runtime
+		}
 	} else {
 		runtimes, err := isvc.Spec.Predictor.Model.GetSupportingRuntimes(ctx, p.client, isvc.Namespace, false, multiNodeEnabled)
 		if err != nil {
@@ -332,8 +335,12 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 		// Get first supporting runtime.
 		sRuntime = runtimes[0].Spec
 		isvc.Spec.Predictor.Model.Runtime = &runtimes[0].Name
-		// Set the ServingRuntimeName in the status
-		isvc.Status.ServingRuntimeName = runtimes[0].Name
+		_, _, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, runtimes[0].Name, isvc.Namespace)
+		if isClusterServingRuntime {
+			isvc.Status.ClusterServingRuntimeName = runtimes[0].Name
+		} else {
+			isvc.Status.ServingRuntimeName = runtimes[0].Name
+		}
 
 		// set runtime defaults
 		isvc.SetRuntimeDefaults()

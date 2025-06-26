@@ -49,6 +49,7 @@ class V1beta1InferenceServiceStatus(object):
     openapi_types = {
         'address': 'KnativeAddressable',
         'annotations': 'dict(str, str)',
+        'cluster_serving_runtime_name': 'str',
         'components': 'dict(str, V1beta1ComponentStatusSpec)',
         'conditions': 'list[KnativeCondition]',
         'deployment_mode': 'str',
@@ -61,6 +62,7 @@ class V1beta1InferenceServiceStatus(object):
     attribute_map = {
         'address': 'address',
         'annotations': 'annotations',
+        'cluster_serving_runtime_name': 'clusterServingRuntimeName',
         'components': 'components',
         'conditions': 'conditions',
         'deployment_mode': 'deploymentMode',
@@ -70,7 +72,7 @@ class V1beta1InferenceServiceStatus(object):
         'url': 'url'
     }
 
-    def __init__(self, address=None, annotations=None, components=None, conditions=None, deployment_mode=None, model_status=None, observed_generation=None, serving_runtime_name=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, address=None, annotations=None, cluster_serving_runtime_name=None, components=None, conditions=None, deployment_mode=None, model_status=None, observed_generation=None, serving_runtime_name=None, url=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1InferenceServiceStatus - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -78,6 +80,7 @@ class V1beta1InferenceServiceStatus(object):
 
         self._address = None
         self._annotations = None
+        self._cluster_serving_runtime_name = None
         self._components = None
         self._conditions = None
         self._deployment_mode = None
@@ -91,6 +94,8 @@ class V1beta1InferenceServiceStatus(object):
             self.address = address
         if annotations is not None:
             self.annotations = annotations
+        if cluster_serving_runtime_name is not None:
+            self.cluster_serving_runtime_name = cluster_serving_runtime_name
         if components is not None:
             self.components = components
         if conditions is not None:
@@ -149,6 +154,29 @@ class V1beta1InferenceServiceStatus(object):
         """
 
         self._annotations = annotations
+
+    @property
+    def cluster_serving_runtime_name(self):
+        """Gets the cluster_serving_runtime_name of this V1beta1InferenceServiceStatus.  # noqa: E501
+
+        ClusterServingRuntimeName is the name of the ClusterServingRuntime that the InferenceService is using  # noqa: E501
+
+        :return: The cluster_serving_runtime_name of this V1beta1InferenceServiceStatus.  # noqa: E501
+        :rtype: str
+        """
+        return self._cluster_serving_runtime_name
+
+    @cluster_serving_runtime_name.setter
+    def cluster_serving_runtime_name(self, cluster_serving_runtime_name):
+        """Sets the cluster_serving_runtime_name of this V1beta1InferenceServiceStatus.
+
+        ClusterServingRuntimeName is the name of the ClusterServingRuntime that the InferenceService is using  # noqa: E501
+
+        :param cluster_serving_runtime_name: The cluster_serving_runtime_name of this V1beta1InferenceServiceStatus.  # noqa: E501
+        :type: str
+        """
+
+        self._cluster_serving_runtime_name = cluster_serving_runtime_name
 
     @property
     def components(self):
