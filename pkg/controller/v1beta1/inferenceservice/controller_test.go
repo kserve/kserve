@@ -1978,7 +1978,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectIsvcReadyStatus(ctx, serviceKey)
 				expectIsvcExplainerReadyStatus(ctx, serviceKey)
 			})
-
 		})
 	})
 
