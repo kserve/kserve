@@ -5490,6 +5490,27 @@ spec:
                   activeDeadlineSeconds:
                     format: int64
                     type: integer
+                  advanced:
+                    properties:
+                      horizontalPodAutoscalerConfig:
+                        properties:
+                          behavior:
+                            properties:
+                              scaleDown:
+                                properties:
+                                  stabilizationWindowSeconds:
+                                    format: int32
+                                    type: integer
+                                type: object
+                              scaleUp:
+                                properties:
+                                  stabilizationWindowSeconds:
+                                    format: int32
+                                    type: integer
+                                type: object
+                            type: object
+                        type: object
+                    type: object
                   affinity:
                     properties:
                       nodeAffinity:
@@ -9354,6 +9375,27 @@ spec:
                   activeDeadlineSeconds:
                     format: int64
                     type: integer
+                  advanced:
+                    properties:
+                      horizontalPodAutoscalerConfig:
+                        properties:
+                          behavior:
+                            properties:
+                              scaleDown:
+                                properties:
+                                  stabilizationWindowSeconds:
+                                    format: int32
+                                    type: integer
+                                type: object
+                              scaleUp:
+                                properties:
+                                  stabilizationWindowSeconds:
+                                    format: int32
+                                    type: integer
+                                type: object
+                            type: object
+                        type: object
+                    type: object
                   affinity:
                     properties:
                       nodeAffinity:
@@ -23726,6 +23768,27 @@ spec:
                   activeDeadlineSeconds:
                     format: int64
                     type: integer
+                  advanced:
+                    properties:
+                      horizontalPodAutoscalerConfig:
+                        properties:
+                          behavior:
+                            properties:
+                              scaleDown:
+                                properties:
+                                  stabilizationWindowSeconds:
+                                    format: int32
+                                    type: integer
+                                type: object
+                              scaleUp:
+                                properties:
+                                  stabilizationWindowSeconds:
+                                    format: int32
+                                    type: integer
+                                type: object
+                            type: object
+                        type: object
+                    type: object
                   affinity:
                     properties:
                       nodeAffinity:

@@ -186,6 +186,18 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	MinReplicas := componentExtension.MinReplicas
 	MaxReplicas := componentExtension.MaxReplicas
 
+	var ScaleDownStabilizationWindowSeconds, ScaleUpStabilizationWindowSeconds *int32
+	if adv := componentExtension.AdvancedConfig; adv != nil {
+		if hpa := adv.HorizontalPodAutoscalerConfig; hpa != nil && hpa.Behavior != nil {
+			if sd := hpa.Behavior.ScaleDown; sd != nil {
+				ScaleDownStabilizationWindowSeconds = sd.StabilizationWindowSeconds
+			}
+			if su := hpa.Behavior.ScaleUp; su != nil {
+				ScaleUpStabilizationWindowSeconds = su.StabilizationWindowSeconds
+			}
+		}
+	}
+
 	if MinReplicas == nil {
 		MinReplicas = &constants.DefaultMinReplicas
 	}
@@ -213,6 +225,25 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 			MinReplicaCount: MinReplicas,
 			MaxReplicaCount: ptr.To(MaxReplicas),
 		},
+	}
+
+	if ScaleDownStabilizationWindowSeconds != nil || ScaleUpStabilizationWindowSeconds != nil {
+		hpaBehavior := &autoscalingv2.HorizontalPodAutoscalerBehavior{}
+		if ScaleDownStabilizationWindowSeconds != nil {
+			hpaBehavior.ScaleDown = &autoscalingv2.HPAScalingRules{
+				StabilizationWindowSeconds: ScaleDownStabilizationWindowSeconds,
+			}
+		}
+		if ScaleUpStabilizationWindowSeconds != nil {
+			hpaBehavior.ScaleUp = &autoscalingv2.HPAScalingRules{
+				StabilizationWindowSeconds: ScaleUpStabilizationWindowSeconds,
+			}
+		}
+		scaledobject.Spec.Advanced = &kedav1alpha1.AdvancedConfig{
+			HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
+				Behavior: hpaBehavior,
+			},
+		}
 	}
 
 	return scaledobject, nil
