@@ -1320,7 +1320,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "The location of a trained explanation model",
@@ -2536,7 +2536,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "The location of a trained explanation model",
@@ -3123,7 +3123,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -3528,7 +3528,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -3639,8 +3639,36 @@
           "description": "Specifies the scope of the loggers. \u003cbr /\u003e Valid values are: \u003cbr /\u003e - \"all\" (default): log both request and response; \u003cbr /\u003e - \"request\": log only request; \u003cbr /\u003e - \"response\": log only response \u003cbr /\u003e",
           "type": "string"
         },
+        "storage": {
+          "description": "Specifies the storage location for the inference logger cloud events.",
+          "$ref": "#/definitions/v1beta1.LoggerStorageSpec"
+        },
         "url": {
           "description": "URL to send logging events",
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.LoggerStorageSpec": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "The Storage Key in the secret for this object.",
+          "type": "string"
+        },
+        "parameters": {
+          "description": "Parameters to override the default storage credentials and config.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "path": {
+          "description": "The path to the object in the storage. Note that this path is relative to the storage URI.",
+          "type": "string"
+        },
+        "serviceAccountName": {
           "type": "string"
         }
       }
@@ -3884,7 +3912,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -3958,6 +3986,31 @@
           "description": "Whether the available predictor endpoints reflect the current Spec or is in transition",
           "type": "string",
           "default": ""
+        }
+      }
+    },
+    "v1beta1.ModelStorageSpec": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "The Storage Key in the secret for this object.",
+          "type": "string"
+        },
+        "parameters": {
+          "description": "Parameters to override the default storage credentials and config.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "path": {
+          "description": "The path to the object in the storage. Note that this path is relative to the storage URI.",
+          "type": "string"
+        },
+        "schemaPath": {
+          "description": "The path to the model schema file in the storage.",
+          "type": "string"
         }
       }
     },
@@ -4103,7 +4156,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -4298,7 +4351,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -4478,7 +4531,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -4961,7 +5014,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -5548,7 +5601,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -5622,10 +5675,11 @@
       }
     },
     "v1beta1.StorageSpec": {
+      "description": "StorageSpec defines a spec for an object in an object store",
       "type": "object",
       "properties": {
         "key": {
-          "description": "The Storage Key in the secret for this model.",
+          "description": "The Storage Key in the secret for this object.",
           "type": "string"
         },
         "parameters": {
@@ -5637,11 +5691,7 @@
           }
         },
         "path": {
-          "description": "The path to the model object in the storage. It cannot co-exist with the storageURI.",
-          "type": "string"
-        },
-        "schemaPath": {
-          "description": "The path to the model schema file in the storage.",
+          "description": "The path to the object in the storage. Note that this path is relative to the storage URI.",
           "type": "string"
         }
       }
@@ -5775,7 +5825,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -5956,7 +6006,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -6459,7 +6509,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -6901,7 +6951,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",

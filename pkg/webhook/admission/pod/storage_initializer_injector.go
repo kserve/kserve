@@ -445,6 +445,8 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 			pod.Namespace,
 			pod.Annotations,
 			storageKey,
+			nil,
+			nil,
 			overrideParams,
 			initContainer,
 		); err != nil {
