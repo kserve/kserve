@@ -3546,11 +3546,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 				// check that the http routes were not created
 				// top level http route
-				expectResourceDoesNotExist(context.Background(), &gatewayapiv1.HTTPRoute{}, serviceKey)
+				expectResourceDoesNotExist(context.Background(), &gwapiv1.HTTPRoute{}, serviceKey)
 				// predictor http route
-				expectResourceDoesNotExist(context.Background(), &gatewayapiv1.HTTPRoute{}, predictorKey)
+				expectResourceDoesNotExist(context.Background(), &gwapiv1.HTTPRoute{}, predictorKey)
 				// explainer http route
-				expectResourceDoesNotExist(context.Background(), &gatewayapiv1.HTTPRoute{}, explainerKey)
+				expectResourceDoesNotExist(context.Background(), &gwapiv1.HTTPRoute{}, explainerKey)
 
 				// check that the predictor HPA was not created
 				expectResourceDoesNotExist(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, predictorKey)
@@ -3652,11 +3652,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 				// check that the http routes were deleted
 				// top level http route
-				expectResourceToBeDeleted(context.Background(), &gatewayapiv1.HTTPRoute{}, serviceKey)
+				expectResourceToBeDeleted(context.Background(), &gwapiv1.HTTPRoute{}, serviceKey)
 				// predictor http route
-				expectResourceToBeDeleted(context.Background(), &gatewayapiv1.HTTPRoute{}, predictorKey)
+				expectResourceToBeDeleted(context.Background(), &gwapiv1.HTTPRoute{}, predictorKey)
 				// explainer http route
-				expectResourceToBeDeleted(context.Background(), &gatewayapiv1.HTTPRoute{}, explainerKey)
+				expectResourceToBeDeleted(context.Background(), &gwapiv1.HTTPRoute{}, explainerKey)
 
 				// check that the predictor HPA was deleted
 				expectResourceToBeDeleted(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, predictorKey)
@@ -3720,11 +3720,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 				// check that the http routes were not created
 				// top level http route
-				expectResourceDoesNotExist(context.Background(), &gatewayapiv1.HTTPRoute{}, serviceKey)
+				expectResourceDoesNotExist(context.Background(), &gwapiv1.HTTPRoute{}, serviceKey)
 				// predictor http route
-				expectResourceDoesNotExist(context.Background(), &gatewayapiv1.HTTPRoute{}, predictorKey)
+				expectResourceDoesNotExist(context.Background(), &gwapiv1.HTTPRoute{}, predictorKey)
 				// explainer http route
-				expectResourceDoesNotExist(context.Background(), &gatewayapiv1.HTTPRoute{}, explainerKey)
+				expectResourceDoesNotExist(context.Background(), &gwapiv1.HTTPRoute{}, explainerKey)
 
 				// check that the predictor HPA was not created
 				expectResourceDoesNotExist(ctx, &autoscalingv2.HorizontalPodAutoscaler{}, predictorKey)
