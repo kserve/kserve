@@ -6591,6 +6591,13 @@ func schema_pkg_apis_serving_v1beta1_LoggerSpec(ref common.ReferenceCallback) co
 							},
 						},
 					},
+					"logSchema": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specifies the format for custom log generation.  The standard cloud events currently sent will not be compatible with a custom format Valid values are: - \"JSON\": logs are generated and sent as a JSON payload following the format specified in inference-logging-configmap",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"metadataAnnotations": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Matched inference service annotations for propagating to inference logger cloud events.",

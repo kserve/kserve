@@ -79,7 +79,7 @@ func TestLogger(t *testing.T) {
 	StartDispatcher(5, &MockStore{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
-		"default", httpProxy, nil, "", nil, true)
+		"default", httpProxy, nil, "", nil, true, "")
 
 	oh.ServeHTTP(w, r)
 
@@ -151,7 +151,7 @@ func TestLoggerWithMetadata(t *testing.T) {
 	StartDispatcher(5, &MockStore{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
-		"default", httpProxy, []string{"Foo", "Fizz"}, "", nil, true)
+		"default", httpProxy, []string{"Foo", "Fizz"}, "", nil, true, "")
 
 	oh.ServeHTTP(w, r)
 
@@ -223,7 +223,7 @@ func TestLoggerWithAnnotation(t *testing.T) {
 	StartDispatcher(5, &MockStore{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
-		"default", httpProxy, nil, "", map[string]string{"Foo": "Bar", "Fizz": "Buzz"}, true)
+		"default", httpProxy, nil, "", map[string]string{"Foo": "Bar", "Fizz": "Buzz"}, true, "")
 
 	oh.ServeHTTP(w, r)
 
@@ -268,7 +268,7 @@ func TestBadResponse(t *testing.T) {
 	StartDispatcher(1, &MockStore{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
-		"default", httpProxy, nil, "", nil, true)
+		"default", httpProxy, nil, "", nil, true, "")
 
 	oh.ServeHTTP(w, r)
 	g.Expect(w.Code).To(gomega.Equal(400))
@@ -336,7 +336,7 @@ func TestLoggerWithS3Store(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
-		"default", httpProxy, nil, "", map[string]string{}, true)
+		"default", httpProxy, nil, "", map[string]string{}, true, "")
 
 	oh.ServeHTTP(w, r)
 
