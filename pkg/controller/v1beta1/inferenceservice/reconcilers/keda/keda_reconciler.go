@@ -67,8 +67,7 @@ func NewKedaReconciler(client client.Client,
 	}, nil
 }
 
-func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
-	minReplicas int32, maxReplicas int32, configMap *corev1.ConfigMap,
+func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, configMap *corev1.ConfigMap,
 ) ([]kedav1alpha1.ScaleTriggers, error) {
 	var triggers []kedav1alpha1.ScaleTriggers
 
@@ -176,7 +175,7 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	if MaxReplicas < *MinReplicas {
 		MaxReplicas = *MinReplicas
 	}
-	triggers, err := getKedaMetrics(componentExtension, *MinReplicas, MaxReplicas, configMap)
+	triggers, err := getKedaMetrics(componentExtension, configMap)
 	if err != nil {
 		return nil, err
 	}
