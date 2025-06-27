@@ -2877,7 +2877,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				// Check that the ISVC status reflects that it is stopped
 				expectIsvcTrueStoppedStatus(ctx, serviceKey)
 
-				// Stop the inference service
+				// Resume the inference service
 				updatedIsvc := expectIsvcToExist(ctx, serviceKey)
 				stoppedIsvc := updatedIsvc.DeepCopy()
 				stoppedIsvc.Annotations[constants.StopAnnotationKey] = "false"
