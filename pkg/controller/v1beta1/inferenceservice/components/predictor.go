@@ -552,7 +552,7 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 
 	deploymentAnnotations := annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
 	storageProtocol := strings.Split(deploymentAnnotations, "://")[0]
-	if storageProtocol == "pvc" {
+	if storageProtocol == "pvc" || storageProtocol == "oci" {
 		// Set the environment variable for "/mnt/models" to the MODEL_DIR when multiNodeEnabled is true.
 		if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, "MODEL_DIR", constants.DefaultModelLocalMountPath); err != nil {
 			return nil, errors.Wrapf(err, "failed to add MODEL_DIR environment to the container(%s)", constants.DefaultModelLocalMountPath)
