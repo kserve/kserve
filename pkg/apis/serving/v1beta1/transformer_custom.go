@@ -66,7 +66,7 @@ func (c *CustomTransformer) GetStorageUri() *string {
 	return nil
 }
 
-func (c *CustomTransformer) GetStorageSpec() *StorageSpec {
+func (c *CustomTransformer) GetStorageSpec() *ModelStorageSpec {
 	return nil
 }
 
