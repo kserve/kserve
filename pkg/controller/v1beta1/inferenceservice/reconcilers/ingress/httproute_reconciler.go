@@ -660,7 +660,7 @@ func (r *RawHTTPRouteReconciler) reconcileExplainerHTTPRoute(ctx context.Context
 
 	// reconcile httproute
 	httpRouteName := constants.ExplainerServiceName(isvc.Name)
-	existingHttpRoute := &gatewayapiv1.HTTPRoute{}
+	existingHttpRoute := &gwapiv1.HTTPRoute{}
 	getExistingErr := r.client.Get(ctx, types.NamespacedName{
 		Name: httpRouteName, Namespace: isvc.Namespace,
 	}, existingHttpRoute)
