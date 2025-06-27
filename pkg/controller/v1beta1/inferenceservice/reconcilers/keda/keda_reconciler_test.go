@@ -58,7 +58,7 @@ func TestGetKedaMetrics_ResourceMetricSourceType(t *testing.T) {
 	componentExt := createComponentExtensionWithResourceMetric()
 	configMap := &corev1.ConfigMap{}
 
-	triggers, err := getKedaMetrics(componentExt, 1, 3, configMap)
+	triggers, err := getKedaMetrics(componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "cpu", triggers[0].Type)
@@ -69,7 +69,7 @@ func TestGetKedaMetrics_ExternalMetricSourceType(t *testing.T) {
 	componentExt := createComponentExtensionWithExternalMetric()
 	configMap := &corev1.ConfigMap{}
 
-	triggers, err := getKedaMetrics(componentExt, 1, 3, configMap)
+	triggers, err := getKedaMetrics(componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "prometheus", triggers[0].Type)
@@ -82,15 +82,13 @@ func TestGetKedaMetrics_PodMetricSourceType(t *testing.T) {
 	componentExt := createComponentExtensionWithPodMetric()
 	configMap := &corev1.ConfigMap{}
 
-	triggers, err := getKedaMetrics(componentExt, 1, 3, configMap)
+	triggers, err := getKedaMetrics(componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "external", triggers[0].Type)
 	assert.Equal(t, "http://otel-server", triggers[0].Metadata["scalerAddress"])
 	assert.Equal(t, "otel_query", triggers[0].Metadata["metricQuery"])
 	assert.Equal(t, "200.000000", triggers[0].Metadata["targetValue"])
-	assert.Equal(t, "1", triggers[0].Metadata["clampMin"])
-	assert.Equal(t, "3", triggers[0].Metadata["clampMax"])
 }
 
 func TestCreateKedaScaledObject(t *testing.T) {
@@ -262,7 +260,7 @@ func TestGetKedaMetrics_AverageValueMetricSourceType(t *testing.T) {
 	}
 	configMap := &corev1.ConfigMap{}
 
-	triggers, err := getKedaMetrics(componentExt, 1, 3, configMap)
+	triggers, err := getKedaMetrics(componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "cpu", triggers[0].Type)
@@ -288,7 +286,7 @@ func TestGetKedaMetrics_ValueMetricSourceType(t *testing.T) {
 	}
 	configMap := &corev1.ConfigMap{}
 
-	triggers, err := getKedaMetrics(componentExt, 1, 3, configMap)
+	triggers, err := getKedaMetrics(componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "memory", triggers[0].Type)
@@ -313,7 +311,7 @@ func TestGetKedaMetrics_DefaultCPUUtilization(t *testing.T) {
 	}
 	configMap := &corev1.ConfigMap{}
 
-	triggers, err := getKedaMetrics(componentExt, 1, 3, configMap)
+	triggers, err := getKedaMetrics(componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "cpu", triggers[0].Type)
