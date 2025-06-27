@@ -95,6 +95,9 @@ const (
 	LoggerFormatKey                 = "format"
 	LoggerDefaultStorageKey         = "credentials"
 	LoggerDefaultServiceAccountName = "logger-sa"
+	LoggerCustomSchemaVolume        = "logger-custom-schema"
+	LoggerCustomSchemaMountPath     = "/etc/schema/logger"
+	LoggerCustomSchemaSubPath       = "logSchema"
 )
 
 // InferenceService Annotations
@@ -138,6 +141,7 @@ var (
 	LoggerModeInternalAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/logger-mode"
 	LoggerMetadataHeadersInternalAnnotationKey       = InferenceServiceInternalAnnotationsPrefix + "/logger-metadata-headers"
 	LoggerMetadataAnnotationsInternalAnnotationKey   = InferenceServiceInternalAnnotationsPrefix + "/logger-metadata-annotations"
+	LoggerCustomLogSchemaInternalAnnotationKey       = InferenceServiceInternalAnnotationsPrefix + "/logger-custom-log-schema"
 	BatcherInternalAnnotationKey                     = InferenceServiceInternalAnnotationsPrefix + "/batcher"
 	BatcherMaxBatchSizeInternalAnnotationKey         = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-batchsize"
 	BatcherMaxLatencyInternalAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-latency"

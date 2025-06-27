@@ -69,6 +69,7 @@ var (
 	namespace           = flag.String("namespace", "", "The namespace to add as header to log events")
 	endpoint            = flag.String("endpoint", "", "The endpoint name to add as header to log events")
 	component           = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
+	customlogschema     = flag.String("custom-log-schema", "", "The custom log schema to be used for packaging logs")
 	metadataHeaders     = flag.StringSlice("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
 	metadataAnnotations = flag.StringSlice("metadata-annotations", nil, "Allow list of metadata annotation to be passed with payload logging")
 	// batcher flags
@@ -123,6 +124,7 @@ type loggerArgs struct {
 	annotations      map[string]string
 	certName         string
 	tlsSkipVerify    bool
+	customLogSchema  string
 }
 
 type batcherArgs struct {
@@ -328,6 +330,7 @@ func startLogger(workers int, logStorePath *string, logStoreFormat *string, log 
 		annotations:      annotationKVPair,
 		certName:         *CaCertFile,
 		tlsSkipVerify:    *TlsSkipVerify,
+		customLogSchema:  *customlogschema,
 	}
 }
 
@@ -388,7 +391,7 @@ func buildServer(port string, userPort int, loggerArgs *loggerArgs, batcherArgs 
 	if loggerArgs != nil {
 		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
 			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler,
-			loggerArgs.metadataHeaders, loggerArgs.certName, loggerArgs.annotations, loggerArgs.tlsSkipVerify)
+			loggerArgs.metadataHeaders, loggerArgs.certName, loggerArgs.annotations, loggerArgs.tlsSkipVerify, loggerArgs.customLogSchema)
 	}
 
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
