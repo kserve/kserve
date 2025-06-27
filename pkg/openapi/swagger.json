@@ -1425,6 +1425,10 @@
       "description": "ComponentExtensionSpec defines the deployment configuration for a given InferenceService component",
       "type": "object",
       "properties": {
+        "advanced": {
+          "description": "AdvancedConfig contains advanced configuration options for the autoscaling",
+          "$ref": "#/definitions/v1beta1.AdvancedSpec"
+        },
         "annotations": {
           "description": "Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/",
           "type": "object",
@@ -2607,6 +2611,10 @@
           "type": "integer",
           "format": "int64"
         },
+        "advanced": {
+          "description": "AdvancedConfig contains advanced configuration options for the autoscaling",
+          "$ref": "#/definitions/v1beta1.AdvancedSpec"
+        },
         "affinity": {
           "description": "If specified, the pod's scheduling constraints",
           "$ref": "#/definitions/v1.Affinity"
@@ -3022,6 +3030,30 @@
         "time": {
           "description": "Time failure occurred or was discovered",
           "$ref": "#/definitions/v1.Time"
+        }
+      }
+    },
+    "v1beta1.HorizontalPodAutoscalerBehavior": {
+      "description": "HorizontalPodAutoscalerBehavior contains the scaling behavior configuration for the Horizontal Pod Autoscaler.",
+      "type": "object",
+      "properties": {
+        "scaleDown": {
+          "description": "ScaleDown contains the scaling down behavior configuration for the Horizontal Pod Autoscaler.",
+          "$ref": "#/definitions/v1beta1.ScalingRules"
+        },
+        "scaleUp": {
+          "description": "ScaleUp contains the scaling up behavior configuration for the Horizontal Pod Autoscaler.",
+          "$ref": "#/definitions/v1beta1.ScalingRules"
+        }
+      }
+    },
+    "v1beta1.HorizontalPodAutoscalerConfig": {
+      "description": "HorizontalPodAutoscalerConfig contains the configuration for the Horizontal Pod Autoscaler.",
+      "type": "object",
+      "properties": {
+        "behavior": {
+          "description": "Behavior contains the scaling behavior configuration for the Horizontal Pod Autoscaler.",
+          "$ref": "#/definitions/v1beta1.HorizontalPodAutoscalerBehavior"
         }
       }
     },
@@ -5114,6 +5146,10 @@
           "type": "integer",
           "format": "int64"
         },
+        "advanced": {
+          "description": "AdvancedConfig contains advanced configuration options for the autoscaling",
+          "$ref": "#/definitions/v1beta1.AdvancedSpec"
+        },
         "affinity": {
           "description": "If specified, the pod's scheduling constraints",
           "$ref": "#/definitions/v1.Affinity"
@@ -5692,6 +5728,17 @@
         }
       }
     },
+    "v1beta1.ScalingRules": {
+      "description": "ScalingRules contains the scaling rules configuration for the Horizontal Pod Autoscaler.",
+      "type": "object",
+      "properties": {
+        "stabilizationWindowSeconds": {
+          "description": "StabilizationWindowSeconds is the number of seconds for which past recommendations should be considered.",
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
     "v1beta1.SecurityConfig": {
       "type": "object",
       "required": [
@@ -6105,6 +6152,10 @@
           "description": "Optional duration in seconds the pod may be active on the node relative to StartTime before the system will actively try to mark it failed and kill associated containers. Value must be a positive integer.",
           "type": "integer",
           "format": "int64"
+        },
+        "advanced": {
+          "description": "AdvancedConfig contains advanced configuration options for the autoscaling",
+          "$ref": "#/definitions/v1beta1.AdvancedSpec"
         },
         "affinity": {
           "description": "If specified, the pod's scheduling constraints",
