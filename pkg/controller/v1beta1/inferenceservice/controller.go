@@ -142,6 +142,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
 	})
+	forceStopRuntime := utils.GetForceStopRuntime(isvc)
 
 	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
 	if err != nil {
@@ -269,6 +270,28 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return result, nil
 		}
 	}
+	// Handle InferenceService status updates based on the force stop annotation.
+	// If true, transition the service to a stopped and unready state; otherwise, ensure it's not marked as stopped.
+	if forceStopRuntime {
+		// Exit early if we have already set the status to stopped
+		existingStoppedCondition := isvc.Status.GetCondition(v1beta1.Stopped)
+		if existingStoppedCondition != nil && existingStoppedCondition.Status == corev1.ConditionTrue {
+			// TODO: Set condition to stoppING
+		} else {
+			// Add the stopped condition
+			stoppedCondition := &apis.Condition{
+				Type:   v1beta1.Stopped,
+				Status: corev1.ConditionTrue,
+			}
+			isvc.Status.SetCondition(v1beta1.Stopped, stoppedCondition)
+		}
+	} else {
+		resumeCondition := &apis.Condition{
+			Type:   v1beta1.Stopped,
+			Status: corev1.ConditionFalse,
+		}
+		isvc.Status.SetCondition(v1beta1.Stopped, resumeCondition)
+	}
 	// reconcile RoutesReady and LatestDeploymentReady conditions for serverless deployment
 	if deploymentMode == constants.Serverless {
 		componentList := []v1beta1.ComponentType{v1beta1.PredictorComponent}
@@ -278,7 +301,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if isvc.Spec.Explainer != nil {
 			componentList = append(componentList, v1beta1.ExplainerComponent)
 		}
-		if !utils.GetForceStopRuntime(isvc) {
+		if !forceStopRuntime {
 			isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.RoutesReady)
 			isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.LatestDeploymentReady)
 		}
