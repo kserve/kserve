@@ -18,6 +18,7 @@ package storage
 
 type Provider interface {
 	DownloadModel(modelDir string, modelName string, storageUri string) error
+	UploadObject(bucket string, key string, object []byte) error
 }
 
 type Protocol string

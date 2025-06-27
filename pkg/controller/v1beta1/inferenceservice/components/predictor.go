@@ -104,7 +104,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 
 	addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
 	addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
-	// Add StorageSpec annotations so mutator will mount storage credentials to InferenceService's predictor
+	// Add ModelStorageSpec annotations so mutator will mount storage credentials to InferenceService's predictor
 	addStorageSpecAnnotations(isvc.Spec.Predictor.GetImplementation().GetStorageSpec(), annotations)
 	// Add agent annotations so mutator will mount model agent to multi-model InferenceService's predictor
 	addAgentAnnotations(isvc, annotations)
@@ -264,7 +264,7 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 	if isvc.Spec.Predictor.Model.Runtime != nil {
 		// set runtime defaults
 		isvc.SetRuntimeDefaults()
-		r, err := isvcutils.GetServingRuntime(ctx, p.client, *isvc.Spec.Predictor.Model.Runtime, isvc.Namespace)
+		r, err, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, *isvc.Spec.Predictor.Model.Runtime, isvc.Namespace)
 		if err != nil {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.RuntimeNotRecognized,
@@ -300,6 +300,13 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 		}
 
 		sRuntime = *r
+		if isClusterServingRuntime {
+			isvc.Status.ClusterServingRuntimeName = *isvc.Spec.Predictor.Model.Runtime
+			isvc.Status.ServingRuntimeName = ""
+		} else {
+			isvc.Status.ServingRuntimeName = *isvc.Spec.Predictor.Model.Runtime
+			isvc.Status.ClusterServingRuntimeName = ""
+		}
 	} else {
 		runtimes, err := isvc.Spec.Predictor.Model.GetSupportingRuntimes(ctx, p.client, isvc.Namespace, false, multiNodeEnabled)
 		if err != nil {
@@ -315,6 +322,14 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 		// Get first supporting runtime.
 		sRuntime = runtimes[0].Spec
 		isvc.Spec.Predictor.Model.Runtime = &runtimes[0].Name
+		_, _, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, runtimes[0].Name, isvc.Namespace)
+		if isClusterServingRuntime {
+			isvc.Status.ClusterServingRuntimeName = runtimes[0].Name
+			isvc.Status.ServingRuntimeName = ""
+		} else {
+			isvc.Status.ServingRuntimeName = runtimes[0].Name
+			isvc.Status.ClusterServingRuntimeName = ""
+		}
 
 		// set runtime defaults
 		isvc.SetRuntimeDefaults()
