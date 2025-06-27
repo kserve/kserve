@@ -89,8 +89,6 @@ func TestGetKedaMetrics_PodMetricSourceType(t *testing.T) {
 	assert.Equal(t, "http://otel-server", triggers[0].Metadata["scalerAddress"])
 	assert.Equal(t, "otel_query", triggers[0].Metadata["metricQuery"])
 	assert.Equal(t, "200.000000", triggers[0].Metadata["targetValue"])
-	assert.Equal(t, "1", triggers[0].Metadata["clampMin"])
-	assert.Equal(t, "3", triggers[0].Metadata["clampMax"])
 }
 
 func TestCreateKedaScaledObject(t *testing.T) {

@@ -144,8 +144,6 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 				if triggerType == string(constants.AutoScalerMetricsSourceOpenTelemetry) {
 					trigger.Type = "external"
 					trigger.Metadata = map[string]string{
-						"clampMin":      strconv.Itoa(int(minReplicas)),
-						"clampMax":      strconv.Itoa(int(maxReplicas)),
 						"metricQuery":   query,
 						"targetValue":   fmt.Sprintf("%f", targetValue),
 						"scalerAddress": MetricScalerEndpoint,
