@@ -21,7 +21,6 @@ import kserve
 from huggingfaceserver.request_logger import RequestLogger
 from kserve import logging
 from kserve.logging import logger
-from kserve.model import PredictorConfig
 from kserve.storage import Storage
 
 from transformers import AutoConfig
@@ -275,12 +274,6 @@ def load_model():
                 request_logger=request_logger,
             )
         else:
-            predictor_config = PredictorConfig(
-                args.predictor_host,
-                args.predictor_protocol,
-                args.predictor_use_ssl,
-                args.predictor_request_timeout_seconds,
-            )
             logger.info(f"Loading encoder model for task '{task.name}' in {dtype}")
             model = HuggingfaceEncoderModel(
                 model_name=args.model_name,
@@ -296,7 +289,6 @@ def load_model():
                 trust_remote_code=kwargs["trust_remote_code"],
                 tensor_input_names=kwargs.get("tensor_input_names", None),
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
-                predictor_config=predictor_config,
                 request_logger=request_logger,
                 return_probabilities=kwargs.get("return_probabilities", False),
             )
