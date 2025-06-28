@@ -69,7 +69,7 @@ class V1beta1ModelSpec(object):
         'startup_probe': 'V1Probe',
         'stdin': 'bool',
         'stdin_once': 'bool',
-        'storage': 'V1beta1StorageSpec',
+        'storage': 'V1beta1ModelStorageSpec',
         'storage_uri': 'str',
         'termination_message_path': 'str',
         'termination_message_policy': 'str',
@@ -710,7 +710,7 @@ class V1beta1ModelSpec(object):
 
 
         :return: The storage of this V1beta1ModelSpec.  # noqa: E501
-        :rtype: V1beta1StorageSpec
+        :rtype: V1beta1ModelStorageSpec
         """
         return self._storage
 
@@ -720,7 +720,7 @@ class V1beta1ModelSpec(object):
 
 
         :param storage: The storage of this V1beta1ModelSpec.  # noqa: E501
-        :type: V1beta1StorageSpec
+        :type: V1beta1ModelStorageSpec
         """
 
         self._storage = storage
