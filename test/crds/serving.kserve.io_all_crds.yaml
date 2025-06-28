@@ -792,6 +792,8 @@ spec:
                               - port
                               type: object
                           type: object
+                        stopSignal:
+                          type: string
                       type: object
                     livenessProbe:
                       properties:
@@ -2771,6 +2773,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -4312,6 +4316,8 @@ spec:
                             - port
                             type: object
                         type: object
+                      stopSignal:
+                        type: string
                     type: object
                   livenessProbe:
                     properties:
@@ -5339,6 +5345,21 @@ spec:
                       x-kubernetes-int-or-string: true
                     type: object
                 type: object
+              routerTimeouts:
+                properties:
+                  serverIdle:
+                    format: int64
+                    type: integer
+                  serverRead:
+                    format: int64
+                    type: integer
+                  serverWrite:
+                    format: int64
+                    type: integer
+                  serviceClient:
+                    format: int64
+                    type: integer
+                type: object
               scaleMetric:
                 enum:
                 - cpu
@@ -6149,6 +6170,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -6996,6 +7019,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -7750,6 +7775,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -8216,6 +8243,19 @@ spec:
                         - request
                         - response
                         type: string
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          serviceAccountName:
+                            type: string
+                        type: object
                       url:
                         type: string
                     type: object
@@ -10136,6 +10176,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -10880,6 +10922,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -11577,6 +11621,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -12260,6 +12306,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -12730,6 +12778,19 @@ spec:
                         - request
                         - response
                         type: string
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          serviceAccountName:
+                            type: string
+                        type: object
                       url:
                         type: string
                     type: object
@@ -12972,6 +13033,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -13677,6 +13740,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -14377,6 +14442,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -15064,6 +15131,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -15758,6 +15827,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -16624,6 +16695,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -17313,6 +17386,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -18080,6 +18155,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -19995,6 +20072,8 @@ spec:
                                       - port
                                       type: object
                                   type: object
+                                stopSignal:
+                                  type: string
                               type: object
                             livenessProbe:
                               properties:
@@ -20702,6 +20781,8 @@ spec:
                                       - port
                                       type: object
                                   type: object
+                                stopSignal:
+                                  type: string
                               type: object
                             livenessProbe:
                               properties:
@@ -21417,6 +21498,8 @@ spec:
                                       - port
                                       type: object
                                   type: object
+                                stopSignal:
+                                  type: string
                               type: object
                             livenessProbe:
                               properties:
@@ -23153,6 +23236,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -24449,6 +24534,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -25203,6 +25290,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -25669,6 +25758,19 @@ spec:
                         - request
                         - response
                         type: string
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          serviceAccountName:
+                            type: string
+                        type: object
                       url:
                         type: string
                     type: object
@@ -26768,6 +26870,8 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              clusterServingRuntimeName:
+                type: string
               components:
                 additionalProperties:
                   properties:
@@ -26914,6 +27018,8 @@ spec:
               observedGeneration:
                 format: int64
                 type: integer
+              servingRuntimeName:
+                type: string
               url:
                 type: string
             type: object
@@ -28557,6 +28663,8 @@ spec:
                               - port
                               type: object
                           type: object
+                        stopSignal:
+                          type: string
                       type: object
                     livenessProbe:
                       properties:
@@ -30536,6 +30644,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:

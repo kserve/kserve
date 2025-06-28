@@ -1,14 +1,12 @@
-apiVersion: serving.kserve.io/v1alpha2
+apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   labels:
     controller-tools.k8s.io: "1.0"
   name: iris-classifier
 spec:
-  default:
-    predictor:
-      custom:
-        container:
-          image: {docker_username}/iris-classifier
-          ports:
-            - containerPort: 5000
+  predictor:
+    container:
+      image: {docker_username}/iris-classifier
+      ports:
+        - containerPort: 5000

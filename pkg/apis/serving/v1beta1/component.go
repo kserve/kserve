@@ -41,12 +41,12 @@ const (
 	UnsupportedStorageURIFormatError                 = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported"
 	UnsupportedStorageSpecFormatError                = "storage.spec.type, must be one of: [%s]. storage.spec.type [%s] is not supported"
 	InvalidLoggerType                                = "invalid logger type"
+	InvalidLoggerStorageConfigError                  = "invalid logger storage configuration"
 	InvalidISVCNameFormatError                       = "the InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
 	InvalidProtocol                                  = "invalid protocol %s. Must be one of [%s]"
 	MissingStorageURI                                = "the InferenceService %q is invalid: StorageURI must be set for multinode enabled"
 	InvalidAutoScalerError                           = "the InferenceService %q is invalid: Multinode only supports 'none' autoscaler(%s)"
-	InvalidNotSupportedStorageURIProtocolError       = "the InferenceService %q is invalid: Multinode only supports 'pvc' Storage Protocol(%s)"
-	InvalidCustomGPUTypesAnnotationFormatError       = "the InferenceService %q is invalid: invalid format for %s annotation: must be a valid JSON array"
+	InvalidNotSupportedStorageURIProtocolError       = "the InferenceService %q is invalid: Multinode only supports 'pvc' and 'oci' Storage Protocol(%s)"
 	InvalidUnknownGPUTypeError                       = "the InferenceService %q is invalid: Unknown GPU resource type. Set 'serving.kserve.io/gpu-resource-types' annotation to use custom gpu resource type"
 	InvalidWorkerSpecPipelineParallelSizeValueError  = "the InferenceService %q is invalid: WorkerSpec.PipelineParallelSize cannot be less than 1(%s)"
 	InvalidWorkerSpecTensorParallelSizeValueError    = "the InferenceService %q is invalid: WorkerSpec.TensorParallelSize cannot be less than 1(%s)"
@@ -67,7 +67,7 @@ type ComponentImplementation interface {
 	Validate() error
 	GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *corev1.Container
 	GetStorageUri() *string
-	GetStorageSpec() *StorageSpec
+	GetStorageSpec() *ModelStorageSpec
 	GetProtocol() constants.InferenceServiceProtocol
 }
 
@@ -323,7 +323,7 @@ func (s *ComponentExtensionSpec) Validate() error {
 	})
 }
 
-func validateStorageSpec(storageSpec *StorageSpec, storageURI *string) error {
+func validateStorageSpec(storageSpec *ModelStorageSpec, storageURI *string) error {
 	if storageSpec == nil {
 		return nil
 	}
@@ -379,7 +379,13 @@ func validateLogger(logger *LoggerSpec) error {
 		if !(logger.Mode == LogAll || logger.Mode == LogRequest || logger.Mode == LogResponse) {
 			return errors.New(InvalidLoggerType)
 		}
+		if logger.Storage != nil {
+			if logger.Storage.Path == nil || logger.Storage.Parameters == nil || logger.Storage.StorageKey == nil {
+				return errors.New(InvalidLoggerStorageConfigError)
+			}
+		}
 	}
+
 	return nil
 }
 
