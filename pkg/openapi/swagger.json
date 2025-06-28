@@ -3627,6 +3627,10 @@
       "description": "LoggerSpec specifies optional payload logging available for all components",
       "type": "object",
       "properties": {
+        "logSchema": {
+          "description": "Specifies the format for custom log generation.  The standard cloud events currently sent will not be compatible with a custom format Valid values are: - \"JSON\": logs are generated and sent as a JSON payload following the format specified in inference-logging-configmap",
+          "type": "string"
+        },
         "metadataAnnotations": {
           "description": "Matched inference service annotations for propagating to inference logger cloud events.",
           "type": "array",

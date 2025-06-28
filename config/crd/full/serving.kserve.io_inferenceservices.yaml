@@ -2798,6 +2798,8 @@ spec:
                           items:
                             type: string
                           type: array
+                        logSchema:
+                          type: string
                         metadataHeaders:
                           items:
                             type: string
@@ -7333,6 +7335,8 @@ spec:
                           items:
                             type: string
                           type: array
+                        logSchema:
+                          type: string
                         metadataHeaders:
                           items:
                             type: string
@@ -20313,6 +20317,8 @@ spec:
                           items:
                             type: string
                           type: array
+                        logSchema:
+                          type: string
                         metadataHeaders:
                           items:
                             type: string
