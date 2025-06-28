@@ -3272,6 +3272,10 @@
             "default": ""
           }
         },
+        "clusterServingRuntimeName": {
+          "description": "ClusterServingRuntimeName is the name of the ClusterServingRuntime that the InferenceService is using",
+          "type": "string"
+        },
         "components": {
           "description": "Statuses for the components of the InferenceService",
           "type": "object",
@@ -3303,6 +3307,10 @@
           "description": "ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.",
           "type": "integer",
           "format": "int64"
+        },
+        "servingRuntimeName": {
+          "description": "ServingRuntimeName is the name of the ServingRuntime that the InferenceService is using",
+          "type": "string"
         },
         "url": {
           "description": "URL holds the url that will distribute traffic over the provided traffic targets. It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}",
