@@ -444,11 +444,18 @@ async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer)
         "serving.kserve.io/autoscalerClass": "keda",
     }
 
+    labels = {
+        "networking.kserve.io/visibility": "exposed",
+    }
+
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=annotations,
+            labels=labels,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -525,11 +532,18 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
         "serving.kserve.io/autoscalerClass": "keda",
     }
 
+    labels = {
+        "networking.kserve.io/visibility": "exposed",
+    }
+
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=annotations,
+            labels=labels,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -607,11 +621,18 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
         "sidecar.opentelemetry.io/inject": f"{service_name}-predictor",
     }
 
+    labels = {
+        "networking.kserve.io/visibility": "exposed",
+    }
+
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=annotations,
+            labels=labels,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )

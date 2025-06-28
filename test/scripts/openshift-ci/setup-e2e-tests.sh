@@ -121,6 +121,11 @@ kustomize build $PROJECT_ROOT/test/scripts/openshift-ci |
     oc apply -n kserve -f -
   oc wait --for=condition=ready pod -l app=odh-model-controller -n kserve --timeout=300s
 
+# Configure certs for the python requests by getting the CA cert from the kserve controller pod 
+export CA_CERT_PATH="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+# The run-e2e-tests script expects the CA cert to be in /tmp/ca.crt
+oc exec deploy/kserve-controller-manager -n kserve -- cat $CA_CERT_PATH > /tmp/ca.crt
+
 echo "Add testing models to minio storage ..." # Reference: config/overlays/test/minio/minio-init-job.yaml
 
 # Wait for minio pod to be ready
