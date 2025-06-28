@@ -84,6 +84,7 @@ class HuggingfaceEncoderModel(
     _tokenizer: PreTrainedTokenizerBase
     _model: Optional[PreTrainedModel] = None
     _device: torch.device
+    use_id2label: bool
 
     def __init__(
         self,
@@ -101,6 +102,7 @@ class HuggingfaceEncoderModel(
         tokenizer_revision: Optional[str] = None,
         trust_remote_code: bool = False,
         return_probabilities: bool = False,
+        use_id2label: bool = False,
         predictor_config: Optional[PredictorConfig] = None,
         request_logger: Optional[RequestLogger] = None,
     ):
@@ -117,6 +119,7 @@ class HuggingfaceEncoderModel(
         self.tokenizer_revision = tokenizer_revision
         self.trust_remote_code = trust_remote_code
         self.return_probabilities = return_probabilities
+        self.use_id2label = use_id2label
         self.request_logger = request_logger
 
         if model_config:
@@ -297,15 +300,27 @@ class HuggingfaceEncoderModel(
             outputs = data.view(shape)
             input_ids = torch.Tensor(input_ids)
         inferences = []
+
         if self.task == MLTask.sequence_classification:
             num_rows, num_cols = outputs.shape
             for i in range(num_rows):
                 out = outputs[i].unsqueeze(0)
                 if self.return_probabilities:
-                    inferences.append(dict(enumerate(out.numpy().flatten())))
+                    # Handle both CPU and GPU tensors
+                    probs = torch.softmax(out, dim=-1)
+                    if probs.is_cuda:
+                        probs = (
+                            probs.cpu()
+                        )  # Move to CPU for dict conversion which only works on CPU
+                    inferences.append(
+                        {
+                            self._get_label_or_index(i): float(prob)
+                            for i, prob in enumerate(probs[0])
+                        }
+                    )
                 else:
                     predicted_idx = out.argmax().item()
-                    inferences.append(predicted_idx)
+                    inferences.append(self._get_label_or_index(predicted_idx))
             return get_predict_response(request, inferences, self.name)
         elif self.task == MLTask.fill_mask:
             num_rows = outputs.shape[0]
@@ -313,13 +328,18 @@ class HuggingfaceEncoderModel(
                 mask_pos = (input_ids == self._tokenizer.mask_token_id)[i]
                 mask_token_index = mask_pos.nonzero(as_tuple=True)[0]
                 if self.return_probabilities:
+                    # Handle both CPU and GPU tensors
                     probabilities = torch.softmax(outputs[i, mask_token_index], dim=-1)
+                    if probabilities.is_cuda:
+                        probabilities = (
+                            probabilities.cpu()
+                        )  # Move to CPU for numpy conversion
                     decoded_probabilities = []
                     for idx, probs in enumerate(probabilities):
                         token_probs = []
                         for token_id, prob in enumerate(probs):
                             token = self._tokenizer.decode([token_id])
-                            token_probs.append({f"{token}": f"{prob.item():.4f}"})
+                            token_probs.append({f"{token}": float(prob)})
                         decoded_probabilities.append(token_probs)
                     inferences.append(decoded_probabilities)
                 else:
@@ -331,8 +351,15 @@ class HuggingfaceEncoderModel(
             for i in range(num_rows):
                 output = outputs[i].unsqueeze(0)
                 if self.return_probabilities:
-                    for values in output.tolist():
-                        res = [{k: v for k, v in enumerate(value)} for value in values]
+                    # Handle both CPU and GPU tensors
+                    probs = torch.softmax(output, dim=-1)
+                    if probs.is_cuda:
+                        probs = probs.cpu()  # Move to CPU for numpy conversion
+                    for values in probs:
+                        res = [
+                            {k: float(v) for k, v in enumerate(value)}
+                            for value in values
+                        ]
                         inferences.append([res])
                 else:
                     predictions = torch.argmax(output, dim=2)
@@ -343,6 +370,8 @@ class HuggingfaceEncoderModel(
             outputs = _mean_pooling(outputs, context["attention_mask"])
             # Normalize embeddings
             outputs = F.normalize(outputs, p=2, dim=1)
+            if outputs.is_cuda:
+                outputs = outputs.cpu()  # Move to CPU for numpy conversion
             num_rows, _ = outputs.shape
             for i in range(num_rows):
                 inferences.append(outputs[i].tolist())
@@ -351,6 +380,16 @@ class HuggingfaceEncoderModel(
             raise OpenAIError(
                 f"Unsupported task {self.task}. Please check the supported `task` option."
             )
+
+    def _get_label_or_index(self, index: int) -> Union[str, int]:
+        """Helper method to get label from id2label mapping or return index if not available."""
+        if self.use_id2label:
+            if hasattr(self.model_config, "id2label"):
+                return self.model_config.id2label[index]
+            else:
+                logger.warning("id2label not found in model config, returning index")
+                return index
+        return index
 
     def _log_request(self, request_id: str, prompt: list[str]) -> None:
         if self.request_logger:
