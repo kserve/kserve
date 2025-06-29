@@ -36,6 +36,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/credentials/s3"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 const (
@@ -54,6 +55,7 @@ const (
 	ModelInitModeEnv                        = "MODEL_INIT_MODE"
 	CpuModelcarDefault                      = "10m"
 	MemoryModelcarDefault                   = "15Mi"
+	RemoteStorageEnvVarName                 = "REMOTE_STORAGE_URI"
 )
 
 type StorageInitializerConfig struct {
@@ -151,7 +153,10 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 
 	userContainer := getContainerWithName(pod, constants.InferenceServiceContainerName)
 	if userContainer == nil {
-		return fmt.Errorf("no container found with name %s", constants.InferenceServiceContainerName)
+		userContainer = getContainerWithName(pod, constants.WorkerContainerName)
+		if userContainer == nil {
+			return fmt.Errorf("no container found with name %s or %s", constants.InferenceServiceContainerName, constants.WorkerContainerName)
+		}
 	}
 	transformerContainer := getContainerWithName(pod, constants.TransformerContainerName)
 	// Indicate to the runtime that it the model directory could be
@@ -242,6 +247,16 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 			return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
 		} else {
 			userContainer = workerContainer
+		}
+	}
+
+	if _, exists := utils.GetEnvVarValue(userContainer.Env, RemoteStorageEnvVarName); !exists {
+		addOrReplaceEnv(userContainer, RemoteStorageEnvVarName, srcURI)
+	}
+
+	if transformerContainer != nil {
+		if _, exists := utils.GetEnvVarValue(transformerContainer.Env, RemoteStorageEnvVarName); !exists {
+			addOrReplaceEnv(transformerContainer, RemoteStorageEnvVarName, srcURI)
 		}
 	}
 
@@ -430,6 +445,8 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 			pod.Namespace,
 			pod.Annotations,
 			storageKey,
+			nil,
+			nil,
 			overrideParams,
 			initContainer,
 		); err != nil {

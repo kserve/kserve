@@ -202,6 +202,10 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.storage.enableModelcar | bool | `true` | Flag for enabling model sidecar feature. |
 | kserve.storage.image | string | `"ghcr.io/kserve/storage-initializer"` |  |
 | kserve.storage.memoryModelcar | string | `"15Mi"` | Model sidecar memory requirement. |
+| kserve.storage.resources.limits.cpu | string | `"1"` |  |
+| kserve.storage.resources.limits.memory | string | `"1Gi"` |  |
+| kserve.storage.resources.requests.cpu | string | `"100m"` |  |
+| kserve.storage.resources.requests.memory | string | `"100Mi"` |  |
 | kserve.storage.s3 | object | `{"CABundle":"","accessKeyIdName":"AWS_ACCESS_KEY_ID","endpoint":"","region":"","secretAccessKeyName":"AWS_SECRET_ACCESS_KEY","useAnonymousCredential":"","useHttps":"","useVirtualBucket":"","verifySSL":""}` | Configurations for S3 storage |
 | kserve.storage.s3.CABundle | string | `""` | The path to the certificate bundle to use for HTTPS certificate validation. |
 | kserve.storage.s3.accessKeyIdName | string | `"AWS_ACCESS_KEY_ID"` | AWS S3 static access key id. |
