@@ -7,12 +7,9 @@ spec:
     name: storage-initializer
     image: "{{ .Values.kserve.storage.image }}:{{ .Values.kserve.storage.tag }}"
     resources:
-      requests:
-        memory: 100Mi
-        cpu: 100m
-      limits:
-        memory: 1Gi
-        cpu: "1"
+      {{- with .Values.kserve.storage.resources }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
     securityContext:
       {{- with .Values.kserve.storage.containerSecurityContext}}
       {{- toYaml . | nindent 6 }}

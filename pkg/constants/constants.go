@@ -57,6 +57,9 @@ const (
 	InferenceGraphLabel          = "serving.kserve.io/inferencegraph"
 	RouterReadinessEndpoint      = "/readyz"
 	RouterPort                   = 8080
+	RouterTimeoutsServerRead     = 60
+	RouterTimeoutServerWrite     = 60
+	RouterTimeoutServerIdle      = 180
 )
 
 // TrainedModel Constants
@@ -67,6 +70,11 @@ var (
 // InferenceService MultiModel Constants
 var (
 	ModelConfigFileName = "models.json"
+)
+
+// Remote Storage URI
+const (
+	RemoteStorageEnvVarName = "REMOTE_STORAGE_URI"
 )
 
 // Model agent Constants
@@ -81,8 +89,12 @@ const (
 
 // InferenceLogger Constants
 const (
-	LoggerCaBundleVolume  = "agent-ca-bundle"
-	LoggerCaCertMountPath = "/etc/tls/logger"
+	LoggerCaBundleVolume            = "agent-ca-bundle"
+	LoggerCaCertMountPath           = "/etc/tls/logger"
+	LoggerDefaultFormat             = "json"
+	LoggerFormatKey                 = "format"
+	LoggerDefaultStorageKey         = "credentials"
+	LoggerDefaultServiceAccountName = "logger-sa"
 )
 
 // InferenceService Annotations
@@ -108,6 +120,10 @@ var (
 	QueueProxyAggregatePrometheusMetricsPort    = "9088"
 	DefaultPodPrometheusPort                    = "9091"
 	NodeGroupAnnotationKey                      = KServeAPIGroupName + "/nodegroup"
+	LoggerSecretNameKey                         = KServeAPIGroupName + "/logger-secret-name"
+	LoggerCredentialPathKey                     = KServeAPIGroupName + "/logger-secret-path"
+	LoggerCredentialFileKey                     = KServeAPIGroupName + "/logger-secret-file"
+	DisableAutoUpdateAnnotationKey              = KServeAPIGroupName + "/disable-auto-update"
 )
 
 // InferenceService Internal Annotations

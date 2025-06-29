@@ -30,7 +30,7 @@ from kserve import (
     InferResponse,
     logging,
 )
-from kserve.model import PredictorProtocol, PredictorConfig
+from kserve.model import PredictorProtocol
 
 
 def image_transform(model_name, data):
@@ -60,16 +60,8 @@ def image_transform(model_name, data):
 
 
 class ImageTransformer(Model):
-    def __init__(
-        self,
-        name: str,
-        predictor_config: PredictorConfig,
-    ):
-        super().__init__(
-            name,
-            predictor_config,
-            return_response_headers=True,
-        )
+    def __init__(self, name: str):
+        super().__init__(name, return_response_headers=True)
         self.ready = True
 
     def preprocess(
@@ -100,7 +92,7 @@ class ImageTransformer(Model):
         infer_request = InferRequest(model_name=self.name, infer_inputs=infer_inputs)
 
         # Transform to KServe v1/v2 inference protocol
-        if self.protocol == PredictorProtocol.REST_V1.value:
+        if self.predictor_config.predictor_protocol == PredictorProtocol.REST_V1.value:
             inputs = [{"data": input_tensor.tolist()} for input_tensor in input_tensors]
             payload = {"instances": inputs}
             return payload
@@ -114,7 +106,10 @@ class ImageTransformer(Model):
         response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
         if "request-type" in headers and headers["request-type"] == "v1":
-            if self.protocol == PredictorProtocol.REST_V1.value:
+            if (
+                self.predictor_config.predictor_protocol
+                == PredictorProtocol.REST_V1.value
+            ):
                 return infer_response
             else:
                 # if predictor protocol is v2 but transformer uses v1
@@ -129,15 +124,5 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     if args.configure_logging:
         logging.configure_logging(args.log_config_file)
-    model = ImageTransformer(
-        args.model_name,
-        PredictorConfig(
-            args.predictor_host,
-            args.predictor_protocol,
-            args.predictor_use_ssl,
-            args.predictor_request_timeout_seconds,
-            args.predictor_request_retries,
-            args.enable_predictor_health_check,
-        ),
-    )
+    model = ImageTransformer(args.model_name)
     ModelServer().start([model])

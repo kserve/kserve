@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega/types"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	knativeV1 "knative.dev/pkg/apis/duck/v1"
 
@@ -994,16 +995,22 @@ func TestGetServingRuntime(t *testing.T) {
 	mockClient := fake.NewClientBuilder().WithLists(runtimes, clusterRuntimes).WithScheme(s).Build()
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, _ := GetServingRuntime(t.Context(), mockClient, scenario.runtimeName, namespace)
+			res, _, isClusterServingRuntime := GetServingRuntime(t.Context(), mockClient, scenario.runtimeName, namespace)
 			if !g.Expect(res).To(gomega.Equal(&scenario.expected)) {
 				t.Errorf("got %v, want %v", res, &scenario.expected)
+			}
+			// Check if the returned runtime is a cluster serving runtime
+			if name == "ClusterServingRuntime" {
+				g.Expect(isClusterServingRuntime).To(gomega.BeTrue())
+			} else {
+				g.Expect(isClusterServingRuntime).To(gomega.BeFalse())
 			}
 		})
 	}
 
 	// Check invalid case
 	t.Run("InvalidServingRuntime", func(t *testing.T) {
-		res, err := GetServingRuntime(t.Context(), mockClient, "foo", namespace)
+		res, err, _ := GetServingRuntime(t.Context(), mockClient, "foo", namespace)
 		if !g.Expect(res).To(gomega.BeNil()) {
 			t.Errorf("got %v, want %v", res, nil)
 		}
@@ -1561,6 +1568,34 @@ func TestGetPredictorEndpoint(t *testing.T) {
 			"cpu": resource.MustParse("90m"),
 		},
 	}
+	namespace := "default"
+
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("Failed to add v1alpha1 to scheme %s", err)
+	}
+	protocolV1Runtime := &v1alpha1.ServingRuntime{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mocked-v1-runtime",
+			Namespace: namespace,
+		},
+		Spec: v1alpha1.ServingRuntimeSpec{
+			ProtocolVersions: []constants.InferenceServiceProtocol{"v1"},
+		},
+	}
+	protocolV2Runtime := &v1alpha1.ServingRuntime{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mocked-v2-runtime",
+			Namespace: namespace,
+		},
+		Spec: v1alpha1.ServingRuntimeSpec{
+			ProtocolVersions: []constants.InferenceServiceProtocol{"v2"},
+		},
+	}
+	mockClient := fake.NewClientBuilder().WithScheme(s).WithObjects(protocolV1Runtime, protocolV2Runtime).Build()
 
 	scenarios := map[string]struct {
 		isvc        InferenceService
@@ -1829,11 +1864,73 @@ func TestGetPredictorEndpoint(t *testing.T) {
 			expectedUrl: "",
 			expectedErr: gomega.MatchError("service sklearn is not ready"),
 		},
+		"NoProtocolWithRuntimeProtocolV1": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "sklearn",
+					Namespace: namespace,
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							Runtime: ptr.To("mocked-v1-runtime"),
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("s3://test"),
+							},
+						},
+					},
+				},
+				Status: InferenceServiceStatus{
+					Address: &knativeV1.Addressable{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "sklearn-predictor.default.svc.cluster.local",
+						},
+					},
+				},
+			},
+			expectedUrl: "http://sklearn-predictor.default.svc.cluster.local/v1/models/sklearn:predict",
+			expectedErr: gomega.BeNil(),
+		},
+		"NoProtocolWithRuntimeProtocolV2": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "sklearn",
+					Namespace: namespace,
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							Runtime: ptr.To("mocked-v2-runtime"),
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("s3://test"),
+							},
+						},
+					},
+				},
+				Status: InferenceServiceStatus{
+					Address: &knativeV1.Addressable{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "sklearn-predictor.default.svc.cluster.local",
+						},
+					},
+				},
+			},
+			expectedUrl: "http://sklearn-predictor.default.svc.cluster.local/v2/models/sklearn/infer",
+			expectedErr: gomega.BeNil(),
+		},
 	}
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, err := GetPredictorEndpoint(&scenario.isvc)
+			res, err := GetPredictorEndpoint(t.Context(), mockClient, &scenario.isvc)
 			g.Expect(err).To(scenario.expectedErr)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedUrl)) {
 				t.Errorf("got %s, want %s", res, scenario.expectedUrl)

@@ -26,6 +26,8 @@ spec:
       serviceAccountName: kserve-localmodelnode-agent
       securityContext:
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - command:
         - /manager
