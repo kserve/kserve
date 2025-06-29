@@ -8,20 +8,23 @@ ARG WORKSPACE_DIR=/kserve-workspace
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04 AS base
 
 ARG WORKSPACE_DIR
-ARG CUDA_VERSION=12.8.1
-ARG PYTHON_VERSION=3.12
+ARG CUDA_VERSION
+ARG PYTHON_VERSION
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -y \
-    && apt-get install -y ccache software-properties-common git curl sudo gcc python-is-python3 \
+    && apt-get install -y software-properties-common ccache curl git sudo gcc g++ kmod \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update -y \
     && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
     && update-alternatives --set python3 /usr/bin/python${PYTHON_VERSION} \
     && ln -sf /usr/bin/python${PYTHON_VERSION}-config /usr/bin/python3-config \
+    && ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python \
     && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} \
     && python3 --version && python3 -m pip --version \
+    && gcc -v && g++ -v \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
@@ -47,17 +50,57 @@ ARG vllm_fa_cmake_gpu_arches='80-real;90-real'
 ENV VLLM_FA_CMAKE_GPU_ARCHES=${vllm_fa_cmake_gpu_arches}
 
 WORKDIR ${WORKSPACE_DIR}
-
 #################### BASE BUILD IMAGE ####################
 
 #################### WHEEL BUILD IMAGE ####################
 FROM base AS build
 
+ARG TARGETPLATFORM
 ARG WORKSPACE_DIR
 ARG VLLM_VERSION=0.9.0.1
 ARG LMCACHE_VERSION=0.3.0
 
 WORKDIR ${WORKSPACE_DIR}
+
+# TODO: Remove setuptools and packaging version pinning when upgrading to vLLM > 0.8.5
+# Support for PEP 639 was added in setuptools 77.0.3
+# https://github.com/vllm-project/vllm/issues/17464
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+        pip install setuptools==77.0.3 packaging==24.2; \
+    fi
+
+# ARM64+CUDA support for pytorch only available in nightly builds.
+# ARM64 (NVIDIA GH200) build follows the practice of "use existing pytorch" build,
+# we need to install torch and torchvision from the nightly builds first,
+# pytorch will not appear as a vLLM dependency in all of the following steps
+# after this step
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+        pip install --index-url https://download.pytorch.org/whl/nightly/cu128 "torch==2.8.0.dev20250321+cu128" "torchvision==0.22.0.dev20250322";  \
+        pip install --index-url https://download.pytorch.org/whl/nightly/cu128 --pre pytorch-triton==3.3.0+git96316ce5; \
+    fi
+
+# max jobs used by Ninja to build extensions
+ARG max_jobs=1
+ENV MAX_JOBS=${max_jobs}
+# number of threads used by nvcc
+ARG nvcc_threads=1
+ENV NVCC_THREADS=$nvcc_threads
+
+# Build vLLM wheel for ARM64
+ENV VLLM_TARGET_DEVICE=cuda
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+        git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-project/vllm.git && \
+        cd vllm && python3 use_existing_torch.py && \
+        pip install -v -r requirements/build.txt && \
+        pip install -v -r requirements/cuda.txt && \
+        python3 setup.py bdist_wheel --dist-dir=dist --py-limited-api=cp38; \
+    fi
+
+# From this point, all Python packages will be installed in the virtual environment and copied to the final image.
+# Make sure build dependencies are not installed in the final image.
 
 ARG VENV_PATH
 RUN python3 -m venv ${VENV_PATH}
@@ -65,39 +108,67 @@ RUN python3 -m venv ${VENV_PATH}
 ENV VIRTUAL_ENV=${WORKSPACE_DIR}/${VENV_PATH}
 ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
 
-# From this point, all Python packages will be installed in the virtual environment and copied to the final image
-
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN --mount=type=cache,target=/root/.cache/pypoetry cd kserve && poetry install --no-root --no-interaction --no-cache
+RUN --mount=type=cache,target=/root/.cache/pypoetry cd kserve && poetry install --no-root --no-interaction
 COPY kserve kserve
-RUN --mount=type=cache,target=/root/.cache/pypoetry cd kserve && poetry install --no-interaction --no-cache
+RUN --mount=type=cache,target=/root/.cache/pypoetry cd kserve && poetry install --no-interaction
 
-COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/health_check.py huggingfaceserver/
+
+COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/
+# Remove vllm from the huggingface and kserve dependencies as wheels is not available for ARM64
+# Remove torch from the huggingface dependencies as wheels for ARM64+CUDA is not available.
+RUN --mount=type=cache,target=/root/.cache/pypoetry \
+    if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+        cd huggingfaceserver; \
+        sed -i -E 's/(kserve\s*=\s*\{[^\}]*extras\s*=\s*\[)[^]]*\]/\1"storage"\]/' pyproject.toml && \
+        sed -i '/^\s*vllm\s*=/d' pyproject.toml; \
+        sed -i '/^\s*torch\s*=/d' pyproject.toml; \
+        poetry lock --no-update; \
+    fi
 RUN --mount=type=cache,target=/root/.cache/pypoetry cd huggingfaceserver && poetry install --no-root --no-interaction
 COPY huggingfaceserver huggingfaceserver
-RUN --mount=type=cache,target=/root/.cache/pypoetry cd huggingfaceserver && poetry install --no-interaction --no-cache
+RUN --mount=type=cache,target=/root/.cache/pypoetry cd huggingfaceserver && poetry install --no-interaction --only-root
+
+# ARM64+CUDA support for pytorch only available in nightly builds.
+# ARM64 (NVIDIA GH200) build follows the practice of "use existing pytorch" build,
+# we need to install torch and torchvision from the nightly builds first,
+# pytorch will not appear as a vLLM dependency in all of the following steps
+# after this step.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+        pip install --index-url https://download.pytorch.org/whl/nightly/cu128 "torch==2.8.0.dev20250318+cu128" "torchvision==0.22.0.dev20250319";  \
+        pip install --index-url https://download.pytorch.org/whl/nightly/cu128 --pre pytorch_triton==3.3.0+gitab727c40; \
+    fi
 
 # Install vllm
 # https://docs.vllm.ai/en/latest/models/extensions/runai_model_streamer.html, https://docs.vllm.ai/en/latest/models/extensions/tensorizer.html
 # https://docs.vllm.ai/en/latest/models/extensions/fastsafetensor.html
-RUN --mount=type=cache,target=/root/.cache/pip pip install vllm[runai,tensorizer,fastsafetensors]==${VLLM_VERSION}
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+        pip install vllm/dist/*.whl[runai,tensorizer,fastsafetensors] --verbose; \
+    else \
+        pip install vllm[runai,tensorizer,fastsafetensors]==${VLLM_VERSION}; \
+    fi
 
 # Install lmcache
-RUN --mount=type=cache,target=/root/.cache/pip pip install lmcache==${LMCACHE_VERSION}
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+        pip install lmcache==${LMCACHE_VERSION}; \
+    fi
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
 COPY third_party/pip-licenses.py pip-licenses.py
 RUN mkdir -p third_party/library && python3 pip-licenses.py
-
 #################### WHEEL BUILD IMAGE ####################
 
 #################### PROD IMAGE ####################
 FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu22.04 AS prod
 
 ARG WORKSPACE_DIR
-ARG CUDA_VERSION=12.8.1
-ARG PYTHON_VERSION=3.12
+ARG CUDA_VERSION
+ARG PYTHON_VERSION
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR ${WORKSPACE_DIR}
@@ -113,6 +184,7 @@ RUN apt-get update -y \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
     && update-alternatives --set python3 /usr/bin/python${PYTHON_VERSION} \
     && ln -sf /usr/bin/python${PYTHON_VERSION}-config /usr/bin/python3-config \
+    && ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python \
     && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} \
     && python3 --version && python3 -m pip --version \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -121,7 +193,6 @@ ARG VENV_PATH
 # Activate virtual env by setting VIRTUAL_ENV
 ENV VIRTUAL_ENV=${WORKSPACE_DIR}/${VENV_PATH}
 ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
-
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
 COPY --from=build --chown=kserve:kserve ${WORKSPACE_DIR}/third_party third_party
