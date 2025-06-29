@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **node_selector** | **dict(str, str)** | NodeSelector specifies the node selector for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/ | [optional] 
 **nodes** | [**dict(str, V1alpha1InferenceRouter)**](V1alpha1InferenceRouter.md) | Map of InferenceGraph router nodes Each node defines the router which can be different routing types | 
 **resources** | [**V1ResourceRequirements**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1ResourceRequirements.md) |  | [optional] 
+**router_timeouts** | [**V1alpha1InfereceGraphRouterTimeouts**](V1alpha1InfereceGraphRouterTimeouts.md) |  | [optional] 
 **scale_metric** | **str** | ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics). | [optional] 
 **scale_target** | **int** | ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/). | [optional] 
 **service_account_name** | **str** | ServiceAccountName specifies the service account name for the InferenceGraph. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/ | [optional] 

@@ -88,7 +88,7 @@ func NewCredentialBuilder(client client.Client, clientset kubernetes.Interface, 
 }
 
 func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annotations map[string]string, storageKey string,
-	overrideParams map[string]string, container *corev1.Container,
+	secretName *string, storeConfigEnvVarName *string, overrideParams map[string]string, container *corev1.Container,
 ) error {
 	stype := overrideParams["type"]
 	bucket := overrideParams["bucket"]
@@ -97,10 +97,19 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 	if c.config.StorageSpecSecretName != "" {
 		storageSecretName = c.config.StorageSpecSecretName
 	}
-	// secret annotation takes precedence
-	if annotations != nil {
-		if secretName, ok := annotations[c.config.StorageSecretNameAnnotation]; ok {
-			storageSecretName = secretName
+
+	// if the secret name is provided use it
+	if secretName != nil {
+		storageSecretName = *secretName
+	} else {
+		if c.config.StorageSpecSecretName != "" {
+			storageSecretName = c.config.StorageSpecSecretName
+		}
+		// secret annotation takes precedence
+		if annotations != nil {
+			if name, ok := annotations[c.config.StorageSecretNameAnnotation]; ok {
+				storageSecretName = name
+			}
 		}
 	}
 	secret, err := c.clientset.CoreV1().Secrets(namespace).Get(context.TODO(), storageSecretName, metav1.GetOptions{})
@@ -151,8 +160,13 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 		}
 
 		// Pass storage config json as SecretKeyRef env var
+		storageConfigEnvKey := StorageConfigEnvKey
+		if storeConfigEnvVarName != nil {
+			storageConfigEnvKey = *storeConfigEnvVarName
+		}
+		// Pass storage config json as SecretKeyRef env var
 		container.Env = append(container.Env, corev1.EnvVar{
-			Name: StorageConfigEnvKey,
+			Name: storageConfigEnvKey,
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -221,7 +235,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, annotatio
 		if secretName, ok := annotations[c.config.StorageSecretNameAnnotation]; ok {
 			err := c.mountSecretCredential(secretName, namespace, container, volumes)
 			if err != nil {
-				log.Error(err, "Failed to amount the secret credentials", "secretName", secretName)
+				log.Error(err, "Failed to mount the secret credentials", "secretName", secretName)
 				return err
 			}
 			return nil
