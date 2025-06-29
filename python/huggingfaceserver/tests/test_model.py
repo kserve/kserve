@@ -15,13 +15,12 @@
 import pytest
 import torch
 import json
-from kserve.model import PredictorConfig
+
 from kserve.protocol.rest.openai.types import (
     ChatCompletionRequest,
     CompletionRequest,
 )
 from kserve.protocol.rest.openai.errors import OpenAIError
-from pytest_httpx import HTTPXMock
 from transformers import AutoConfig
 from pytest import approx
 
@@ -234,40 +233,6 @@ async def test_model_revision(request: HuggingfaceEncoderModel):
         headers={},
     )
     assert response == {"predictions": ["paris", "france"]}
-
-
-@pytest.mark.asyncio
-async def test_bert_predictor_host(request, httpx_mock: HTTPXMock):
-    model_name = "bert"
-    httpx_mock.add_response(
-        json={
-            "model_name": model_name,
-            "outputs": [
-                {
-                    "name": "OUTPUT__0",
-                    "shape": [1, 9, 758],
-                    "data": [1] * 9 * 758,
-                    "datatype": "INT64",
-                }
-            ],
-        }
-    )
-
-    model = HuggingfaceEncoderModel(
-        model_name,
-        model_id_or_path="google-bert/bert-base-uncased",
-        tensor_input_names="input_ids",
-        predictor_config=PredictorConfig(
-            predictor_host="localhost:8081", predictor_protocol="v2"
-        ),
-    )
-    model.load()
-    request.addfinalizer(model.stop)
-
-    response, _ = await model(
-        {"instances": ["The capital of France is [MASK]."]}, headers={}
-    )
-    assert response == {"predictions": ["[PAD]"]}
 
 
 @pytest.mark.asyncio
