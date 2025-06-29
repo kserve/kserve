@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var log = logf.Log.WithName("TestingEnvSetup")
@@ -58,7 +58,7 @@ func SetupEnvTest(crdDirectoryPaths []string) *envtest.Environment {
 		log.Error(err, "Failed to add istio scheme")
 	}
 
-	if err := gatewayapiv1.Install(scheme.Scheme); err != nil {
+	if err := gwapiv1.Install(scheme.Scheme); err != nil {
 		log.Error(err, "Failed to add gateway scheme")
 	}
 	if err := kedav1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {

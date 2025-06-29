@@ -41,6 +41,10 @@ from kserve.models.v1alpha1_inference_graph_status import V1alpha1InferenceGraph
 from kserve.models.v1alpha1_inference_router import V1alpha1InferenceRouter
 from kserve.models.v1alpha1_inference_step import V1alpha1InferenceStep
 from kserve.models.v1alpha1_inference_target import V1alpha1InferenceTarget
+from kserve.models.v1alpha1_llm_inference_service import V1alpha1LLMInferenceService
+from kserve.models.v1alpha1_llm_inference_service_config import V1alpha1LLMInferenceServiceConfig
+from kserve.models.v1alpha1_llm_inference_service_config_list import V1alpha1LLMInferenceServiceConfigList
+from kserve.models.v1alpha1_llm_inference_service_list import V1alpha1LLMInferenceServiceList
 from kserve.models.v1alpha1_local_model_cache import V1alpha1LocalModelCache
 from kserve.models.v1alpha1_local_model_cache_list import V1alpha1LocalModelCacheList
 from kserve.models.v1alpha1_local_model_cache_spec import V1alpha1LocalModelCacheSpec
@@ -88,6 +92,7 @@ from kserve.models.v1beta1_ingress_config import V1beta1IngressConfig
 from kserve.models.v1beta1_light_gbm_spec import V1beta1LightGBMSpec
 from kserve.models.v1beta1_local_model_config import V1beta1LocalModelConfig
 from kserve.models.v1beta1_logger_spec import V1beta1LoggerSpec
+from kserve.models.v1beta1_logger_storage_spec import V1beta1LoggerStorageSpec
 from kserve.models.v1beta1_metric_target import V1beta1MetricTarget
 from kserve.models.v1beta1_metrics_spec import V1beta1MetricsSpec
 from kserve.models.v1beta1_model_copies import V1beta1ModelCopies
@@ -95,6 +100,7 @@ from kserve.models.v1beta1_model_format import V1beta1ModelFormat
 from kserve.models.v1beta1_model_revision_states import V1beta1ModelRevisionStates
 from kserve.models.v1beta1_model_spec import V1beta1ModelSpec
 from kserve.models.v1beta1_model_status import V1beta1ModelStatus
+from kserve.models.v1beta1_model_storage_spec import V1beta1ModelStorageSpec
 from kserve.models.v1beta1_multi_node_config import V1beta1MultiNodeConfig
 from kserve.models.v1beta1_onnx_runtime_spec import V1beta1ONNXRuntimeSpec
 from kserve.models.v1beta1_otel_collector_config import V1beta1OtelCollectorConfig

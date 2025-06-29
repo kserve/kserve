@@ -53,6 +53,10 @@ type InferenceServiceStatus struct {
 	ModelStatus ModelStatus `json:"modelStatus,omitempty"`
 	// InferenceService DeploymentMode
 	DeploymentMode string `json:"deploymentMode,omitempty"`
+	// ServingRuntimeName is the name of the ServingRuntime that the InferenceService is using
+	ServingRuntimeName string `json:"servingRuntimeName,omitempty"`
+	// ClusterServingRuntimeName is the name of the ClusterServingRuntime that the InferenceService is using
+	ClusterServingRuntimeName string `json:"clusterServingRuntimeName,omitempty"`
 }
 
 // ComponentStatusSpec describes the state of the component
