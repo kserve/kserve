@@ -49,8 +49,6 @@ var (
 	validatorLogger = logf.Log.WithName("inferenceservice-v1beta1-validation-webhook")
 	// IsvcRegexp regular expressions for validation of isvc name
 	IsvcRegexp = regexp.MustCompile("^" + IsvcNameFmt + "$")
-
-	log = logf.Log.WithName("InferenceServiceValidation")
 )
 
 // +kubebuilder:object:generate=false
@@ -157,7 +155,7 @@ func validatePredictor(isvc *InferenceService) error {
 	predictor := isvc.Spec.Predictor
 
 	// log predictor
-	log.Info("Incoming predictor struct", "predictor", predictor)
+	validatorLogger.Info("Incoming predictor struct", "predictor", predictor)
 
 	// in most of the case, standard predictors will all be packed into `predictor.model`, and decide the backend process through `modelFormat.name``
 	switch {
