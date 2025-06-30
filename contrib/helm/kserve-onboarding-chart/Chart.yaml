@@ -1,0 +1,17 @@
+apiVersion: v2
+name: kserve-onboarding-chart
+description: A Helm chart to install KServe dependencies for onboarding users
+type: application
+version: 0.1.0
+appVersion: "0.10.0"
+
+dependencies:
+  - name: cert-manager
+    repository: https://charts.jetstack.io
+    version: v1.13.0
+
+  - name: prometheus
+    repository: https://prometheus-community.github.io/helm-charts
+    version: 25.12.0
+
+  
