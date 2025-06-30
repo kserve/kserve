@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: patch-inferenceservices-binding
+  namespace: ${NAMESPACE}
+subjects:
+  - kind: ServiceAccount
+    name: pipeline-runner-pipelines-definition
+    namespace: ${NAMESPACE}
+roleRef:
+  kind: Role
+  name: patch-inferenceservices
+  apiGroup: rbac.authorization.k8s.io

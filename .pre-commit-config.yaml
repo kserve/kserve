@@ -11,8 +11,10 @@ repos:
     hooks:
       - id: black
         args: [--config, python/pyproject.toml]
+        exclude: ^docs/kfp/template/
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v2.2.3
     hooks:
       - id: flake8
         args: [--config, .flake8, .]
+        exclude: ^docs/kfp/template/
