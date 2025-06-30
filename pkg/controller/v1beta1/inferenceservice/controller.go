@@ -45,9 +45,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -125,6 +126,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		return reconcile.Result{}, err
 	}
+
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
 	if err != nil {
 		r.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
@@ -139,6 +141,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
 	})
+	forceStopRuntime := utils.GetForceStopRuntime(isvc)
 
 	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
 	if err != nil {
@@ -159,6 +162,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		r.Log.Info("Continue reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
 			"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	}
+
 	// name of our custom finalizer
 	finalizerName := "inferenceservice.finalizers"
 
@@ -196,6 +200,14 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
+	}
+	// Check if auto-update is disabled, this will skip the reconciliation if the annotation is present.
+	// Used for when k8s autoreconciles the InferenceService.
+	if annotations != nil {
+		if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" && isvc.Status.IsReady() {
+			r.Log.Info("Auto-update is disabled for InferenceService, skipping reconciliation", "InferenceService", isvc.Name)
+			return ctrl.Result{}, nil
+		}
 	}
 
 	// Abort early if the resolved deployment mode is Serverless, but Knative Services are not available
@@ -254,6 +266,28 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return result, nil
 		}
 	}
+	// Handle InferenceService status updates based on the force stop annotation.
+	// If true, transition the service to a stopped and unready state; otherwise, ensure it's not marked as stopped.
+	if forceStopRuntime {
+		// Exit early if we have already set the status to stopped
+		existingStoppedCondition := isvc.Status.GetCondition(v1beta1.Stopped)
+		if existingStoppedCondition != nil && existingStoppedCondition.Status == corev1.ConditionTrue {
+			// TODO: Set condition to stoppING
+		} else {
+			// Add the stopped condition
+			stoppedCondition := &apis.Condition{
+				Type:   v1beta1.Stopped,
+				Status: corev1.ConditionTrue,
+			}
+			isvc.Status.SetCondition(v1beta1.Stopped, stoppedCondition)
+		}
+	} else {
+		resumeCondition := &apis.Condition{
+			Type:   v1beta1.Stopped,
+			Status: corev1.ConditionFalse,
+		}
+		isvc.Status.SetCondition(v1beta1.Stopped, resumeCondition)
+	}
 	// reconcile RoutesReady and LatestDeploymentReady conditions for serverless deployment
 	if deploymentMode == constants.Serverless {
 		componentList := []v1beta1.ComponentType{v1beta1.PredictorComponent}
@@ -263,7 +297,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if isvc.Spec.Explainer != nil {
 			componentList = append(componentList, v1beta1.ExplainerComponent)
 		}
-		if !utils.GetForceStopRuntime(isvc) {
+		if !forceStopRuntime {
 			isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.RoutesReady)
 			isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.LatestDeploymentReady)
 		}
@@ -279,8 +313,10 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if ingressConfig.EnableGatewayAPI {
 			reconciler := ingress.NewRawHTTPRouteReconciler(r.Client, r.Scheme, ingressConfig, isvcConfig)
 
-			if err := reconciler.Reconcile(ctx, isvc); err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+			if result, err := reconciler.Reconcile(ctx, isvc); err != nil {
+				return result, errors.Wrapf(err, "fails to reconcile ingress")
+			} else if result.Requeue || result.RequeueAfter > 0 {
+				return result, nil
 			}
 		} else {
 			reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig, isvcConfig)
@@ -374,8 +410,76 @@ func inferenceServiceStatusEqual(s1, s2 v1beta1.InferenceServiceStatus, deployme
 	return equality.Semantic.DeepEqual(s1, s2)
 }
 
+func (r *InferenceServiceReconciler) servingRuntimeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	runtimeObj, ok := obj.(*v1alpha1.ServingRuntime)
+
+	if !ok || runtimeObj == nil {
+		return nil
+	}
+
+	var isvcList v1beta1.InferenceServiceList
+	// List all InferenceServices in the same namespace.
+	if err := r.Client.List(ctx, &isvcList, client.InNamespace(runtimeObj.Namespace)); err != nil {
+		r.Log.Error(err, "unable to list InferenceServices", "runtime", runtimeObj.Name)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(isvcList.Items))
+	for _, isvc := range isvcList.Items {
+		annotations := isvc.GetAnnotations()
+		if annotations != nil {
+			if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" && isvc.Status.IsReady() {
+				r.Log.Info("Auto-update is disabled for InferenceService", "InferenceService", isvc.Name)
+				continue
+			}
+		}
+		if isvc.Status.ServingRuntimeName == runtimeObj.Name {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: isvc.Namespace,
+					Name:      isvc.Name,
+				},
+			})
+		}
+	}
+	return requests
+}
+
+func (r *InferenceServiceReconciler) clusterServingRuntimeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	clusterServingRuntimeObj, ok := obj.(*v1alpha1.ClusterServingRuntime)
+
+	if !ok || clusterServingRuntimeObj == nil {
+		return nil
+	}
+
+	var isvcList v1beta1.InferenceServiceList
+	if err := r.Client.List(ctx, &isvcList, client.InNamespace(clusterServingRuntimeObj.Namespace)); err != nil {
+		r.Log.Error(err, "unable to list InferenceServices", "clusterServingRuntime", clusterServingRuntimeObj.Name)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(isvcList.Items))
+	for _, isvc := range isvcList.Items {
+		annotations := isvc.GetAnnotations()
+		if annotations != nil {
+			if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" && isvc.Status.IsReady() {
+				r.Log.Info("Auto-update is disabled for InferenceService", "InferenceService", isvc.Name)
+				continue
+			}
+		}
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: isvc.Namespace,
+				Name:      isvc.Name,
+			},
+		})
+	}
+	return requests
+}
+
 func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1.DeployConfig, ingressConfig *v1beta1.IngressConfig) error {
 	r.ClientConfig = mgr.GetConfig()
+	ctx := context.Background()
 
 	ksvcFound, err := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
 	if err != nil {
@@ -395,6 +499,45 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	vsFound, err := utils.IsCrdAvailable(r.ClientConfig, istioclientv1beta1.SchemeGroupVersion.String(), constants.IstioVirtualServiceKind)
 	if err != nil {
 		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1beta1.InferenceService{}, "spec.predictor.model.runtime", func(rawObj client.Object) []string {
+		isvc, ok := rawObj.(*v1beta1.InferenceService)
+		if !ok {
+			return nil
+		}
+		if isvc.Status.ServingRuntimeName != "" {
+			return []string{isvc.Status.ServingRuntimeName}
+		}
+		if isvc.Status.ClusterServingRuntimeName != "" {
+			return []string{isvc.Status.ClusterServingRuntimeName}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	servingRuntimesPredicate := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldServingRuntime := e.ObjectOld.(*v1alpha1.ServingRuntime)
+			newServingRuntime := e.ObjectNew.(*v1alpha1.ServingRuntime)
+			return !reflect.DeepEqual(oldServingRuntime.Spec, newServingRuntime.Spec)
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+
+	// TODO: Find a way to distinguish if the ServingRuntime is a ClusterServingRuntime or not
+	clusterServingRuntimesPredicate := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldClusterServingRuntime := e.ObjectOld.(*v1alpha1.ClusterServingRuntime)
+			newClusterServingRuntime := e.ObjectNew.(*v1alpha1.ClusterServingRuntime)
+			return !reflect.DeepEqual(oldClusterServingRuntime.Spec, newClusterServingRuntime.Spec)
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
 	}
 
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
@@ -438,13 +581,13 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	}
 
 	if ingressConfig.EnableGatewayAPI {
-		gatewayapiFound, err := utils.IsCrdAvailable(r.ClientConfig, gatewayapiv1.GroupVersion.String(), constants.HTTPRouteKind)
+		gatewayapiFound, err := utils.IsCrdAvailable(r.ClientConfig, gwapiv1.GroupVersion.String(), constants.HTTPRouteKind)
 		if err != nil {
 			return err
 		}
 
 		if gatewayapiFound {
-			ctrlBuilder = ctrlBuilder.Owns(&gatewayapiv1.HTTPRoute{})
+			ctrlBuilder = ctrlBuilder.Owns(&gwapiv1.HTTPRoute{})
 		} else {
 			r.Log.Info("The InferenceService controller won't watch gateway.networking.k8s.io/v1/HTTPRoute resources because the CRD is not available.")
 			panic("Gateway API CRD not available")
@@ -453,7 +596,9 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		ctrlBuilder = ctrlBuilder.Owns(&netv1.Ingress{})
 	}
 
-	return ctrlBuilder.Complete(r)
+	return ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate)).
+		Watches(&v1alpha1.ClusterServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.clusterServingRuntimeFunc), builder.WithPredicates(clusterServingRuntimesPredicate)).
+		Complete(r)
 }
 
 func (r *InferenceServiceReconciler) deleteExternalResources(ctx context.Context, isvc *v1beta1.InferenceService) error {
