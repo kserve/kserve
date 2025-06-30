@@ -51,7 +51,9 @@ class TestV1beta1StorageSpec(unittest.TestCase):
         # model = kserve.models.v1beta1_storage_spec.V1beta1StorageSpec()  # noqa: E501
         if include_optional:
             return V1beta1StorageSpec(
-                key="0", parameters={"key": "0"}, path="0", schema_path="0"
+                key="0",
+                parameters={"key": "0"},
+                path="0",
             )
         else:
             return V1beta1StorageSpec()

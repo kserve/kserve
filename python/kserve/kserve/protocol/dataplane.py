@@ -29,10 +29,12 @@ from ..constants.constants import INFERENCE_CONTENT_LENGTH_HEADER, PredictorProt
 from ..errors import InvalidInput, ModelNotFound
 from ..inference_client import RESTConfig
 from ..logging import logger
-from ..model import BaseKServeModel, InferenceModel, InferenceVerb, PredictorConfig
+from ..model import BaseKServeModel, InferenceModel, InferenceVerb
+from ..predictor_config import PredictorConfig
 from ..model_repository import ModelRepository
 from ..utils.inference_client_factory import InferenceClientFactory
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
+from .. import context as kserve_context
 from .infer_type import InferRequest, InferResponse
 from .rest.v2_datamodels import InferenceRequest
 
@@ -47,18 +49,13 @@ JSON_HEADERS = [
 class DataPlane:
     """KServe DataPlane"""
 
-    def __init__(
-        self,
-        model_registry: ModelRepository,
-        predictor_config: Optional[PredictorConfig] = None,
-    ):
+    def __init__(self, model_registry: ModelRepository):
         self._model_registry = model_registry
         self._server_name = constants.KSERVE_MODEL_SERVER_NAME
 
         # Dynamically fetching version of the installed 'kserve' distribution. The assumption is
         # that 'kserve' will already be installed by the time this class is instantiated.
         self._server_version = metadata.version("kserve")
-        self.predictor_config = predictor_config
         self._inference_grpc_client = None
         self._inference_rest_client = None
 
@@ -67,13 +64,23 @@ class DataPlane:
         return self._model_registry
 
     @property
+    def predictor_config(self) -> Optional[PredictorConfig]:
+        # Return predictor config from context, may be None
+        return kserve_context.get_predictor_config()
+
+    @property
     def rest_client(self):
         if self._inference_rest_client is None:
+            predictor_config = self.predictor_config
+            if predictor_config is None:
+                raise RuntimeError(
+                    "PredictorConfig is required to create REST client but is None."
+                )
             self._inference_rest_client = InferenceClientFactory().get_rest_client(
                 RESTConfig(
-                    protocol=self.predictor_config.predictor_protocol,
-                    retries=self.predictor_config.predictor_request_retries,
-                    timeout=self.predictor_config.predictor_request_timeout_seconds,
+                    protocol=predictor_config.predictor_protocol,
+                    retries=predictor_config.predictor_request_retries,
+                    timeout=predictor_config.predictor_request_timeout_seconds,
                 )
             )
         return self._inference_rest_client
@@ -81,11 +88,16 @@ class DataPlane:
     @property
     def grpc_client(self):
         if self._inference_grpc_client is None:
+            predictor_config = self.predictor_config
+            if predictor_config is None:
+                raise RuntimeError(
+                    "PredictorConfig is required to create GRPC client but is None."
+                )
             self._inference_grpc_client = InferenceClientFactory().get_grpc_client(
-                url=self.predictor_config.predictor_host,
-                timeout=self.predictor_config.predictor_request_timeout_seconds,
-                retries=self.predictor_config.predictor_request_retries,
-                use_ssl=self.predictor_config.predictor_use_ssl,
+                url=predictor_config.predictor_host,
+                timeout=predictor_config.predictor_request_timeout_seconds,
+                retries=predictor_config.predictor_request_retries,
+                use_ssl=predictor_config.predictor_use_ssl,
             )
         return self._inference_grpc_client
 
