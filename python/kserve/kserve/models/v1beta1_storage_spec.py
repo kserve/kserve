@@ -49,18 +49,16 @@ class V1beta1StorageSpec(object):
     openapi_types = {
         'key': 'str',
         'parameters': 'dict(str, str)',
-        'path': 'str',
-        'schema_path': 'str'
+        'path': 'str'
     }
 
     attribute_map = {
         'key': 'key',
         'parameters': 'parameters',
-        'path': 'path',
-        'schema_path': 'schemaPath'
+        'path': 'path'
     }
 
-    def __init__(self, key=None, parameters=None, path=None, schema_path=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, key=None, parameters=None, path=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1StorageSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -69,7 +67,6 @@ class V1beta1StorageSpec(object):
         self._key = None
         self._parameters = None
         self._path = None
-        self._schema_path = None
         self.discriminator = None
 
         if key is not None:
@@ -78,14 +75,12 @@ class V1beta1StorageSpec(object):
             self.parameters = parameters
         if path is not None:
             self.path = path
-        if schema_path is not None:
-            self.schema_path = schema_path
 
     @property
     def key(self):
         """Gets the key of this V1beta1StorageSpec.  # noqa: E501
 
-        The Storage Key in the secret for this model.  # noqa: E501
+        The Storage Key in the secret for this object.  # noqa: E501
 
         :return: The key of this V1beta1StorageSpec.  # noqa: E501
         :rtype: str
@@ -96,7 +91,7 @@ class V1beta1StorageSpec(object):
     def key(self, key):
         """Sets the key of this V1beta1StorageSpec.
 
-        The Storage Key in the secret for this model.  # noqa: E501
+        The Storage Key in the secret for this object.  # noqa: E501
 
         :param key: The key of this V1beta1StorageSpec.  # noqa: E501
         :type: str
@@ -131,7 +126,7 @@ class V1beta1StorageSpec(object):
     def path(self):
         """Gets the path of this V1beta1StorageSpec.  # noqa: E501
 
-        The path to the model object in the storage. It cannot co-exist with the storageURI.  # noqa: E501
+        The path to the object in the storage. Note that this path is relative to the storage URI.  # noqa: E501
 
         :return: The path of this V1beta1StorageSpec.  # noqa: E501
         :rtype: str
@@ -142,36 +137,13 @@ class V1beta1StorageSpec(object):
     def path(self, path):
         """Sets the path of this V1beta1StorageSpec.
 
-        The path to the model object in the storage. It cannot co-exist with the storageURI.  # noqa: E501
+        The path to the object in the storage. Note that this path is relative to the storage URI.  # noqa: E501
 
         :param path: The path of this V1beta1StorageSpec.  # noqa: E501
         :type: str
         """
 
         self._path = path
-
-    @property
-    def schema_path(self):
-        """Gets the schema_path of this V1beta1StorageSpec.  # noqa: E501
-
-        The path to the model schema file in the storage.  # noqa: E501
-
-        :return: The schema_path of this V1beta1StorageSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._schema_path
-
-    @schema_path.setter
-    def schema_path(self, schema_path):
-        """Sets the schema_path of this V1beta1StorageSpec.
-
-        The path to the model schema file in the storage.  # noqa: E501
-
-        :param schema_path: The schema_path of this V1beta1StorageSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._schema_path = schema_path
 
     def to_dict(self):
         """Returns the model properties as a dict"""
