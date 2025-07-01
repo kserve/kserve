@@ -46,13 +46,9 @@ class KnativeVolatileTime(object):
       attribute_map (dict): The key is attribute name
                             and the value is json key in definition.
     """
-    openapi_types = {
-        'time': 'datetime'
-    }
+    openapi_types = {"time": "datetime"}
 
-    attribute_map = {
-        'time': 'Time'
-    }
+    attribute_map = {"time": "Time"}
 
     def __init__(self, time=None, local_vars_configuration=None):  # noqa: E501
         """KnativeVolatileTime - a model defined in OpenAPI"""  # noqa: E501
@@ -83,8 +79,12 @@ class KnativeVolatileTime(object):
         :param time: The time of this KnativeVolatileTime.  # noqa: E501
         :type: datetime
         """
-        if self.local_vars_configuration.client_side_validation and time is None:  # noqa: E501
-            raise ValueError("Invalid value for `time`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and time is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `time`, must not be `None`"
+            )  # noqa: E501
 
         self._time = time
 
@@ -95,18 +95,22 @@ class KnativeVolatileTime(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

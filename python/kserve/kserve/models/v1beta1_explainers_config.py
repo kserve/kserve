@@ -46,13 +46,9 @@ class V1beta1ExplainersConfig(object):
       attribute_map (dict): The key is attribute name
                             and the value is json key in definition.
     """
-    openapi_types = {
-        'art': 'V1beta1ExplainerConfig'
-    }
+    openapi_types = {"art": "V1beta1ExplainerConfig"}
 
-    attribute_map = {
-        'art': 'art'
-    }
+    attribute_map = {"art": "art"}
 
     def __init__(self, art=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExplainersConfig - a model defined in OpenAPI"""  # noqa: E501
@@ -94,18 +90,22 @@ class V1beta1ExplainersConfig(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

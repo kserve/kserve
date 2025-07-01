@@ -47,22 +47,30 @@ class V1beta1PodMetrics(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'backend': 'str',
-        'metric_names': 'list[str]',
-        'operation_over_time': 'str',
-        'query': 'str',
-        'server_address': 'str'
+        "backend": "str",
+        "metric_names": "list[str]",
+        "operation_over_time": "str",
+        "query": "str",
+        "server_address": "str",
     }
 
     attribute_map = {
-        'backend': 'backend',
-        'metric_names': 'metricNames',
-        'operation_over_time': 'operationOverTime',
-        'query': 'query',
-        'server_address': 'serverAddress'
+        "backend": "backend",
+        "metric_names": "metricNames",
+        "operation_over_time": "operationOverTime",
+        "query": "query",
+        "server_address": "serverAddress",
     }
 
-    def __init__(self, backend='', metric_names=None, operation_over_time=None, query=None, server_address=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        backend="",
+        metric_names=None,
+        operation_over_time=None,
+        query=None,
+        server_address=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1PodMetrics - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -208,18 +216,22 @@ class V1beta1PodMetrics(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

@@ -47,20 +47,27 @@ class V1alpha1ClusterServingRuntimeList(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'api_version': 'str',
-        'items': 'list[V1alpha1ClusterServingRuntime]',
-        'kind': 'str',
-        'metadata': 'V1ListMeta'
+        "api_version": "str",
+        "items": "list[V1alpha1ClusterServingRuntime]",
+        "kind": "str",
+        "metadata": "V1ListMeta",
     }
 
     attribute_map = {
-        'api_version': 'apiVersion',
-        'items': 'items',
-        'kind': 'kind',
-        'metadata': 'metadata'
+        "api_version": "apiVersion",
+        "items": "items",
+        "kind": "kind",
+        "metadata": "metadata",
     }
 
-    def __init__(self, api_version=None, items=None, kind=None, metadata=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        api_version=None,
+        items=None,
+        kind=None,
+        metadata=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1alpha1ClusterServingRuntimeList - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -121,8 +128,12 @@ class V1alpha1ClusterServingRuntimeList(object):
         :param items: The items of this V1alpha1ClusterServingRuntimeList.  # noqa: E501
         :type: list[V1alpha1ClusterServingRuntime]
         """
-        if self.local_vars_configuration.client_side_validation and items is None:  # noqa: E501
-            raise ValueError("Invalid value for `items`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and items is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `items`, must not be `None`"
+            )  # noqa: E501
 
         self._items = items
 
@@ -177,18 +188,22 @@ class V1alpha1ClusterServingRuntimeList(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

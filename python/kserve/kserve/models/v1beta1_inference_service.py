@@ -47,22 +47,30 @@ class V1beta1InferenceService(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'api_version': 'str',
-        'kind': 'str',
-        'metadata': 'V1ObjectMeta',
-        'spec': 'V1beta1InferenceServiceSpec',
-        'status': 'V1beta1InferenceServiceStatus'
+        "api_version": "str",
+        "kind": "str",
+        "metadata": "V1ObjectMeta",
+        "spec": "V1beta1InferenceServiceSpec",
+        "status": "V1beta1InferenceServiceStatus",
     }
 
     attribute_map = {
-        'api_version': 'apiVersion',
-        'kind': 'kind',
-        'metadata': 'metadata',
-        'spec': 'spec',
-        'status': 'status'
+        "api_version": "apiVersion",
+        "kind": "kind",
+        "metadata": "metadata",
+        "spec": "spec",
+        "status": "status",
     }
 
-    def __init__(self, api_version=None, kind=None, metadata=None, spec=None, status=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        api_version=None,
+        kind=None,
+        metadata=None,
+        spec=None,
+        status=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1InferenceService - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -202,18 +210,22 @@ class V1beta1InferenceService(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

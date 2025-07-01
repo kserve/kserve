@@ -47,26 +47,36 @@ class V1beta1LocalModelConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'default_job_image': 'str',
-        'disable_volume_management': 'bool',
-        'enabled': 'bool',
-        'fs_group': 'int',
-        'job_namespace': 'str',
-        'job_ttl_seconds_after_finished': 'int',
-        'reconcilation_frequency_in_secs': 'int'
+        "default_job_image": "str",
+        "disable_volume_management": "bool",
+        "enabled": "bool",
+        "fs_group": "int",
+        "job_namespace": "str",
+        "job_ttl_seconds_after_finished": "int",
+        "reconcilation_frequency_in_secs": "int",
     }
 
     attribute_map = {
-        'default_job_image': 'defaultJobImage',
-        'disable_volume_management': 'disableVolumeManagement',
-        'enabled': 'enabled',
-        'fs_group': 'fsGroup',
-        'job_namespace': 'jobNamespace',
-        'job_ttl_seconds_after_finished': 'jobTTLSecondsAfterFinished',
-        'reconcilation_frequency_in_secs': 'reconcilationFrequencyInSecs'
+        "default_job_image": "defaultJobImage",
+        "disable_volume_management": "disableVolumeManagement",
+        "enabled": "enabled",
+        "fs_group": "fsGroup",
+        "job_namespace": "jobNamespace",
+        "job_ttl_seconds_after_finished": "jobTTLSecondsAfterFinished",
+        "reconcilation_frequency_in_secs": "reconcilationFrequencyInSecs",
     }
 
-    def __init__(self, default_job_image=None, disable_volume_management=None, enabled=False, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, reconcilation_frequency_in_secs=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        default_job_image=None,
+        disable_volume_management=None,
+        enabled=False,
+        fs_group=None,
+        job_namespace="",
+        job_ttl_seconds_after_finished=None,
+        reconcilation_frequency_in_secs=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1LocalModelConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -154,8 +164,12 @@ class V1beta1LocalModelConfig(object):
         :param enabled: The enabled of this V1beta1LocalModelConfig.  # noqa: E501
         :type: bool
         """
-        if self.local_vars_configuration.client_side_validation and enabled is None:  # noqa: E501
-            raise ValueError("Invalid value for `enabled`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and enabled is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `enabled`, must not be `None`"
+            )  # noqa: E501
 
         self._enabled = enabled
 
@@ -198,8 +212,13 @@ class V1beta1LocalModelConfig(object):
         :param job_namespace: The job_namespace of this V1beta1LocalModelConfig.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and job_namespace is None:  # noqa: E501
-            raise ValueError("Invalid value for `job_namespace`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation
+            and job_namespace is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `job_namespace`, must not be `None`"
+            )  # noqa: E501
 
         self._job_namespace = job_namespace
 
@@ -252,18 +271,22 @@ class V1beta1LocalModelConfig(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

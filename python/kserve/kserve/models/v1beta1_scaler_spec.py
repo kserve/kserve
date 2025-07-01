@@ -47,32 +47,45 @@ class V1beta1ScalerSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'max_replicas': 'int',
-        'metric_backend': 'str',
-        'metric_query': 'str',
-        'min_replicas': 'int',
-        'query_parameters': 'str',
-        'query_time': 'str',
-        'scale_metric': 'str',
-        'scale_metric_type': 'str',
-        'scale_target': 'int',
-        'server_address': 'str'
+        "max_replicas": "int",
+        "metric_backend": "str",
+        "metric_query": "str",
+        "min_replicas": "int",
+        "query_parameters": "str",
+        "query_time": "str",
+        "scale_metric": "str",
+        "scale_metric_type": "str",
+        "scale_target": "int",
+        "server_address": "str",
     }
 
     attribute_map = {
-        'max_replicas': 'maxReplicas',
-        'metric_backend': 'metricBackend',
-        'metric_query': 'metricQuery',
-        'min_replicas': 'minReplicas',
-        'query_parameters': 'queryParameters',
-        'query_time': 'queryTime',
-        'scale_metric': 'scaleMetric',
-        'scale_metric_type': 'scaleMetricType',
-        'scale_target': 'scaleTarget',
-        'server_address': 'serverAddress'
+        "max_replicas": "maxReplicas",
+        "metric_backend": "metricBackend",
+        "metric_query": "metricQuery",
+        "min_replicas": "minReplicas",
+        "query_parameters": "queryParameters",
+        "query_time": "queryTime",
+        "scale_metric": "scaleMetric",
+        "scale_metric_type": "scaleMetricType",
+        "scale_target": "scaleTarget",
+        "server_address": "serverAddress",
     }
 
-    def __init__(self, max_replicas=None, metric_backend=None, metric_query=None, min_replicas=None, query_parameters=None, query_time=None, scale_metric=None, scale_metric_type=None, scale_target=None, server_address=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        max_replicas=None,
+        metric_backend=None,
+        metric_query=None,
+        min_replicas=None,
+        query_parameters=None,
+        query_time=None,
+        scale_metric=None,
+        scale_metric_type=None,
+        scale_target=None,
+        server_address=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1ScalerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -348,18 +361,22 @@ class V1beta1ScalerSpec(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

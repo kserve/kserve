@@ -46,15 +46,13 @@ class V1beta1SecurityConfig(object):
       attribute_map (dict): The key is attribute name
                             and the value is json key in definition.
     """
-    openapi_types = {
-        'auto_mount_service_account_token': 'bool'
-    }
+    openapi_types = {"auto_mount_service_account_token": "bool"}
 
-    attribute_map = {
-        'auto_mount_service_account_token': 'autoMountServiceAccountToken'
-    }
+    attribute_map = {"auto_mount_service_account_token": "autoMountServiceAccountToken"}
 
-    def __init__(self, auto_mount_service_account_token=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self, auto_mount_service_account_token=False, local_vars_configuration=None
+    ):  # noqa: E501
         """V1beta1SecurityConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -83,8 +81,13 @@ class V1beta1SecurityConfig(object):
         :param auto_mount_service_account_token: The auto_mount_service_account_token of this V1beta1SecurityConfig.  # noqa: E501
         :type: bool
         """
-        if self.local_vars_configuration.client_side_validation and auto_mount_service_account_token is None:  # noqa: E501
-            raise ValueError("Invalid value for `auto_mount_service_account_token`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation
+            and auto_mount_service_account_token is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `auto_mount_service_account_token`, must not be `None`"
+            )  # noqa: E501
 
         self._auto_mount_service_account_token = auto_mount_service_account_token
 
@@ -95,18 +98,22 @@ class V1beta1SecurityConfig(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
