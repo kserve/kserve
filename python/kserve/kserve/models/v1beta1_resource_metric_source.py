@@ -46,17 +46,13 @@ class V1beta1ResourceMetricSource(object):
       attribute_map (dict): The key is attribute name
                             and the value is json key in definition.
     """
-    openapi_types = {
-        'name': 'str',
-        'target': 'V1beta1MetricTarget'
-    }
+    openapi_types = {"name": "str", "target": "V1beta1MetricTarget"}
 
-    attribute_map = {
-        'name': 'name',
-        'target': 'target'
-    }
+    attribute_map = {"name": "name", "target": "target"}
 
-    def __init__(self, name='', target=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self, name="", target=None, local_vars_configuration=None
+    ):  # noqa: E501
         """V1beta1ResourceMetricSource - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -89,8 +85,12 @@ class V1beta1ResourceMetricSource(object):
         :param name: The name of this V1beta1ResourceMetricSource.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and name is None:  # noqa: E501
-            raise ValueError("Invalid value for `name`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and name is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `name`, must not be `None`"
+            )  # noqa: E501
 
         self._name = name
 
@@ -112,8 +112,12 @@ class V1beta1ResourceMetricSource(object):
         :param target: The target of this V1beta1ResourceMetricSource.  # noqa: E501
         :type: V1beta1MetricTarget
         """
-        if self.local_vars_configuration.client_side_validation and target is None:  # noqa: E501
-            raise ValueError("Invalid value for `target`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and target is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `target`, must not be `None`"
+            )  # noqa: E501
 
         self._target = target
 
@@ -124,18 +128,22 @@ class V1beta1ResourceMetricSource(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

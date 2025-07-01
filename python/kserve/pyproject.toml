@@ -39,7 +39,7 @@ six = "^1.16.0"
 kubernetes = ">=23.3.0"
 python-dateutil = "^2.8.0"
 numpy = ">=1.26.0,<3.0.0"
-psutil = ">=5.9.6, <=7.0.0"
+psutil = ">=5.9.6"
 grpcio = "^1.60.0"
 grpc-interceptor = ">=0.15.4,<1.0.0"
 protobuf = "^4.25.4"
@@ -71,6 +71,7 @@ ray = { version = ">=2.43.0", extras = ["serve"], optional = true }
 
 # OpenAI Types dependency
 vllm = { version = "0.9.0.1", optional = true }
+grpcio-testing = ">=1.60.0,<2.0.0"
 
 [tool.poetry.extras]
 storage = [
@@ -107,7 +108,7 @@ optional = true
 
 [tool.poetry.group.dev.dependencies]
 black = { version = "~24.3.0", extras = ["colorama"] }
-pytest = ">=7.4.4,<8.0.0"
+avro = "^1.12.0"
 
 [tool.poetry-version-plugin]
 source = "file"

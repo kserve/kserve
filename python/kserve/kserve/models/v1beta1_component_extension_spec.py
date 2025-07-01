@@ -47,40 +47,57 @@ class V1beta1ComponentExtensionSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'annotations': 'dict(str, str)',
-        'auto_scaling': 'V1beta1AutoScalingSpec',
-        'batcher': 'V1beta1Batcher',
-        'canary_traffic_percent': 'int',
-        'container_concurrency': 'int',
-        'deployment_strategy': 'K8sIoApiAppsV1DeploymentStrategy',
-        'labels': 'dict(str, str)',
-        'logger': 'V1beta1LoggerSpec',
-        'max_replicas': 'int',
-        'min_replicas': 'int',
-        'scale_metric': 'str',
-        'scale_metric_type': 'str',
-        'scale_target': 'int',
-        'timeout': 'int'
+        "annotations": "dict(str, str)",
+        "auto_scaling": "V1beta1AutoScalingSpec",
+        "batcher": "V1beta1Batcher",
+        "canary_traffic_percent": "int",
+        "container_concurrency": "int",
+        "deployment_strategy": "K8sIoApiAppsV1DeploymentStrategy",
+        "labels": "dict(str, str)",
+        "logger": "V1beta1LoggerSpec",
+        "max_replicas": "int",
+        "min_replicas": "int",
+        "scale_metric": "str",
+        "scale_metric_type": "str",
+        "scale_target": "int",
+        "timeout": "int",
     }
 
     attribute_map = {
-        'annotations': 'annotations',
-        'auto_scaling': 'autoScaling',
-        'batcher': 'batcher',
-        'canary_traffic_percent': 'canaryTrafficPercent',
-        'container_concurrency': 'containerConcurrency',
-        'deployment_strategy': 'deploymentStrategy',
-        'labels': 'labels',
-        'logger': 'logger',
-        'max_replicas': 'maxReplicas',
-        'min_replicas': 'minReplicas',
-        'scale_metric': 'scaleMetric',
-        'scale_metric_type': 'scaleMetricType',
-        'scale_target': 'scaleTarget',
-        'timeout': 'timeout'
+        "annotations": "annotations",
+        "auto_scaling": "autoScaling",
+        "batcher": "batcher",
+        "canary_traffic_percent": "canaryTrafficPercent",
+        "container_concurrency": "containerConcurrency",
+        "deployment_strategy": "deploymentStrategy",
+        "labels": "labels",
+        "logger": "logger",
+        "max_replicas": "maxReplicas",
+        "min_replicas": "minReplicas",
+        "scale_metric": "scaleMetric",
+        "scale_metric_type": "scaleMetricType",
+        "scale_target": "scaleTarget",
+        "timeout": "timeout",
     }
 
-    def __init__(self, annotations=None, auto_scaling=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_metric_type=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        annotations=None,
+        auto_scaling=None,
+        batcher=None,
+        canary_traffic_percent=None,
+        container_concurrency=None,
+        deployment_strategy=None,
+        labels=None,
+        logger=None,
+        max_replicas=None,
+        min_replicas=None,
+        scale_metric=None,
+        scale_metric_type=None,
+        scale_target=None,
+        timeout=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1ComponentExtensionSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -452,18 +469,22 @@ class V1beta1ComponentExtensionSpec(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
