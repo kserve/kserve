@@ -28,4 +28,4 @@ spec:
     spec:
       containers:
         - name: manager
-          image: kserve/kserve-controller:v0.10.0
+          image: kserve/kserve-controller:v0.15.2

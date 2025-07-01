@@ -3,7 +3,7 @@ name: kserve-onboarding-chart
 description: A Helm chart to install KServe dependencies for onboarding users
 type: application
 version: 0.1.0
-appVersion: "0.10.0"
+appVersion: "0.15.2"
 
 dependencies:
   - name: cert-manager
