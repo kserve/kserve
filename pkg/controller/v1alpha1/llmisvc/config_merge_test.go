@@ -48,18 +48,18 @@ func TestMergeSpecs(t *testing.T) {
 		{
 			name: "single config",
 			cfgs: []v1alpha1.LLMInferenceServiceSpec{
-				{Model: v1alpha1.LLMModelSpec{URI: apis.URL{Path: "model-a"}}},
+				{Model: v1alpha1.LLMModelSpec{URI: mustParseURL("model-a")}},
 			},
-			want:    v1alpha1.LLMInferenceServiceSpec{Model: v1alpha1.LLMModelSpec{URI: apis.URL{Path: "model-a"}}},
+			want:    v1alpha1.LLMInferenceServiceSpec{Model: v1alpha1.LLMModelSpec{URI: mustParseURL("model-a")}},
 			wantErr: false,
 		},
 		{
 			name: "two configs simple merge",
 			cfgs: []v1alpha1.LLMInferenceServiceSpec{
-				{Model: v1alpha1.LLMModelSpec{URI: apis.URL{Path: "model-a"}}},
+				{Model: v1alpha1.LLMModelSpec{URI: mustParseURL("model-a")}},
 			},
 			want: v1alpha1.LLMInferenceServiceSpec{
-				Model: v1alpha1.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+				Model: v1alpha1.LLMModelSpec{URI: mustParseURL("model-a")},
 			},
 			wantErr: false,
 		},
@@ -67,20 +67,20 @@ func TestMergeSpecs(t *testing.T) {
 			name: "two configs with override",
 			cfgs: []v1alpha1.LLMInferenceServiceSpec{
 				{
-					Model: v1alpha1.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+					Model: v1alpha1.LLMModelSpec{URI: mustParseURL("model-a")},
 					WorkloadSpec: v1alpha1.WorkloadSpec{
 						Replicas: ptr.To[int32](1),
 					},
 				},
 				{
-					Model: v1alpha1.LLMModelSpec{URI: apis.URL{Path: "model-b"}},
+					Model: v1alpha1.LLMModelSpec{URI: mustParseURL("model-b")},
 					WorkloadSpec: v1alpha1.WorkloadSpec{
 						Replicas: ptr.To[int32](2),
 					},
 				},
 			},
 			want: v1alpha1.LLMInferenceServiceSpec{
-				Model: v1alpha1.LLMModelSpec{URI: apis.URL{Path: "model-b"}},
+				Model: v1alpha1.LLMModelSpec{URI: mustParseURL("model-b")},
 				WorkloadSpec: v1alpha1.WorkloadSpec{
 					Replicas: ptr.To[int32](2),
 				},
@@ -90,13 +90,13 @@ func TestMergeSpecs(t *testing.T) {
 		{
 			name: "three configs chained merge",
 			cfgs: []v1alpha1.LLMInferenceServiceSpec{
-				{Model: v1alpha1.LLMModelSpec{URI: apis.URL{Path: "model-a"}}},
+				{Model: v1alpha1.LLMModelSpec{URI: mustParseURL("model-a")}},
 				{
-					Model: v1alpha1.LLMModelSpec{URI: apis.URL{Path: "model-b"}},
+					Model: v1alpha1.LLMModelSpec{URI: mustParseURL("model-b")},
 				},
 			},
 			want: v1alpha1.LLMInferenceServiceSpec{
-				Model: v1alpha1.LLMModelSpec{URI: apis.URL{Path: "model-b"}},
+				Model: v1alpha1.LLMModelSpec{URI: mustParseURL("model-b")},
 			},
 			wantErr: false,
 		},
@@ -744,7 +744,7 @@ func TestMergeSpecs(t *testing.T) {
 			cfgs: []v1alpha1.LLMInferenceServiceSpec{
 				{
 					Model: v1alpha1.LLMModelSpec{
-						URI: apis.URL{Path: "base-model"},
+						URI: mustParseURL("base-model"),
 						LoRA: &v1alpha1.LoRASpec{
 							Adapters: []v1alpha1.ModelSpec{
 								{StorageURI: "s3://bucket/adapter1", Framework: "pytorch", Memory: resource.MustParse("1Gi")},
@@ -764,7 +764,7 @@ func TestMergeSpecs(t *testing.T) {
 			},
 			want: v1alpha1.LLMInferenceServiceSpec{
 				Model: v1alpha1.LLMModelSpec{
-					URI: apis.URL{Path: "base-model"},
+					URI: mustParseURL("base-model"),
 					LoRA: &v1alpha1.LoRASpec{
 						Adapters: []v1alpha1.ModelSpec{
 							{StorageURI: "s3://bucket/adapter2", Framework: "pytorch", Memory: resource.MustParse("512Mi")},
@@ -778,7 +778,7 @@ func TestMergeSpecs(t *testing.T) {
 			cfgs: []v1alpha1.LLMInferenceServiceSpec{
 				{
 					Model: v1alpha1.LLMModelSpec{
-						URI: apis.URL{Path: "model-uri"},
+						URI: mustParseURL("model-uri"),
 						Storage: &v1alpha1.LLMStorageSpec{
 							Path:       ptr.To("/models/base"),
 							StorageKey: ptr.To("base-key"),
@@ -804,7 +804,7 @@ func TestMergeSpecs(t *testing.T) {
 			},
 			want: v1alpha1.LLMInferenceServiceSpec{
 				Model: v1alpha1.LLMModelSpec{
-					URI: apis.URL{Path: "model-uri"},
+					URI: mustParseURL("model-uri"),
 					Storage: &v1alpha1.LLMStorageSpec{
 						Path:       ptr.To("/models/override"),
 						StorageKey: ptr.To("override-key"),
@@ -822,7 +822,7 @@ func TestMergeSpecs(t *testing.T) {
 			cfgs: []v1alpha1.LLMInferenceServiceSpec{
 				{
 					Model: v1alpha1.LLMModelSpec{
-						URI:         apis.URL{Path: "model-uri"},
+						URI:         mustParseURL("model-uri"),
 						Criticality: ptr.To(igwapi.Sheddable),
 					},
 				},
@@ -834,7 +834,7 @@ func TestMergeSpecs(t *testing.T) {
 			},
 			want: v1alpha1.LLMInferenceServiceSpec{
 				Model: v1alpha1.LLMModelSpec{
-					URI:         apis.URL{Path: "model-uri"},
+					URI:         mustParseURL("model-uri"),
 					Criticality: ptr.To(igwapi.Critical),
 				},
 			},
@@ -917,7 +917,7 @@ func TestMergeSpecs(t *testing.T) {
 			cfgs: []v1alpha1.LLMInferenceServiceSpec{
 				{
 					Model: v1alpha1.LLMModelSpec{
-						URI:  apis.URL{Path: "model-uri"},
+						URI:  mustParseURL("model-uri"),
 						Name: ptr.To("base-name"),
 					},
 					WorkloadSpec: v1alpha1.WorkloadSpec{
@@ -935,7 +935,7 @@ func TestMergeSpecs(t *testing.T) {
 			},
 			want: v1alpha1.LLMInferenceServiceSpec{
 				Model: v1alpha1.LLMModelSpec{
-					URI:  apis.URL{Path: "model-uri"},
+					URI:  mustParseURL("model-uri"),
 					Name: ptr.To("base-name"), // Base value should be preserved
 				},
 				WorkloadSpec: v1alpha1.WorkloadSpec{
@@ -948,7 +948,7 @@ func TestMergeSpecs(t *testing.T) {
 			cfgs: []v1alpha1.LLMInferenceServiceSpec{
 				{
 					Model: v1alpha1.LLMModelSpec{
-						URI:         apis.URL{Path: "base-model"},
+						URI:         mustParseURL("base-model"),
 						Name:        ptr.To("base-name"),
 						Criticality: ptr.To(igwapi.Sheddable),
 						LoRA: &v1alpha1.LoRASpec{
@@ -1006,8 +1006,8 @@ func TestMergeSpecs(t *testing.T) {
 			},
 			want: v1alpha1.LLMInferenceServiceSpec{
 				Model: v1alpha1.LLMModelSpec{
-					URI:         apis.URL{Path: "base-model"}, // Base URI preserved
-					Name:        ptr.To("override-name"),      // Override name
+					URI:         mustParseURL("base-model"), // Base URI preserved
+					Name:        ptr.To("override-name"),    // Override name
 					Criticality: ptr.To(igwapi.Critical),
 					LoRA: &v1alpha1.LoRASpec{
 						Adapters: []v1alpha1.ModelSpec{
@@ -1049,13 +1049,13 @@ func TestMergeSpecs(t *testing.T) {
 				},
 				{
 					Model: v1alpha1.LLMModelSpec{
-						URI: apis.URL{Path: "populated-model"},
+						URI: mustParseURL("populated-model"),
 					},
 				},
 			},
 			want: v1alpha1.LLMInferenceServiceSpec{
 				Model: v1alpha1.LLMModelSpec{
-					URI: apis.URL{Path: "populated-model"},
+					URI: mustParseURL("populated-model"),
 				},
 			},
 		},
