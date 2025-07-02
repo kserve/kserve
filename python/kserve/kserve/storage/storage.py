@@ -227,8 +227,8 @@ class Storage(object):
                 global_ca_bundle_volume_mount_path = os.getenv(
                     "CA_BUNDLE_VOLUME_MOUNT_POINT"
                 )
-                ca_bundle_full_path = (
-                    global_ca_bundle_volume_mount_path + "/cabundle.crt"
+                ca_bundle_full_path = os.path.join(
+                    global_ca_bundle_volume_mount_path, "cabundle.crt"
                 )
             if ca_bundle_set:
                 if os.path.exists(ca_bundle_full_path):
