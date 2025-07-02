@@ -17,13 +17,47 @@ limitations under the License.
 package llmisvc
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"text/template"
+
+	"knative.dev/pkg/kmeta"
 
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
+
+func ReplaceVariables(llmSvc *v1alpha1.LLMInferenceService, llmSvcCfg *v1alpha1.LLMInferenceServiceConfig, reconcilerConfig *Config) (*v1alpha1.LLMInferenceServiceConfig, error) {
+	templateBytes, _ := json.Marshal(llmSvcCfg)
+	buf := bytes.NewBuffer(nil)
+	config := struct {
+		*v1alpha1.LLMInferenceService
+		GlobalConfig *Config
+	}{
+		LLMInferenceService: llmSvc,
+		GlobalConfig:        reconcilerConfig,
+	}
+	t, err := template.New("config").
+		Funcs(map[string]any{
+			"ChildName": kmeta.ChildName,
+		}).
+		Option("missingkey=error").
+		Parse(string(templateBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse template config: %w", err)
+	}
+	if err := t.Execute(buf, config); err != nil {
+		return nil, fmt.Errorf("failed to merge config: %w", err)
+	}
+
+	out := &v1alpha1.LLMInferenceServiceConfig{}
+	if err := json.Unmarshal(buf.Bytes(), out); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config from template: %w", err)
+	}
+	return out, nil
+}
 
 func MergeSpecs(cfgs ...v1alpha1.LLMInferenceServiceSpec) (v1alpha1.LLMInferenceServiceSpec, error) {
 	if len(cfgs) == 0 {
