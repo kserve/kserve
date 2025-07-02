@@ -37,7 +37,7 @@ var (
 
 func TestMain(m *testing.M) {
 	crdDirectoryPaths := []string{
-		filepath.Join("..", "..", "test", "crds"),
+		filepath.Join(pkgtest.ProjectRoot(), "test", "crds"),
 	}
 	t := pkgtest.SetupEnvTest(crdDirectoryPaths)
 	var err error
