@@ -61,7 +61,7 @@ var _ = BeforeSuite(func() {
 	ctx, cancel := context.WithCancel(context.TODO())
 	By("bootstrapping test environment")
 	crdDirectoryPaths := []string{
-		filepath.Join("..", "..", "..", "..", "test", "crds"),
+		filepath.Join(pkgtest.ProjectRoot(), "test", "crds"),
 	}
 	testEnv := pkgtest.SetupEnvTest(crdDirectoryPaths)
 	var err error
