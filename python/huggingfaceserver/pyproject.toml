@@ -34,3 +34,4 @@ test = [
 dev = [
     "black[colorama]~=24.3.0",
 ]
+git add python/huggingfaceserver/pyproject.toml
