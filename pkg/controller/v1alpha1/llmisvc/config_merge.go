@@ -22,9 +22,8 @@ import (
 	"fmt"
 	"text/template"
 
-	"knative.dev/pkg/kmeta"
-
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"knative.dev/pkg/kmeta"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )

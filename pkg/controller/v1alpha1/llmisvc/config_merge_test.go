@@ -19,17 +19,17 @@ package llmisvc_test
 import (
 	"testing"
 
-	"github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc"
-
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc"
 )
 
 func TestMergeSpecs(t *testing.T) {
@@ -1089,6 +1089,427 @@ func TestMergeSpecs(t *testing.T) {
 			}
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("MergeSpecs() got = \n%#v\n, want \n%#v\nDiff (-want, +got):\n%s", got, tt.want, diff)
+			}
+		})
+	}
+}
+
+func TestReplaceVariables(t *testing.T) {
+	tests := []struct {
+		name    string
+		llmSvc  *v1alpha1.LLMInferenceService
+		cfg     *v1alpha1.LLMInferenceServiceConfig
+		extra   *llmisvc.Config
+		want    *v1alpha1.LLMInferenceServiceConfig
+		wantErr bool
+	}{
+		{
+			name: "Replace model name",
+			cfg: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Model: v1alpha1.LLMModelSpec{
+						Name: ptr.To("{{ .Spec.Model.Name }}"),
+					},
+					WorkloadSpec: v1alpha1.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{
+									"--served-model-name",
+									"{{ .Spec.Model.Name }}",
+								}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha1.LLMInferenceService{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Model: v1alpha1.LLMModelSpec{
+						Name: ptr.To("meta-llama/Llama-3.2-3B-Instruct"),
+					},
+				},
+			},
+			want: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Model: v1alpha1.LLMModelSpec{
+						Name: ptr.To("meta-llama/Llama-3.2-3B-Instruct"),
+					},
+					WorkloadSpec: v1alpha1.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{
+									"--served-model-name",
+									"meta-llama/Llama-3.2-3B-Instruct",
+								}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "template with ChildName function",
+			cfg: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha1.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							ServiceAccountName: "{{ ChildName .Name `-sa` }}",
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Env: []corev1.EnvVar{
+										{Name: "DEPLOYMENT_NAME", Value: "{{ ChildName .Name `-deployment` }}"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha1.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm",
+					Namespace: "test-ns",
+				},
+			},
+			want: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha1.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							ServiceAccountName: "test-llm-sa",
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Env: []corev1.EnvVar{
+										{Name: "DEPLOYMENT_NAME", Value: "test-llm-deployment"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "template in model storage parameters",
+			cfg: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Model: v1alpha1.LLMModelSpec{
+						URI: mustParseURL("s3://ai-team/models/llama-model"),
+						Storage: &v1alpha1.LLMStorageSpec{
+							Path: ptr.To("/models/{{ .Name }}"),
+							Parameters: &map[string]string{
+								"bucket":    "{{ .Namespace }}-models",
+								"model-id":  "{{ .Name }}",
+								"full-path": "{{ .Namespace }}/{{ .Name }}",
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha1.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "llama-model",
+					Namespace: "ai-team",
+				},
+			},
+			want: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Model: v1alpha1.LLMModelSpec{
+						URI: mustParseURL("s3://ai-team/models/llama-model"),
+						Storage: &v1alpha1.LLMStorageSpec{
+							Path: ptr.To("/models/llama-model"),
+							Parameters: &map[string]string{
+								"bucket":    "ai-team-models",
+								"model-id":  "llama-model",
+								"full-path": "ai-team/llama-model",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "template in arrays",
+			cfg: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha1.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Args: []string{
+										"--model-name={{ .Name }}",
+										"--namespace={{ .Namespace }}",
+										"--config-path=/config/{{ .Name }}.yaml",
+									},
+									Env: []corev1.EnvVar{
+										{Name: "MODEL_NAME", Value: "{{ .Name }}"},
+										{Name: "NAMESPACE", Value: "{{ .Namespace }}"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha1.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gpt-model",
+					Namespace: "ml-team",
+				},
+			},
+			want: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha1.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Args: []string{
+										"--model-name=gpt-model",
+										"--namespace=ml-team",
+										"--config-path=/config/gpt-model.yaml",
+									},
+									Env: []corev1.EnvVar{
+										{Name: "MODEL_NAME", Value: "gpt-model"},
+										{Name: "NAMESPACE", Value: "ml-team"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "template with complex nested model spec",
+			cfg: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Model: v1alpha1.LLMModelSpec{
+						Name: ptr.To("{{ .Spec.Model.Name }}"),
+					},
+					WorkloadSpec: v1alpha1.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Args: []string{
+										"--served-model-name={{ .Spec.Model.Name }}",
+										"--model-path={{ .Spec.Model.URI.Host }}{{ .Spec.Model.URI.Path }}",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha1.LLMInferenceService{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Model: v1alpha1.LLMModelSpec{
+						Name: ptr.To("meta-llama/Llama-3.2-3B-Instruct"),
+						URI:  mustParseURL("hf://meta-llama/Llama-3.2-3B-Instruct"),
+					},
+				},
+			},
+			want: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Model: v1alpha1.LLMModelSpec{
+						Name: ptr.To("meta-llama/Llama-3.2-3B-Instruct"),
+					},
+					WorkloadSpec: v1alpha1.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Args: []string{
+										"--served-model-name=meta-llama/Llama-3.2-3B-Instruct",
+										"--model-path=meta-llama/Llama-3.2-3B-Instruct",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "template with nil pointer access should not error if default value is provided",
+			cfg: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Model: v1alpha1.LLMModelSpec{
+						Name: ptr.To(`{{ if .Spec.Model.Name }}{{ .Spec.Model.Name }}{{ else }}default-model{{ end }}`),
+					},
+				},
+			},
+			llmSvc: &v1alpha1.LLMInferenceService{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Model: v1alpha1.LLMModelSpec{
+						Name: nil, // Nil pointer
+					},
+				},
+			},
+			want: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Model: v1alpha1.LLMModelSpec{
+						Name: ptr.To("default-model"),
+					},
+				},
+			},
+		},
+		{
+			name: "template with router configurations",
+			cfg: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Router: &v1alpha1.RouterSpec{
+						Route: &v1alpha1.GatewayRoutesSpec{
+							HTTP: &v1alpha1.HTTPRouteSpec{
+								Refs: []corev1.LocalObjectReference{
+									{Name: "{{ .Name }}-route"},
+								},
+							},
+						},
+						Gateway: &v1alpha1.GatewaySpec{
+							Refs: []v1alpha1.UntypedObjectReference{
+								{Name: "{{ .Name }}-gateway", Namespace: "{{ .Namespace }}"},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha1.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "router-test",
+					Namespace: "routing-ns",
+				},
+			},
+			want: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Router: &v1alpha1.RouterSpec{
+						Route: &v1alpha1.GatewayRoutesSpec{
+							HTTP: &v1alpha1.HTTPRouteSpec{
+								Refs: []corev1.LocalObjectReference{
+									{Name: "router-test-route"},
+								},
+							},
+						},
+						Gateway: &v1alpha1.GatewaySpec{
+							Refs: []v1alpha1.UntypedObjectReference{
+								{Name: "router-test-gateway", Namespace: "routing-ns"},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "template with multiple variables in single string",
+			cfg: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha1.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Env: []corev1.EnvVar{
+										{Name: "FULL_NAME", Value: "{{ .Namespace }}/{{ .Name }}"},
+										{Name: "CONFIG_PATH", Value: "/config/{{ .Namespace }}-{{ .Name }}.yaml"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha1.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "multi-var",
+					Namespace: "test-ns",
+				},
+			},
+			want: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha1.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Env: []corev1.EnvVar{
+										{Name: "FULL_NAME", Value: "test-ns/multi-var"},
+										{Name: "CONFIG_PATH", Value: "/config/test-ns-multi-var.yaml"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "template with invalid syntax should error",
+			cfg: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Model: v1alpha1.LLMModelSpec{
+						Name: ptr.To("{{ .Name"), // Invalid template syntax - missing closing brace
+					},
+				},
+			},
+			llmSvc: &v1alpha1.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "template with non-existent field should error",
+			cfg: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Model: v1alpha1.LLMModelSpec{
+						Name: ptr.To("{{ .NonExistentField }}"),
+					},
+				},
+			},
+			llmSvc: &v1alpha1.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "template in baseRefs",
+			cfg: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					BaseRefs: []corev1.LocalObjectReference{
+						{Name: "{{ .Name }}-base-config"},
+						{Name: "{{ .Namespace }}-shared-config"},
+					},
+				},
+			},
+			llmSvc: &v1alpha1.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "base-ref-test",
+					Namespace: "template-ns",
+				},
+			},
+			want: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					BaseRefs: []corev1.LocalObjectReference{
+						{Name: "base-ref-test-base-config"},
+						{Name: "template-ns-shared-config"},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := llmisvc.ReplaceVariables(tt.llmSvc, tt.cfg, tt.extra)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ReplaceVariables() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				if diff := cmp.Diff(tt.want, got); diff != "" {
+					t.Errorf("ReplaceVariables() got = %#v, want %#v\nDiff:\n%s", got, tt.want, diff)
+				}
 			}
 		})
 	}
