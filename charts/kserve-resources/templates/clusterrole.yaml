@@ -187,14 +187,6 @@ rules:
   - patch
   - update
 - apiGroups:
-  - operator.knative.dev
-  resources:
-  - knativeservings
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
   - rbac.authorization.k8s.io
   resourceNames:
   - kserve-inferencegraph-auth-verifiers

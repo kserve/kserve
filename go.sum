@@ -397,8 +397,6 @@ github.com/linode/linodego v1.40.0 h1:7ESY0PwK94hoggoCtIroT1Xk6b1flrFBNZ6KwqbTql
 github.com/linode/linodego v1.40.0/go.mod h1:NsUw4l8QrLdIofRg1NYFBbW5ZERnmbZykVBszPZLORM=
 github.com/mailru/easyjson v0.9.0 h1:PrnmzHw7262yW8sTBwxi1PdJA3Iw/EKBa8psRf7d9a4=
 github.com/mailru/easyjson v0.9.0/go.mod h1:1+xMtQp2MRNVL/V1bOzuP3aP8VNwRW55fQUto+XFtTU=
-github.com/manifestival/manifestival v0.7.2 h1:l4uFdWX/xQK4QcRfqGoMtBvaZeWPEuwD6hVsCwUqZY4=
-github.com/manifestival/manifestival v0.7.2/go.mod h1:nl3T6HlfHCeidooWVTMI9vYNTBkQ1GdhLNb+smozbdk=
 github.com/mattn/go-colorable v0.1.13 h1:fFA4WZxdEF4tXPZVKMLwD8oUnCTTo08duU7wxecdEvA=
 github.com/mattn/go-colorable v0.1.13/go.mod h1:7S9/ev0klgBDR4GtXTXX8a3vIGJpMovkB8vQcUbaXHg=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
@@ -959,12 +957,8 @@ k8s.io/kube-openapi v0.0.0-20250304201544-e5f78fe3ede9 h1:t0huyHnz6HsokckRxAF1bY
 k8s.io/kube-openapi v0.0.0-20250304201544-e5f78fe3ede9/go.mod h1:5jIi+8yX4RIb8wk3XwBo5Pq2ccx4FP10ohkbSKCZoK8=
 k8s.io/utils v0.0.0-20241210054802-24370beab758 h1:sdbE21q2nlQtFh65saZY+rRM6x6aJJI8IUa1AmH/qa0=
 k8s.io/utils v0.0.0-20241210054802-24370beab758/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
-knative.dev/caching v0.0.0-20250117155405-a76aa7cd2bb6 h1:a6oO186Ibm9iBmy9GzJPlJCVJnPPCppwo8NEm12Nnus=
-knative.dev/caching v0.0.0-20250117155405-a76aa7cd2bb6/go.mod h1:xCMZSPoup5BSZ5GQ/Xa8xTEWNIZLLHx9mhPMeREt/ck=
 knative.dev/networking v0.0.0-20250117155906-67d1c274ba6a h1:FaDPXtv42+AkYh/mE269pttPSZ3fDVAjJiEsYUaM4SM=
 knative.dev/networking v0.0.0-20250117155906-67d1c274ba6a/go.mod h1:AIKYMfZydhwXR/60c/3KXEnqEnH6aNEEqulifdqJVcQ=
-knative.dev/operator v0.42.2 h1:wgAWYHwoSFmV+wPHCt5dZahHTHLy2VCM4G82PEo9iSc=
-knative.dev/operator v0.42.2/go.mod h1:cfSpJMgvwmuZ7USaxC+zgEuizMFc/xweREW5DG6J1DA=
 knative.dev/pkg v0.0.0-20250117084104-c43477f0052b h1:a+gP7Yzu5NmoX2w1p8nfTgmSKF+aHLKGzqYT82ijJTw=
 knative.dev/pkg v0.0.0-20250117084104-c43477f0052b/go.mod h1:bedSpkdLybR6JhL1J7XDLpd+JMKM/x8M5Apr80i5TeE=
 knative.dev/serving v0.44.0 h1:c6TXhoSAI6eXt0/1ET3C69jMWYA4ES9FskSan/fBaac=

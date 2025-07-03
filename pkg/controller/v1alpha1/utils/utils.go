@@ -111,10 +111,21 @@ func CheckZeroInitialScaleAllowed(ctx context.Context, clientset kubernetes.Inte
 // ValidateInitialScaleAnnotation checks the annotations of a resource for the knative initial scale annotation.
 // When the annotation is set validation is performed. If any of this validation fails, the annotation will
 // be removed and the default initial scale behavior will be used.
-func ValidateInitialScaleAnnotation(annotations map[string]string, allowZeroInitialScale bool, log logr.Logger) {
+func ValidateInitialScaleAnnotation(annotations map[string]string, allowZeroInitialScale bool, minReplicas *int32, log logr.Logger) {
 	// Check that the annoation is set.
 	_, set := annotations[autoscaling.InitialScaleAnnotationKey]
 	if !set {
+		// ODH Only
+		// For scenarios where zero min replicas are requested, set the initial scale annotation to 0
+		// unless explicitly set by an end user.
+		if allowZeroInitialScale {
+			if minReplicas == nil && constants.DefaultMinReplicas == 0 {
+				annotations[autoscaling.InitialScaleAnnotationKey] = "0"
+			}
+			if minReplicas != nil && *minReplicas == 0 {
+				annotations[autoscaling.InitialScaleAnnotationKey] = "0"
+			}
+		}
 		return
 	}
 

@@ -88,7 +88,6 @@ data:
   inferenceService: |-
     {
       "serviceAnnotationDisallowedList": [
-        "autoscaling.knative.dev/initial-scale",
         "autoscaling.knative.dev/min-scale",
         "autoscaling.knative.dev/max-scale",
         "internal.serving.kserve.io/storage-initializer-sourceuri",
