@@ -102,6 +102,7 @@ class HuggingfaceEncoderModel(
         trust_remote_code: bool = False,
         return_probabilities: bool = False,
         request_logger: Optional[RequestLogger] = None,
+        disable_postprocess: bool = False,
     ):
         super().__init__(model_name)
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -116,6 +117,7 @@ class HuggingfaceEncoderModel(
         self.tokenizer_revision = tokenizer_revision
         self.trust_remote_code = trust_remote_code
         self.return_probabilities = return_probabilities
+        self.disable_postprocess = disable_postprocess
         self.request_logger = request_logger
 
         if model_config:
@@ -294,53 +296,91 @@ class HuggingfaceEncoderModel(
     ) -> Union[Dict, InferResponse]:
         input_ids = context["input_ids"]
         request = context["payload"]
+
         if isinstance(outputs, InferResponse):
             shape = torch.Size(outputs.outputs[0].shape)
             data = torch.Tensor(outputs.outputs[0].data)
             outputs = data.view(shape)
             input_ids = torch.Tensor(input_ids)
+
         inferences = []
+
         if self.task == MLTask.sequence_classification:
             num_rows, num_cols = outputs.shape
             for i in range(num_rows):
                 out = outputs[i].unsqueeze(0)
-                if self.return_probabilities:
-                    inferences.append(dict(enumerate(out.numpy().flatten())))
+                if self.disable_postprocess:
+                    logits = out.squeeze()
+                    inferences.append(
+                        {j: logits[j].item() for j in range(logits.size(0))}
+                    )
+                elif self.return_probabilities:
+                    probs = torch.softmax(out, dim=-1).squeeze()
+                    inferences.append(
+                        {j: float(f"{probs[j]:.4f}") for j in range(probs.size(0))}
+                    )
                 else:
                     predicted_idx = out.argmax().item()
                     inferences.append(predicted_idx)
             return get_predict_response(request, inferences, self.name)
+
         elif self.task == MLTask.fill_mask:
             num_rows = outputs.shape[0]
             for i in range(num_rows):
                 mask_pos = (input_ids == self._tokenizer.mask_token_id)[i]
                 mask_token_index = mask_pos.nonzero(as_tuple=True)[0]
-                if self.return_probabilities:
-                    probabilities = torch.softmax(outputs[i, mask_token_index], dim=-1)
+                masked_output = outputs[i, mask_token_index]
+                if self.disable_postprocess:
+                    decoded_logits = []
+                    for logits in masked_output:
+                        token_logits = []
+                        for token_id, logit in enumerate(logits):
+                            token = self._tokenizer.decode([token_id])
+                            token_logits.append({token: logit.item()})
+                        decoded_logits.append(token_logits)
+                    inferences.append(decoded_logits)
+                elif self.return_probabilities:
+                    probabilities = torch.softmax(masked_output, dim=-1)
                     decoded_probabilities = []
-                    for idx, probs in enumerate(probabilities):
+                    for probs in probabilities:
                         token_probs = []
                         for token_id, prob in enumerate(probs):
                             token = self._tokenizer.decode([token_id])
-                            token_probs.append({f"{token}": f"{prob.item():.4f}"})
+                            token_probs.append({token: f"{prob.item():.4f}"})
                         decoded_probabilities.append(token_probs)
                     inferences.append(decoded_probabilities)
                 else:
-                    predicted_token_id = outputs[i, mask_token_index].argmax(axis=-1)
+                    predicted_token_id = masked_output.argmax(axis=-1)
                     inferences.append(self._tokenizer.decode(predicted_token_id))
             return get_predict_response(request, inferences, self.name)
+
         elif self.task == MLTask.token_classification:
             num_rows = outputs.shape[0]
             for i in range(num_rows):
                 output = outputs[i].unsqueeze(0)
-                if self.return_probabilities:
-                    for values in output.tolist():
-                        res = [{k: v for k, v in enumerate(value)} for value in values]
-                        inferences.append([res])
+                if self.disable_postprocess:
+                    token_logits = []
+                    for values in output.squeeze(0):
+                        token_logits.append(
+                            {j: values[j].item() for j in range(values.size(0))}
+                        )
+                    inferences.append(token_logits)
+                elif self.return_probabilities:
+                    probs = torch.softmax(output, dim=-1)
+                    token_probs = []
+                    for values in probs.squeeze(0):
+                        token_probs.append(
+                            {
+                                j: float(f"{values[j]:.4f}")
+                                for j in range(values.size(0))
+                            }
+                        )
+                    inferences.append(token_probs)
                 else:
                     predictions = torch.argmax(output, dim=2)
                     inferences.append(predictions.tolist())
             return get_predict_response(request, inferences, self.name)
+
         elif self.task == MLTask.text_embedding:
             # Perform pooling
             outputs = _mean_pooling(outputs, context["attention_mask"])
@@ -350,6 +390,7 @@ class HuggingfaceEncoderModel(
             for i in range(num_rows):
                 inferences.append(outputs[i].tolist())
             return get_predict_response(request, inferences, self.name)
+
         else:
             raise OpenAIError(
                 f"Unsupported task {self.task}. Please check the supported `task` option."
