@@ -70,7 +70,7 @@ spec:
               - name: PD_ENABLED
                 value: "true"
               - name: PD_PROMPT_LEN_THRESHOLD
-                value: "10"
+                value: "100"
               - name: PREFILL_ENABLE_LOAD_AWARE_SCORER
                 value: "true"
               - name: PREFILL_ENABLE_PREFIX_AWARE_SCORER
