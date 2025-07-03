@@ -1,0 +1,23 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-decode-template-gpu-small
+spec:
+  template:
+    tolerations:
+      - effect: NoSchedule
+        key: nvidia.com/gpu
+        operator: Exists
+    containers:
+      - name: main
+        args:
+          - --gpu_memory_utilization=0.8
+          - --served-model-name
+          - "{{ .Spec.Model.Name }}"
+          - --port
+          - "8001"
+        resources:
+          limits:
+            nvidia.com/gpu: "1"
+          requests:
+            nvidia.com/gpu: "1"
