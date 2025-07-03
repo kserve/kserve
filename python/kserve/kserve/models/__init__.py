@@ -125,3 +125,4 @@ from kserve.models.v1beta1_transformer_spec import V1beta1TransformerSpec
 from kserve.models.v1beta1_triton_spec import V1beta1TritonSpec
 from kserve.models.v1beta1_worker_spec import V1beta1WorkerSpec
 from kserve.models.v1beta1_xg_boost_spec import V1beta1XGBoostSpec
+from kserve.models.v1beta1_authentication_ref import V1beta1AuthenticationRef
