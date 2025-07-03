@@ -1,0 +1,200 @@
+# -- Common labels to add to all resources
+commonLabels: {}
+
+# -- Common annotations to add to all resources
+commonAnnotations: {}
+
+kserve:
+  # -- Version of KServe LLM ISVC components
+  version: &defaultVersion v0.15.2
+
+  llmisvc:
+    controller:
+      # -- KServe LLM ISVC controller manager container image
+      image: kserve/llmisvc-controller
+
+      # -- KServe LLM ISVC controller container image tag
+      tag: *defaultVersion
+
+      # -- Specifies when to pull controller image from registry
+      imagePullPolicy: "IfNotPresent"
+
+      # -- Reference to one or more secrets to be used when pulling images
+      # For more information, see [Pull an Image from a Private Registry](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/)
+      #
+      # For example:
+      #  imagePullSecrets:
+      #    - name: "image-pull-secret"
+      imagePullSecrets: []
+
+      # -- Optional additional labels to add to the controller deployment
+      labels: {}
+
+      # -- Optional additional labels to add to the controller Pods
+      podLabels: {}
+
+      # -- Optional additional annotations to add to the controller deployment
+      annotations: {}
+
+      # -- Optional additional annotations to add to the controller Pods
+      podAnnotations: {}
+
+      # -- Optional additional annotations to add to the controller service
+      serviceAnnotations: {}
+
+      # -- Pod Security Context
+      # For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+
+      # -- Container Security Context to be set on the controller component container
+      # For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        privileged: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+      # -- Metrics bind address
+      metricsBindAddress: "127.0.0.1"
+
+      # -- Metrics bind port
+      metricsBindPort: "8443"
+
+      # -- The nodeSelector on Pods tells Kubernetes to schedule Pods on the nodes with matching labels
+      # For more information, see [Assigning Pods to Nodes](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)
+      #
+      # For example:
+      #   nodeSelector:
+      #     kubernetes.io/arch: amd64
+      nodeSelector: {}
+
+      # -- A list of Kubernetes Tolerations, if required
+      # For more information, see [Toleration v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#toleration-v1-core)
+      #
+      # For example:
+      #   tolerations:
+      #   - key: foo.bar.com/role
+      #     operator: Equal
+      #     value: master
+      #     effect: NoSchedule
+      tolerations: []
+
+      # -- A list of Kubernetes TopologySpreadConstraints, if required
+      # For more information, see [Topology spread constraint v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#topologyspreadconstraint-v1-core)
+      #
+      # For example:
+      #   topologySpreadConstraints:
+      #   - maxSkew: 2
+      #     topologyKey: topology.kubernetes.io/zone
+      #     whenUnsatisfiable: ScheduleAnyway
+      #     labelSelector:
+      #       matchLabels:
+      #         app.kubernetes.io/instance: llmisvc-controller-manager
+      #         app.kubernetes.io/component: controller
+      topologySpreadConstraints: []
+
+      # -- A Kubernetes Affinity, if required
+      # For more information, see [Affinity v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#affinity-v1-core)
+      #
+      # For example:
+      #   affinity:
+      #     nodeAffinity:
+      #      requiredDuringSchedulingIgnoredDuringExecution:
+      #        nodeSelectorTerms:
+      #        - matchExpressions:
+      #          - key: foo.bar.com/role
+      #            operator: In
+      #            values:
+      #            - master
+      affinity: {}
+
+      # -- Resources to provide to the llmisvc controller pod
+      #
+      # For example:
+      #  resources:
+      #    limits:
+      #      cpu: 100m
+      #      memory: 300Mi
+      #    requests:
+      #      cpu: 100m
+      #      memory: 300Mi
+      #
+      # For more information, see [Resource Management for Pods and Containers](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+      resources:
+        limits:
+          cpu: 100m
+          memory: 300Mi
+        requests:
+          cpu: 100m
+          memory: 300Mi
+
+      # -- Number of replicas for the controller deployment
+      replicas: 1
+
+      # -- Deployment strategy
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxSurge: 1
+          maxUnavailable: 0
+
+      # -- Liveness probe configuration
+      livenessProbe:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 5
+        httpGet:
+          path: /healthz
+          port: 8081
+
+      # -- Readiness probe configuration
+      readinessProbe:
+        enabled: true
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        timeoutSeconds: 5
+        failureThreshold: 5
+        httpGet:
+          path: /readyz
+          port: 8081
+
+      # -- Service configuration
+      service:
+        # -- Service type
+        type: ClusterIP
+        # -- Service port for metrics
+        port: 8443
+        # -- Service target port
+        targetPort: metrics
+
+      # -- Service account configuration
+      serviceAccount:
+        # -- Name of the service account to use
+        # If not set, a name is generated using the deployment name
+        name: ""
+
+      # -- Environment variables to be set on the controller container
+      env: []
+
+      # -- Additional volumes to be mounted
+      extraVolumes: []
+
+      # -- Additional volume mounts
+      extraVolumeMounts: []
+
+      # -- Additional command line arguments
+      extraArgs: []
+
+      # -- Termination grace period in seconds
+      terminationGracePeriodSeconds: 10
