@@ -1,0 +1,32 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-router-route
+spec:
+  router:
+    route:
+      http:
+        spec:
+          parentRefs:
+            - group: gateway.networking.k8s.io
+              kind: Gateway
+              name: |-
+                {{ .GlobalConfig.IngressGatewayName }}
+              # With inherited namespace validation we cannot use {{ .GlobalConfig.IngressGatewayNamespace }}
+              # Need to disable validation on CRD level
+              namespace: kserve
+          rules:
+            - backendRefs:
+                - group: inference.networking.x-k8s.io
+                  kind: InferencePool
+                  name: |-
+                    {{ ChildName .ObjectMeta.Name `-inference-pool` }}
+                  port: 8000
+                  weight: 1
+              matches:
+                - path:
+                    type: PathPrefix
+                    value: /
+              timeouts:
+                backendRequest: 0s
+                request: 0s
