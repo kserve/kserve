@@ -40,7 +40,7 @@ from ..common.utils import (
 )
 from .test_output import (
     huggingface_text_embedding_expected_output,
-    huggingface_sequence_classification_with_probabilities_expected_output,
+    huggingface_sequence_classification_with_raw_logits_expected_output,
 )
 
 from kserve.logging import trace_logger
@@ -574,7 +574,7 @@ async def test_huggingface_openai_text_embedding():
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_v2_sequence_classification_with_probabilities(
+async def test_huggingface_v2_sequence_classification_with_raw_logits(
     rest_v2_client,
 ):
     service_name = "hf-bert-sequence-v2-prob"
@@ -595,7 +595,7 @@ async def test_huggingface_v2_sequence_classification_with_probabilities(
                 "a4d0a85ea6c1d5bb944dcc12ea5c918863e469a4",
                 "--backend",
                 "huggingface",
-                "--return_probabilities",
+                "--disable_postprocess",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "2Gi"},
@@ -633,7 +633,7 @@ async def test_huggingface_v2_sequence_classification_with_probabilities(
     parsed_output = [ast.literal_eval(res.outputs[0].data[0])]
     assert (
         parsed_output
-        == huggingface_sequence_classification_with_probabilities_expected_output
+        == huggingface_sequence_classification_with_raw_logits_expected_output
     )
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
