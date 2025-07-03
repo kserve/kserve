@@ -20,6 +20,7 @@ spec:
           - "{{ .Spec.Model.Name }}"
           - --port
           - "8001"
+          - --disable-log-requests
         env:
           - name: HOME
             value: /home
@@ -38,8 +39,8 @@ spec:
           httpGet:
             path: /health
             port: 8001
-          initialDelaySeconds: 10
-          periodSeconds: 30
+          initialDelaySeconds: 120
+          periodSeconds: 10
           timeoutSeconds: 10
           failureThreshold: 3
         readinessProbe:
