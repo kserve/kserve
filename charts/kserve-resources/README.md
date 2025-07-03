@@ -130,7 +130,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.servingruntime.mlserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.mlserver.securityContext.privileged | bool | `false` |  |
 | kserve.servingruntime.mlserver.securityContext.runAsNonRoot | bool | `true` |  |
-| kserve.servingruntime.mlserver.tag | string | `"1.5.0"` |  |
+| kserve.servingruntime.mlserver.tag | string | `"1.7.1"` |  |
 | kserve.servingruntime.modelNamePlaceholder | string | `"{{.Name}}"` |  |
 | kserve.servingruntime.paddleserver.disabled | bool | `false` |  |
 | kserve.servingruntime.paddleserver.image | string | `"kserve/paddleserver"` |  |
