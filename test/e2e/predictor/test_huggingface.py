@@ -637,3 +637,61 @@ async def test_huggingface_v2_sequence_classification_with_raw_logits(
     )
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.llm
+@pytest.mark.asyncio(scope="session")
+async def test_huggingface_v2_sequence_classification_with_probabilities(
+    rest_v2_client,
+):
+    service_name = "hf-bert-sequence-v2-logits"
+    protocol_version = "v2"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="huggingface",
+            ),
+            protocol_version=protocol_version,
+            args=[
+                "--model_id",
+                "textattack/bert-base-uncased-yelp-polarity",
+                "--model_revision",
+                "a4d0a85ea6c1d5bb944dcc12ea5c918863e469a4",
+                "--tokenizer_revision",
+                "a4d0a85ea6c1d5bb944dcc12ea5c918863e469a4",
+                "--backend",
+                "huggingface",
+                "--return_probabilities",
+            ],
+            resources=V1ResourceRequirements(
+                requests={"cpu": "1", "memory": "2Gi"},
+                limits={"cpu": "1", "memory": "4Gi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/bert_sequence_classification_v2.json",
+    )
+    output = res.outputs[0].data[0]
+    assert output == {0: 0.0094, 1: 0.9906}
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
