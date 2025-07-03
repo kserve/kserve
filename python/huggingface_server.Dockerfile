@@ -54,7 +54,7 @@ FROM base AS build
 ARG WORKSPACE_DIR
 ARG VLLM_VERSION=0.9.0.1
 ARG LMCACHE_VERSION=0.3.0
-ARG FLASHINFER_VERSION=v0.2.6.post1
+ARG FLASHINFER_VERSION=0.2.5
 # Need a separate CUDA arch list for flashinfer because '7.0' is not supported by flashinfer
 ARG FLASHINFER_CUDA_ARCH_LIST="7.5 8.0 8.6 8.9 9.0+PTX"
 
@@ -86,14 +86,23 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install vllm[runai,tensorizer
 # Install lmcache
 RUN --mount=type=cache,target=/root/.cache/pip pip install lmcache==${LMCACHE_VERSION}
 
+# Use Bash with `-o pipefail` so we can leverage Bash-specific features (like `[[ … ]]` for glob tests)
+# and ensure that failures in any part of a piped command cause the build to fail immediately.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # Install flashinfer
-RUN \
-  export TORCH_CUDA_ARCH_LIST="${FLASHINFER_CUDA_ARCH_LIST}" && \
-  git clone --branch ${FLASHINFER_VERSION} --recursive https://github.com/flashinfer-ai/flashinfer.git && \
-  cd flashinfer && \
-  python3 -m flashinfer.aot && \
-  pip install --no-build-isolation . && \
-  cd .. && rm -rf flashinfer
+RUN --mount=type=cache,target=/root/.cache/pip \
+  # FlashInfer already has a wheel for PyTorch 2.7.0 and CUDA 12.8.
+  if [[ "$CUDA_VERSION" == 12.8* ]]; then \
+      pip install https://download.pytorch.org/whl/cu128/flashinfer/flashinfer_python-${FLASHINFER_VERSION}%2Bcu128torch2.7-cp38-abi3-linux_x86_64.whl; \
+  else \
+    export TORCH_CUDA_ARCH_LIST="${FLASHINFER_CUDA_ARCH_LIST}" && \
+    git clone --branch v${FLASHINFER_VERSION} --recursive https://github.com/flashinfer-ai/flashinfer.git && \
+    cd flashinfer && \
+    python3 -m flashinfer.aot && \
+    pip install --no-build-isolation . && \
+    cd .. && rm -rf flashinfer; \
+  fi
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
