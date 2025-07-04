@@ -1270,21 +1270,6 @@ testing = ["covdefaults (>=2.3)", "coverage (>=7.6.10)", "diff-cover (>=9.2.1)",
 typing = ["typing-extensions (>=4.12.2)"]
 
 [[package]]
-name = "flashinfer-python"
-version = "0.2.5"
-description = "FlashInfer: Kernel Library for LLM Serving"
-optional = false
-python-versions = "<4.0,>=3.8"
-files = [
-    {file = "flashinfer_python-0.2.5.tar.gz", hash = "sha256:990aa090ef781783e76b836696ece4efd23956f72b5696d622fc619a61162aef"},
-]
-
-[package.dependencies]
-ninja = "*"
-numpy = "*"
-torch = "*"
-
-[[package]]
 name = "frozenlist"
 version = "1.6.0"
 description = "A list-like structure which implements collections.abc.MutableSequence"
@@ -6312,4 +6297,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "f5a28440e0e04305cf7bd1f8c3b488f29997fde923960b16d959723fc3332cf2"
+content-hash = "a767d3363a71ca80fa134c3ff0edb604128760d9ec3fce03d08d5d1239da2e14"
