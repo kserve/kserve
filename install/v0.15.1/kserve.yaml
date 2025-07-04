@@ -32047,10 +32047,20 @@ rules:
   - update
   - watch
 - apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - serving.kserve.io
   resources:
   - inferenceservices
-  - localmodelnodegroups
   verbs:
   - get
   - list
@@ -32076,6 +32086,27 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelnodegroups
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelnodegroups/finalizers
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - serving.kserve.io
   resources:
@@ -32794,7 +32825,17 @@ data:
     3600,\n     # The frequency at which the local model agent reconciles the local
     models\n     # This is to detect if models are missing from local disk\n     \"reconcilationFrequencyInSecs\":
     60,\n     # This is to disable localmodel pv and pvc management for namespaces
-    without isvcs\n     \"disableVolumeManagement\": false\n   }"
+    without isvcs\n     \"disableVolumeManagement\": false,\n     # localModelAgentImage
+    specifies the default image used for the local model node agent.\n     \"localModelAgentImage\":
+    \"kserve/kserve-localmodelnode-agent:v0.15.1\",\n     # localModelAgentImagePullPolicy
+    specifies the image pull policy for the local model node agent.\n     \"localModelAgentImagePullPolicy\":
+    \"Always\",\n     # localModelAgentCpuRequest specifies the cpu request for the
+    local model node agent.\n     \"localModelAgentCpuRequest\": \"100m\",\n     #
+    localModelAgentMemoryRequest specifies the memory request for the local model
+    node agent.\n     \"localModelAgentMemoryRequest\": \"200Mi\",\n     # localModelAgentCpuLimit
+    specifies the cpu limit for the local model node agent.\n     \"localModelAgentCpuLimit\":
+    \"100m\",\n     # localModelAgentMemoryLimit specifies the memory limit for the
+    local model node agent.\n     \"localModelAgentMemoryLimit\": \"300Mi\"\n   }"
   agent: |-
     {
         "image" : "kserve/agent:v0.15.1",
@@ -32865,7 +32906,13 @@ data:
       "enabled": false,
       "jobNamespace": "kserve-localmodel-jobs",
       "defaultJobImage" : "kserve/storage-initializer:v0.15.1",
-      "fsGroup": 1000
+      "fsGroup": 1000,
+      "localModelAgentImage": "kserve/kserve-localmodelnode-agent:v0.15.1",
+      "localModelAgentImagePullPolicy": "Always",
+      "localModelAgentCpuRequest": "100m",
+      "localModelAgentMemoryRequest": "200Mi",
+      "localModelAgentCpuLimit": "100m",
+      "localModelAgentMemoryLimit": "300Mi"
     }
   logger: |-
     {
@@ -33134,75 +33181,6 @@ spec:
         runAsNonRoot: true
       serviceAccountName: kserve-localmodel-controller-manager
       terminationGracePeriodSeconds: 10
----
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  labels:
-    app.kubernetes.io/name: kserve-localmodelnode-agent
-    control-plane: kserve-localmodelnode-agent
-    controller-tools.k8s.io: "1.0"
-  name: kserve-localmodelnode-agent
-  namespace: kserve
-spec:
-  selector:
-    matchLabels:
-      control-plane: kserve-localmodelnode-agent
-      controller-tools.k8s.io: "1.0"
-  template:
-    metadata:
-      annotations:
-        kubectl.kubernetes.io/default-container: manager
-      labels:
-        app.kubernetes.io/name: kserve-localmodelnode-agent
-        control-plane: kserve-localmodelnode-agent
-        controller-tools.k8s.io: "1.0"
-    spec:
-      containers:
-      - command:
-        - /manager
-        env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        image: kserve/kserve-localmodelnode-agent:v0.15.1
-        imagePullPolicy: Always
-        name: manager
-        resources:
-          limits:
-            cpu: 100m
-            memory: 300Mi
-          requests:
-            cpu: 100m
-            memory: 200Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          privileged: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-        volumeMounts:
-        - mountPath: /mnt/models
-          name: models
-          readOnly: false
-      nodeSelector:
-        kserve/localmodel: worker
-      securityContext:
-        runAsNonRoot: true
-      serviceAccountName: kserve-localmodelnode-agent
-      terminationGracePeriodSeconds: 10
-      volumes:
-      - hostPath:
-          path: /models
-          type: DirectoryOrCreate
-        name: models
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
