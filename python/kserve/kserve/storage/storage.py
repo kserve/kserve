@@ -211,19 +211,26 @@ class Storage(object):
             verify_ssl = True
 
         # If verify_ssl is true, then check there is custom ca bundle cert
+        # The CA bundle can be any local file in the container under the path
+        # set in the AWS_CA_BUNDLE environment variable.
+        # It can also be coming from a ConfigMap, in which case the filename
+        # is cabundle.crt.
         if verify_ssl:
             global_ca_bundle_configmap = os.getenv("CA_BUNDLE_CONFIGMAP_NAME")
-            if global_ca_bundle_configmap:
-                isvc_aws_ca_bundle_path = os.getenv("AWS_CA_BUNDLE")
-                if isvc_aws_ca_bundle_path and isvc_aws_ca_bundle_path != "":
-                    ca_bundle_full_path = isvc_aws_ca_bundle_path
-                else:
-                    global_ca_bundle_volume_mount_path = os.getenv(
-                        "CA_BUNDLE_VOLUME_MOUNT_POINT"
-                    )
-                    ca_bundle_full_path = (
-                        global_ca_bundle_volume_mount_path + "/cabundle.crt"
-                    )
+            isvc_aws_ca_bundle_path = os.getenv("AWS_CA_BUNDLE")
+            ca_bundle_set = False
+            if isvc_aws_ca_bundle_path and isvc_aws_ca_bundle_path != "":
+                ca_bundle_set = True
+                ca_bundle_full_path = isvc_aws_ca_bundle_path
+            elif global_ca_bundle_configmap:
+                ca_bundle_set = True
+                global_ca_bundle_volume_mount_path = os.getenv(
+                    "CA_BUNDLE_VOLUME_MOUNT_POINT"
+                )
+                ca_bundle_full_path = os.path.join(
+                    global_ca_bundle_volume_mount_path, "cabundle.crt"
+                )
+            if ca_bundle_set:
                 if os.path.exists(ca_bundle_full_path):
                     logger.info("ca bundle file(%s) exists." % (ca_bundle_full_path))
                     kwargs.update({"verify": ca_bundle_full_path})
