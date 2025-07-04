@@ -425,7 +425,8 @@ class HuggingfaceEncoderModel(
                 inferences.append(self._process_mask_probabilities(masked_output))
             else:
                 predicted_token_id = masked_output.argmax(dim=-1)
-                inferences.append(predicted_token_id)
+                predicted_token = self._tokenizer.decode(predicted_token_id)
+                inferences.append(predicted_token)
 
         return inferences
 

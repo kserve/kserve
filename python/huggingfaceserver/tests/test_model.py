@@ -278,12 +278,7 @@ async def test_bert_sequence_classification_return_probabilities(bert_base_retur
         {"instances": [request, request]}, headers={}
     )
 
-    assert response == {
-        "predictions": [
-            {0: approx(-3.1508713), 1: approx(3.5892851)},
-            {0: approx(-3.1508713), 1: approx(3.589285)},
-        ]
-    }
+    assert response == {"predictions": [{0: 0.0012, 1: 0.9988}, {0: 0.0012, 1: 0.9988}]}
 
 
 @pytest.mark.asyncio
