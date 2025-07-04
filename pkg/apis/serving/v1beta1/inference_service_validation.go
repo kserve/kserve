@@ -124,6 +124,10 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 	if err := validateCollocationStorageURI(isvc.Spec.Predictor); err != nil {
 		return allWarnings, err
 	}
+	if err := validatePredictor(isvc); err != nil {
+
+		return allWarnings, err
+	}
 
 	for _, component := range []Component{
 		&isvc.Spec.Predictor,
@@ -144,6 +148,41 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		}
 	}
 	return allWarnings, nil
+}
+
+// Prevent 'name' field in standard predictor types
+func validatePredictor(isvc *InferenceService) error {
+	predictor := isvc.Spec.Predictor
+
+	// log predictor
+	validatorLogger.Info("Incoming predictor struct", "predictor", predictor)
+
+	// in most of the case, standard predictors will all be packed into `predictor.model`, and decide the backend process through `modelFormat.name``
+	switch {
+		case predictor.SKLearn != nil && predictor.SKLearn.Name != "":
+			return fmt.Errorf("the 'name' field is not allowed in standard predictor")
+		case predictor.XGBoost != nil && predictor.XGBoost.Name != "":
+			return fmt.Errorf("the 'name' field is not allowed in standard predictor")
+		case predictor.Tensorflow != nil && predictor.Tensorflow.Name != "":
+			return fmt.Errorf("the 'name' field is not allowed in standard predictor")
+		case predictor.PyTorch != nil && predictor.PyTorch.Name != "":
+			return fmt.Errorf("the 'name' field is not allowed in standard predictor")
+		case predictor.Triton != nil && predictor.Triton.Name != "":
+			return fmt.Errorf("the 'name' field is not allowed in standard predictor")
+		case predictor.ONNX != nil && predictor.ONNX.Name != "":
+			return fmt.Errorf("the 'name' field is not allowed in standard predictor")
+		case predictor.HuggingFace != nil && predictor.HuggingFace.Name != "":
+			return fmt.Errorf("the 'name' field is not allowed in standard predictor")
+		case predictor.PMML != nil && predictor.PMML.Name != "":
+			return fmt.Errorf("the 'name' field is not allowed in standard predictor")
+		case predictor.LightGBM != nil && predictor.LightGBM.Name != "":
+			return fmt.Errorf("the 'name' field is not allowed in standard predictor")
+		case predictor.Paddle != nil && predictor.Paddle.Name != "":
+			return fmt.Errorf("the 'name' field is not allowed in standard predictor")
+		case predictor.Model != nil && predictor.Model.Name != "":
+			return fmt.Errorf("the 'name' field is not allowed in standard predictor")
+	}
+	return nil
 }
 
 // validateMultiNodeVariables validates when there is workerSpec set in isvc
