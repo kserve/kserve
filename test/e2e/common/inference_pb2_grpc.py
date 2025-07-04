@@ -16,12 +16,12 @@ class InferenceAPIsServiceStub(object):
             channel: A grpc.Channel.
         """
         self.Ping = channel.unary_unary(
-            '/org.pytorch.serve.grpc.inference.InferenceAPIsService/Ping',
+            "/org.pytorch.serve.grpc.inference.InferenceAPIsService/Ping",
             request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             response_deserializer=inference__pb2.TorchServeHealthResponse.FromString,
         )
         self.Predictions = channel.unary_unary(
-            '/org.pytorch.serve.grpc.inference.InferenceAPIsService/Predictions',
+            "/org.pytorch.serve.grpc.inference.InferenceAPIsService/Predictions",
             request_serializer=inference__pb2.PredictionsRequest.SerializeToString,
             response_deserializer=inference__pb2.PredictionResponse.FromString,
         )
@@ -33,35 +33,32 @@ class InferenceAPIsServiceServicer(object):
     def Ping(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def Predictions(self, request, context):
-        """Predictions entry point to get inference using default model version.
-        """
+        """Predictions entry point to get inference using default model version."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
 
 def add_InferenceAPIsServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-        'Ping':
-            grpc.unary_unary_rpc_method_handler(
-                servicer.Ping,
-                request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
-                response_serializer=inference__pb2.TorchServeHealthResponse.
-                SerializeToString,
-            ),
-        'Predictions':
-            grpc.unary_unary_rpc_method_handler(
-                servicer.Predictions,
-                request_deserializer=inference__pb2.PredictionsRequest.FromString,
-                response_serializer=inference__pb2.PredictionResponse.SerializeToString,
-            ),
+        "Ping": grpc.unary_unary_rpc_method_handler(
+            servicer.Ping,
+            request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            response_serializer=inference__pb2.TorchServeHealthResponse.SerializeToString,
+        ),
+        "Predictions": grpc.unary_unary_rpc_method_handler(
+            servicer.Predictions,
+            request_deserializer=inference__pb2.PredictionsRequest.FromString,
+            response_serializer=inference__pb2.PredictionResponse.SerializeToString,
+        ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-        'org.pytorch.serve.grpc.inference.InferenceAPIsService', rpc_method_handlers)
+        "org.pytorch.serve.grpc.inference.InferenceAPIsService", rpc_method_handlers
+    )
     server.add_generic_rpc_handlers((generic_handler,))
 
 
@@ -70,38 +67,59 @@ class InferenceAPIsService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def Ping(request,
-             target,
-             options=(),
-             channel_credentials=None,
-             call_credentials=None,
-             insecure=False,
-             compression=None,
-             wait_for_ready=None,
-             timeout=None,
-             metadata=None):
+    def Ping(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
         return grpc.experimental.unary_unary(
-            request, target,
-            '/org.pytorch.serve.grpc.inference.InferenceAPIsService/Ping',
+            request,
+            target,
+            "/org.pytorch.serve.grpc.inference.InferenceAPIsService/Ping",
             google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
-            inference__pb2.TorchServeHealthResponse.FromString, options,
-            channel_credentials, insecure, call_credentials, compression, wait_for_ready,
-            timeout, metadata)
+            inference__pb2.TorchServeHealthResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
-    def Predictions(request,
-                    target,
-                    options=(),
-                    channel_credentials=None,
-                    call_credentials=None,
-                    insecure=False,
-                    compression=None,
-                    wait_for_ready=None,
-                    timeout=None,
-                    metadata=None):
+    def Predictions(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
         return grpc.experimental.unary_unary(
-            request, target,
-            '/org.pytorch.serve.grpc.inference.InferenceAPIsService/Predictions',
+            request,
+            target,
+            "/org.pytorch.serve.grpc.inference.InferenceAPIsService/Predictions",
             inference__pb2.PredictionsRequest.SerializeToString,
-            inference__pb2.PredictionResponse.FromString, options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            inference__pb2.PredictionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )

@@ -47,20 +47,27 @@ class V1beta1KedaScaler(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'idle_replica_count': 'int',
-        'max_replica_count': 'int',
-        'min_replica_count': 'int',
-        'triggers': 'list[GithubComKedacoreKedaV2ApisKedaV1alpha1ScaleTriggers]'
+        "idle_replica_count": "int",
+        "max_replica_count": "int",
+        "min_replica_count": "int",
+        "triggers": "list[GithubComKedacoreKedaV2ApisKedaV1alpha1ScaleTriggers]",
     }
 
     attribute_map = {
-        'idle_replica_count': 'idleReplicaCount',
-        'max_replica_count': 'maxReplicaCount',
-        'min_replica_count': 'minReplicaCount',
-        'triggers': 'triggers'
+        "idle_replica_count": "idleReplicaCount",
+        "max_replica_count": "maxReplicaCount",
+        "min_replica_count": "minReplicaCount",
+        "triggers": "triggers",
     }
 
-    def __init__(self, idle_replica_count=None, max_replica_count=None, min_replica_count=None, triggers=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        idle_replica_count=None,
+        max_replica_count=None,
+        min_replica_count=None,
+        triggers=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1KedaScaler - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -178,18 +185,22 @@ class V1beta1KedaScaler(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
