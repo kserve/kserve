@@ -56,7 +56,7 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	By("bootstrapping test environment")
 	crdDirectoryPaths := []string{
-		filepath.Join("..", "..", "..", "..", "test", "crds"),
+		filepath.Join(pkgtest.ProjectRoot(), "test", "crds"),
 	}
 	testEnv := pkgtest.SetupEnvTest(crdDirectoryPaths)
 	var err error
