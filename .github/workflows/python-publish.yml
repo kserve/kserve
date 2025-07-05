@@ -24,7 +24,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install UV
-        run: ./test/scripts/gh-actions/setup-poetry.sh
+        run: ./test/scripts/gh-actions/setup-uv.sh
 
       - name: KServe - Build and publish
         env:
