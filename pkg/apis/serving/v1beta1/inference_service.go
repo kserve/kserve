@@ -17,11 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	"strings"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 // InferenceServiceSpec is the top level type for this resource
@@ -37,6 +33,24 @@ type InferenceServiceSpec struct {
 	// transformer service calls to predictor service.
 	// +optional
 	Transformer *TransformerSpec `json:"transformer,omitempty"`
+}
+
+// StorageSpec defines a spec for an object in an object store
+type StorageSpec struct {
+	// The path to the object in the storage. Note that this path is relative to the storage URI.
+	// +optional
+	Path *string `json:"path,omitempty"`
+	// Parameters to override the default storage credentials and config.
+	// +optional
+	Parameters *map[string]string `json:"parameters,omitempty"`
+	// The Storage Key in the secret for this object.
+	// +optional
+	StorageKey *string `json:"key,omitempty"`
+}
+
+type LoggerStorageSpec struct {
+	StorageSpec        `json:",inline"`
+	ServiceAccountName *string `json:"serviceAccountName,omitempty"`
 }
 
 // LoggerType controls the scope of log publishing
@@ -71,6 +85,9 @@ type LoggerSpec struct {
 	// Matched inference service annotations for propagating to inference logger cloud events.
 	// +optional
 	MetadataAnnotations []string `json:"metadataAnnotations,omitempty"`
+	// Specifies the storage location for the inference logger cloud events.
+	// +optional
+	Storage *LoggerStorageSpec `json:"storage,omitempty"`
 }
 
 // MetricsBackend enum
@@ -139,16 +156,4 @@ type InferenceServiceList struct {
 
 func init() {
 	SchemeBuilder.Register(&InferenceService{}, &InferenceServiceList{})
-}
-
-func (isvc *InferenceService) GetForceStopRuntime() bool {
-	forceStopRuntime := false
-	if isvc == nil || isvc.Annotations == nil {
-		return forceStopRuntime
-	}
-	if val, exist := isvc.Annotations[constants.StopAnnotationKey]; exist {
-		forceStopRuntime = strings.EqualFold(val, "true")
-	}
-
-	return forceStopRuntime
 }

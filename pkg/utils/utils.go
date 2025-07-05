@@ -254,6 +254,29 @@ func GetEnvVarValue(envVars []corev1.EnvVar, key string) (string, bool) {
 	return "", false // if key does not exist, return "", false
 }
 
+// Returns the value of the stop annotation
+// Defaults to false if the annotation is not present
+func GetForceStopRuntime(obj metav1.Object) bool {
+	forceStopRuntime := false
+	// Check that the object exists
+	if obj == nil {
+		return forceStopRuntime
+	}
+
+	// Check that the annotations exist
+	anns := obj.GetAnnotations()
+	if anns == nil {
+		return forceStopRuntime
+	}
+
+	// Determine the value of the stop annotation
+	if val, exist := anns[constants.StopAnnotationKey]; exist {
+		forceStopRuntime = strings.EqualFold(val, "true")
+	}
+
+	return forceStopRuntime
+}
+
 // HasUnknownGpuResourceType check if the provided gpu resource type is unknown one
 func HasUnknownGpuResourceType(resources corev1.ResourceRequirements, annotations map[string]string) (bool, error) {
 	basicResourceTypes := map[corev1.ResourceName]struct{}{

@@ -104,7 +104,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 
 	addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
 	addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
-	// Add StorageSpec annotations so mutator will mount storage credentials to InferenceService's predictor
+	// Add ModelStorageSpec annotations so mutator will mount storage credentials to InferenceService's predictor
 	addStorageSpecAnnotations(isvc.Spec.Predictor.GetImplementation().GetStorageSpec(), annotations)
 	// Add agent annotations so mutator will mount model agent to multi-model InferenceService's predictor
 	addAgentAnnotations(isvc, annotations)
@@ -193,43 +193,32 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		if kstatus, err = p.reconcileKnativeDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
 			return ctrl.Result{}, err
 		}
-		if isvc.GetForceStopRuntime() {
-			// Exit early if we have already set the status to stopped
-			existing_stopped_condition := isvc.Status.GetCondition(v1beta1.Stopped)
-			if existing_stopped_condition != nil && existing_stopped_condition.Status == corev1.ConditionTrue {
-				return ctrl.Result{}, nil
-			}
+	}
 
-			deployMode := isvc.Status.DeploymentMode
-
-			// Clear all statuses
-			isvc.Status = v1beta1.InferenceServiceStatus{}
-
-			// Preserve the deployment mode value
-			isvc.Status.DeploymentMode = deployMode
-
-			// Set the ready condition
-			predictor_ready_condition := &apis.Condition{
-				Type:   v1beta1.PredictorReady,
-				Status: corev1.ConditionFalse,
-			}
-			isvc.Status.SetCondition(v1beta1.PredictorReady, predictor_ready_condition)
-
-			// Add the stopped condition
-			stopped_condition := &apis.Condition{
-				Type:   v1beta1.Stopped,
-				Status: corev1.ConditionTrue,
-			}
-			isvc.Status.SetCondition(v1beta1.Stopped, stopped_condition)
-
+	// Handle InferenceService status updates based on the force stop annotation.
+	// If true, transition the service to a stopped and unready state; otherwise, ensure it's not marked as stopped.
+	if utils.GetForceStopRuntime(isvc) {
+		// Exit early if we have already set the predictor's status to stopped
+		existingPredictorCondition := isvc.Status.GetCondition(v1beta1.PredictorReady)
+		if existingPredictorCondition != nil && existingPredictorCondition.Status == corev1.ConditionFalse && existingPredictorCondition.Reason == v1beta1.StoppedISVCReason {
 			return ctrl.Result{}, nil
-		} else {
-			resume_condition := &apis.Condition{
-				Type:   v1beta1.Stopped,
-				Status: corev1.ConditionFalse,
-			}
-			isvc.Status.SetCondition(v1beta1.Stopped, resume_condition)
 		}
+
+		// Preserve the deployment mode value
+		deployMode := isvc.Status.DeploymentMode
+
+		// Clear all statuses
+		isvc.Status = v1beta1.InferenceServiceStatus{}
+		isvc.Status.DeploymentMode = deployMode
+
+		// Set the predictor's ready condition to false
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+			Type:   v1beta1.PredictorReady,
+			Status: corev1.ConditionFalse,
+			Reason: v1beta1.StoppedISVCReason,
+		})
+
+		return ctrl.Result{}, nil
 	}
 
 	statusSpec := isvc.Status.Components[v1beta1.PredictorComponent]
@@ -275,7 +264,7 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 	if isvc.Spec.Predictor.Model.Runtime != nil {
 		// set runtime defaults
 		isvc.SetRuntimeDefaults()
-		r, err := isvcutils.GetServingRuntime(ctx, p.client, *isvc.Spec.Predictor.Model.Runtime, isvc.Namespace)
+		r, err, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, *isvc.Spec.Predictor.Model.Runtime, isvc.Namespace)
 		if err != nil {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.RuntimeNotRecognized,
@@ -311,6 +300,13 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 		}
 
 		sRuntime = *r
+		if isClusterServingRuntime {
+			isvc.Status.ClusterServingRuntimeName = *isvc.Spec.Predictor.Model.Runtime
+			isvc.Status.ServingRuntimeName = ""
+		} else {
+			isvc.Status.ServingRuntimeName = *isvc.Spec.Predictor.Model.Runtime
+			isvc.Status.ClusterServingRuntimeName = ""
+		}
 	} else {
 		runtimes, err := isvc.Spec.Predictor.Model.GetSupportingRuntimes(ctx, p.client, isvc.Namespace, false, multiNodeEnabled)
 		if err != nil {
@@ -326,6 +322,14 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 		// Get first supporting runtime.
 		sRuntime = runtimes[0].Spec
 		isvc.Spec.Predictor.Model.Runtime = &runtimes[0].Name
+		_, _, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, runtimes[0].Name, isvc.Namespace)
+		if isClusterServingRuntime {
+			isvc.Status.ClusterServingRuntimeName = runtimes[0].Name
+			isvc.Status.ServingRuntimeName = ""
+		} else {
+			isvc.Status.ServingRuntimeName = runtimes[0].Name
+			isvc.Status.ClusterServingRuntimeName = ""
+		}
 
 		// set runtime defaults
 		isvc.SetRuntimeDefaults()
@@ -563,7 +567,7 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 
 	deploymentAnnotations := annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
 	storageProtocol := strings.Split(deploymentAnnotations, "://")[0]
-	if storageProtocol == "pvc" {
+	if storageProtocol == "pvc" || storageProtocol == "oci" {
 		// Set the environment variable for "/mnt/models" to the MODEL_DIR when multiNodeEnabled is true.
 		if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, "MODEL_DIR", constants.DefaultModelLocalMountPath); err != nil {
 			return nil, errors.Wrapf(err, "failed to add MODEL_DIR environment to the container(%s)", constants.DefaultModelLocalMountPath)
@@ -700,7 +704,10 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 		return errors.Wrapf(err, "fails to reconcile predictor")
 	}
 
-	isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deploymentList, r.URL)
+	if !utils.GetForceStopRuntime(isvc) {
+		isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deploymentList, r.URL)
+	}
+
 	return nil
 }
 
@@ -715,7 +722,7 @@ func (p *Predictor) reconcileKnativeDeployment(ctx context.Context, isvc *v1beta
 	if err != nil {
 		return nil, errors.Wrapf(err, "fails to reconcile predictor")
 	}
-	if !isvc.GetForceStopRuntime() {
+	if !utils.GetForceStopRuntime(isvc) {
 		isvc.Status.PropagateStatus(v1beta1.PredictorComponent, kstatus)
 	}
 	return kstatus, nil
