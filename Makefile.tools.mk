@@ -13,7 +13,6 @@ YQ = $(LOCALBIN)/yq
 HELM_DOCS = $(LOCALBIN)/helm-docs
 BLACK_FMT = $(PYTHON_BIN)/black
 FLAKE8_LINT = $(PYTHON_BIN)/flake8
-POETRY = $(PYTHON_BIN)/poetry
 UV = $(PYTHON_BIN)/uv
 
 ## Tool versions.
@@ -64,9 +63,6 @@ $(PYTHON_VENV): | $(LOCALBIN)
 
 $(BLACK_FMT) $(FLAKE8_LINT): $(PYTHON_VENV)
 	$(PYTHON_BIN)/pip install black==$(BLACK_FMT_VERSION) flake8==$(FLAKE8_LINT_VERSION)
-
-$(POETRY): $(PYTHON_VENV)
-	$(PYTHON_BIN)/pip install poetry==$(POETRY_VERSION) python/plugin/poetry-version-plugin
 
 $(UV): $(PYTHON_VENV)
 	$(PYTHON_BIN)/pip install uv==$(UV_VERSION)
