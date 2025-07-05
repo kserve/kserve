@@ -30,8 +30,11 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.v1beta1_ext_metric_authentication import V1beta1ExtMetricAuthentication  # noqa: E501
+from kserve.models.v1beta1_ext_metric_authentication import (
+    V1beta1ExtMetricAuthentication,
+)  # noqa: E501
 from kserve.rest import ApiException
+
 
 class TestV1beta1ExtMetricAuthentication(unittest.TestCase):
     """V1beta1ExtMetricAuthentication unit test stubs"""
@@ -44,21 +47,23 @@ class TestV1beta1ExtMetricAuthentication(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1beta1ExtMetricAuthentication
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1beta1_ext_metric_authentication.V1beta1ExtMetricAuthentication()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1beta1ExtMetricAuthentication(
-                auth_modes = '0', 
-                authentication_ref = kserve.models.v1beta1/authentication_ref.v1beta1.AuthenticationRef(
-                    name = '0', )
+                auth_modes="bearer",
+                authentication_ref=kserve.models.v1beta1_authentication_ref.V1beta1AuthenticationRef(
+                    name="example-ref",
+                ),
             )
-        else :
+        else:
             return V1beta1ExtMetricAuthentication(
-                authentication_ref = kserve.models.v1beta1/authentication_ref.v1beta1.AuthenticationRef(
-                    name = '0', ),
-        )
+                authentication_ref=kserve.models.v1beta1_authentication_ref.V1beta1AuthenticationRef(
+                    name="0",
+                ),
+            )
 
     def testV1beta1ExtMetricAuthentication(self):
         """Test V1beta1ExtMetricAuthentication"""
@@ -66,5 +71,5 @@ class TestV1beta1ExtMetricAuthentication(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
