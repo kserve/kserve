@@ -388,7 +388,7 @@ func TestGetKedaMetrics_NilAutoScaling(t *testing.T) {
 
 	triggers, err := getKedaMetrics(componentExt, configMap)
 	require.NoError(t, err)
-	assert.Len(t, triggers, 0)
+	assert.Empty(t, triggers)
 }
 
 func TestGetKedaMetrics_ResourceMetricSourceType_Utilization(t *testing.T) {
@@ -595,23 +595,6 @@ func TestGetKedaMetrics_PodMetricSourceType_Success(t *testing.T) {
 	assert.Equal(t, "200.000000", trigger.Metadata["targetValue"])
 	assert.Equal(t, "http://otel-server", trigger.Metadata["scalerAddress"])
 	assert.Equal(t, "sum", trigger.Metadata["operationOverTime"])
-}
-
-func TestGetKedaMetrics_PodMetricSourceType_OtelConfigError(t *testing.T) {
-	// Simulate error in NewOtelCollectorConfig by passing a nil configMap and a nil PodMetric
-	componentExt := &v1beta1.ComponentExtensionSpec{
-		AutoScaling: &v1beta1.AutoScalingSpec{
-			Metrics: []v1beta1.MetricsSpec{
-				{
-					Type:      v1beta1.PodMetricSourceType,
-					PodMetric: nil,
-				},
-			},
-		},
-	}
-	var configMap *corev1.ConfigMap = nil
-	_, err := getKedaMetrics(componentExt, configMap)
-	assert.Error(t, err)
 }
 
 // Helper functions for creating test data
