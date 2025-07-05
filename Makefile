@@ -63,7 +63,7 @@ fmt:
 	go fmt ./pkg/... ./cmd/... && cd qpext && go fmt ./...
 
 py-fmt: $(BLACK_FMT)
-	$(BLACK_FMT) --config python/pyproject.toml .
+	$(BLACK_FMT) --config python/pyproject.toml ./python ./docs
 
 # Run go vet against code
 vet:
