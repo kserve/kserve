@@ -108,7 +108,9 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, configMap *cor
 			case v1beta1.ExternalMetricSourceType:
 				triggerType := string(metric.External.Metric.Backend)
 				serverAddress := metric.External.Metric.ServerAddress
+				authModes := metric.External.Authentication.AuthModes
 				query := metric.External.Metric.Query
+				authRef := metric.External.Authentication.AuthenticationRef
 
 				trigger := kedav1alpha1.ScaleTriggers{
 					Type: triggerType,
@@ -118,8 +120,16 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, configMap *cor
 						"threshold":     fmt.Sprintf("%f", metric.External.Target.Value.AsApproximateFloat64()),
 					},
 				}
+				if authModes != "" {
+					trigger.Metadata["authModes"] = authModes
+				}
 				if triggerType == string(constants.AutoScalerMetricsSourcePrometheus) && metric.External.Metric.Namespace != "" {
 					trigger.Metadata["namespace"] = metric.External.Metric.Namespace
+				}
+				if authRef.Name != "" {
+					trigger.AuthenticationRef = &kedav1alpha1.AuthenticationRef{
+						Name: authRef.Name,
+					}
 				}
 				triggers = append(triggers, trigger)
 			case v1beta1.PodMetricSourceType:
