@@ -23,7 +23,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Poetry and version plugin
+      - name: Install UV
         run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: KServe - Build and publish

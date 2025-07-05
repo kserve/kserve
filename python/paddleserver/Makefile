@@ -1,8 +1,8 @@
 dev_install:
-	poetry install --with test
+	uv sync --active --group test
 
 install_dependencies:
-	poetry install --with=test --no-interaction --no-root
+	uv sync --active --group test
 
 test:
 	pytest
