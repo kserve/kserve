@@ -6644,6 +6644,8 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                  required:
+                                  - authenticationRef
                                   type: object
                                 metric:
                                   properties:
@@ -9813,6 +9815,8 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                  required:
+                                  - authenticationRef
                                   type: object
                                 metric:
                                   properties:
@@ -24183,6 +24187,8 @@ spec:
                                       required:
                                       - name
                                       type: object
+                                  required:
+                                  - authenticationRef
                                   type: object
                                 metric:
                                   properties:

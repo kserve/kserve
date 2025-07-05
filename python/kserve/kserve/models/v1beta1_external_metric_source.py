@@ -47,7 +47,7 @@ class V1beta1ExternalMetricSource(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'authentication_ref': 'V1beta1ExtMetricAuth',
+        'authentication_ref': 'V1beta1ExtMetricAuthentication',
         'metric': 'V1beta1ExternalMetrics',
         'target': 'V1beta1MetricTarget'
     }
@@ -80,7 +80,7 @@ class V1beta1ExternalMetricSource(object):
 
 
         :return: The authentication_ref of this V1beta1ExternalMetricSource.  # noqa: E501
-        :rtype: V1beta1ExtMetricAuth
+        :rtype: V1beta1ExtMetricAuthentication
         """
         return self._authentication_ref
 
@@ -90,7 +90,7 @@ class V1beta1ExternalMetricSource(object):
 
 
         :param authentication_ref: The authentication_ref of this V1beta1ExternalMetricSource.  # noqa: E501
-        :type: V1beta1ExtMetricAuth
+        :type: V1beta1ExtMetricAuthentication
         """
 
         self._authentication_ref = authentication_ref

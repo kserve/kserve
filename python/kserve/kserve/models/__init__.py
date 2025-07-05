@@ -80,7 +80,7 @@ from kserve.models.v1beta1_explainer_config import V1beta1ExplainerConfig
 from kserve.models.v1beta1_explainer_extension_spec import V1beta1ExplainerExtensionSpec
 from kserve.models.v1beta1_explainer_spec import V1beta1ExplainerSpec
 from kserve.models.v1beta1_explainers_config import V1beta1ExplainersConfig
-from kserve.models.v1beta1_ext_metric_auth import V1beta1ExtMetricAuth
+from kserve.models.v1beta1_ext_metric_authentication import V1beta1ExtMetricAuthentication
 from kserve.models.v1beta1_external_metric_source import V1beta1ExternalMetricSource
 from kserve.models.v1beta1_external_metrics import V1beta1ExternalMetrics
 from kserve.models.v1beta1_failure_info import V1beta1FailureInfo
@@ -125,4 +125,3 @@ from kserve.models.v1beta1_transformer_spec import V1beta1TransformerSpec
 from kserve.models.v1beta1_triton_spec import V1beta1TritonSpec
 from kserve.models.v1beta1_worker_spec import V1beta1WorkerSpec
 from kserve.models.v1beta1_xg_boost_spec import V1beta1XGBoostSpec
-from kserve.models.v1beta1_authentication_ref import V1beta1AuthenticationRef

@@ -81,7 +81,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerExtensionSpec":         schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec":                  schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainersConfig":               schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExtMetricAuth":                  schema_pkg_apis_serving_v1beta1_ExtMetricAuth(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExtMetricAuthentication":        schema_pkg_apis_serving_v1beta1_ExtMetricAuthentication(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource":           schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetrics":                schema_pkg_apis_serving_v1beta1_ExternalMetrics(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.FailureInfo":                    schema_pkg_apis_serving_v1beta1_FailureInfo(ref),
@@ -2068,7 +2068,6 @@ func schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref common.ReferenceC
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -2589,7 +2588,6 @@ func schema_pkg_apis_serving_v1beta1_AuthenticationRef(ref common.ReferenceCallb
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -4709,7 +4707,6 @@ func schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -5310,7 +5307,7 @@ func schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref common.ReferenceCallba
 	}
 }
 
-func schema_pkg_apis_serving_v1beta1_ExtMetricAuth(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_serving_v1beta1_ExtMetricAuthentication(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -5331,6 +5328,7 @@ func schema_pkg_apis_serving_v1beta1_ExtMetricAuth(ref common.ReferenceCallback)
 						},
 					},
 				},
+				Required: []string{"authenticationRef"},
 			},
 		},
 		Dependencies: []string{
@@ -5354,8 +5352,7 @@ func schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref common.ReferenceCa
 					"authenticationRef": {
 						SchemaProps: spec.SchemaProps{
 							Description: "authenticationRef is a reference to the authentication information for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExtMetricAuth"),
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExtMetricAuthentication"),
 						},
 					},
 					"target": {
@@ -5370,7 +5367,7 @@ func schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExtMetricAuth", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetrics", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExtMetricAuthentication", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetrics", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"},
 	}
 }
 
@@ -5788,7 +5785,6 @@ func schema_pkg_apis_serving_v1beta1_HuggingFaceRuntimeSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -6548,7 +6544,6 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -6860,7 +6855,6 @@ func schema_pkg_apis_serving_v1beta1_ModelFormat(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -7667,7 +7661,6 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -8023,7 +8016,6 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -8348,7 +8340,6 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -9215,7 +9206,6 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -10246,7 +10236,6 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -10654,7 +10643,6 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -10980,7 +10968,6 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -11873,7 +11860,6 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -12667,7 +12653,6 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
