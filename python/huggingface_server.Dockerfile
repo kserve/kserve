@@ -94,7 +94,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN --mount=type=cache,target=/root/.cache/pip \
   # FlashInfer already has a wheel for PyTorch 2.7.0 and CUDA 12.8.
   if [[ "$CUDA_VERSION" == 12.8* ]]; then \
-      pip install https://download.pytorch.org/whl/cu128/flashinfer/flashinfer_python-${FLASHINFER_VERSION}%2Bcu128torch2.7-cp39-abi3-linux_x86_64.whl; \
+    pip install https://download.pytorch.org/whl/cu128/flashinfer/flashinfer_python-${FLASHINFER_VERSION}%2Bcu128torch2.7-cp39-abi3-linux_x86_64.whl; \
   else \
     export TORCH_CUDA_ARCH_LIST="${FLASHINFER_CUDA_ARCH_LIST}" && \
     git clone --branch v${FLASHINFER_VERSION} --recursive https://github.com/flashinfer-ai/flashinfer.git && \
@@ -162,6 +162,6 @@ ENV VLLM_NCCL_SO_PATH="/lib/x86_64-linux-gnu/libnccl.so.2"
 ENV VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
 USER 1000
-ENV PYTHONPATH=/huggingfaceserver
+ENV PYTHONPATH=${WORKSPACE_DIR}/huggingfaceserver
 ENTRYPOINT ["python3", "-m", "huggingfaceserver"]
 #################### PROD IMAGE ####################
