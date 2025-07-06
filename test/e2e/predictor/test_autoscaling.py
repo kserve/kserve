@@ -29,7 +29,7 @@ from kserve import (
     V1beta1AutoScalingSpec,
     V1beta1ResourceMetricSource,
     V1beta1MetricTarget,
-    V1beta1ExtMetricAuth,
+    V1beta1ExtMetricAuthentication,
     V1beta1ExternalMetricSource,
     V1beta1ExternalMetrics,
     V1beta1MetricsSpec,
@@ -494,7 +494,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
                             query="http_requests_per_second",
                         ),
                         target=V1beta1MetricTarget(type="Value", value=50),
-                        authentication_ref=V1beta1ExtMetricAuth(
+                        authentication_ref=V1beta1ExtMetricAuthentication(
                             auth_modes="basic",
                             authentication_ref=V1beta1AuthenticationRef(
                                 name="prometheus-auth",
