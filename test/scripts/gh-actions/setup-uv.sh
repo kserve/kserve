@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script will install poetry for GH Actions environment.
+# This script will install UV for GH Actions environment.
 
 set -o errexit
 set -o nounset

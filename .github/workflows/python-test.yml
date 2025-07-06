@@ -220,7 +220,6 @@ jobs:
         run: |
           cd python/paddleserver
           make dev_install
-      # TODO: FIXME: AILED paddleserver/paddleserver/test_model.py::test_model - RuntimeError: (NotFound) Operator (density_prior_box) is not registered.
       - name: Test paddleserver 
         run: |
           cd python
