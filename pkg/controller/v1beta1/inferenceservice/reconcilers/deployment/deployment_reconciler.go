@@ -207,6 +207,8 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 
 // checkDeploymentExist checks if the deployment exists?
 func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client kclient.Client, deployment *appsv1.Deployment) (constants.CheckResultType, *appsv1.Deployment, error) {
+	forceStopRuntime := utils.GetForceStopRuntime(deployment)
+
 	// get deployment
 	existingDeployment := &appsv1.Deployment{}
 	err := client.Get(ctx, types.NamespacedName{
@@ -215,10 +217,23 @@ func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client 
 	}, existingDeployment)
 	if err != nil {
 		if apierr.IsNotFound(err) {
-			return constants.CheckResultCreate, nil, nil
+			if !forceStopRuntime {
+				return constants.CheckResultCreate, nil, nil
+			}
+			return constants.CheckResultSkipped, nil, nil
 		}
 		return constants.CheckResultUnknown, nil, err
 	}
+
+	// existed, but marked for deletion
+	if forceStopRuntime {
+		ctrl := metav1.GetControllerOf(deployment)
+		existingCtrl := metav1.GetControllerOf(existingDeployment)
+		if ctrl != nil && existingCtrl != nil && ctrl.UID == existingCtrl.UID {
+			return constants.CheckResultDelete, existingDeployment, nil
+		}
+	}
+
 	// existed, check equivalence
 	// for HPA scaling, we should ignore Replicas of Deployment
 	// for none scaler, we should not ignore Replicas.
@@ -387,9 +402,9 @@ func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerNa
 
 // Reconcile ...
 func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
-	for _, deployment := range r.DeploymentList {
+	for _, desiredDep := range r.DeploymentList {
 		// Reconcile Deployment
-		checkResult, _, err := r.checkDeploymentExist(ctx, r.client, deployment)
+		checkResult, existingDep, err := r.checkDeploymentExist(ctx, r.client, desiredDep)
 		if err != nil {
 			return nil, err
 		}
@@ -398,19 +413,22 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 		var opErr error
 		switch checkResult {
 		case constants.CheckResultCreate:
-			opErr = r.client.Create(ctx, deployment)
+			opErr = r.client.Create(ctx, desiredDep)
 		case constants.CheckResultUpdate:
-			curJson, err := json.Marshal(deployment)
-			if err != nil {
-				return nil, err
-			}
+			curDeployment := existingDep.DeepCopy()
+			modDeployment := desiredDep.DeepCopy()
 
 			// To avoid the conflict between HPA and Deployment,
 			// we need to remove the Replicas field from the deployment spec
 			// For none autoscaler, it should not remove replicas
-			modDeployment := deployment.DeepCopy()
 			if modDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassNone) {
 				modDeployment.Spec.Replicas = nil
+				curDeployment.Spec.Replicas = nil
+			}
+
+			curJson, err := json.Marshal(curDeployment)
+			if err != nil {
+				return nil, err
 			}
 
 			modJson, err := json.Marshal(modDeployment)
@@ -418,13 +436,19 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 				return nil, err
 			}
 			// Generate the strategic merge patch between the current and modified JSON
-			patchByte, err := strategicpatch.StrategicMergePatch(curJson, modJson, appsv1.Deployment{})
+			patchByte, err := strategicpatch.CreateTwoWayMergePatch(curJson, modJson, appsv1.Deployment{})
 			if err != nil {
 				return nil, err
 			}
 
 			// Patch the deployment object with the strategic merge patch
-			opErr = r.client.Patch(ctx, deployment, kclient.RawPatch(types.StrategicMergePatchType, patchByte))
+			opErr = r.client.Patch(ctx, existingDep, kclient.RawPatch(types.StrategicMergePatchType, patchByte))
+
+		case constants.CheckResultDelete:
+			log.Info("Deleting deployment", "namespace", existingDep.Namespace, "name", existingDep.Name)
+			if existingDep.GetDeletionTimestamp() == nil { // check if the deployment was already deleted
+				opErr = r.client.Delete(ctx, existingDep)
+			}
 		}
 
 		if opErr != nil {

@@ -29,11 +29,13 @@ from kserve import (
     V1beta1AutoScalingSpec,
     V1beta1ResourceMetricSource,
     V1beta1MetricTarget,
+    V1beta1ExtMetricAuthentication,
     V1beta1ExternalMetricSource,
     V1beta1ExternalMetrics,
     V1beta1MetricsSpec,
     V1beta1PodMetricSource,
     V1beta1PodMetrics,
+    V1beta1AuthenticationRef,
 )
 
 
@@ -303,6 +305,101 @@ async def test_sklearn_rolling_update():
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
+async def test_sklearn_env_update():
+    suffix = str(uuid.uuid4())[1:6]
+    service_name = "isvc-sklearn-rolling-update-" + suffix
+    min_replicas = 4
+    envs = [
+        {
+            "name": "TEST_ENV",
+            "value": "TEST_ENV_VALUE",
+        },
+        {
+            "name": "TEST_ENV_2",
+            "value": "TEST_ENV_VALUE_2",
+        },
+        {
+            "name": "TEST_ENV_3",
+            "value": "TEST_ENV_VALUE_3",
+        },
+    ]
+    predictor = V1beta1PredictorSpec(
+        min_replicas=min_replicas,
+        scale_metric="cpu",
+        scale_target=50,
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri=MODEL,
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+            env=envs,
+        ),
+    )
+
+    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=annotations,
+            labels={"serving.kserve.io/test": "env-update"},
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    predictor.sklearn.env = [
+        {
+            "name": "TEST_ENV",
+            "value": "TEST_ENV_VALUE",
+        },
+        {
+            "name": "TEST_ENV_2",
+            "value": "TEST_ENV_VALUE_2",
+        },
+    ]
+
+    updated_isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=annotations,
+            labels={"serving.kserve.io/test": "env-update"},
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    kserve_client.patch(service_name, updated_isvc)
+    deployment = kserve_client.app_api.list_namespaced_deployment(
+        namespace=KSERVE_TEST_NAMESPACE,
+        label_selector="serving.kserve.io/test=env-update",
+    )
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    # Check if the deployment replicas still remain the same as min_replicas
+    assert deployment.items[0].spec.replicas == min_replicas
+    # Check if the environment variables have been updated correctly
+    container_envs = deployment.items[0].spec.template.spec.containers[0].env
+    env_names = [env.name for env in container_envs]
+    assert "TEST_ENV" in env_names
+    assert "TEST_ENV_2" in env_names
+    assert "TEST_ENV_3" not in env_names
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.raw
+@pytest.mark.asyncio(scope="session")
 async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer):
     """
     Test KEDA autoscaling with new InferenceService (auto_scaling) spec
@@ -397,6 +494,12 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
                             query="http_requests_per_second",
                         ),
                         target=V1beta1MetricTarget(type="Value", value=50),
+                        authentication_ref=V1beta1ExtMetricAuthentication(
+                            auth_modes="basic",
+                            authentication_ref=V1beta1AuthenticationRef(
+                                name="prometheus-auth",
+                            ),
+                        ),
                     ),
                 )
             ]
@@ -440,11 +543,16 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     )
 
     trigger_metadata = scaledobject_resp["items"][0]["spec"]["triggers"][0]["metadata"]
+    authentication_ref = scaledobject_resp["items"][0]["spec"]["triggers"][0][
+        "authenticationRef"
+    ]
     trigger_type = scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"]
     assert trigger_type == "prometheus"
     assert trigger_metadata["query"] == "http_requests_per_second"
     assert trigger_metadata["serverAddress"] == "http://prometheus:9090"
     assert trigger_metadata["threshold"] == "50.000000"
+    assert trigger_metadata["authModes"] == "basic"
+    assert authentication_ref["name"] == "prometheus-auth"
     res = await predict_isvc(
         rest_v1_client, service_name, INPUT, network_layer=network_layer
     )

@@ -144,6 +144,31 @@
         }
       }
     },
+    "v1alpha1.InfereceGraphRouterTimeouts": {
+      "type": "object",
+      "properties": {
+        "serverIdle": {
+          "description": "ServerIdle specifies the maximum amount of time in seconds to wait for the next request when keep-alives are enabled.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "serverRead": {
+          "description": "ServerRead specifies the number of seconds to wait before timing out a request read by the server.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "serverWrite": {
+          "description": "ServerWrite specifies the maximum duration in seconds before timing out writes of the response.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "serviceClient": {
+          "description": "ServiceClient specifies a time limit in seconds for requests made to the graph components by HTTP client.",
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
     "v1alpha1.InferenceGraph": {
       "description": "InferenceGraph is the Schema for the InferenceGraph API for multiple models",
       "type": "object",
@@ -242,6 +267,9 @@
         "resources": {
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "routerTimeouts": {
+          "$ref": "#/definitions/v1alpha1.InfereceGraphRouterTimeouts"
         },
         "scaleMetric": {
           "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
@@ -384,6 +412,110 @@
         "serviceUrl": {
           "description": "InferenceService URL, mutually exclusive with ServiceName",
           "type": "string"
+        }
+      }
+    },
+    "v1alpha1.LLMInferenceService": {
+      "description": "LLMInferenceService is the Schema for the llminferenceservices API, representing a single LLM deployment. It orchestrates the creation of underlying Kubernetes resources like Deployments and Services, and configures networking for exposing the model.",
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.LLMInferenceServiceSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.LLMInferenceServiceStatus"
+        }
+      }
+    },
+    "v1alpha1.LLMInferenceServiceConfig": {
+      "description": "LLMInferenceServiceConfig is the Schema for the llminferenceserviceconfigs API. It acts as a template to provide base configurations that can be inherited by multiple LLMInferenceService instances.",
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.LLMInferenceServiceSpec"
+        }
+      }
+    },
+    "v1alpha1.LLMInferenceServiceConfigList": {
+      "description": "LLMInferenceServiceConfigList is the list type for LLMInferenceServiceConfig.",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.LLMInferenceServiceConfig"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.LLMInferenceServiceList": {
+      "description": "LLMInferenceServiceList is the list type for LLMInferenceService.",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.LLMInferenceService"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
         }
       }
     },
@@ -1188,7 +1320,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "The location of a trained explanation model",
@@ -1242,6 +1374,16 @@
         "workingDir": {
           "description": "Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.",
           "type": "string"
+        }
+      }
+    },
+    "v1beta1.AuthenticationRef": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "name is the name of the authentication secret",
+          "type": "string",
+          "default": ""
         }
       }
     },
@@ -1510,7 +1652,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "initContainers": {
-          "description": "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
+          "description": "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
           "type": "array",
           "items": {
             "default": {},
@@ -1791,7 +1933,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "initContainers": {
-          "description": "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
+          "description": "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
           "type": "array",
           "items": {
             "default": {},
@@ -2072,7 +2214,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "initContainers": {
-          "description": "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
+          "description": "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
           "type": "array",
           "items": {
             "default": {},
@@ -2404,7 +2546,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "The location of a trained explanation model",
@@ -2791,6 +2933,23 @@
         }
       }
     },
+    "v1beta1.ExtMetricAuthentication": {
+      "type": "object",
+      "required": [
+        "authenticationRef"
+      ],
+      "properties": {
+        "authModes": {
+          "description": "authModes defines the authentication modes for the metrics backend possible values are bearer, basic, tls. for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+          "type": "string"
+        },
+        "authenticationRef": {
+          "description": "authenticationRef is a reference to the authentication information for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.AuthenticationRef"
+        }
+      }
+    },
     "v1beta1.ExternalMetricSource": {
       "type": "object",
       "required": [
@@ -2798,6 +2957,10 @@
         "target"
       ],
       "properties": {
+        "authenticationRef": {
+          "description": "authenticationRef is a reference to the authentication information for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+          "$ref": "#/definitions/v1beta1.ExtMetricAuthentication"
+        },
         "metric": {
           "description": "metric identifies the target metric by name and selector",
           "default": {},
@@ -2991,7 +3154,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -3140,6 +3303,10 @@
             "default": ""
           }
         },
+        "clusterServingRuntimeName": {
+          "description": "ClusterServingRuntimeName is the name of the ClusterServingRuntime that the InferenceService is using",
+          "type": "string"
+        },
         "components": {
           "description": "Statuses for the components of the InferenceService",
           "type": "object",
@@ -3171,6 +3338,10 @@
           "description": "ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.",
           "type": "integer",
           "format": "int64"
+        },
+        "servingRuntimeName": {
+          "description": "ServingRuntimeName is the name of the ServingRuntime that the InferenceService is using",
+          "type": "string"
         },
         "url": {
           "description": "URL holds the url that will distribute traffic over the provided traffic targets. It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}",
@@ -3396,7 +3567,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -3507,8 +3678,36 @@
           "description": "Specifies the scope of the loggers. \u003cbr /\u003e Valid values are: \u003cbr /\u003e - \"all\" (default): log both request and response; \u003cbr /\u003e - \"request\": log only request; \u003cbr /\u003e - \"response\": log only response \u003cbr /\u003e",
           "type": "string"
         },
+        "storage": {
+          "description": "Specifies the storage location for the inference logger cloud events.",
+          "$ref": "#/definitions/v1beta1.LoggerStorageSpec"
+        },
         "url": {
           "description": "URL to send logging events",
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.LoggerStorageSpec": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "The Storage Key in the secret for this object.",
+          "type": "string"
+        },
+        "parameters": {
+          "description": "Parameters to override the default storage credentials and config.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "path": {
+          "description": "The path to the object in the storage. Note that this path is relative to the storage URI.",
+          "type": "string"
+        },
+        "serviceAccountName": {
           "type": "string"
         }
       }
@@ -3752,7 +3951,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -3826,6 +4025,31 @@
           "description": "Whether the available predictor endpoints reflect the current Spec or is in transition",
           "type": "string",
           "default": ""
+        }
+      }
+    },
+    "v1beta1.ModelStorageSpec": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "The Storage Key in the secret for this object.",
+          "type": "string"
+        },
+        "parameters": {
+          "description": "Parameters to override the default storage credentials and config.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "path": {
+          "description": "The path to the object in the storage. Note that this path is relative to the storage URI.",
+          "type": "string"
+        },
+        "schemaPath": {
+          "description": "The path to the model schema file in the storage.",
+          "type": "string"
         }
       }
     },
@@ -3971,7 +4195,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -4166,7 +4390,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -4346,7 +4570,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -4829,7 +5053,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -5416,7 +5640,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -5490,10 +5714,11 @@
       }
     },
     "v1beta1.StorageSpec": {
+      "description": "StorageSpec defines a spec for an object in an object store",
       "type": "object",
       "properties": {
         "key": {
-          "description": "The Storage Key in the secret for this model.",
+          "description": "The Storage Key in the secret for this object.",
           "type": "string"
         },
         "parameters": {
@@ -5505,11 +5730,7 @@
           }
         },
         "path": {
-          "description": "The path to the model object in the storage. It cannot co-exist with the storageURI.",
-          "type": "string"
-        },
-        "schemaPath": {
-          "description": "The path to the model schema file in the storage.",
+          "description": "The path to the object in the storage. Note that this path is relative to the storage URI.",
           "type": "string"
         }
       }
@@ -5643,7 +5864,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -5824,7 +6045,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -6327,7 +6548,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",
@@ -6769,7 +6990,7 @@
         },
         "storage": {
           "description": "Storage Spec for model location",
-          "$ref": "#/definitions/v1beta1.StorageSpec"
+          "$ref": "#/definitions/v1beta1.ModelStorageSpec"
         },
         "storageUri": {
           "description": "This field points to the location of the trained model which is mounted onto the pod.",

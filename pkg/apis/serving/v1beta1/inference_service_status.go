@@ -53,6 +53,10 @@ type InferenceServiceStatus struct {
 	ModelStatus ModelStatus `json:"modelStatus,omitempty"`
 	// InferenceService DeploymentMode
 	DeploymentMode string `json:"deploymentMode,omitempty"`
+	// ServingRuntimeName is the name of the ServingRuntime that the InferenceService is using
+	ServingRuntimeName string `json:"servingRuntimeName,omitempty"`
+	// ClusterServingRuntimeName is the name of the ClusterServingRuntime that the InferenceService is using
+	ClusterServingRuntimeName string `json:"clusterServingRuntimeName,omitempty"`
 }
 
 // ComponentStatusSpec describes the state of the component
@@ -124,6 +128,8 @@ const (
 	RoutesReady apis.ConditionType = "RoutesReady"
 	// LatestDeploymentReady is set when underlying configurations for all components have reported readiness.
 	LatestDeploymentReady apis.ConditionType = "LatestDeploymentReady"
+	// Stopped is set when the inference service has been stopped and all related objects are deleted
+	Stopped apis.ConditionType = "Stopped"
 )
 
 type ModelStatus struct {
@@ -194,6 +200,9 @@ const (
 	// All copies of the model failed to load
 	FailedToLoad ModelState = "FailedToLoad"
 )
+
+// Stopped Inference Service reason
+const StoppedISVCReason = "Stopped"
 
 // FailureReason enum
 // +kubebuilder:validation:Enum=ModelLoadFailed;RuntimeUnhealthy;RuntimeDisabled;NoSupportingRuntime;RuntimeNotRecognized;InvalidPredictorSpec
@@ -352,6 +361,7 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 	ss.ObservedGeneration = deploymentList[0].Status.ObservedGeneration
 }
 
+//nolint:unparam
 func getDeploymentCondition(deploymentList []*appsv1.Deployment, conditionType appsv1.DeploymentConditionType) *apis.Condition {
 	condition := apis.Condition{}
 	var messages, reasons []string

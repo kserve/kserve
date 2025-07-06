@@ -30,8 +30,10 @@ ERROR_404_ISVC_IMG ?= error-404-isvc
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
 
+ENVTEST ?= $(LOCALBIN)/setup-envtest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.29
+ENVTEST_VERSION ?= $(shell go list -m -f "{{ .Version }}" sigs.k8s.io/controller-runtime | awk -F'[v.]' '{printf "release-%d.%d", $$2, $$3}')
+ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ .Version }}" k8s.io/api | awk -F'[v.]' '{printf "1.%d", $$3}')
 
 ENGINE ?= docker
 # Empty string for local build when using podman, it allows to build different architectures
@@ -48,12 +50,20 @@ export GOFLAGS=-mod=mod
 
 all: test manager agent router
 
+.PHONY: setup-envtest
+setup-envtest: envtest
+	@echo "Setting up envtest binaries for Kubernetes version $(ENVTEST_K8S_VERSION)..."
+	@$(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path || { \
+		echo "Error: Failed to set up envtest binaries for version $(ENVTEST_K8S_VERSION)."; \
+		exit 1; \
+		}
+
 # Run go fmt against code
 fmt:
 	go fmt ./pkg/... ./cmd/... && cd qpext && go fmt ./...
 
 py-fmt: $(BLACK_FMT)
-	$(BLACK_FMT) --config python/pyproject.toml .
+	$(BLACK_FMT) --config python/pyproject.toml ./python ./docs
 
 # Run go vet against code
 vet:
@@ -112,10 +122,18 @@ manifests: controller-gen yq
 	# rm charts/kserve-crd/templates/kustomization.yaml
 	# Generate minimal crd
 	./hack/minimal-crdgen.sh
-	kubectl kustomize config/crd/full > test/crds/serving.kserve.io_inferenceservices.yaml
+	kubectl kustomize config/crd/full > test/crds/serving.kserve.io_all_crds.yaml
 	# Copy the minimal crd to the helm chart
 	cp config/crd/minimal/* charts/kserve-crd-minimal/templates/
 	rm charts/kserve-crd-minimal/templates/kustomization.yaml
+    
+	# Generate llmisvc rbac
+	@$(CONTROLLER_GEN) rbac:roleName=llmisvc-manager-role paths={./pkg/controller/v1alpha1/llmisvc} output:rbac:artifacts:config=config/rbac/llmisvc
+	# Copy the cluster role to the helm chart
+	cat config/rbac/llmisvc/role.yaml > charts/llmisvc-resources/templates/clusterrole.yaml
+	# Copy llmisvc crd
+	cp config/crd/full/serving.kserve.io_llminferenceservices.yaml charts/llmisvc-crd/templates/
+	cp config/crd/full/serving.kserve.io_llminferenceserviceconfigs.yaml charts/llmisvc-crd/templates/
 
 # Generate code
 generate: controller-gen helm-docs
@@ -129,7 +147,7 @@ poetry-lock: $(POETRY)
 # Update the kserve package first as other packages depends on it.
 	cd ./python && \
 	cd kserve && $(POETRY) lock --no-update && cd .. && \
-	for file in $$(find . -type f -name "pyproject.toml" -not -path "./pyproject.toml"); do \
+	for file in $$(find . -type f -name "pyproject.toml" -not -path "./pyproject.toml" -not -path "*.venv/*"); do \
 		folder=$$(dirname "$$file"); \
 		echo "moving into folder $$folder"; \
 		case "$$folder" in \
@@ -161,7 +179,7 @@ clean:
 
 # Run tests
 test: fmt vet manifests envtest test-qpext
-	KUBEBUILDER_ASSETS="$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test $$(go list ./pkg/...) ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
+	KUBEBUILDER_ASSETS="$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test --timeout 20m $$(go list ./pkg/...) ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
 
 test-qpext:
 	cd qpext && go test -v ./... -cover

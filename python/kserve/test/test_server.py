@@ -24,9 +24,6 @@ from unittest import mock
 import avro.io
 import avro.schema
 import httpx
-from kserve.protocol.dataplane import DataPlane
-from kserve.protocol.model_repository_extension import ModelRepositoryExtension
-from kserve.protocol.rest.multiprocess.server import RESTServerMultiProcess
 import numpy as np
 import pandas as pd
 import pytest
@@ -52,8 +49,12 @@ from kserve.protocol.infer_type import (
     InferResponse,
     RequestedOutput,
 )
-from kserve.protocol.rest.v2_datamodels import is_pydantic_2
 from kserve.utils.utils import generate_uuid, get_predict_input, get_predict_response
+from kserve.protocol.dataplane import DataPlane
+from kserve.protocol.model_repository_extension import ModelRepositoryExtension
+from kserve.protocol.rest.multiprocess.server import RESTServerMultiProcess
+from kserve.predictor_config import PredictorConfig
+from kserve import context as kserve_context
 
 test_avsc_schema = """
         {
@@ -377,6 +378,14 @@ def http_server_client():
 class TestModel:
     async def test_validate(self):
         model = DummyModel("TestModel")
+
+        # Test REST_V1 protocol validation
+        predictor_config_v1 = PredictorConfig(
+            predictor_host="localhost",
+            predictor_protocol=PredictorProtocol.REST_V1.value,
+        )
+        kserve_context.set_predictor_config(predictor_config_v1)
+
         good_request = {"instances": []}
         validated_request = model.validate(good_request)
         assert validated_request == good_request
@@ -384,7 +393,13 @@ class TestModel:
         with pytest.raises(InvalidInput):
             model.validate(bad_request)
 
-        model.protocol = PredictorProtocol.REST_V2.value
+        # Test REST_V2 protocol validation
+        predictor_config_v2 = PredictorConfig(
+            predictor_host="localhost",
+            predictor_protocol=PredictorProtocol.REST_V2.value,
+        )
+        kserve_context.set_predictor_config(predictor_config_v2)
+
         good_request = {"inputs": []}
         validated_request = model.validate(good_request)
         assert validated_request == good_request
@@ -887,13 +902,7 @@ class TestRayServer:
     def test_health_handler(self, http_server_client):
         resp = http_server_client.get("/v1/models/TestModel")
         assert resp.status_code == 200
-        # for some reason the RayServer responds with the stringified python bool
-        # when run on pydantic < 2 and the bool when run on pydantic >= 2
-        # eg {"name":"TestModel","ready":"True"} vs {"name":"TestModel","ready":true}
-        if is_pydantic_2:
-            expected_content = b'{"name":"TestModel","ready":true}'
-        else:
-            expected_content = b'{"name":"TestModel","ready":"True"}'
+        expected_content = b'{"name":"TestModel","ready":true}'
         assert resp.content == expected_content
 
     def test_predict(self, http_server_client):
@@ -1307,3 +1316,99 @@ class TestMutiProcessServer:
             await server.stop()
             await asyncio.sleep(5)
             task.cancel()
+
+
+@pytest.mark.asyncio
+class TestModelServerWithPredictorConfig:
+    """Test ModelServer initialization and functionality with PredictorConfig."""
+
+    async def test_model_server_with_predictor_config(self):
+        """Test that ModelServer properly sets PredictorConfig in the global context."""
+        # Create a PredictorConfig
+        predictor_config = PredictorConfig(
+            predictor_host="test-predictor.example.com",
+            predictor_protocol=PredictorProtocol.REST_V1.value,
+            predictor_request_retries=3,
+            predictor_request_timeout_seconds=10,
+            predictor_health_check=True,
+            predictor_use_ssl=False,
+        )
+
+        # Create ModelServer with PredictorConfig
+        model_repository = ModelRepository()
+        model_server = ModelServer(
+            registered_models=model_repository, predictor_config=predictor_config
+        )
+
+        # Verify that the predictor config was set in the global context
+        context_config = kserve_context.get_predictor_config()
+        assert context_config is not None
+        assert context_config.predictor_host == "test-predictor.example.com"
+        assert context_config.predictor_protocol == PredictorProtocol.REST_V1.value
+        assert context_config.predictor_request_retries == 3
+        assert context_config.predictor_request_timeout_seconds == 10
+        assert context_config.predictor_health_check is True
+        assert context_config.predictor_use_ssl is False
+
+        # Verify that the DataPlane can access the config from context
+        dataplane = model_server.dataplane
+        assert dataplane is not None
+
+        # Test with None predictor_config (should not fail)
+        model_server_no_config = ModelServer(
+            registered_models=ModelRepository(), predictor_config=None
+        )
+        assert model_server_no_config.dataplane is not None
+
+    async def test_model_server_dataplane_with_predictor_config(self):
+        """Test that the DataPlane created by ModelServer uses the PredictorConfig from context."""
+        # Create a PredictorConfig with specific settings
+        predictor_config = PredictorConfig(
+            predictor_host="grpc-predictor.example.com",
+            predictor_protocol=PredictorProtocol.GRPC_V2.value,
+            predictor_request_retries=5,
+            predictor_request_timeout_seconds=30,
+            predictor_health_check=False,  # Disabled to avoid network calls in test
+            predictor_use_ssl=True,
+        )
+
+        # Create ModelServer with the config
+        model_repository = ModelRepository()
+        dummy_model = DummyModel("TestModel")
+        dummy_model.load()
+        model_repository.update(dummy_model)
+
+        model_server = ModelServer(
+            registered_models=model_repository, predictor_config=predictor_config
+        )
+
+        # Verify the DataPlane was created and can access the config
+        dataplane = model_server.dataplane
+        assert dataplane is not None
+
+        # Verify the context has the correct config
+        context_config = kserve_context.get_predictor_config()
+        assert context_config.predictor_host == "grpc-predictor.example.com"
+        assert context_config.predictor_protocol == PredictorProtocol.GRPC_V2.value
+        assert context_config.predictor_use_ssl is True
+
+        # Test that model operations work
+        assert await dataplane.model_ready("TestModel") is True
+
+        # Test inference (should work even with predictor config since health_check is disabled)
+        body = b'{"instances":[[1,2]]}'
+        infer_request, req_attributes = dataplane.decode(body, None)
+        resp, headers = await dataplane.infer("TestModel", infer_request)
+        assert resp is not None
+
+    def test_model_server_backwards_compatibility(self):
+        """Test that ModelServer works without PredictorConfig for backwards compatibility."""
+        # Create ModelServer without predictor_config (should work)
+        model_repository = ModelRepository()
+        model_server = ModelServer(registered_models=model_repository)
+
+        # Should create DataPlane successfully
+        assert model_server.dataplane is not None
+
+        # Context should handle None predictor config gracefully
+        # The DataPlane should still be functional even without predictor config

@@ -133,7 +133,7 @@ func GetModelName(isvc *v1beta1.InferenceService) string {
 }
 
 // GetPredictorEndpoint returns the predictor endpoint if status.address.url is not nil else returns empty string with error.
-func GetPredictorEndpoint(isvc *v1beta1.InferenceService) (string, error) {
+func GetPredictorEndpoint(ctx context.Context, client client.Client, isvc *v1beta1.InferenceService) (string, error) {
 	if isvc.Status.Address != nil && isvc.Status.Address.URL != nil {
 		hostName := isvc.Status.Address.URL.String()
 		path := ""
@@ -146,7 +146,47 @@ func GetPredictorEndpoint(isvc *v1beta1.InferenceService) (string, error) {
 				path = constants.PredictPath(modelName, constants.ProtocolV2)
 			}
 		} else if !IsMMSPredictor(&isvc.Spec.Predictor) {
-			protocol := isvc.Spec.Predictor.GetImplementation().GetProtocol()
+			predictorImplementation := isvc.Spec.Predictor.GetImplementation()
+			protocol := predictorImplementation.GetProtocol()
+
+			if modelSpec, ok := predictorImplementation.(*v1beta1.ModelSpec); ok {
+				if modelSpec.Runtime != nil {
+					// When a Runtime is specified, and there is no protocol specified
+					// in the ISVC, the protocol cannot imply to be V1. The protocol
+					// needs to be extracted from the Runtime.
+
+					runtime, err, _ := GetServingRuntime(ctx, client, *modelSpec.Runtime, isvc.Namespace)
+					if err != nil {
+						return "", err
+					}
+
+					// If the runtime has protocol versions, use the first one supported by IG.
+					// Otherwise, assume Protocol V1.
+					if len(runtime.ProtocolVersions) != 0 {
+						found := false
+						for _, pversion := range runtime.ProtocolVersions {
+							if pversion == constants.ProtocolV1 || pversion == constants.ProtocolV2 {
+								protocol = pversion
+								found = true
+								break
+							}
+						}
+
+						if !found {
+							return "", errors.New("the runtime does not support a protocol compatible with Inference Graphs")
+						}
+					}
+				}
+
+				// else {
+				//   Notice that when using auto-selection (i.e. Runtime is nil), the
+				//   ISVC is assumed to be protocol v1. Thus, for auto-select, a runtime
+				//   will only match if it lists protocol v1 as supported. In this case,
+				//   the code above (protocol := predictorImplementation.GetProtocol()) would
+				//   already get the right protocol to configure in the InferenceGraph.
+				// }
+			}
+
 			if protocol == constants.ProtocolV1 {
 				path = constants.PredictPath(modelName, constants.ProtocolV1)
 			} else if protocol == constants.ProtocolV2 {
@@ -260,23 +300,24 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 
 // GetServingRuntime Get a ServingRuntime by name. First, ServingRuntimes in the given namespace will be checked.
 // If a resource of the specified name is not found, then ClusterServingRuntimes will be checked.
-func GetServingRuntime(ctx context.Context, cl client.Client, name string, namespace string) (*v1alpha1.ServingRuntimeSpec, error) {
+// Third value will be true if the ServingRuntime is a ClusterServingRuntime.
+func GetServingRuntime(ctx context.Context, cl client.Client, name string, namespace string) (*v1alpha1.ServingRuntimeSpec, error, bool) {
 	runtime := &v1alpha1.ServingRuntime{}
 	err := cl.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, runtime)
 	if err == nil {
-		return &runtime.Spec, nil
+		return &runtime.Spec, nil, false
 	} else if !apierrors.IsNotFound(err) {
-		return nil, err
+		return nil, err, false
 	}
 
 	clusterRuntime := &v1alpha1.ClusterServingRuntime{}
 	err = cl.Get(ctx, client.ObjectKey{Name: name}, clusterRuntime)
 	if err == nil {
-		return &clusterRuntime.Spec, nil
+		return &clusterRuntime.Spec, nil, true
 	} else if !apierrors.IsNotFound(err) {
-		return nil, err
+		return nil, err, false
 	}
-	return nil, goerrors.New("No ServingRuntimes or ClusterServingRuntimes with the name: " + name)
+	return nil, goerrors.New("No ServingRuntimes or ClusterServingRuntimes with the name: " + name), false
 }
 
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
