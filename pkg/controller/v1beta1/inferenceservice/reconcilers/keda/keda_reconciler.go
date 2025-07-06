@@ -118,8 +118,22 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, configMap *cor
 						"threshold":     fmt.Sprintf("%f", metric.External.Target.Value.AsApproximateFloat64()),
 					},
 				}
+
 				if triggerType == string(constants.AutoScalerMetricsSourcePrometheus) && metric.External.Metric.Namespace != "" {
 					trigger.Metadata["namespace"] = metric.External.Metric.Namespace
+				}
+
+				if metric.External.Authentication != nil {
+					authModes := metric.External.Authentication.AuthModes
+					if authModes != "" {
+						trigger.Metadata["authModes"] = authModes
+					}
+					authRef := metric.External.Authentication.AuthenticationRef
+					if authRef.Name != "" {
+						trigger.AuthenticationRef = &kedav1alpha1.AuthenticationRef{
+							Name: authRef.Name,
+						}
+					}
 				}
 				triggers = append(triggers, trigger)
 			case v1beta1.PodMetricSourceType:
