@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,13 +17,17 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"strconv"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,10 +36,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func init() {
 	logf.SetLogger(zap.New())
+}
+
+func Int64Ptr(i int64) *int64 {
+	return &i
 }
 
 func TestSimpleModelChainer(t *testing.T) {
@@ -451,6 +460,94 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 	assert.Equal(t, expectedModel4Response, response["model4"])
 }
 
+func TestInferenceGraphSequenceWithUnmetCondition(t *testing.T) {
+	// Start a local HTTP server
+	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, err := io.ReadAll(req.Body)
+		if err != nil {
+			return
+		}
+		response := map[string]interface{}{
+			"predictions": []map[string]interface{}{
+				{
+					"label": "cat",
+					"score": []float32{
+						0.8, 0.2,
+					},
+				},
+			},
+		}
+		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			t.Fatalf("failed to marshal response: %v", err)
+		}
+		_, err = rw.Write(responseBytes)
+		if err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+	}))
+	model1Url, err := apis.ParseURL(model1.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse model url")
+	}
+	defer model1.Close()
+
+	graphSpec := v1alpha1.InferenceGraphSpec{
+		Nodes: map[string]v1alpha1.InferenceRouter{
+			"root": {
+				RouterType: v1alpha1.Sequence,
+				Steps: []v1alpha1.InferenceStep{
+					{
+						StepName: "step1",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceURL: model1Url.String(),
+						},
+					},
+					{
+						StepName: "step2",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceURL: "http://dummy", // Because in this test, this step won't be run.
+						},
+						Condition: "predictions.#(label==\"dog\")",
+					},
+				},
+			},
+		},
+	}
+	input := map[string]interface{}{
+		"instances": []map[string]string{
+			{"modelId": "1"},
+		},
+	}
+	jsonBytes, _ := json.Marshal(input)
+	headers := http.Header{}
+	res, statusCode, err := routeStep("root", graphSpec, jsonBytes, headers)
+	if err != nil {
+		t.Fatalf("routeStep failed: %v", err)
+	}
+
+	// Despite the condition for step2 is unmet, a 200 status code is expected.
+	assert.Equal(t, http.StatusOK, statusCode)
+
+	var response map[string]interface{}
+	err = json.Unmarshal(res, &response)
+	if err != nil {
+		t.Fatalf("json.Unmarshal failed: %v", err)
+	}
+	expectedResponse := map[string]interface{}{
+		"predictions": []interface{}{
+			map[string]interface{}{
+				"label": "cat",
+				"score": []interface{}{
+					0.8, 0.2,
+				},
+			},
+		},
+	}
+	fmt.Printf("final response:%v\n", response)
+	assert.Equal(t, expectedResponse, response)
+}
+
 func TestCallServiceWhenNoneHeadersToPropagateIsEmpty(t *testing.T) {
 	// Start a local HTTP server
 	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -565,14 +662,12 @@ func TestCallServiceWhen1HeaderToPropagate(t *testing.T) {
 	require.NoError(t, err)
 
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
-	if err != nil {
-		t.Fatalf("callService failed: %v", err)
-	}
+	require.NoError(t, err)
+
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
-	if err != nil {
-		t.Fatalf("json.Unmarshal failed: %v", err)
-	}
+	require.NoError(t, err)
+
 	expectedResponse := map[string]interface{}{
 		"predictions":     "1",
 		"Test-Header-Key": "Test-Header-Value",
@@ -652,9 +747,8 @@ func TestCallServiceWhenMultipleHeadersToPropagate(t *testing.T) {
 func TestMalformedURL(t *testing.T) {
 	malformedURL := "http://single-1.default.{$your-domain}/switch"
 	_, response, err := callService(malformedURL, []byte{}, http.Header{})
-	if err != nil {
-		assert.Equal(t, 500, response)
-	}
+	require.Error(t, err)
+	require.Equal(t, 500, response)
 }
 
 func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
@@ -726,7 +820,7 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
 		"Authorization": "Bearer Token",
 	}
 	fmt.Printf("final response:%v\n", response)
-	assert.Equal(t, expectedResponse, response)
+	require.Equal(t, expectedResponse, response)
 }
 
 func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing.T) {
@@ -796,5 +890,131 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing
 		"Authorization": "Bearer Token",
 	}
 	fmt.Printf("final response:%v\n", response)
-	assert.Equal(t, expectedResponse, response)
+	require.Equal(t, expectedResponse, response)
+}
+
+func TestServerTimeout(t *testing.T) {
+	testCases := []struct {
+		name                string
+		serverTimeout       *int64
+		serviceStepDuration time.Duration
+		expectError         bool
+	}{
+		{
+			name:                "default",
+			serverTimeout:       nil,
+			serviceStepDuration: 1 * time.Millisecond,
+			expectError:         false,
+		},
+		{
+			name:                "timeout",
+			serverTimeout:       Int64Ptr(1),
+			serviceStepDuration: 500 * time.Millisecond,
+			expectError:         true,
+		},
+		{
+			name:                "success",
+			serverTimeout:       Int64Ptr(2),
+			serviceStepDuration: 500 * time.Millisecond,
+			expectError:         false,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			drainSleepDuration = 0 * time.Millisecond // instant shutdown
+
+			// Setup and start dummy models
+			model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+				_, err := io.ReadAll(req.Body)
+				if err != nil {
+					return
+				}
+				time.Sleep(testCase.serviceStepDuration)
+				response := map[string]interface{}{"predictions": "1"}
+				responseBytes, _ := json.Marshal(response)
+				rw.Write(responseBytes)
+			}))
+			model1Url, err := apis.ParseURL(model1.URL)
+			if err != nil {
+				t.Fatalf("Failed to parse model url")
+			}
+			defer model1.Close()
+
+			model2 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+				_, err := io.ReadAll(req.Body)
+				if err != nil {
+					return
+				}
+				time.Sleep(testCase.serviceStepDuration)
+				response := map[string]interface{}{"predictions": "2"}
+				responseBytes, _ := json.Marshal(response)
+				rw.Write(responseBytes)
+			}))
+			model2Url, err := apis.ParseURL(model2.URL)
+			if err != nil {
+				t.Fatalf("Failed to parse model url")
+			}
+			defer model2.Close()
+
+			// Create InferenceGraph
+			graphSpec := v1alpha1.InferenceGraphSpec{
+				Nodes: map[string]v1alpha1.InferenceRouter{
+					"root": {
+						RouterType: v1alpha1.Sequence,
+						Steps: []v1alpha1.InferenceStep{
+							{
+								StepName: "model1",
+								InferenceTarget: v1alpha1.InferenceTarget{
+									ServiceURL: model1Url.String(),
+								},
+							},
+							{
+								StepName: "model2",
+								InferenceTarget: v1alpha1.InferenceTarget{
+									ServiceURL: model2Url.String(),
+								},
+								Data: "$response",
+							},
+						},
+					},
+				},
+			}
+			if testCase.serverTimeout != nil {
+				timeout := *testCase.serverTimeout
+				graphSpec.RouterTimeouts = &v1alpha1.InfereceGraphRouterTimeouts{
+					ServerRead:  &timeout,
+					ServerWrite: &timeout,
+					ServerIdle:  &timeout,
+				}
+			}
+			jsonBytes, _ := json.Marshal(graphSpec)
+			*jsonGraph = string(jsonBytes)
+
+			// Start InferenceGraph router server in a separate goroutine
+			go func() {
+				main()
+			}()
+			t.Cleanup(func() {
+				http.DefaultServeMux = http.NewServeMux() // reset http handlers
+				signalChan <- syscall.SIGTERM             // shutdown the server
+			})
+
+			// Call the InferenceGraph
+			client := &http.Client{}
+			time.Sleep(1 * time.Second) // prevent race condition
+			req, _ := http.NewRequest(http.MethodPost, "http://localhost:"+strconv.Itoa(constants.RouterPort), bytes.NewBuffer(nil))
+			resp, err := client.Do(req)
+			if resp != nil {
+				defer resp.Body.Close()
+			}
+
+			if testCase.expectError {
+				assert.Contains(t, err.Error(), "EOF")
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, http.StatusOK, resp.StatusCode)
+			}
+		})
+	}
 }

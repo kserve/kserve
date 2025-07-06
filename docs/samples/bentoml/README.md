@@ -28,7 +28,7 @@ Before starting this guide, make sure you have the following:
   * Install required packages `bentoml` and `scikit-learn` on your local system:
 
     ```shell
-    pip install bentoml scikit-learn
+    pip install "bentoml==0.13.1" "scikit-learn==1.0.2"
     ```
 
 ### Build API model server using BentoML
@@ -41,15 +41,16 @@ expecting a `pandas.DataFrame` object as its input data.
 ```python
 # iris_classifier.py
 from bentoml import env, artifacts, api, BentoService
-from bentoml.handlers import DataframeHandler
-from bentoml.artifact import SklearnModelArtifact
+from bentoml.frameworks.sklearn import SklearnModelArtifact
+from bentoml.adapters import DataframeInput
+import pandas as pd
 
 @env(auto_pip_dependencies=True)
 @artifacts([SklearnModelArtifact('model')])
 class IrisClassifier(BentoService):
 
-    @api(DataframeHandler)
-    def predict(self, df):
+    @api(input=DataframeInput(), batch=True)
+    def predict(self, df: pd.DataFrame):
         return self.artifacts.model.predict(df)
 ```
 
@@ -61,24 +62,22 @@ from sklearn import svm
 from sklearn import datasets
 
 from iris_classifier import IrisClassifier
+import pandas as pd
 
-if __name__ == "__main__":
     # Load training data
-    iris = datasets.load_iris()
-    X, y = iris.data, iris.target
+iris = datasets.load_iris()
+X, y = iris.data, iris.target
 
     # Model Training
-    clf = svm.SVC(gamma='scale')
-    clf.fit(X, y)
+clf = svm.SVC(gamma='scale')
+clf.fit(X, y)
 
-    # Create a iris classifier service instance
-    iris_classifier_service = IrisClassifier()
+svc = IrisClassifier()
+svc.pack("model", clf)
 
-    # Pack the newly trained model artifact
-    iris_classifier_service.pack('model', clf)
+save_path = svc.save()
+print("Saved to:", saved_path)
 
-    # Save the prediction service to disk for model serving
-    saved_path = iris_classifier_service.save()
 ```
 
 The sample code above can be found in the BentoML repository, run them directly with the
@@ -135,20 +134,18 @@ InferenceService in KFServing. Replace `{docker_username}` with your Docker Hub 
 and save it to `bentoml.yaml` file:
 
 ```yaml
-apiVersion: serving.kserve.io/v1alpha2
+apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
   labels:
     controller-tools.k8s.io: "1.0"
   name: iris-classifier
 spec:
-  default:
-    predictor:
-      custom:
-        container:
-          image: {docker_username}/iris-classifier
-          ports:
-            - containerPort: 5000
+  predictor:
+    container:
+      image: {docker_username}/iris-classifier
+      ports:
+        - containerPort: 5000
 ```
 
 Use `kubectl apply` command to deploy the InferenceService:

@@ -1,6 +1,6 @@
 run:
   timeout: 6m
-  go: "1.23"
+  go: "1.24"
   tests: true
 
 issues:
@@ -35,7 +35,7 @@ linters:
     # Checks whether HTTP response body is closed successfully.
     - bodyclose
 
-      # Canonicalheader checks whether net/http.Header uses canonical header.
+    # Canonicalheader checks whether net/http.Header uses canonical header.
     - canonicalheader
 
     # Containedctx is a linter that detects struct contained context.Context
@@ -45,10 +45,10 @@ linters:
     # Check whether the function uses a non-inherited context.
     - contextcheck
 
-      # Copyloopvar is a linter detects places where loop variables are copied.
+    # Copyloopvar is a linter detects places where loop variables are copied.
     - copyloopvar
 
-      # Check declaration order of types, consts, vars and funcs.
+    # Check declaration order of types, consts, vars and funcs.
     - decorder
 
     # Checks assignments with too many blank identifiers (e.g. x, , , _, := f()).
@@ -166,10 +166,6 @@ linters:
     # It's a set of rules from staticcheck. It's not the same thing as the staticcheck binary.
     - staticcheck
 
-    # Tenv is analyzer that detects using os.Setenv instead of t.Setenv
-    # since Go1.17.
-    - tenv
-
     # Checks usage of github.com/stretchr/testify.
     - testifylint
 
@@ -184,6 +180,9 @@ linters:
     # A linter that detect the possibility to use variables/constants from the
     # Go standard library.
     - usestdlibvars
+
+    # Reports uses of functions with replacement inside the testing package.
+    - usetesting
 
     # Finds wasted assignment statements.
     - wastedassign
@@ -217,3 +216,5 @@ linters-settings:
         alias: "ctrl"
       - pkg: "sigs.k8s.io/controller-runtime/runtime"
         alias: "runtime"
+      - pkg: "sigs.k8s.io/gateway-api/apis/v1"
+        alias: "gwapiv1"

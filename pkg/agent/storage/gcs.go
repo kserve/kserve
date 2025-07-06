@@ -61,6 +61,10 @@ func (p *GCSProvider) DownloadModel(modelDir string, modelName string, storageUr
 	return nil
 }
 
+func (p *GCSProvider) UploadObject(bucket string, key string, object []byte) error {
+	return errors.New("GCS upload not implemented")
+}
+
 type GCSObjectDownloader struct {
 	StorageUri string
 	ModelDir   string

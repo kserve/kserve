@@ -35,6 +35,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -62,7 +63,7 @@ var _ = BeforeSuite(func() {
 	ctx, cancel := context.WithCancel(context.TODO())
 	By("bootstrapping test environment")
 	crdDirectoryPaths := []string{
-		filepath.Join("..", "..", "..", "..", "test", "crds"),
+		filepath.Join(pkgtest.ProjectRoot(), "test", "crds"),
 	}
 	testEnv := pkgtest.SetupEnvTest(crdDirectoryPaths)
 	var err error
@@ -83,11 +84,10 @@ var _ = BeforeSuite(func() {
 	err = v1beta1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-	Expect(err).ToNot(HaveOccurred())
-	Expect(k8sClient).ToNot(BeNil())
-
 	err = kedav1alpha1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = otelv1beta1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
@@ -109,13 +109,28 @@ var _ = BeforeSuite(func() {
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
 
-	// Create namespace
+	// Create namespaces
 	kserveNamespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.KServeNamespace,
 		},
 	}
+	knativeServingNamespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.DefaultKnServingNamespace,
+		},
+	}
 	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(context.Background(), knativeServingNamespace)).Should(Succeed())
+
+	// Create kantive config-autoscaler configmap
+	configAutoscaler := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.AutoscalerConfigmapName,
+			Namespace: constants.AutoscalerConfigmapNamespace,
+		},
+	}
+	Expect(k8sClient.Create(context.Background(), configAutoscaler)).Should(Succeed())
 
 	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Serverless"}
 	ingressConfig := &v1beta1.IngressConfig{

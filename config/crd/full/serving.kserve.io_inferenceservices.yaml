@@ -735,6 +735,8 @@ spec:
                                     - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -1196,6 +1198,20 @@ spec:
                             properties:
                               external:
                                 properties:
+                                  authenticationRef:
+                                    properties:
+                                      authModes:
+                                        type: string
+                                      authenticationRef:
+                                        properties:
+                                          name:
+                                            type: string
+                                        required:
+                                          - name
+                                        type: object
+                                    required:
+                                      - authenticationRef
+                                    type: object
                                   metric:
                                     properties:
                                       backend:
@@ -1234,6 +1250,56 @@ spec:
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                     type: object
+                                required:
+                                  - metric
+                                  - target
+                                type: object
+                              podmetric:
+                                properties:
+                                  metric:
+                                    properties:
+                                      backend:
+                                        enum:
+                                          - opentelemetry
+                                        type: string
+                                      metricNames:
+                                        items:
+                                          type: string
+                                        type: array
+                                      operationOverTime:
+                                        type: string
+                                      query:
+                                        type: string
+                                      serverAddress:
+                                        type: string
+                                    type: object
+                                  target:
+                                    properties:
+                                      averageUtilization:
+                                        format: int32
+                                        type: integer
+                                      averageValue:
+                                        anyOf:
+                                          - type: integer
+                                          - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                      type:
+                                        enum:
+                                          - Utilization
+                                          - Value
+                                          - AverageValue
+                                        type: string
+                                      value:
+                                        anyOf:
+                                          - type: integer
+                                          - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                required:
+                                  - metric
+                                  - target
                                 type: object
                               resource:
                                 properties:
@@ -1241,8 +1307,6 @@ spec:
                                     enum:
                                       - cpu
                                       - memory
-                                      - concurrency
-                                      - rps
                                     type: string
                                   target:
                                     properties:
@@ -1268,12 +1332,18 @@ spec:
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                     type: object
+                                required:
+                                  - name
+                                  - target
                                 type: object
                               type:
                                 enum:
                                   - Resource
                                   - External
+                                  - PodMetric
                                 type: string
+                            required:
+                              - type
                             type: object
                           type: array
                       type: object
@@ -1528,6 +1598,8 @@ spec:
                                       - port
                                     type: object
                                 type: object
+                              stopSignal:
+                                type: string
                             type: object
                           livenessProbe:
                             properties:
@@ -2282,6 +2354,8 @@ spec:
                                       - port
                                     type: object
                                 type: object
+                              stopSignal:
+                                type: string
                             type: object
                           livenessProbe:
                             properties:
@@ -2734,6 +2808,10 @@ spec:
                       type: object
                     logger:
                       properties:
+                        metadataAnnotations:
+                          items:
+                            type: string
+                          type: array
                         metadataHeaders:
                           items:
                             type: string
@@ -2744,6 +2822,19 @@ spec:
                             - request
                             - response
                           type: string
+                        storage:
+                          properties:
+                            key:
+                              type: string
+                            parameters:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            path:
+                              type: string
+                            serviceAccountName:
+                              type: string
+                          type: object
                         url:
                           type: string
                       type: object
@@ -2850,6 +2941,10 @@ spec:
                         - rps
                       type: string
                     scaleMetricType:
+                      enum:
+                        - Utilization
+                        - Value
+                        - AverageValue
                       type: string
                     scaleTarget:
                       format: int32
@@ -4274,6 +4369,20 @@ spec:
                             properties:
                               external:
                                 properties:
+                                  authenticationRef:
+                                    properties:
+                                      authModes:
+                                        type: string
+                                      authenticationRef:
+                                        properties:
+                                          name:
+                                            type: string
+                                        required:
+                                          - name
+                                        type: object
+                                    required:
+                                      - authenticationRef
+                                    type: object
                                   metric:
                                     properties:
                                       backend:
@@ -4312,6 +4421,56 @@ spec:
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                     type: object
+                                required:
+                                  - metric
+                                  - target
+                                type: object
+                              podmetric:
+                                properties:
+                                  metric:
+                                    properties:
+                                      backend:
+                                        enum:
+                                          - opentelemetry
+                                        type: string
+                                      metricNames:
+                                        items:
+                                          type: string
+                                        type: array
+                                      operationOverTime:
+                                        type: string
+                                      query:
+                                        type: string
+                                      serverAddress:
+                                        type: string
+                                    type: object
+                                  target:
+                                    properties:
+                                      averageUtilization:
+                                        format: int32
+                                        type: integer
+                                      averageValue:
+                                        anyOf:
+                                          - type: integer
+                                          - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                      type:
+                                        enum:
+                                          - Utilization
+                                          - Value
+                                          - AverageValue
+                                        type: string
+                                      value:
+                                        anyOf:
+                                          - type: integer
+                                          - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                required:
+                                  - metric
+                                  - target
                                 type: object
                               resource:
                                 properties:
@@ -4319,8 +4478,6 @@ spec:
                                     enum:
                                       - cpu
                                       - memory
-                                      - concurrency
-                                      - rps
                                     type: string
                                   target:
                                     properties:
@@ -4346,12 +4503,18 @@ spec:
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                     type: object
+                                required:
+                                  - name
+                                  - target
                                 type: object
                               type:
                                 enum:
                                   - Resource
                                   - External
+                                  - PodMetric
                                 type: string
+                            required:
+                              - type
                             type: object
                           type: array
                       type: object
@@ -4606,6 +4769,8 @@ spec:
                                       - port
                                     type: object
                                 type: object
+                              stopSignal:
+                                type: string
                             type: object
                           livenessProbe:
                             properties:
@@ -5350,6 +5515,8 @@ spec:
                                     - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -6047,6 +6214,8 @@ spec:
                                       - port
                                     type: object
                                 type: object
+                              stopSignal:
+                                type: string
                             type: object
                           livenessProbe:
                             properties:
@@ -6730,6 +6899,8 @@ spec:
                                     - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -7186,6 +7357,10 @@ spec:
                       type: object
                     logger:
                       properties:
+                        metadataAnnotations:
+                          items:
+                            type: string
+                          type: array
                         metadataHeaders:
                           items:
                             type: string
@@ -7196,6 +7371,19 @@ spec:
                             - request
                             - response
                           type: string
+                        storage:
+                          properties:
+                            key:
+                              type: string
+                            parameters:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            path:
+                              type: string
+                            serviceAccountName:
+                              type: string
+                          type: object
                         url:
                           type: string
                       type: object
@@ -7438,6 +7626,8 @@ spec:
                                     - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -8143,6 +8333,8 @@ spec:
                                     - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -8843,6 +9035,8 @@ spec:
                                     - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -9530,6 +9724,8 @@ spec:
                                     - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -10224,6 +10420,8 @@ spec:
                                     - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -10748,6 +10946,10 @@ spec:
                         - rps
                       type: string
                     scaleMetricType:
+                      enum:
+                        - Utilization
+                        - Value
+                        - AverageValue
                       type: string
                     scaleTarget:
                       format: int32
@@ -11086,6 +11288,8 @@ spec:
                                     - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -11775,6 +11979,8 @@ spec:
                                     - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -12542,6 +12748,8 @@ spec:
                                     - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -14457,6 +14665,8 @@ spec:
                                           - port
                                         type: object
                                     type: object
+                                  stopSignal:
+                                    type: string
                                 type: object
                               livenessProbe:
                                 properties:
@@ -15164,6 +15374,8 @@ spec:
                                           - port
                                         type: object
                                     type: object
+                                  stopSignal:
+                                    type: string
                                 type: object
                               livenessProbe:
                                 properties:
@@ -15879,6 +16091,8 @@ spec:
                                           - port
                                         type: object
                                     type: object
+                                  stopSignal:
+                                    type: string
                                 type: object
                               livenessProbe:
                                 properties:
@@ -17615,6 +17829,8 @@ spec:
                                     - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -18525,6 +18741,20 @@ spec:
                             properties:
                               external:
                                 properties:
+                                  authenticationRef:
+                                    properties:
+                                      authModes:
+                                        type: string
+                                      authenticationRef:
+                                        properties:
+                                          name:
+                                            type: string
+                                        required:
+                                          - name
+                                        type: object
+                                    required:
+                                      - authenticationRef
+                                    type: object
                                   metric:
                                     properties:
                                       backend:
@@ -18563,6 +18793,56 @@ spec:
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                     type: object
+                                required:
+                                  - metric
+                                  - target
+                                type: object
+                              podmetric:
+                                properties:
+                                  metric:
+                                    properties:
+                                      backend:
+                                        enum:
+                                          - opentelemetry
+                                        type: string
+                                      metricNames:
+                                        items:
+                                          type: string
+                                        type: array
+                                      operationOverTime:
+                                        type: string
+                                      query:
+                                        type: string
+                                      serverAddress:
+                                        type: string
+                                    type: object
+                                  target:
+                                    properties:
+                                      averageUtilization:
+                                        format: int32
+                                        type: integer
+                                      averageValue:
+                                        anyOf:
+                                          - type: integer
+                                          - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                      type:
+                                        enum:
+                                          - Utilization
+                                          - Value
+                                          - AverageValue
+                                        type: string
+                                      value:
+                                        anyOf:
+                                          - type: integer
+                                          - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                required:
+                                  - metric
+                                  - target
                                 type: object
                               resource:
                                 properties:
@@ -18570,8 +18850,6 @@ spec:
                                     enum:
                                       - cpu
                                       - memory
-                                      - concurrency
-                                      - rps
                                     type: string
                                   target:
                                     properties:
@@ -18597,12 +18875,18 @@ spec:
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                     type: object
+                                required:
+                                  - name
+                                  - target
                                 type: object
                               type:
                                 enum:
                                   - Resource
                                   - External
+                                  - PodMetric
                                 type: string
+                            required:
+                              - type
                             type: object
                           type: array
                       type: object
@@ -18857,6 +19141,8 @@ spec:
                                       - port
                                     type: object
                                 type: object
+                              stopSignal:
+                                type: string
                             type: object
                           livenessProbe:
                             properties:
@@ -19611,6 +19897,8 @@ spec:
                                       - port
                                     type: object
                                 type: object
+                              stopSignal:
+                                type: string
                             type: object
                           livenessProbe:
                             properties:
@@ -20063,6 +20351,10 @@ spec:
                       type: object
                     logger:
                       properties:
+                        metadataAnnotations:
+                          items:
+                            type: string
+                          type: array
                         metadataHeaders:
                           items:
                             type: string
@@ -20073,6 +20365,19 @@ spec:
                             - request
                             - response
                           type: string
+                        storage:
+                          properties:
+                            key:
+                              type: string
+                            parameters:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            path:
+                              type: string
+                            serviceAccountName:
+                              type: string
+                          type: object
                         url:
                           type: string
                       type: object
@@ -20179,6 +20484,10 @@ spec:
                         - rps
                       type: string
                     scaleMetricType:
+                      enum:
+                        - Utilization
+                        - Value
+                        - AverageValue
                       type: string
                     scaleTarget:
                       format: int32
@@ -21168,6 +21477,8 @@ spec:
                   additionalProperties:
                     type: string
                   type: object
+                clusterServingRuntimeName:
+                  type: string
                 components:
                   additionalProperties:
                     properties:
@@ -21236,6 +21547,8 @@ spec:
                       - type
                     type: object
                   type: array
+                deploymentMode:
+                  type: string
                 modelStatus:
                   properties:
                     copies:
@@ -21312,6 +21625,8 @@ spec:
                 observedGeneration:
                   format: int64
                   type: integer
+                servingRuntimeName:
+                  type: string
                 url:
                   type: string
               type: object

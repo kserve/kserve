@@ -18,8 +18,7 @@ package knative
 
 import (
 	"context"
-	"fmt"
-	"strconv"
+	"strings"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -31,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/kmp"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	knserving "knative.dev/serving/pkg/apis/serving"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,6 +37,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -58,7 +57,8 @@ type KsvcReconciler struct {
 	componentStatus v1beta1.ComponentStatusSpec
 }
 
-func NewKsvcReconciler(client client.Client,
+func NewKsvcReconciler(
+	client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
@@ -75,7 +75,8 @@ func NewKsvcReconciler(client client.Client,
 	}
 }
 
-func createKnativeService(componentMeta metav1.ObjectMeta,
+func createKnativeService(
+	componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec,
@@ -83,28 +84,14 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 ) *knservingv1.Service {
 	annotations := componentMeta.GetAnnotations()
 
-	if componentExtension.MinReplicas == nil {
-		annotations[constants.MinScaleAnnotationKey] = strconv.Itoa(int(constants.DefaultMinReplicas))
-	} else {
-		annotations[constants.MinScaleAnnotationKey] = strconv.Itoa(int(*componentExtension.MinReplicas))
-	}
-
-	if componentExtension.MaxReplicas != 0 {
-		annotations[constants.MaxScaleAnnotationKey] = strconv.Itoa(int(componentExtension.MaxReplicas))
-	}
-
-	// User can pass down scaling class annotation to overwrite the default scaling KPA
-	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
-		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
-	}
-
-	if componentExtension.ScaleTarget != nil {
-		annotations[autoscaling.TargetAnnotationKey] = strconv.Itoa(int(*componentExtension.ScaleTarget))
-	}
-
-	if componentExtension.ScaleMetric != nil {
-		annotations[autoscaling.MetricAnnotationKey] = fmt.Sprint(*componentExtension.ScaleMetric)
-	}
+	knutils.SetAutoScalingAnnotations(
+		annotations,
+		componentExtension.ScaleTarget,
+		(*string)(componentExtension.ScaleMetric),
+		componentExtension.MinReplicas,
+		componentExtension.MaxReplicas,
+		log,
+	)
 
 	// ksvc metadata.annotations
 	// rollout-duration must be put under metadata.annotations
@@ -233,10 +220,26 @@ func (r *KsvcReconciler) Reconcile(ctx context.Context) (*knservingv1.ServiceSta
 	desired := r.Service
 	existing := &knservingv1.Service{}
 
+	forceStopRuntime := false
+	if val, exist := desired.Spec.Template.Annotations[constants.StopAnnotationKey]; exist {
+		forceStopRuntime = strings.EqualFold(val, "true")
+	}
+
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		log.Info("Updating knative service", "namespace", desired.Namespace, "name", desired.Name)
 		if err := r.client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing); err != nil {
 			return err
+		}
+
+		if forceStopRuntime {
+			log.Info("Deleting knative service", "namespace", existing.Namespace, "name", existing.Name)
+			if existing.GetDeletionTimestamp() == nil { // check if the ksvc was already deleted
+				err := r.client.Delete(ctx, existing)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
 		}
 
 		// Set ResourceVersion which is required for update operation.
@@ -263,8 +266,12 @@ func (r *KsvcReconciler) Reconcile(ctx context.Context) (*knservingv1.ServiceSta
 	if err != nil {
 		// Create service if it does not exist
 		if apierr.IsNotFound(err) {
-			log.Info("Creating knative service", "namespace", desired.Namespace, "name", desired.Name)
-			return &desired.Status, r.client.Create(ctx, desired)
+			if !forceStopRuntime {
+				log.Info("Creating knative service", "namespace", desired.Namespace, "name", desired.Name)
+				return &desired.Status, r.client.Create(ctx, desired)
+			}
+
+			return &desired.Status, nil
 		}
 		return &existing.Status, errors.Wrapf(err, "fails to reconcile knative service")
 	}

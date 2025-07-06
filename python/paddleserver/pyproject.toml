@@ -1,9 +1,9 @@
 [tool.poetry]
 name = "paddleserver"
-version = "0.15.0rc1"
+version = "0.15.2"
 description = "Model Server implementation for Paddle. Not intended for use outside KServe Frameworks Images"
 authors = ["Zhengyuan Zhang <zhangzhengyuan0604@gmail.com>"]
-license = "https://github.com/kserve/kserve/blob/master/LICENSE"
+license = "Apache-2.0"
 readme = "README.md"
 packages = [
     { include = "paddleserver" },

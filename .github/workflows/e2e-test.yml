@@ -120,26 +120,8 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
-  poetry-check:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.9"
-
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
-
-      - name: Check poetry lock file consistency
-        run: ./test/scripts/gh-actions/check-poetry-lockfile.sh
-
   predictor-runtime-build:
     runs-on: ubuntu-latest
-    needs: [poetry-check]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -232,7 +214,6 @@ jobs:
 
   explainer-runtime-build:
     runs-on: ubuntu-latest
-    needs: [poetry-check]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -258,7 +239,6 @@ jobs:
 
   graph-tests-images-build:
     runs-on: ubuntu-latest
-    needs: [poetry-check]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4

@@ -15,6 +15,7 @@
 from __future__ import absolute_import
 
 from .model import Model
+from .predictor_config import PredictorConfig
 from .model_server import ModelServer
 from .inference_client import InferenceGRPCClient, InferenceRESTClient, RESTConfig
 from .protocol.infer_type import InferRequest, InferInput, InferResponse, InferOutput
@@ -108,7 +109,11 @@ from .models.v1beta1_xg_boost_spec import V1beta1XGBoostSpec
 from .models.v1beta1_storage_spec import V1beta1StorageSpec
 from .models.v1beta1_auto_scaling_spec import V1beta1AutoScalingSpec
 from .models.v1beta1_external_metric_source import V1beta1ExternalMetricSource
+from .models.v1beta1_external_metrics import V1beta1ExternalMetrics
 from .models.v1beta1_resource_metric_source import V1beta1ResourceMetricSource
-from .models.v1beta1_metric_identifier import V1beta1MetricIdentifier
 from .models.v1beta1_metric_target import V1beta1MetricTarget
 from .models.v1beta1_metrics_spec import V1beta1MetricsSpec
+from .models.v1beta1_pod_metric_source import V1beta1PodMetricSource
+from .models.v1beta1_pod_metrics import V1beta1PodMetrics
+from .models.v1beta1_ext_metric_authentication import V1beta1ExtMetricAuthentication
+from .models.v1beta1_authentication_ref import V1beta1AuthenticationRef

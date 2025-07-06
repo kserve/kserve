@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
-	"strings"
 
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
@@ -45,6 +45,7 @@ var mutatorLogger = logf.Log.WithName("inferenceservice-v1beta1-mutating-webhook
 
 // +kubebuilder:object:generate=false
 // +k8s:openapi-gen=false
+
 // InferenceServiceDefaulter is responsible for setting default values on the InferenceService
 // when created or updated.
 //
@@ -451,14 +452,23 @@ func (isvc *InferenceService) SetTritonDefaults() {
 	}
 }
 
+// Helper function to remove local model cache internal labels and annotations
+func deleteLocalModelMetadata(isvc *InferenceService) {
+	if isvc.Labels != nil {
+		delete(isvc.Labels, constants.LocalModelLabel)
+	}
+	if isvc.Annotations != nil {
+		delete(isvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
+		delete(isvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
+	}
+}
+
 // If there is a LocalModelCache resource, add the name of the LocalModelCache and sourceModelUri to the isvc,
 // which is used by the local model controller to manage PV/PVCs.
 func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCacheList) {
 	if models == nil {
 		return
 	}
-	// Todo: support multiple storage uris?
-	var storageUri string
 	var predictor ComponentImplementation
 	if predictor = isvc.Spec.Predictor.GetImplementation(); predictor == nil {
 		return
@@ -466,15 +476,33 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 	if predictor.GetStorageUri() == nil {
 		return
 	}
-	storageUri = *isvc.Spec.Predictor.GetImplementation().GetStorageUri()
+	isvcStorageUri := *isvc.Spec.Predictor.GetImplementation().GetStorageUri()
 	var localModel *v1alpha1.LocalModelCache
+	var localModelPVCName string
+	isvcNodeGroup, isvcNodeGroupExists := isvc.Annotations[constants.NodeGroupAnnotationKey]
 	for i, model := range models.Items {
-		if strings.HasPrefix(storageUri, model.Spec.SourceModelUri) {
+		// both storage URI and node group have to match for the isvc to be considered cached
+		if model.Spec.MatchStorageURI(isvcStorageUri) {
+			if isvcNodeGroupExists {
+				if slices.Contains(model.Spec.NodeGroups, isvcNodeGroup) {
+					// isvc has the nodegroup annotation and it's in the node groups this model is cached on
+					localModelPVCName = model.Name + "-" + isvcNodeGroup
+				} else {
+					// isvc has the nodegroup annotation, but it's not in node groups this model is cached on
+					// isvc is not considered cached in this case
+					continue
+				}
+			} else {
+				// isvc doesn't have the nodegroup annotation. Use the first node group from model cache
+				localModelPVCName = model.Name + "-" + model.Spec.NodeGroups[0]
+			}
+			// found matched local model cache for isvc
 			localModel = &models.Items[i]
 			break
 		}
 	}
 	if localModel == nil {
+		deleteLocalModelMetadata(isvc)
 		return
 	}
 	if isvc.Labels == nil {
@@ -485,11 +513,7 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 	}
 	isvc.Labels[constants.LocalModelLabel] = localModel.Name
 	isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = localModel.Spec.SourceModelUri
-	// Get node group from annotation when possible, otherwise fallback to use the first node group from localmodelcache
-	if nodeGroup, ok := isvc.Annotations[constants.NodeGroupAnnotationKey]; ok {
-		isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModel.Name + "-" + nodeGroup
-	} else {
-		isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModel.Name + "-" + localModel.Spec.NodeGroups[0]
-	}
+	isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModelPVCName
+
 	mutatorLogger.Info("LocalModelCache found", "model", localModel.Name, "namespace", isvc.Namespace, "isvc", isvc.Name)
 }

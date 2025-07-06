@@ -17,7 +17,6 @@ limitations under the License.
 package pod
 
 import (
-	"context"
 	"reflect"
 	"strings"
 	"testing"
@@ -168,6 +167,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -229,6 +234,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      StorageInitializerVolumeName,
@@ -291,6 +302,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      StorageInitializerVolumeName,
@@ -353,6 +370,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      StorageInitializerVolumeName,
@@ -414,6 +437,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
@@ -498,6 +527,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "<scheme-placeholder>://foo/bar",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -772,6 +807,12 @@ func TestCredentialInjection(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -872,6 +913,7 @@ func TestCredentialInjection(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env:  []corev1.EnvVar{{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"}},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -973,6 +1015,12 @@ func TestCredentialInjection(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "<scheme-placeholder>://foo/bar",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1068,6 +1116,7 @@ func TestCredentialInjection(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env:  []corev1.EnvVar{{Name: constants.RemoteStorageEnvVarName, Value: "<scheme-placeholder>://foo/bar"}},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1134,8 +1183,8 @@ func TestCredentialInjection(t *testing.T) {
 
 	builder := credentials.NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-		g.Expect(c.Create(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), scenario.sa)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
 
 		injector := &StorageInitializerInjector{
 			credentialBuilder: builder,
@@ -1149,8 +1198,8 @@ func TestCredentialInjection(t *testing.T) {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
 
-		g.Expect(c.Delete(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), scenario.sa)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
 	}
 }
 
@@ -1184,6 +1233,12 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1416,6 +1471,9 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1517,6 +1575,9 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1637,6 +1698,9 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1759,6 +1823,9 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1874,6 +1941,9 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1980,6 +2050,9 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{Name: constants.RemoteStorageEnvVarName, Value: "gs://foo"},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -2061,8 +2134,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 
 	builder := credentials.NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-		g.Expect(c.Create(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), scenario.sa)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
 
 		injector := &StorageInitializerInjector{
 			credentialBuilder: builder,
@@ -2076,8 +2149,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
 
-		g.Expect(c.Delete(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), scenario.sa)).NotTo(gomega.HaveOccurred())
 	}
 }
 
@@ -2111,6 +2184,12 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
@@ -2160,6 +2239,12 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
@@ -2210,6 +2295,12 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
@@ -2260,6 +2351,12 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
@@ -2350,6 +2447,10 @@ func TestTransformerCollocation(t *testing.T) {
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: constants.DefaultModelLocalMountPath,
 								},
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -2367,6 +2468,12 @@ func TestTransformerCollocation(t *testing.T) {
 						{
 							Name:  constants.TransformerContainerName,
 							Image: "test/image:latest",
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
@@ -2462,6 +2569,10 @@ func TestTransformerCollocation(t *testing.T) {
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: constants.DefaultModelLocalMountPath,
 								},
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -2475,6 +2586,12 @@ func TestTransformerCollocation(t *testing.T) {
 						{
 							Name:  constants.TransformerContainerName,
 							Image: "test/image:latest",
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
@@ -2533,6 +2650,10 @@ func TestTransformerCollocation(t *testing.T) {
 								{
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: constants.DefaultModelLocalMountPath,
+								},
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "pvc://mypvcname/some/path/on/pvc",
 								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
@@ -2646,17 +2767,17 @@ func TestGetStorageContainerSpec(t *testing.T) {
 		},
 	}
 
-	if err := c.Create(context.TODO(), &s3AzureSpec); err != nil {
+	if err := c.Create(t.Context(), &s3AzureSpec); err != nil {
 		t.Fatalf("unable to create cluster storage container: %v", err)
 	}
-	if err := c.Create(context.TODO(), &customSpec); err != nil {
+	if err := c.Create(t.Context(), &customSpec); err != nil {
 		t.Fatalf("unable to create cluster storage container: %v", err)
 	}
 	defer func() {
-		if err := c.Delete(context.TODO(), &s3AzureSpec); err != nil {
+		if err := c.Delete(t.Context(), &s3AzureSpec); err != nil {
 			t.Errorf("unable to delete cluster storage container: %v", err)
 		}
-		if err := c.Delete(context.TODO(), &customSpec); err != nil {
+		if err := c.Delete(t.Context(), &customSpec); err != nil {
 			t.Errorf("unable to delete cluster storage container: %v", err)
 		}
 	}()
@@ -2681,7 +2802,7 @@ func TestGetStorageContainerSpec(t *testing.T) {
 		var container *corev1.Container
 		var err error
 
-		if container, err = GetContainerSpecForStorageUri(context.Background(), scenario.storageUri, c); err != nil {
+		if container, err = GetContainerSpecForStorageUri(t.Context(), scenario.storageUri, c); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		g.Expect(container).To(gomega.Equal(scenario.expectedSpec))
@@ -2724,17 +2845,17 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}, {Regex: "https://(.+?).blob.core.windows.net/(.+)"}},
 		},
 	}
-	if err := c.Create(context.TODO(), &s3AzureSpec); err != nil {
+	if err := c.Create(t.Context(), &s3AzureSpec); err != nil {
 		t.Fatalf("unable to create cluster storage container: %v", err)
 	}
-	if err := c.Create(context.TODO(), &customSpec); err != nil {
+	if err := c.Create(t.Context(), &customSpec); err != nil {
 		t.Fatalf("unable to create cluster storage container: %v", err)
 	}
 	defer func() {
-		if err := c.Delete(context.TODO(), &s3AzureSpec); err != nil {
+		if err := c.Delete(t.Context(), &s3AzureSpec); err != nil {
 			t.Errorf("unable to delete cluster storage container: %v", err)
 		}
-		if err := c.Delete(context.TODO(), &customSpec); err != nil {
+		if err := c.Delete(t.Context(), &customSpec); err != nil {
 			t.Errorf("unable to delete cluster storage container: %v", err)
 		}
 	}()
@@ -2768,6 +2889,12 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "s3://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -2840,6 +2967,12 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "https://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -2989,76 +3122,79 @@ func TestInjectModelcar(t *testing.T) {
 
 	// Test when srcURI starts with OciURIPrefix
 	{
-		pod := createTestPodForModelcar()
+		testingPods := []*corev1.Pod{createTestPodForModelcar(), createTestWorkerPodForModelcar()}
 		mi := &StorageInitializerInjector{
 			config: &StorageInitializerConfig{},
 		}
-		err := mi.InjectModelcar(pod)
-		if err != nil {
-			t.Errorf("Expected nil error but got %v", err)
-		}
 
-		// Check that an emptyDir volume has been attached
-		if len(pod.Spec.Volumes) != 1 || pod.Spec.Volumes[0].Name != StorageInitializerVolumeName {
-			t.Errorf("Expected one volume with name %s, but got %v", StorageInitializerVolumeName, pod.Spec.Volumes)
-		}
-
-		// Check that a sidecar container has been injected
-		if len(pod.Spec.Containers) != 2 {
-			t.Errorf("Expected two containers but got %d", len(pod.Spec.Containers))
-		}
-
-		// Check that an init container has been injected, and it is the model container
-		switch {
-		case len(pod.Spec.InitContainers) != 1:
-			t.Errorf("Expected one init container but got %d", len(pod.Spec.InitContainers))
-		case pod.Spec.InitContainers[0].Name != ModelcarInitContainerName:
-			t.Errorf("Expected the init container to be the model but got %s", pod.Spec.InitContainers[0].Name)
-		default:
-			// Check that resources are correctly set.
-			if _, ok := pod.Spec.InitContainers[0].Resources.Limits[corev1.ResourceCPU]; !ok {
-				t.Error("The model container does not have CPU limit set")
-			}
-			if _, ok := pod.Spec.InitContainers[0].Resources.Limits[corev1.ResourceMemory]; !ok {
-				t.Error("The model container does not have Memory limit set")
-			}
-			if _, ok := pod.Spec.InitContainers[0].Resources.Requests[corev1.ResourceCPU]; !ok {
-				t.Error("The model container does not have CPU request set")
-			}
-			if _, ok := pod.Spec.InitContainers[0].Resources.Requests[corev1.ResourceMemory]; !ok {
-				t.Error("The model container does not have Memory request set")
+		for _, pod := range testingPods {
+			err := mi.InjectModelcar(pod)
+			if err != nil {
+				t.Errorf("Expected nil error but got %v", err)
 			}
 
-			// Check args
-			joinedArgs := strings.Join(pod.Spec.InitContainers[0].Args, " ")
-			if !strings.Contains(joinedArgs, "Prefetched") {
-				t.Errorf("The model container args are not correctly setup. Got: %s", joinedArgs)
+			// Check that an emptyDir volume has been attached
+			if len(pod.Spec.Volumes) != 1 || pod.Spec.Volumes[0].Name != StorageInitializerVolumeName {
+				t.Errorf("Expected one volume with name %s, but got %v", StorageInitializerVolumeName, pod.Spec.Volumes)
 			}
-		}
 
-		// Check that the user-container has an env var set
-		found := false
-		if pod.Spec.Containers[0].Env != nil {
-			for _, env := range pod.Spec.Containers[0].Env {
-				if env.Name == ModelInitModeEnv && env.Value == "async" {
-					found = true
-					break
+			// Check that a sidecar container has been injected
+			if len(pod.Spec.Containers) != 2 {
+				t.Errorf("Expected two containers but got %d", len(pod.Spec.Containers))
+			}
+
+			// Check that an init container has been injected, and it is the model container
+			switch {
+			case len(pod.Spec.InitContainers) != 1:
+				t.Errorf("Expected one init container but got %d", len(pod.Spec.InitContainers))
+			case pod.Spec.InitContainers[0].Name != ModelcarInitContainerName:
+				t.Errorf("Expected the init container to be the model but got %s", pod.Spec.InitContainers[0].Name)
+			default:
+				// Check that resources are correctly set.
+				if _, ok := pod.Spec.InitContainers[0].Resources.Limits[corev1.ResourceCPU]; !ok {
+					t.Error("The model container does not have CPU limit set")
+				}
+				if _, ok := pod.Spec.InitContainers[0].Resources.Limits[corev1.ResourceMemory]; !ok {
+					t.Error("The model container does not have Memory limit set")
+				}
+				if _, ok := pod.Spec.InitContainers[0].Resources.Requests[corev1.ResourceCPU]; !ok {
+					t.Error("The model container does not have CPU request set")
+				}
+				if _, ok := pod.Spec.InitContainers[0].Resources.Requests[corev1.ResourceMemory]; !ok {
+					t.Error("The model container does not have Memory request set")
+				}
+
+				// Check args
+				joinedArgs := strings.Join(pod.Spec.InitContainers[0].Args, " ")
+				if !strings.Contains(joinedArgs, "Prefetched") {
+					t.Errorf("The model container args are not correctly setup. Got: %s", joinedArgs)
 				}
 			}
-		}
-		if !found {
-			t.Errorf("Expected env var %s=async but did not find it", ModelInitModeEnv)
-		}
 
-		// Check volume mounts in both containers
-		if len(pod.Spec.Containers[0].VolumeMounts) != 1 || len(pod.Spec.Containers[1].VolumeMounts) != 1 {
-			t.Errorf("Expected one volume mount in each container but got user-container: %d, sidecar-container: %d",
-				len(pod.Spec.Containers[0].VolumeMounts), len(pod.Spec.Containers[1].VolumeMounts))
-		}
+			// Check that the user-container has an env var set
+			found := false
+			if pod.Spec.Containers[0].Env != nil {
+				for _, env := range pod.Spec.Containers[0].Env {
+					if env.Name == ModelInitModeEnv && env.Value == "async" {
+						found = true
+						break
+					}
+				}
+			}
+			if !found {
+				t.Errorf("Expected env var %s=async but did not find it", ModelInitModeEnv)
+			}
 
-		// Check ShareProcessNamespace
-		if pod.Spec.ShareProcessNamespace == nil || *pod.Spec.ShareProcessNamespace != true {
-			t.Errorf("Expected ShareProcessNamespace to be true but got %v", pod.Spec.ShareProcessNamespace)
+			// Check volume mounts in both containers
+			if len(pod.Spec.Containers[0].VolumeMounts) != 1 || len(pod.Spec.Containers[1].VolumeMounts) != 1 {
+				t.Errorf("Expected one volume mount in each container but got user-container: %d, sidecar-container: %d",
+					len(pod.Spec.Containers[0].VolumeMounts), len(pod.Spec.Containers[1].VolumeMounts))
+			}
+
+			// Check ShareProcessNamespace
+			if pod.Spec.ShareProcessNamespace == nil || *pod.Spec.ShareProcessNamespace != true {
+				t.Errorf("Expected ShareProcessNamespace to be true but got %v", pod.Spec.ShareProcessNamespace)
+			}
 		}
 	}
 }
@@ -3073,6 +3209,22 @@ func createTestPodForModelcar() *corev1.Pod {
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{Name: constants.InferenceServiceContainerName},
+			},
+		},
+	}
+	return pod
+}
+
+func createTestWorkerPodForModelcar() *corev1.Pod {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				constants.StorageInitializerSourceUriInternalAnnotationKey: OciURIPrefix + "myrepo/mymodelimage",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.WorkerContainerName},
 			},
 		},
 	}
@@ -3269,6 +3421,12 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3343,6 +3501,12 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3422,6 +3586,12 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3493,6 +3663,12 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3561,6 +3737,12 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3635,6 +3817,13 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
+
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3709,6 +3898,12 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3782,6 +3977,12 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3855,6 +4056,12 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3929,6 +4136,12 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.RemoteStorageEnvVarName,
+									Value: "gs://foo",
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -4068,6 +4281,12 @@ func TestLocalModelPVC(t *testing.T) {
 				Containers: []corev1.Container{
 					{
 						Name: constants.InferenceServiceContainerName,
+						Env: []corev1.EnvVar{
+							{
+								Name:  constants.RemoteStorageEnvVarName,
+								Value: scenario.storageUri,
+							},
+						},
 						VolumeMounts: []corev1.VolumeMount{
 							{
 								Name:      "kserve-pvc-source",

@@ -18,16 +18,18 @@ package keda
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
-	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	"github.com/pkg/errors"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -35,6 +37,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var log = logf.Log.WithName("KedaReconciler")
@@ -50,86 +53,130 @@ func NewKedaReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
+	configMap *corev1.ConfigMap,
 ) (*KedaReconciler, error) {
+	scaledObject, err := createKedaScaledObject(componentMeta, componentExt, configMap)
+	if err != nil {
+		return nil, err
+	}
 	return &KedaReconciler{
 		client:       client,
 		scheme:       scheme,
-		ScaledObject: createKedaScaledObject(componentMeta, componentExt),
+		ScaledObject: scaledObject,
 		componentExt: componentExt,
 	}, nil
 }
 
-func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
-) []kedav1alpha1.ScaleTriggers {
+func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, configMap *corev1.ConfigMap,
+) ([]kedav1alpha1.ScaleTriggers, error) {
 	var triggers []kedav1alpha1.ScaleTriggers
-
-	metricType := autoscalingv2.UtilizationMetricType
-	targetValue := int(constants.DefaultCPUUtilization)
 
 	// metric configuration from componentExtension.AutoScaling if it is set
 	if componentExt.AutoScaling != nil {
 		metrics := componentExt.AutoScaling.Metrics
 		for _, metric := range metrics {
-			if metric.Type == v1beta1.MetricSourceType(constants.AutoScalerResource) {
-				triggerType := string(*metric.Resource.Name)
-				metricType = autoscalingv2.MetricTargetType(metric.Resource.Target.Type)
-				if metricType == autoscalingv2.UtilizationMetricType {
-					targetValue = int(*metric.Resource.Target.AverageUtilization)
-				} else if metricType == autoscalingv2.AverageValueMetricType {
-					targetValue = int(metric.Resource.Target.AverageValue.AsApproximateFloat64())
+			switch metric.Type {
+			case v1beta1.ResourceMetricSourceType:
+				triggerType := string(metric.Resource.Name)
+				metricType := metric.Resource.Target.Type
+				targetValue := "0"
+				switch metricType {
+				case v1beta1.UtilizationMetricType:
+					averageUtil := metric.Resource.Target.AverageUtilization
+					if metric.Resource.Name == v1beta1.ResourceMetricCPU {
+						if metric.Resource.Target.AverageUtilization == nil {
+							averageUtil = &constants.DefaultCPUUtilization
+						}
+					}
+					if averageUtil != nil {
+						targetValue = strconv.Itoa(int(*averageUtil))
+					}
+				case v1beta1.AverageValueMetricType:
+					if metric.Resource.Target.AverageValue != nil {
+						targetValue = metric.Resource.Target.AverageValue.String()
+					}
+				case v1beta1.ValueMetricType:
+					if metric.Resource.Target.Value != nil {
+						targetValue = metric.Resource.Target.Value.String()
+					}
 				}
-
-				// create a trigger for the resource
 				triggers = append(triggers, kedav1alpha1.ScaleTriggers{
 					Type:       triggerType,
-					Metadata:   map[string]string{"value": strconv.Itoa(targetValue)},
-					MetricType: metricType,
+					Metadata:   map[string]string{"value": targetValue},
+					MetricType: autoscalingv2.MetricTargetType(metricType),
 				})
-			} else if metric.Type == v1beta1.MetricSourceType(constants.AutoScalerExternal) {
-				triggerType := string(*metric.External.Metric.Backend)
+			case v1beta1.ExternalMetricSourceType:
+				triggerType := string(metric.External.Metric.Backend)
 				serverAddress := metric.External.Metric.ServerAddress
 				query := metric.External.Metric.Query
-				targetValue = int(metric.External.Target.Value.AsApproximateFloat64())
 
-				// create a trigger for the external metric
 				trigger := kedav1alpha1.ScaleTriggers{
 					Type: triggerType,
 					Metadata: map[string]string{
 						"serverAddress": serverAddress,
 						"query":         query,
-						"threshold":     strconv.Itoa(targetValue),
+						"threshold":     fmt.Sprintf("%f", metric.External.Target.Value.AsApproximateFloat64()),
 					},
 				}
-				if triggerType == string(constants.AutoScalerMetricsPrometheus) {
-					if metric.External.Metric.Namespace != "" {
-						trigger.Metadata["namespace"] = metric.External.Metric.Namespace
+
+				if triggerType == string(constants.AutoScalerMetricsSourcePrometheus) && metric.External.Metric.Namespace != "" {
+					trigger.Metadata["namespace"] = metric.External.Metric.Namespace
+				}
+
+				if metric.External.Authentication != nil {
+					authModes := metric.External.Authentication.AuthModes
+					if authModes != "" {
+						trigger.Metadata["authModes"] = authModes
+					}
+					authRef := metric.External.Authentication.AuthenticationRef
+					if authRef.Name != "" {
+						trigger.AuthenticationRef = &kedav1alpha1.AuthenticationRef{
+							Name: authRef.Name,
+						}
+					}
+				}
+				triggers = append(triggers, trigger)
+			case v1beta1.PodMetricSourceType:
+				otelConfig, err := v1beta1.NewOtelCollectorConfig(configMap)
+				if err != nil {
+					return nil, err
+				}
+				MetricScalerEndpoint := otelConfig.MetricScalerEndpoint
+				if metric.PodMetric.Metric.ServerAddress != "" {
+					MetricScalerEndpoint = metric.PodMetric.Metric.ServerAddress
+				}
+
+				triggerType := string(metric.PodMetric.Metric.Backend)
+				query := metric.PodMetric.Metric.Query
+				targetValue := metric.PodMetric.Target.Value.AsApproximateFloat64()
+
+				trigger := kedav1alpha1.ScaleTriggers{
+					Metadata: map[string]string{},
+				}
+
+				if triggerType == string(constants.AutoScalerMetricsSourceOpenTelemetry) {
+					trigger.Type = "external"
+					trigger.Metadata = map[string]string{
+						"metricQuery":   query,
+						"targetValue":   fmt.Sprintf("%f", targetValue),
+						"scalerAddress": MetricScalerEndpoint,
+					}
+					if metric.PodMetric.Metric.OperationOverTime != "" {
+						trigger.Metadata["operationOverTime"] = metric.PodMetric.Metric.OperationOverTime
 					}
 				}
 
 				triggers = append(triggers, trigger)
 			}
 		}
-	} else if componentExt.ScaleMetric != nil {
-		triggerType := string(*componentExt.ScaleMetric)
-		if componentExt.ScaleMetricType != nil {
-			metricType = *componentExt.ScaleMetricType
-		}
-		if componentExt.ScaleTarget != nil {
-			targetValue = int(*componentExt.ScaleTarget)
-		}
-		triggers = append(triggers, kedav1alpha1.ScaleTriggers{
-			Type:       triggerType,
-			Metadata:   map[string]string{"value": strconv.Itoa(targetValue)},
-			MetricType: metricType,
-		})
 	}
-	return triggers
+	return triggers, nil
 }
 
 func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
-) *kedav1alpha1.ScaledObject {
-	triggers := getKedaMetrics(componentExtension)
+	configMap *corev1.ConfigMap,
+) (*kedav1alpha1.ScaledObject, error) {
 	annotations := componentMeta.GetAnnotations()
 
 	MinReplicas := componentExtension.MinReplicas
@@ -141,6 +188,10 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 
 	if MaxReplicas < *MinReplicas {
 		MaxReplicas = *MinReplicas
+	}
+	triggers, err := getKedaMetrics(componentExtension, configMap)
+	if err != nil {
+		return nil, err
 	}
 
 	scaledobject := &kedav1alpha1.ScaledObject{
@@ -160,30 +211,61 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 		},
 	}
 
-	return scaledobject
+	return scaledobject, nil
+}
+
+func semanticScaledObjectEquals(desired, existing *kedav1alpha1.ScaledObject) bool {
+	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec)
 }
 
 func (r *KedaReconciler) Reconcile(ctx context.Context) error {
 	desired := r.ScaledObject
+
 	existing := &kedav1alpha1.ScaledObject{}
+	getExistingErr := r.client.Get(ctx, types.NamespacedName{
+		Name:      desired.Name,
+		Namespace: desired.Namespace,
+	}, existing)
+	kedaIsNotFound := apierr.IsNotFound(getExistingErr)
 
-	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		log.Info("Updating KEDA ScaledObject", "namespace", desired.Namespace, "name", desired.Name)
-		if err := r.client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing); err != nil {
-			return err
-		}
-
-		return r.client.Update(ctx, existing)
-	})
-	if err != nil {
-		// Create scaledObject if it does not exist
-		if apierr.IsNotFound(err) {
-			log.Info("Creating KEDA ScaledObject", "namespace", desired.Namespace, "name", desired.Name)
-			return r.client.Create(ctx, desired)
-		}
-		return errors.Wrapf(err, "fails to reconcile KEDA scaledObject")
+	if getExistingErr != nil && !kedaIsNotFound {
+		return fmt.Errorf("failed to get existing KEDA autoscaler: %w", getExistingErr)
 	}
 
+	// ISVC is stopped, delete the httproute if it exists, otherwise, do nothing
+	forceStopRuntime := utils.GetForceStopRuntime(desired)
+	if (getExistingErr != nil && kedaIsNotFound) && forceStopRuntime {
+		return nil
+	}
+	if forceStopRuntime {
+		log.Info("Deleting KEDA Autoscaler", "namespace", existing.Namespace, "name", existing.Name)
+		if existing.GetDeletionTimestamp() == nil { // check if the autoscaler was already deleted
+			err := r.client.Delete(ctx, existing)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// Create or update the keda autoscaler to match the desired state
+	if getExistingErr != nil && kedaIsNotFound {
+		log.Info("Creating KEDA ScaledObject resource", "name", desired.Name)
+		if err := r.client.Create(ctx, desired); err != nil {
+			log.Error(err, "Failed to create KEDA ScaledObject", "name", desired.Name)
+			return err
+		}
+		return nil
+	}
+
+	// Set ResourceVersion which is required for update operation.
+	desired.ResourceVersion = existing.ResourceVersion
+	if !semanticScaledObjectEquals(desired, existing) {
+		log.Info("Updating KEDA ScaledObject resource", "name", desired.Name)
+		if err := r.client.Update(ctx, desired); err != nil {
+			log.Error(err, "Failed to update KEDA ScaledObject", "name", desired.Name)
+		}
+	}
 	return nil
 }
 

@@ -21,7 +21,6 @@ import kserve
 from huggingfaceserver.request_logger import RequestLogger
 from kserve import logging
 from kserve.logging import logger
-from kserve.model import PredictorConfig
 from kserve.storage import Storage
 
 from transformers import AutoConfig
@@ -148,18 +147,6 @@ parser.add_argument(
     "--disable_log_requests", action="store_true", help="Disable logging requests"
 )
 
-default_dtype = "float16" if torch.cuda.is_available() else "float32"
-if not vllm_available():
-    dtype_choices = ["auto", "float16", "float32", "bfloat16", "float", "half"]
-    parser.add_argument(
-        "--dtype",
-        required=False,
-        default="auto",
-        choices=dtype_choices,
-        help=f"data type to load the weights in. One of {dtype_choices}. "
-        f"Defaults to float16 for GPU and float32 for CPU systems",
-    )
-
 # The initial_args are required to determine whether the vLLM backend is enabled.
 initial_args, _ = parser.parse_known_args()
 model_id_or_path = get_model_id_or_path(initial_args)
@@ -182,14 +169,31 @@ else:
         "\n\nDefault: Unlimited",
     )
 
-args, _ = parser.parse_known_args()
+    # auto for vLLM uses FP16 even for an FP32 model while HF uses FP32 causing inconsistency.
+    # To ensure consistency b/w vLLM and HF,
+    # we use FP16 or the Model Config "torch_dtype" for auto as the default dtype in HF backend
+    # auto would use FP32 for CPU only instances.
+    # FP16, BF16 and FP32 if explicitly mentioned would use those data types
+    default_dtype = "float16" if torch.cuda.is_available() else "float32"
+    dtype_choices = ["auto", "float16", "float32", "bfloat16", "float", "half"]
+    hf_dtype_map = {
+        "float32": torch.float32,
+        "float16": torch.float16,
+        "bfloat16": torch.bfloat16,
+        "half": torch.float16,
+        "float": torch.float32,
+    }
+    parser.add_argument(
+        "--dtype",
+        required=False,
+        default="auto",
+        choices=dtype_choices,
+        help=f"data type to load the weights in. One of {dtype_choices}. "
+        f"Defaults to float16 for GPU and float32 for CPU systems",
+    )
 
-# auto for vLLM uses FP16 even for an FP32 model while HF uses FP32 causing inconsistency.
-# To ensure consistency b/w vLLM and HF, we use FP16 for auto on GPU instances
-# auto would use FP32 for CPU only instances.
-# FP16, BF16 and FP32 if explicitly mentioned would use those data types
-if "dtype" in args and args.dtype == "auto":
-    args.dtype = default_dtype
+
+args, _ = parser.parse_known_args()
 
 
 def load_model():
@@ -217,19 +221,26 @@ def load_model():
 
     else:
         kwargs = vars(args)
-        hf_dtype_map = {
-            "float32": torch.float32,
-            "float16": torch.float16,
-            "bfloat16": torch.bfloat16,
-            "half": torch.float16,
-            "float": torch.float32,
-        }
 
         model_config = AutoConfig.from_pretrained(
             str(model_id_or_path),
             revision=kwargs.get("model_revision", None),
             trust_remote_code=kwargs.get("trust_remote_code", False),
         )
+
+        # Convert dtype from string to torch dtype. Default to float16
+        dtype = kwargs.get("dtype", default_dtype)
+        if dtype == "auto":
+            if (
+                hasattr(model_config, "torch_dtype")
+                and model_config.torch_dtype is not None
+            ):
+                dtype = model_config.torch_dtype
+            else:
+                dtype = default_dtype
+
+        dtype = hf_dtype_map[dtype] if isinstance(dtype, str) else dtype
+
         if kwargs.get("task", None):
             try:
                 task = MLTask[kwargs["task"]]
@@ -245,9 +256,6 @@ def load_model():
             task = infer_task_from_model_architecture(model_config)
 
         if is_generative_task(task):
-            # Convert dtype from string to torch dtype. Default to float16
-            dtype = kwargs.get("dtype", default_dtype)
-            dtype = hf_dtype_map[dtype]
             logger.debug(f"Loading model in {dtype}")
 
             logger.info(f"Loading generative model for task '{task.name}' in {dtype}")
@@ -266,16 +274,6 @@ def load_model():
                 request_logger=request_logger,
             )
         else:
-            # Convert dtype from string to torch dtype. Default to float32
-            dtype = kwargs.get("dtype", default_dtype)
-            dtype = hf_dtype_map[dtype]
-
-            predictor_config = PredictorConfig(
-                args.predictor_host,
-                args.predictor_protocol,
-                args.predictor_use_ssl,
-                args.predictor_request_timeout_seconds,
-            )
             logger.info(f"Loading encoder model for task '{task.name}' in {dtype}")
             model = HuggingfaceEncoderModel(
                 model_name=args.model_name,
@@ -291,7 +289,6 @@ def load_model():
                 trust_remote_code=kwargs["trust_remote_code"],
                 tensor_input_names=kwargs.get("tensor_input_names", None),
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
-                predictor_config=predictor_config,
                 request_logger=request_logger,
                 return_probabilities=kwargs.get("return_probabilities", False),
             )
@@ -303,8 +300,14 @@ if __name__ == "__main__":
     if args.configure_logging:
         logging.configure_logging(args.log_config_file)
     try:
+        model_server = kserve.ModelServer()
         model = load_model()
-        kserve.ModelServer().start([model])
+        if is_vllm_backend_enabled(args, model_id_or_path):
+            # Register lora modules with the model server
+            if args.lora_modules:
+                for lora_module in args.lora_modules:
+                    model_server.register_model(model, lora_module.name)
+        model_server.start([model])
     except Exception as e:
         import sys
 

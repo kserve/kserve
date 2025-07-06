@@ -34,17 +34,21 @@ import (
 )
 
 const (
-	LoggerConfigMapKeyName         = "logger"
-	LoggerArgumentLogUrl           = "--log-url"
-	LoggerArgumentSourceUri        = "--source-uri"
-	LoggerArgumentMode             = "--log-mode"
-	LoggerArgumentInferenceService = "--inference-service"
-	LoggerArgumentNamespace        = "--namespace"
-	LoggerArgumentEndpoint         = "--endpoint"
-	LoggerArgumentComponent        = "--component"
-	LoggerArgumentCaCertFile       = "--logger-ca-cert-file"
-	LoggerArgumentTlsSkipVerify    = "--logger-tls-skip-verify"
-	LoggerArgumentMetadataHeaders  = "--metadata-headers"
+	LoggerConfigMapKeyName            = "logger"
+	LoggerArgumentLogUrl              = "--log-url"
+	LoggerArgumentSourceUri           = "--source-uri"
+	LoggerArgumentMode                = "--log-mode"
+	LoggerArgumentStorePath           = "--log-store-path"
+	LoggerArgumentStoreFormat         = "--log-store-format"
+	LoggerArgumentInferenceService    = "--inference-service"
+	LoggerArgumentNamespace           = "--namespace"
+	LoggerArgumentEndpoint            = "--endpoint"
+	LoggerArgumentComponent           = "--component"
+	LoggerArgumentCaCertFile          = "--logger-ca-cert-file"
+	LoggerArgumentTlsSkipVerify       = "--logger-tls-skip-verify"
+	LoggerArgumentMetadataHeaders     = "--metadata-headers"
+	LoggerArgumentMetadataAnnotations = "--metadata-annotations"
+	LoggerDefaultServiceAccountName   = "logger-sa"
 )
 
 type AgentConfig struct {
@@ -56,15 +60,16 @@ type AgentConfig struct {
 }
 
 type LoggerConfig struct {
-	Image         string `json:"image"`
-	CpuRequest    string `json:"cpuRequest"`
-	CpuLimit      string `json:"cpuLimit"`
-	MemoryRequest string `json:"memoryRequest"`
-	MemoryLimit   string `json:"memoryLimit"`
-	DefaultUrl    string `json:"defaultUrl"`
-	CaBundle      string `json:"caBundle"`
-	CaCertFile    string `json:"caCertFile"`
-	TlsSkipVerify bool   `json:"tlsSkipVerify"`
+	Image         string                     `json:"image"`
+	CpuRequest    string                     `json:"cpuRequest"`
+	CpuLimit      string                     `json:"cpuLimit"`
+	MemoryRequest string                     `json:"memoryRequest"`
+	MemoryLimit   string                     `json:"memoryLimit"`
+	DefaultUrl    string                     `json:"defaultUrl"`
+	CaBundle      string                     `json:"caBundle"`
+	CaCertFile    string                     `json:"caCertFile"`
+	TlsSkipVerify bool                       `json:"tlsSkipVerify"`
+	Store         *v1beta1.LoggerStorageSpec `json:"storage"`
 }
 
 type AgentInjector struct {
@@ -122,6 +127,17 @@ func getLoggerConfigs(configMap *corev1.ConfigMap) (*LoggerConfig, error) {
 		_, err := resource.ParseQuantity(key)
 		if err != nil {
 			return loggerConfig, fmt.Errorf("Failed to parse resource configuration for %q: %q", LoggerConfigMapKeyName, err.Error())
+		}
+	}
+	if loggerConfig.Store != nil {
+		log.Info("Using inference-service logger store configuration", "Store", loggerConfig.Store)
+		if loggerConfig.Store.StorageKey == nil || *loggerConfig.Store.StorageKey == "" {
+			storageKey := constants.LoggerDefaultStorageKey
+			loggerConfig.Store.StorageKey = &storageKey
+		}
+		if loggerConfig.Store.ServiceAccountName == nil || *loggerConfig.Store.ServiceAccountName == "" {
+			saName := constants.LoggerDefaultServiceAccountName
+			loggerConfig.Store.ServiceAccountName = &saName
 		}
 	}
 	return loggerConfig, nil
@@ -190,7 +206,21 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		namespace := pod.ObjectMeta.Namespace
 		endpoint := pod.ObjectMeta.Labels[constants.KServiceEndpointLabel]
 		component := pod.ObjectMeta.Labels[constants.KServiceComponentLabel]
-
+		storagePath := ""
+		if ag.loggerConfig.Store != nil {
+			if ag.loggerConfig.Store.Path != nil {
+				storagePath = *ag.loggerConfig.Store.Path
+			}
+		}
+		storageFormat := ""
+		if ag.loggerConfig.Store != nil {
+			if ag.loggerConfig.Store.Parameters != nil {
+				format, ok := (*ag.loggerConfig.Store.Parameters)[constants.LoggerFormatKey]
+				if ok {
+					storageFormat = format
+				}
+			}
+		}
 		loggerArgs := []string{
 			LoggerArgumentLogUrl,
 			logUrl,
@@ -207,10 +237,32 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			LoggerArgumentComponent,
 			component,
 		}
+		if storagePath != "" {
+			loggerArgs = append(loggerArgs, LoggerArgumentStorePath)
+			loggerArgs = append(loggerArgs, storagePath)
+		}
+		if storageFormat != "" {
+			loggerArgs = append(loggerArgs, LoggerArgumentStoreFormat)
+			loggerArgs = append(loggerArgs, storageFormat)
+		}
 		logHeaderMetadata, ok := pod.ObjectMeta.Annotations[constants.LoggerMetadataHeadersInternalAnnotationKey]
 		if ok {
 			loggerArgs = append(loggerArgs, LoggerArgumentMetadataHeaders)
 			loggerArgs = append(loggerArgs, logHeaderMetadata)
+		}
+		logMetadataAnnotations, ok := pod.ObjectMeta.Annotations[constants.LoggerMetadataAnnotationsInternalAnnotationKey]
+		if ok {
+			annotationKeys := strings.Split(logMetadataAnnotations, ",")
+			kvPairs := []string{}
+			for _, metadataAnnotation := range annotationKeys {
+				val, exists := pod.ObjectMeta.Annotations[metadataAnnotation]
+				if exists {
+					kvPairs = append(kvPairs, fmt.Sprintf("%s=%s", metadataAnnotation, val))
+				} else {
+					klog.Warningf("failed to find matching annotation %s on inference service", metadataAnnotation)
+				}
+			}
+			loggerArgs = append(loggerArgs, LoggerArgumentMetadataAnnotations, strings.Join(kvPairs, ","))
 		}
 		args = append(args, loggerArgs...)
 
@@ -371,6 +423,22 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		&pod.Spec.Volumes,
 	); err != nil {
 		return err
+	}
+
+	if injectLogger && ag.loggerConfig.Store != nil {
+		saName := LoggerDefaultServiceAccountName
+		if ag.loggerConfig.Store.ServiceAccountName != nil {
+			saName = *ag.loggerConfig.Store.ServiceAccountName
+		}
+		if err := ag.credentialBuilder.CreateSecretVolumeAndEnv(
+			pod.Namespace,
+			pod.Annotations,
+			saName,
+			agentContainer,
+			&pod.Spec.Volumes,
+		); err != nil {
+			return err
+		}
 	}
 
 	// Add container to the spec

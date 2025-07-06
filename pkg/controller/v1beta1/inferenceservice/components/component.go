@@ -37,7 +37,7 @@ type Component interface {
 	Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error)
 }
 
-func addStorageSpecAnnotations(storageSpec *v1beta1.StorageSpec, annotations map[string]string) bool {
+func addStorageSpecAnnotations(storageSpec *v1beta1.ModelStorageSpec, annotations map[string]string) bool {
 	if storageSpec == nil {
 		return false
 	}
@@ -67,6 +67,9 @@ func addLoggerAnnotations(logger *v1beta1.LoggerSpec, annotations map[string]str
 
 		if logger.MetadataHeaders != nil {
 			annotations[constants.LoggerMetadataHeadersInternalAnnotationKey] = strings.Join(logger.MetadataHeaders, ",")
+		}
+		if logger.MetadataAnnotations != nil {
+			annotations[constants.LoggerMetadataAnnotationsInternalAnnotationKey] = strings.Join(logger.MetadataAnnotations, ",")
 		}
 	}
 }
