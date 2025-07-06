@@ -142,11 +142,11 @@ generate: controller-gen helm-docs
 	hack/python-sdk/client-gen.sh
 	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md
 
-# Update poetry.lock files
-poetry-lock: $(POETRY)
+# Update uv.lock files
+uv-lock: $(UV)
 # Update the kserve package first as other packages depends on it.
 	cd ./python && \
-	cd kserve && $(POETRY) lock --no-update && cd .. && \
+	cd kserve && $(UV) lock && cd .. && \
 	for file in $$(find . -type f -name "pyproject.toml" -not -path "./pyproject.toml" -not -path "*.venv/*"); do \
 		folder=$$(dirname "$$file"); \
 		echo "moving into folder $$folder"; \
@@ -154,12 +154,13 @@ poetry-lock: $(POETRY)
 			*plugin*|plugin|kserve) \
 				echo -e "\033[33mSkipping folder $$folder\033[0m" ;; \
 			*) \
-				cd "$$folder" && $(POETRY) lock --no-update && cd - > /dev/null ;; \
+				cd "$$folder" && $(UV) lock && cd - > /dev/null ;; \
 		esac; \
 	done
 
+
 # This runs all necessary steps to prepare for a commit.
-precommit: vet tidy go-lint py-fmt py-lint generate manifests poetry-lock
+precommit: vet tidy go-lint py-fmt py-lint generate manifests uv-lock
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit
@@ -406,5 +407,3 @@ apidocs:
 check-doc-links:
 	@python3 hack/verify-doc-links.py && echo "$@: OK"
 
-poetry-update-lockfiles:
-	bash -ec 'for value in $$(find . -name poetry.lock -exec dirname {} \;); do (cd "$${value}" && echo "Updating $${value}/poetry.lock" && poetry update --lock); done'
