@@ -10,9 +10,11 @@ on:
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: true
+
 permissions:
     contents: write
     pull-requests: write
+
 jobs:
     test:
         name: Test
@@ -144,7 +146,8 @@ jobs:
                 echo "Current Coverage ${{ steps.current-coverage.outputs.coverage }}"
 
             - name: post coverage report
-              if: github.event_name == 'pull_request'
+              # this has evalated permission to post back the coverage, only restricted to this step.
+              if: github.event_name == 'pull_request_target'
               uses: thollander/actions-comment-pull-request@v3
               with:
                 github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -173,6 +176,7 @@ jobs:
                   ```
 
                   </details>
+
             - name: Rename and upload master coverage
               if: github.ref_name == 'master'
               run: mv coverage.out master-coverage.out

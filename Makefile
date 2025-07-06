@@ -30,8 +30,10 @@ ERROR_404_ISVC_IMG ?= error-404-isvc
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
 
+ENVTEST ?= $(LOCALBIN)/setup-envtest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.29
+ENVTEST_VERSION ?= $(shell go list -m -f "{{ .Version }}" sigs.k8s.io/controller-runtime | awk -F'[v.]' '{printf "release-%d.%d", $$2, $$3}')
+ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ .Version }}" k8s.io/api | awk -F'[v.]' '{printf "1.%d", $$3}')
 
 ENGINE ?= docker
 # Empty string for local build when using podman, it allows to build different architectures
@@ -48,12 +50,20 @@ export GOFLAGS=-mod=mod
 
 all: test manager agent router
 
+.PHONY: setup-envtest
+setup-envtest: envtest
+	@echo "Setting up envtest binaries for Kubernetes version $(ENVTEST_K8S_VERSION)..."
+	@$(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path || { \
+		echo "Error: Failed to set up envtest binaries for version $(ENVTEST_K8S_VERSION)."; \
+		exit 1; \
+		}
+
 # Run go fmt against code
 fmt:
 	go fmt ./pkg/... ./cmd/... && cd qpext && go fmt ./...
 
 py-fmt: $(BLACK_FMT)
-	$(BLACK_FMT) --config python/pyproject.toml .
+	$(BLACK_FMT) --config python/pyproject.toml ./python ./docs
 
 # Run go vet against code
 vet:
