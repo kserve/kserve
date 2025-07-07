@@ -1,4 +1,3 @@
-{{- if .Values.kserve.llmisvc.configs.template.enabled }}
 apiVersion: serving.kserve.io/v1alpha1
 kind: LLMInferenceServiceConfig
 metadata:
@@ -39,4 +38,3 @@ spec:
     terminationGracePeriodSeconds: {{ .Values.kserve.llmisvc.configs.template.terminationGracePeriodSeconds }}
     volumes:
       {{- toYaml .Values.kserve.llmisvc.configs.template.volumes | nindent 6 }}
-{{- end }}

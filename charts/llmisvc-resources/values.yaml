@@ -210,9 +210,6 @@ kserve:
 
       # -- Main VLLM template configuration
       template:
-        # -- Whether to create the LLM template config
-        enabled: true
-
         # -- Container image for VLLM
         image:
           repository: ghcr.io/llm-d/llm-d
@@ -293,9 +290,6 @@ kserve:
 
       # -- Inference scheduler configuration
       scheduler:
-        # -- Whether to create the scheduler config
-        enabled: true
-
         # -- Container image for inference scheduler
         image:
           repository: ghcr.io/llm-d/llm-d-inference-scheduler
@@ -408,9 +402,6 @@ kserve:
 
       # -- Decode template configuration
       decodeTemplate:
-        # -- Whether to create the decode template config
-        enabled: true
-
         # -- Container image for VLLM decode
         image:
           repository: ghcr.io/llm-d/llm-d
@@ -515,9 +506,6 @@ kserve:
 
       # -- Prefill template configuration
       prefillTemplate:
-        # -- Whether to create the prefill template config
-        enabled: true
-
         # -- Container image for VLLM prefill
         image:
           repository: ghcr.io/llm-d/llm-d
@@ -601,9 +589,6 @@ kserve:
 
       # -- Router route configuration
       routerRoute:
-        # -- Whether to create the router route config
-        enabled: true
-
         # -- HTTP route configuration
         http:
           # -- Parent gateway configuration
@@ -634,13 +619,8 @@ kserve:
 
       # -- Worker data parallel configurations
       workers:
-        # -- Whether to create worker configs
-        enabled: true
-
         # -- Decode worker data parallel config
         decode:
-          enabled: true
-
           # -- Container image for VLLM decode worker
           image:
             repository: ghcr.io/llm-d/llm-d
@@ -732,8 +712,6 @@ kserve:
 
         # -- Prefill worker data parallel config
         prefill:
-          enabled: true
-
           # -- Container image for VLLM prefill worker
           image:
             repository: ghcr.io/llm-d/llm-d
@@ -807,8 +785,6 @@ kserve:
 
         # -- Generic worker data parallel config
         worker:
-          enabled: true
-
           # -- Container image for VLLM generic worker
           image:
             repository: ghcr.io/llm-d/llm-d

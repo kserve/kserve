@@ -1,4 +1,3 @@
-{{- if .Values.kserve.llmisvc.configs.scheduler.enabled }}
 apiVersion: serving.kserve.io/v1alpha1
 kind: LLMInferenceServiceConfig
 metadata:
@@ -45,4 +44,3 @@ spec:
         dnsPolicy: ClusterFirst
         restartPolicy: Always
         terminationGracePeriodSeconds: {{ .Values.kserve.llmisvc.configs.scheduler.terminationGracePeriodSeconds }}
-{{- end }}

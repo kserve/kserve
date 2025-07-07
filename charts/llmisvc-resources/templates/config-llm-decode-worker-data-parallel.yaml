@@ -1,4 +1,3 @@
-{{- if and .Values.kserve.llmisvc.configs.workers.enabled .Values.kserve.llmisvc.configs.workers.decode.enabled }}
 apiVersion: serving.kserve.io/v1alpha1
 kind: LLMInferenceServiceConfig
 metadata:
@@ -88,4 +87,3 @@ spec:
     terminationGracePeriodSeconds: {{ .Values.kserve.llmisvc.configs.workers.decode.terminationGracePeriodSeconds }}
     volumes:
       {{- toYaml .Values.kserve.llmisvc.configs.workers.decode.volumes | nindent 6 }}
-{{- end }}

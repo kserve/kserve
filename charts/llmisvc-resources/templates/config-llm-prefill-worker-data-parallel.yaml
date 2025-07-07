@@ -1,4 +1,3 @@
-{{- if and .Values.kserve.llmisvc.configs.workers.enabled .Values.kserve.llmisvc.configs.workers.prefill.enabled }}
 apiVersion: serving.kserve.io/v1alpha1
 kind: LLMInferenceServiceConfig
 metadata:
@@ -78,4 +77,3 @@ spec:
       terminationGracePeriodSeconds: {{ .Values.kserve.llmisvc.configs.workers.prefill.terminationGracePeriodSeconds }}
       volumes:
         {{- toYaml .Values.kserve.llmisvc.configs.workers.prefill.volumes | nindent 8 }}
-{{- end }}
