@@ -43,7 +43,7 @@ jobs:
           # Bump Versions
           make bump-version
           ./hack/generate-install.sh $RELEASE_TAG
-          make poetry-lock
+          make uv-lock
 
           # Update Release Branch and Push Tag
           git diff

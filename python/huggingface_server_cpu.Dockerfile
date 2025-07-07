@@ -18,7 +18,8 @@ RUN apt-get update && \
         numactl \
         python3.10-dev \
         python3.10-venv \
-        python3-pip && \
+        python3-pip \
+        curl && \
     apt-get clean && \
     apt-get autoclean && \
     apt-get autoremove -y && \
@@ -30,10 +31,11 @@ RUN ln -sf "$(which ${PYTHON})" /usr/bin/python
 
 FROM base AS builder
 
-# Install Poetry
-ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.8.3
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+ln -s /root/.local/bin/uv /usr/local/bin/uv
 
+# Install build dependencies
 RUN --mount=type=cache,target=/var/cache/apt \
     apt-get update && \
     apt-get install --no-install-recommends --fix-missing -y \
@@ -43,39 +45,37 @@ RUN --mount=type=cache,target=/var/cache/apt \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN python -m venv ${POETRY_HOME} && \
-    ${POETRY_HOME}/bin/pip install --no-cache-dir --upgrade pip && \
-    ${POETRY_HOME}/bin/pip install --no-cache-dir poetry==${POETRY_VERSION}
-ENV PATH="$PATH:${POETRY_HOME}/bin"
-
 # Activate virtual env
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python -m venv $VIRTUAL_ENV
+RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
 ARG TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
 ARG IPEX_EXTRA_INDEX_URL="https://pytorch-extension.intel.com/release-whl/stable/cpu/us/"
 ARG TORCH_VERSION=2.7.0
+ARG INTEL_EXTENSION_FOR_PYTORCH_VERSION=2.7.0
 ARG TORCHVISION_VERSION=0.22.0
 
-# Install kserve
+# Install kserve using UV
 COPY kserve kserve
 RUN cd kserve && \
-    poetry install --no-interaction --no-cache && rm -rf ~/.cache/pypoetry
+    uv sync --active --no-cache && \
+    uv cache clean && \
+    rm -rf ~/.cache/uv
 
-# Install huggingfaceserver
+# Install huggingfaceserver using UV
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && \
-    poetry source add --priority=supplemental pytorch-cpu ${TORCH_EXTRA_INDEX_URL} && \
-    poetry add --source pytorch-cpu \
-        'torch~='${TORCH_VERSION} \
-        'torchaudio~='${TORCH_VERSION} \
-        'torchvision~='${TORCHVISION_VERSION} && \
-    poetry lock --no-update && \
-    poetry install --no-interaction --no-cache && rm -rf ~/.cache/pypoetry
-
-RUN pip install --no-cache-dir --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-index-url ${IPEX_EXTRA_INDEX_URL} \
-    'intel_extension_for_pytorch~='${TORCH_VERSION} \
+    uv pip install --no-cache-dir --index-url ${TORCH_EXTRA_INDEX_URL} \
+        torch==${TORCH_VERSION} \
+        torchvision \
+        torchaudio && \
+    uv sync --active --no-cache && \
+    uv cache clean && \
+    rm -rf ~/.cache/uv
+RUN pip install --no-cache --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-index-url ${IPEX_EXTRA_INDEX_URL} \
+    'intel_extension_for_pytorch~='${INTEL_EXTENSION_FOR_PYTORCH_VERSION} \
     intel-openmp
 
 # install vllm
@@ -86,12 +86,30 @@ ARG VLLM_CPU_AVX512BF16=1
 ENV VLLM_CPU_AVX512BF16=${VLLM_CPU_AVX512BF16}
 ARG VLLM_TARGET_DEVICE=cpu
 ENV VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE}
-RUN git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-project/vllm.git && \
-    cd vllm && \
-    pip install --no-cache-dir -v -r requirements/build.txt && \
-    pip install --no-cache-dir -v -r requirements/cpu.txt && \
-    python setup.py bdist_wheel && \
-    pip install --no-cache-dir dist/vllm-${VLLM_VERSION}*.whl
+# Clone vLLM repo
+RUN git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-project/vllm.git
+
+# Install vLLM build requirements
+RUN cd vllm && \
+    uv pip install --no-cache -v -r requirements/build.txt && \
+    uv cache clean
+
+# Install vLLM cpu requirements
+RUN cd vllm && \
+    uv pip install --no-cache -v --index-strategy unsafe-best-match -r requirements/cpu.txt && \
+    uv cache clean
+
+# Build vLLM wheel
+RUN cd vllm && \
+    python setup.py bdist_wheel
+
+# Install built vLLM wheel
+RUN uv pip install --no-cache vllm/dist/vllm-${VLLM_VERSION}*.whl
+
+# Cleanup vllm source code and caches
+RUN rm -rf /vllm /root/.cache/uv /root/.cache/pip /tmp/*
+
+RUN df -hT
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
@@ -117,6 +135,8 @@ COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder --chown=kserve:kserve huggingfaceserver huggingfaceserver
 COPY --from=builder --chown=kserve:kserve kserve kserve
 
+RUN df -hT
+
 # Set a writable Hugging Face home folder to avoid permission issue. See https://github.com/kserve/kserve/issues/3562
 ENV HF_HOME="/tmp/huggingface"
 # https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables#hfhubdisabletelemetry
@@ -126,4 +146,5 @@ ENV HF_HUB_DISABLE_TELEMETRY="1"
 ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libtcmalloc.so.4:/usr/lib/x86_64-linux-gnu/libjemalloc.so.2:${LD_PRELOAD}
 
 USER 1000
+ENV PYTHONPATH=/huggingfaceserver
 ENTRYPOINT ["python", "-m", "huggingfaceserver"]
