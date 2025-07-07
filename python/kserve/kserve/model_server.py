@@ -24,6 +24,7 @@ from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
 
 from . import logging
+from . import context as kserve_context
 from .constants.constants import (
     DEFAULT_HTTP_PORT,
     DEFAULT_GRPC_PORT,
@@ -32,7 +33,8 @@ from .constants.constants import (
 )
 from .errors import NoModelReady
 from .logging import logger
-from .model import BaseKServeModel, PredictorConfig
+from .model import BaseKServeModel
+from .predictor_config import PredictorConfig
 from .model_repository import ModelRepository
 from .protocol.dataplane import DataPlane
 from .protocol.grpc.server import GRPCServer
@@ -261,9 +263,11 @@ class ModelServer:
                 predictor_request_retries=args.predictor_request_retries,
                 predictor_health_check=args.enable_predictor_health_check,
             )
-        self.dataplane = DataPlane(
-            model_registry=self.registered_models, predictor_config=_predictor_config
-        )
+
+        # Set the predictor config in the global context
+        kserve_context.set_predictor_config(_predictor_config)
+
+        self.dataplane = DataPlane(model_registry=self.registered_models)
         self._rest_server = None
         self._rest_multiprocess_server = None
         self._grpc_server = None
