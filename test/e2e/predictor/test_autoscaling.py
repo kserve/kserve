@@ -41,6 +41,8 @@ from kserve import (
 
 from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict_isvc
+import time
+import asyncio
 
 TARGET = "autoscaling.knative.dev/target"
 METRIC = "autoscaling.knative.dev/metric"
@@ -564,8 +566,10 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
 @pytest.mark.asyncio(scope="session")
 async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_layer):
     """
-    Test KEDA-Otel-Add-On autoscaling with InferenceService (auto_scaling) spec
+    Test KEDA-Otel-Add-On autoscaling with InferenceService (auto_scaling) spec,
+    including scale up and scale down behavior by generating load.
     """
+
     service_name = "isvc-sklearn-keda-otel-add-on"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -616,6 +620,7 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     api_instance = kserve_client.api_instance
 
+    # Check Otel Collector config
     otelp_collector_resp = api_instance.list_namespaced_custom_object(
         group="opentelemetry.io",
         version="v1beta1",
@@ -635,9 +640,9 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
         ][0]
         == "localhost:8080"
     )
-
     assert otel_exporter["otlp"]["endpoint"] == "keda-otel-scaler.keda.svc:4317"
 
+    # Check KEDA ScaledObject
     scaledobject_resp = api_instance.list_namespaced_custom_object(
         group="keda.sh",
         version="v1alpha1",
@@ -652,8 +657,57 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
     assert trigger_metadata["metricQuery"] == 'sum(http_requests_per_second{namespace="kserve-ci-e2e-test", deployment="isvc-sklearn-keda-otel-add-on-predictor"})'
     assert trigger_metadata["scalerAddress"] == "keda-otel-scaler.keda.svc:4318"
     assert trigger_metadata["targetValue"] == "50.000000"
-    res = await predict_isvc(
-        rest_v1_client, service_name, INPUT, network_layer=network_layer
-    )
-    assert res["predictions"] == [1, 1]
+
+    # Generate load to trigger scale up
+    async def send_load(num_requests, concurrency=5):
+        sem = asyncio.Semaphore(concurrency)
+
+        async def send_one():
+            async with sem:
+                res = await predict_isvc(
+                    rest_v1_client, service_name, INPUT, network_layer=network_layer
+                )
+                assert res["predictions"] == [1, 1]
+
+        await asyncio.gather(*(send_one() for _ in range(num_requests)))
+
+    # Initial pod count should be min_replicas
+    def get_pod_count():
+        pods = kserve_client.core_api.list_namespaced_pod(
+            KSERVE_TEST_NAMESPACE,
+            label_selector=f"serving.kserve.io/inferenceservice={service_name}",
+        )
+        return len([p for p in pods.items if p.status.phase == "Running"])
+
+    # Wait for pod count to reach expected value, with timeout
+    def wait_for_pod_count(expected, timeout=180):
+        start = time.time()
+        while time.time() - start < timeout:
+            count = get_pod_count()
+            if count >= expected:
+                return True
+            time.sleep(5)
+        return False
+
+    # Check initial pod count
+    assert get_pod_count() == 1
+
+    # Send enough load to trigger scale up
+    await send_load(100, concurrency=10)
+    scaled_up = wait_for_pod_count(2, timeout=600)
+    assert scaled_up, "Failed to scale up pods"
+
+    # Wait for scale down (after load stops)
+    def wait_for_scale_down(expected=1, timeout=300):
+        start = time.time()
+        while time.time() - start < timeout:
+            count = get_pod_count()
+            if count <= expected:
+                return True
+            time.sleep(10)
+        return False
+
+    scaled_down = wait_for_scale_down(expected=1, timeout=500)
+    assert scaled_down, "Failed to scale down pods"
+
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
