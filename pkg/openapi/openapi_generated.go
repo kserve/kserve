@@ -68,6 +68,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelList":              schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelSpec":              schema_pkg_apis_serving_v1alpha1_TrainedModelSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec":               schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AuthenticationRef":              schema_pkg_apis_serving_v1beta1_AuthenticationRef(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec":                schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher":                        schema_pkg_apis_serving_v1beta1_Batcher(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentExtensionSpec":         schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref),
@@ -80,6 +81,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerExtensionSpec":         schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec":                  schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainersConfig":               schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExtMetricAuthentication":        schema_pkg_apis_serving_v1beta1_ExtMetricAuthentication(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource":           schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetrics":                schema_pkg_apis_serving_v1beta1_ExternalMetrics(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.FailureInfo":                    schema_pkg_apis_serving_v1beta1_FailureInfo(ref),
@@ -2568,6 +2570,27 @@ func schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref common.ReferenceCallba
 		},
 		Dependencies: []string{
 			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_AuthenticationRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is the name of the authentication secret",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				
+			},
+		},
 	}
 }
 
@@ -5285,6 +5308,35 @@ func schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref common.ReferenceCallba
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_ExtMetricAuthentication(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"authenticationRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "authenticationRef is a reference to the authentication information for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AuthenticationRef"),
+						},
+					},
+					"authModes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "authModes defines the authentication modes for the metrics backend possible values are bearer, basic, tls. for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"authenticationRef"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AuthenticationRef"},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -5296,6 +5348,12 @@ func schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref common.ReferenceCa
 							Description: "metric identifies the target metric by name and selector",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetrics"),
+						},
+					},
+					"authenticationRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "authenticationRef is a reference to the authentication information for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExtMetricAuthentication"),
 						},
 					},
 					"target": {
@@ -5310,7 +5368,7 @@ func schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetrics", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExtMetricAuthentication", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetrics", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"},
 	}
 }
 
