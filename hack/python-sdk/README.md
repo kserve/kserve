@@ -25,10 +25,10 @@ After the script execution, the Python SDK is generated in the `python/kserve` d
 
 Navigate to `python/kserve` directory from the root folder.
 
-1. Install `poetry`:
+1. Install `UV`:
 
    ```bash
-   pip install poetry
+   pip install uv
    ```
 
 2. Update the Python SDK version in the [pyproject.toml](../../python/kserve/pyproject.toml).
@@ -36,24 +36,12 @@ Navigate to `python/kserve` directory from the root folder.
 3. Create some distributions in the normal way:
 
     ```bash
-    poetry build 
+    uv build
     ```
-4. Configure Test PyPI [Credentials in Poetry](https://python-poetry.org/docs/repositories/#configuring-credentials):
-   ```bash
-   poetry config repositories.test-pypi https://test.pypi.org/legacy/
-   ```
-   ```bash
-   poetry config http-basic.test-pypi <username> <password>
-   ```
-5. Upload with poetry to [Test PyPI](https://packaging.python.org/guides/using-testpypi/) and verify things look right:
+4. Publish with uv to [Test PyPI](https://packaging.python.org/guides/using-testpypi/) and verify things look right:
     ```bash
-    poetry publish -r test-pypi
-    ```
-6. Configure PyPI [Credentials in Poetry](https://python-poetry.org/docs/repositories/#configuring-credentials):
-   ```bash
-   poetry config http-basic.pypi <username> <password>
-   ```
-7. Upload to [PyPI](https://pypi.org/search/?q=kserve):
-    ```bash
-    poetry publish
+    uv publish \
+      --publish-url https://test.pypi.org/legacy/ \
+      --token your_testpypi_api_token_here \
+      dist/*
     ```

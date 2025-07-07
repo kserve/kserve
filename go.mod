@@ -33,9 +33,9 @@ require (
 	istio.io/api v1.24.2
 	istio.io/client-go v1.24.2
 	k8s.io/api v0.33.1
-	k8s.io/apimachinery v0.33.1
+	k8s.io/apimachinery v0.33.2
 	k8s.io/client-go v0.33.1
-	k8s.io/code-generator v0.33.1
+	k8s.io/code-generator v0.33.2
 	k8s.io/component-helpers v0.32.1
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff

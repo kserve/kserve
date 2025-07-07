@@ -24,11 +24,9 @@ RUN apt-get update -y \
     && python3 --version && python3 -m pip --version \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.8.3
-RUN --mount=type=cache,target=/root/.cache/pip curl -sSL https://install.python-poetry.org | python3 - --version $POETRY_VERSION -y
-ENV PATH="$PATH:${POETRY_HOME}/bin"
+# Install uv and ensure it's in PATH
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
 # Workaround for https://github.com/openai/triton/issues/2507 and
 # https://github.com/pytorch/pytorch/issues/107960 -- hopefully
@@ -67,15 +65,15 @@ ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
 
 # From this point, all Python packages will be installed in the virtual environment and copied to the final image
 
-COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN --mount=type=cache,target=/root/.cache/pypoetry cd kserve && poetry install --no-root --no-interaction --no-cache
-COPY kserve kserve
-RUN --mount=type=cache,target=/root/.cache/pypoetry cd kserve && poetry install --no-interaction --no-cache
+COPY kserve/pyproject.toml kserve/uv.lock kserve/
+RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
+COPY kserve kserve  
+RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
 
-COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/health_check.py huggingfaceserver/
-RUN --mount=type=cache,target=/root/.cache/pypoetry cd huggingfaceserver && poetry install --no-root --no-interaction
+COPY huggingfaceserver/pyproject.toml huggingfaceserver/uv.lock huggingfaceserver/health_check.py huggingfaceserver/
+RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv sync --active --no-cache
 COPY huggingfaceserver huggingfaceserver
-RUN --mount=type=cache,target=/root/.cache/pypoetry cd huggingfaceserver && poetry install --no-interaction --no-cache
+RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv sync --active --no-cache
 
 # Install vllm
 # https://docs.vllm.ai/en/latest/models/extensions/runai_model_streamer.html, https://docs.vllm.ai/en/latest/models/extensions/tensorizer.html
@@ -122,6 +120,7 @@ ARG VENV_PATH
 ENV VIRTUAL_ENV=${WORKSPACE_DIR}/${VENV_PATH}
 ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
 
+# Create non-root user
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
 COPY --from=build --chown=kserve:kserve ${WORKSPACE_DIR}/third_party third_party
@@ -142,5 +141,6 @@ ENV VLLM_NCCL_SO_PATH="/lib/x86_64-linux-gnu/libnccl.so.2"
 ENV VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
 USER 1000
+ENV PYTHONPATH=/huggingfaceserver
 ENTRYPOINT ["python3", "-m", "huggingfaceserver"]
 #################### PROD IMAGE ####################
