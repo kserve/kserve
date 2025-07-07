@@ -661,12 +661,14 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
     # Generate load to trigger scale up
     async def send_load(num_requests, concurrency=5):
         sem = asyncio.Semaphore(concurrency)
+
         async def send_one():
             async with sem:
                 res = await predict_isvc(
                     rest_v1_client, service_name, INPUT, network_layer=network_layer
                 )
                 assert res["predictions"] == [1, 1]
+
         await asyncio.gather(*(send_one() for _ in range(num_requests)))
 
     # Initial pod count should be min_replicas
