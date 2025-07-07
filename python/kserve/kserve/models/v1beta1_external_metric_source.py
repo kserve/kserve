@@ -47,27 +47,53 @@ class V1beta1ExternalMetricSource(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'authentication_ref': 'V1beta1ExtMetricAuthentication',
         'metric': 'V1beta1ExternalMetrics',
         'target': 'V1beta1MetricTarget'
     }
 
     attribute_map = {
+        'authentication_ref': 'authenticationRef',
         'metric': 'metric',
         'target': 'target'
     }
 
-    def __init__(self, metric=None, target=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, authentication_ref=None, metric=None, target=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExternalMetricSource - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._authentication_ref = None
         self._metric = None
         self._target = None
         self.discriminator = None
 
+        if authentication_ref is not None:
+            self.authentication_ref = authentication_ref
         self.metric = metric
         self.target = target
+
+    @property
+    def authentication_ref(self):
+        """Gets the authentication_ref of this V1beta1ExternalMetricSource.  # noqa: E501
+
+
+        :return: The authentication_ref of this V1beta1ExternalMetricSource.  # noqa: E501
+        :rtype: V1beta1ExtMetricAuthentication
+        """
+        return self._authentication_ref
+
+    @authentication_ref.setter
+    def authentication_ref(self, authentication_ref):
+        """Sets the authentication_ref of this V1beta1ExternalMetricSource.
+
+
+        :param authentication_ref: The authentication_ref of this V1beta1ExternalMetricSource.  # noqa: E501
+        :type: V1beta1ExtMetricAuthentication
+        """
+
+        self._authentication_ref = authentication_ref
 
     @property
     def metric(self):
