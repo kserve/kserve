@@ -1,0 +1,48 @@
+{{- if .Values.kserve.llmisvc.configs.scheduler.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-scheduler
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "llm-isvc-resources.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  router:
+    scheduler:
+      pool:
+        spec:
+          extensionRef:
+            failureMode: FailClose
+            kind: Service
+            name: "{{ .Values.kserve.llmisvc.configs.scheduler.pool.extensionRef.name }}"
+          selector: {}
+          targetPortNumber: {{ .Values.kserve.llmisvc.configs.scheduler.pool.targetPortNumber }}
+      template:
+        containers:
+          - name: main
+            ports:
+              {{- toYaml .Values.kserve.llmisvc.configs.scheduler.ports | nindent 14 }}
+            image: {{ .Values.kserve.llmisvc.configs.scheduler.image.repository }}:{{ .Values.kserve.llmisvc.configs.scheduler.image.tag }}
+            imagePullPolicy: {{ .Values.kserve.llmisvc.configs.scheduler.image.pullPolicy }}
+            livenessProbe:
+              {{- toYaml .Values.kserve.llmisvc.configs.scheduler.livenessProbe | nindent 14 }}
+            readinessProbe:
+              {{- toYaml .Values.kserve.llmisvc.configs.scheduler.readinessProbe | nindent 14 }}
+            args:
+              {{- toYaml .Values.kserve.llmisvc.configs.scheduler.args | nindent 14 }}
+            env:
+              {{- toYaml .Values.kserve.llmisvc.configs.scheduler.env | nindent 14 }}
+            resources:
+              {{- toYaml .Values.kserve.llmisvc.configs.scheduler.resources | nindent 14 }}
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: FallbackToLogsOnError
+            securityContext:
+              {{- toYaml .Values.kserve.llmisvc.configs.scheduler.securityContext | nindent 14 }}
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        terminationGracePeriodSeconds: {{ .Values.kserve.llmisvc.configs.scheduler.terminationGracePeriodSeconds }}
+{{- end }}

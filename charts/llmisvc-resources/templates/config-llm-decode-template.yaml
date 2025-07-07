@@ -1,0 +1,53 @@
+{{- if .Values.kserve.llmisvc.configs.decodeTemplate.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-decode-template
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "llm-isvc-resources.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  template:
+    containers:
+      - image: {{ .Values.kserve.llmisvc.configs.decodeTemplate.image.repository }}:{{ .Values.kserve.llmisvc.configs.decodeTemplate.image.tag }}
+        imagePullPolicy: {{ .Values.kserve.llmisvc.configs.decodeTemplate.image.pullPolicy }}
+        name: main
+        ports:
+          {{- toYaml .Values.kserve.llmisvc.configs.decodeTemplate.ports | nindent 10 }}
+        command:
+          {{- toYaml .Values.kserve.llmisvc.configs.decodeTemplate.command | nindent 10 }}
+        args:
+          {{- toYaml .Values.kserve.llmisvc.configs.decodeTemplate.args | nindent 10 }}
+        env:
+          {{- toYaml .Values.kserve.llmisvc.configs.decodeTemplate.env | nindent 10 }}
+        securityContext:
+          {{- toYaml .Values.kserve.llmisvc.configs.decodeTemplate.securityContext | nindent 10 }}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: FallbackToLogsOnError
+        livenessProbe:
+          {{- toYaml .Values.kserve.llmisvc.configs.decodeTemplate.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.kserve.llmisvc.configs.decodeTemplate.readinessProbe | nindent 10 }}
+        volumeMounts:
+          {{- toYaml .Values.kserve.llmisvc.configs.decodeTemplate.volumeMounts | nindent 10 }}
+    initContainers:
+      - name: llm-d-routing-sidecar
+        imagePullPolicy: {{ .Values.kserve.llmisvc.configs.decodeTemplate.initContainer.image.pullPolicy }}
+        image: {{ .Values.kserve.llmisvc.configs.decodeTemplate.initContainer.image.repository }}:{{ .Values.kserve.llmisvc.configs.decodeTemplate.initContainer.image.tag }}
+        restartPolicy: Always
+        ports:
+          {{- toYaml .Values.kserve.llmisvc.configs.decodeTemplate.initContainer.ports | nindent 10 }}
+        resources: {}
+        securityContext: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: FallbackToLogsOnError
+        args:
+          {{- toYaml .Values.kserve.llmisvc.configs.decodeTemplate.initContainer.args | nindent 10 }}
+    terminationGracePeriodSeconds: {{ .Values.kserve.llmisvc.configs.decodeTemplate.terminationGracePeriodSeconds }}
+    volumes:
+      {{- toYaml .Values.kserve.llmisvc.configs.decodeTemplate.volumes | nindent 6 }}
+{{- end }}

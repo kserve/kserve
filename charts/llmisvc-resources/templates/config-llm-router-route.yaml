@@ -1,0 +1,33 @@
+{{- if .Values.kserve.llmisvc.configs.routerRoute.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-router-route
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "llm-isvc-resources.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  router:
+    route:
+      http:
+        spec:
+          parentRefs:
+            {{- toYaml .Values.kserve.llmisvc.configs.routerRoute.http.parentRefs | nindent 12 }}
+          rules:
+            - backendRefs:
+                {{- range .Values.kserve.llmisvc.configs.routerRoute.http.backendRefs }}
+                - group: {{ .group }}
+                  kind: {{ .kind }}
+                  name: "{{ .name }}"
+                  port: {{ .port }}
+                  weight: {{ .weight }}
+                {{- end }}
+              matches:
+                {{- toYaml .Values.kserve.llmisvc.configs.routerRoute.http.matches | nindent 16 }}
+              timeouts:
+                {{- toYaml .Values.kserve.llmisvc.configs.routerRoute.http.timeouts | nindent 16 }}
+{{- end }}

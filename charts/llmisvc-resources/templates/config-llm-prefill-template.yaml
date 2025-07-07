@@ -1,0 +1,41 @@
+{{- if .Values.kserve.llmisvc.configs.prefillTemplate.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-prefill-template
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "llm-isvc-resources.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  prefill:
+    template:
+      containers:
+        - image: {{ .Values.kserve.llmisvc.configs.prefillTemplate.image.repository }}:{{ .Values.kserve.llmisvc.configs.prefillTemplate.image.tag }}
+          imagePullPolicy: {{ .Values.kserve.llmisvc.configs.prefillTemplate.image.pullPolicy }}
+          name: main
+          ports:
+            {{- toYaml .Values.kserve.llmisvc.configs.prefillTemplate.ports | nindent 12 }}
+          command:
+            {{- toYaml .Values.kserve.llmisvc.configs.prefillTemplate.command | nindent 12 }}
+          args:
+            {{- toYaml .Values.kserve.llmisvc.configs.prefillTemplate.args | nindent 12 }}
+          env:
+            {{- toYaml .Values.kserve.llmisvc.configs.prefillTemplate.env | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.kserve.llmisvc.configs.prefillTemplate.securityContext | nindent 12 }}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          livenessProbe:
+            {{- toYaml .Values.kserve.llmisvc.configs.prefillTemplate.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.kserve.llmisvc.configs.prefillTemplate.readinessProbe | nindent 12 }}
+          volumeMounts:
+            {{- toYaml .Values.kserve.llmisvc.configs.prefillTemplate.volumeMounts | nindent 12 }}
+      terminationGracePeriodSeconds: {{ .Values.kserve.llmisvc.configs.prefillTemplate.terminationGracePeriodSeconds }}
+      volumes:
+        {{- toYaml .Values.kserve.llmisvc.configs.prefillTemplate.volumes | nindent 8 }}
+{{- end }}

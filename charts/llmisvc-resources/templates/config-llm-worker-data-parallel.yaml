@@ -1,0 +1,80 @@
+{{- if and .Values.kserve.llmisvc.configs.workers.enabled .Values.kserve.llmisvc.configs.workers.worker.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-worker-data-parallel
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "llm-isvc-resources.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  worker:
+    containers:
+      - image: {{ .Values.kserve.llmisvc.configs.workers.worker.image.repository }}:{{ .Values.kserve.llmisvc.configs.workers.worker.image.tag }}
+        imagePullPolicy: {{ .Values.kserve.llmisvc.configs.workers.worker.image.pullPolicy }}
+        name: main
+        ports:
+          {{- toYaml .Values.kserve.llmisvc.configs.workers.worker.ports | nindent 10 }}
+        stdin: true
+        tty: true
+        command:
+          - "/bin/sh"
+          - "-c"
+        args:
+          - |2-
+{{`
+            START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Parallelism.DataLocal 1 }} ))
+            if [ "${LWS_WORKER_INDEX:-0}" -eq 0 ]; then
+              #################
+              # Leader-only launch
+              #################
+              vllm serve \
+                {{ .Spec.Model.Name }} \
+                --port 8000 \
+                --api-server-count 4 \
+                --disable-log-requests \
+                {{- if .Spec.Parallelism.Expert -}}--enable-expert-parallel \{{- end }}
+                {{- if .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }} \{{- end }}
+                --data-parallel-size {{ or .Spec.Parallelism.Data 1 }} \
+                --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \
+                --data-parallel-address $(LWS_LEADER_ADDRESS) \
+                --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
+                --data-parallel-start-rank $START_RANK \
+                --trust-remote-code
+            else
+              #################
+              # Worker-only launch
+              #################
+              vllm serve \
+                {{ .Spec.Model.Name }} \
+                --port 8000 \
+                --disable-log-requests \
+                {{- if .Spec.Parallelism.Expert }}--enable-expert-parallel \{{- end }}
+                {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }} \{{- end }}
+                --data-parallel-size {{ or .Spec.Parallelism.Data 1 }} \
+                --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \
+                --data-parallel-address $(LWS_LEADER_ADDRESS) \
+                --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
+                --data-parallel-start-rank $START_RANK \
+                --trust-remote-code \
+                --headless
+            fi`}}
+        env:
+          {{- toYaml .Values.kserve.llmisvc.configs.workers.worker.env | nindent 10 }}
+        securityContext:
+          {{- toYaml .Values.kserve.llmisvc.configs.workers.worker.securityContext | nindent 10 }}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: FallbackToLogsOnError
+        livenessProbe:
+          {{- toYaml .Values.kserve.llmisvc.configs.workers.worker.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.kserve.llmisvc.configs.workers.worker.readinessProbe | nindent 10 }}
+        volumeMounts:
+          {{- toYaml .Values.kserve.llmisvc.configs.workers.worker.volumeMounts | nindent 10 }}
+    terminationGracePeriodSeconds: {{ .Values.kserve.llmisvc.configs.workers.worker.terminationGracePeriodSeconds }}
+    volumes:
+      {{- toYaml .Values.kserve.llmisvc.configs.workers.worker.volumes | nindent 6 }}
+{{- end }}

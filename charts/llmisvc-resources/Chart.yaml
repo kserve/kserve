@@ -1,0 +1,23 @@
+apiVersion: v2
+name: llmisvc-resources
+version: v0.15.2
+appVersion: v0.15.2
+description: Helm chart for deploying KServe LLMInferenceService resources
+type: application
+keywords:
+  - kserve
+  - llm
+  - llm-d
+  - inference
+  - generative-ai
+  - machine-learning
+  - model-serving
+home: https://kserve.github.io/website/
+sources:
+  - https://github.com/kserve/kserve
+maintainers:
+  - name: KServe Team
+    url: https://github.com/kserve/kserve
+icon: https://raw.githubusercontent.com/kserve/website/main/docs/images/logo.png
+annotations:
+  category: AI/Machine Learning

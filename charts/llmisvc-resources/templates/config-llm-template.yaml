@@ -1,0 +1,42 @@
+{{- if .Values.kserve.llmisvc.configs.template.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-template
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "llm-isvc-resources.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  template:
+    containers:
+      - image: {{ .Values.kserve.llmisvc.configs.template.image.repository }}:{{ .Values.kserve.llmisvc.configs.template.image.tag }}
+        imagePullPolicy: {{ .Values.kserve.llmisvc.configs.template.image.pullPolicy }}
+        name: main
+        ports:
+          {{- toYaml .Values.kserve.llmisvc.configs.template.ports | nindent 10 }}
+        command:
+          - vllm
+          - serve
+          - "{{`{{ .Spec.Model.Name }}`}}"
+        args:
+          {{- toYaml .Values.kserve.llmisvc.configs.template.args | nindent 10 }}
+        env:
+          {{- toYaml .Values.kserve.llmisvc.configs.template.env | nindent 10 }}
+        securityContext:
+          {{- toYaml .Values.kserve.llmisvc.configs.template.securityContext | nindent 10 }}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: FallbackToLogsOnError
+        livenessProbe:
+          {{- toYaml .Values.kserve.llmisvc.configs.template.livenessProbe | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.kserve.llmisvc.configs.template.readinessProbe | nindent 10 }}
+        volumeMounts:
+          {{- toYaml .Values.kserve.llmisvc.configs.template.volumeMounts | nindent 10 }}
+    terminationGracePeriodSeconds: {{ .Values.kserve.llmisvc.configs.template.terminationGracePeriodSeconds }}
+    volumes:
+      {{- toYaml .Values.kserve.llmisvc.configs.template.volumes | nindent 6 }}
+{{- end }}
