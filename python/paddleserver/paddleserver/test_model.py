@@ -19,10 +19,10 @@ import numpy as np
 import cv2
 from paddleserver import PaddleModel
 
-model_dir = os.path.join(os.path.dirname(__file__), "example_models", "pyramidbox_lite")
+model_dir = os.path.join(os.path.dirname(__file__), "inference_model")
 
 
-def face_detect_preprocess(img, shrink=0.3):
+def image_preprocess(img, shrink=0.3):
     # BGR
     img_shape = img.shape
     img = cv2.resize(
@@ -49,24 +49,30 @@ def test_model():
     server = PaddleModel("model", model_dir)
     server.load()
 
-    def test_img(filename: str, expected: int):
+    def test_img(filename: str, expected_class: int):
         img = cv2.imread(os.path.join(model_dir, filename))
-        input_data = face_detect_preprocess(img)
-        request = {"instances": input_data}
-        response = server.predict(request)
-        faces = response["predictions"]
-        assert sum(face[1] > 0.5 for face in faces) == expected
 
-        # test v2 infer call
+        try:
+            input_data = image_preprocess(img)
+        except Exception as e:
+            assert False, f"Image processing failed: {str(e)}"
+
+        request = {"instances": input_data.tolist()}
+        legacy_response = server.predict(request)
+        legacy_pred = np.argmax(legacy_response["predictions"][0])
+        assert legacy_pred == expected_class
+
+        # V2 format
         infer_input = InferInput(
-            name="input-0",
+            name="inputs",
             shape=list(input_data.shape),
             datatype=from_np_dtype(input_data.dtype),
             data=input_data,
         )
         infer_request = InferRequest(model_name="model", infer_inputs=[infer_input])
-        response = server.predict(infer_request)
-        infer_dict, _ = response.to_rest()
-        assert infer_dict["outputs"][0]["data"][0] == 1.0
+        v2_response = server.predict(infer_request)
+        infer_dict, _ = v2_response.to_rest()
+        v2_pred = np.argmax(infer_dict["outputs"][0]["data"])
+        assert v2_pred == expected_class
 
-    test_img("test_mask_detection.jpg", 3)
+    test_img("cat.jpg", 0)

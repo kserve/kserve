@@ -36,5 +36,5 @@ kubectl create namespace kserve-ci-e2e-test
 echo "Installing KServe Python SDK ..."
 python3 -m pip install --upgrade pip
 pushd python/kserve >/dev/null
-    poetry install --with=test --no-interaction
+    uv sync --group test
 popd

@@ -16,6 +16,7 @@ import os
 import json
 import pytest
 import botocore
+import tempfile
 import unittest.mock as mock
 
 from botocore.client import Config
@@ -377,3 +378,230 @@ def test_target_download_path_and_name(mock_storage):
     assert arg_list[1] == expected_call_args_list("model", "dest_path", paths)[1]
 
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix="model")
+
+
+@mock.patch("boto3.resource")
+def test_ca_bundle_with_aws_ca_bundle_only(mock_storage):
+    """Test that AWS_CA_BUNDLE can be used independently without CA_BUNDLE_CONFIGMAP_NAME"""
+    bucket_name = "foo"
+    object_key = "model.pkl"
+
+    # Create a temporary CA bundle file
+    with tempfile.NamedTemporaryFile(
+        mode="w", delete=False, suffix=".crt"
+    ) as temp_ca_file:
+        temp_ca_file.write(
+            "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----"
+        )
+        ca_bundle_path = temp_ca_file.name
+
+    try:
+        # Mock the boto3 resource and bucket
+        create_mock_boto3_bucket(mock_storage, [object_key])
+
+        # Set only AWS_CA_BUNDLE environment variable (no CA_BUNDLE_CONFIGMAP_NAME)
+        with mock.patch.dict(
+            os.environ,
+            {"AWS_CA_BUNDLE": ca_bundle_path, "S3_VERIFY_SSL": "true"},
+            clear=True,
+        ):
+            Storage._download_s3(f"s3://{bucket_name}/{object_key}", "dest_path")
+
+        # Verify that boto3.resource was called with the correct verify parameter
+        mock_storage.assert_called_once()
+        call_args = mock_storage.call_args
+        assert call_args[1]["verify"] == ca_bundle_path
+
+    finally:
+        # Clean up the temporary file
+        os.unlink(ca_bundle_path)
+
+
+@mock.patch("boto3.resource")
+def test_ca_bundle_with_configmap_only(mock_storage):
+    """Test that CA bundle works with ConfigMap when AWS_CA_BUNDLE is not set"""
+    bucket_name = "foo"
+    object_key = "model.pkl"
+
+    # Create a temporary CA bundle file in the expected ConfigMap location
+    with tempfile.TemporaryDirectory() as temp_dir:
+        ca_bundle_path = os.path.join(temp_dir, "cabundle.crt")
+        with open(ca_bundle_path, "w") as f:
+            f.write("-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----")
+
+        # Mock the boto3 resource and bucket
+        create_mock_boto3_bucket(mock_storage, [object_key])
+
+        # Set ConfigMap environment variables only
+        with mock.patch.dict(
+            os.environ,
+            {
+                "CA_BUNDLE_CONFIGMAP_NAME": "test-configmap",
+                "CA_BUNDLE_VOLUME_MOUNT_POINT": temp_dir,
+                "S3_VERIFY_SSL": "true",
+            },
+            clear=True,
+        ):
+            Storage._download_s3(f"s3://{bucket_name}/{object_key}", "dest_path")
+
+        # Verify that boto3.resource was called with the correct verify parameter
+        mock_storage.assert_called_once()
+        call_args = mock_storage.call_args
+        assert call_args[1]["verify"] == ca_bundle_path
+
+
+@mock.patch("boto3.resource")
+def test_ca_bundle_aws_ca_bundle_takes_precedence(mock_storage):
+    """Test that AWS_CA_BUNDLE takes precedence over ConfigMap when both are set"""
+    bucket_name = "foo"
+    object_key = "model.pkl"
+
+    # Create temporary CA bundle files
+    with tempfile.NamedTemporaryFile(
+        mode="w", delete=False, suffix=".crt"
+    ) as aws_ca_file:
+        aws_ca_file.write(
+            "-----BEGIN CERTIFICATE-----\naws_ca\n-----END CERTIFICATE-----"
+        )
+        aws_ca_bundle_path = aws_ca_file.name
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        configmap_ca_bundle_path = os.path.join(temp_dir, "cabundle.crt")
+        with open(configmap_ca_bundle_path, "w") as f:
+            f.write(
+                "-----BEGIN CERTIFICATE-----\nconfigmap_ca\n-----END CERTIFICATE-----"
+            )
+
+        try:
+            # Mock the boto3 resource and bucket
+            create_mock_boto3_bucket(mock_storage, [object_key])
+
+            # Set both AWS_CA_BUNDLE and ConfigMap environment variables
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "AWS_CA_BUNDLE": aws_ca_bundle_path,
+                    "CA_BUNDLE_CONFIGMAP_NAME": "test-configmap",
+                    "CA_BUNDLE_VOLUME_MOUNT_POINT": temp_dir,
+                    "S3_VERIFY_SSL": "true",
+                },
+                clear=True,
+            ):
+                Storage._download_s3(f"s3://{bucket_name}/{object_key}", "dest_path")
+
+            # Verify that boto3.resource was called with AWS_CA_BUNDLE path (takes precedence)
+            mock_storage.assert_called_once()
+            call_args = mock_storage.call_args
+            assert call_args[1]["verify"] == aws_ca_bundle_path
+
+        finally:
+            # Clean up the temporary file
+            os.unlink(aws_ca_bundle_path)
+
+
+@mock.patch("boto3.resource")
+def test_ca_bundle_file_not_found_aws_ca_bundle(mock_storage):
+    """Test that RuntimeError is raised when AWS_CA_BUNDLE file doesn't exist"""
+    bucket_name = "foo"
+    object_key = "model.pkl"
+    non_existent_path = "/tmp/non_existent_ca_bundle.crt"
+
+    # Mock the boto3 resource and bucket
+    create_mock_boto3_bucket(mock_storage, [object_key])
+
+    # Set AWS_CA_BUNDLE to a non-existent file
+    with mock.patch.dict(
+        os.environ,
+        {"AWS_CA_BUNDLE": non_existent_path, "S3_VERIFY_SSL": "true"},
+        clear=True,
+    ):
+        with pytest.raises(
+            RuntimeError,
+            match=f"Failed to find ca bundle file\\({non_existent_path}\\)",
+        ):
+            Storage._download_s3(f"s3://{bucket_name}/{object_key}", "dest_path")
+
+
+@mock.patch("boto3.resource")
+def test_ca_bundle_file_not_found_configmap(mock_storage):
+    """Test that RuntimeError is raised when ConfigMap CA bundle file doesn't exist"""
+    bucket_name = "foo"
+    object_key = "model.pkl"
+
+    # Mock the boto3 resource and bucket
+    create_mock_boto3_bucket(mock_storage, [object_key])
+
+    # Set ConfigMap environment variables with non-existent directory
+    with mock.patch.dict(
+        os.environ,
+        {
+            "CA_BUNDLE_CONFIGMAP_NAME": "test-configmap",
+            "CA_BUNDLE_VOLUME_MOUNT_POINT": "/tmp/non_existent_dir",
+            "S3_VERIFY_SSL": "true",
+        },
+        clear=True,
+    ):
+        expected_path = "/tmp/non_existent_dir/cabundle.crt"
+        with pytest.raises(
+            RuntimeError, match=f"Failed to find ca bundle file\\({expected_path}\\)"
+        ):
+            Storage._download_s3(f"s3://{bucket_name}/{object_key}", "dest_path")
+
+
+@mock.patch("boto3.resource")
+def test_ca_bundle_verify_ssl_false_no_ca_bundle_check(mock_storage):
+    """Test that CA bundle is not checked when S3_VERIFY_SSL is false"""
+    bucket_name = "foo"
+    object_key = "model.pkl"
+    non_existent_path = "/tmp/non_existent_ca_bundle.crt"
+
+    # Mock the boto3 resource and bucket
+    create_mock_boto3_bucket(mock_storage, [object_key])
+
+    # Set AWS_CA_BUNDLE to a non-existent file but disable SSL verification
+    with mock.patch.dict(
+        os.environ,
+        {"AWS_CA_BUNDLE": non_existent_path, "S3_VERIFY_SSL": "false"},
+        clear=True,
+    ):
+        # This should not raise an error because verify_ssl is False
+        Storage._download_s3(f"s3://{bucket_name}/{object_key}", "dest_path")
+
+        # Verify that boto3.resource was called with verify=False
+        mock_storage.assert_called_once()
+        call_args = mock_storage.call_args
+        assert call_args[1]["verify"] is False
+
+
+@mock.patch("boto3.resource")
+def test_ca_bundle_empty_aws_ca_bundle_uses_configmap(mock_storage):
+    """Test that empty AWS_CA_BUNDLE falls back to ConfigMap"""
+    bucket_name = "foo"
+    object_key = "model.pkl"
+
+    # Create a temporary CA bundle file in the expected ConfigMap location
+    with tempfile.TemporaryDirectory() as temp_dir:
+        ca_bundle_path = os.path.join(temp_dir, "cabundle.crt")
+        with open(ca_bundle_path, "w") as f:
+            f.write("-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----")
+
+        # Mock the boto3 resource and bucket
+        create_mock_boto3_bucket(mock_storage, [object_key])
+
+        # Set empty AWS_CA_BUNDLE and ConfigMap environment variables
+        with mock.patch.dict(
+            os.environ,
+            {
+                "AWS_CA_BUNDLE": "",
+                "CA_BUNDLE_CONFIGMAP_NAME": "test-configmap",
+                "CA_BUNDLE_VOLUME_MOUNT_POINT": temp_dir,
+                "S3_VERIFY_SSL": "true",
+            },
+            clear=True,
+        ):
+            Storage._download_s3(f"s3://{bucket_name}/{object_key}", "dest_path")
+
+        # Verify that boto3.resource was called with the ConfigMap path
+        mock_storage.assert_called_once()
+        call_args = mock_storage.call_args
+        assert call_args[1]["verify"] == ca_bundle_path

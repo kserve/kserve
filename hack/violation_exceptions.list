@@ -40,6 +40,7 @@ API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ExplainerConfig,ContainerImage
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ExplainerExtensionSpec,StorageURI
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ExplainersConfig,ARTExplainer
+API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ExternalMetricSource,Authentication
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,IngressConfig,EnableGatewayAPI
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,IngressConfig,LocalGatewayServiceName
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,MetricsSpec,PodMetric
