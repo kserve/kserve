@@ -2,12 +2,12 @@ package types
 
 import (
 	"fmt"
+	"k8s.io/utils/ptr"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/onsi/gomega"
 
-	"github.com/kserve/kserve/pkg/utils"
 	"github.com/kserve/kserve/tools/tf2openapi/generated/framework"
 	pb "github.com/kserve/kserve/tools/tf2openapi/generated/protobuf"
 )
@@ -51,7 +51,7 @@ func expectedResponseSchemaRowFmt() *openapi3.Schema {
 					Items: &openapi3.SchemaRef{
 						Value: &openapi3.Schema{
 							Type:     &openapi3.Types{openapi3.TypeArray},
-							MaxItems: utils.UInt64(3),
+							MaxItems: ptr.To[uint64](3),
 							MinItems: 3,
 							Items: &openapi3.SchemaRef{
 								Value: &openapi3.Schema{
@@ -65,7 +65,7 @@ func expectedResponseSchemaRowFmt() *openapi3.Schema {
 		},
 		Required: []string{"predictions"},
 		AdditionalProperties: openapi3.AdditionalProperties{
-			Has:    utils.Bool(false),
+			Has:    ptr.To(false),
 			Schema: nil,
 		},
 	}
@@ -81,7 +81,7 @@ func expectedResponseSchemaColFmt() *openapi3.Schema {
 					Items: &openapi3.SchemaRef{
 						Value: &openapi3.Schema{
 							Type:     &openapi3.Types{openapi3.TypeArray},
-							MaxItems: utils.UInt64(3),
+							MaxItems: ptr.To[uint64](3),
 							MinItems: 3,
 							Items: &openapi3.SchemaRef{
 								Value: &openapi3.Schema{
@@ -95,7 +95,7 @@ func expectedResponseSchemaColFmt() *openapi3.Schema {
 		},
 		Required: []string{"outputs"},
 		AdditionalProperties: openapi3.AdditionalProperties{
-			Has:    utils.Bool(false),
+			Has:    ptr.To(false),
 			Schema: nil,
 		},
 	}
@@ -208,7 +208,7 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 										"signal": {
 											Value: &openapi3.Schema{
 												Type:     &openapi3.Types{openapi3.TypeArray},
-												MaxItems: utils.UInt64(5),
+												MaxItems: ptr.To[uint64](5),
 												MinItems: 5,
 												Items: &openapi3.SchemaRef{
 													Value: &openapi3.Schema{
@@ -220,12 +220,12 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 										"sensor": {
 											Value: &openapi3.Schema{
 												Type:     &openapi3.Types{openapi3.TypeArray},
-												MaxItems: utils.UInt64(2),
+												MaxItems: ptr.To[uint64](2),
 												MinItems: 2,
 												Items: &openapi3.SchemaRef{
 													Value: &openapi3.Schema{
 														Type:     &openapi3.Types{openapi3.TypeArray},
-														MaxItems: utils.UInt64(2),
+														MaxItems: ptr.To[uint64](2),
 														MinItems: 2,
 														Items: &openapi3.SchemaRef{
 															Value: &openapi3.Schema{
@@ -239,7 +239,7 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 									},
 									Required: []string{"signal", "sensor"},
 									AdditionalProperties: openapi3.AdditionalProperties{
-										Has:    utils.Bool(false),
+										Has:    ptr.To(false),
 										Schema: nil,
 									},
 								},
@@ -249,7 +249,7 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 				},
 				Required: []string{"instances"},
 				AdditionalProperties: openapi3.AdditionalProperties{
-					Has:    utils.Bool(false),
+					Has:    ptr.To(false),
 					Schema: nil,
 				},
 			},
@@ -266,7 +266,7 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 							Items: &openapi3.SchemaRef{
 								Value: &openapi3.Schema{
 									Type:     &openapi3.Types{openapi3.TypeArray},
-									MaxItems: utils.UInt64(3),
+									MaxItems: ptr.To[uint64](3),
 									MinItems: 3,
 									Items: &openapi3.SchemaRef{
 										Value: &openapi3.Schema{
@@ -280,7 +280,7 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 				},
 				Required: []string{"instances"},
 				AdditionalProperties: openapi3.AdditionalProperties{
-					Has:    utils.Bool(false),
+					Has:    ptr.To(false),
 					Schema: nil,
 				},
 			},
@@ -315,12 +315,12 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 								"signal": {
 									Value: &openapi3.Schema{
 										Type:     &openapi3.Types{openapi3.TypeArray},
-										MaxItems: utils.UInt64(2),
+										MaxItems: ptr.To[uint64](2),
 										MinItems: 2,
 										Items: &openapi3.SchemaRef{
 											Value: &openapi3.Schema{
 												Type:     &openapi3.Types{openapi3.TypeArray},
-												MaxItems: utils.UInt64(5),
+												MaxItems: ptr.To[uint64](5),
 												MinItems: 5,
 												Items: &openapi3.SchemaRef{
 													Value: &openapi3.Schema{
@@ -334,17 +334,17 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 								"sensor": {
 									Value: &openapi3.Schema{
 										Type:     &openapi3.Types{openapi3.TypeArray},
-										MaxItems: utils.UInt64(2),
+										MaxItems: ptr.To[uint64](2),
 										MinItems: 2,
 										Items: &openapi3.SchemaRef{
 											Value: &openapi3.Schema{
 												Type:     &openapi3.Types{openapi3.TypeArray},
-												MaxItems: utils.UInt64(2),
+												MaxItems: ptr.To[uint64](2),
 												MinItems: 2,
 												Items: &openapi3.SchemaRef{
 													Value: &openapi3.Schema{
 														Type:     &openapi3.Types{openapi3.TypeArray},
-														MaxItems: utils.UInt64(2),
+														MaxItems: ptr.To[uint64](2),
 														MinItems: 2,
 														Items: &openapi3.SchemaRef{
 															Value: &openapi3.Schema{
@@ -360,7 +360,7 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 							},
 							Required: []string{"signal", "sensor"},
 							AdditionalProperties: openapi3.AdditionalProperties{
-								Has:    utils.Bool(false),
+								Has:    ptr.To(false),
 								Schema: nil,
 							},
 						},
@@ -368,7 +368,7 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 				},
 				Required: []string{"inputs"},
 				AdditionalProperties: openapi3.AdditionalProperties{
-					Has:    utils.Bool(false),
+					Has:    ptr.To(false),
 					Schema: nil,
 				},
 			},
@@ -392,12 +392,12 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 					"inputs": {
 						Value: &openapi3.Schema{
 							Type:     &openapi3.Types{openapi3.TypeArray},
-							MaxItems: utils.UInt64(2),
+							MaxItems: ptr.To[uint64](2),
 							MinItems: 2,
 							Items: &openapi3.SchemaRef{
 								Value: &openapi3.Schema{
 									Type:     &openapi3.Types{openapi3.TypeArray},
-									MaxItems: utils.UInt64(5),
+									MaxItems: ptr.To[uint64](5),
 									MinItems: 5,
 									Items: &openapi3.SchemaRef{
 										Value: &openapi3.Schema{
@@ -411,7 +411,7 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 				},
 				Required: []string{"inputs"},
 				AdditionalProperties: openapi3.AdditionalProperties{
-					Has:    utils.Bool(false),
+					Has:    ptr.To(false),
 					Schema: nil,
 				},
 			}, expectedResponseSchema: expectedResponseSchemaColFmt(),
@@ -437,7 +437,7 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 				},
 				Required: []string{"inputs"},
 				AdditionalProperties: openapi3.AdditionalProperties{
-					Has:    utils.Bool(false),
+					Has:    ptr.To(false),
 					Schema: nil,
 				},
 			},
@@ -467,7 +467,7 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 				},
 				Required: []string{"inputs"},
 				AdditionalProperties: openapi3.AdditionalProperties{
-					Has:    utils.Bool(false),
+					Has:    ptr.To(false),
 					Schema: nil,
 				},
 			},
@@ -512,7 +512,7 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 							},
 							Required: []string{"signal", "sensor"},
 							AdditionalProperties: openapi3.AdditionalProperties{
-								Has:    utils.Bool(false),
+								Has:    ptr.To(false),
 								Schema: nil,
 							},
 						},
@@ -520,7 +520,7 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 				},
 				Required: []string{"inputs"},
 				AdditionalProperties: openapi3.AdditionalProperties{
-					Has:    utils.Bool(false),
+					Has:    ptr.To(false),
 					Schema: nil,
 				},
 			},
