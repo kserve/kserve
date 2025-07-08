@@ -44,44 +44,6 @@ const (
 	ErrValueExceedsInt32Limit = "value exceeds int32 limit %d"
 )
 
-func Filter(origin map[string]string, predicate func(string) bool) map[string]string {
-	result := make(map[string]string)
-	for k, v := range origin {
-		if predicate(k) {
-			result[k] = v
-		}
-	}
-	return result
-}
-
-func Union(maps ...map[string]string) map[string]string {
-	result := make(map[string]string)
-	for _, m := range maps {
-		for k, v := range m {
-			result[k] = v
-		}
-	}
-	return result
-}
-
-func Includes(slice []string, value string) bool {
-	for _, v := range slice {
-		if v == value {
-			return true
-		}
-	}
-	return false
-}
-
-func IncludesArg(slice []string, arg string) bool {
-	for _, v := range slice {
-		if v == arg || strings.HasPrefix(v, arg) {
-			return true
-		}
-	}
-	return false
-}
-
 func AppendVolumeIfNotExists(slice []corev1.Volume, volume corev1.Volume) []corev1.Volume {
 	for i := range slice {
 		if slice[i].Name == volume.Name {
