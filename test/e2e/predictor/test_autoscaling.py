@@ -693,8 +693,8 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
     assert get_pod_count() == 1
 
     # Send enough load to trigger scale up
-    await send_load(100, concurrency=10)
-    scaled_up = wait_for_pod_count(2, timeout=600)
+    await send_load(300, concurrency=30)
+    scaled_up = wait_for_pod_count(2, timeout=900)
     assert scaled_up, "Failed to scale up pods"
 
     # Wait for scale down (after load stops)
