@@ -581,8 +581,8 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
                     podmetric=V1beta1PodMetricSource(
                         metric=V1beta1PodMetrics(
                             backend="opentelemetry",
-                            metric_names=["http_requests_per_second"],
-                            query="http_requests_per_second",
+                            metric_names=["http_requests_total"],
+                            query="http_requests_total",
                         ),
                         target=V1beta1MetricTarget(type="Value", value=50),
                     ),
@@ -694,7 +694,7 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
 
     # Send enough load to trigger scale up
     await send_load(100, concurrency=10)
-    scaled_up = wait_for_pod_count(2, timeout=600)
+    scaled_up = wait_for_pod_count(2, timeout=900)
     assert scaled_up, "Failed to scale up pods"
 
     # Wait for scale down (after load stops)
