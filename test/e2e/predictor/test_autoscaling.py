@@ -677,24 +677,33 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
             KSERVE_TEST_NAMESPACE,
             label_selector=f"serving.kserve.io/inferenceservice={service_name}",
         )
-        return len([p for p in pods.items if p.status.phase == "Running"])
+        running_pods = [p for p in pods.items if p.status.phase == "Running"]
+        print(f"[DEBUG] Current running pod count: {len(running_pods)}")
+        return len(running_pods)
 
     # Wait for pod count to reach expected value, with timeout
     def wait_for_pod_count(expected, timeout=180):
         start = time.time()
         while time.time() - start < timeout:
             count = get_pod_count()
+            print(f"[DEBUG] Waiting for pod count >= {expected}, current: {count}")
             if count >= expected:
+                print(f"[DEBUG] Pod count reached expected: {count}")
                 return True
             time.sleep(5)
+        print(f"[DEBUG] Timeout reached. Final pod count: {count}")
         return False
 
     # Check initial pod count
-    assert get_pod_count() == 1
+    initial_count = get_pod_count()
+    print(f"[DEBUG] Initial pod count: {initial_count}")
+    assert initial_count == 1
 
     # Send enough load to trigger scale up
+    print("[DEBUG] Sending load to trigger scale up...")
     await send_load(100, concurrency=10)
     scaled_up = wait_for_pod_count(2, timeout=900)
+    print(f"[DEBUG] Scaled up: {scaled_up}")
     assert scaled_up, "Failed to scale up pods"
 
     # Wait for scale down (after load stops)
