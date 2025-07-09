@@ -25,10 +25,12 @@ from kserve import (
     V1beta1StorageSpec,
 )
 from kubernetes.client import V1ResourceRequirements
+from typing import Optional
 import pytest
 
 from ..common.utils import KSERVE_NAMESPACE, KSERVE_TEST_NAMESPACE
 
+ssl_error = "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed"
 invalid_cert = """
 -----BEGIN CERTIFICATE-----
 MIIFLTCCAxWgAwIBAgIUF4tP6T1S5H/Gt8BpjFsbXo7f0SYwDQYJKoZIhvcNAQEL
@@ -65,7 +67,7 @@ TbVunBmL9HUClHgUc2B0NSfNyqXSwo+Gp5Kg4iYIw4hJw2EPwilUFafcM8uVDktK
 
 @pytest.mark.kserve_on_openshift
 @pytest.mark.asyncio(scope="session")
-async def test_s3_tls_custom_cert_storagespec_kserve(rest_v1_client):
+async def test_s3_tls_custom_cert_storagespec_kserve():
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
@@ -111,9 +113,7 @@ async def test_s3_tls_custom_cert_storagespec_kserve(rest_v1_client):
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
     kserve_client.create(isvc)
-    check_model_transition_status(
-        kserve_client, service_name, KSERVE_TEST_NAMESPACE, "UpToDate"
-    )
+    check_model_status(kserve_client, service_name, KSERVE_TEST_NAMESPACE, "UpToDate")
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
     # Patch the odh-trusted-ca-bundle configmap to replace the custom cert with an invalid cert
@@ -133,8 +133,12 @@ async def test_s3_tls_custom_cert_storagespec_kserve(rest_v1_client):
     service_name = "isvc-sklearn-s3-tls-custom-fail"
     isvc.metadata.name = service_name
     kserve_client.create(isvc)
-    check_model_transition_status(
-        kserve_client, service_name, KSERVE_TEST_NAMESPACE, "BlockedByFailedLoad"
+    check_model_status(
+        kserve_client,
+        service_name,
+        KSERVE_TEST_NAMESPACE,
+        "BlockedByFailedLoad",
+        ssl_error,
     )
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -146,7 +150,7 @@ async def test_s3_tls_custom_cert_storagespec_kserve(rest_v1_client):
 
 @pytest.mark.kserve_on_openshift
 @pytest.mark.asyncio(scope="session")
-async def test_s3_tls_serving_cert_storagespec_kserve(rest_v1_client):
+async def test_s3_tls_serving_cert_storagespec_kserve():
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
@@ -192,9 +196,7 @@ async def test_s3_tls_serving_cert_storagespec_kserve(rest_v1_client):
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
     kserve_client.create(isvc)
-    check_model_transition_status(
-        kserve_client, service_name, KSERVE_TEST_NAMESPACE, "UpToDate"
-    )
+    check_model_status(kserve_client, service_name, KSERVE_TEST_NAMESPACE, "UpToDate")
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
     # Patch the odh-trusted-ca-bundle configmap to replace the serving cert with an invalid cert
@@ -214,8 +216,12 @@ async def test_s3_tls_serving_cert_storagespec_kserve(rest_v1_client):
     service_name = "isvc-sklearn-s3-tls-serving-fail"
     isvc.metadata.name = service_name
     kserve_client.create(isvc)
-    check_model_transition_status(
-        kserve_client, service_name, KSERVE_TEST_NAMESPACE, "BlockedByFailedLoad"
+    check_model_status(
+        kserve_client,
+        service_name,
+        KSERVE_TEST_NAMESPACE,
+        "BlockedByFailedLoad",
+        ssl_error,
     )
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -225,11 +231,12 @@ async def test_s3_tls_serving_cert_storagespec_kserve(rest_v1_client):
     )
 
 
-def check_model_transition_status(
+def check_model_status(
     kserve_client: KServeClient,
     isvc_name: str,
     isvc_namespace: str,
     expected_status: str,
+    expected_failure_message: Optional[str] = None,
     timeout_seconds: int = 600,
     polling_interval: int = 10,
 ):
@@ -240,9 +247,31 @@ def check_model_transition_status(
             namespace=isvc_namespace,
             version=constants.KSERVE_V1BETA1_VERSION,
         )
-        if isvc["status"]["modelStatus"]["transitionStatus"] == expected_status:
+
+        failure_message_match = True
+        if expected_failure_message is not None:
+            failure_message_match = expected_failure_message in isvc["status"][
+                "modelStatus"
+            ].get("lastFailureInfo", {}).get("message", "")
+
+        if (
+            isvc["status"]["modelStatus"]["transitionStatus"] == expected_status
+            and failure_message_match
+        ):
             return
+
+    actual_status = isvc["status"]["modelStatus"]["transitionStatus"]
+    if expected_failure_message is not None:
+        actual_failure_message = (
+            isvc["status"]["modelStatus"].get("lastFailureInfo", {}).get("message", "")
+        )
+        raise RuntimeError(
+            f"Expected inferenceservice {isvc_name} to have model transition status '{expected_status}' "
+            f"and last failure info '{expected_failure_message}' after timeout, "
+            f"but got model transition status '{actual_status}' "
+            f"and last failure info '{actual_failure_message}'"
+        )
     raise RuntimeError(
-        f"InferenceService ({isvc_name}) has model transition status \
-            {isvc['status']['modelStatus']['transitionStatus']} after timeout, but expecting {expected_status}"
+        f"Expected inferenceservice {isvc_name} to have model transition status '{expected_status}' "
+        f"after timeout, but got '{actual_status}'"
     )
