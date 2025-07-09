@@ -1377,6 +1377,15 @@
         }
       }
     },
+    "v1beta1.AdvancedSpec": {
+      "type": "object",
+      "properties": {
+        "horizontalPodAutoscalerConfig": {
+          "description": "HorizontalPodAutoscalerConfig contains the configuration for the Horizontal Pod Autoscaler.",
+          "$ref": "#/definitions/v1beta1.HorizontalPodAutoscalerConfig"
+        }
+      }
+    },
     "v1beta1.AuthenticationRef": {
       "type": "object",
       "properties": {
@@ -4286,6 +4295,12 @@
           "type": "string"
         },
         "metricScalerEndpoint": {
+          "type": "string"
+        },
+        "scaleDownStabilizationWindowSeconds": {
+          "type": "string"
+        },
+        "scaleUpStabilizationWindowSeconds": {
           "type": "string"
         },
         "scrapeInterval": {
