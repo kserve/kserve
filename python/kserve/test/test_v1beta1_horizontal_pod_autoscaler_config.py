@@ -50,10 +50,10 @@ class TestV1beta1HorizontalPodAutoscalerConfig(unittest.TestCase):
         # model = kserve.models.v1beta1_horizontal_pod_autoscaler_config.V1beta1HorizontalPodAutoscalerConfig()  # noqa: E501
         if include_optional :
             return V1beta1HorizontalPodAutoscalerConfig(
-                behavior = kserve.models.v1beta1/horizontal_pod_autoscaler_behavior.v1beta1.HorizontalPodAutoscalerBehavior(
-                    scale_down = kserve.models.v1beta1/scaling_rules.v1beta1.ScalingRules(
+                behavior = kserve.models.v1beta1_horizontal_pod_autoscaler_behavior.V1beta1HorizontalPodAutoscalerBehavior(
+                    scale_down = kserve.models.v1beta1_scaling_rules.V1beta1ScalingRules(
                         stabilization_window_seconds = 56, ), 
-                    scale_up = kserve.models.v1beta1/scaling_rules.v1beta1.ScalingRules(
+                    scale_up = kserve.models.v1beta1_scaling_rules.V1beta1ScalingRules(
                         stabilization_window_seconds = 56, ), )
             )
         else :
