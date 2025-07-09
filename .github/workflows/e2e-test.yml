@@ -742,6 +742,16 @@ jobs:
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
 
+      - name: Enable metrics server
+        run: |
+          minikube addons enable metrics-server
+          kubectl rollout status deployment/metrics-server -n kube-system --timeout=180s
+          kubectl get pods -n kube-system | grep metrics-server
+
+      - name: Check Metrics Server Logs
+        run: |
+          kubectl logs -n kube-system deploy/metrics-server
+      
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
         with:
