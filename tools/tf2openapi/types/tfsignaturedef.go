@@ -8,9 +8,9 @@ outputs. It is the internal model representation for the SignatureDef defined in
 import (
 	"errors"
 	"fmt"
+	ptr "k8s.io/utils/ptr"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/kserve/kserve/pkg/utils"
 	pb "github.com/kserve/kserve/tools/tf2openapi/generated/protobuf"
 )
 
@@ -122,7 +122,7 @@ func (t *TFSignatureDef) rowFormatWrapper() (*openapi3.Schema, *openapi3.Schema)
 			},
 			Required: []string{"instances"},
 			AdditionalProperties: openapi3.AdditionalProperties{
-				Has:    utils.Bool(false),
+				Has:    ptr.To(false),
 				Schema: nil,
 			},
 		}, &openapi3.Schema{
@@ -132,7 +132,7 @@ func (t *TFSignatureDef) rowFormatWrapper() (*openapi3.Schema, *openapi3.Schema)
 			},
 			Required: []string{"predictions"},
 			AdditionalProperties: openapi3.AdditionalProperties{
-				Has:    utils.Bool(false),
+				Has:    ptr.To(false),
 				Schema: nil,
 			},
 		}
@@ -147,7 +147,7 @@ func (t *TFSignatureDef) colFormatWrapper() (*openapi3.Schema, *openapi3.Schema)
 			},
 			Required: []string{"inputs"},
 			AdditionalProperties: openapi3.AdditionalProperties{
-				Has:    utils.Bool(false),
+				Has:    ptr.To(false),
 				Schema: nil,
 			},
 		}, &openapi3.Schema{
@@ -157,7 +157,7 @@ func (t *TFSignatureDef) colFormatWrapper() (*openapi3.Schema, *openapi3.Schema)
 			},
 			Required: []string{"outputs"},
 			AdditionalProperties: openapi3.AdditionalProperties{
-				Has:    utils.Bool(false),
+				Has:    ptr.To(false),
 				Schema: nil,
 			},
 		}
@@ -177,7 +177,7 @@ func rowSchema(t []TFTensor) *openapi3.Schema {
 		schema.Items.Value.Required = append(schema.Items.Value.Required, i.Name)
 	}
 	schema.AdditionalProperties = openapi3.AdditionalProperties{
-		Has:    utils.Bool(false),
+		Has:    ptr.To(false),
 		Schema: nil,
 	}
 	return schema
@@ -195,7 +195,7 @@ func colSchema(t []TFTensor) *openapi3.Schema {
 		schema.Required = append(schema.Required, i.Name)
 	}
 	schema.AdditionalProperties = openapi3.AdditionalProperties{
-		Has:    utils.Bool(false),
+		Has:    ptr.To(false),
 		Schema: nil,
 	}
 	return schema
