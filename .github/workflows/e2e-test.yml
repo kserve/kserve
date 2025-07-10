@@ -723,15 +723,11 @@ jobs:
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
-      
-      - name: Install metrics-server
-        run: |
-          kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-          echo "Waiting for metrics-server to be ready..."
-          kubectl wait --for=condition=Available --timeout=120s deployment/metrics-server -n kube-system
-          echo "Verifying metrics API..."
-          kubectl get --raw /apis/metrics.k8s.io/v1beta1/nodes || true
 
+      - name: Enable metrics server
+        run: |
+          minikube addons enable metrics-server
+      
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
         with:
