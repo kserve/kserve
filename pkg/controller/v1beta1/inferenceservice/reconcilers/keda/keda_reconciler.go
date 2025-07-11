@@ -148,7 +148,7 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, configMap *cor
 
 				triggerType := string(metric.PodMetric.Metric.Backend)
 				query := metric.PodMetric.Metric.Query
-				targetValue := metric.PodMetric.Target.Value.AsApproximateFloat64()
+				targetValue := metric.PodMetric.Target.Value.String()
 
 				trigger := kedav1alpha1.ScaleTriggers{
 					Metadata: map[string]string{},
@@ -158,7 +158,7 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, configMap *cor
 					trigger.Type = "external"
 					trigger.Metadata = map[string]string{
 						"metricQuery":   query,
-						"targetValue":   fmt.Sprintf("%f", targetValue),
+						"targetValue":   targetValue,
 						"scalerAddress": MetricScalerEndpoint,
 					}
 					if metric.PodMetric.Metric.OperationOverTime != "" {
