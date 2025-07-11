@@ -65,7 +65,7 @@ var _ webhook.CustomValidator = &TrainedModelValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *TrainedModelValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	tm, err := convertToTrainedModel(obj)
+	tm, err := utils.Convert[*TrainedModel](obj)
 	if err != nil {
 		tmLogger.Error(err, "Unable to convert object to TrainedModel")
 		return nil, err
@@ -78,12 +78,12 @@ func (v *TrainedModelValidator) ValidateCreate(ctx context.Context, obj runtime.
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *TrainedModelValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	newTm, err := convertToTrainedModel(newObj)
+	newTm, err := utils.Convert[*TrainedModel](newObj)
 	if err != nil {
 		tmLogger.Error(err, "Unable to convert object to TrainedModel")
 		return nil, err
 	}
-	oldTm, err := convertToTrainedModel(oldObj)
+	oldTm, err := utils.Convert[*TrainedModel](oldObj)
 	if err != nil {
 		tmLogger.Error(err, "Unable to convert object to TrainedModel")
 		return nil, err
@@ -98,7 +98,7 @@ func (v *TrainedModelValidator) ValidateUpdate(ctx context.Context, oldObj, newO
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (v *TrainedModelValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	tm, err := convertToTrainedModel(obj)
+	tm, err := utils.Convert[*TrainedModel](obj)
 	if err != nil {
 		tmLogger.Error(err, "Unable to convert object to TrainedModel")
 		return nil, err
@@ -123,15 +123,6 @@ func (tm *TrainedModel) validateTrainedModel() error {
 		tm.validateTrainedModelName(),
 		tm.validateStorageURI(),
 	})
-}
-
-// Convert runtime.Object into TrainedModel
-func convertToTrainedModel(obj runtime.Object) (*TrainedModel, error) {
-	tm, ok := obj.(*TrainedModel)
-	if !ok {
-		return nil, fmt.Errorf("expected an TrainedModel object but got %T", obj)
-	}
-	return tm, nil
 }
 
 // Validates format for TrainedModel's name

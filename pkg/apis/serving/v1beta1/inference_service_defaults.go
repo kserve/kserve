@@ -96,7 +96,7 @@ func setResourceRequirementDefaults(config *InferenceServicesConfig, requirement
 }
 
 func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	isvc, err := convertToInferenceService(obj)
+	isvc, err := utils.Convert[*InferenceService](obj)
 	if err != nil {
 		validatorLogger.Error(err, "Unable to convert object to InferenceService")
 		return err
