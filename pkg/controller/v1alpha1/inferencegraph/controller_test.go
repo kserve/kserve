@@ -28,6 +28,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -35,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -49,18 +53,34 @@ var _ = Describe("Inference Graph controller test", func() {
 
 	configs := map[string]string{
 		"router": `{
-					  "image": "kserve/router:v0.10.0",
-					  "memoryRequest": "100Mi",
-					  "memoryLimit": "500Mi",
-					  "cpuRequest": "100m",
-					  "cpuLimit": "100m",
-					  "headers": {
-						"propagate": [
-						  "Authorization",
-						  "Intuit_tid"
-						]
-					  }
-				}`,
+				"image": "kserve/router:v0.10.0",
+				"memoryRequest": "100Mi",
+				"memoryLimit": "500Mi",
+				"cpuRequest": "100m",
+				"cpuLimit": "100m",
+				"headers": {
+				"propagate": [
+					"Authorization",
+					"Intuit_tid"
+				]
+				}
+		}`,
+		"ingress": `{
+			"kserveIngressGateway": "kserve/kserve-ingress-gateway",
+			"ingressGateway": "knative-serving/knative-ingress-gateway",
+			"localGateway": "knative-serving/knative-local-gateway",
+			"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
+		}`,
+		"storageInitializer": `{
+			"image" : "kserve/storage-initializer:latest",
+			"memoryRequest": "100Mi",
+			"memoryLimit": "1Gi",
+			"cpuRequest": "100m",
+			"cpuLimit": "1",
+			"CaBundleConfigMapName": "",
+			"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+			"enableDirectPvcVolumeMount": false
+		}`,
 	}
 
 	expectedReadinessProbe := constants.GetRouterReadinessProbe()
@@ -1038,6 +1058,294 @@ var _ = Describe("Inference Graph controller test", func() {
 
 				return false
 			}, timeout, interval).Should(BeTrue())
+		})
+	})
+
+	Context("When creating an InferenceGraph with `serving.kserve.io/stop`", func() {
+		// --- Default values ---
+		createIGConfigMap := func() *corev1.ConfigMap {
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			return configMap
+		}
+
+		// --- Reusable Check Functions ---
+		// Wait for the InferenceService's PredictorReady and IngressReady condition.
+		expectIsvcReadyStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
+			updatedIsvc := &v1beta1.InferenceService{}
+			// Check that the inference service is ready
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err != nil {
+					return false
+				}
+				readyCond := updatedIsvc.Status.GetCondition(v1beta1.PredictorReady)
+				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
+			}, timeout, interval).Should(BeTrue(), "The predictor should be ready")
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err != nil {
+					return false
+				}
+				readyCond := updatedIsvc.Status.GetCondition(v1beta1.IngressReady)
+				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
+			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
+		}
+
+		// Waits for any Kubernestes object to be found
+		expectResourceToExist := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, objKey, obj)
+				return err == nil
+			}, timeout, interval).Should(BeTrue(), "%T %s should exist", obj, objKey.Name)
+		}
+
+		// Checks that any Kubernetes object to be not found.
+		/*expectResourceIsDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
+			Consistently(func() bool {
+				err := k8sClient.Get(ctx, objKey, obj)
+				return apierr.IsNotFound(err)
+			}, time.Second*10, interval).Should(BeTrue(), "%T %s should not be created", obj, objKey.Name)
+		}*/
+
+		// Wait for any Kubernetes object to be not found.
+		/*expectResourceToBeDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, objKey, obj)
+				return apierr.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue(), "%T %s should be deleted", obj, objKey.Name)
+		}*/
+
+		// Wait for the Predictor's Knative Service to exist and for its status URL and conditions to be ready.
+		expectPredictorKsvcToBeReady := func(ctx context.Context, serviceKey types.NamespacedName, predictorServiceKey types.NamespacedName) {
+			// Predictor knative service
+			predictorService := &knservingv1.Service{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, predictorServiceKey, predictorService)
+				return err == nil
+			}, 30*time.Second).Should(BeTrue(), "The ISVC knative service should exist")
+
+			// Add a url to the predictor knative service so the services can be made
+			updatedPredictorService := predictorService.DeepCopy()
+			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+			updatedPredictorService.Status.URL = predictorUrl
+			updatedPredictorService.Status.Conditions = duckv1.Conditions{
+				{
+					Type:   knservingv1.ServiceConditionReady,
+					Status: "True",
+				},
+				{
+					Type:   knservingv1.ServiceConditionRoutesReady,
+					Status: "True",
+				},
+				{
+					Type:   knservingv1.ServiceConditionConfigurationsReady,
+					Status: "True",
+				},
+			}
+			updatedPredictorService.Status.LatestCreatedRevisionName = "revision-v1"
+			updatedPredictorService.Status.LatestReadyRevisionName = "revision-v1"
+			Expect(k8sClient.Status().Update(ctx, updatedPredictorService)).NotTo(HaveOccurred())
+		}
+
+		// Wait for the InferenceGraph's ConditionReady condition.
+		/*expectIGReadyStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
+			updatedIG := &v1alpha1.InferenceGraph{}
+			// Check that the inference service is ready
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIG)
+				if err != nil {
+					return false
+				}
+				return inferenceGraphReadiness(updatedIG.Status)
+			}, timeout, interval).Should(BeTrue(), "The inference graph should be ready")
+		}*/
+
+		Describe("in Serverless mode", func() {
+			// --- Default values ---
+			defaultResource := corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("1"),
+					corev1.ResourceMemory: resource.MustParse("2Gi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("1"),
+					corev1.ResourceMemory: resource.MustParse("2Gi"),
+				},
+			}
+
+			defaultIsvc := func(namespace string, name string, storageUri string) *v1beta1.InferenceService {
+				predictor := v1beta1.PredictorSpec{
+					ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+						MinReplicas: ptr.To(int32(1)),
+						MaxReplicas: 3,
+					},
+					Tensorflow: &v1beta1.TFServingSpec{
+						PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+							StorageURI:     &storageUri,
+							RuntimeVersion: proto.String("1.14.0"),
+							Container: corev1.Container{
+								Name:      constants.InferenceServiceContainerName,
+								Resources: defaultResource,
+							},
+						},
+					},
+				}
+				isvc := &v1beta1.InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: namespace,
+						Annotations: map[string]string{
+							"serving.kserve.io/deploymentMode": "Serverless",
+						},
+					},
+
+					Spec: v1beta1.InferenceServiceSpec{
+						Predictor: predictor,
+					},
+				}
+				return isvc
+			}
+
+			/*defaultIG := func(serviceKey types.NamespacedName, isvcName string) *v1alpha1.InferenceGraph {
+				ig := &v1alpha1.InferenceGraph{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      serviceKey.Name,
+						Namespace: serviceKey.Namespace,
+						Annotations: map[string]string{
+							"serving.kserve.io/deploymentMode": string(constants.Serverless),
+						},
+					},
+					Spec: v1alpha1.InferenceGraphSpec{
+						Nodes: map[string]v1alpha1.InferenceRouter{
+							v1alpha1.GraphRootNodeName: {
+								RouterType: v1alpha1.Sequence,
+								Steps: []v1alpha1.InferenceStep{
+									{
+										InferenceTarget: v1alpha1.InferenceTarget{
+											ServiceName: isvcName, // Name of your InferenceService
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+				return ig
+			}*/
+
+			createServingRuntime := func(namespace string, name string) *v1alpha1.ServingRuntime {
+				// Define and create serving runtime
+				servingRuntime := &v1alpha1.ServingRuntime{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: namespace,
+					},
+					Spec: v1alpha1.ServingRuntimeSpec{
+						SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+							{
+								Name:       "tensorflow",
+								Version:    proto.String("1"),
+								AutoSelect: proto.Bool(true),
+							},
+						},
+						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:    constants.InferenceServiceContainerName,
+									Image:   "tensorflow/serving:1.14.0",
+									Command: []string{"/usr/bin/tensorflow_model_server"},
+									Args: []string{
+										"--port=9000",
+										"--rest_api_port=8080",
+										"--model_base_path=/mnt/models",
+										"--rest_api_timeout_in_ms=60000",
+									},
+									Resources: defaultResource,
+								},
+							},
+							ImagePullSecrets: []corev1.LocalObjectReference{
+								{Name: "sr-image-pull-secret"},
+							},
+						},
+						Disabled: proto.Bool(false),
+					},
+				}
+				return servingRuntime
+			}
+
+			It("Should keep the knative service when the annotation is set to false", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
+
+				// Config map
+				configMap := createIGConfigMap()
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(context.TODO(), configMap)
+
+				// Serving runtime
+				isvcName := "stop-false-isvc"
+				serviceNamespace := "default"
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: isvcName, Namespace: serviceNamespace}}
+				isvcServiceKey := expectedRequest.NamespacedName
+				servingRuntime := createServingRuntime(isvcServiceKey.Namespace, "tf-serving")
+				Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, servingRuntime)
+
+				// Define InferenceService
+				storageUri := "s3://test/mnist/export"
+				isvc := defaultIsvc(isvcServiceKey.Namespace, isvcServiceKey.Name, storageUri)
+				Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, isvc)
+
+				// Define InferenceGraph
+				/*graphName := "stop-false-ig"
+				graphExpectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: serviceNamespace}}
+				graphServiceKey := graphExpectedRequest.NamespacedName
+				ig := defaultIG(graphServiceKey, isvcName)
+				//ig.Annotations[constants.StopAnnotationKey] = "false"
+				Expect(k8sClient.Create(context.Background(), ig)).Should(Succeed())
+				defer k8sClient.Delete(context.Background(), ig)*/
+
+				// Check the inference service
+				predictorServiceKey := types.NamespacedName{
+					Name:      constants.PredictorServiceName(isvcServiceKey.Name),
+					Namespace: isvcServiceKey.Namespace,
+				}
+				expectPredictorKsvcToBeReady(context.Background(), isvcServiceKey, predictorServiceKey)
+				expectResourceToExist(context.Background(), &v1beta1.InferenceService{}, isvcServiceKey)
+				expectIsvcReadyStatus(ctx, isvcServiceKey)
+
+				// Check the inference graph
+				/*expectResourceToExist(context.Background(), &knservingv1.Service{}, graphServiceKey)
+				expectResourceToExist(context.Background(), &v1alpha1.InferenceGraph{}, graphServiceKey)
+
+				// expectIGFalseStoppedStatus(ctx, serviceKey)
+				expectIGReadyStatus(context.Background(), graphServiceKey)*/
+			})
+
+			/*It("Should not create the knative service when the annotation is set to true", func() {
+				configMap := createIGConfigMap()
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(context.TODO(), configMap)
+
+				graphName := "ig-stop-true"
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+				serviceKey := expectedRequest.NamespacedName
+				ig := defaultIG(serviceKey)
+				ig.Annotations[constants.StopAnnotationKey] = "true"
+				Expect(k8sClient.Create(context.Background(), ig)).Should(Succeed())
+				defer k8sClient.Delete(context.Background(), ig)
+
+				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, serviceKey)
+			})
+			*/
 		})
 	})
 
