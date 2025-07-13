@@ -58,8 +58,8 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
                 "bfloat16",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "4", "memory": "8Gi"},
-                limits={"cpu": "4", "memory": "8Gi"},
+                requests={"cpu": "2", "memory": "7Gi"},
+                limits={"cpu": "2", "memory": "7Gi"},
             ),
         ),
     )
@@ -107,8 +107,8 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
                 "bfloat16",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "4", "memory": "8Gi"},
-                limits={"cpu": "4", "memory": "8Gi"},
+                requests={"cpu": "2", "memory": "7Gi"},
+                limits={"cpu": "2", "memory": "7Gi"},
             ),
         ),
     )
@@ -158,8 +158,8 @@ def test_huggingface_vllm_cpu_openai_completions():
                 "bfloat16",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "4", "memory": "8Gi"},
-                limits={"cpu": "4", "memory": "8Gi"},
+                requests={"cpu": "2", "memory": "7Gi"},
+                limits={"cpu": "2", "memory": "7Gi"},
             ),
         ),
     )
@@ -206,8 +206,8 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
                 "bfloat16",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "4", "memory": "8Gi"},
-                limits={"cpu": "4", "memory": "8Gi"},
+                requests={"cpu": "2", "memory": "7Gi"},
+                limits={"cpu": "2", "memory": "7Gi"},
             ),
         ),
     )
