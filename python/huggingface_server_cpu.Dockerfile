@@ -91,7 +91,7 @@ RUN git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-
 
 # Install vLLM build requirements
 RUN cd vllm && \
-    uv pip install --no-cache -v -r requirements/build.txt && \
+    uv pip install --no-cache -v -r requirements/cpu-build.txt && \
     uv cache clean
 
 # Install vLLM cpu requirements
