@@ -88,7 +88,7 @@ func TestGetKedaMetrics_PodMetricSourceType(t *testing.T) {
 	assert.Equal(t, "external", triggers[0].Type)
 	assert.Equal(t, "http://otel-server", triggers[0].Metadata["scalerAddress"])
 	assert.Equal(t, "otel_query", triggers[0].Metadata["metricQuery"])
-	assert.Equal(t, "200.000000", triggers[0].Metadata["targetValue"])
+	assert.Equal(t, "200", triggers[0].Metadata["targetValue"])
 }
 
 func TestCreateKedaScaledObject(t *testing.T) {
@@ -592,7 +592,7 @@ func TestGetKedaMetrics_PodMetricSourceType_Success(t *testing.T) {
 	trigger := triggers[0]
 	assert.Equal(t, "external", trigger.Type)
 	assert.Equal(t, "otel_query", trigger.Metadata["metricQuery"])
-	assert.Equal(t, "200.000000", trigger.Metadata["targetValue"])
+	assert.Equal(t, "200", trigger.Metadata["targetValue"])
 	assert.Equal(t, "http://otel-server", trigger.Metadata["scalerAddress"])
 	assert.Equal(t, "sum", trigger.Metadata["operationOverTime"])
 }
