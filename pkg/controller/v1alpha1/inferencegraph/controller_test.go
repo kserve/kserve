@@ -1390,8 +1390,8 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, configMap)
 
-				graphName := "ig-stop-true"
-				isvcName := "stop-false-isvc"
+				graphName := "stop-true-ig"
+				isvcName := "stop-true-isvc"
 				serviceNamespace := "default"
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: serviceNamespace}}
 				graphServiceKey := expectedRequest.NamespacedName
@@ -1417,11 +1417,11 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(context.TODO(), configMap)
 
-				isvcName := "stop-false-isvc"
+				isvcName := "stop-update-true-isvc"
 				serviceNamespace := "default"
 
 				// Define InferenceGraph
-				graphName := "stop-false-ig"
+				graphName := "stop-update-true-ig"
 				graphExpectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: serviceNamespace}}
 				graphServiceKey := graphExpectedRequest.NamespacedName
 				ig := defaultIG(graphServiceKey, isvcName)
@@ -1457,8 +1457,8 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, configMap)
 
-				graphName := "ig-stop-true"
-				isvcName := "stop-false-isvc"
+				graphName := "stop-update-false-ig"
+				isvcName := "stop-update-false-isvc"
 				serviceNamespace := "default"
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: serviceNamespace}}
 				graphServiceKey := expectedRequest.NamespacedName
