@@ -35,9 +35,11 @@ from huggingfaceserver.task import (
 from . import (
     HuggingfaceGenerativeModel,
     HuggingfaceEncoderModel,
-    HuggingFaceTimeSeriesModel,
     Backend,
 )
+
+from kserve.protocol.rest.timeseries.time_series_model import HuggingFaceTimeSeriesModel
+
 from .vllm.utils import (
     infer_vllm_supported_from_model_architecture,
     maybe_add_vllm_cli_parser,
@@ -273,7 +275,7 @@ def load_model():
             model = HuggingFaceTimeSeriesModel(
                 args.model_name,
                 model_id_or_path=model_id_or_path,
-                task=task,
+                model_config=model_config,
                 model_revision=kwargs.get("model_revision", None),
                 dtype=dtype,
             )
