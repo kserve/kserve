@@ -10313,6 +10313,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 													"targets": []interface{}{"localhost:8080"},
 												},
 											},
+											"relabel_configs": []interface{}{
+												map[string]interface{}{
+													"source_labels": []interface{}{},
+													"target_label":  "namespace",
+													"replacement":   predictorSObjectKey.Namespace,
+												},
+												map[string]interface{}{
+													"source_labels": []interface{}{},
+													"target_label":  "deployment",
+													"replacement":   predictorSObjectKey.Name,
+												},
+											},
 										},
 									},
 								},
