@@ -24,6 +24,7 @@ from transformers import (
     AutoModelForSeq2SeqLM,
     AutoModelForSequenceClassification,
     AutoModelForTableQuestionAnswering,
+    AutoModelForTimeSeriesPrediction,
     AutoModelForTokenClassification,
     PretrainedConfig,
 )
@@ -78,7 +79,7 @@ TASK_2_CLS = {
     MLTask.text2text_generation: AutoModelForSeq2SeqLM,
     MLTask.multiple_choice: AutoModelForMultipleChoice,
     MLTask.text_embedding: AutoModel,
-    MLTask.time_series_forecast: AutoModel,
+    MLTask.time_series_forecast: AutoModelForTimeSeriesPrediction,
 }
 
 SUPPORTED_TASKS = {

@@ -17,10 +17,15 @@ from fastapi import FastAPI
 from ....model import Model
 from ....model_repository import ModelRepository
 
+from kserve.logging import logger
+
 
 def get_open_ai_models(repository: ModelRepository) -> dict[str, Model]:
     """Retrieve all models in the repository that implement the OpenAI interface"""
     from .openai_model import OpenAIModel
+
+    for name, model in repository.get_models().items():
+        logger.info(f">>> Found model '{name}' of type {type(model)}")
 
     return {
         name: model
@@ -32,6 +37,8 @@ def get_open_ai_models(repository: ModelRepository) -> dict[str, Model]:
 def maybe_register_openai_endpoints(app: FastAPI, model_registry: ModelRepository):
     open_ai_models = get_open_ai_models(model_registry)
     # If no OpenAI models then no need to add the endpoints
+    logger.info(f">>> Found {len(open_ai_models)} OpenAI models in the repository")
+
     if len(open_ai_models) == 0:
         return
     from .dataplane import OpenAIDataPlane
