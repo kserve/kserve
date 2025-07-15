@@ -143,6 +143,9 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	r.Log.Info("Reconciling inference graph", "apiVersion", graph.APIVersion, "graph", graph.Name)
+
+	forceStopRuntime := utils.GetForceStopRuntime(graph)
+
 	configMap, err := r.Clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(ctx, constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		r.Log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
@@ -255,6 +258,33 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				}
 			}
 		}
+	}
+
+	// Handle InferenceGraph status updates based on the force stop annotation.
+	// If true, transition the service to a stopped and unready state; otherwise, ensure it's not marked as stopped.
+	if forceStopRuntime {
+		// Exit early if we have already set the status to stopped
+		existingStoppedCondition := graph.Status.GetCondition(v1beta1.Stopped)
+		if existingStoppedCondition != nil && existingStoppedCondition.Status == corev1.ConditionTrue {
+			// TODO: Set condition to stoppING
+		} else {
+			// Add the stopped condition
+			stoppedCondition := apis.Conditions{
+				{
+					Type:   v1beta1.Stopped,
+					Status: corev1.ConditionTrue,
+				},
+			}
+			graph.Status.SetConditions(stoppedCondition)
+		}
+	} else {
+		resumeCondition := apis.Conditions{
+			{
+				Type:   v1beta1.Stopped,
+				Status: corev1.ConditionFalse,
+			},
+		}
+		graph.Status.SetConditions(resumeCondition)
 	}
 
 	if err := r.updateStatus(ctx, graph); err != nil {

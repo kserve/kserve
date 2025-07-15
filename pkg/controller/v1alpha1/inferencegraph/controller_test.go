@@ -25,6 +25,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -1094,6 +1096,18 @@ var _ = Describe("Inference Graph controller test", func() {
 			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
 		}*/
 
+		// Wait for the IG to exist.
+		expectIGToExist := func(ctx context.Context, serviceKey types.NamespacedName) v1alpha1.InferenceGraph {
+			// Check that the ISVC was updated
+			updatedIG := &v1alpha1.InferenceGraph{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIG)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			return *updatedIG
+		}
+
 		// Waits for any Kubernestes object to be found
 		expectResourceToExist := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
 			Eventually(func() bool {
@@ -1103,20 +1117,57 @@ var _ = Describe("Inference Graph controller test", func() {
 		}
 
 		// Checks that any Kubernetes object to be not found.
-		/*expectResourceIsDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
+		expectResourceIsDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
 			Consistently(func() bool {
 				err := k8sClient.Get(ctx, objKey, obj)
 				return apierr.IsNotFound(err)
 			}, time.Second*10, interval).Should(BeTrue(), "%T %s should not be created", obj, objKey.Name)
-		}*/
+		}
 
 		// Wait for any Kubernetes object to be not found.
-		/*expectResourceToBeDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
+		expectResourceToBeDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, objKey, obj)
 				return apierr.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue(), "%T %s should be deleted", obj, objKey.Name)
-		}*/
+		}
+
+		// Wait for the InferenceGraph's Stopped condition to be false.
+		expectIGFalseStoppedStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
+			// Check that the stopped condition is false
+			updatedIsvc := &v1alpha1.InferenceGraph{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err == nil {
+					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
+					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionFalse {
+						return true
+					}
+				}
+				return false
+			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to false")
+		}
+
+		// Wait for the InferenceGraph's Stopped condition to be true.
+		expectIGTrueStoppedStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
+			// Check that the IG status reflects that it is stopped
+			updatedIsvc := &v1alpha1.InferenceGraph{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err == nil {
+					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
+					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionTrue {
+						return true
+					}
+				}
+				return false
+			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
+		}
 
 		// Wait for the Predictor's Knative Service to exist and for its status URL and conditions to be ready.
 		/*expectPredictorKsvcToBeReady := func(ctx context.Context, serviceKey types.NamespacedName, predictorServiceKey types.NamespacedName) {
@@ -1310,7 +1361,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				graphExpectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: serviceNamespace}}
 				graphServiceKey := graphExpectedRequest.NamespacedName
 				ig := defaultIG(graphServiceKey, isvcName)
-				//ig.Annotations[constants.StopAnnotationKey] = "false"
+				ig.Annotations[constants.StopAnnotationKey] = "false"
 				Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
 				defer k8sClient.Delete(ctx, ig)
 
@@ -1325,28 +1376,116 @@ var _ = Describe("Inference Graph controller test", func() {
 
 				// Check the inference graph
 				expectResourceToExist(context.Background(), &knservingv1.Service{}, graphServiceKey)
-				expectResourceToExist(context.Background(), &v1alpha1.InferenceGraph{}, graphServiceKey)
+				expectIGToExist(context.Background(), graphServiceKey)
 
-				// expectIGFalseStoppedStatus(ctx, serviceKey)
+				expectIGFalseStoppedStatus(ctx, graphServiceKey)
 				// expectIGReadyStatus(context.Background(), graphServiceKey)
 			})
 
-			/*It("Should not create the knative service when the annotation is set to true", func() {
+			It("Should not create the knative service when the annotation is set to true", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
+
 				configMap := createIGConfigMap()
-				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-				defer k8sClient.Delete(context.TODO(), configMap)
+				Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, configMap)
 
 				graphName := "ig-stop-true"
-				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
-				serviceKey := expectedRequest.NamespacedName
-				ig := defaultIG(serviceKey)
+				isvcName := "stop-false-isvc"
+				serviceNamespace := "default"
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: serviceNamespace}}
+				graphServiceKey := expectedRequest.NamespacedName
+				ig := defaultIG(graphServiceKey, isvcName)
 				ig.Annotations[constants.StopAnnotationKey] = "true"
 				Expect(k8sClient.Create(context.Background(), ig)).Should(Succeed())
 				defer k8sClient.Delete(context.Background(), ig)
 
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, serviceKey)
+				// Check that the knative service was not created
+				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, graphServiceKey)
+
+				// Check the inference graph
+				expectIGToExist(context.Background(), graphServiceKey)
+				expectIGTrueStoppedStatus(ctx, graphServiceKey)
 			})
-			*/
+
+			It("Should delete the knative service when the annotation is updated to true on an existing IG", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
+
+				// Config map
+				configMap := createIGConfigMap()
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(context.TODO(), configMap)
+
+				isvcName := "stop-false-isvc"
+				serviceNamespace := "default"
+
+				// Define InferenceGraph
+				graphName := "stop-false-ig"
+				graphExpectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: serviceNamespace}}
+				graphServiceKey := graphExpectedRequest.NamespacedName
+				ig := defaultIG(graphServiceKey, isvcName)
+				ig.Annotations[constants.StopAnnotationKey] = "false"
+				Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
+				defer k8sClient.Delete(ctx, ig)
+
+				// Check the inference graph
+				expectResourceToExist(context.Background(), &knservingv1.Service{}, graphServiceKey)
+				expectIGToExist(context.Background(), graphServiceKey)
+
+				expectIGFalseStoppedStatus(ctx, graphServiceKey)
+
+				// Stop the inference graph
+				actualIG := expectIGToExist(ctx, graphServiceKey)
+				updatedIG := actualIG.DeepCopy()
+				updatedIG.Annotations[constants.StopAnnotationKey] = "true"
+				Expect(k8sClient.Update(ctx, updatedIG)).NotTo(HaveOccurred())
+
+				// Check that the knative service was deleted
+				expectResourceToBeDeleted(context.Background(), &knservingv1.Service{}, graphServiceKey)
+
+				// Check the inference graph
+				expectIGToExist(context.Background(), graphServiceKey)
+				expectIGTrueStoppedStatus(ctx, graphServiceKey)
+			})
+
+			It("Should create the knative service when the annotation is updated to false on an existing IG", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
+
+				configMap := createIGConfigMap()
+				Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, configMap)
+
+				graphName := "ig-stop-true"
+				isvcName := "stop-false-isvc"
+				serviceNamespace := "default"
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: serviceNamespace}}
+				graphServiceKey := expectedRequest.NamespacedName
+				ig := defaultIG(graphServiceKey, isvcName)
+				ig.Annotations[constants.StopAnnotationKey] = "true"
+				Expect(k8sClient.Create(context.Background(), ig)).Should(Succeed())
+				defer k8sClient.Delete(context.Background(), ig)
+
+				// Check that the knative service was not created
+				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, graphServiceKey)
+
+				// Check the inference graph
+				expectIGToExist(context.Background(), graphServiceKey)
+				expectIGTrueStoppedStatus(ctx, graphServiceKey)
+
+				// Resume the inference graph
+				actualIG := expectIGToExist(ctx, graphServiceKey)
+				updatedIG := actualIG.DeepCopy()
+				updatedIG.Annotations[constants.StopAnnotationKey] = "false"
+				Expect(k8sClient.Update(ctx, updatedIG)).NotTo(HaveOccurred())
+
+				// Check the inference graph
+				expectResourceToExist(context.Background(), &knservingv1.Service{}, graphServiceKey)
+				expectIGToExist(context.Background(), graphServiceKey)
+
+				expectIGFalseStoppedStatus(ctx, graphServiceKey)
+			})
 		})
 	})
 
