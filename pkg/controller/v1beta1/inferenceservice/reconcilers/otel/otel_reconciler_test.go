@@ -119,10 +119,25 @@ func TestCreateOtelCollector(t *testing.T) {
 				include := metrics["include"].(map[string]interface{})
 				metricNames := include["metric_names"].([]string)
 				assert.ElementsMatch(t, tc.metricNames, metricNames)
-				// Verify processors in pipeline
-				assert.Equal(t, []string{"filter/metrics"}, collector.Spec.Config.Service.Pipelines["metrics"].Processors)
+			}
+
+			// Verify processors always include resourcedetection/env and transform
+			processors := collector.Spec.Config.Processors.Object
+			assert.Contains(t, processors, "resourcedetection/env")
+			assert.Contains(t, processors, "transform")
+
+			// Verify pipeline processors
+			pipeline := collector.Spec.Config.Service.Pipelines["metrics"].Processors
+			if len(tc.metricNames) > 0 {
+				assert.Equal(t, []string{"resourcedetection/env", "transform", "filter/metrics"}, pipeline)
+				// Verify filter processor config
+				filterMetrics := processors["filter/metrics"].(map[string]interface{})
+				metrics := filterMetrics["metrics"].(map[string]interface{})
+				include := metrics["include"].(map[string]interface{})
+				metricNames := include["metric_names"].([]string)
+				assert.ElementsMatch(t, tc.metricNames, metricNames)
 			} else {
-				assert.Empty(t, collector.Spec.Config.Service.Pipelines["metrics"].Processors)
+				assert.Equal(t, []string{"resourcedetection/env", "transform"}, pipeline)
 			}
 		})
 	}

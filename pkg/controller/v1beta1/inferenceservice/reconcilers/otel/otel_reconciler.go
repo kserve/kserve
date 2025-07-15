@@ -68,6 +68,41 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 		port = "8080"
 	}
 
+	processors := map[string]interface{}{
+		"resourcedetection/env": map[string]interface{}{
+			"detectors": []interface{}{"env"},
+			"timeout":   "2s",
+			"override":  false,
+		},
+		"transform": map[string]interface{}{
+			"metric_statements": []interface{}{
+				map[string]interface{}{
+					"context": "datapoint",
+					"statements": []interface{}{
+						"set(attributes[\"namespace\"], resource.attributes[\"k8s.namespace.name\"])",
+						"set(attributes[\"deployment\"], resource.attributes[\"k8s.deployment.name\"])",
+						"set(attributes[\"pod\"], resource.attributes[\"k8s.pod.name\"])",
+					},
+				},
+			},
+		},
+	}
+
+	pipelineProcessors := []string{"resourcedetection/env", "transform"}
+
+	// Add filter processor to include all specified metrics
+	if len(metricNames) > 0 {
+		processors["filter/metrics"] = map[string]interface{}{
+			"metrics": map[string]interface{}{
+				"include": map[string]interface{}{
+					"match_type":   "strict",
+					"metric_names": metricNames,
+				},
+			},
+		}
+		pipelineProcessors = append(pipelineProcessors, "filter/metrics")
+	}
+
 	otelCollector := &otelv1beta1.OpenTelemetryCollector{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        componentMeta.Name,
@@ -103,32 +138,18 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 						},
 					},
 				}},
+				Processors: &otelv1beta1.AnyConfig{Object: processors},
 				Service: otelv1beta1.Service{
 					Pipelines: map[string]*otelv1beta1.Pipeline{
 						"metrics": {
 							Receivers:  []string{"prometheus"},
-							Processors: []string{},
+							Processors: pipelineProcessors,
 							Exporters:  []string{"otlp"},
 						},
 					},
 				},
 			},
 		},
-	}
-
-	// Add filter processor to include all specified metrics
-	if len(metricNames) > 0 {
-		otelCollector.Spec.Config.Processors = &otelv1beta1.AnyConfig{Object: map[string]interface{}{
-			"filter/metrics": map[string]interface{}{
-				"metrics": map[string]interface{}{
-					"include": map[string]interface{}{
-						"match_type":   "strict",
-						"metric_names": metricNames,
-					},
-				},
-			},
-		}}
-		otelCollector.Spec.Config.Service.Pipelines["metrics"].Processors = []string{"filter/metrics"}
 	}
 
 	return otelCollector
