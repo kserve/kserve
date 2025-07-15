@@ -69,19 +69,23 @@ func NewRawKubeReconciler(ctx context.Context,
 	}
 	// create OTel Collector if pod metrics is enabled for auto-scaling
 	if componentExt.AutoScaling != nil {
+		var metricNames []string
 		metrics := componentExt.AutoScaling.Metrics
 		for _, metric := range metrics {
 			if metric.Type == v1beta1.PodMetricSourceType {
 				if metric.PodMetric.Metric.Backend == v1beta1.PodsMetricsBackend(constants.OTelBackend) {
-					otelConfig, err := v1beta1.NewOtelCollectorConfig(isvcConfigMap)
-					if err != nil {
-						return nil, err
-					}
-					otelCollector, err = otel.NewOtelReconciler(client, scheme, componentMeta, metric, *otelConfig)
-					if err != nil {
-						return nil, err
-					}
+					metricNames = append(metricNames, metric.PodMetric.Metric.MetricNames...)
 				}
+			}
+		}
+		if len(metricNames) > 0 {
+			otelConfig, err := v1beta1.NewOtelCollectorConfig(isvcConfigMap)
+			if err != nil {
+				return nil, err
+			}
+			otelCollector, err = otel.NewOtelReconciler(client, scheme, componentMeta, metricNames, *otelConfig)
+			if err != nil {
+				return nil, err
 			}
 		}
 	}
