@@ -9,7 +9,6 @@ from .types import (
 )
 from ....model import BaseKServeModel
 
-
 from typing import Union, Optional, Dict, Any
 import pathlib
 import torch
@@ -83,14 +82,14 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
         self.model_config = model_config
         self.model_revision = model_revision
         self.dtype = dtype
-        
-        logger.info(f">>> Model ID or Path: {self.model_id_or_path}")
-        logger.info(f">>> Model Config: {self.model_config}")
+
+        logger.debug(f"Time Series Model ID or Path: {self.model_id_or_path}")
+        logger.debug(f"Time Series Model Config: {self.model_config}")
 
     def load(self):
         model_kwargs = {}
         model_kwargs["torch_dtype"] = self.dtype
-        
+
         self._model = AutoModelForTimeSeriesPrediction.from_pretrained(
             self.model_id_or_path,
             revision=self.model_revision,
@@ -98,9 +97,7 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
             **model_kwargs,
         )
         self._model.eval()
-        
-        logger.info(f">>> Model loaded: {self._model.__class__.__name__}")
-        
+        logger.info(f"Loaded Time Series Model {self._model.__class__.__name__}")
 
         self.ready = True
         return self.ready
@@ -178,22 +175,18 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
                     )
 
             frequency_input_tensor = torch.tensor(frequency_input_tensor, dtype=torch.long).to(self._device)
-            print(f">>> Frequency input tensor: {frequency_input_tensor}")
-            print(f">>> Forecast input tensor: {forecast_input_tensor}")
-            model_output = self._model(forecast_input_tensor, frequency_input_tensor, return_dict=True)
-                        
+            model_output = self._model(forecast_input_tensor, frequency_input_tensor, return_dict=True)   
             full_predictions = model_output.full_predictions.cpu().detach().numpy()
-            
+
             forecast_outputs = []
             for i in range(len(request.inputs)):
-                
-                # trim output to the horizon
+                # trim mean prediction to the horizon
                 trimmed_point_forecast = full_predictions[i, :request.options.horizon, 0].tolist()
                 # format and trim quantiles
                 trimmed_quantile_forecast = {}
                 for j, q in enumerate(request.options.quantiles):
                     trimmed_quantile_forecast[str(q)] = full_predictions[i, :request.options.horizon, quantiles_idx[j]].tolist()
-                
+
                 ts_output = TimeSeriesForecast(
                     type=TimeSeriesType.UNIVARIATE,
                     name=request.inputs[i].name,
@@ -202,7 +195,7 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
                     start_timestamp=request.inputs[i].start_timestamp,
                     quantiles=trimmed_quantile_forecast,
                 )
-                
+
                 forecast_output = ForecastOutput(
                     type="time_series_forecast",
                     id=str(uuid.uuid4()),
@@ -210,7 +203,7 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
                     content=[ts_output],
                     error=None
                 )
-                
+
                 forecast_outputs.append(forecast_output)
 
             usage = Usage(
@@ -228,7 +221,7 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
                 outputs=forecast_outputs,
                 usage=usage
             )
-            
+
             return forecast_response
 
         else:

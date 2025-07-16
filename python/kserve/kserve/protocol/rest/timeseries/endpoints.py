@@ -31,7 +31,7 @@ class TimeSeriesEndpoints:
         raw_request: Request,
         response: Response
     ):
-        logger.info(f">>> Forecast request: {request_body}")
+        logger.debug(f"Time Series Forecast request: {request_body}")
         request_headers = raw_request.headers
         forecast_response = await self.dataplane.forecast(
             request_body,
@@ -45,7 +45,7 @@ class TimeSeriesEndpoints:
             )
         else:
             return forecast_response
-        
+
     async def models(self):
         models = await self.dataplane.models()
         return [model.name for model in models]
@@ -65,4 +65,4 @@ def register_time_series_endpoints(app: FastAPI, dataplane: TimeSeriesDataPlane)
         methods=["GET"],
     )
     app.include_router(ts_router)
-    logger.info(f">>> Time series endpoints registered")
+    logger.info(f"Time Series endpoints registered")

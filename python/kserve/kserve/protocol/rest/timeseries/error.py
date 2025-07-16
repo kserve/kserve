@@ -49,7 +49,7 @@ def create_error_response(
 
 async def time_series_error_handler(_, exc: TimeSeriesError):
     logger.error("Exception:", exc_info=exc)
-    
+
     response = (
         exc.response
         if isinstance(exc.response, ErrorResponse)
@@ -60,7 +60,7 @@ async def time_series_error_handler(_, exc: TimeSeriesError):
             status_code=HTTPStatus.BAD_REQUEST,
         )
     )
-    
+
     return JSONResponse(
         status_code=int(response.error.code),
         content=response.model_dump(),
