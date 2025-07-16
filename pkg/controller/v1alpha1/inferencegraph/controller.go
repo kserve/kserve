@@ -262,6 +262,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Handle InferenceGraph status updates based on the force stop annotation.
 	// If true, transition the service to a stopped and unready state; otherwise, ensure it's not marked as stopped.
+	transition_time := apis.VolatileTime{Inner: metav1.Now()}
 	if forceStopRuntime {
 		// Exit early if we have already set the status to stopped
 		existingStoppedCondition := graph.Status.GetCondition(v1beta1.Stopped)
@@ -269,18 +270,28 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			// TODO: Set condition to stoppING
 		} else {
 			// Add the stopped condition
-			stoppedCondition := &apis.Condition{
+			stoppedCondition := apis.Condition{
+				LastTransitionTime: transition_time,
 				Type:   v1beta1.Stopped,
 				Status: corev1.ConditionTrue,
 			}
-			graph.Status.Conditions = append(graph.Status.Conditions, *stoppedCondition)
+			readyCondition := apis.Condition{
+				LastTransitionTime: transition_time,
+				Type:   apis.ConditionReady,
+				Status: corev1.ConditionFalse,
+				Reason: v1beta1.StoppedISVCReason,
+			}
+			graph.Status.Conditions = []apis.Condition{stoppedCondition, readyCondition}
+
+			graph.Status.URL = nil
 		}
 	} else {
-		resumeCondition := &apis.Condition{
+		resumeCondition := apis.Condition{
+			LastTransitionTime: transition_time,
 			Type:   v1beta1.Stopped,
 			Status: corev1.ConditionFalse,
 		}
-		graph.Status.Conditions = append(graph.Status.Conditions, *resumeCondition)
+		graph.Status.Conditions = append(graph.Status.Conditions, resumeCondition)
 	}
 
 	if err := r.updateStatus(ctx, graph); err != nil {
