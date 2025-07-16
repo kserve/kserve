@@ -277,8 +277,7 @@ def load_model():
                 model_revision=kwargs.get("model_revision", None),
                 dtype=dtype,
             )
-        
-        
+
         elif is_generative_task(task):
             logger.debug(f"Loading model in {dtype}")
 
