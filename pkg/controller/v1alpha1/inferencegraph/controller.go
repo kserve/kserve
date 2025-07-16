@@ -269,22 +269,18 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			// TODO: Set condition to stoppING
 		} else {
 			// Add the stopped condition
-			stoppedCondition := apis.Conditions{
-				{
-					Type:   v1beta1.Stopped,
-					Status: corev1.ConditionTrue,
-				},
+			stoppedCondition := &apis.Condition{
+				Type:   v1beta1.Stopped,
+				Status: corev1.ConditionTrue,
 			}
-			graph.Status.SetConditions(stoppedCondition)
+			graph.Status.Conditions = append(graph.Status.Conditions, *stoppedCondition)
 		}
 	} else {
-		resumeCondition := apis.Conditions{
-			{
-				Type:   v1beta1.Stopped,
-				Status: corev1.ConditionFalse,
-			},
+		resumeCondition := &apis.Condition{
+			Type:   v1beta1.Stopped,
+			Status: corev1.ConditionFalse,
 		}
-		graph.Status.SetConditions(resumeCondition)
+		graph.Status.Conditions = append(graph.Status.Conditions, *resumeCondition)
 	}
 
 	if err := r.updateStatus(ctx, graph); err != nil {
