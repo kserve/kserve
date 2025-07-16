@@ -151,14 +151,14 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
                             message=f"Invalid quantile: {q}"
                         )
                     )
-                quantiles_idx.append(model_quantiles[q])
-                
+                # the first quantile is the mean, so we need to add 1 to the index
+                quantiles_idx.append(model_quantiles[q] + 1)
             
             forecast_input_tensor = []
             frequency_input_tensor = []
             for input in request.inputs:
                 if input.type == TimeSeriesType.UNIVARIATE:
-                    forecast_input_tensor.append(torch.tensor(input.series, dtype=torch.float32).to(self._device))
+                    forecast_input_tensor.append(torch.tensor(input.series, dtype=self.dtype).to(self._device))
                     try:
                         freq = Frequency(input.frequency)
                     except:
@@ -177,23 +177,22 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
                         )
                     )
 
-            frequency_input_tensor = torch.tensor(frequency_input_tensor, dtype=torch.int32).to(self._device)
+            frequency_input_tensor = torch.tensor(frequency_input_tensor, dtype=torch.long).to(self._device)
             print(f">>> Frequency input tensor: {frequency_input_tensor}")
             print(f">>> Forecast input tensor: {forecast_input_tensor}")
             model_output = self._model(forecast_input_tensor, frequency_input_tensor, return_dict=True)
                         
-            point_forecast_conv = model_output.mean_predictions.cpu().detach().numpy().tolist()
-            quantile_forecast_conv = model_output.full_predictions.cpu().detach().numpy().tolist()
+            full_predictions = model_output.full_predictions.cpu().detach().numpy()
             
             forecast_outputs = []
             for i in range(len(request.inputs)):
                 
                 # trim output to the horizon
-                trimmed_point_forecast = point_forecast_conv[i][:request.options.horizon]
+                trimmed_point_forecast = full_predictions[i, :request.options.horizon, 0].tolist()
                 # format and trim quantiles
                 trimmed_quantile_forecast = {}
                 for j, q in enumerate(request.options.quantiles):
-                    trimmed_quantile_forecast[str(q)] = quantile_forecast_conv[i][quantiles_idx[j]][:request.options.horizon]
+                    trimmed_quantile_forecast[str(q)] = full_predictions[i, :request.options.horizon, quantiles_idx[j]].tolist()
                 
                 ts_output = TimeSeriesForecast(
                     type=TimeSeriesType.UNIVARIATE,
