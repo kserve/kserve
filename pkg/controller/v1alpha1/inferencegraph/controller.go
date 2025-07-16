@@ -272,14 +272,14 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			// Add the stopped condition
 			stoppedCondition := apis.Condition{
 				LastTransitionTime: transition_time,
-				Type:   v1beta1.Stopped,
-				Status: corev1.ConditionTrue,
+				Type:               v1beta1.Stopped,
+				Status:             corev1.ConditionTrue,
 			}
 			readyCondition := apis.Condition{
 				LastTransitionTime: transition_time,
-				Type:   apis.ConditionReady,
-				Status: corev1.ConditionFalse,
-				Reason: v1beta1.StoppedISVCReason,
+				Type:               apis.ConditionReady,
+				Status:             corev1.ConditionFalse,
+				Reason:             v1beta1.StoppedISVCReason,
 			}
 			graph.Status.Conditions = []apis.Condition{stoppedCondition, readyCondition}
 
@@ -288,8 +288,8 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	} else {
 		resumeCondition := apis.Condition{
 			LastTransitionTime: transition_time,
-			Type:   v1beta1.Stopped,
-			Status: corev1.ConditionFalse,
+			Type:               v1beta1.Stopped,
+			Status:             corev1.ConditionFalse,
 		}
 		graph.Status.Conditions = append(graph.Status.Conditions, resumeCondition)
 	}
