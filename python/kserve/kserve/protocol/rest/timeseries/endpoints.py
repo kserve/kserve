@@ -16,7 +16,10 @@ from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.responses import ORJSONResponse
 
 from kserve.protocol.rest.timeseries.dataplane import TimeSeriesDataPlane
-from kserve.protocol.rest.timeseries.types import ForecastRequest, ForecastResponse, ErrorResponse, Error
+from kserve.protocol.rest.timeseries.types import (
+    ForecastRequest,
+    ErrorResponse,
+)
 
 from kserve.logging import logger
 
@@ -26,10 +29,7 @@ class TimeSeriesEndpoints:
         self.dataplane = dataplane
 
     async def forecast(
-        self,
-        request_body: ForecastRequest,
-        raw_request: Request,
-        response: Response
+        self, request_body: ForecastRequest, raw_request: Request, response: Response
     ):
         logger.debug(f"Time Series Forecast request: {request_body}")
         request_headers = raw_request.headers
@@ -41,7 +41,8 @@ class TimeSeriesEndpoints:
         )
         if isinstance(forecast_response, ErrorResponse):
             return ORJSONResponse(
-                content=forecast_response.model_dump(), status_code=int(forecast_response.error.code)
+                content=forecast_response.model_dump(),
+                status_code=int(forecast_response.error.code),
             )
         else:
             return forecast_response
@@ -65,4 +66,4 @@ def register_time_series_endpoints(app: FastAPI, dataplane: TimeSeriesDataPlane)
         methods=["GET"],
     )
     app.include_router(ts_router)
-    logger.info(f"Time Series endpoints registered")
+    logger.info("Time Series endpoints registered")

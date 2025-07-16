@@ -109,8 +109,10 @@ class RESTServer:
             logger.info("OpenAI endpoints registered")
         except ImportError:
             logger.info("OpenAI endpoints not registered")
-            
-        ts_resgistered = maybe_register_time_series_endpoints(app, self.dataplane.model_registry)
+
+        ts_resgistered = maybe_register_time_series_endpoints(
+            app, self.dataplane.model_registry
+        )
         if ts_resgistered:
             logger.info("Time series endpoints registered")
         else:
