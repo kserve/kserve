@@ -1,26 +1,32 @@
+# Copyright 2023 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from abc import abstractmethod
-
 from fastapi import Request
-
-from .types import (
-    ForecastRequest,
-    ForecastResponse,
-    ErrorResponse,
-)
-from ....model import BaseKServeModel
-
-from typing import Union, Optional, Dict, Any
 import pathlib
 import torch
 import numpy as np
 import uuid
 import time
+from typing import Union, Optional, Dict, Any
 
 from transformers import (
     AutoModelForTimeSeriesPrediction,
     PretrainedConfig,
 )
 
+from ....model import BaseKServeModel
 from kserve.logging import logger
 from kserve.protocol.rest.timeseries.types import (
     ForecastRequest,
@@ -37,7 +43,7 @@ from kserve.protocol.rest.timeseries.types import (
 
 
 class TimeSeriesModel(BaseKServeModel):
-    """Time Series Model""" 
+    """Time Series Model"""
 
     def __init__(self, name: str):
         super().__init__(name)
@@ -107,9 +113,9 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
         request: ForecastRequest,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[ForecastResponse, ErrorResponse]:
-        
+
         if "timesfm" in request.model.lower():
-            
+
             TIMESFM_FREQUENCY_MAP = {
                 Frequency.SECOND: 0,
                 Frequency.SECOND_SHORT: 0,
@@ -128,13 +134,13 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
                 Frequency.YEAR: 2,
                 Frequency.YEAR_SHORT: 2,
             }
-            
+
             # check if the horizon is valid
             if request.options.horizon > self.model_config.horizon_length:
                 return ErrorResponse(
                     error=Error(
                         type="invalid_horizon",
-                        message=f"Invalid horizon: {request.options.horizon}"
+                        message=f"Invalid horizon: {request.options.horizon}",
                     )
                 )
             # check if the quantiles are valid
@@ -144,48 +150,59 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
                 if q not in model_quantiles:
                     return ErrorResponse(
                         error=Error(
-                            type="invalid_quantile",
-                            message=f"Invalid quantile: {q}"
+                            type="invalid_quantile", message=f"Invalid quantile: {q}"
                         )
                     )
                 # the first quantile is the mean, so we need to add 1 to the index
                 quantiles_idx.append(model_quantiles[q] + 1)
-            
+
             forecast_input_tensor = []
             frequency_input_tensor = []
             for input in request.inputs:
                 if input.type == TimeSeriesType.UNIVARIATE:
-                    forecast_input_tensor.append(torch.tensor(input.series, dtype=self.dtype).to(self._device))
+                    forecast_input_tensor.append(
+                        torch.tensor(input.series, dtype=self.dtype).to(self._device)
+                    )
                     try:
                         freq = Frequency(input.frequency)
-                    except:
+                    except ValueError:
                         return ErrorResponse(
                             error=Error(
                                 type="invalid_frequency",
-                                message=f"Invalid frequency: {input.frequency}"
+                                message=f"Invalid frequency: {input.frequency}",
                             )
                         )
-                    frequency_input_tensor.append(np.float32(TIMESFM_FREQUENCY_MAP[freq]))
+                    frequency_input_tensor.append(
+                        np.float32(TIMESFM_FREQUENCY_MAP[freq])
+                    )
                 else:
                     return ErrorResponse(
                         error=Error(
                             type="unsupported_time_series_type",
-                            message=f"Only univariate time series are supported at this time."
+                            message="Only univariate time series are supported at this time.",
                         )
                     )
 
-            frequency_input_tensor = torch.tensor(frequency_input_tensor, dtype=torch.long).to(self._device)
-            model_output = self._model(forecast_input_tensor, frequency_input_tensor, return_dict=True)   
+            frequency_input_tensor = torch.tensor(
+                frequency_input_tensor, dtype=torch.long
+            ).to(self._device)
+            model_output = self._model(
+                forecast_input_tensor, frequency_input_tensor, return_dict=True
+            )
             full_predictions = model_output.full_predictions.cpu().detach().numpy()
 
             forecast_outputs = []
             for i in range(len(request.inputs)):
                 # trim mean prediction to the horizon
-                trimmed_point_forecast = full_predictions[i, :request.options.horizon, 0].tolist()
+                trimmed_point_forecast = full_predictions[
+                    i, : request.options.horizon, 0
+                ].tolist()
                 # format and trim quantiles
                 trimmed_quantile_forecast = {}
                 for j, q in enumerate(request.options.quantiles):
-                    trimmed_quantile_forecast[str(q)] = full_predictions[i, :request.options.horizon, quantiles_idx[j]].tolist()
+                    trimmed_quantile_forecast[str(q)] = full_predictions[
+                        i, : request.options.horizon, quantiles_idx[j]
+                    ].tolist()
 
                 ts_output = TimeSeriesForecast(
                     type=TimeSeriesType.UNIVARIATE,
@@ -201,25 +218,21 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
                     id=str(uuid.uuid4()),
                     status=Status.COMPLETED,
                     content=[ts_output],
-                    error=None
+                    error=None,
                 )
 
                 forecast_outputs.append(forecast_output)
 
-            usage = Usage(
-                prompt_tokens=0,
-                completion_tokens=0,
-                total_tokens=0
-            )
+            usage = Usage(prompt_tokens=0, completion_tokens=0, total_tokens=0)
 
             forecast_response = ForecastResponse(
                 id=str(uuid.uuid4()),
                 created_at=int(time.time()),
                 status=Status.COMPLETED,
-                error=None, 
+                error=None,
                 model=request.model,
                 outputs=forecast_outputs,
-                usage=usage
+                usage=usage,
             )
 
             return forecast_response
@@ -228,6 +241,6 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
             return ErrorResponse(
                 error=Error(
                     type="model_not_found",
-                    message=f"Only TimesFM models are supported at this time."
+                    message="Only TimesFM models are supported at this time.",
                 )
             )
