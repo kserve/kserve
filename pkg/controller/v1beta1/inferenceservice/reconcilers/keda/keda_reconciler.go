@@ -67,8 +67,7 @@ func NewKedaReconciler(client client.Client,
 	}, nil
 }
 
-func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
-	minReplicas int32, maxReplicas int32, configMap *corev1.ConfigMap,
+func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, configMap *corev1.ConfigMap,
 ) ([]kedav1alpha1.ScaleTriggers, error) {
 	var triggers []kedav1alpha1.ScaleTriggers
 
@@ -109,9 +108,7 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 			case v1beta1.ExternalMetricSourceType:
 				triggerType := string(metric.External.Metric.Backend)
 				serverAddress := metric.External.Metric.ServerAddress
-				authModes := metric.External.Metric.AuthModes
 				query := metric.External.Metric.Query
-				authRef := metric.External.AuthenticationRef
 
 				trigger := kedav1alpha1.ScaleTriggers{
 					Type: triggerType,
@@ -121,15 +118,21 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 						"threshold":     fmt.Sprintf("%f", metric.External.Target.Value.AsApproximateFloat64()),
 					},
 				}
-				if authModes != "" {
-					trigger.Metadata["authModes"] = authModes
-				}
+
 				if triggerType == string(constants.AutoScalerMetricsSourcePrometheus) && metric.External.Metric.Namespace != "" {
 					trigger.Metadata["namespace"] = metric.External.Metric.Namespace
 				}
-				if authRef.Name != "" {
-					trigger.AuthenticationRef = &kedav1alpha1.AuthenticationRef{
-						Name: authRef.Name,
+
+				if metric.External.Authentication != nil {
+					authModes := metric.External.Authentication.AuthModes
+					if authModes != "" {
+						trigger.Metadata["authModes"] = authModes
+					}
+					authRef := metric.External.Authentication.AuthenticationRef
+					if authRef.Name != "" {
+						trigger.AuthenticationRef = &kedav1alpha1.AuthenticationRef{
+							Name: authRef.Name,
+						}
 					}
 				}
 				triggers = append(triggers, trigger)
@@ -154,8 +157,6 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 				if triggerType == string(constants.AutoScalerMetricsSourceOpenTelemetry) {
 					trigger.Type = "external"
 					trigger.Metadata = map[string]string{
-						"clampMin":      strconv.Itoa(int(minReplicas)),
-						"clampMax":      strconv.Itoa(int(maxReplicas)),
 						"metricQuery":   query,
 						"targetValue":   fmt.Sprintf("%f", targetValue),
 						"scalerAddress": MetricScalerEndpoint,
@@ -188,7 +189,7 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	if MaxReplicas < *MinReplicas {
 		MaxReplicas = *MinReplicas
 	}
-	triggers, err := getKedaMetrics(componentExtension, *MinReplicas, MaxReplicas, configMap)
+	triggers, err := getKedaMetrics(componentExtension, configMap)
 	if err != nil {
 		return nil, err
 	}

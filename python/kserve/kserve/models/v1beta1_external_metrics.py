@@ -47,7 +47,6 @@ class V1beta1ExternalMetrics(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'auth_modes': 'str',
         'backend': 'str',
         'namespace': 'str',
         'query': 'str',
@@ -55,28 +54,24 @@ class V1beta1ExternalMetrics(object):
     }
 
     attribute_map = {
-        'auth_modes': 'authModes',
         'backend': 'backend',
         'namespace': 'namespace',
         'query': 'query',
         'server_address': 'serverAddress'
     }
 
-    def __init__(self, auth_modes=None, backend='', namespace=None, query=None, server_address=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, backend='', namespace=None, query=None, server_address=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExternalMetrics - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._auth_modes = None
         self._backend = None
         self._namespace = None
         self._query = None
         self._server_address = None
         self.discriminator = None
 
-        if auth_modes is not None:
-            self.auth_modes = auth_modes
         if backend is not None:
             self.backend = backend
         if namespace is not None:
@@ -85,29 +80,6 @@ class V1beta1ExternalMetrics(object):
             self.query = query
         if server_address is not None:
             self.server_address = server_address
-
-    @property
-    def auth_modes(self):
-        """Gets the auth_modes of this V1beta1ExternalMetrics.  # noqa: E501
-
-        authModes defines the authentication modes for the metrics backend  # noqa: E501
-
-        :return: The auth_modes of this V1beta1ExternalMetrics.  # noqa: E501
-        :rtype: str
-        """
-        return self._auth_modes
-
-    @auth_modes.setter
-    def auth_modes(self, auth_modes):
-        """Sets the auth_modes of this V1beta1ExternalMetrics.
-
-        authModes defines the authentication modes for the metrics backend  # noqa: E501
-
-        :param auth_modes: The auth_modes of this V1beta1ExternalMetrics.  # noqa: E501
-        :type: str
-        """
-
-        self._auth_modes = auth_modes
 
     @property
     def backend(self):
