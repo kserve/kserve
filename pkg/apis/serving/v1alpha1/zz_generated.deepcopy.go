@@ -1162,12 +1162,27 @@ func (in *ParallelismSpec) DeepCopyInto(out *ParallelismSpec) {
 	*out = *in
 	if in.Tensor != nil {
 		in, out := &in.Tensor, &out.Tensor
-		*out = new(int64)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.Pipeline != nil {
 		in, out := &in.Pipeline, &out.Pipeline
-		*out = new(int64)
+		*out = new(int32)
+		**out = **in
+	}
+	if in.Data != nil {
+		in, out := &in.Data, &out.Data
+		*out = new(int32)
+		**out = **in
+	}
+	if in.DataLocal != nil {
+		in, out := &in.DataLocal, &out.DataLocal
+		*out = new(int32)
+		**out = **in
+	}
+	if in.DataRPCPort != nil {
+		in, out := &in.DataRPCPort, &out.DataRPCPort
+		*out = new(int32)
 		**out = **in
 	}
 }
