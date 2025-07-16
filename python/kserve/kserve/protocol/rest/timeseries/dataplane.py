@@ -59,9 +59,7 @@ class TimeSeriesDataPlane(DataPlane):
             )
 
         context = {"headers": dict(headers), "response": response}
-        return await model.forecast(
-            request=request_body, context=context
-        )
+        return await model.forecast(request=request_body, context=context)
 
     async def models(self) -> List[TimeSeriesModel]:
         """Retrieve a list of models

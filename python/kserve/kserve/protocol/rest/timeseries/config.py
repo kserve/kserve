@@ -16,9 +16,6 @@ from fastapi import FastAPI
 
 from ....model import Model
 from ....model_repository import ModelRepository
-
-from kserve.logging import logger
-
 from .dataplane import TimeSeriesDataPlane
 from .endpoints import register_time_series_endpoints
 from .time_series_model import HuggingFaceTimeSeriesModel
