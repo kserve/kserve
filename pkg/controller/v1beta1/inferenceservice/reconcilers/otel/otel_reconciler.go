@@ -89,6 +89,18 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 											"targets": []interface{}{"localhost:" + port},
 										},
 									},
+									"relabel_configs": []interface{}{
+										map[string]interface{}{
+											"source_labels": []interface{}{},
+											"target_label":  "namespace",
+											"replacement":   componentMeta.Namespace,
+										},
+										map[string]interface{}{
+											"source_labels": []interface{}{},
+											"target_label":  "deployment",
+											"replacement":   componentMeta.Name,
+										},
+									},
 								},
 							},
 						},
