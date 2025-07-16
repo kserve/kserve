@@ -268,8 +268,6 @@ def load_model():
             task = infer_task_from_model_architecture(model_config)
 
         if task == MLTask.time_series_forecast:
-            logger.debug(f"Loading model in {dtype}")
-
             logger.info(f"Loading time series model for task '{task.name}' in {dtype}")
 
             model = HuggingFaceTimeSeriesModel(

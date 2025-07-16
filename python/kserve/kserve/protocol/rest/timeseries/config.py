@@ -27,9 +27,6 @@ from .time_series_model import HuggingFaceTimeSeriesModel
 def get_time_series_models(repository: ModelRepository) -> dict[str, Model]:
     """Retrieve all models in the repository that implement the Times Series interface"""
 
-    for name, model in repository.get_models().items():
-        logger.info(f">>> Found model '{name}' of type {type(model)}")
-
     return {
         name: model
         for name, model in repository.get_models().items()
@@ -39,8 +36,6 @@ def get_time_series_models(repository: ModelRepository) -> dict[str, Model]:
 
 def maybe_register_time_series_endpoints(app: FastAPI, model_registry: ModelRepository):
     ts_models = get_time_series_models(model_registry)
-
-    logger.info(f">>> Found {len(ts_models)} time series models in the repository")
 
     if len(ts_models) == 0:
         return False

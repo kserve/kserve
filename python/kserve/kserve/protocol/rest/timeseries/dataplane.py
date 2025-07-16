@@ -57,12 +57,12 @@ class TimeSeriesDataPlane(DataPlane):
                 status_code=HTTPStatus.NOT_IMPLEMENTED,
                 error_type="not_implemented",
             )
-        
+
         context = {"headers": dict(headers), "response": response}
         return await model.forecast(
             request=request_body, context=context
         )
-    
+
     async def models(self) -> List[TimeSeriesModel]:
         """Retrieve a list of models
 
