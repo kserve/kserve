@@ -96,6 +96,9 @@ manifests: controller-gen yq
 	echo '{{- if .Values.kserve.localmodel.enabled }}'> charts/kserve-resources/templates/localmodelnode/role.yaml
 	cat config/rbac/localmodelnode/role.yaml >> charts/kserve-resources/templates/localmodelnode/role.yaml
 	echo '{{- end }}' >> charts/kserve-resources/templates/localmodelnode/role.yaml
+	# Copy the llmisvc templates 
+	cp config/llmisvc/* charts/llmisvc-resources/templates/ 
+	rm charts/llmisvc-resources/templates/kustomization.yaml
 	
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
