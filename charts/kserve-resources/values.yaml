@@ -456,3 +456,7 @@ kserve:
       requests:
         cpu: "1"
         memory: "2Gi"
+
+knative:
+  # -- Namespace where Knative is installed.
+  namespace: knative-serving
