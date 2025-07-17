@@ -186,5 +186,5 @@ func TestValidateUpdate_InvalidObjectType(t *testing.T) {
 	warnings, err := validator.ValidateUpdate(t.Context(), &oldLmc, invalidObj)
 	g.Expect(warnings).To(gomega.BeNil())
 	g.Expect(err).To(gomega.HaveOccurred())
-	g.Expect(err.Error()).To(gomega.ContainSubstring("expected an LocalModelCache object"))
+	g.Expect(err.Error()).To(gomega.ContainSubstring("expected *v1alpha1.LocalModelCache"))
 }

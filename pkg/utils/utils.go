@@ -19,7 +19,6 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -44,44 +43,6 @@ var gvResourcesCache map[string]*metav1.APIResourceList
 const (
 	ErrValueExceedsInt32Limit = "value exceeds int32 limit %d"
 )
-
-func Filter(origin map[string]string, predicate func(string) bool) map[string]string {
-	result := make(map[string]string)
-	for k, v := range origin {
-		if predicate(k) {
-			result[k] = v
-		}
-	}
-	return result
-}
-
-func Union(maps ...map[string]string) map[string]string {
-	result := make(map[string]string)
-	for _, m := range maps {
-		for k, v := range m {
-			result[k] = v
-		}
-	}
-	return result
-}
-
-func Includes(slice []string, value string) bool {
-	for _, v := range slice {
-		if v == value {
-			return true
-		}
-	}
-	return false
-}
-
-func IncludesArg(slice []string, arg string) bool {
-	for _, v := range slice {
-		if v == arg || strings.HasPrefix(v, arg) {
-			return true
-		}
-	}
-	return false
-}
 
 func AppendVolumeIfNotExists(slice []corev1.Volume, volume corev1.Volume) []corev1.Volume {
 	for i := range slice {
@@ -344,15 +305,6 @@ func IsValidCustomGPUArray(s string) ([]string, bool) {
 	}
 
 	return customGPUTypes, true
-}
-
-// StringToInt32 converts a given integer to int32. If the number exceeds the int32 limit, it returns an error.
-func StringToInt32(number string) (int32, error) {
-	converted, err := strconv.ParseInt(number, 10, 32)
-	if err != nil {
-		return 0, err
-	}
-	return int32(converted), err
 }
 
 // UpdateGPUResourceTypeListByAnnotation updates the GPU resource type list
