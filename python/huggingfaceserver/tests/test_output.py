@@ -15,7 +15,7 @@
 from pytest import approx
 
 
-bert_token_classification_disable_postprocess_expected_output = {
+bert_token_classification_return_raw_logits_expected_output = {
     "predictions": [
         [
             {

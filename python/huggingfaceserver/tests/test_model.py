@@ -28,7 +28,7 @@ from huggingfaceserver.task import infer_task_from_model_architecture
 from huggingfaceserver.encoder_model import HuggingfaceEncoderModel
 from huggingfaceserver.generative_model import HuggingfaceGenerativeModel
 from huggingfaceserver.task import MLTask
-from test_output import bert_token_classification_disable_postprocess_expected_output
+from test_output import bert_token_classification_return_raw_logits_expected_output
 import torch.nn.functional as F
 
 
@@ -98,12 +98,12 @@ def bert_base_return_prob():
 
 
 @pytest.fixture(scope="module")
-def bert_base_disable_postprocess():
+def bert_base_return_raw_logits():
     model = HuggingfaceEncoderModel(
         "bert-base-uncased-yelp-polarity",
         model_id_or_path="textattack/bert-base-uncased-yelp-polarity",
         task=MLTask.sequence_classification,
-        disable_postprocess=True,
+        return_raw_logits=True,
     )
     model.load()
     yield model
@@ -125,13 +125,13 @@ def bert_token_classification_return_prob():
 
 
 @pytest.fixture(scope="module")
-def bert_token_classification_disable_postprocess():
+def bert_token_classification_return_raw_logits():
     model = HuggingfaceEncoderModel(
         "bert-large-cased-finetuned-conll03-english",
         model_id_or_path="dbmdz/bert-large-cased-finetuned-conll03-english",
         do_lower_case=True,
         add_special_tokens=False,
-        disable_postprocess=True,
+        return_raw_logits=True,
     )
     model.load()
     yield model
@@ -282,11 +282,11 @@ async def test_bert_sequence_classification_return_probabilities(bert_base_retur
 
 
 @pytest.mark.asyncio
-async def test_bert_sequence_classification_disable_postprocess(
-    bert_base_disable_postprocess,
+async def test_bert_sequence_classification_return_raw_logits(
+    bert_base_return_raw_logits,
 ):
     request = "Hello, my dog is cute."
-    response, _ = await bert_base_disable_postprocess(
+    response, _ = await bert_base_return_raw_logits(
         {"instances": [request, request]}, headers={}
     )
 
@@ -305,15 +305,15 @@ async def test_bert_sequence_classification_disable_postprocess(
 
 
 @pytest.mark.asyncio
-async def test_bert_token_classification_disable_postprocess(
-    bert_token_classification_disable_postprocess,
+async def test_bert_token_classification_return_raw_logits(
+    bert_token_classification_return_raw_logits,
 ):
     request = "Hello, my dog is cute."
 
-    response, _ = await bert_token_classification_disable_postprocess(
+    response, _ = await bert_token_classification_return_raw_logits(
         {"instances": [request, request]}, headers={}
     )
-    assert response == bert_token_classification_disable_postprocess_expected_output
+    assert response == bert_token_classification_return_raw_logits_expected_output
 
 
 @pytest.mark.asyncio

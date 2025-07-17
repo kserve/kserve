@@ -148,9 +148,9 @@ output_format_group.add_argument(
     help="Return probabilities instead of logits for classification tasks such as token classification, text classification and fill-mask.",
 )
 output_format_group.add_argument(
-    "--disable_postprocess",
+    "--return_raw_logits",
     action="store_true",
-    help="Disable postprocessing of the model output and return raw logits. Supported only classification tasks such as token classification, text classification and fill-mask.",
+    help="Return raw logits without processing. Supported only classification tasks such as token classification, text classification and fill-mask.",
 )
 parser.add_argument(
     "--disable_log_requests", action="store_true", help="Disable logging requests"
@@ -300,7 +300,7 @@ def load_model():
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
                 request_logger=request_logger,
                 return_probabilities=kwargs.get("return_probabilities", False),
-                disable_postprocess=kwargs.get("disable_postprocess", False),
+                return_raw_logits=kwargs.get("return_raw_logits", False),
             )
     model.load()
     return model

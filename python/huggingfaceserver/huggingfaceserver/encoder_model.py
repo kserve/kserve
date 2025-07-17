@@ -102,7 +102,7 @@ class HuggingfaceEncoderModel(
         trust_remote_code: bool = False,
         return_probabilities: bool = False,
         request_logger: Optional[RequestLogger] = None,
-        disable_postprocess: bool = False,
+        return_raw_logits: bool = False,
     ):
         super().__init__(model_name)
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -117,7 +117,7 @@ class HuggingfaceEncoderModel(
         self.tokenizer_revision = tokenizer_revision
         self.trust_remote_code = trust_remote_code
         self.return_probabilities = return_probabilities
-        self.disable_postprocess = disable_postprocess
+        self.return_raw_logits = return_raw_logits
         self.request_logger = request_logger
 
         if model_config:
@@ -368,7 +368,7 @@ class HuggingfaceEncoderModel(
 
         for i in range(num_rows):
             out = outputs[i].unsqueeze(0)
-            if self.disable_postprocess:
+            if self.return_raw_logits:
                 logits = out.squeeze()
                 logits = logits.cpu() if logits.is_cuda else logits
                 inferences.append({j: logits[j].item() for j in range(logits.size(0))})
@@ -419,7 +419,7 @@ class HuggingfaceEncoderModel(
                     mask_token_index = torch.tensor([0])  # Use first token as fallback
             masked_output = outputs[i, mask_token_index]
 
-            if self.disable_postprocess:
+            if self.return_raw_logits:
                 inferences.append(self._process_mask_logits(masked_output))
             elif self.return_probabilities:
                 inferences.append(self._process_mask_probabilities(masked_output))
@@ -490,7 +490,7 @@ class HuggingfaceEncoderModel(
         for i in range(num_rows):
             output = outputs[i].unsqueeze(0)
 
-            if self.disable_postprocess:
+            if self.return_raw_logits:
                 token_logits = []
                 output = output.cpu() if output.is_cuda else output
                 for values in output.squeeze(0):

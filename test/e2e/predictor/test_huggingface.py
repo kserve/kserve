@@ -595,7 +595,7 @@ async def test_huggingface_v2_sequence_classification_with_raw_logits(
                 "a4d0a85ea6c1d5bb944dcc12ea5c918863e469a4",
                 "--backend",
                 "huggingface",
-                "--disable_postprocess",
+                "--return_raw_logits",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "2Gi"},
