@@ -182,6 +182,37 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	MinReplicas := componentExtension.MinReplicas
 	MaxReplicas := componentExtension.MaxReplicas
 
+	var scaleDownStabilizationWindowSeconds, scaleUpStabilizationWindowSeconds *int32
+
+	if adv := componentExtension.AdvancedConfig; adv != nil {
+		if hpa := adv.HorizontalPodAutoscalerConfig; hpa != nil && hpa.Behavior != nil {
+			if sd := hpa.Behavior.ScaleDown; sd != nil {
+				scaleDownStabilizationWindowSeconds = sd.StabilizationWindowSeconds
+			}
+			if su := hpa.Behavior.ScaleUp; su != nil {
+				scaleUpStabilizationWindowSeconds = su.StabilizationWindowSeconds
+			}
+		}
+	}
+
+	// Fallback to configmap if not set in componentExtension
+	if scaleDownStabilizationWindowSeconds == nil || scaleUpStabilizationWindowSeconds == nil {
+		if otelConfig, err := v1beta1.NewOtelCollectorConfig(configMap); err == nil {
+			if scaleDownStabilizationWindowSeconds == nil && otelConfig.ScaleDownStabilizationWindowSeconds != "" {
+				if val, err := strconv.ParseInt(otelConfig.ScaleDownStabilizationWindowSeconds, 10, 32); err == nil {
+					scaleDownStabilizationWindowSeconds = ptr.To(int32(val))
+				}
+			}
+			if scaleUpStabilizationWindowSeconds == nil && otelConfig.ScaleUpStabilizationWindowSeconds != "" {
+				if val, err := strconv.ParseInt(otelConfig.ScaleUpStabilizationWindowSeconds, 10, 32); err == nil {
+					scaleUpStabilizationWindowSeconds = ptr.To(int32(val))
+				}
+			}
+		} else {
+			return nil, err
+		}
+	}
+
 	if MinReplicas == nil {
 		MinReplicas = &constants.DefaultMinReplicas
 	}
@@ -209,6 +240,25 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 			MinReplicaCount: MinReplicas,
 			MaxReplicaCount: ptr.To(MaxReplicas),
 		},
+	}
+
+	if scaleDownStabilizationWindowSeconds != nil || scaleUpStabilizationWindowSeconds != nil {
+		hpaBehavior := &autoscalingv2.HorizontalPodAutoscalerBehavior{}
+		if scaleDownStabilizationWindowSeconds != nil {
+			hpaBehavior.ScaleDown = &autoscalingv2.HPAScalingRules{
+				StabilizationWindowSeconds: scaleDownStabilizationWindowSeconds,
+			}
+		}
+		if scaleUpStabilizationWindowSeconds != nil {
+			hpaBehavior.ScaleUp = &autoscalingv2.HPAScalingRules{
+				StabilizationWindowSeconds: scaleUpStabilizationWindowSeconds,
+			}
+		}
+		scaledobject.Spec.Advanced = &kedav1alpha1.AdvancedConfig{
+			HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
+				Behavior: hpaBehavior,
+			},
+		}
 	}
 
 	return scaledobject, nil

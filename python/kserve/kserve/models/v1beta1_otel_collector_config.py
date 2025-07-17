@@ -49,16 +49,20 @@ class V1beta1OtelCollectorConfig(object):
     openapi_types = {
         'metric_receiver_endpoint': 'str',
         'metric_scaler_endpoint': 'str',
+        'scale_down_stabilization_window_seconds': 'str',
+        'scale_up_stabilization_window_seconds': 'str',
         'scrape_interval': 'str'
     }
 
     attribute_map = {
         'metric_receiver_endpoint': 'metricReceiverEndpoint',
         'metric_scaler_endpoint': 'metricScalerEndpoint',
+        'scale_down_stabilization_window_seconds': 'scaleDownStabilizationWindowSeconds',
+        'scale_up_stabilization_window_seconds': 'scaleUpStabilizationWindowSeconds',
         'scrape_interval': 'scrapeInterval'
     }
 
-    def __init__(self, metric_receiver_endpoint=None, metric_scaler_endpoint=None, scrape_interval=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, metric_receiver_endpoint=None, metric_scaler_endpoint=None, scale_down_stabilization_window_seconds=None, scale_up_stabilization_window_seconds=None, scrape_interval=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1OtelCollectorConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -66,6 +70,8 @@ class V1beta1OtelCollectorConfig(object):
 
         self._metric_receiver_endpoint = None
         self._metric_scaler_endpoint = None
+        self._scale_down_stabilization_window_seconds = None
+        self._scale_up_stabilization_window_seconds = None
         self._scrape_interval = None
         self.discriminator = None
 
@@ -73,6 +79,10 @@ class V1beta1OtelCollectorConfig(object):
             self.metric_receiver_endpoint = metric_receiver_endpoint
         if metric_scaler_endpoint is not None:
             self.metric_scaler_endpoint = metric_scaler_endpoint
+        if scale_down_stabilization_window_seconds is not None:
+            self.scale_down_stabilization_window_seconds = scale_down_stabilization_window_seconds
+        if scale_up_stabilization_window_seconds is not None:
+            self.scale_up_stabilization_window_seconds = scale_up_stabilization_window_seconds
         if scrape_interval is not None:
             self.scrape_interval = scrape_interval
 
@@ -117,6 +127,48 @@ class V1beta1OtelCollectorConfig(object):
         """
 
         self._metric_scaler_endpoint = metric_scaler_endpoint
+
+    @property
+    def scale_down_stabilization_window_seconds(self):
+        """Gets the scale_down_stabilization_window_seconds of this V1beta1OtelCollectorConfig.  # noqa: E501
+
+
+        :return: The scale_down_stabilization_window_seconds of this V1beta1OtelCollectorConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._scale_down_stabilization_window_seconds
+
+    @scale_down_stabilization_window_seconds.setter
+    def scale_down_stabilization_window_seconds(self, scale_down_stabilization_window_seconds):
+        """Sets the scale_down_stabilization_window_seconds of this V1beta1OtelCollectorConfig.
+
+
+        :param scale_down_stabilization_window_seconds: The scale_down_stabilization_window_seconds of this V1beta1OtelCollectorConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._scale_down_stabilization_window_seconds = scale_down_stabilization_window_seconds
+
+    @property
+    def scale_up_stabilization_window_seconds(self):
+        """Gets the scale_up_stabilization_window_seconds of this V1beta1OtelCollectorConfig.  # noqa: E501
+
+
+        :return: The scale_up_stabilization_window_seconds of this V1beta1OtelCollectorConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._scale_up_stabilization_window_seconds
+
+    @scale_up_stabilization_window_seconds.setter
+    def scale_up_stabilization_window_seconds(self, scale_up_stabilization_window_seconds):
+        """Sets the scale_up_stabilization_window_seconds of this V1beta1OtelCollectorConfig.
+
+
+        :param scale_up_stabilization_window_seconds: The scale_up_stabilization_window_seconds of this V1beta1OtelCollectorConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._scale_up_stabilization_window_seconds = scale_up_stabilization_window_seconds
 
     @property
     def scrape_interval(self):

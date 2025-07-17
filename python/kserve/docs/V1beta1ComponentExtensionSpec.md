@@ -4,6 +4,7 @@ ComponentExtensionSpec defines the deployment configuration for a given Inferenc
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**advanced** | [**V1beta1AdvancedSpec**](V1beta1AdvancedSpec.md) |  | [optional] 
 **annotations** | **dict(str, str)** | Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/ | [optional] 
 **auto_scaling** | [**V1beta1AutoScalingSpec**](V1beta1AutoScalingSpec.md) |  | [optional] 
 **batcher** | [**V1beta1Batcher**](V1beta1Batcher.md) |  | [optional] 
