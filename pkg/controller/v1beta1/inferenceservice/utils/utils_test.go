@@ -996,7 +996,7 @@ func TestGetServingRuntime(t *testing.T) {
 	mockClient := fake.NewClientBuilder().WithLists(runtimes /*, clusterRuntimes*/).WithScheme(s).Build()
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, _ := GetServingRuntime(context.Background(), mockClient, scenario.runtimeName, namespace)
+			res, _, _ := GetServingRuntime(t.Context(), mockClient, scenario.runtimeName, namespace)
 			if !g.Expect(res).To(gomega.Equal(&scenario.expected)) {
 				t.Errorf("got %v, want %v", res, &scenario.expected)
 			}
@@ -1005,7 +1005,7 @@ func TestGetServingRuntime(t *testing.T) {
 
 	// Check invalid case
 	t.Run("InvalidServingRuntime", func(t *testing.T) {
-		res, err := GetServingRuntime(context.Background(), mockClient, "foo", namespace)
+		res, err, _ := GetServingRuntime(t.Context(), mockClient, "foo", namespace)
 		if !g.Expect(res).To(gomega.BeNil()) {
 			t.Errorf("got %v, want %v", res, nil)
 		}
