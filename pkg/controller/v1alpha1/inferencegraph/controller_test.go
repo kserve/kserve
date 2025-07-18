@@ -18,6 +18,7 @@ package inferencegraph
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -1075,14 +1077,13 @@ var _ = Describe("Inference Graph controller test", func() {
 		// --- Reusable Check Functions ---
 		// Wait for the IG to exist.
 		expectIGToExist := func(ctx context.Context, serviceKey types.NamespacedName) v1alpha1.InferenceGraph {
-			// Check that the ISVC was updated
-			updatedIG := &v1alpha1.InferenceGraph{}
+			actualIG := &v1alpha1.InferenceGraph{}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIG)
+				err := k8sClient.Get(ctx, serviceKey, actualIG)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
-			return *updatedIG
+			return *actualIG
 		}
 
 		// Waits for any Kubernestes object to be found
@@ -1109,41 +1110,22 @@ var _ = Describe("Inference Graph controller test", func() {
 			}, timeout, interval).Should(BeTrue(), "%T %s should be deleted", obj, objKey.Name)
 		}
 
-		// Wait for the InferenceGraph's Stopped condition to be false.
-		expectIGFalseStoppedStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
-			// Check that the stopped condition is false
-			updatedIsvc := &v1alpha1.InferenceGraph{}
+		// Wait for a specific condition on an InferenceGraph to reach the desired status
+		expectIGConditionStatus := func(ctx context.Context, serviceKey types.NamespacedName, conditionType apis.ConditionType, expectedStatus corev1.ConditionStatus) {
+			message := fmt.Sprintf("The '%s' condition for InferenceGraph '%s' should be '%s'",
+				conditionType, serviceKey.Name, expectedStatus)
+
+			actualIg := &v1alpha1.InferenceGraph{}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				err := k8sClient.Get(ctx, serviceKey, actualIg)
 				if err == nil {
-					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
-					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionFalse {
+					cond := actualIg.Status.GetCondition(conditionType)
+					if cond != nil && cond.Status == expectedStatus {
 						return true
 					}
 				}
 				return false
-			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to false")
-		}
-
-		// Wait for the InferenceGraph's Stopped condition to be true.
-		expectIGTrueStoppedStatus := func(ctx context.Context, serviceKey types.NamespacedName) {
-			// Check that the IG status reflects that it is stopped
-			updatedIsvc := &v1alpha1.InferenceGraph{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
-
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
-				if err == nil {
-					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
-					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionTrue {
-						return true
-					}
-				}
-				return false
-			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
+			}, timeout, interval).Should(BeTrue(), message)
 		}
 
 		Describe("in Serverless mode", func() {
@@ -1162,11 +1144,6 @@ var _ = Describe("Inference Graph controller test", func() {
 							v1alpha1.GraphRootNodeName: {
 								RouterType: v1alpha1.Sequence,
 								Steps: []v1alpha1.InferenceStep{
-									/*{
-										InferenceTarget: v1alpha1.InferenceTarget{
-											ServiceName: isvcName, // Name of your InferenceService
-										},
-									},*/
 									{
 										InferenceTarget: v1alpha1.InferenceTarget{
 											ServiceURL: "http://someservice.exmaple.com",
@@ -1203,7 +1180,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectResourceToExist(context.Background(), &knservingv1.Service{}, graphServiceKey)
 				expectIGToExist(context.Background(), graphServiceKey)
 
-				expectIGFalseStoppedStatus(ctx, graphServiceKey)
+				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
 			})
 
 			It("Should not create the knative service when the annotation is set to true", func() {
@@ -1228,7 +1205,7 @@ var _ = Describe("Inference Graph controller test", func() {
 
 				// Check the inference graph
 				expectIGToExist(context.Background(), graphServiceKey)
-				expectIGTrueStoppedStatus(ctx, graphServiceKey)
+				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionTrue)
 			})
 
 			It("Should delete the knative service when the annotation is updated to true on an existing IG", func() {
@@ -1254,7 +1231,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectResourceToExist(context.Background(), &knservingv1.Service{}, graphServiceKey)
 				expectIGToExist(context.Background(), graphServiceKey)
 
-				expectIGFalseStoppedStatus(ctx, graphServiceKey)
+				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
 
 				// Stop the inference graph
 				actualIG := expectIGToExist(ctx, graphServiceKey)
@@ -1267,7 +1244,7 @@ var _ = Describe("Inference Graph controller test", func() {
 
 				// Check the inference graph
 				expectIGToExist(context.Background(), graphServiceKey)
-				expectIGTrueStoppedStatus(ctx, graphServiceKey)
+				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionTrue)
 			})
 
 			It("Should create the knative service when the annotation is updated to false on an existing IG", func() {
@@ -1292,7 +1269,7 @@ var _ = Describe("Inference Graph controller test", func() {
 
 				// Check the inference graph
 				expectIGToExist(context.Background(), graphServiceKey)
-				expectIGTrueStoppedStatus(ctx, graphServiceKey)
+				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionTrue)
 
 				// Resume the inference graph
 				actualIG := expectIGToExist(ctx, graphServiceKey)
@@ -1304,7 +1281,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectResourceToExist(context.Background(), &knservingv1.Service{}, graphServiceKey)
 				expectIGToExist(context.Background(), graphServiceKey)
 
-				expectIGFalseStoppedStatus(ctx, graphServiceKey)
+				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
 			})
 		})
 	})
