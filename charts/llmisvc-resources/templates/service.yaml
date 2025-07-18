@@ -1,0 +1,32 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "llm-isvc-resources.deploymentName" . }}-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "llm-isvc-resources.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller
+    control-plane: {{ include "llm-isvc-resources.deploymentName" . }}
+    controller-tools.k8s.io: "1.0"
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- with .Values.kserve.llmisvc.controller.serviceAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.commonAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: {{ .Values.kserve.llmisvc.controller.service.type }}
+  selector:
+    {{- include "llm-isvc-resources.selectorLabels" . | nindent 4 }}
+    control-plane: {{ include "llm-isvc-resources.deploymentName" . }}
+    controller-tools.k8s.io: "1.0"
+  ports:
+  - port: {{ .Values.kserve.llmisvc.controller.service.port }}
+    targetPort: {{ .Values.kserve.llmisvc.controller.service.targetPort }}
+    protocol: TCP
+    name: https

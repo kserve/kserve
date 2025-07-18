@@ -1,5 +1,5 @@
 dev_install:
-	poetry install --with test
+	uv sync --group test
 
 test: type_check lint
 	pytest -W ignore

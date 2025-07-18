@@ -26,7 +26,7 @@ pip install kserve-storage
 Or with Poetry:
 
 ```bash
-poetry add kserve-storage
+uv add kserve-storage
 ```
 
 ## Usage

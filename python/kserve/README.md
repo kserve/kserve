@@ -3,7 +3,7 @@ Python SDK for KServe Server and Client.
 
 ## Installation
 
-KServe Python SDK can be installed by `pip` or `poetry`.
+KServe Python SDK can be installed by `pip` or `uv`.
 
 ### pip install
 
@@ -16,20 +16,16 @@ To install Kserve with storage support
 pip install kserve[storage]
 ```
 
-### Poetry
+### UV
 
-Install via [Poetry](https://python-poetry.org/).
+Install via [uv](https://docs.astral.sh/uv/).
 
 ```sh
 make dev_install
 ```
 To install Kserve with storage support
 ```sh
-poetry install -E storage
-```
-or 
-```sh
-poetry install --extras "storage"
+uv install --extra storage
 ```
 
 ## KServe Python Server

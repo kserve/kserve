@@ -43,28 +43,25 @@ type OtelReconciler struct {
 	client        client.Client
 	scheme        *runtime.Scheme
 	OTelCollector *otelv1beta1.OpenTelemetryCollector
-	metric        v1beta1.MetricsSpec
 }
 
 func NewOtelReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
-	metric v1beta1.MetricsSpec,
+	metricNames []string,
 	otelConfig v1beta1.OtelCollectorConfig,
 ) (*OtelReconciler, error) {
 	return &OtelReconciler{
 		client:        client,
 		scheme:        scheme,
-		OTelCollector: createOtelCollector(componentMeta, metric, otelConfig),
-		metric:        metric,
+		OTelCollector: createOtelCollector(componentMeta, metricNames, otelConfig),
 	}, nil
 }
 
 func createOtelCollector(componentMeta metav1.ObjectMeta,
-	metric v1beta1.MetricsSpec,
+	metricNames []string,
 	otelConfig v1beta1.OtelCollectorConfig,
 ) *otelv1beta1.OpenTelemetryCollector {
-	metricNames := metric.PodMetric.Metric.MetricNames
 	port, ok := componentMeta.Annotations["prometheus.kserve.io/port"]
 	if !ok {
 		log.Info("Annotation prometheus.kserve.io/port is missing, using default value 8080 to configure OTel Collector")
@@ -97,7 +94,6 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 						},
 					},
 				}},
-				Processors: &otelv1beta1.AnyConfig{Object: map[string]interface{}{}},
 				Exporters: otelv1beta1.AnyConfig{Object: map[string]interface{}{
 					"otlp": map[string]interface{}{
 						"endpoint":    otelConfig.MetricReceiverEndpoint,
@@ -120,22 +116,19 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 		},
 	}
 
-	// Add filter processor to exclude the metric that is used for scaling if it is specified.
-	// otherwise, all metrics will be sent to the OTel backend.
+	// Add filter processor to include all specified metrics
 	if len(metricNames) > 0 {
-		metricFilters := []interface{}{}
-		for _, name := range metricNames {
-			metricFilters = append(metricFilters, fmt.Sprintf(`name != "%s"`, name))
-		}
 		otelCollector.Spec.Config.Processors = &otelv1beta1.AnyConfig{Object: map[string]interface{}{
-			"filter/ottl": map[string]interface{}{
-				"error_mode": "ignore",
+			"filter/metrics": map[string]interface{}{
 				"metrics": map[string]interface{}{
-					"metric": metricFilters,
+					"include": map[string]interface{}{
+						"match_type":   "strict",
+						"metric_names": metricNames,
+					},
 				},
 			},
 		}}
-		otelCollector.Spec.Config.Service.Pipelines["metrics"].Processors = []string{"filter/ottl"}
+		otelCollector.Spec.Config.Service.Pipelines["metrics"].Processors = []string{"filter/metrics"}
 	}
 
 	return otelCollector

@@ -1,39 +1,26 @@
-[tool.poetry]
+[project]
+authors = [
+    {name = "Ellis Tarn", email = "ellisbigelow@google.com"},
+]
+license = {text = "Apache-2.0"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "kserve[storage] @ file:///${PROJECT_ROOT}/../kserve",
+    "xgboost~=2.1.1",
+]
 name = "xgbserver"
 version = "0.15.2"
 description = "Model Server implementation for XGBoost. Not intended for use outside KServe Frameworks Images."
-authors = ["Ellis Tarn <ellisbigelow@google.com>"]
-license = "Apache-2.0"
 readme = "README.md"
-packages = [
-    { include = "xgbserver" },
+
+[dependency-groups]
+test = [
+    "scikit-learn~=1.5.1",
+    "pytest<8.0.0,>=7.4.4",
+    "pytest-cov<6.0.0,>=5.0.0",
+    "mypy<1.0,>=0.991",
+    "pytest-asyncio<1.0.0,>=0.23.4",
 ]
-
-[tool.poetry.dependencies]
-python = ">=3.9,<3.13"
-kserve = { path = "../kserve", extras = ["storage"], develop = true }
-xgboost = "~2.1.1"
-
-[tool.poetry.group.test]
-optional = true
-
-[tool.poetry.group.test.dependencies]
-scikit-learn = "~1.5.1"
-pytest = "^7.4.4"
-pytest-cov = "^5.0.0"
-mypy = "^0.991"
-pytest-asyncio = ">=0.23.4, <1.0.0"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-black = { version = "~24.3.0", extras = ["colorama"] }
-
-[tool.poetry-version-plugin]
-source = "file"
-file_path = "../VERSION"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+dev = [
+    "black[colorama]~=24.3.0",
+]

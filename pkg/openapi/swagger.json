@@ -1377,6 +1377,16 @@
         }
       }
     },
+    "v1beta1.AuthenticationRef": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "name is the name of the authentication secret",
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
     "v1beta1.AutoScalingSpec": {
       "type": "object",
       "properties": {
@@ -2923,6 +2933,23 @@
         }
       }
     },
+    "v1beta1.ExtMetricAuthentication": {
+      "type": "object",
+      "required": [
+        "authenticationRef"
+      ],
+      "properties": {
+        "authModes": {
+          "description": "authModes defines the authentication modes for the metrics backend possible values are bearer, basic, tls. for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+          "type": "string"
+        },
+        "authenticationRef": {
+          "description": "authenticationRef is a reference to the authentication information for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.AuthenticationRef"
+        }
+      }
+    },
     "v1beta1.ExternalMetricSource": {
       "type": "object",
       "required": [
@@ -2930,6 +2957,10 @@
         "target"
       ],
       "properties": {
+        "authenticationRef": {
+          "description": "authenticationRef is a reference to the authentication information for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+          "$ref": "#/definitions/v1beta1.ExtMetricAuthentication"
+        },
         "metric": {
           "description": "metric identifies the target metric by name and selector",
           "default": {},
