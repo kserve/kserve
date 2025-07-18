@@ -4,6 +4,8 @@ extend-ignore = E203,E501,E701, B017
 exclude =
   .venv,
   venv,
+  prod_venv,
+  python/type=local/*,
   python/kserve/kserve/exceptions.py,
   python/kserve/kserve/configuration.py,
   python/kserve/kserve/rest.py,

@@ -17,7 +17,6 @@ limitations under the License.
 package ingress
 
 import (
-	"context"
 	"fmt"
 	"net/url"
 	"testing"
@@ -2143,7 +2142,7 @@ func TestIngressReconciler_Reconcile(t *testing.T) {
 				ingressConfig: tt.fields.ingressConfig,
 				isvcConfig:    tt.fields.isvcConfig,
 			}
-			err := r.Reconcile(context.TODO(), tt.args.isvc)
+			err := r.Reconcile(t.Context(), tt.args.isvc)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Reconcile() error = %v, wantErr %v", err, tt.wantErr)
 				return

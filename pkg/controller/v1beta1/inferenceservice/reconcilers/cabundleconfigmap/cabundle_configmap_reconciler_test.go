@@ -17,7 +17,6 @@ limitations under the License.
 package cabundleconfigmap
 
 import (
-	"context"
 	"reflect"
 	"testing"
 
@@ -101,7 +100,7 @@ func TestReconcileCaBundleConfigMap(t *testing.T) {
 			// Setup fake clientset
 			clientset := fake.NewSimpleClientset()
 			if tc.existingCM != nil {
-				_, err := clientset.CoreV1().ConfigMaps(tc.existingCM.Namespace).Create(context.TODO(), tc.existingCM, metav1.CreateOptions{})
+				_, err := clientset.CoreV1().ConfigMaps(tc.existingCM.Namespace).Create(t.Context(), tc.existingCM, metav1.CreateOptions{})
 				if err != nil {
 					t.Fatalf("Error creating test configmap: %v", err)
 				}
@@ -116,7 +115,7 @@ func TestReconcileCaBundleConfigMap(t *testing.T) {
 			}
 
 			// Test the reconciliation
-			err := reconciler.ReconcileCaBundleConfigMap(context.TODO(), tc.desiredCM)
+			err := reconciler.ReconcileCaBundleConfigMap(t.Context(), tc.desiredCM)
 
 			if tc.expectedErr && err == nil {
 				t.Errorf("Expected error but got none")
@@ -221,7 +220,7 @@ func TestReconcile(t *testing.T) {
 			// Setup fake clients
 			clientset := fake.NewSimpleClientset()
 			for _, cm := range tc.configMaps {
-				_, err := clientset.CoreV1().ConfigMaps(cm.Namespace).Create(context.TODO(), cm, metav1.CreateOptions{})
+				_, err := clientset.CoreV1().ConfigMaps(cm.Namespace).Create(t.Context(), cm, metav1.CreateOptions{})
 				if err != nil {
 					t.Fatalf("Error creating test configmap: %v", err)
 				}
@@ -236,7 +235,7 @@ func TestReconcile(t *testing.T) {
 			}
 
 			// Test reconciliation
-			err := reconciler.Reconcile(context.TODO(), tc.isvc)
+			err := reconciler.Reconcile(t.Context(), tc.isvc)
 
 			if tc.expectedErr && err == nil {
 				t.Errorf("Expected error but got none")
@@ -248,7 +247,7 @@ func TestReconcile(t *testing.T) {
 			// Verify configmap was created in the correct namespace if expected
 			if tc.expectedConfigMapNS != "" {
 				cm, err := clientset.CoreV1().ConfigMaps(tc.expectedConfigMapNS).Get(
-					context.TODO(),
+					t.Context(),
 					constants.DefaultGlobalCaBundleConfigMapName,
 					metav1.GetOptions{},
 				)
@@ -332,7 +331,7 @@ func TestGetCabundleConfigMapForUserNS(t *testing.T) {
 			// Setup fake clients
 			clientset := fake.NewSimpleClientset()
 			for _, cm := range tc.existingCMs {
-				_, err := clientset.CoreV1().ConfigMaps(cm.Namespace).Create(context.TODO(), cm, metav1.CreateOptions{})
+				_, err := clientset.CoreV1().ConfigMaps(cm.Namespace).Create(t.Context(), cm, metav1.CreateOptions{})
 				if err != nil {
 					t.Fatalf("Error creating test configmap: %v", err)
 				}
@@ -348,7 +347,7 @@ func TestGetCabundleConfigMapForUserNS(t *testing.T) {
 
 			// Test function
 			result, err := reconciler.getCabundleConfigMapForUserNS(
-				context.TODO(),
+				t.Context(),
 				tc.caBundleNameInConfig,
 				tc.kserveNamespace,
 				tc.isvcNamespace,
@@ -453,7 +452,7 @@ func TestReconcileCaBundleConfigMap_Update(t *testing.T) {
 			// Setup fake clientset
 			clientset := fake.NewSimpleClientset()
 			if tc.existingCM != nil {
-				_, err := clientset.CoreV1().ConfigMaps(tc.existingCM.Namespace).Create(context.TODO(), tc.existingCM, metav1.CreateOptions{})
+				_, err := clientset.CoreV1().ConfigMaps(tc.existingCM.Namespace).Create(t.Context(), tc.existingCM, metav1.CreateOptions{})
 				if err != nil {
 					t.Fatalf("Error creating test configmap: %v", err)
 				}
@@ -475,7 +474,7 @@ func TestReconcileCaBundleConfigMap_Update(t *testing.T) {
 			}
 
 			// Test the reconciliation
-			err := reconciler.ReconcileCaBundleConfigMap(context.TODO(), tc.desiredCM)
+			err := reconciler.ReconcileCaBundleConfigMap(t.Context(), tc.desiredCM)
 
 			if tc.expectedErr && err == nil {
 				t.Errorf("Expected error but got none")
@@ -492,7 +491,7 @@ func TestReconcileCaBundleConfigMap_Update(t *testing.T) {
 
 			// For update cases, verify the updated content
 			if !tc.expectedErr && tc.name == "Update configmap when data is different" {
-				updatedCM, err := clientset.CoreV1().ConfigMaps(tc.desiredCM.Namespace).Get(context.TODO(), tc.desiredCM.Name, metav1.GetOptions{})
+				updatedCM, err := clientset.CoreV1().ConfigMaps(tc.desiredCM.Namespace).Get(t.Context(), tc.desiredCM.Name, metav1.GetOptions{})
 				if err != nil {
 					t.Errorf("Failed to get updated configmap: %v", err)
 				}

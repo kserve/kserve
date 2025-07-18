@@ -17,7 +17,6 @@ limitations under the License.
 package knative
 
 import (
-	"context"
 	"strconv"
 	"testing"
 
@@ -349,7 +348,7 @@ func TestKsvcReconciler_Reconcile(t *testing.T) {
 			client := rtesting.NewClientBuilder().WithScheme(scheme).Build()
 			// Create the existing KService if provided
 			if tt.existingKsvc != nil {
-				err := client.Create(context.TODO(), tt.existingKsvc)
+				err := client.Create(t.Context(), tt.existingKsvc)
 				require.NoError(t, err)
 			}
 
@@ -365,7 +364,7 @@ func TestKsvcReconciler_Reconcile(t *testing.T) {
 			)
 
 			// Call Reconcile
-			status, err := reconciler.Reconcile(context.TODO())
+			status, err := reconciler.Reconcile(t.Context())
 			// Verify expectations
 			if tt.wantErr {
 				require.Error(t, err)
@@ -376,7 +375,7 @@ func TestKsvcReconciler_Reconcile(t *testing.T) {
 
 			// Verify service was created/updated
 			createdService := &knservingv1.Service{}
-			err = client.Get(context.TODO(),
+			err = client.Get(t.Context(),
 				types.NamespacedName{Name: componentMeta.Name, Namespace: componentMeta.Namespace},
 				createdService)
 			require.NoError(t, err)

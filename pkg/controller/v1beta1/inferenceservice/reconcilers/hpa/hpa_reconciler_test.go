@@ -610,7 +610,7 @@ func TestCheckHPAExist(t *testing.T) {
 			client := fake.NewClientBuilder().WithScheme(scheme).Build()
 			// Create the existing HPA if it's provided
 			if tc.existingHPA != nil {
-				err := client.Create(context.TODO(), tc.existingHPA)
+				err := client.Create(t.Context(), tc.existingHPA)
 				require.NoError(t, err)
 			}
 
@@ -620,7 +620,7 @@ func TestCheckHPAExist(t *testing.T) {
 				HPA:    tc.desiredHPA,
 			}
 
-			result, hpa, err := reconciler.checkHPAExist(context.TODO(), client)
+			result, hpa, err := reconciler.checkHPAExist(t.Context(), client)
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedResult, result)
 
@@ -1130,7 +1130,7 @@ func TestReconcile(t *testing.T) {
 				componentExt: tc.componentExt,
 			}
 
-			result := reconciler.Reconcile(context.TODO())
+			result := reconciler.Reconcile(t.Context())
 
 			assert.Equal(t, tc.expectedResult, result)
 			if tc.expectedAction == "skip" {
@@ -1140,7 +1140,7 @@ func TestReconcile(t *testing.T) {
 			}
 			// Verify the HPA state after reconciliation
 			resultHPA := &autoscalingv2.HorizontalPodAutoscaler{}
-			err := client.Get(context.TODO(), types.NamespacedName{
+			err := client.Get(t.Context(), types.NamespacedName{
 				Namespace: tc.desiredHPA.Namespace,
 				Name:      tc.desiredHPA.Name,
 			}, resultHPA)

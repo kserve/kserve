@@ -1882,7 +1882,7 @@ func TestServingRuntimeValidator_Handle(t *testing.T) {
 				Decoder: fakeDecoder,
 			}
 			req := admission.Request{}
-			resp := validator.Handle(context.TODO(), req)
+			resp := validator.Handle(t.Context(), req)
 			if tt.wantAllowed {
 				g.Expect(resp.Allowed).To(gomega.BeTrue())
 			}
