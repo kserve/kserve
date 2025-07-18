@@ -146,8 +146,7 @@ jobs:
                 echo "Current Coverage ${{ steps.current-coverage.outputs.coverage }}"
 
             - name: post coverage report
-              # this has evalated permission to post back the coverage, only restricted to this step.
-              if: github.event_name == 'pull_request_target'
+              if: github.event_name == 'pull_request'
               uses: thollander/actions-comment-pull-request@v3
               with:
                 github-token: ${{ secrets.GITHUB_TOKEN }}
