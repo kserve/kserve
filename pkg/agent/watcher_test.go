@@ -703,6 +703,12 @@ var _ = Describe("Watcher", func() {
 					},
 				}
 				for protocol, scenario := range scenarios {
+					ts := scenario.server
+					defer ts.Close()
+					cl := storage.HTTPSProvider{
+						Client: ts.Client(),
+					}
+
 					logger.Printf("Setting up %s Server", protocol)
 					logger.Printf("Sync model config using temp dir %v\n", modelDir)
 					watcher := NewWatcher("/tmp/configs", modelDir, sugar)
@@ -710,24 +716,17 @@ var _ = Describe("Watcher", func() {
 						{
 							Name: "model1",
 							Spec: v1alpha1.ModelSpec{
-								StorageURI: "http://example.com/test.tar",
+								StorageURI: ts.URL + "/test.tar",
 								Framework:  "sklearn",
 							},
 						},
 						{
 							Name: "model2",
 							Spec: v1alpha1.ModelSpec{
-								StorageURI: "https://example.com/test.zip",
+								StorageURI: ts.URL + "/test.zip",
 								Framework:  "sklearn",
 							},
 						},
-					}
-
-					// Create HTTPS client
-					ts := scenario.server
-					defer ts.Close()
-					cl := storage.HTTPSProvider{
-						Client: ts.Client(),
 					}
 
 					watcher.parseConfig(modelConfigs, false)
