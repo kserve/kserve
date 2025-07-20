@@ -810,6 +810,38 @@ func TestMlServerDefaults(t *testing.T) {
 				"labels":          gomega.HaveKeyWithValue("Purpose", "Testing"),
 			},
 		},
+		"CatBoost model": {
+			config: &InferenceServicesConfig{},
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cat",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{Name: "catboost"},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://testbucket/testmodel"),
+							},
+						},
+					},
+				},
+			},
+			matcher: map[string]types.GomegaMatcher{
+				"env": gomega.ContainElements(
+					corev1.EnvVar{
+						Name:  constants.MLServerModelNameEnv,
+						Value: "cat",
+					},
+					corev1.EnvVar{
+						Name:  constants.MLServerModelURIEnv,
+						Value: constants.DefaultModelLocalMountPath,
+					}),
+				"protocolVersion": gomega.Equal(constants.ProtocolV2),
+				"labels":          gomega.HaveKeyWithValue(constants.ModelClassLabel, constants.MLServerModelClassCatBoost),
+			},
+		},
 	}
 	runtime := constants.MLServer
 	for _, scenario := range scenarios {
