@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -100,9 +101,6 @@ type ComponentExtensionSpec struct {
 	// Type of metric to use. Options are Utilization, or AverageValue.
 	// +optional
 	ScaleMetricType *MetricTargetType `json:"scaleMetricType,omitempty"`
-	// AdvancedConfig contains advanced configuration options for the autoscaling
-	// +optional
-	AdvancedConfig *AdvancedSpec `json:"advanced,omitempty"`
 	// AutoScaling autoscaling spec which is backed up HPA or KEDA.
 	// +optional
 	AutoScaling *AutoScalingSpec `json:"autoScaling,omitempty"`
@@ -138,54 +136,10 @@ type ComponentExtensionSpec struct {
 type AutoScalingSpec struct {
 	// metrics is a list of metrics spec to be used for autoscaling
 	Metrics []MetricsSpec `json:"metrics,omitempty"`
-}
-
-type AdvancedSpec struct {
-	// HorizontalPodAutoscalerConfig contains the configuration for the Horizontal Pod Autoscaler.
-	HorizontalPodAutoscalerConfig *HorizontalPodAutoscalerConfig `json:"horizontalPodAutoscalerConfig,omitempty"`
-}
-
-// HorizontalPodAutoscalerConfig contains the configuration for the Horizontal Pod Autoscaler.
-type HorizontalPodAutoscalerConfig struct {
 	// Behavior contains the scaling behavior configuration for the Horizontal Pod Autoscaler.
 	// +optional
-	Behavior *HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
+	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
-
-// HorizontalPodAutoscalerBehavior contains the scaling behavior configuration for the Horizontal Pod Autoscaler.
-type HorizontalPodAutoscalerBehavior struct {
-	// ScaleUp contains the scaling up behavior configuration for the Horizontal Pod Autoscaler.
-	// +optional
-	ScaleUp *ScalingRules `json:"scaleUp,omitempty"`
-	// ScaleDown contains the scaling down behavior configuration for the Horizontal Pod Autoscaler.
-	// +optional
-	ScaleDown *ScalingRules `json:"scaleDown,omitempty"`
-}
-
-// ScalingRules contains the scaling rules configuration for the Horizontal Pod Autoscaler.
-type ScalingRules struct {
-	// StabilizationWindowSeconds is the number of seconds for which past recommendations should be considered.
-	// +optional
-	StabilizationWindowSeconds *int32 `json:"stabilizationWindowSeconds,omitempty"`
-	// // SelectPolicy is the policy to use for selecting the scaling rule.
-	// // +optional
-	// SelectPolicy *string `json:"selectPolicy,omitempty"`
-	// // Policies is a list of policies to apply for scaling.
-	// // +optional
-	// Policies []ScalingPolicy `json:"policies,omitempty"`
-}
-
-// // ScalingPolicy contains the scaling policy configuration for the Horizontal Pod Autoscaler.
-// type ScalingPolicy struct {
-// 	// Type is the type of scaling policy. It can be "Pods", "Percent", or "Value".
-// 	// +kubebuilder:validation:Enum=Pods;Percent;Value
-// 	Type string `json:"type"`
-// 	// Value is the value of the scaling policy.
-// 	Value int32 `json:"value"`
-// 	// PeriodSeconds is the period in seconds over which the scaling policy should be applied.
-// 	// +optional
-// 	PeriodSeconds *int32 `json:"periodSeconds,omitempty"`
-// }
 
 // MetricsSpec specifies how to scale based on a single metric
 // (only `type` and one other matching field should be set at once).

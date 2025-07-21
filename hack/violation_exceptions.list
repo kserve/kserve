@@ -34,7 +34,6 @@ API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1alph
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,InferenceTarget,ServiceURL
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,ModelSpec,StorageURI
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,ServingRuntimeSpec,GrpcMultiModelManagementEndpoint
-API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ComponentExtensionSpec,AdvancedConfig
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ComponentExtensionSpec,TimeoutSeconds
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ComponentStatusSpec,GrpcURL
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ComponentStatusSpec,RestURL

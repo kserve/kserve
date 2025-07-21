@@ -55,27 +55,6 @@ spec:
                     activeDeadlineSeconds:
                       format: int64
                       type: integer
-                    advanced:
-                      properties:
-                        horizontalPodAutoscalerConfig:
-                          properties:
-                            behavior:
-                              properties:
-                                scaleDown:
-                                  properties:
-                                    stabilizationWindowSeconds:
-                                      format: int32
-                                      type: integer
-                                  type: object
-                                scaleUp:
-                                  properties:
-                                    stabilizationWindowSeconds:
-                                      format: int32
-                                      type: integer
-                                  type: object
-                              type: object
-                          type: object
-                      type: object
                     affinity:
                       properties:
                         nodeAffinity:
@@ -1214,6 +1193,73 @@ spec:
                       type: object
                     autoScaling:
                       properties:
+                        behavior:
+                          properties:
+                            scaleDown:
+                              properties:
+                                policies:
+                                  items:
+                                    properties:
+                                      periodSeconds:
+                                        format: int32
+                                        type: integer
+                                      type:
+                                        type: string
+                                      value:
+                                        format: int32
+                                        type: integer
+                                    required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                selectPolicy:
+                                  type: string
+                                stabilizationWindowSeconds:
+                                  format: int32
+                                  type: integer
+                                tolerance:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                            scaleUp:
+                              properties:
+                                policies:
+                                  items:
+                                    properties:
+                                      periodSeconds:
+                                        format: int32
+                                        type: integer
+                                      type:
+                                        type: string
+                                      value:
+                                        format: int32
+                                        type: integer
+                                    required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                selectPolicy:
+                                  type: string
+                                stabilizationWindowSeconds:
+                                  format: int32
+                                  type: integer
+                                tolerance:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                          type: object
                         metrics:
                           items:
                             properties:
@@ -3940,27 +3986,6 @@ spec:
                     activeDeadlineSeconds:
                       format: int64
                       type: integer
-                    advanced:
-                      properties:
-                        horizontalPodAutoscalerConfig:
-                          properties:
-                            behavior:
-                              properties:
-                                scaleDown:
-                                  properties:
-                                    stabilizationWindowSeconds:
-                                      format: int32
-                                      type: integer
-                                  type: object
-                                scaleUp:
-                                  properties:
-                                    stabilizationWindowSeconds:
-                                      format: int32
-                                      type: integer
-                                  type: object
-                              type: object
-                          type: object
-                      type: object
                     affinity:
                       properties:
                         nodeAffinity:
@@ -4406,6 +4431,73 @@ spec:
                       type: object
                     autoScaling:
                       properties:
+                        behavior:
+                          properties:
+                            scaleDown:
+                              properties:
+                                policies:
+                                  items:
+                                    properties:
+                                      periodSeconds:
+                                        format: int32
+                                        type: integer
+                                      type:
+                                        type: string
+                                      value:
+                                        format: int32
+                                        type: integer
+                                    required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                selectPolicy:
+                                  type: string
+                                stabilizationWindowSeconds:
+                                  format: int32
+                                  type: integer
+                                tolerance:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                            scaleUp:
+                              properties:
+                                policies:
+                                  items:
+                                    properties:
+                                      periodSeconds:
+                                        format: int32
+                                        type: integer
+                                      type:
+                                        type: string
+                                      value:
+                                        format: int32
+                                        type: integer
+                                    required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                selectPolicy:
+                                  type: string
+                                stabilizationWindowSeconds:
+                                  format: int32
+                                  type: integer
+                                tolerance:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                          type: object
                         metrics:
                           items:
                             properties:
@@ -18333,27 +18425,6 @@ spec:
                     activeDeadlineSeconds:
                       format: int64
                       type: integer
-                    advanced:
-                      properties:
-                        horizontalPodAutoscalerConfig:
-                          properties:
-                            behavior:
-                              properties:
-                                scaleDown:
-                                  properties:
-                                    stabilizationWindowSeconds:
-                                      format: int32
-                                      type: integer
-                                  type: object
-                                scaleUp:
-                                  properties:
-                                    stabilizationWindowSeconds:
-                                      format: int32
-                                      type: integer
-                                  type: object
-                              type: object
-                          type: object
-                      type: object
                     affinity:
                       properties:
                         nodeAffinity:
@@ -18799,6 +18870,73 @@ spec:
                       type: object
                     autoScaling:
                       properties:
+                        behavior:
+                          properties:
+                            scaleDown:
+                              properties:
+                                policies:
+                                  items:
+                                    properties:
+                                      periodSeconds:
+                                        format: int32
+                                        type: integer
+                                      type:
+                                        type: string
+                                      value:
+                                        format: int32
+                                        type: integer
+                                    required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                selectPolicy:
+                                  type: string
+                                stabilizationWindowSeconds:
+                                  format: int32
+                                  type: integer
+                                tolerance:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                            scaleUp:
+                              properties:
+                                policies:
+                                  items:
+                                    properties:
+                                      periodSeconds:
+                                        format: int32
+                                        type: integer
+                                      type:
+                                        type: string
+                                      value:
+                                        format: int32
+                                        type: integer
+                                    required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                selectPolicy:
+                                  type: string
+                                stabilizationWindowSeconds:
+                                  format: int32
+                                  type: integer
+                                tolerance:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                          type: object
                         metrics:
                           items:
                             properties:
