@@ -79,6 +79,7 @@ if [ "$1" =~ "kserve_on_openshift" ]; then
   echo "Deleting TLS MinIO resources and generated certificates"
   kustomize build $PROJECT_ROOT/test/overlays/openshift-ci |
     oc delete -n kserve -f -
+  oc delete secret minio-tls-custom -n kserve --ignore-not-found
   rm -rf $PROJECT_ROOT/test/scripts/openshift-ci/tls/certs
 fi
 # Install DSC/DSCI for test. (sometimes there is timing issue when it is under the same kustomization so it is separated)
