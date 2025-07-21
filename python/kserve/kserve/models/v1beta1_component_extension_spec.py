@@ -47,7 +47,6 @@ class V1beta1ComponentExtensionSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'advanced': 'V1beta1AdvancedSpec',
         'annotations': 'dict(str, str)',
         'auto_scaling': 'V1beta1AutoScalingSpec',
         'batcher': 'V1beta1Batcher',
@@ -65,7 +64,6 @@ class V1beta1ComponentExtensionSpec(object):
     }
 
     attribute_map = {
-        'advanced': 'advanced',
         'annotations': 'annotations',
         'auto_scaling': 'autoScaling',
         'batcher': 'batcher',
@@ -82,13 +80,12 @@ class V1beta1ComponentExtensionSpec(object):
         'timeout': 'timeout'
     }
 
-    def __init__(self, advanced=None, annotations=None, auto_scaling=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_metric_type=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, annotations=None, auto_scaling=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_metric_type=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ComponentExtensionSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._advanced = None
         self._annotations = None
         self._auto_scaling = None
         self._batcher = None
@@ -105,8 +102,6 @@ class V1beta1ComponentExtensionSpec(object):
         self._timeout = None
         self.discriminator = None
 
-        if advanced is not None:
-            self.advanced = advanced
         if annotations is not None:
             self.annotations = annotations
         if auto_scaling is not None:
@@ -135,27 +130,6 @@ class V1beta1ComponentExtensionSpec(object):
             self.scale_target = scale_target
         if timeout is not None:
             self.timeout = timeout
-
-    @property
-    def advanced(self):
-        """Gets the advanced of this V1beta1ComponentExtensionSpec.  # noqa: E501
-
-
-        :return: The advanced of this V1beta1ComponentExtensionSpec.  # noqa: E501
-        :rtype: V1beta1AdvancedSpec
-        """
-        return self._advanced
-
-    @advanced.setter
-    def advanced(self, advanced):
-        """Sets the advanced of this V1beta1ComponentExtensionSpec.
-
-
-        :param advanced: The advanced of this V1beta1ComponentExtensionSpec.  # noqa: E501
-        :type: V1beta1AdvancedSpec
-        """
-
-        self._advanced = advanced
 
     @property
     def annotations(self):

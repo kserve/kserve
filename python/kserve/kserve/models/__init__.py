@@ -67,7 +67,6 @@ from kserve.models.v1alpha1_trained_model import V1alpha1TrainedModel
 from kserve.models.v1alpha1_trained_model_list import V1alpha1TrainedModelList
 from kserve.models.v1alpha1_trained_model_spec import V1alpha1TrainedModelSpec
 from kserve.models.v1beta1_art_explainer_spec import V1beta1ARTExplainerSpec
-from kserve.models.v1beta1_advanced_spec import V1beta1AdvancedSpec
 from kserve.models.v1beta1_authentication_ref import V1beta1AuthenticationRef
 from kserve.models.v1beta1_auto_scaling_spec import V1beta1AutoScalingSpec
 from kserve.models.v1beta1_batcher import V1beta1Batcher
@@ -85,8 +84,6 @@ from kserve.models.v1beta1_ext_metric_authentication import V1beta1ExtMetricAuth
 from kserve.models.v1beta1_external_metric_source import V1beta1ExternalMetricSource
 from kserve.models.v1beta1_external_metrics import V1beta1ExternalMetrics
 from kserve.models.v1beta1_failure_info import V1beta1FailureInfo
-from kserve.models.v1beta1_horizontal_pod_autoscaler_behavior import V1beta1HorizontalPodAutoscalerBehavior
-from kserve.models.v1beta1_horizontal_pod_autoscaler_config import V1beta1HorizontalPodAutoscalerConfig
 from kserve.models.v1beta1_hugging_face_runtime_spec import V1beta1HuggingFaceRuntimeSpec
 from kserve.models.v1beta1_inference_service import V1beta1InferenceService
 from kserve.models.v1beta1_inference_service_list import V1beta1InferenceServiceList
@@ -119,7 +116,6 @@ from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
 from kserve.models.v1beta1_resource_config import V1beta1ResourceConfig
 from kserve.models.v1beta1_resource_metric_source import V1beta1ResourceMetricSource
 from kserve.models.v1beta1_sk_learn_spec import V1beta1SKLearnSpec
-from kserve.models.v1beta1_scaling_rules import V1beta1ScalingRules
 from kserve.models.v1beta1_security_config import V1beta1SecurityConfig
 from kserve.models.v1beta1_service_config import V1beta1ServiceConfig
 from kserve.models.v1beta1_storage_spec import V1beta1StorageSpec

@@ -188,14 +188,12 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 
 	var scaleDownStabilizationWindowSeconds, scaleUpStabilizationWindowSeconds *int32
 
-	if adv := componentExtension.AdvancedConfig; adv != nil {
-		if hpa := adv.HorizontalPodAutoscalerConfig; hpa != nil && hpa.Behavior != nil {
-			if sd := hpa.Behavior.ScaleDown; sd != nil {
-				scaleDownStabilizationWindowSeconds = sd.StabilizationWindowSeconds
-			}
-			if su := hpa.Behavior.ScaleUp; su != nil {
-				scaleUpStabilizationWindowSeconds = su.StabilizationWindowSeconds
-			}
+	if componentExtension.AutoScaling != nil && componentExtension.AutoScaling.Behavior != nil {
+		if sd := componentExtension.AutoScaling.Behavior.ScaleDown; sd != nil {
+			scaleDownStabilizationWindowSeconds = sd.StabilizationWindowSeconds
+		}
+		if su := componentExtension.AutoScaling.Behavior.ScaleUp; su != nil {
+			scaleUpStabilizationWindowSeconds = su.StabilizationWindowSeconds
 		}
 	}
 

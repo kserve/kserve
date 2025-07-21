@@ -48,7 +48,6 @@ class V1beta1ExplainerSpec(object):
     """
     openapi_types = {
         'active_deadline_seconds': 'int',
-        'advanced': 'V1beta1AdvancedSpec',
         'affinity': 'V1Affinity',
         'annotations': 'dict(str, str)',
         'art': 'V1beta1ARTExplainerSpec',
@@ -107,7 +106,6 @@ class V1beta1ExplainerSpec(object):
 
     attribute_map = {
         'active_deadline_seconds': 'activeDeadlineSeconds',
-        'advanced': 'advanced',
         'affinity': 'affinity',
         'annotations': 'annotations',
         'art': 'art',
@@ -164,14 +162,13 @@ class V1beta1ExplainerSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, advanced=None, affinity=None, annotations=None, art=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, art=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExplainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._active_deadline_seconds = None
-        self._advanced = None
         self._affinity = None
         self._annotations = None
         self._art = None
@@ -230,8 +227,6 @@ class V1beta1ExplainerSpec(object):
 
         if active_deadline_seconds is not None:
             self.active_deadline_seconds = active_deadline_seconds
-        if advanced is not None:
-            self.advanced = advanced
         if affinity is not None:
             self.affinity = affinity
         if annotations is not None:
@@ -363,27 +358,6 @@ class V1beta1ExplainerSpec(object):
         """
 
         self._active_deadline_seconds = active_deadline_seconds
-
-    @property
-    def advanced(self):
-        """Gets the advanced of this V1beta1ExplainerSpec.  # noqa: E501
-
-
-        :return: The advanced of this V1beta1ExplainerSpec.  # noqa: E501
-        :rtype: V1beta1AdvancedSpec
-        """
-        return self._advanced
-
-    @advanced.setter
-    def advanced(self, advanced):
-        """Sets the advanced of this V1beta1ExplainerSpec.
-
-
-        :param advanced: The advanced of this V1beta1ExplainerSpec.  # noqa: E501
-        :type: V1beta1AdvancedSpec
-        """
-
-        self._advanced = advanced
 
     @property
     def affinity(self):
