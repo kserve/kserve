@@ -215,12 +215,12 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 						},
 					},
 				}},
-				Processors: &otelv1beta1.AnyConfig{Object: processors},
+				// Processors: &otelv1beta1.AnyConfig{Object: processors},
 				Service: otelv1beta1.Service{
 					Pipelines: map[string]*otelv1beta1.Pipeline{
 						PipelineMetrics: {
 							Receivers:  []string{PrometheusReceiver},
-							Processors: pipelineProcessors,
+							Processors: []string{},
 							Exporters:  []string{OtlpExporter},
 						},
 					},
