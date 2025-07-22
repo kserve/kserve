@@ -21,7 +21,6 @@ import kserve
 from huggingfaceserver.request_logger import RequestLogger
 from kserve import logging
 from kserve.logging import logger
-from kserve.model import PredictorConfig
 from kserve.storage import Storage
 
 from transformers import AutoConfig
@@ -139,10 +138,19 @@ parser.add_argument(
 parser.add_argument(
     "--return_token_type_ids", action="store_true", help="Return token type ids"
 )
-parser.add_argument(
+
+# Create a mutually exclusive group for output format options
+# This group allows the user to choose between returning probabilities or disabling postprocessing.
+output_format_group = parser.add_mutually_exclusive_group()
+output_format_group.add_argument(
     "--return_probabilities",
     action="store_true",
-    help="Return all probabilities",
+    help="Return probabilities instead of logits for classification tasks such as token classification, text classification and fill-mask.",
+)
+output_format_group.add_argument(
+    "--return_raw_logits",
+    action="store_true",
+    help="Return raw logits without processing. Supported only classification tasks such as token classification, text classification and fill-mask.",
 )
 parser.add_argument(
     "--disable_log_requests", action="store_true", help="Disable logging requests"
@@ -275,12 +283,6 @@ def load_model():
                 request_logger=request_logger,
             )
         else:
-            predictor_config = PredictorConfig(
-                args.predictor_host,
-                args.predictor_protocol,
-                args.predictor_use_ssl,
-                args.predictor_request_timeout_seconds,
-            )
             logger.info(f"Loading encoder model for task '{task.name}' in {dtype}")
             model = HuggingfaceEncoderModel(
                 model_name=args.model_name,
@@ -296,9 +298,9 @@ def load_model():
                 trust_remote_code=kwargs["trust_remote_code"],
                 tensor_input_names=kwargs.get("tensor_input_names", None),
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
-                predictor_config=predictor_config,
                 request_logger=request_logger,
                 return_probabilities=kwargs.get("return_probabilities", False),
+                return_raw_logits=kwargs.get("return_raw_logits", False),
             )
     model.load()
     return model

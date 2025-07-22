@@ -1198,6 +1198,20 @@ spec:
                             properties:
                               external:
                                 properties:
+                                  authenticationRef:
+                                    properties:
+                                      authModes:
+                                        type: string
+                                      authenticationRef:
+                                        properties:
+                                          name:
+                                            type: string
+                                        required:
+                                          - name
+                                        type: object
+                                    required:
+                                      - authenticationRef
+                                    type: object
                                   metric:
                                     properties:
                                       backend:
@@ -4355,6 +4369,20 @@ spec:
                             properties:
                               external:
                                 properties:
+                                  authenticationRef:
+                                    properties:
+                                      authModes:
+                                        type: string
+                                      authenticationRef:
+                                        properties:
+                                          name:
+                                            type: string
+                                        required:
+                                          - name
+                                        type: object
+                                    required:
+                                      - authenticationRef
+                                    type: object
                                   metric:
                                     properties:
                                       backend:
@@ -18713,6 +18741,20 @@ spec:
                             properties:
                               external:
                                 properties:
+                                  authenticationRef:
+                                    properties:
+                                      authModes:
+                                        type: string
+                                      authenticationRef:
+                                        properties:
+                                          name:
+                                            type: string
+                                        required:
+                                          - name
+                                        type: object
+                                    required:
+                                      - authenticationRef
+                                    type: object
                                   metric:
                                     properties:
                                       backend:

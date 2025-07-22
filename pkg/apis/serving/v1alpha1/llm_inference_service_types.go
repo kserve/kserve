@@ -22,7 +22,7 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
-	gatewayapi "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // LLMInferenceService is the Schema for the llminferenceservices API, representing a single LLM deployment.
@@ -189,7 +189,7 @@ type HTTPRouteSpec struct {
 	// Spec allows for providing a custom specification for an HTTPRoute.
 	// If provided, the controller will create and manage an HTTPRoute with this specification.
 	// +optional
-	Spec *gatewayapi.HTTPRouteSpec `json:"spec,omitempty"`
+	Spec *gwapiv1.HTTPRouteSpec `json:"spec,omitempty"`
 }
 
 // GatewaySpec defines the configuration for a Gateway API Gateway.
@@ -272,9 +272,9 @@ type LLMStorageSpec struct {
 // might be inferred or is not strictly required by this controller.
 type UntypedObjectReference struct {
 	// Name of the referenced object.
-	Name gatewayapi.ObjectName `json:"name,omitempty"`
+	Name gwapiv1.ObjectName `json:"name,omitempty"`
 	// Namespace of the referenced object.
-	Namespace gatewayapi.Namespace `json:"namespace,omitempty"`
+	Namespace gwapiv1.Namespace `json:"namespace,omitempty"`
 }
 
 // LLMInferenceServiceStatus defines the observed state of LLMInferenceService.

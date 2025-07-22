@@ -14,6 +14,7 @@ dependencies = [
     "kubernetes>=23.3.0",
     "python-dateutil<3.0.0,>=2.8.0",
     "numpy<3.0.0,>=1.26.0",
+
     "psutil>=5.9.6",  # Updated psutil version
     "grpcio<2.0.0,>=1.60.0",
     "grpc-interceptor<1.0.0,>=0.15.4",
@@ -93,3 +94,5 @@ dev = [
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+

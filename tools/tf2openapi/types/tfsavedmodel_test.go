@@ -2,7 +2,7 @@ package types
 
 import (
 	"fmt"
-	"github.com/kserve/kserve/pkg/utils"
+	"k8s.io/utils/ptr"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -131,7 +131,7 @@ func TestTFSavedModelTypical(t *testing.T) {
 		},
 		Required: []string{"instances"},
 		AdditionalProperties: openapi3.AdditionalProperties{
-			Has:    utils.Bool(false),
+			Has:    ptr.To(false),
 			Schema: nil,
 		},
 	}
@@ -158,7 +158,7 @@ func TestTFSavedModelTypical(t *testing.T) {
 		},
 		Required: []string{"predictions"},
 		AdditionalProperties: openapi3.AdditionalProperties{
-			Has:    utils.Bool(false),
+			Has:    ptr.To(false),
 			Schema: nil,
 		},
 	}

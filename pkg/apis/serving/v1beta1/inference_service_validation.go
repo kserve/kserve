@@ -66,7 +66,7 @@ var _ webhook.CustomValidator = &InferenceServiceValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *InferenceServiceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	isvc, err := convertToInferenceService(obj)
+	isvc, err := utils.Convert[*InferenceService](obj)
 	if err != nil {
 		validatorLogger.Error(err, "Unable to convert object to InferenceService")
 		return nil, err
@@ -77,12 +77,12 @@ func (v *InferenceServiceValidator) ValidateCreate(ctx context.Context, obj runt
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	isvc, err := convertToInferenceService(newObj)
+	isvc, err := utils.Convert[*InferenceService](newObj)
 	if err != nil {
 		validatorLogger.Error(err, "Unable to convert object to InferenceService")
 		return nil, err
 	}
-	oldIsvc, err := convertToInferenceService(oldObj)
+	oldIsvc, err := utils.Convert[*InferenceService](oldObj)
 	if err != nil {
 		validatorLogger.Error(err, "Unable to convert object to InferenceService")
 	}
@@ -96,7 +96,7 @@ func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, 
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	isvc, err := convertToInferenceService(obj)
+	isvc, err := utils.Convert[*InferenceService](obj)
 	if err != nil {
 		validatorLogger.Error(err, "Unable to convert object to InferenceService")
 		return nil, err
@@ -454,13 +454,4 @@ func validateDeploymentMode(newIsvc *InferenceService, oldIsvc *InferenceService
 		}
 	}
 	return nil
-}
-
-// Convert runtime.Object into InferenceService
-func convertToInferenceService(obj runtime.Object) (*InferenceService, error) {
-	isvc, ok := obj.(*InferenceService)
-	if !ok {
-		return nil, fmt.Errorf("expected an InferenceService object but got %T", obj)
-	}
-	return isvc, nil
 }

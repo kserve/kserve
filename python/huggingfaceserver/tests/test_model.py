@@ -15,13 +15,12 @@
 import pytest
 import torch
 import json
-from kserve.model import PredictorConfig
+
 from kserve.protocol.rest.openai.types import (
     ChatCompletionRequest,
     CompletionRequest,
 )
 from kserve.protocol.rest.openai.errors import OpenAIError
-from pytest_httpx import HTTPXMock
 from transformers import AutoConfig
 from pytest import approx
 
@@ -29,7 +28,7 @@ from huggingfaceserver.task import infer_task_from_model_architecture
 from huggingfaceserver.encoder_model import HuggingfaceEncoderModel
 from huggingfaceserver.generative_model import HuggingfaceGenerativeModel
 from huggingfaceserver.task import MLTask
-from test_output import bert_token_classification_return_prob_expected_output
+from test_output import bert_token_classification_return_raw_logits_expected_output
 import torch.nn.functional as F
 
 
@@ -99,6 +98,19 @@ def bert_base_return_prob():
 
 
 @pytest.fixture(scope="module")
+def bert_base_return_raw_logits():
+    model = HuggingfaceEncoderModel(
+        "bert-base-uncased-yelp-polarity",
+        model_id_or_path="textattack/bert-base-uncased-yelp-polarity",
+        task=MLTask.sequence_classification,
+        return_raw_logits=True,
+    )
+    model.load()
+    yield model
+    model.stop()
+
+
+@pytest.fixture(scope="module")
 def bert_token_classification_return_prob():
     model = HuggingfaceEncoderModel(
         "bert-large-cased-finetuned-conll03-english",
@@ -106,6 +118,20 @@ def bert_token_classification_return_prob():
         do_lower_case=True,
         add_special_tokens=False,
         return_probabilities=True,
+    )
+    model.load()
+    yield model
+    model.stop()
+
+
+@pytest.fixture(scope="module")
+def bert_token_classification_return_raw_logits():
+    model = HuggingfaceEncoderModel(
+        "bert-large-cased-finetuned-conll03-english",
+        model_id_or_path="dbmdz/bert-large-cased-finetuned-conll03-english",
+        do_lower_case=True,
+        add_special_tokens=False,
+        return_raw_logits=True,
     )
     model.load()
     yield model
@@ -237,40 +263,6 @@ async def test_model_revision(request: HuggingfaceEncoderModel):
 
 
 @pytest.mark.asyncio
-async def test_bert_predictor_host(request, httpx_mock: HTTPXMock):
-    model_name = "bert"
-    httpx_mock.add_response(
-        json={
-            "model_name": model_name,
-            "outputs": [
-                {
-                    "name": "OUTPUT__0",
-                    "shape": [1, 9, 758],
-                    "data": [1] * 9 * 758,
-                    "datatype": "INT64",
-                }
-            ],
-        }
-    )
-
-    model = HuggingfaceEncoderModel(
-        model_name,
-        model_id_or_path="google-bert/bert-base-uncased",
-        tensor_input_names="input_ids",
-        predictor_config=PredictorConfig(
-            predictor_host="localhost:8081", predictor_protocol="v2"
-        ),
-    )
-    model.load()
-    request.addfinalizer(model.stop)
-
-    response, _ = await model(
-        {"instances": ["The capital of France is [MASK]."]}, headers={}
-    )
-    assert response == {"predictions": ["[PAD]"]}
-
-
-@pytest.mark.asyncio
 async def test_bert_sequence_classification(bert_base_yelp_polarity):
     request = "Hello, my dog is cute."
     response, _ = await bert_base_yelp_polarity(
@@ -286,24 +278,42 @@ async def test_bert_sequence_classification_return_probabilities(bert_base_retur
         {"instances": [request, request]}, headers={}
     )
 
+    assert response == {"predictions": [{0: 0.0012, 1: 0.9988}, {0: 0.0012, 1: 0.9988}]}
+
+
+@pytest.mark.asyncio
+async def test_bert_sequence_classification_return_raw_logits(
+    bert_base_return_raw_logits,
+):
+    request = "Hello, my dog is cute."
+    response, _ = await bert_base_return_raw_logits(
+        {"instances": [request, request]}, headers={}
+    )
+
     assert response == {
         "predictions": [
-            {0: approx(-3.1508713), 1: approx(3.5892851)},
-            {0: approx(-3.1508713), 1: approx(3.589285)},
+            {
+                0: approx(-3.1508712768554688, abs=0.000009),
+                1: approx(3.589285135269165, abs=0.000009),
+            },
+            {
+                0: approx(-3.1508712768554688, abs=0.000009),
+                1: approx(3.589284896850586, abs=0.000009),
+            },
         ]
     }
 
 
 @pytest.mark.asyncio
-async def test_bert_token_classification_return_prob(
-    bert_token_classification_return_prob,
+async def test_bert_token_classification_return_raw_logits(
+    bert_token_classification_return_raw_logits,
 ):
     request = "Hello, my dog is cute."
 
-    response, _ = await bert_token_classification_return_prob(
+    response, _ = await bert_token_classification_return_raw_logits(
         {"instances": [request, request]}, headers={}
     )
-    assert response == bert_token_classification_return_prob_expected_output
+    assert response == bert_token_classification_return_raw_logits_expected_output
 
 
 @pytest.mark.asyncio

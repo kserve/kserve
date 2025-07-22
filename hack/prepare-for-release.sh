@@ -116,9 +116,9 @@ echo -e "\033[32mNo dash version updated to ${new_no_dash_version} and prior: ${
 
 echo "${new_no_dash_version}" > python/VERSION
 
-for file in $(find python \( -name 'pyproject.toml' -o -name 'poetry.lock' \)); do
+for file in $(find python \( -name 'pyproject.toml' -o -name 'uv.lock' \)); do
   echo -e "\033[32mUpdating ${file}\033[0m"
-  if [[ ${file} == *"poetry.lock" ]]; then
+  if [[ ${file} == *"uv.lock" ]]; then
     # make sure the previous line is name = "kserve"
     # there is a chance that the version being update be the same than other dependencies
     sed -i "/name = \"kserve\"/{N;s/${prior_no_dash_version}/${new_no_dash_version}/}" "${file}"
@@ -128,9 +128,9 @@ for file in $(find python \( -name 'pyproject.toml' -o -name 'poetry.lock' \)); 
 done
 
 # update docs version
-for file in $(find docs \( -name 'pyproject.toml' -o -name 'poetry.lock' \)); do
+for file in $(find docs \( -name 'pyproject.toml' -o -name 'uv.lock' \)); do
   echo -e "\033[32mUpdating ${file}\033[0m"
-  if [[ ${file} == *"poetry.lock" ]]; then
+  if [[ ${file} == *"uv.lock" ]]; then
     # make sure the previous line is name = "kserve"
     # there is a chance that the version being update be the same than other dependencies
     sed -i "/name = \"kserve\"/{N;s/${prior_no_dash_version}/${new_no_dash_version}/}" "${file}"
