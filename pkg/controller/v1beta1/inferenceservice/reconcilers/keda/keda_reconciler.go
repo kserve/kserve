@@ -162,7 +162,7 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 					metricQuery := fmt.Sprintf("sum(%s{namespace=\"%s\", deployment=\"%s\"})", query, componentMeta.Namespace, componentMeta.Name)
 					trigger.Metadata = map[string]string{
 						"metricQuery":   metricQuery,
-						"targetValue":   fmt.Sprintf("%f", targetValue),
+						"targetValue":   targetValue,
 						"scalerAddress": MetricScalerEndpoint,
 					}
 					if metric.PodMetric.Metric.OperationOverTime != "" {
