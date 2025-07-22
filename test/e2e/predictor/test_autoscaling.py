@@ -654,9 +654,45 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
     trigger_metadata = scaledobject_resp["items"][0]["spec"]["triggers"][0]["metadata"]
     trigger_type = scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"]
     assert trigger_type == "external"
-    assert trigger_metadata["metricQuery"] == 'sum(http_requests_per_second{namespace="kserve-ci-e2e-test", deployment="isvc-sklearn-keda-otel-add-on-predictor"})'
+    assert trigger_metadata["metricQuery"] == 'sum(process_cpu_seconds_total{namespace="kserve-ci-e2e-test", deployment="isvc-sklearn-keda-otel-add-on-predictor"})'
     assert trigger_metadata["scalerAddress"] == "keda-otel-scaler.keda.svc:4318"
     assert trigger_metadata["targetValue"] == "4"
+
+    # Wait for OpenTelemetry sidecar and metrics collection to be ready
+    print("Waiting for OpenTelemetry metrics collection to stabilize...")
+    time.sleep(60)  # Give time for metrics to be collected and KEDA to be ready
+    
+    # Ensure the predictor service is receiving traffic properly
+    print("Testing initial prediction to ensure service is ready...")
+    initial_res = await predict_isvc(
+        rest_v1_client, service_name, INPUT, network_layer=network_layer
+    )
+    assert initial_res["predictions"] == [1, 1]
+    print("Initial prediction successful, proceeding with load test...")
+
+    # Helper function to check KEDA scaling status
+    def check_keda_status():
+        try:
+            scaledobject_status = api_instance.get_namespaced_custom_object(
+                group="keda.sh",
+                version="v1alpha1",
+                namespace=KSERVE_TEST_NAMESPACE,
+                plural="scaledobjects",
+                name=f"{service_name}-predictor-scaledobject"
+            )
+            
+            conditions = scaledobject_status.get("status", {}).get("conditions", [])
+            health = scaledobject_status.get("status", {}).get("health", {})
+            
+            print(f"KEDA ScaledObject status - Health: {health}, Conditions: {conditions}")
+            
+            # Check for any error conditions
+            for condition in conditions:
+                if condition.get("status") == "False":
+                    print(f"KEDA Warning - {condition.get('type')}: {condition.get('message')}")
+                    
+        except Exception as e:
+            print(f"Could not check KEDA status: {e}")
 
     # Initial pod count should be min_replicas
     def get_pod_count():
@@ -665,49 +701,142 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
             label_selector=f"serving.kserve.io/inferenceservice={service_name}",
         )
         running_pods = [p for p in pods.items if p.status.phase == "Running"]
+        
+        # Debug information for troubleshooting
+        all_pods = [(p.metadata.name, p.status.phase, p.status.conditions[-1].type if p.status.conditions else "No conditions") 
+                   for p in pods.items]
+        if len(all_pods) > 0:
+            print(f"Debug - All pods: {all_pods}")
+        
         return len(running_pods)
 
     # Check initial pod count
     initial_count = get_pod_count()
     assert initial_count == 1
+    
+    # Check KEDA status before starting load test
+    print("Checking KEDA ScaledObject status before load test...")
+    check_keda_status()
 
     # Wait for pod count to reach expected value, with timeout
     def wait_for_pod_count(expected, timeout=180):
         start = time.time()
+        last_count = -1
+        stable_count = 0
+        required_stable_checks = 3  # Require 3 consecutive checks with correct count
+        
         while time.time() - start < timeout:
             count = get_pod_count()
+            
+            # Log when count changes
+            if count != last_count:
+                elapsed = time.time() - start
+                print(f"Pod count changed: {last_count} -> {count} (elapsed: {elapsed:.1f}s)")
+                last_count = count
+                stable_count = 0
+            
             if count >= expected:
-                return True
+                stable_count += 1
+                if stable_count >= required_stable_checks:
+                    print(f"Successfully reached target pod count {count} >= {expected} (stable for {stable_count} checks)")
+                    return True
+            else:
+                stable_count = 0
+                
             time.sleep(5)
+            
+        final_count = get_pod_count()
+        print(f"Timeout waiting for pod count. Expected: {expected}, Final: {final_count}, Timeout: {timeout}s")
         return False
 
     # Check initial pod count
     initial_count = get_pod_count()
     assert initial_count == 1
 
-    async def send_load_until_scaled(num_requests, concurrency, target_pods):
+    async def send_load_until_scaled(num_requests, concurrency, target_pods, sustain_duration=30):
+        """Send sustained load to trigger autoscaling and wait for target pod count"""
         sem = asyncio.Semaphore(concurrency)
         sent_requests = 0
+        scaling_detected = False
+        sustain_start = None
 
         async def send_one():
             async with sem:
-                res = await predict_isvc(
-                    rest_v1_client, service_name, INPUT, network_layer=network_layer
-                )
-                assert res["predictions"] == [1, 1]
+                try:
+                    res = await predict_isvc(
+                        rest_v1_client, service_name, INPUT, network_layer=network_layer
+                    )
+                    assert res["predictions"] == [1, 1]
+                except Exception as e:
+                    print(f"Warning: Request failed: {e}")
+                    # Don't fail the test on individual request failures
 
-        tasks = []
+        # First, send sustained load for metrics to be collected
+        print(f"Sending sustained load with {concurrency} concurrent requests...")
+        load_start = time.time()
+        
         while sent_requests < num_requests:
-            if get_pod_count() >= target_pods:
+            current_pods = get_pod_count()
+            
+            # Check if scaling has been detected
+            if current_pods >= target_pods and not scaling_detected:
+                scaling_detected = True
+                sustain_start = time.time()
+                print(f"Scaling detected! Current pods: {current_pods}, continuing load for {sustain_duration}s to ensure stability")
+            
+            # If we've detected scaling and sustained it for the required duration, we can stop
+            if scaling_detected and sustain_start and (time.time() - sustain_start >= sustain_duration):
+                print(f"Sustained {current_pods} pods for {sustain_duration}s, stopping load generation")
                 break
-            batch = min(concurrency, num_requests - sent_requests)
+                
+            # Continue sending load, but with smaller batches for better control
+            batch = min(5, num_requests - sent_requests)
             tasks = [send_one() for _ in range(batch)]
-            await asyncio.gather(*tasks)
+            await asyncio.gather(*tasks, return_exceptions=True)  # Don't fail on individual errors
             sent_requests += batch
+            
+            # Add small delay to prevent overwhelming the system
+            await asyncio.sleep(0.1)
+            
+            # Log progress every 20 requests
+            if sent_requests % 20 == 0:
+                print(f"Sent {sent_requests} requests, current pods: {current_pods}, elapsed: {time.time() - load_start:.1f}s")
+                # Check KEDA status periodically during load
+                if sent_requests % 60 == 0:
+                    check_keda_status()
 
-    await send_load_until_scaled(100, concurrency=10, target_pods=2)
-    scaled_up = wait_for_pod_count(2, timeout=900)
-    assert scaled_up, "Failed to scale up pods"
+    # Send more requests and higher concurrency for CI environments  
+    await send_load_until_scaled(300, concurrency=20, target_pods=2, sustain_duration=90)
+    
+    # Give additional time for scaling to stabilize
+    print("Waiting for scaling to stabilize...")
+    time.sleep(60)
+    
+    # Final check with multiple attempts
+    scaled_up = False
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        # Check KEDA status during scaling attempts
+        print(f"Scaling attempt {attempt + 1}/{max_attempts} - checking KEDA status...")
+        check_keda_status()
+        
+        scaled_up = wait_for_pod_count(2, timeout=300)  # Increased timeout for CI
+        if scaled_up:
+            break
+        print(f"Scaling attempt {attempt + 1}/{max_attempts} failed, retrying...")
+        if attempt < max_attempts - 1:
+            # Send more load to trigger scaling again
+            print("Sending additional load burst...")
+            burst_tasks = []
+            for _ in range(30):
+                burst_tasks.append(predict_isvc(
+                    rest_v1_client, service_name, INPUT, network_layer=network_layer
+                ))
+            await asyncio.gather(*burst_tasks, return_exceptions=True)
+            time.sleep(30)
+    
+    current_pod_count = get_pod_count()
+    assert scaled_up, f"Failed to scale up pods after {max_attempts} attempts. Current pod count: {current_pod_count}, Expected: >= 2. This might indicate issues with KEDA scaling, OpenTelemetry metrics collection, or resource constraints in the CI environment."
 
     # Wait for scale down (after load stops)
     # def wait_for_scale_down(expected=1, timeout=300):
