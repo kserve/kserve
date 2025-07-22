@@ -34,6 +34,7 @@ YQ_VERSION="v4.28.1"
 GATEWAY_API_VERSION="v1.2.1"
 ENVOY_GATEWAY_VERSION="v1.2.2"
 LWS_VERSION="v0.6.2"
+KEDA_VERSION="2.14.0"
 
 echo "Installing yq ..."
 wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
@@ -119,3 +120,28 @@ kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/relea
 
 echo "Waiting for cert-manager to be ready ..."
 kubectl wait --for=condition=ready pod -l 'app in (cert-manager,webhook)' --timeout=180s -n cert-manager
+
+if [[ $DEPLOYMENT_MODE == "raw" ]]; then
+  if [[ $ENABLE_KEDA == "true" ]]; then
+    echo "Installing KEDA using Helm ..."
+    helm repo add kedacore https://kedacore.github.io/charts --force-update
+    helm install keda kedacore/keda --version ${KEDA_VERSION} --namespace keda --create-namespace --wait
+    
+    echo "Installing OpenTelemetry operator ..."
+    kubectl apply -f https://github.com/open-telemetry/opentelemetry-operator/releases/latest/download/opentelemetry-operator.yaml
+    
+    echo "Waiting for OpenTelemetry operator to be ready ..."
+    kubectl wait --for=condition=Ready -n opentelemetry-operator-system pod -l control-plane=controller-manager --timeout=300s
+    
+    echo "Installing KEDA OTel add-on from kedify/otel-add-on ..."
+    # Install using Helm from the official OCI registry
+    helm upgrade -i keda-otel-scaler -n keda oci://ghcr.io/kedify/charts/otel-add-on --version=v0.0.12
+    
+    # echo "Waiting for KEDA OTel scaler to be ready ..."
+    # kubectl wait --for=condition=Ready -n keda pod -l app.kubernetes.io/name=otel-add-on --timeout=300s
+    
+    echo "Checking KEDA and OpenTelemetry operator status ..."
+    kubectl get pods -n keda
+    kubectl get pods -n opentelemetry-operator-system
+  fi
+fi
