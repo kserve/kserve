@@ -152,7 +152,7 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 	podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)
 
 	// Here we allow switch between knative and vanilla deployment
-	if p.deploymentMode == constants.RawDeployment {
+	if p.deploymentMode == constants.Standard {
 		if err := p.reconcileTransformerRawDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
 			return ctrl.Result{}, err
 		}
