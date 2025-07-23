@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/docker/distribution/context"
 	"github.com/onsi/gomega/types"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
@@ -996,7 +995,7 @@ func TestGetServingRuntime(t *testing.T) {
 	mockClient := fake.NewClientBuilder().WithLists(runtimes /*, clusterRuntimes*/).WithScheme(s).Build()
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, _ := GetServingRuntime(context.Background(), mockClient, scenario.runtimeName, namespace)
+			res, _, _ := GetServingRuntime(t.Context(), mockClient, scenario.runtimeName, namespace)
 			if !g.Expect(res).To(gomega.Equal(&scenario.expected)) {
 				t.Errorf("got %v, want %v", res, &scenario.expected)
 			}
@@ -1005,7 +1004,7 @@ func TestGetServingRuntime(t *testing.T) {
 
 	// Check invalid case
 	t.Run("InvalidServingRuntime", func(t *testing.T) {
-		res, err := GetServingRuntime(context.Background(), mockClient, "foo", namespace)
+		res, err, _ := GetServingRuntime(t.Context(), mockClient, "foo", namespace)
 		if !g.Expect(res).To(gomega.BeNil()) {
 			t.Errorf("got %v, want %v", res, nil)
 		}
@@ -1925,7 +1924,7 @@ func TestGetPredictorEndpoint(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, err := GetPredictorEndpoint(context.Background(), mockClient, &scenario.isvc)
+			res, err := GetPredictorEndpoint(t.Context(), mockClient, &scenario.isvc)
 			g.Expect(err).To(scenario.expectedErr)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedUrl)) {
 				t.Errorf("got %s, want %s", res, scenario.expectedUrl)
@@ -1956,7 +1955,7 @@ func TestValidateStorageURIForDefaultStorageInitializer(t *testing.T) {
 	}
 	mockClient := fake.NewClientBuilder().WithScheme(s).Build()
 	for _, uri := range validUris {
-		if err := ValidateStorageURI(context.Background(), &uri, mockClient); err != nil {
+		if err := ValidateStorageURI(t.Context(), &uri, mockClient); err != nil {
 			t.Errorf("%q validation failed: %s", uri, err)
 		}
 	}
@@ -1973,7 +1972,7 @@ func TestValidateStorageURIForCustomPrefix(t *testing.T) {
 	}
 	mockClient := fake.NewClientBuilder().WithScheme(s).Build()
 	for _, uri := range invalidUris {
-		if err := ValidateStorageURI(context.Background(), &uri, mockClient); err == nil {
+		if err := ValidateStorageURI(t.Context(), &uri, mockClient); err == nil {
 			t.Errorf("%q validation failed: error expected", uri)
 		}
 	}
@@ -2011,7 +2010,7 @@ func TestValidateStorageURIForDefaultStorageInitializerCRD(t *testing.T) {
 	}
 	mockClient := fake.NewClientBuilder().WithLists(storageContainerSpecs).WithScheme(s).Build()
 	for _, uri := range validUris {
-		if err := ValidateStorageURI(context.Background(), &uri, mockClient); err != nil {
+		if err := ValidateStorageURI(t.Context(), &uri, mockClient); err != nil {
 			t.Errorf("%q validation failed: %s", uri, err)
 		}
 	}

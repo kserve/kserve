@@ -21,7 +21,6 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	"golang.org/x/net/context"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -491,7 +490,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 	mockClient := fake.NewClientBuilder().WithLists(runtimes /*, clusterRuntimes*/).WithScheme(s).Build()
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, _ := scenario.spec.GetSupportingRuntimes(context.Background(), mockClient, namespace, scenario.isMMS, scenario.isMultinode)
+			res, _ := scenario.spec.GetSupportingRuntimes(t.Context(), mockClient, namespace, scenario.isMMS, scenario.isMultinode)
 			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", res, scenario.expected)
 			}

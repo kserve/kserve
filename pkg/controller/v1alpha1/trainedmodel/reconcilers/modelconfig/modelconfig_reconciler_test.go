@@ -90,7 +90,7 @@ func TestModelConfigReconciler_Reconcile(t *testing.T) {
 		reconciler := NewModelConfigReconciler(client, clientset, scheme)
 		req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: tmName}}
 
-		err := reconciler.Reconcile(context.TODO(), req, tm)
+		err := reconciler.Reconcile(t.Context(), req, tm)
 		assert.Error(t, err)
 	})
 
@@ -103,7 +103,7 @@ func TestModelConfigReconciler_Reconcile(t *testing.T) {
 		reconciler := NewModelConfigReconciler(client, clientset, scheme)
 		req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: tmName}}
 
-		err := reconciler.Reconcile(context.TODO(), req, tm)
+		err := reconciler.Reconcile(t.Context(), req, tm)
 		assert.Error(t, err)
 	})
 }
@@ -131,7 +131,7 @@ func TestModelConfigReconciler_Reconcile_AddOrUpdateModel_Success(t *testing.T) 
 	reconciler := NewModelConfigReconciler(client, clientset, scheme)
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: tmName}}
 
-	err := reconciler.Reconcile(context.TODO(), req, tm)
+	err := reconciler.Reconcile(t.Context(), req, tm)
 	assert.NoError(t, err)
 }
 
@@ -160,7 +160,7 @@ func TestModelConfigReconciler_Reconcile_DeleteModel_Success(t *testing.T) {
 	reconciler := NewModelConfigReconciler(client, clientset, scheme)
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: tmName}}
 
-	err := reconciler.Reconcile(context.TODO(), req, tm)
+	err := reconciler.Reconcile(t.Context(), req, tm)
 	assert.NoError(t, err)
 }
 
@@ -190,7 +190,7 @@ func TestModelConfigReconciler_Reconcile_ProcessError_AddOrUpdate(t *testing.T) 
 	reconciler := NewModelConfigReconciler(client, clientset, scheme)
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: tmName}}
 
-	err := reconciler.Reconcile(context.TODO(), req, tm)
+	err := reconciler.Reconcile(t.Context(), req, tm)
 	assert.Error(t, err)
 }
 
@@ -220,7 +220,7 @@ func TestModelConfigReconciler_Reconcile_ProcessError_Delete(t *testing.T) {
 	reconciler := NewModelConfigReconciler(client, clientset, scheme)
 	req := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: tmName}}
 
-	err := reconciler.Reconcile(context.TODO(), req, tm)
+	err := reconciler.Reconcile(t.Context(), req, tm)
 	assert.Error(t, err)
 }
 

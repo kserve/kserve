@@ -139,7 +139,7 @@ poetry-lock: $(POETRY)
 # Update the kserve package first as other packages depends on it.
 	cd ./python && \
 	cd kserve && $(POETRY) lock --no-update && cd .. && \
-	for file in $$(find . -type f -name "pyproject.toml" -not -path "./pyproject.toml" -not -path "*.venv/*"); do \
+	for file in $$(find . -type f -name "pyproject.toml" -not -path "./pyproject.toml" -not -path "*.venv/*" -not -path "*/prod_venv/*" -not -path "*/site-packages/*"); do \
 		folder=$$(dirname "$$file"); \
 		echo "moving into folder $$folder"; \
 		case "$$folder" in \

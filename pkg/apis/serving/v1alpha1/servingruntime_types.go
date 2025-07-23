@@ -281,7 +281,8 @@ type WorkerSpec struct {
 
 func init() {
 	SchemeBuilder.Register(&ServingRuntime{}, &ServingRuntimeList{})
-	SchemeBuilder.Register(&ClusterServingRuntime{}, &ClusterServingRuntimeList{})
+	// ODH does not have ClusterServingRuntime
+	// SchemeBuilder.Register(&ClusterServingRuntime{}, &ClusterServingRuntimeList{})
 }
 
 func (srSpec *ServingRuntimeSpec) IsDisabled() bool {

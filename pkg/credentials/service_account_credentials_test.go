@@ -19,7 +19,6 @@ package credentials
 import (
 	"testing"
 
-	"github.com/docker/distribution/context"
 	"github.com/onsi/gomega/types"
 
 	"github.com/kserve/kserve/pkg/credentials/azure"
@@ -167,8 +166,8 @@ func TestS3CredentialBuilder(t *testing.T) {
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-		g.Expect(c.Create(context.Background(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(context.Background(), existingS3Secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), existingS3Secret)).NotTo(gomega.HaveOccurred())
 
 		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil,
 			scenario.serviceAccount.Name,
@@ -187,8 +186,8 @@ func TestS3CredentialBuilder(t *testing.T) {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
-		g.Expect(c.Delete(context.Background(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(context.Background(), existingS3Secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), existingS3Secret)).NotTo(gomega.HaveOccurred())
 	}
 }
 
@@ -296,8 +295,8 @@ func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-		g.Expect(c.Create(context.Background(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(context.Background(), existingS3Secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), existingS3Secret)).NotTo(gomega.HaveOccurred())
 		annotations := map[string]string{
 			"serving.kserve.io/storageSecretName": "s3-secret",
 		}
@@ -318,8 +317,8 @@ func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
-		g.Expect(c.Delete(context.Background(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(context.Background(), existingS3Secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), existingS3Secret)).NotTo(gomega.HaveOccurred())
 	}
 }
 
@@ -399,7 +398,7 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-		g.Expect(c.Create(context.Background(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 
 		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
@@ -417,7 +416,7 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
-		g.Expect(c.Delete(context.Background(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 	}
 }
 
@@ -508,8 +507,8 @@ func TestGCSCredentialBuilder(t *testing.T) {
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-		g.Expect(c.Create(context.Background(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(context.Background(), existingGCSSecret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), existingGCSSecret)).NotTo(gomega.HaveOccurred())
 
 		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
@@ -527,8 +526,8 @@ func TestGCSCredentialBuilder(t *testing.T) {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
-		g.Expect(c.Delete(context.Background(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(context.Background(), existingGCSSecret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), existingGCSSecret)).NotTo(gomega.HaveOccurred())
 	}
 }
 
@@ -644,8 +643,8 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 		},
 	}
 
-	g.Expect(c.Create(context.Background(), customAzureSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Create(context.Background(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customAzureSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
@@ -667,8 +666,8 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 		}
 	}
 
-	g.Expect(c.Delete(context.Background(), customAzureSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Delete(context.Background(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customAzureSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 }
 
 func TestHdfsCredentialBuilder(t *testing.T) {
@@ -754,8 +753,8 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 		},
 	}
 
-	g.Expect(c.Create(context.Background(), customHdfsSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Create(context.Background(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customHdfsSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
@@ -777,8 +776,8 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 		}
 	}
 
-	g.Expect(c.Delete(context.Background(), customHdfsSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Delete(context.Background(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customHdfsSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 }
 
 func TestAzureCredentialBuilder(t *testing.T) {
@@ -905,8 +904,8 @@ func TestAzureCredentialBuilder(t *testing.T) {
 		},
 	}
 
-	g.Expect(c.Create(context.Background(), customAzureSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Create(context.Background(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customAzureSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
@@ -928,8 +927,8 @@ func TestAzureCredentialBuilder(t *testing.T) {
 		}
 	}
 
-	g.Expect(c.Delete(context.Background(), customAzureSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Delete(context.Background(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customAzureSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 }
 
 func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
@@ -1008,8 +1007,8 @@ func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 		},
 	}
 
-	g.Expect(c.Create(context.Background(), customAzureSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Create(context.Background(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customAzureSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
@@ -1031,19 +1030,21 @@ func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 		}
 	}
 
-	g.Expect(c.Delete(context.Background(), customAzureSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Delete(context.Background(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customAzureSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 }
 
 func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	namespace := "default"
 	builder := NewCredentialBuilder(c, clientset, configMap)
+	secretName := "secret-name"
 
 	scenarios := map[string]struct {
 		secret            *corev1.Secret
 		storageKey        string
 		storageSecretName string
+		secretName        *string
 		overrideParams    map[string]string
 		container         *corev1.Container
 		shouldFail        bool
@@ -1202,6 +1203,61 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			},
 			shouldFail: true,
 			matcher:    gomega.HaveOccurred(),
+		},
+		"storage secret name specified": {
+			secret: &corev1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: namespace,
+				},
+				StringData: map[string]string{"minio": "{\n      \"type\": \"s3\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"},
+			},
+			storageKey:     "minio",
+			secretName:     &secretName,
+			overrideParams: map[string]string{"type": "s3", "bucket": "test-bucket"},
+			container: &corev1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+			},
+			shouldFail: false,
+			matcher: gomega.Equal(&corev1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+				Env: []corev1.EnvVar{
+					{
+						Name:  "STORAGE_CONFIG",
+						Value: "",
+						ValueFrom: &corev1.EnvVarSource{
+							FieldRef:         nil,
+							ResourceFieldRef: nil,
+							ConfigMapKeyRef:  nil,
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: secretName,
+								},
+								Key:      "minio",
+								Optional: nil,
+							},
+						},
+					},
+					{
+						Name:  "STORAGE_OVERRIDE_CONFIG",
+						Value: "{\"bucket\":\"test-bucket\",\"type\":\"s3\"}",
+					},
+				},
+			}),
 		},
 		"default storage key": {
 			secret: &corev1.Secret{
@@ -1530,17 +1586,17 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 	}
 
 	for _, tc := range scenarios {
-		if err := c.Create(context.Background(), tc.secret); err != nil {
+		if err := c.Create(t.Context(), tc.secret); err != nil {
 			t.Errorf("Failed to create secret %s: %v", "storage-secret", err)
 		}
-		err := builder.CreateStorageSpecSecretEnvs(namespace, nil, tc.storageKey, tc.overrideParams, tc.container)
+		err := builder.CreateStorageSpecSecretEnvs(namespace, nil, tc.storageKey, tc.secretName, nil, tc.overrideParams, tc.container)
 		if !tc.shouldFail {
 			g.Expect(err).ShouldNot(gomega.HaveOccurred())
 			g.Expect(tc.container).Should(tc.matcher)
 		} else {
 			g.Expect(err).To(tc.matcher)
 		}
-		if err := c.Delete(context.Background(), tc.secret); err != nil {
+		if err := c.Delete(t.Context(), tc.secret); err != nil {
 			t.Errorf("Failed to delete secret %s because of: %v", tc.secret.Name, err)
 		}
 	}

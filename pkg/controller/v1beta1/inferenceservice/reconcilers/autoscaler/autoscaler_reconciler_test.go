@@ -299,7 +299,7 @@ func TestAutoscalerReconciler_Reconcile(t *testing.T) {
 			ar := &AutoscalerReconciler{
 				Autoscaler: fake,
 			}
-			err := ar.Reconcile(context.TODO())
+			err := ar.Reconcile(t.Context())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Reconcile() error = %v, wantErr %v", err, tt.wantErr)
 			}
