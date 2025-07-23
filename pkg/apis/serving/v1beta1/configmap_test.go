@@ -385,8 +385,8 @@ func TestNewOtelCollectorConfig(t *testing.T) {
 func TestNewDeployConfig_WithValidConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	validModes := []string{
-		string(constants.Serverless),
-		string(constants.RawDeployment),
+		string(constants.KNative),
+		string(constants.Standard),
 		string(constants.ModelMeshDeployment),
 	}
 	for _, mode := range validModes {

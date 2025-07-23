@@ -456,8 +456,11 @@ const (
 type DeploymentModeType string
 
 const (
-	Serverless          DeploymentModeType = "Serverless"
-	RawDeployment       DeploymentModeType = "RawDeployment"
+	LegacyServerless    DeploymentModeType = "Serverless" // deprecated: use KNative
+	KNative             DeploymentModeType = "Knative"
+	LegacyRawDeployment DeploymentModeType = "RawDeployment" // deprecated: use Standard
+	Standard            DeploymentModeType = "Standard"
+	DefaultDeployment   DeploymentModeType = Standard
 	ModelMeshDeployment DeploymentModeType = "ModelMesh"
 )
 

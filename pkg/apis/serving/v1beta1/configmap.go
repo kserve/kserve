@@ -129,7 +129,7 @@ type IngressConfig struct {
 
 // +kubebuilder:object:generate=false
 type DeployConfig struct {
-	DefaultDeploymentMode string `json:"defaultDeploymentMode,omitempty"`
+	DefaultDeploymentMode string `json:"defaultDeploymentMode,omitempty,default=Standard"`
 }
 
 // +kubebuilder:object:generate=false
@@ -340,12 +340,22 @@ func NewDeployConfig(isvcConfigMap *corev1.ConfigMap) (*DeployConfig, error) {
 			return nil, errors.New("invalid deploy config, defaultDeploymentMode is required")
 		}
 
-		if deployConfig.DefaultDeploymentMode != string(constants.Serverless) &&
-			deployConfig.DefaultDeploymentMode != string(constants.RawDeployment) &&
-			deployConfig.DefaultDeploymentMode != string(constants.ModelMeshDeployment) {
-			return nil, errors.New("invalid deployment mode. Supported modes are Serverless," +
-				" RawDeployment and ModelMesh")
+		if deployConfig.DefaultDeploymentMode == string(constants.LegacyServerless) {
+			// LegacyServerless is deprecated, so we convert it to KNative
+			deployConfig.DefaultDeploymentMode = string(constants.KNative)
 		}
+		if deployConfig.DefaultDeploymentMode == string(constants.LegacyRawDeployment) {
+			// LegacyRawDeployment is deprecated, so we convert it to Standard
+			deployConfig.DefaultDeploymentMode = string(constants.Standard)
+		}
+
+		if deployConfig.DefaultDeploymentMode != string(constants.KNative) &&
+			deployConfig.DefaultDeploymentMode != string(constants.Standard) &&
+			deployConfig.DefaultDeploymentMode != string(constants.ModelMeshDeployment) {
+			return nil, errors.New("invalid deployment mode. Supported modes are KNative," +
+				" Standard and ModelMesh")
+		}
+
 	}
 	return deployConfig, nil
 }

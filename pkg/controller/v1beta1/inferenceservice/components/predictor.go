@@ -179,7 +179,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 
 	// Here we allow switch between knative and vanilla deployment
 	kstatus := &knservingv1.ServiceStatus{}
-	if p.deploymentMode == constants.RawDeployment {
+	if p.deploymentMode == constants.Standard {
 		rawDeployment = true
 		podLabelKey = constants.RawDeploymentAppLabel
 		// This is main RawKubeReconciler to create objects (deployment, svc, scaler)
