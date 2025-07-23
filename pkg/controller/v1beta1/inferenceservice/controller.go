@@ -210,8 +210,8 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	// Abort early if the resolved deployment mode is Serverless, but Knative Services are not available
-	if deploymentMode == constants.Serverless {
+	// Abort early if the resolved deployment mode is KNative, but Knative Services are not available
+	if deploymentMode == constants.KNative {
 		ksvcAvailable, checkKsvcErr := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
 		if checkKsvcErr != nil {
 			return reconcile.Result{}, checkKsvcErr
@@ -219,8 +219,8 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 		if !ksvcAvailable {
 			r.Recorder.Event(isvc, corev1.EventTypeWarning, "ServerlessModeRejected",
-				"It is not possible to use Serverless deployment mode when Knative Services are not available")
-			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceService '%s' is Serverless, but Knative Serving is not available", isvc.Name))
+				"It is not possible to use KNative deployment mode when Knative Services are not available")
+			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceService '%s' is KNative, but Knative Serving is not available", isvc.Name))
 		}
 
 		// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
@@ -300,7 +300,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 	// reconcile RoutesReady and LatestDeploymentReady conditions for serverless deployment
-	if deploymentMode == constants.Serverless {
+	if deploymentMode == constants.KNative {
 		componentList := []v1beta1.ComponentType{v1beta1.PredictorComponent}
 		if isvc.Spec.Transformer != nil {
 			componentList = append(componentList, v1beta1.TransformerComponent)
@@ -320,7 +320,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// check raw deployment
-	if deploymentMode == constants.RawDeployment {
+	if deploymentMode == constants.Standard {
 		if ingressConfig.EnableGatewayAPI {
 			reconciler := ingress.NewRawHTTPRouteReconciler(r.Client, r.Scheme, ingressConfig, isvcConfig)
 
