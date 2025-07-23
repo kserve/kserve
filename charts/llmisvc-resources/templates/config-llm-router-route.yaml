@@ -12,9 +12,8 @@ spec:
               kind: Gateway
               name: |-
                 {{ .GlobalConfig.IngressGatewayName }}
-              # With inherited namespace validation we cannot use {{ .GlobalConfig.IngressGatewayNamespace }}
-              # Need to disable validation on CRD level
-              namespace: kserve
+              namespace: |-
+                {{ .GlobalConfig.IngressGatewayNamespace }}
           rules:
             - backendRefs:
                 - group: inference.networking.x-k8s.io
@@ -26,7 +25,14 @@ spec:
               matches:
                 - path:
                     type: PathPrefix
-                    value: /
+                    value: |-
+                      /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}
+              filters:
+                - type: URLRewrite
+                  urlRewrite:
+                    path:
+                      type: ReplacePrefixMatch
+                      replacePrefixMatch: /
               timeouts:
                 backendRequest: 0s
                 request: 0s
