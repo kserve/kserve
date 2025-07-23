@@ -45,7 +45,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 		runtime      string
 		matcher      map[string]types.GomegaMatcher
 	}{
-		"Knative": {
+		"KNative": {
 			config: &InferenceServicesConfig{
 				Explainers: ExplainersConfig{
 					ARTExplainer: ExplainerConfig{
@@ -61,7 +61,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			deployConfig: &DeployConfig{
-				DefaultDeploymentMode: "Knative",
+				DefaultDeploymentMode: string(constants.KNative),
 			},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
