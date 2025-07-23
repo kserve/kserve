@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -31,6 +32,31 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
+
+func TestInvalidNameInSKLearnPredictor(t *testing.T) {
+	isvc := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-isvc",
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				SKLearn: &SKLearnSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						Container: corev1.Container{
+							Name:  "invalid-name",
+							Image: "dummy-image",
+						},
+						StorageURI: proto.String("gs://kfserving-examples/models/sklearn/1.0/model"),
+					},
+				},
+			},
+		},
+	}
+	err := validatePredictor(&isvc)
+	if err == nil || !strings.Contains(err.Error(), "not allowed") {
+		t.Errorf("Expected error for name field in SKLearn predictor, got: %v", err)
+	}
+}
 
 func makeTestInferenceService() InferenceService {
 	inferenceservice := InferenceService{

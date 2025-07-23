@@ -13,7 +13,7 @@
 # limitations under the License.
 import base64
 import pathlib
-from typing import Any, Dict, AsyncGenerator, Optional, Union
+from typing import Any, Dict, AsyncGenerator, List, Optional, Tuple, Union
 from fastapi import Request
 
 import struct
@@ -102,6 +102,7 @@ class HuggingfaceEncoderModel(
         trust_remote_code: bool = False,
         return_probabilities: bool = False,
         request_logger: Optional[RequestLogger] = None,
+        return_raw_logits: bool = False,
     ):
         super().__init__(model_name)
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -116,6 +117,7 @@ class HuggingfaceEncoderModel(
         self.tokenizer_revision = tokenizer_revision
         self.trust_remote_code = trust_remote_code
         self.return_probabilities = return_probabilities
+        self.return_raw_logits = return_raw_logits
         self.request_logger = request_logger
 
         if model_config:
@@ -292,68 +294,249 @@ class HuggingfaceEncoderModel(
     def postprocess(
         self, outputs: Union[Tensor, InferResponse], context: Dict[str, Any]
     ) -> Union[Dict, InferResponse]:
-        input_ids = context["input_ids"]
-        request = context["payload"]
-        if isinstance(outputs, InferResponse):
-            shape = torch.Size(outputs.outputs[0].shape)
-            data = torch.Tensor(outputs.outputs[0].data)
-            outputs = data.view(shape)
-            input_ids = torch.Tensor(input_ids)
-        inferences = []
+        """
+        Process model outputs based on the ML task.
+
+        Args:
+            outputs: Model output tensor or inference response
+            context: Dictionary containing input_ids, attention_mask and payload
+
+        Returns:
+            Processed inference results as Dict or InferResponse
+        """
+        normalized_outputs, input_ids, request = self._normalize_inputs(
+            outputs, context
+        )
+
         if self.task == MLTask.sequence_classification:
-            num_rows, num_cols = outputs.shape
-            for i in range(num_rows):
-                out = outputs[i].unsqueeze(0)
-                if self.return_probabilities:
-                    inferences.append(dict(enumerate(out.numpy().flatten())))
-                else:
-                    predicted_idx = out.argmax().item()
-                    inferences.append(predicted_idx)
+            inferences = self._process_sequence_classification(normalized_outputs)
             return get_predict_response(request, inferences, self.name)
         elif self.task == MLTask.fill_mask:
-            num_rows = outputs.shape[0]
-            for i in range(num_rows):
-                mask_pos = (input_ids == self._tokenizer.mask_token_id)[i]
-                mask_token_index = mask_pos.nonzero(as_tuple=True)[0]
-                if self.return_probabilities:
-                    probabilities = torch.softmax(outputs[i, mask_token_index], dim=-1)
-                    decoded_probabilities = []
-                    for idx, probs in enumerate(probabilities):
-                        token_probs = []
-                        for token_id, prob in enumerate(probs):
-                            token = self._tokenizer.decode([token_id])
-                            token_probs.append({f"{token}": f"{prob.item():.4f}"})
-                        decoded_probabilities.append(token_probs)
-                    inferences.append(decoded_probabilities)
-                else:
-                    predicted_token_id = outputs[i, mask_token_index].argmax(axis=-1)
-                    inferences.append(self._tokenizer.decode(predicted_token_id))
+            inferences = self._process_fill_mask(normalized_outputs, input_ids)
             return get_predict_response(request, inferences, self.name)
         elif self.task == MLTask.token_classification:
-            num_rows = outputs.shape[0]
-            for i in range(num_rows):
-                output = outputs[i].unsqueeze(0)
-                if self.return_probabilities:
-                    for values in output.tolist():
-                        res = [{k: v for k, v in enumerate(value)} for value in values]
-                        inferences.append([res])
-                else:
-                    predictions = torch.argmax(output, dim=2)
-                    inferences.append(predictions.tolist())
+            inferences = self._process_token_classification(normalized_outputs)
             return get_predict_response(request, inferences, self.name)
         elif self.task == MLTask.text_embedding:
-            # Perform pooling
-            outputs = _mean_pooling(outputs, context["attention_mask"])
-            # Normalize embeddings
-            outputs = F.normalize(outputs, p=2, dim=1)
-            num_rows, _ = outputs.shape
-            for i in range(num_rows):
-                inferences.append(outputs[i].tolist())
+            inferences = self._process_text_embedding(
+                normalized_outputs, context["attention_mask"]
+            )
             return get_predict_response(request, inferences, self.name)
         else:
             raise OpenAIError(
                 f"Unsupported task {self.task}. Please check the supported `task` option."
             )
+
+    def _normalize_inputs(
+        self, outputs: Union[Tensor, InferResponse], context: Dict[str, Any]
+    ) -> Tuple[Tensor, Union[Tensor, list], Dict]:
+        """
+        Normalize model outputs and extract context items.
+
+        Args:
+            outputs: Model output tensor or inference response
+            context: Dictionary containing input_ids and payload
+
+        Returns:
+            Tuple of (normalized_outputs, input_ids, request)
+        """
+        input_ids = context["input_ids"]
+        request = context["payload"]
+
+        if isinstance(outputs, InferResponse):
+            shape = torch.Size(outputs.outputs[0].shape)
+            data = torch.Tensor(outputs.outputs[0].data)
+            outputs = data.view(shape)
+            input_ids = torch.Tensor(input_ids)
+
+        return outputs, input_ids, request
+
+    def _process_sequence_classification(
+        self, outputs: Tensor
+    ) -> List[Union[int, Dict]]:
+        """
+        Process outputs for sequence classification task.
+
+        Args:
+            outputs: Model output tensor
+
+        Returns:
+            List of processed inferences (indices or probability dictionaries)
+        """
+        inferences = []
+        num_rows, _ = outputs.shape
+
+        for i in range(num_rows):
+            out = outputs[i].unsqueeze(0)
+            if self.return_raw_logits:
+                logits = out.squeeze()
+                logits = logits.cpu() if logits.is_cuda else logits
+                inferences.append({j: logits[j].item() for j in range(logits.size(0))})
+            elif self.return_probabilities:
+                probs = torch.softmax(out, dim=-1).squeeze()
+                probs = probs.cpu() if probs.is_cuda else probs
+                inferences.append(
+                    {j: float(f"{probs[j]:.4f}") for j in range(probs.size(0))}
+                )
+            else:
+                predicted_idx = out.argmax().item()
+                inferences.append(predicted_idx)
+
+        return inferences
+
+    def _process_fill_mask(
+        self, outputs: Tensor, input_ids: Union[Tensor, list]
+    ) -> List[Union[str, List]]:
+        """
+        Process outputs for fill mask task.
+
+        Args:
+            outputs: Model output tensor
+            input_ids: Input token IDs
+
+        Returns:
+            List of processed inferences (token strings or token probability lists)
+        """
+        inferences = []
+        num_rows = outputs.shape[0]
+
+        for i in range(num_rows):
+            if isinstance(input_ids, torch.Tensor):
+                # Find where the mask token is in this sequence
+                ids_row = input_ids[i]
+                mask_token_indices = []
+                for j in range(ids_row.size(0)):
+                    if ids_row[j].item() == self._tokenizer.mask_token_id:
+                        mask_token_indices.append(j)
+                mask_token_index = torch.tensor(mask_token_indices)
+            else:
+                # Handle list inputs
+                try:
+                    mask_token_index = input_ids[i].index(self._tokenizer.mask_token_id)
+                    mask_token_index = torch.tensor([mask_token_index])
+                except (ValueError, AttributeError):
+                    # Fallback if mask token not found or input_ids is not a list
+                    mask_token_index = torch.tensor([0])  # Use first token as fallback
+            masked_output = outputs[i, mask_token_index]
+
+            if self.return_raw_logits:
+                inferences.append(self._process_mask_logits(masked_output))
+            elif self.return_probabilities:
+                inferences.append(self._process_mask_probabilities(masked_output))
+            else:
+                predicted_token_id = masked_output.argmax(dim=-1)
+                predicted_token = self._tokenizer.decode(predicted_token_id)
+                inferences.append(predicted_token)
+
+        return inferences
+
+    def _process_mask_logits(
+        self, masked_output: Tensor
+    ) -> List[List[Dict[str, float]]]:
+        """
+        Process mask logits into token-logit dictionaries.
+
+        Args:
+            masked_output: Tensor of logits for masked tokens
+
+        Returns:
+            Nested lists of token-logit dictionaries
+        """
+        decoded_logits = []
+        masked_output = masked_output.cpu() if masked_output.is_cuda else masked_output
+        for logits in masked_output:
+            token_logits = []
+            for token_id, logit in enumerate(logits):
+                token_logits.append({token_id: logit.item()})
+            decoded_logits.append(token_logits)
+        return decoded_logits
+
+    def _process_mask_probabilities(
+        self, masked_output: Tensor
+    ) -> List[List[Dict[str, str]]]:
+        """
+        Process mask probabilities into token-probability dictionaries.
+
+        Args:
+            masked_output: Tensor of logits for masked tokens
+
+        Returns:
+            Nested lists of token-probability dictionaries
+        """
+        probabilities = torch.softmax(masked_output, dim=-1)
+        decoded_probabilities = []
+        probabilities = probabilities.cpu() if probabilities.is_cuda else probabilities
+        for probs in probabilities:
+            token_probs = []
+            for token_id, prob in enumerate(probs):
+                token_probs.append({token_id: f"{prob.item():.4f}"})
+            decoded_probabilities.append(token_probs)
+        return decoded_probabilities
+
+    def _process_token_classification(
+        self, outputs: Tensor
+    ) -> List[Union[List, List[Dict]]]:
+        """
+        Process outputs for token classification task.
+
+        Args:
+            outputs: Model output tensor
+
+        Returns:
+            List of processed token classifications (indices or probability dictionaries)
+        """
+        inferences = []
+        num_rows = outputs.shape[0]
+        for i in range(num_rows):
+            output = outputs[i].unsqueeze(0)
+
+            if self.return_raw_logits:
+                token_logits = []
+                output = output.cpu() if output.is_cuda else output
+                for values in output.squeeze(0):
+                    token_logits.append(
+                        {j: values[j].item() for j in range(values.size(0))}
+                    )
+                inferences.append(token_logits)
+            elif self.return_probabilities:
+                probs = torch.softmax(output, dim=-1)
+                probs = probs.cpu() if probs.is_cuda else probs
+                token_probs = []
+                for values in probs.squeeze(0):
+                    token_probs.append(
+                        {j: float(f"{values[j]:.4f}") for j in range(values.size(0))}
+                    )
+                inferences.append(token_probs)
+            else:
+                predictions = torch.argmax(output, dim=2)
+                inferences.append(predictions.tolist())
+
+        return inferences
+
+    def _process_text_embedding(
+        self, outputs: Tensor, attention_mask: Tensor
+    ) -> List[List[float]]:
+        """
+        Process outputs for text embedding task.
+
+        Args:
+            outputs: Model output tensor
+            attention_mask: Attention mask tensor
+
+        Returns:
+            List of normalized embeddings
+        """
+        # Perform pooling
+        outputs = _mean_pooling(outputs, attention_mask)
+        # Normalize embeddings
+        outputs = F.normalize(outputs, p=2, dim=1)
+        outputs = outputs.cpu() if outputs.is_cuda else outputs
+        inferences = []
+        num_rows, _ = outputs.shape
+        for i in range(num_rows):
+            inferences.append(outputs[i].tolist())
+
+        return inferences
 
     def _log_request(self, request_id: str, prompt: list[str]) -> None:
         if self.request_logger:

@@ -16,10 +16,28 @@ limitations under the License.
 
 package utils
 
-func Bool(b bool) *bool {
-	return &b
+import (
+	"fmt"
+	"strconv"
+
+	"k8s.io/apimachinery/pkg/runtime"
+)
+
+func Convert[T any](obj runtime.Object) (T, error) {
+	v, ok := obj.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("convert: expected %T, got %T", zero, obj)
+	}
+
+	return v, nil
 }
 
-func UInt64(u uint64) *uint64 {
-	return &u
+// StringToInt32 converts a given integer to int32. If the number exceeds the int32 limit, it returns an error.
+func StringToInt32(number string) (int32, error) {
+	converted, err := strconv.ParseInt(number, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return int32(converted), err
 }
