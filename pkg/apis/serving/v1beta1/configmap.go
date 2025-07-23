@@ -355,7 +355,6 @@ func NewDeployConfig(isvcConfigMap *corev1.ConfigMap) (*DeployConfig, error) {
 			return nil, errors.New("invalid deployment mode. Supported modes are KNative," +
 				" Standard and ModelMesh")
 		}
-
 	}
 	return deployConfig, nil
 }
