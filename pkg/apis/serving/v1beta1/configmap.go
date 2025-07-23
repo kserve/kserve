@@ -129,7 +129,7 @@ type IngressConfig struct {
 
 // +kubebuilder:object:generate=false
 type DeployConfig struct {
-	DefaultDeploymentMode string `json:"defaultDeploymentMode,omitempty,default=Standard"`
+	DefaultDeploymentMode string `json:"defaultDeploymentMode,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
