@@ -26,12 +26,14 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2
 DEPLOYMENT_MODE="${1:-'serverless'}"
 NETWORK_LAYER="${2:-'istio'}"
 ENABLE_KEDA="${3:-'false'}"
+ENABLE_LWS="${4:-'false'}"
 
 ISTIO_VERSION="1.23.2"
 CERT_MANAGER_VERSION="v1.16.1"
 YQ_VERSION="v4.28.1"
 GATEWAY_API_VERSION="v1.2.1"
 ENVOY_GATEWAY_VERSION="v1.2.2"
+ENABLE_LWS="${4:-'false'}"
 
 echo "Installing yq ..."
 wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
@@ -102,6 +104,12 @@ if [[ $DEPLOYMENT_MODE == "raw" ]]; then
     kubectl apply -f ./test/overlays/keda/keda.yaml
     kubectl apply -f ./test/overlays/opentelemetry/opentelemetry-operator.yaml
   fi
+fi
+
+if [[ $ENABLE_LWS == "true" ]]; then
+  echo "Installing LWS ..."
+  kubectl apply --server-side -f https://github.com/kubernetes-sigs/lws/releases/download/$LWS_VERSION/manifests.yaml
+  kubectl wait deploy/lws-controller-manager -n lws-system --for=condition=available --timeout=5m
 fi
 
 echo "Installing cert-manager ..."
