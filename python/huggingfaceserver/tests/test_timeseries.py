@@ -98,10 +98,10 @@ def verify_forecast_response(response, request):
                 horizon_len == expected_horizon
             ), f"Horizon mismatch for {content.name}: got {horizon_len}, expected {expected_horizon}"
 
-            # Time stamp should be advanced by the horizon
+            # Time stamp should be advanced by the length of the input series
             input_start = dateutil.parser.isoparse(corresponding_input.start_timestamp)
             freq = corresponding_input.frequency
-            steps = request.options.horizon
+            steps = len(corresponding_input.series)
             expected_output_start = input_start + get_timedelta_for_frequency(
                 freq, steps
             )
