@@ -132,6 +132,10 @@ data:
          "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318",
          # metricReceiverEndpoint is the endpoint from which the OpenTelemetry Collector will scrape the metrics.
           "metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317"
+         # scaleUpStabilizationWindowSeconds is the stabilization window in seconds for scale up.
+          "scaleUpStabilizationWindowSeconds": "0",
+         # scaleDownStabilizationWindowSeconds is the stabilization window in seconds for scale down.
+          "scaleDownStabilizationWindowSeconds": "300"
        }
       
      # ====================================== STORAGE INITIALIZER CONFIGURATION ======================================
@@ -736,5 +740,7 @@ data:
     {
       "scrapeInterval": "5s",
       "metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
-      "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
+      "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318",
+      "scaleUpStabilizationWindowSeconds": "0",
+      "scaleDownStabilizationWindowSeconds": "300"
     }

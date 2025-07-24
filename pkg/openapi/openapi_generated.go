@@ -2615,11 +2615,17 @@ func schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref common.ReferenceCallbac
 							},
 						},
 					},
+					"behavior": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Behavior contains the scaling behavior configuration for the Horizontal Pod Autoscaler.",
+							Ref:         ref("k8s.io/api/autoscaling/v2.HorizontalPodAutoscalerBehavior"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricsSpec"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricsSpec", "k8s.io/api/autoscaling/v2.HorizontalPodAutoscalerBehavior"},
 	}
 }
 
@@ -7694,6 +7700,18 @@ func schema_pkg_apis_serving_v1beta1_OtelCollectorConfig(ref common.ReferenceCal
 						},
 					},
 					"metricScalerEndpoint": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"scaleUpStabilizationWindowSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"scaleDownStabilizationWindowSeconds": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
