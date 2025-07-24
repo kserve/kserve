@@ -137,9 +137,6 @@ if [[ $DEPLOYMENT_MODE == "raw" ]]; then
     # Install using Helm from the official OCI registry
     helm upgrade -i keda-otel-scaler -n keda oci://ghcr.io/kedify/charts/otel-add-on --version=v0.0.12
     
-    # echo "Waiting for KEDA OTel scaler to be ready ..."
-    # kubectl wait --for=condition=Ready -n keda pod -l app.kubernetes.io/name=otel-add-on --timeout=300s
-    
     echo "Checking KEDA and OpenTelemetry operator status ..."
     kubectl get pods -n keda
     kubectl get pods -n opentelemetry-operator-system

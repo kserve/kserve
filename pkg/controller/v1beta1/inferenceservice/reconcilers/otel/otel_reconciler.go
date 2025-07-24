@@ -165,7 +165,7 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 		},
 	}
 
-	pipelineProcessors := []string{ProcessorResourcedetectionEnv, ProcessorTransform}
+	// pipelineProcessors := []string{ProcessorResourcedetectionEnv, ProcessorTransform}
 
 	// Add filter processor to include all specified metrics
 	if len(metricNames) > 0 {
@@ -177,7 +177,7 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 				},
 			},
 		}
-		pipelineProcessors = append(pipelineProcessors, ProcessorFilterMetrics)
+		// pipelineProcessors = append(pipelineProcessors, ProcessorFilterMetrics)
 	}
 
 	otelCollector := &otelv1beta1.OpenTelemetryCollector{
@@ -215,12 +215,12 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 						},
 					},
 				}},
-				// Processors: &otelv1beta1.AnyConfig{Object: processors},
+				// Processors: &otelv1beta1.AnyConfig{Object: processors},  // This is commented to avoid error: "processor" unknown type: "resourcedetection" for id for "resourcedetection/env"
 				Service: otelv1beta1.Service{
 					Pipelines: map[string]*otelv1beta1.Pipeline{
 						PipelineMetrics: {
 							Receivers:  []string{PrometheusReceiver},
-							Processors: []string{},
+							Processors: []string{}, // This is commented to avoid error: "processor" unknown type: "resourcedetection" for id for "resourcedetection/env"
 							Exporters:  []string{OtlpExporter},
 						},
 					},
