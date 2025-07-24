@@ -16,9 +16,9 @@ from abc import abstractmethod
 from fastapi import Request
 import pathlib
 import torch
-import numpy as np
 import uuid
 import time
+from datetime import datetime, timedelta
 from typing import Union, Optional, Dict, Any
 
 from transformers import (
@@ -172,9 +172,7 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
                                 message=f"Invalid frequency: {input.frequency}",
                             )
                         )
-                    frequency_input_tensor.append(
-                        np.float32(TIMESFM_FREQUENCY_MAP[freq])
-                    )
+                    frequency_input_tensor.append(TIMESFM_FREQUENCY_MAP[freq])
                 else:
                     return ErrorResponse(
                         error=Error(
@@ -204,12 +202,79 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
                         i, : request.options.horizon, quantiles_idx[j]
                     ].tolist()
 
+                # advance the start timestamp by the horizon
+                input_start_timestamp = datetime.strptime(
+                    request.inputs[i].start_timestamp, "%Y-%m-%dT%H:%M:%SZ"
+                )
+                input_frequency = request.inputs[i].frequency
+
+                if (
+                    input_frequency == Frequency.SECOND
+                    or input_frequency == Frequency.SECOND_SHORT
+                ):
+                    output_start_timestamp = input_start_timestamp + timedelta(
+                        seconds=request.options.horizon
+                    )
+                elif (
+                    input_frequency == Frequency.MINUTE
+                    or input_frequency == Frequency.MINUTE_SHORT
+                ):
+                    output_start_timestamp = input_start_timestamp + timedelta(
+                        minutes=request.options.horizon
+                    )
+                elif (
+                    input_frequency == Frequency.HOUR
+                    or input_frequency == Frequency.HOUR_SHORT
+                ):
+                    output_start_timestamp = input_start_timestamp + timedelta(
+                        hours=request.options.horizon
+                    )
+                elif (
+                    input_frequency == Frequency.DAY
+                    or input_frequency == Frequency.DAY_SHORT
+                ):
+                    output_start_timestamp = input_start_timestamp + timedelta(
+                        days=request.options.horizon
+                    )
+                elif (
+                    input_frequency == Frequency.WEEK
+                    or input_frequency == Frequency.WEEK_SHORT
+                ):
+                    output_start_timestamp = input_start_timestamp + timedelta(
+                        weeks=request.options.horizon
+                    )
+                elif (
+                    input_frequency == Frequency.MONTH
+                    or input_frequency == Frequency.MONTH_SHORT
+                ):
+                    output_start_timestamp = input_start_timestamp + timedelta(
+                        months=request.options.horizon
+                    )
+                elif (
+                    input_frequency == Frequency.QUARTER
+                    or input_frequency == Frequency.QUARTER_SHORT
+                ):
+                    output_start_timestamp = input_start_timestamp + timedelta(
+                        quarters=request.options.horizon
+                    )
+                elif (
+                    input_frequency == Frequency.YEAR
+                    or input_frequency == Frequency.YEAR_SHORT
+                ):
+                    output_start_timestamp = input_start_timestamp + timedelta(
+                        years=request.options.horizon
+                    )
+
+                output_start_timestamp = output_start_timestamp.strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                )
+
                 ts_output = TimeSeriesForecast(
                     type=TimeSeriesType.UNIVARIATE,
                     name=request.inputs[i].name,
                     mean_forecast=trimmed_point_forecast,
                     frequency=request.inputs[i].frequency,
-                    start_timestamp=request.inputs[i].start_timestamp,
+                    start_timestamp=output_start_timestamp,
                     quantiles=trimmed_quantile_forecast,
                 )
 
