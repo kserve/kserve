@@ -22,10 +22,37 @@ import (
 	"fmt"
 	"text/template"
 
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"knative.dev/pkg/kmeta"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+)
+
+const (
+	configPrefix                            = "kserve-"
+	configTemplateName                      = configPrefix + "config-llm-template"
+	configDecodeTemplateName                = configPrefix + "config-llm-decode-template"
+	configDecodeWorkerPipelineParallelName  = configPrefix + "config-llm-decode-worker-pipeline-parallel"
+	configWorkerPipelineParallelName        = configPrefix + "config-llm-worker-pipeline-parallel"
+	configWorkerDataParallelName            = configPrefix + "config-llm-worker-data-parallel"
+	configDecodeWorkerDataParallelName      = configPrefix + "config-llm-decode-worker-data-parallel"
+	configPrefillTemplateName               = configPrefix + "config-llm-prefill-template"
+	configPrefillWorkerPipelineParallelName = configPrefix + "config-llm-prefill-worker-pipeline-parallel"
+	configPrefillWorkerDataParallelName     = configPrefix + "config-llm-prefill-worker-data-parallel"
+	configRouterSchedulerName               = configPrefix + "config-llm-scheduler"
+	configRouterRouteName                   = configPrefix + "config-llm-router-route"
+)
+
+var WellKnownDefaultConfigs = sets.New[string](
+	configTemplateName,
+	configDecodeTemplateName,
+	configWorkerDataParallelName,
+	configDecodeWorkerDataParallelName,
+	configPrefillTemplateName,
+	configPrefillWorkerDataParallelName,
+	configRouterSchedulerName,
+	configRouterRouteName,
 )
 
 func ReplaceVariables(llmSvc *v1alpha1.LLMInferenceService, llmSvcCfg *v1alpha1.LLMInferenceServiceConfig, reconcilerConfig *Config) (*v1alpha1.LLMInferenceServiceConfig, error) {
