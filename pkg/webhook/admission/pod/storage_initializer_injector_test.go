@@ -1373,7 +1373,7 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		loggerConfigs, err := getStorageInitializerConfigs(tc.configMap)
+		loggerConfigs, err := GetStorageInitializerConfigs(tc.configMap)
 		g.Expect(err).Should(tc.matchers[1])
 		g.Expect(loggerConfigs).Should(tc.matchers[0])
 	}

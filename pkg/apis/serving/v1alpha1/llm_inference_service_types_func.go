@@ -21,6 +21,14 @@ import (
 	"knative.dev/pkg/kmeta"
 )
 
+func (s *SchedulerSpec) InferencePoolName(llmSvc *LLMInferenceService) string {
+	if s == nil || s.Pool == nil || !s.Pool.HasRef() {
+		// This default MUST match the default value set in the well-known presets.
+		return kmeta.ChildName(llmSvc.GetName(), "-inference-pool")
+	}
+	return s.Pool.Ref.Name
+}
+
 func (r *RouterSpec) EPPServiceName(llmSvc *LLMInferenceService) string {
 	if r == nil || r.Route == nil || r.Scheduler == nil || r.Scheduler.Pool == nil || !r.Scheduler.Pool.HasRef() || r.Scheduler.Pool.Spec == nil || r.Scheduler.Pool.Spec.ExtensionRef == nil {
 		return kmeta.ChildName(llmSvc.GetName(), "-epp-service")

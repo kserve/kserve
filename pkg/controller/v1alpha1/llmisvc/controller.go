@@ -18,6 +18,13 @@ package llmisvc
 
 import (
 	"context"
+	"fmt"
+	"slices"
+	"strings"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
@@ -51,4 +58,50 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.LLMInferenceService{}).
 		Complete(r)
+}
+
+func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, error) {
+	isvcConfigMap, errCfgMap := v1beta1.GetInferenceServiceConfigMap(ctx, clientset) // Fetch directly from API Server
+	if errCfgMap != nil {
+		return nil, fmt.Errorf("failed to load InferenceServiceConfigMap: %w", errCfgMap)
+	}
+
+	ingressConfig, errConvert := v1beta1.NewIngressConfig(isvcConfigMap)
+	if errConvert != nil {
+		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to IngressConfig: %w", errConvert)
+	}
+
+	storageInitializerConfig, errConvert := pod.GetStorageInitializerConfigs(isvcConfigMap)
+	if errConvert != nil {
+		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to StorageInitializerConfig: %w", errConvert)
+	}
+
+	return NewConfig(ingressConfig, storageInitializerConfig), nil
+}
+
+func (c Config) isIstioGatewayController(name string) bool {
+	return slices.Contains(c.IstioGatewayControllerNames, name)
+}
+
+func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *pod.StorageInitializerConfig) *Config {
+	igwNs := constants.KServeNamespace
+	igwName := ingressConfig.KserveIngressGateway
+	igw := strings.Split(igwName, "/")
+	if len(igw) == 2 {
+		igwNs = igw[0]
+		igwName = igw[1]
+	}
+
+	return &Config{
+		SystemNamespace:         constants.KServeNamespace,
+		IngressGatewayNamespace: igwNs,
+		IngressGatewayName:      igwName,
+		// TODO make it configurable
+		IstioGatewayControllerNames: []string{
+			"istio.io/gateway-controller",
+			"istio.io/unmanaged-gateway",
+			"openshift.io/gateway-controller",
+		},
+		StorageConfig: storageConfig,
+	}
 }

@@ -79,7 +79,7 @@ type StorageInitializerInjector struct {
 	client            client.Client
 }
 
-func getStorageInitializerConfigs(configMap *corev1.ConfigMap) (*StorageInitializerConfig, error) {
+func GetStorageInitializerConfigs(configMap *corev1.ConfigMap) (*StorageInitializerConfig, error) {
 	storageInitializerConfig := &StorageInitializerConfig{}
 	if initializerConfig, ok := configMap.Data[StorageInitializerConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(initializerConfig), &storageInitializerConfig)

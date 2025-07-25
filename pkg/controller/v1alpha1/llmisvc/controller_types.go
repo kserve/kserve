@@ -16,8 +16,15 @@ limitations under the License.
 
 package llmisvc
 
+import (
+	"github.com/kserve/kserve/pkg/webhook/admission/pod"
+)
+
 type Config struct {
-	SystemNamespace         string `json:"systemNamespace,omitempty"`
-	IngressGatewayName      string `json:"ingressGatewayName,omitempty"`
-	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
+	SystemNamespace             string   `json:"systemNamespace,omitempty"`
+	IngressGatewayName          string   `json:"ingressGatewayName,omitempty"`
+	IngressGatewayNamespace     string   `json:"ingressGatewayNamespace,omitempty"`
+	IstioGatewayControllerNames []string `json:"istioGatewayControllerNames,omitempty"`
+
+	StorageConfig *pod.StorageInitializerConfig `json:"-"`
 }
