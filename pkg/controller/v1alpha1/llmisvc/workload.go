@@ -20,19 +20,37 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	kserveTypes "github.com/kserve/kserve/pkg/types"
 )
+
+const (
+	routingSidecarContainerName = "llm-d-routing-sidecar"
+)
+
+var sidecarSSRFProtectionRules = []rbacv1.PolicyRule{
+	{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list", "watch"}},
+	{APIGroups: []string{"inference.networking.x-k8s.io"}, Resources: []string{"inferencepools"}, Verbs: []string{"get", "list", "watch"}},
+}
 
 // reconcileWorkload manages the Deployments and Services for the LLM.
 // It handles standard, multi-node, and disaggregated (prefill/decode) deployment patterns.
-func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
+func (r *LLMInferenceServiceReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig) error {
 	logger := log.FromContext(ctx).WithName("reconcileWorkload")
 	ctx = log.IntoContext(ctx, logger)
 
+	logger.Info("Reconciling Workload")
+
 	defer llmSvc.DetermineWorkloadReadiness()
+
+	if err := r.reconcileSelfSignedCertsSecret(ctx, llmSvc); err != nil {
+		return fmt.Errorf("failed to reconcile self-signed certificates secret: %w", err)
+	}
 
 	// We need to always reconcile every type of workload to handle transitions from P/D to another topology (meaning
 	// finalizing superfluous workloads).
@@ -42,7 +60,7 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		return fmt.Errorf("failed to reconcile multi node workload: %w", err)
 	}
 
-	if err := r.reconcileSingleNodeWorkload(ctx, llmSvc); err != nil {
+	if err := r.reconcileSingleNodeWorkload(ctx, llmSvc, storageConfig); err != nil {
 		llmSvc.MarkWorkloadNotReady("ReconcileSingleNodeWorkloadError", err.Error())
 		return fmt.Errorf("failed to reconcile single node workload: %w", err)
 	}
@@ -50,22 +68,27 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	return nil
 }
 
-func getWorkloadLabelSelector(meta metav1.ObjectMeta, spec *v1alpha1.LLMInferenceServiceSpec) map[string]string {
+func getInferencePoolWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha1.LLMInferenceServiceSpec) map[string]string {
 	s := map[string]string{
-		"app.kubernetes.io/name": meta.GetName(),
+		"app.kubernetes.io/part-of": "llminferenceservice",
+		"app.kubernetes.io/name":    meta.GetName(),
+		"kserve.io/component":       "workload",
 	}
 
-	componentLabelValue := "llminferenceservice-workload"
-	if spec.Worker != nil {
-		if spec.Template == nil {
-			// If there is no separate leader pod spec, send requests to the worker with index 0.
-			componentLabelValue = "llminferenceservice-workload-worker"
-			s["leaderworkerset.sigs.k8s.io/worker-index"] = "0"
-		} else {
-			componentLabelValue = "llminferenceservice-workload-leader"
-		}
-	}
-	s["app.kubernetes.io/component"] = componentLabelValue
+	// TODO https://github.com/llm-d/llm-d-inference-scheduler/issues/220 and DP template
 
 	return s
+}
+
+func hasRoutingSidecar(pod corev1.PodSpec) bool {
+	return routingSidecar(&pod) != nil
+}
+
+func routingSidecar(pod *corev1.PodSpec) *corev1.Container {
+	for i := range pod.InitContainers {
+		if pod.InitContainers[i].Name == routingSidecarContainerName {
+			return &pod.InitContainers[i]
+		}
+	}
+	return nil
 }

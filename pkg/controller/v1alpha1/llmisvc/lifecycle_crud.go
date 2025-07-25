@@ -19,6 +19,7 @@ package llmisvc
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -70,7 +71,7 @@ func Delete[O client.Object, T client.Object](ctx context.Context, c clientWithR
 func Reconcile[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, empty, expected T, isEqual SemanticEqual[T]) error {
 	typeLogLine := logLineForObject(expected)
 
-	curr := empty
+	curr := empty.DeepCopyObject().(T)
 	if err := c.Get(ctx, client.ObjectKeyFromObject(expected), curr); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			return fmt.Errorf("failed to get %s %s/%s: %w", typeLogLine, expected.GetNamespace(), expected.GetName(), err)
@@ -116,7 +117,8 @@ func Update[O client.Object, T client.Object](ctx context.Context, c clientWithR
 }
 
 func logLineForObject(obj client.Object) string {
-	return obj.GetObjectKind().GroupVersionKind().GroupKind().String()
+	// Note: don't use `obj.GetObjectKind()` as it's always empty.
+	return reflect.TypeOf(obj).String()
 }
 
 type SemanticEqual[T client.Object] func(expected T, curr T) bool
