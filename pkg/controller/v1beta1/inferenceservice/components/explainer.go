@@ -123,7 +123,7 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	podSpec := corev1.PodSpec(isvc.Spec.Explainer.PodSpec)
 
 	// Here we allow switch between knative and vanilla deployment
-	if e.deploymentMode == constants.RawDeployment {
+	if e.deploymentMode == constants.Standard {
 		if err := e.reconcileExplainerRawDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
 			return ctrl.Result{}, err
 		}

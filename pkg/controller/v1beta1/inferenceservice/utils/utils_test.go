@@ -1272,19 +1272,19 @@ func TestGetDeploymentMode(t *testing.T) {
 		deployConfig *DeployConfig
 		expected     constants.DeploymentModeType
 	}{
-		"RawDeployment": {
+		"Standard": {
 			annotations: map[string]string{
-				constants.DeploymentMode: string(constants.RawDeployment),
+				constants.DeploymentMode: string(constants.Standard),
 			},
 			deployConfig: &DeployConfig{},
-			expected:     constants.RawDeployment,
+			expected:     constants.Standard,
 		},
 		"ServerlessDeployment": {
 			annotations: map[string]string{
-				constants.DeploymentMode: string(constants.Serverless),
+				constants.DeploymentMode: string(constants.KNative),
 			},
 			deployConfig: &DeployConfig{},
-			expected:     constants.Serverless,
+			expected:     constants.KNative,
 		},
 		"ModelMeshDeployment": {
 			annotations: map[string]string{
@@ -1296,9 +1296,9 @@ func TestGetDeploymentMode(t *testing.T) {
 		"DefaultDeploymentMode": {
 			annotations: map[string]string{},
 			deployConfig: &DeployConfig{
-				DefaultDeploymentMode: string(constants.Serverless),
+				DefaultDeploymentMode: string(constants.KNative),
 			},
-			expected: constants.Serverless,
+			expected: constants.KNative,
 		},
 	}
 
