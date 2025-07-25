@@ -5,6 +5,18 @@ metadata:
   name: llmisvc-manager-role
 rules:
 - apiGroups:
+  - leaderworkerset.x-k8s.io
+  resources:
+  - leaderworkersets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - serving.kserve.io
   resources:
   - llminferenceservices
