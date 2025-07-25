@@ -1,5 +1,9 @@
 /*
+<<<<<<< HEAD
 Copyright 2023 The KServe Authors.
+=======
+Copyright 2025 The KServe Authors.
+>>>>>>> 5c0493da0c026731f2e07eac846eb2c45d3b884c
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
