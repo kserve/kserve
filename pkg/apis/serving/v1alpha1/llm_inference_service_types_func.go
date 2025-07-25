@@ -34,6 +34,10 @@ func (r *RouterSpec) EPPServiceName(llmSvc *LLMInferenceService) string {
 		return kmeta.ChildName(llmSvc.GetName(), "-epp-service")
 	}
 	return string(r.Scheduler.Pool.Spec.ExtensionRef.Name)
+)
+
+func (in *GatewayRoutesSpec) IsManaged() bool {
+	return in != nil && in == &GatewayRoutesSpec{}
 }
 
 func (in *GatewaySpec) HasRefs() bool {
