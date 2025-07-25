@@ -3,7 +3,7 @@
 set -e
 
 TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
-VLLM_VERSION=v0.9.0.1
+VLLM_VERSION=v0.9.2
 VLLM_DIR=vllm-clone
 VLLM_TARGET_DEVICE="${VLLM_TARGET_DEVICE:-cpu}"
 
@@ -27,7 +27,7 @@ pip install --upgrade pip
 case $VLLM_TARGET_DEVICE in
     cpu)
         pip uninstall -y torch torchvision torchaudio && \
-        pip install -r requirements/build.txt -r requirements/cpu.txt --extra-index-url ${TORCH_EXTRA_INDEX_URL}
+        pip install -r requirements/cpu-build.txt -r requirements/cpu.txt --extra-index-url ${TORCH_EXTRA_INDEX_URL}
         ;;
 esac
 

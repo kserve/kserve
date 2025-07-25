@@ -52,7 +52,7 @@ WORKDIR ${WORKSPACE_DIR}
 FROM base AS build
 
 ARG WORKSPACE_DIR
-ARG VLLM_VERSION=0.9.0.1
+ARG VLLM_VERSION=0.9.2
 ARG LMCACHE_VERSION=0.3.0
 ARG FLASHINFER_VERSION=0.2.6.post1
 # Need a separate CUDA arch list for flashinfer because '7.0' is not supported by flashinfer

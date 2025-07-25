@@ -10319,13 +10319,28 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						}},
 						Processors: &otelv1beta1.AnyConfig{Object: map[string]interface{}{
-							"filter/ottl": map[string]interface{}{
-								"error_mode": "ignore",
+							"filter/metrics": map[string]interface{}{
 								"metrics": map[string]interface{}{
-									"metric": []interface{}{
-										`name != "process_cpu_seconds_total"`,
+									"include": map[string]interface{}{
+										"match_type":   "strict",
+										"metric_names": []interface{}{string("process_cpu_seconds_total")},
 									},
 								},
+							},
+							"resourcedetection/env": map[string]interface{}{
+								"detectors": []interface{}{string("env")},
+								"override":  bool(false),
+								"timeout":   string("2s"),
+							},
+							"transform": map[string]interface{}{
+								"metric_statements": []interface{}{map[string]interface{}{
+									"context": string("datapoint"),
+									"statements": []interface{}{
+										string("set(attributes[\"namespace\"], resource.attributes[\"k8s.namespace.name\"])"),
+										string("set(attributes[\"deployment\"], resource.attributes[\"k8s.deployment.name\"])"),
+										string("set(attributes[\"pod\"], resource.attributes[\"k8s.pod.name\"])"),
+									},
+								}},
 							},
 						}},
 						Exporters: otelv1beta1.AnyConfig{Object: map[string]interface{}{
@@ -10341,7 +10356,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Pipelines: map[string]*otelv1beta1.Pipeline{
 								"metrics": {
 									Receivers:  []string{"prometheus"},
-									Processors: []string{"filter/ottl"},
+									Processors: []string{"resourcedetection/env", "transform", "filter/metrics"},
 									Exporters:  []string{"otlp"},
 								},
 							},
