@@ -18,7 +18,15 @@ package v1alpha1
 
 import (
 	"k8s.io/utils/ptr"
+	"knative.dev/pkg/kmeta"
 )
+
+func (r *RouterSpec) EPPServiceName(llmSvc *LLMInferenceService) string {
+	if r == nil || r.Route == nil || r.Scheduler == nil || r.Scheduler.Pool == nil || !r.Scheduler.Pool.HasRef() || r.Scheduler.Pool.Spec == nil || r.Scheduler.Pool.Spec.ExtensionRef == nil {
+		return kmeta.ChildName(llmSvc.GetName(), "-epp-service")
+	}
+	return string(r.Scheduler.Pool.Spec.ExtensionRef.Name)
+}
 
 func (in *GatewayRoutesSpec) IsManaged() bool {
 	return in != nil && in == &GatewayRoutesSpec{}
