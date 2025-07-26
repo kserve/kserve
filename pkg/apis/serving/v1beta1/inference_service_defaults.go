@@ -407,7 +407,10 @@ func (isvc *InferenceService) SetMlServerDefaults() {
 		modelClass = constants.MLServerModelClassLightGBM
 	case constants.SupportedModelMLFlow:
 		modelClass = constants.MLServerModelClassMLFlow
+	case constants.SupportedModelCatBoost:
+		modelClass = constants.MLServerModelClassCatBoost
 	}
+
 	if isvc.ObjectMeta.Labels == nil {
 		isvc.ObjectMeta.Labels = map[string]string{constants.ModelClassLabel: modelClass}
 	} else {
