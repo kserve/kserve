@@ -1,5 +1,4 @@
 /*
-
 Copyright 2025 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,19 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package llmisvc
 
 import (
-	"context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"k8s.io/utils/ptr"
-	"knative.dev/pkg/apis"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
-var _ apis.Defaultable = &LLMInferenceService{}
-
-func (in *LLMInferenceService) SetDefaults(_ context.Context) {
-	if in.Spec.Model.Name == nil || *in.Spec.Model.Name == "" {
-		in.Spec.Model.Name = ptr.To(in.GetName())
+func getInferencePoolWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha1.LLMInferenceServiceSpec) map[string]string {
+	s := map[string]string{
+		"app.kubernetes.io/part-of": "llminferenceservice",
+		"app.kubernetes.io/name":    meta.GetName(),
+		"kserve.io/component":       "workload",
 	}
+	return s
 }
