@@ -77,7 +77,7 @@ go-lint: golangci-lint
 	@$(GOLANGCI_LINT) run --fix
 
 py-lint: $(FLAKE8_LINT)
-	$(FLAKE8_LINT) --config=.flake8 .
+	@$(FLAKE8_LINT) --config=.flake8 $(shell git ls-files '*.py')
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen yq
