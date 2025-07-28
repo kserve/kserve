@@ -58,11 +58,6 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 		return fmt.Errorf("failed to reconcile HTTP routes: %w", err)
 	}
 
-	if err := r.reconcileIstioDestinationRules(ctx, llmSvc); err != nil {
-		llmSvc.MarkRouterNotReady("IstioDestinationRuleReconcileError", "Failed to reconcile DestinationRule: %v", err.Error())
-		return fmt.Errorf("failed to reconcile istio destination rules: %w", err)
-	}
-
 	llmSvc.MarkRouterReady()
 
 	return nil
@@ -109,7 +104,7 @@ func (r *LLMISVCReconciler) collectReferencedRoutes(ctx context.Context, llmSvc 
 	referencedRoutes := make([]*gwapiv1.HTTPRoute, 0, len(llmSvc.Spec.Router.Route.HTTP.Refs))
 	for _, routeRef := range llmSvc.Spec.Router.Route.HTTP.Refs {
 		route := &gwapiv1.HTTPRoute{}
-		if err := r.Client.Get(ctx, types.NamespacedName{Namespace: routeRef.Name, Name: llmSvc.GetNamespace()}, route); err != nil {
+		if err := r.Client.Get(ctx, types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: routeRef.Name}, route); err != nil {
 			if apierrors.IsNotFound(err) {
 				// TODO(follow-up) mark condition if not found
 				continue

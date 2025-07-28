@@ -37,11 +37,11 @@ type resolvedGateway struct {
 	parentRef    gwapiv1.ParentReference
 }
 
-func DiscoverGateways(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute) ([]resolvedGateway, error) {
+func discoverGateways(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute) ([]resolvedGateway, error) {
 	gateways := make([]resolvedGateway, 0)
 	for _, parentRef := range route.Spec.ParentRefs {
-		ns := ptr.Deref((&parentRef).Namespace, gwapiv1.Namespace(route.Namespace))
-		gwNS, gwName := string(ns), string((&parentRef).Name)
+		ns := ptr.Deref(parentRef.Namespace, gwapiv1.Namespace(route.Namespace))
+		gwNS, gwName := string(ns), string(parentRef.Name)
 
 		gateway := &gwapiv1.Gateway{}
 		if err := c.Get(ctx, types.NamespacedName{Namespace: gwNS, Name: gwName}, gateway); err != nil {
@@ -64,7 +64,7 @@ func DiscoverGateways(ctx context.Context, c client.Client, route *gwapiv1.HTTPR
 func DiscoverURLs(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute) ([]*apis.URL, error) {
 	var urls []*apis.URL
 
-	gateways, err := DiscoverGateways(ctx, c, route)
+	gateways, err := discoverGateways(ctx, c, route)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover gateways: %w", err)
 	}

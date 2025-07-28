@@ -19,7 +19,6 @@ package llmisvc
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -79,10 +78,6 @@ func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, e
 	return NewConfig(ingressConfig, storageInitializerConfig), nil
 }
 
-func (c Config) isIstioGatewayController(name string) bool {
-	return slices.Contains(c.IstioGatewayControllerNames, name)
-}
-
 func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *pod.StorageInitializerConfig) *Config {
 	igwNs := constants.KServeNamespace
 	igwName := ingressConfig.KserveIngressGateway
@@ -96,12 +91,6 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *pod.StorageI
 		SystemNamespace:         constants.KServeNamespace,
 		IngressGatewayNamespace: igwNs,
 		IngressGatewayName:      igwName,
-		// TODO make it configurable
-		IstioGatewayControllerNames: []string{
-			"istio.io/gateway-controller",
-			"istio.io/unmanaged-gateway",
-			"openshift.io/gateway-controller",
-		},
-		StorageConfig: storageConfig,
+		StorageConfig:           storageConfig,
 	}
 }
