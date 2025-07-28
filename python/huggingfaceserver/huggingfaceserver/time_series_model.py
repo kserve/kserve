@@ -1,4 +1,4 @@
-# Copyright 2023 The KServe Authors.
+# Copyright 2025 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ from transformers import (
     PretrainedConfig,
 )
 
-from ....model import BaseKServeModel
+from kserve.model import BaseKServeModel
 from kserve.logging import logger
 from kserve.protocol.rest.timeseries.types import (
     ForecastRequest,
@@ -305,7 +305,7 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
         else:
             return ErrorResponse(
                 error=Error(
-                    type="model_not_found",
+                    type="model_not_supported",
                     message="Only TimesFM models are supported at this time.",
                 )
             )

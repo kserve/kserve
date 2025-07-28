@@ -18,7 +18,7 @@ from ....model import Model
 from ....model_repository import ModelRepository
 from .dataplane import TimeSeriesDataPlane
 from .endpoints import register_time_series_endpoints
-from .time_series_model import HuggingFaceTimeSeriesModel
+from huggingfaceserver.time_series_model import HuggingFaceTimeSeriesModel
 
 
 def get_time_series_models(repository: ModelRepository) -> dict[str, Model]:
