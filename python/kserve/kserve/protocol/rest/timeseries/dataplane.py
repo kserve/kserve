@@ -19,7 +19,10 @@ from typing import Union, List
 from fastapi import Request, Response
 from starlette.datastructures import Headers
 from ...dataplane import DataPlane
-from .time_series_model import HuggingFaceTimeSeriesModel, TimeSeriesModel
+from huggingfaceserver.time_series_model import (
+    HuggingFaceTimeSeriesModel,
+    TimeSeriesModel,
+)
 
 from kserve.protocol.rest.timeseries.types import (
     ForecastRequest,

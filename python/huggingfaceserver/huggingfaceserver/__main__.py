@@ -38,7 +38,7 @@ from . import (
     Backend,
 )
 
-from kserve.protocol.rest.timeseries.time_series_model import HuggingFaceTimeSeriesModel
+from huggingfaceserver.time_series_model import HuggingFaceTimeSeriesModel
 
 from .vllm.utils import (
     infer_vllm_supported_from_model_architecture,
