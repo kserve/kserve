@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The KServe Authors.
+Copyright 2025 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -68,26 +67,16 @@ func (r *LLMInferenceServiceReconciler) reconcileWorkload(ctx context.Context, l
 	return nil
 }
 
-func getInferencePoolWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha1.LLMInferenceServiceSpec) map[string]string {
-	s := map[string]string{
-		"app.kubernetes.io/part-of": "llminferenceservice",
-		"app.kubernetes.io/name":    meta.GetName(),
-		"kserve.io/component":       "workload",
-	}
-
-	// TODO https://github.com/llm-d/llm-d-inference-scheduler/issues/220 and DP template
-
-	return s
-}
-
 func hasRoutingSidecar(pod corev1.PodSpec) bool {
 	return routingSidecar(&pod) != nil
 }
 
 func routingSidecar(pod *corev1.PodSpec) *corev1.Container {
-	for i := range pod.InitContainers {
-		if pod.InitContainers[i].Name == routingSidecarContainerName {
-			return &pod.InitContainers[i]
+	if pod != nil {
+		for i := range pod.InitContainers {
+			if pod.InitContainers[i].Name == routingSidecarContainerName {
+				return &pod.InitContainers[i]
+			}
 		}
 	}
 	return nil

@@ -107,21 +107,19 @@ func (r *LLMInferenceServiceReconciler) expectedSingleNodeMainDeployment(ctx con
 		},
 	}
 
-	if llmSvc.Spec.Template != nil {
-		d.Spec.Template.Spec = *llmSvc.Spec.Template.DeepCopy()
-		if hasRoutingSidecar(d.Spec.Template.Spec) {
-			log.FromContext(ctx).Info("Main container has a routing sidecar")
+	d.Spec.Template.Spec = *llmSvc.Spec.Template.DeepCopy()
+	if hasRoutingSidecar(d.Spec.Template.Spec) {
+		log.FromContext(ctx).Info("Main container has a routing sidecar")
 
-			serviceAccount := r.expectedSingleNodeMainServiceAccount(llmSvc)
-			d.Spec.Template.Spec.ServiceAccountName = serviceAccount.GetName()
-			s := routingSidecar(&d.Spec.Template.Spec)
-			if llmSvc.Spec.Router != nil {
-				s.Env = append(s.Env, corev1.EnvVar{
-					Name:      "INFERENCE_POOL_NAME",
-					Value:     llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc),
-					ValueFrom: nil,
-				})
-			}
+		serviceAccount := r.expectedSingleNodeMainServiceAccount(llmSvc)
+		d.Spec.Template.Spec.ServiceAccountName = serviceAccount.GetName()
+		s := routingSidecar(&d.Spec.Template.Spec)
+		if llmSvc.Spec.Router != nil {
+			s.Env = append(s.Env, corev1.EnvVar{
+				Name:      "INFERENCE_POOL_NAME",
+				Value:     llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc),
+				ValueFrom: nil,
+			})
 		}
 	}
 
@@ -180,10 +178,10 @@ func (r *LLMInferenceServiceReconciler) expectedPrefillMainDeployment(ctx contex
 				},
 			},
 		}
-	}
 
-	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil {
-		d.Spec.Template.Spec = *llmSvc.Spec.Prefill.Template.DeepCopy()
+		if llmSvc.Spec.Prefill.Template != nil {
+			d.Spec.Template.Spec = *llmSvc.Spec.Prefill.Template.DeepCopy()
+		}
 	}
 
 	log.FromContext(ctx).V(2).Info("Expected prefill deployment", "deployment", d)

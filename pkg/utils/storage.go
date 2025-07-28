@@ -348,7 +348,7 @@ func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targ
 	// Indicate to the runtime that it the model directory could be
 	// available a bit later only so that it should wait and retry when
 	// starting up
-	AddOrReplaceEnv(targetContainer, constants.ModelInitModeEnv, "async")
+	AddOrReplaceEnv(targetContainer, constants.ModelInitModeEnvVarKey, "async")
 
 	// Mount volume initialized by the modelcar container to the target container
 	modelParentDir := GetParentDirectory(constants.DefaultModelLocalMountPath)

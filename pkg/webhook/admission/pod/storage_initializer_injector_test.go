@@ -3050,14 +3050,14 @@ func TestInjectModelcar(t *testing.T) {
 		found := false
 		if pod.Spec.Containers[0].Env != nil {
 			for _, env := range pod.Spec.Containers[0].Env {
-				if env.Name == constants.ModelInitModeEnv && env.Value == "async" {
+				if env.Name == constants.ModelInitModeEnvVarKey && env.Value == "async" {
 					found = true
 					break
 				}
 			}
 		}
 		if !found {
-			t.Errorf("Expected env var %s=async but did not find it", constants.ModelInitModeEnv)
+			t.Errorf("Expected env var %s=async but did not find it", constants.ModelInitModeEnvVarKey)
 		}
 
 		// Check volume mounts in both containers
