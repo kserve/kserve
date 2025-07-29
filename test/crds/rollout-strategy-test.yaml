@@ -1,0 +1,32 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: rollout-strategy-test
+  namespace: default
+  annotations:
+    serving.kserve.io/deploymentMode: "RawDeployment"
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: sklearn
+      storageUri: "s3://test-bucket/model"
+    # Test Availability mode
+    rollout:
+      mode: "Availability"
+      ratio: "50%"
+    
+  transformer:
+    custom:
+      container:
+        image: test-transformer:latest
+    # Test ResourceAware mode
+    rollout:
+      mode: "ResourceAware"
+      ratio: "25%"
+    
+  explainer:
+    art:
+      type: lime
+      name: explainer
+    # Test with default values (no rollout strategy specified) 
