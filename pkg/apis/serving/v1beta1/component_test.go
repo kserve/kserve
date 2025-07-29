@@ -48,6 +48,60 @@ func TestComponentExtensionSpec_Validate(t *testing.T) {
 			},
 			matcher: gomega.Not(gomega.BeNil()),
 		},
+		"ValidRolloutAvailability": {
+			spec: ComponentExtensionSpec{
+				Rollout: &RolloutSpec{
+					Mode:  RolloutStrategyAvailability,
+					Ratio: "50%",
+				},
+			},
+			matcher: gomega.BeNil(),
+		},
+		"ValidRolloutResourceAware": {
+			spec: ComponentExtensionSpec{
+				Rollout: &RolloutSpec{
+					Mode:  RolloutStrategyResourceAware,
+					Ratio: "25%",
+				},
+			},
+			matcher: gomega.BeNil(),
+		},
+		"ValidRolloutAbsoluteNumber": {
+			spec: ComponentExtensionSpec{
+				Rollout: &RolloutSpec{
+					Mode:  RolloutStrategyAvailability,
+					Ratio: "3",
+				},
+			},
+			matcher: gomega.BeNil(),
+		},
+		"InvalidRolloutMode": {
+			spec: ComponentExtensionSpec{
+				Rollout: &RolloutSpec{
+					Mode:  "InvalidMode",
+					Ratio: "50%",
+				},
+			},
+			matcher: gomega.Not(gomega.BeNil()),
+		},
+		"InvalidRolloutRatioPercentage": {
+			spec: ComponentExtensionSpec{
+				Rollout: &RolloutSpec{
+					Mode:  RolloutStrategyAvailability,
+					Ratio: "invalid%",
+				},
+			},
+			matcher: gomega.Not(gomega.BeNil()),
+		},
+		"InvalidRolloutRatioNumber": {
+			spec: ComponentExtensionSpec{
+				Rollout: &RolloutSpec{
+					Mode:  RolloutStrategyAvailability,
+					Ratio: "invalid",
+				},
+			},
+			matcher: gomega.Not(gomega.BeNil()),
+		},
 	}
 
 	for name, scenario := range scenarios {
@@ -225,6 +279,88 @@ func TestFirstNonNilComponent(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			g.Expect(FirstNonNilComponent(scenario.components)).To(scenario.matcher)
+		})
+	}
+}
+
+func TestValidateRollout(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		rollout *RolloutSpec
+		matcher types.GomegaMatcher
+	}{
+		"ValidAvailabilityMode": {
+			rollout: &RolloutSpec{
+				Mode:  RolloutStrategyAvailability,
+				Ratio: "50%",
+			},
+			matcher: gomega.BeNil(),
+		},
+		"ValidResourceAwareMode": {
+			rollout: &RolloutSpec{
+				Mode:  RolloutStrategyResourceAware,
+				Ratio: "25%",
+			},
+			matcher: gomega.BeNil(),
+		},
+		"ValidAbsoluteNumber": {
+			rollout: &RolloutSpec{
+				Mode:  RolloutStrategyAvailability,
+				Ratio: "3",
+			},
+			matcher: gomega.BeNil(),
+		},
+		"ValidZeroPercentage": {
+			rollout: &RolloutSpec{
+				Mode:  RolloutStrategyAvailability,
+				Ratio: "0%",
+			},
+			matcher: gomega.BeNil(),
+		},
+		"ValidZeroNumber": {
+			rollout: &RolloutSpec{
+				Mode:  RolloutStrategyAvailability,
+				Ratio: "0",
+			},
+			matcher: gomega.BeNil(),
+		},
+		"NilRollout": {
+			rollout: nil,
+			matcher: gomega.BeNil(),
+		},
+		"InvalidMode": {
+			rollout: &RolloutSpec{
+				Mode:  "InvalidMode",
+				Ratio: "50%",
+			},
+			matcher: gomega.MatchError(fmt.Errorf("rollout.mode must be one of %s or %s", RolloutStrategyAvailability, RolloutStrategyResourceAware)),
+		},
+		"InvalidPercentageFormat": {
+			rollout: &RolloutSpec{
+				Mode:  RolloutStrategyAvailability,
+				Ratio: "invalid%",
+			},
+			matcher: gomega.MatchError(fmt.Errorf("rollout.ratio percentage must be a valid number, got: %s", "invalid%")),
+		},
+		"InvalidNumberFormat": {
+			rollout: &RolloutSpec{
+				Mode:  RolloutStrategyAvailability,
+				Ratio: "invalid",
+			},
+			matcher: gomega.MatchError(fmt.Errorf("rollout.ratio must be a valid number or percentage, got: %s", "invalid")),
+		},
+		"EmptyRatio": {
+			rollout: &RolloutSpec{
+				Mode:  RolloutStrategyAvailability,
+				Ratio: "",
+			},
+			matcher: gomega.MatchError(fmt.Errorf("rollout.ratio must be a valid number or percentage, got: %s", "")),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			g.Expect(validateRollout(scenario.rollout)).To(scenario.matcher)
 		})
 	}
 }
