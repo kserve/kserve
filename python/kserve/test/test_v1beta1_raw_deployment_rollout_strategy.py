@@ -52,11 +52,11 @@ class TestV1beta1RawDeploymentRolloutStrategy(unittest.TestCase):
         optional params are included"""
         # model = kserve.models.v1beta1_raw_deployment_rollout_strategy.V1beta1RawDeploymentRolloutStrategy()  # noqa: E501
         if include_optional:
+            from kserve.models.v1beta1_rollout_spec import V1beta1RolloutSpec
             return V1beta1RawDeploymentRolloutStrategy(
-                default_rollout=kserve.models.v1beta1
-                / rollout_spec.v1beta1.RolloutSpec(
-                    mode="0",
-                    ratio="0",
+                default_rollout=V1beta1RolloutSpec(
+                    mode="Availability",
+                    ratio="25%",
                 )
             )
         else:
