@@ -36,6 +36,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
+
 const (
 	configPrefix                            = "kserve-"
 	configTemplateName                      = configPrefix + "config-llm-template"
@@ -203,6 +204,7 @@ func ReplaceVariables(llmSvc *v1alpha1.LLMInferenceService, llmSvcCfg *v1alpha1.
 	return out, nil
 }
 
+
 // getConfig retrieves kserveapis.LLMInferenceServiceConfig with the given name from either the kserveapis.LLMInferenceService
 // namespace or from the SystemNamespace (e.g. 'kserve'), prioritizing the former.
 func (r *LLMISVCReconciler) getConfig(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, name string) (*v1alpha1.LLMInferenceServiceConfig, error) {
@@ -221,6 +223,7 @@ func (r *LLMISVCReconciler) getConfig(ctx context.Context, llmSvc *v1alpha1.LLMI
 	}
 	return cfg, nil
 }
+
 
 func MergeSpecs(cfgs ...v1alpha1.LLMInferenceServiceSpec) (v1alpha1.LLMInferenceServiceSpec, error) {
 	if len(cfgs) == 0 {

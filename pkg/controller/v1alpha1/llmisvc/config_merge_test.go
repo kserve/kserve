@@ -288,6 +288,7 @@ func TestMergeSpecs(t *testing.T) {
 					WorkloadSpec: v1alpha1.WorkloadSpec{
 						Parallelism: &v1alpha1.ParallelismSpec{
 							Tensor: ptr.To[int32](2),
+
 						},
 					},
 				},
