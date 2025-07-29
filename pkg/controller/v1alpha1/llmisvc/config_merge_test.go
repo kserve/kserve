@@ -287,7 +287,8 @@ func TestMergeSpecs(t *testing.T) {
 				{
 					WorkloadSpec: v1alpha1.WorkloadSpec{
 						Parallelism: &v1alpha1.ParallelismSpec{
-							Tensor: ptr.To[int64](2),
+							Tensor: ptr.To[int32](2),
+
 						},
 					},
 				},
@@ -295,7 +296,7 @@ func TestMergeSpecs(t *testing.T) {
 				{
 					WorkloadSpec: v1alpha1.WorkloadSpec{
 						Parallelism: &v1alpha1.ParallelismSpec{
-							Pipeline: ptr.To[int64](4),
+							Pipeline: ptr.To[int32](4),
 						},
 					},
 				},
@@ -304,8 +305,8 @@ func TestMergeSpecs(t *testing.T) {
 				WorkloadSpec: v1alpha1.WorkloadSpec{
 					// Both parallelism values should be present
 					Parallelism: &v1alpha1.ParallelismSpec{
-						Tensor:   ptr.To[int64](2),
-						Pipeline: ptr.To[int64](4),
+						Tensor:   ptr.To[int32](2),
+						Pipeline: ptr.To[int32](4),
 					},
 				},
 			},
@@ -379,8 +380,8 @@ func TestMergeSpecs(t *testing.T) {
 				{
 					WorkloadSpec: v1alpha1.WorkloadSpec{
 						Parallelism: &v1alpha1.ParallelismSpec{
-							Tensor:   ptr.To[int64](1),
-							Pipeline: ptr.To[int64](1),
+							Tensor:   ptr.To[int32](1),
+							Pipeline: ptr.To[int32](1),
 						},
 						Worker: &corev1.PodSpec{
 							Containers: []corev1.Container{
@@ -425,8 +426,8 @@ func TestMergeSpecs(t *testing.T) {
 				{
 					WorkloadSpec: v1alpha1.WorkloadSpec{
 						Parallelism: &v1alpha1.ParallelismSpec{
-							Tensor:   ptr.To[int64](4),
-							Pipeline: ptr.To[int64](2),
+							Tensor:   ptr.To[int32](4),
+							Pipeline: ptr.To[int32](2),
 						},
 						Worker: &corev1.PodSpec{
 							Containers: []corev1.Container{
@@ -472,8 +473,8 @@ func TestMergeSpecs(t *testing.T) {
 				},
 				WorkloadSpec: v1alpha1.WorkloadSpec{
 					Parallelism: &v1alpha1.ParallelismSpec{
-						Tensor:   ptr.To[int64](4),
-						Pipeline: ptr.To[int64](2),
+						Tensor:   ptr.To[int32](4),
+						Pipeline: ptr.To[int32](2),
 					},
 					Worker: &corev1.PodSpec{
 						Containers: []corev1.Container{
@@ -532,8 +533,8 @@ func TestMergeSpecs(t *testing.T) {
 				{
 					WorkloadSpec: v1alpha1.WorkloadSpec{
 						Parallelism: &v1alpha1.ParallelismSpec{
-							Tensor:   ptr.To[int64](1),
-							Pipeline: ptr.To[int64](1),
+							Tensor:   ptr.To[int32](1),
+							Pipeline: ptr.To[int32](1),
 						},
 						Worker: &corev1.PodSpec{
 							Containers: []corev1.Container{
@@ -564,8 +565,8 @@ func TestMergeSpecs(t *testing.T) {
 				{
 					WorkloadSpec: v1alpha1.WorkloadSpec{
 						Parallelism: &v1alpha1.ParallelismSpec{
-							Tensor:   ptr.To[int64](4),
-							Pipeline: ptr.To[int64](2),
+							Tensor:   ptr.To[int32](4),
+							Pipeline: ptr.To[int32](2),
 						},
 						Worker: &corev1.PodSpec{
 							Containers: []corev1.Container{
@@ -614,8 +615,8 @@ func TestMergeSpecs(t *testing.T) {
 				},
 				WorkloadSpec: v1alpha1.WorkloadSpec{
 					Parallelism: &v1alpha1.ParallelismSpec{
-						Tensor:   ptr.To[int64](4),
-						Pipeline: ptr.To[int64](2),
+						Tensor:   ptr.To[int32](4),
+						Pipeline: ptr.To[int32](2),
 					},
 					Worker: &corev1.PodSpec{
 						Containers: []corev1.Container{
@@ -645,8 +646,8 @@ func TestMergeSpecs(t *testing.T) {
 				{
 					WorkloadSpec: v1alpha1.WorkloadSpec{
 						Parallelism: &v1alpha1.ParallelismSpec{
-							Tensor:   ptr.To[int64](1),
-							Pipeline: ptr.To[int64](1),
+							Tensor:   ptr.To[int32](1),
+							Pipeline: ptr.To[int32](1),
 						},
 						Worker: &corev1.PodSpec{
 							Containers: []corev1.Container{
@@ -707,8 +708,8 @@ func TestMergeSpecs(t *testing.T) {
 				},
 				WorkloadSpec: v1alpha1.WorkloadSpec{
 					Parallelism: &v1alpha1.ParallelismSpec{
-						Tensor:   ptr.To[int64](1),
-						Pipeline: ptr.To[int64](1),
+						Tensor:   ptr.To[int32](1),
+						Pipeline: ptr.To[int32](1),
 					},
 					Worker: &corev1.PodSpec{
 						Containers: []corev1.Container{
@@ -964,7 +965,7 @@ func TestMergeSpecs(t *testing.T) {
 					WorkloadSpec: v1alpha1.WorkloadSpec{
 						Replicas: ptr.To[int32](1),
 						Parallelism: &v1alpha1.ParallelismSpec{
-							Tensor: ptr.To[int64](2),
+							Tensor: ptr.To[int32](2),
 						},
 					},
 					Router: &v1alpha1.RouterSpec{
@@ -992,7 +993,7 @@ func TestMergeSpecs(t *testing.T) {
 					WorkloadSpec: v1alpha1.WorkloadSpec{
 						Replicas: ptr.To[int32](5),
 						Parallelism: &v1alpha1.ParallelismSpec{
-							Pipeline: ptr.To[int64](4),
+							Pipeline: ptr.To[int32](4),
 						},
 					},
 					Router: &v1alpha1.RouterSpec{
@@ -1025,8 +1026,8 @@ func TestMergeSpecs(t *testing.T) {
 				WorkloadSpec: v1alpha1.WorkloadSpec{
 					Replicas: ptr.To[int32](5),
 					Parallelism: &v1alpha1.ParallelismSpec{
-						Tensor:   ptr.To[int64](2), // Base tensor preserved
-						Pipeline: ptr.To[int64](4), // Override pipeline
+						Tensor:   ptr.To[int32](2), // Base tensor preserved
+						Pipeline: ptr.To[int32](4), // Override pipeline
 					},
 				},
 				Router: &v1alpha1.RouterSpec{
