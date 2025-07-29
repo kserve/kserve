@@ -551,7 +551,19 @@ data:
          # Serverless https://kserve.github.io/website/master/admin/serverless/serverless/
          # RawDeployment https://kserve.github.io/website/master/admin/kubernetes_deployment/
          # ModelMesh https://kserve.github.io/website/master/admin/modelmesh/
-         "defaultDeploymentMode": "Serverless"
+         "defaultDeploymentMode": "Serverless",
+         # rawDeploymentRolloutStrategy specifies the default rollout strategy for raw deployments
+         "rawDeploymentRolloutStrategy": {
+           # defaultRollout specifies the default rollout configuration
+           "defaultRollout": {
+             # mode specifies the default rollout mode. Valid values are "Availability" and "ResourceAware"
+             # Availability mode: launches new pods first, then terminates old pods (maxUnavailable=0, maxSurge=ratio)
+             # ResourceAware mode: terminates old pods first, then launches new pods (maxSurge=0, maxUnavailable=ratio)
+             "mode": "Availability",
+             # ratio specifies the default rollout ratio as a percentage (e.g., "25%") or absolute number
+             "ratio": "25%"
+           }
+         }
        }
 
      # ====================================== SERVICE CONFIGURATION ======================================

@@ -1492,6 +1492,10 @@
           "type": "integer",
           "format": "int32"
         },
+        "rollout": {
+          "description": "Rollout specifies the rollout strategy configuration for raw deployments.",
+          "$ref": "#/definitions/v1beta1.RolloutSpec"
+        },
         "scaleMetric": {
           "description": "ScaleMetric defines the scaling metric type watched by autoscaler. possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
@@ -2406,6 +2410,10 @@
       "properties": {
         "defaultDeploymentMode": {
           "type": "string"
+        },
+        "rawDeploymentRolloutStrategy": {
+          "description": "RawDeploymentRolloutStrategy specifies the default rollout strategy for raw deployments",
+          "$ref": "#/definitions/v1beta1.RawDeploymentRolloutStrategy"
         }
       }
     },
@@ -2834,6 +2842,10 @@
         "restartPolicy": {
           "description": "Restart policy for all containers within the pod. One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
           "type": "string"
+        },
+        "rollout": {
+          "description": "Rollout specifies the rollout strategy configuration for raw deployments.",
+          "$ref": "#/definitions/v1beta1.RolloutSpec"
         },
         "runtimeClassName": {
           "description": "RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class",
@@ -5370,6 +5382,10 @@
           "description": "Restart policy for all containers within the pod. One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
           "type": "string"
         },
+        "rollout": {
+          "description": "Rollout specifies the rollout strategy configuration for raw deployments.",
+          "$ref": "#/definitions/v1beta1.RolloutSpec"
+        },
         "runtimeClassName": {
           "description": "RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class",
           "type": "string"
@@ -5494,6 +5510,16 @@
         }
       }
     },
+    "v1beta1.RawDeploymentRolloutStrategy": {
+      "description": "RawDeploymentRolloutStrategy defines the rollout strategy configuration for raw deployments",
+      "type": "object",
+      "properties": {
+        "defaultRollout": {
+          "description": "DefaultRollout specifies the default rollout configuration",
+          "$ref": "#/definitions/v1beta1.RolloutSpec"
+        }
+      }
+    },
     "v1beta1.ResourceConfig": {
       "type": "object",
       "properties": {
@@ -5527,6 +5553,26 @@
           "description": "target specifies the target value for the given metric",
           "default": {},
           "$ref": "#/definitions/v1beta1.MetricTarget"
+        }
+      }
+    },
+    "v1beta1.RolloutSpec": {
+      "description": "RolloutSpec defines the rollout strategy configuration for raw deployments",
+      "type": "object",
+      "required": [
+        "mode",
+        "ratio"
+      ],
+      "properties": {
+        "mode": {
+          "description": "Mode specifies the rollout strategy mode. Valid values are \"Availability\" and \"ResourceAware\". Availability mode: launches new pods first, then terminates old pods (maxUnavailable=0, maxSurge=ratio) ResourceAware mode: terminates old pods first, then launches new pods (maxSurge=0, maxUnavailable=ratio)",
+          "type": "string",
+          "default": ""
+        },
+        "ratio": {
+          "description": "Ratio specifies the rollout ratio as a percentage (e.g., \"25%\") or absolute number. This value is used to set either maxSurge (Availability mode) or maxUnavailable (ResourceAware mode).",
+          "type": "string",
+          "default": ""
         }
       }
     },
@@ -6333,6 +6379,10 @@
         "restartPolicy": {
           "description": "Restart policy for all containers within the pod. One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy",
           "type": "string"
+        },
+        "rollout": {
+          "description": "Rollout specifies the rollout strategy configuration for raw deployments.",
+          "$ref": "#/definitions/v1beta1.RolloutSpec"
         },
         "runtimeClassName": {
           "description": "RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class",

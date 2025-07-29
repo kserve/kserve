@@ -2998,6 +2998,16 @@ spec:
                       type: object
                     restartPolicy:
                       type: string
+                    rollout:
+                      properties:
+                        mode:
+                          enum:
+                            - Availability
+                            - ResourceAware
+                          type: string
+                        ratio:
+                          type: string
+                      type: object
                     runtimeClassName:
                       type: string
                     scaleMetric:
@@ -11070,6 +11080,16 @@ spec:
                       type: object
                     restartPolicy:
                       type: string
+                    rollout:
+                      properties:
+                        mode:
+                          enum:
+                            - Availability
+                            - ResourceAware
+                          type: string
+                        ratio:
+                          type: string
+                      type: object
                     runtimeClassName:
                       type: string
                     scaleMetric:
@@ -20675,6 +20695,16 @@ spec:
                       type: object
                     restartPolicy:
                       type: string
+                    rollout:
+                      properties:
+                        mode:
+                          enum:
+                            - Availability
+                            - ResourceAware
+                          type: string
+                        ratio:
+                          type: string
+                      type: object
                     runtimeClassName:
                       type: string
                     scaleMetric:

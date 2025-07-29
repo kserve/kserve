@@ -424,7 +424,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := createRawDeployment(tt.args.objectMeta, tt.args.workerObjectMeta, tt.args.componentExt, tt.args.podSpec, tt.args.workerPodSpec)
+			got, err := createRawDeployment(tt.args.objectMeta, tt.args.workerObjectMeta, tt.args.componentExt, tt.args.podSpec, tt.args.workerPodSpec, nil)
 			assert.Equal(t, tt.expectedErr, err)
 			for i, deploy := range got {
 				if diff := cmp.Diff(tt.expected[i], deploy, cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.SecurityContext"),
@@ -505,7 +505,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			ttExpected := getDefaultExpectedDeployment()
 
 			// update objectMeta using modify func
-			got, err := createRawDeployment(ttArgs.objectMeta, ttArgs.workerObjectMeta, ttArgs.componentExt, tt.modifyArgs(ttArgs).podSpec, tt.modifyArgs(ttArgs).workerPodSpec)
+			got, err := createRawDeployment(ttArgs.objectMeta, ttArgs.workerObjectMeta, ttArgs.componentExt, tt.modifyArgs(ttArgs).podSpec, tt.modifyArgs(ttArgs).workerPodSpec, nil)
 			assert.Equal(t, tt.expectedErr, err)
 
 			// update expected value using modifyExpected func
@@ -834,7 +834,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			ttExpected := getDefaultExpectedDeployment()
 
 			// update objectMeta using modify func
-			got, err := createRawDeployment(tt.modifyObjectMetaArgs(ttArgs).objectMeta, tt.modifyWorkerObjectMetaArgs(ttArgs).workerObjectMeta, ttArgs.componentExt, tt.modifyPodSpecArgs(ttArgs).podSpec, tt.modifyWorkerPodSpecArgs(ttArgs).workerPodSpec)
+			got, err := createRawDeployment(tt.modifyObjectMetaArgs(ttArgs).objectMeta, tt.modifyWorkerObjectMetaArgs(ttArgs).workerObjectMeta, ttArgs.componentExt, tt.modifyPodSpecArgs(ttArgs).podSpec, tt.modifyWorkerPodSpecArgs(ttArgs).workerPodSpec, nil)
 			assert.Equal(t, tt.expectedErr, err)
 			// update expected value using modifyExpected func
 			expected := tt.modifyExpected(ttExpected)
@@ -1117,6 +1117,7 @@ func TestNewDeploymentReconciler(t *testing.T) {
 				tt.fields.componentExt,
 				tt.fields.podSpec,
 				tt.fields.workerPod,
+				nil, // deployConfig
 			)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewDeploymentReconciler() error = %v, wantErr %v", err, tt.wantErr)
@@ -1132,6 +1133,112 @@ func TestNewDeploymentReconciler(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetRolloutStrategy(t *testing.T) {
+	tests := []struct {
+		name                   string
+		rollout                *v1beta1.RolloutSpec
+		deployConfig           *v1beta1.DeployConfig
+		expectedMaxSurge       *intstr.IntOrString
+		expectedMaxUnavailable *intstr.IntOrString
+	}{
+		{
+			name: "Availability mode from spec",
+			rollout: &v1beta1.RolloutSpec{
+				Mode:  v1beta1.RolloutStrategyAvailability,
+				Ratio: "50%",
+			},
+			deployConfig:           nil,
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "50%"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 0},
+		},
+		{
+			name: "ResourceAware mode from spec",
+			rollout: &v1beta1.RolloutSpec{
+				Mode:  v1beta1.RolloutStrategyResourceAware,
+				Ratio: "25%",
+			},
+			deployConfig:           nil,
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: 0},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+		},
+		{
+			name:    "Availability mode from configmap defaults",
+			rollout: nil,
+			deployConfig: &v1beta1.DeployConfig{
+				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						Mode:  v1beta1.RolloutStrategyAvailability,
+						Ratio: "30%",
+					},
+				},
+			},
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "30%"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 0},
+		},
+		{
+			name:    "ResourceAware mode from configmap defaults",
+			rollout: nil,
+			deployConfig: &v1beta1.DeployConfig{
+				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						Mode:  v1beta1.RolloutStrategyResourceAware,
+						Ratio: "20%",
+					},
+				},
+			},
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: 0},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "20%"},
+		},
+		{
+			name: "Spec values override configmap defaults",
+			rollout: &v1beta1.RolloutSpec{
+				Mode:  v1beta1.RolloutStrategyAvailability,
+				Ratio: "75%",
+			},
+			deployConfig: &v1beta1.DeployConfig{
+				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						Mode:  v1beta1.RolloutStrategyResourceAware,
+						Ratio: "10%",
+					},
+				},
+			},
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "75%"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 0},
+		},
+		{
+			name:                   "No rollout strategy when neither spec nor configmap provided",
+			rollout:                nil,
+			deployConfig:           nil,
+			expectedMaxSurge:       nil,
+			expectedMaxUnavailable: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := &appsv1.DeploymentSpec{}
+			setRolloutStrategy(spec, tt.rollout, tt.deployConfig)
+
+			if tt.expectedMaxSurge == nil && tt.expectedMaxUnavailable == nil {
+				// Should not have applied any rollout strategy
+				assert.Equal(t, appsv1.DeploymentStrategyType(""), spec.Strategy.Type)
+				assert.Nil(t, spec.Strategy.RollingUpdate)
+			} else {
+				// Should have applied rollout strategy
+				assert.Equal(t, appsv1.RollingUpdateDeploymentStrategyType, spec.Strategy.Type)
+				assert.NotNil(t, spec.Strategy.RollingUpdate)
+				assert.Equal(t, tt.expectedMaxSurge, spec.Strategy.RollingUpdate.MaxSurge)
+				assert.Equal(t, tt.expectedMaxUnavailable, spec.Strategy.RollingUpdate.MaxUnavailable)
+			}
+		})
+	}
+}
+
+func stringPtr(s string) *string {
+	return &s
 }
 
 // mockClientForCheckDeploymentExist is a minimal mock for kclient.Client for checkDeploymentExist
