@@ -105,10 +105,12 @@ spec:
 
 When configuring rollout strategies, the following priority order applies:
 
-1. **InferenceService spec values** (highest priority)
-2. **ConfigMap default values** (fallback)
-3. **KServe default values** (if no rollout strategy configured)
-4. **Multinode override** (if applicable)
+1. **InferenceService spec values** (highest priority for single deployments)
+2. **ConfigMap default values** (fallback for single deployments)
+3. **KServe default values** (if no rollout strategy configured for single deployments)
+4. **Multinode override** (always applies to worker deployments, overriding all other settings)
+
+**Important**: For multinode deployments, the multinode override (maxUnavailable: 0%, maxSurge: 100%) is applied to worker deployments **after** any rollout strategy is set, effectively overriding spec values and ConfigMap defaults for worker nodes.
 
 ## Default Values
 
