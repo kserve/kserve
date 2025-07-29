@@ -20,25 +20,25 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type ObjectOption[T client.Object] func(T)
 
-type GatewayOption ObjectOption[*gatewayapiv1.Gateway]
+type GatewayOption ObjectOption[*gwapiv1.Gateway]
 
-func Gateway(name string, opts ...GatewayOption) *gatewayapiv1.Gateway {
-	gw := &gatewayapiv1.Gateway{
+func Gateway(name string, opts ...GatewayOption) *gwapiv1.Gateway {
+	gw := &gwapiv1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: gatewayapiv1.GatewaySpec{
+		Spec: gwapiv1.GatewaySpec{
 			GatewayClassName: defaultGatewayClass,
-			Listeners:        []gatewayapiv1.Listener{},
-			Infrastructure:   &gatewayapiv1.GatewayInfrastructure{},
+			Listeners:        []gwapiv1.Listener{},
+			Infrastructure:   &gwapiv1.GatewayInfrastructure{},
 		},
-		Status: gatewayapiv1.GatewayStatus{
-			Addresses: []gatewayapiv1.GatewayStatusAddress{},
+		Status: gwapiv1.GatewayStatus{
+			Addresses: []gwapiv1.GatewayStatusAddress{},
 		},
 	}
 
@@ -56,28 +56,28 @@ func InNamespace[T metav1.Object](namespace string) func(T) {
 }
 
 func WithClassName(className string) GatewayOption {
-	return func(gw *gatewayapiv1.Gateway) {
-		gw.Spec.GatewayClassName = gatewayapiv1.ObjectName(className)
+	return func(gw *gwapiv1.Gateway) {
+		gw.Spec.GatewayClassName = gwapiv1.ObjectName(className)
 	}
 }
 
 func WithInfrastructureLabels(key, value string) GatewayOption {
-	return func(gw *gatewayapiv1.Gateway) {
+	return func(gw *gwapiv1.Gateway) {
 		if gw.Spec.Infrastructure.Labels == nil {
-			gw.Spec.Infrastructure.Labels = make(map[gatewayapiv1.LabelKey]gatewayapiv1.LabelValue)
+			gw.Spec.Infrastructure.Labels = make(map[gwapiv1.LabelKey]gwapiv1.LabelValue)
 		}
-		gw.Spec.Infrastructure.Labels[gatewayapiv1.LabelKey(key)] = gatewayapiv1.LabelValue(value)
+		gw.Spec.Infrastructure.Labels[gwapiv1.LabelKey(key)] = gwapiv1.LabelValue(value)
 	}
 }
 
-func WithListener(protocol gatewayapiv1.ProtocolType) GatewayOption {
-	return func(gw *gatewayapiv1.Gateway) {
-		port := gatewayapiv1.PortNumber(80)
-		if protocol == gatewayapiv1.HTTPSProtocolType {
+func WithListener(protocol gwapiv1.ProtocolType) GatewayOption {
+	return func(gw *gwapiv1.Gateway) {
+		port := gwapiv1.PortNumber(80)
+		if protocol == gwapiv1.HTTPSProtocolType {
 			port = 443
 		}
-		listener := gatewayapiv1.Listener{
-			Name:     gatewayapiv1.SectionName("listener"),
+		listener := gwapiv1.Listener{
+			Name:     gwapiv1.SectionName("listener"),
 			Protocol: protocol,
 			Port:     port,
 		}
@@ -85,28 +85,28 @@ func WithListener(protocol gatewayapiv1.ProtocolType) GatewayOption {
 	}
 }
 
-func WithListeners(listeners ...gatewayapiv1.Listener) GatewayOption {
-	return func(gw *gatewayapiv1.Gateway) {
+func WithListeners(listeners ...gwapiv1.Listener) GatewayOption {
+	return func(gw *gwapiv1.Gateway) {
 		gw.Spec.Listeners = append(gw.Spec.Listeners, listeners...)
 	}
 }
 
 type (
-	HTTPRouteOption ObjectOption[*gatewayapiv1.HTTPRoute]
-	ParentRefOption func(*gatewayapiv1.ParentReference)
+	HTTPRouteOption ObjectOption[*gwapiv1.HTTPRoute]
+	ParentRefOption func(*gwapiv1.ParentReference)
 )
 
-func HTTPRoute(name string, opts ...HTTPRouteOption) *gatewayapiv1.HTTPRoute {
-	route := &gatewayapiv1.HTTPRoute{
+func HTTPRoute(name string, opts ...HTTPRouteOption) *gwapiv1.HTTPRoute {
+	route := &gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: gatewayapiv1.HTTPRouteSpec{
-			CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
-				ParentRefs: []gatewayapiv1.ParentReference{},
+		Spec: gwapiv1.HTTPRouteSpec{
+			CommonRouteSpec: gwapiv1.CommonRouteSpec{
+				ParentRefs: []gwapiv1.ParentReference{},
 			},
-			Hostnames: []gatewayapiv1.Hostname{},
-			Rules:     []gatewayapiv1.HTTPRouteRule{},
+			Hostnames: []gwapiv1.Hostname{},
+			Rules:     []gwapiv1.HTTPRouteRule{},
 		},
 	}
 
@@ -117,32 +117,32 @@ func HTTPRoute(name string, opts ...HTTPRouteOption) *gatewayapiv1.HTTPRoute {
 	return route
 }
 
-func WithParentRef(ref gatewayapiv1.ParentReference) HTTPRouteOption {
-	return func(route *gatewayapiv1.HTTPRoute) {
+func WithParentRef(ref gwapiv1.ParentReference) HTTPRouteOption {
+	return func(route *gwapiv1.HTTPRoute) {
 		route.Spec.CommonRouteSpec.ParentRefs = append(route.Spec.CommonRouteSpec.ParentRefs, ref)
 	}
 }
 
-func WithParentRefs(refs ...gatewayapiv1.ParentReference) HTTPRouteOption {
-	return func(route *gatewayapiv1.HTTPRoute) {
+func WithParentRefs(refs ...gwapiv1.ParentReference) HTTPRouteOption {
+	return func(route *gwapiv1.HTTPRoute) {
 		route.Spec.CommonRouteSpec.ParentRefs = refs
 	}
 }
 
 func WithHostnames(hostnames ...string) HTTPRouteOption {
-	return func(route *gatewayapiv1.HTTPRoute) {
-		route.Spec.Hostnames = make([]gatewayapiv1.Hostname, len(hostnames))
+	return func(route *gwapiv1.HTTPRoute) {
+		route.Spec.Hostnames = make([]gwapiv1.Hostname, len(hostnames))
 		for i, hostname := range hostnames {
-			route.Spec.Hostnames[i] = gatewayapiv1.Hostname(hostname)
+			route.Spec.Hostnames[i] = gwapiv1.Hostname(hostname)
 		}
 	}
 }
 
 func WithAddresses(addresses ...string) GatewayOption {
-	return func(gw *gatewayapiv1.Gateway) {
-		gw.Status.Addresses = make([]gatewayapiv1.GatewayStatusAddress, len(addresses))
+	return func(gw *gwapiv1.Gateway) {
+		gw.Status.Addresses = make([]gwapiv1.GatewayStatusAddress, len(addresses))
 		for i, address := range addresses {
-			gw.Status.Addresses[i] = gatewayapiv1.GatewayStatusAddress{
+			gw.Status.Addresses[i] = gwapiv1.GatewayStatusAddress{
 				Value: address,
 				// Type is left as nil (defaults to IPAddressType behavior)
 			}
@@ -151,43 +151,43 @@ func WithAddresses(addresses ...string) GatewayOption {
 }
 
 func WithHostnameAddresses(addresses ...string) GatewayOption {
-	return func(gw *gatewayapiv1.Gateway) {
-		gw.Status.Addresses = make([]gatewayapiv1.GatewayStatusAddress, len(addresses))
+	return func(gw *gwapiv1.Gateway) {
+		gw.Status.Addresses = make([]gwapiv1.GatewayStatusAddress, len(addresses))
 		for i, address := range addresses {
-			gw.Status.Addresses[i] = gatewayapiv1.GatewayStatusAddress{
-				Type:  ptr.To(gatewayapiv1.HostnameAddressType),
+			gw.Status.Addresses[i] = gwapiv1.GatewayStatusAddress{
+				Type:  ptr.To(gwapiv1.HostnameAddressType),
 				Value: address,
 			}
 		}
 	}
 }
 
-func WithMixedAddresses(addresses ...gatewayapiv1.GatewayStatusAddress) GatewayOption {
-	return func(gw *gatewayapiv1.Gateway) {
+func WithMixedAddresses(addresses ...gwapiv1.GatewayStatusAddress) GatewayOption {
+	return func(gw *gwapiv1.Gateway) {
 		gw.Status.Addresses = addresses
 	}
 }
 
-func IPAddress(value string) gatewayapiv1.GatewayStatusAddress {
-	return gatewayapiv1.GatewayStatusAddress{
-		Type:  ptr.To(gatewayapiv1.IPAddressType),
+func IPAddress(value string) gwapiv1.GatewayStatusAddress {
+	return gwapiv1.GatewayStatusAddress{
+		Type:  ptr.To(gwapiv1.IPAddressType),
 		Value: value,
 	}
 }
 
-func HostnameAddress(value string) gatewayapiv1.GatewayStatusAddress {
-	return gatewayapiv1.GatewayStatusAddress{
-		Type:  ptr.To(gatewayapiv1.HostnameAddressType),
+func HostnameAddress(value string) gwapiv1.GatewayStatusAddress {
+	return gwapiv1.GatewayStatusAddress{
+		Type:  ptr.To(gwapiv1.HostnameAddressType),
 		Value: value,
 	}
 }
 
 func WithPath(path string) HTTPRouteOption {
-	return func(route *gatewayapiv1.HTTPRoute) {
-		rule := gatewayapiv1.HTTPRouteRule{
-			Matches: []gatewayapiv1.HTTPRouteMatch{
+	return func(route *gwapiv1.HTTPRoute) {
+		rule := gwapiv1.HTTPRouteRule{
+			Matches: []gwapiv1.HTTPRouteMatch{
 				{
-					Path: &gatewayapiv1.HTTPPathMatch{
+					Path: &gwapiv1.HTTPPathMatch{
 						Value: ptr.To(path),
 					},
 				},
@@ -197,17 +197,17 @@ func WithPath(path string) HTTPRouteOption {
 	}
 }
 
-func WithRules(rules ...gatewayapiv1.HTTPRouteRule) HTTPRouteOption {
-	return func(route *gatewayapiv1.HTTPRoute) {
+func WithRules(rules ...gwapiv1.HTTPRouteRule) HTTPRouteOption {
+	return func(route *gwapiv1.HTTPRoute) {
 		route.Spec.Rules = rules
 	}
 }
 
-func GatewayRef(name string, opts ...ParentRefOption) gatewayapiv1.ParentReference {
-	ref := gatewayapiv1.ParentReference{
-		Name:  gatewayapiv1.ObjectName(name),
-		Group: ptr.To(gatewayapiv1.Group("gateway.networking.k8s.io")),
-		Kind:  ptr.To(gatewayapiv1.Kind("Gateway")),
+func GatewayRef(name string, opts ...ParentRefOption) gwapiv1.ParentReference {
+	ref := gwapiv1.ParentReference{
+		Name:  gwapiv1.ObjectName(name),
+		Group: ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+		Kind:  ptr.To(gwapiv1.Kind("Gateway")),
 	}
 	for _, opt := range opts {
 		opt(&ref)
@@ -216,51 +216,51 @@ func GatewayRef(name string, opts ...ParentRefOption) gatewayapiv1.ParentReferen
 }
 
 func RefInNamespace(namespace string) ParentRefOption {
-	return func(ref *gatewayapiv1.ParentReference) {
-		ref.Namespace = ptr.To(gatewayapiv1.Namespace(namespace))
+	return func(ref *gwapiv1.ParentReference) {
+		ref.Namespace = ptr.To(gwapiv1.Namespace(namespace))
 	}
 }
 
-func GatewayRefWithoutNamespace(name string) gatewayapiv1.ParentReference {
-	return gatewayapiv1.ParentReference{
-		Name:  gatewayapiv1.ObjectName(name),
-		Group: ptr.To(gatewayapiv1.Group("gateway.networking.k8s.io")),
-		Kind:  ptr.To(gatewayapiv1.Kind("Gateway")),
+func GatewayRefWithoutNamespace(name string) gwapiv1.ParentReference {
+	return gwapiv1.ParentReference{
+		Name:  gwapiv1.ObjectName(name),
+		Group: ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+		Kind:  ptr.To(gwapiv1.Kind("Gateway")),
 		// Namespace intentionally omitted
 	}
 }
 
-func HTTPSGateway(name, namespace string, addresses ...string) *gatewayapiv1.Gateway {
+func HTTPSGateway(name, namespace string, addresses ...string) *gwapiv1.Gateway {
 	return Gateway(name,
-		InNamespace[*gatewayapiv1.Gateway](namespace),
-		WithListener(gatewayapiv1.HTTPSProtocolType),
+		InNamespace[*gwapiv1.Gateway](namespace),
+		WithListener(gwapiv1.HTTPSProtocolType),
 		WithAddresses(addresses...),
 	)
 }
 
-func HTTPGateway(name, namespace string, addresses ...string) *gatewayapiv1.Gateway {
+func HTTPGateway(name, namespace string, addresses ...string) *gwapiv1.Gateway {
 	return Gateway(name,
-		InNamespace[*gatewayapiv1.Gateway](namespace),
-		WithListener(gatewayapiv1.HTTPProtocolType),
+		InNamespace[*gwapiv1.Gateway](namespace),
+		WithListener(gwapiv1.HTTPProtocolType),
 		WithAddresses(addresses...),
 	)
 }
 
 type (
-	HTTPRouteRuleOption  func(*gatewayapiv1.HTTPRouteRule)
-	HTTPBackendRefOption func(*gatewayapiv1.HTTPBackendRef)
+	HTTPRouteRuleOption  func(*gwapiv1.HTTPRouteRule)
+	HTTPBackendRefOption func(*gwapiv1.HTTPBackendRef)
 )
 
-func WithHTTPRouteRule(rule gatewayapiv1.HTTPRouteRule) HTTPRouteOption {
-	return func(route *gatewayapiv1.HTTPRoute) {
+func WithHTTPRouteRule(rule gwapiv1.HTTPRouteRule) HTTPRouteOption {
+	return func(route *gwapiv1.HTTPRoute) {
 		route.Spec.Rules = append(route.Spec.Rules, rule)
 	}
 }
 
-func HTTPRouteRule(opts ...HTTPRouteRuleOption) gatewayapiv1.HTTPRouteRule {
-	rule := gatewayapiv1.HTTPRouteRule{
-		Matches:     []gatewayapiv1.HTTPRouteMatch{},
-		BackendRefs: []gatewayapiv1.HTTPBackendRef{},
+func HTTPRouteRule(opts ...HTTPRouteRuleOption) gwapiv1.HTTPRouteRule {
+	rule := gwapiv1.HTTPRouteRule{
+		Matches:     []gwapiv1.HTTPRouteMatch{},
+		BackendRefs: []gwapiv1.HTTPBackendRef{},
 	}
 
 	for _, opt := range opts {
@@ -270,29 +270,29 @@ func HTTPRouteRule(opts ...HTTPRouteRuleOption) gatewayapiv1.HTTPRouteRule {
 	return rule
 }
 
-func WithMatches(matches ...gatewayapiv1.HTTPRouteMatch) HTTPRouteRuleOption {
-	return func(rule *gatewayapiv1.HTTPRouteRule) {
+func WithMatches(matches ...gwapiv1.HTTPRouteMatch) HTTPRouteRuleOption {
+	return func(rule *gwapiv1.HTTPRouteRule) {
 		rule.Matches = append(rule.Matches, matches...)
 	}
 }
 
-func WithBackendRefs(refs ...gatewayapiv1.HTTPBackendRef) HTTPRouteRuleOption {
-	return func(rule *gatewayapiv1.HTTPRouteRule) {
+func WithBackendRefs(refs ...gwapiv1.HTTPBackendRef) HTTPRouteRuleOption {
+	return func(rule *gwapiv1.HTTPRouteRule) {
 		rule.BackendRefs = append(rule.BackendRefs, refs...)
 	}
 }
 
 func WithTimeouts(backendTimeout, requestTimeout string) HTTPRouteRuleOption {
-	return func(rule *gatewayapiv1.HTTPRouteRule) {
-		rule.Timeouts = &gatewayapiv1.HTTPRouteTimeouts{
-			BackendRequest: ptr.To(gatewayapiv1.Duration(backendTimeout)),
-			Request:        ptr.To(gatewayapiv1.Duration(requestTimeout)),
+	return func(rule *gwapiv1.HTTPRouteRule) {
+		rule.Timeouts = &gwapiv1.HTTPRouteTimeouts{
+			BackendRequest: ptr.To(gwapiv1.Duration(backendTimeout)),
+			Request:        ptr.To(gwapiv1.Duration(requestTimeout)),
 		}
 	}
 }
 
-func WithFilters(filters ...gatewayapiv1.HTTPRouteFilter) HTTPRouteRuleOption {
-	return func(rule *gatewayapiv1.HTTPRouteRule) {
+func WithFilters(filters ...gwapiv1.HTTPRouteFilter) HTTPRouteRuleOption {
+	return func(rule *gwapiv1.HTTPRouteRule) {
 		rule.Filters = append(rule.Filters, filters...)
 	}
 }
@@ -301,11 +301,11 @@ func WithHTTPRule(ruleOpts ...HTTPRouteRuleOption) HTTPRouteOption {
 	return WithHTTPRouteRule(HTTPRouteRule(ruleOpts...))
 }
 
-func Matches(matches ...gatewayapiv1.HTTPRouteMatch) HTTPRouteRuleOption {
+func Matches(matches ...gwapiv1.HTTPRouteMatch) HTTPRouteRuleOption {
 	return WithMatches(matches...)
 }
 
-func BackendRefs(refs ...gatewayapiv1.HTTPBackendRef) HTTPRouteRuleOption {
+func BackendRefs(refs ...gwapiv1.HTTPBackendRef) HTTPRouteRuleOption {
 	return WithBackendRefs(refs...)
 }
 
@@ -313,52 +313,52 @@ func Timeouts(backendTimeout, requestTimeout string) HTTPRouteRuleOption {
 	return WithTimeouts(backendTimeout, requestTimeout)
 }
 
-func Filters(filters ...gatewayapiv1.HTTPRouteFilter) HTTPRouteRuleOption {
+func Filters(filters ...gwapiv1.HTTPRouteFilter) HTTPRouteRuleOption {
 	return WithFilters(filters...)
 }
 
-func PathPrefixMatch(path string) gatewayapiv1.HTTPRouteMatch {
-	return gatewayapiv1.HTTPRouteMatch{
-		Path: &gatewayapiv1.HTTPPathMatch{
-			Type:  ptr.To(gatewayapiv1.PathMatchPathPrefix),
+func PathPrefixMatch(path string) gwapiv1.HTTPRouteMatch {
+	return gwapiv1.HTTPRouteMatch{
+		Path: &gwapiv1.HTTPPathMatch{
+			Type:  ptr.To(gwapiv1.PathMatchPathPrefix),
 			Value: ptr.To(path),
 		},
 	}
 }
 
-func ServiceRef(name string, port int32, weight int32) gatewayapiv1.HTTPBackendRef {
-	return gatewayapiv1.HTTPBackendRef{
-		BackendRef: gatewayapiv1.BackendRef{
-			BackendObjectReference: gatewayapiv1.BackendObjectReference{
-				Kind: ptr.To(gatewayapiv1.Kind("Service")),
-				Name: gatewayapiv1.ObjectName(name),
-				Port: ptr.To(gatewayapiv1.PortNumber(port)),
+func ServiceRef(name string, port int32, weight int32) gwapiv1.HTTPBackendRef {
+	return gwapiv1.HTTPBackendRef{
+		BackendRef: gwapiv1.BackendRef{
+			BackendObjectReference: gwapiv1.BackendObjectReference{
+				Kind: ptr.To(gwapiv1.Kind("Service")),
+				Name: gwapiv1.ObjectName(name),
+				Port: ptr.To(gwapiv1.PortNumber(port)),
 			},
 			Weight: ptr.To(weight),
 		},
 	}
 }
 
-func HTTPRouteRuleWithBackendAndTimeouts(backendName string, backendPort int32, path string, backendTimeout, requestTimeout string) gatewayapiv1.HTTPRouteRule {
-	return gatewayapiv1.HTTPRouteRule{
-		BackendRefs: []gatewayapiv1.HTTPBackendRef{
+func HTTPRouteRuleWithBackendAndTimeouts(backendName string, backendPort int32, path string, backendTimeout, requestTimeout string) gwapiv1.HTTPRouteRule {
+	return gwapiv1.HTTPRouteRule{
+		BackendRefs: []gwapiv1.HTTPBackendRef{
 			ServiceRef(backendName, backendPort, 1),
 		},
-		Matches: []gatewayapiv1.HTTPRouteMatch{
+		Matches: []gwapiv1.HTTPRouteMatch{
 			PathPrefixMatch(path),
 		},
-		Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-			BackendRequest: ptr.To(gatewayapiv1.Duration(backendTimeout)),
-			Request:        ptr.To(gatewayapiv1.Duration(requestTimeout)),
+		Timeouts: &gwapiv1.HTTPRouteTimeouts{
+			BackendRequest: ptr.To(gwapiv1.Duration(backendTimeout)),
+			Request:        ptr.To(gwapiv1.Duration(requestTimeout)),
 		},
 	}
 }
 
-func GatewayParentRef(name, namespace string) gatewayapiv1.ParentReference {
-	return gatewayapiv1.ParentReference{
-		Group:     ptr.To(gatewayapiv1.Group("gateway.networking.k8s.io")),
-		Kind:      ptr.To(gatewayapiv1.Kind("Gateway")),
-		Name:      gatewayapiv1.ObjectName(name),
-		Namespace: ptr.To(gatewayapiv1.Namespace(namespace)),
+func GatewayParentRef(name, namespace string) gwapiv1.ParentReference {
+	return gwapiv1.ParentReference{
+		Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+		Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+		Name:      gwapiv1.ObjectName(name),
+		Namespace: ptr.To(gwapiv1.Namespace(namespace)),
 	}
 }
