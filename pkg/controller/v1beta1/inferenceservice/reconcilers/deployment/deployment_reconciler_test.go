@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
@@ -1215,6 +1216,26 @@ func TestSetRolloutStrategy(t *testing.T) {
 			expectedMaxSurge:       nil,
 			expectedMaxUnavailable: nil,
 		},
+		{
+			name:    "ConfigMap with nil DefaultRollout should not apply strategy",
+			rollout: nil,
+			deployConfig: &v1beta1.DeployConfig{
+				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+					DefaultRollout: nil,
+				},
+			},
+			expectedMaxSurge:       nil,
+			expectedMaxUnavailable: nil,
+		},
+		{
+			name:    "ConfigMap with nil RawDeploymentRolloutStrategy should not apply strategy",
+			rollout: nil,
+			deployConfig: &v1beta1.DeployConfig{
+				RawDeploymentRolloutStrategy: nil,
+			},
+			expectedMaxSurge:       nil,
+			expectedMaxUnavailable: nil,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1233,6 +1254,247 @@ func TestSetRolloutStrategy(t *testing.T) {
 				assert.Equal(t, tt.expectedMaxSurge, spec.Strategy.RollingUpdate.MaxSurge)
 				assert.Equal(t, tt.expectedMaxUnavailable, spec.Strategy.RollingUpdate.MaxUnavailable)
 			}
+		})
+	}
+}
+
+func TestCreateRawDeploymentWithRolloutStrategy(t *testing.T) {
+	tests := []struct {
+		name                   string
+		componentExt           *v1beta1.ComponentExtensionSpec
+		deployConfig           *v1beta1.DeployConfig
+		workerPodSpec          *corev1.PodSpec
+		expectedMaxSurge       *intstr.IntOrString
+		expectedMaxUnavailable *intstr.IntOrString
+		description            string
+	}{
+		{
+			name:                   "KServe defaults when no rollout strategy specified",
+			componentExt:           &v1beta1.ComponentExtensionSpec{},
+			deployConfig:           nil,
+			workerPodSpec:          nil,
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+			description:            "Should apply KServe defaults (25% each) when no rollout strategy is specified",
+		},
+		{
+			name:         "Multinode override when no rollout strategy specified",
+			componentExt: &v1beta1.ComponentExtensionSpec{},
+			deployConfig: nil,
+			workerPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  constants.WorkerContainerName,
+						Image: "worker:latest",
+						Env: []corev1.EnvVar{
+							{Name: constants.RequestGPUCountEnvName, Value: "1"},
+						},
+					},
+				},
+			},
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "100%"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "0%"},
+			description:            "Should override with multinode defaults (0% unavailable, 100% surge) when worker pod spec is provided",
+		},
+		{
+			name: "Multinode override has highest priority over spec values",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				Rollout: &v1beta1.RolloutSpec{
+					Mode:  v1beta1.RolloutStrategyAvailability,
+					Ratio: "50%",
+				},
+			},
+			deployConfig: nil,
+			workerPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  constants.WorkerContainerName,
+						Image: "worker:latest",
+						Env: []corev1.EnvVar{
+							{Name: constants.RequestGPUCountEnvName, Value: "1"},
+						},
+					},
+				},
+			},
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "100%"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "0%"},
+			description:            "Multinode override should have highest priority over spec values",
+		},
+		{
+			name:         "ConfigMap defaults when no spec values",
+			componentExt: &v1beta1.ComponentExtensionSpec{},
+			deployConfig: &v1beta1.DeployConfig{
+				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						Mode:  v1beta1.RolloutStrategyResourceAware,
+						Ratio: "30%",
+					},
+				},
+			},
+			workerPodSpec:          nil,
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.Int, IntVal: 0},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "30%"},
+			description:            "Should use ConfigMap defaults when no spec values provided",
+		},
+		{
+			name: "Spec values override ConfigMap defaults",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				Rollout: &v1beta1.RolloutSpec{
+					Mode:  v1beta1.RolloutStrategyAvailability,
+					Ratio: "75%",
+				},
+			},
+			deployConfig: &v1beta1.DeployConfig{
+				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						Mode:  v1beta1.RolloutStrategyResourceAware,
+						Ratio: "20%",
+					},
+				},
+			},
+			workerPodSpec:          nil,
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "75%"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 0},
+			description:            "Spec values should override ConfigMap defaults",
+		},
+		{
+			name:         "Multinode override has highest priority over ConfigMap defaults",
+			componentExt: &v1beta1.ComponentExtensionSpec{},
+			deployConfig: &v1beta1.DeployConfig{
+				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						Mode:  v1beta1.RolloutStrategyAvailability,
+						Ratio: "40%",
+					},
+				},
+			},
+			workerPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  constants.WorkerContainerName,
+						Image: "worker:latest",
+						Env: []corev1.EnvVar{
+							{Name: constants.RequestGPUCountEnvName, Value: "1"},
+						},
+					},
+				},
+			},
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "100%"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "0%"},
+			description:            "Multinode override should have highest priority over ConfigMap defaults",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			objectMeta := metav1.ObjectMeta{
+				Name:      "test-predictor",
+				Namespace: "test-namespace",
+				Labels: map[string]string{
+					constants.DeploymentMode: string(constants.RawDeployment),
+				},
+			}
+			workerObjectMeta := metav1.ObjectMeta{
+				Name:      "test-worker",
+				Namespace: "test-namespace",
+				Labels:    map[string]string{},
+			}
+			podSpec := &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  constants.InferenceServiceContainerName,
+						Image: "test:latest",
+						Env: []corev1.EnvVar{
+							{Name: constants.RequestGPUCountEnvName, Value: "1"},
+						},
+					},
+				},
+			}
+
+			deployments, err := createRawDeployment(objectMeta, workerObjectMeta, tt.componentExt, podSpec, tt.workerPodSpec, tt.deployConfig)
+
+			require.NoError(t, err)
+
+			// For multinode deployments, we get 2 deployments (default + worker)
+			// For single deployments, we get 1 deployment
+			expectedDeploymentCount := 1
+			if tt.workerPodSpec != nil {
+				expectedDeploymentCount = 2
+			}
+			assert.Len(t, deployments, expectedDeploymentCount)
+
+			// For multinode tests, check the worker deployment (index 1) for multinode override
+			// For single deployment tests, check the default deployment (index 0)
+			deploymentIndex := 0
+			if tt.workerPodSpec != nil && (tt.name == "Multinode override when no rollout strategy specified" ||
+				tt.name == "Multinode override has highest priority over spec values" ||
+				tt.name == "Multinode override has highest priority over ConfigMap defaults") {
+				deploymentIndex = 1 // Check worker deployment for multinode override
+			}
+			deployment := deployments[deploymentIndex]
+			assert.Equal(t, appsv1.RollingUpdateDeploymentStrategyType, deployment.Spec.Strategy.Type)
+			assert.NotNil(t, deployment.Spec.Strategy.RollingUpdate)
+			assert.Equal(t, tt.expectedMaxSurge, deployment.Spec.Strategy.RollingUpdate.MaxSurge,
+				"Test: %s - %s", tt.name, tt.description)
+			assert.Equal(t, tt.expectedMaxUnavailable, deployment.Spec.Strategy.RollingUpdate.MaxUnavailable,
+				"Test: %s - %s", tt.name, tt.description)
+		})
+	}
+}
+
+func TestSetDefaultDeploymentSpec(t *testing.T) {
+	tests := []struct {
+		name                   string
+		inputSpec              *appsv1.DeploymentSpec
+		expectedMaxSurge       *intstr.IntOrString
+		expectedMaxUnavailable *intstr.IntOrString
+		description            string
+	}{
+		{
+			name:                   "Empty spec should get KServe defaults",
+			inputSpec:              &appsv1.DeploymentSpec{},
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+			description:            "Empty spec should be populated with KServe default rollout strategy",
+		},
+		{
+			name: "Spec with RollingUpdate type but nil RollingUpdate should get KServe defaults",
+			inputSpec: &appsv1.DeploymentSpec{
+				Strategy: appsv1.DeploymentStrategy{
+					Type: appsv1.RollingUpdateDeploymentStrategyType,
+				},
+			},
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+			description:            "Spec with RollingUpdate type but nil RollingUpdate should get KServe defaults",
+		},
+		{
+			name: "Spec with existing RollingUpdate should not be modified",
+			inputSpec: &appsv1.DeploymentSpec{
+				Strategy: appsv1.DeploymentStrategy{
+					Type: appsv1.RollingUpdateDeploymentStrategyType,
+					RollingUpdate: &appsv1.RollingUpdateDeployment{
+						MaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "50%"},
+						MaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "10%"},
+					},
+				},
+			},
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "50%"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "10%"},
+			description:            "Existing RollingUpdate values should not be modified",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setDefaultDeploymentSpec(tt.inputSpec)
+
+			assert.Equal(t, appsv1.RollingUpdateDeploymentStrategyType, tt.inputSpec.Strategy.Type)
+			assert.NotNil(t, tt.inputSpec.Strategy.RollingUpdate)
+			assert.Equal(t, tt.expectedMaxSurge, tt.inputSpec.Strategy.RollingUpdate.MaxSurge,
+				"Test: %s - %s", tt.name, tt.description)
+			assert.Equal(t, tt.expectedMaxUnavailable, tt.inputSpec.Strategy.RollingUpdate.MaxUnavailable,
+				"Test: %s - %s", tt.name, tt.description)
 		})
 	}
 }
