@@ -94,7 +94,7 @@ dev = [
 [tool.uv]
 # TODO remove later
 index-url = "https://test.pypi.org/simple/"
-extra-index-url = ["https://pypi.org/simple/"]
+extra-index-url = ["https://pypi.org/simple"]
 
 [build-system]
 requires = ["setuptools>=61.0"]
