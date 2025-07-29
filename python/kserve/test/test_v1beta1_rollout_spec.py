@@ -50,11 +50,11 @@ class TestV1beta1RolloutSpec(unittest.TestCase):
         optional params are included"""
         # model = kserve.models.v1beta1_rollout_spec.V1beta1RolloutSpec()  # noqa: E501
         if include_optional:
-            return V1beta1RolloutSpec(mode="0", ratio="0")
+            return V1beta1RolloutSpec(mode="Availability", ratio="25%")
         else:
             return V1beta1RolloutSpec(
-                mode="0",
-                ratio="0",
+                mode="ResourceAware",
+                ratio="50%",
             )
 
     def testV1beta1RolloutSpec(self):
