@@ -1,0 +1,33 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: rollout-strategy-example
+  namespace: default
+  annotations:
+    serving.kserve.io/deploymentMode: "RawDeployment"
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: sklearn
+      storageUri: "s3://my-bucket/model"
+    # Example 1: Availability mode - launches new pods first, then terminates old pods
+    # This ensures high availability during rollouts
+    rollout:
+      mode: "Availability"
+      ratio: "50%"
+    # This will set maxUnavailable=0, maxSurge=50%
+    
+  transformer:
+    custom:
+      container:
+        image: my-transformer:latest
+        env:
+          - name: MODEL_NAME
+            value: "my-model"
+    # Example 2: ResourceAware mode - terminates old pods first, then launches new pods
+    # This prioritizes resource efficiency over availability
+    rollout:
+      mode: "ResourceAware"
+      ratio: "25%"
+    # This will set maxSurge=0, maxUnavailable=25% 
