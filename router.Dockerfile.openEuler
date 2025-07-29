@@ -1,0 +1,43 @@
+# Copyright (C) 2025 Huawei Technologies Co., Ltd.
+# SPDX-License-Identifier: Apache-2.0
+
+# Build the inference-router binary
+ARG BASE=openeuler/go:1.24.1-oe2403lts
+ARG VESION=v0.15.2
+
+FROM ${BASE} AS builder
+
+RUN dnf install -y shadow-utils && \
+    groupadd -g 1001 kserve && \
+    useradd -u 1001 -g 1001 -s /sbin/nologin --badname 65532
+    
+# Copy in the go src
+WORKDIR /go/src/github.com/kserve/kserve
+COPY go.mod  go.mod
+COPY go.sum  go.sum
+
+RUN go mod download
+
+COPY cmd/    cmd/
+COPY pkg/    pkg/
+
+# Build
+RUN CGO_ENABLED=0  go build -a -o router ./cmd/router
+
+# Generate third-party licenses
+COPY LICENSE LICENSE
+RUN go install github.com/google/go-licenses@latest
+# Forbidden Licenses: https://github.com/google/licenseclassifier/blob/e6a9bb99b5a6f71d5a34336b8245e305f5430f99/license_type.go#L341
+RUN go-licenses check ./cmd/... ./pkg/... --disallowed_types="forbidden,unknown"
+RUN go-licenses save --save_path third_party/library ./cmd/router
+
+# Copy the inference-router into a thin image
+FROM openeuler/distroless-base-nonroot
+
+COPY --from=builder /etc/passwd /etc/passwd
+COPY --from=builder /etc/group /etc/group
+
+COPY --from=builder /go/src/github.com/kserve/kserve/third_party /third_party
+WORKDIR /ko-app
+COPY --from=builder /go/src/github.com/kserve/kserve/router /ko-app/
+ENTRYPOINT ["/ko-app/router"]
