@@ -7699,9 +7699,17 @@ func schema_pkg_apis_serving_v1beta1_OtelCollectorConfig(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig"},
 	}
 }
 
