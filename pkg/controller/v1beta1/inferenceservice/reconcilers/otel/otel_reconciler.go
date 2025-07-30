@@ -23,8 +23,10 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/utils"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -103,6 +105,34 @@ func NewOtelReconciler(client client.Client,
 		scheme:        scheme,
 		OTelCollector: createOtelCollector(componentMeta, metricNames, otelConfig),
 	}, nil
+}
+
+func createResourceRequirements(resourceConfig v1beta1.ResourceConfig) corev1.ResourceRequirements {
+	resourceRequirements := corev1.ResourceRequirements{}
+
+	// Set resource requests if provided
+	if resourceConfig.CPURequest != "" || resourceConfig.MemoryRequest != "" {
+		resourceRequirements.Requests = corev1.ResourceList{}
+		if resourceConfig.CPURequest != "" {
+			resourceRequirements.Requests[corev1.ResourceCPU] = resource.MustParse(resourceConfig.CPURequest)
+		}
+		if resourceConfig.MemoryRequest != "" {
+			resourceRequirements.Requests[corev1.ResourceMemory] = resource.MustParse(resourceConfig.MemoryRequest)
+		}
+	}
+
+	// Set resource limits if provided
+	if resourceConfig.CPULimit != "" || resourceConfig.MemoryLimit != "" {
+		resourceRequirements.Limits = corev1.ResourceList{}
+		if resourceConfig.CPULimit != "" {
+			resourceRequirements.Limits[corev1.ResourceCPU] = resource.MustParse(resourceConfig.CPULimit)
+		}
+		if resourceConfig.MemoryLimit != "" {
+			resourceRequirements.Limits[corev1.ResourceMemory] = resource.MustParse(resourceConfig.MemoryLimit)
+		}
+	}
+
+	return resourceRequirements
 }
 
 func createOtelCollector(componentMeta metav1.ObjectMeta,
@@ -195,6 +225,9 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 						},
 					},
 				},
+			},
+			OpenTelemetryCommonFields: otelv1beta1.OpenTelemetryCommonFields{
+				Resources: createResourceRequirements(otelConfig.Resource),
 			},
 		},
 	}

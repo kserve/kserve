@@ -75,9 +75,10 @@ type ExplainersConfig struct {
 }
 
 type OtelCollectorConfig struct {
-	ScrapeInterval         string `json:"scrapeInterval,omitempty"`
-	MetricReceiverEndpoint string `json:"metricReceiverEndpoint,omitempty"`
-	MetricScalerEndpoint   string `json:"metricScalerEndpoint,omitempty"`
+	ScrapeInterval         string         `json:"scrapeInterval,omitempty"`
+	MetricReceiverEndpoint string         `json:"metricReceiverEndpoint,omitempty"`
+	MetricScalerEndpoint   string         `json:"metricScalerEndpoint,omitempty"`
+	Resource               ResourceConfig `json:"resource,omitempty"` // Resource configuration for otel collector
 }
 
 // +kubebuilder:object:generate=false
