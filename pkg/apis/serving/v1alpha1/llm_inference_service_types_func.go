@@ -21,6 +21,14 @@ import (
 	"knative.dev/pkg/kmeta"
 )
 
+func (r *RouterSpec) HasSchedulerTemplate() bool {
+	return r != nil && r.Scheduler != nil && r.Scheduler.Template != nil
+}
+
+func InferenceModelName(llmSvc *LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-inference-model")
+}
+
 func (s *SchedulerSpec) InferencePoolName(llmSvc *LLMInferenceService) string {
 	if s == nil || s.Pool == nil || !s.Pool.HasRef() {
 		// This default MUST match the default value set in the well-known presets.
