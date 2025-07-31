@@ -61,6 +61,19 @@ func (r *LLMInferenceServiceReconciler) reconcileScheduler(ctx context.Context, 
 	return nil
 }
 
+func (r *LLMInferenceServiceReconciler) reconcileSchedulerAuthDelegatorBinding(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount) error {
+	authDelegatorBinding := r.expectedSchedulerAuthDelegatorBinding(llmSvc, sa)
+	if !llmSvc.DeletionTimestamp.IsZero() || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
+		return Delete(ctx, r, llmSvc, authDelegatorBinding)
+	}
+
+	if err := Reconcile(ctx, r, llmSvc, &rbacv1.ClusterRoleBinding{}, authDelegatorBinding, semanticClusterRoleBindingIsEqual); err != nil {
+		return fmt.Errorf("failed to reconcile scheduler clusterrolebinding %s: %w", authDelegatorBinding.GetName(), err)
+	}
+
+	return nil
+}
+
 func (r *LLMInferenceServiceReconciler) reconcileSchedulerRole(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	role := r.expectedSchedulerRole(llmSvc)
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
@@ -88,12 +101,21 @@ func (r *LLMInferenceServiceReconciler) reconcileSchedulerRoleBinding(ctx contex
 
 func (r *LLMInferenceServiceReconciler) reconcileSchedulerServiceAccount(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	serviceAccount := r.expectedSchedulerServiceAccount(llmSvc)
+
+	if !llmSvc.DeletionTimestamp.IsZero() {
+		return r.reconcileSchedulerAuthDelegatorBinding(ctx, llmSvc, serviceAccount)
+	}
+
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
 		return Delete(ctx, r, llmSvc, serviceAccount)
 	}
 
 	if err := Reconcile(ctx, r, llmSvc, &corev1.ServiceAccount{}, serviceAccount, semanticServiceAccountIsEqual); err != nil {
 		return fmt.Errorf("failed to reconcile scheduler service account %s/%s: %w", serviceAccount.GetNamespace(), serviceAccount.GetName(), err)
+	}
+
+	if err := r.reconcileSchedulerAuthDelegatorBinding(ctx, llmSvc, serviceAccount); err != nil {
+		return err
 	}
 
 	if err := r.reconcileSchedulerRole(ctx, llmSvc); err != nil {
@@ -390,6 +412,26 @@ func (r *LLMInferenceServiceReconciler) expectedSchedulerServiceAccount(llmSvc *
 	return sa
 }
 
+func (r *LLMInferenceServiceReconciler) expectedSchedulerAuthDelegatorBinding(llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount) *rbacv1.ClusterRoleBinding {
+	crb := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   kmeta.ChildName(llmSvc.GetNamespace(), "-"+llmSvc.GetName()+"-epp-auth-rb"),
+			Labels: r.schedulerLabels(llmSvc),
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      sa.GetName(),
+			Namespace: sa.GetNamespace(),
+		}},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "system:auth-delegator",
+		},
+	}
+	return crb
+}
+
 func (r *LLMInferenceServiceReconciler) expectedSchedulerRole(llmSvc *v1alpha1.LLMInferenceService) *rbacv1.Role {
 	role := &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
@@ -404,7 +446,6 @@ func (r *LLMInferenceServiceReconciler) expectedSchedulerRole(llmSvc *v1alpha1.L
 			{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"inference.networking.x-k8s.io"}, Resources: []string{"inferencepools", "inferencemodels"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"discovery.k8s.io"}, Resources: []string{"endpointslices"}, Verbs: []string{"get", "list", "watch"}},
-			{APIGroups: []string{"authentication.k8s.io"}, Resources: []string{"tokenreviews", "subjectaccessreviews"}, Verbs: []string{"create"}},
 		},
 	}
 	return role
@@ -461,6 +502,13 @@ func semanticServiceAccountIsEqual(expected *corev1.ServiceAccount, current *cor
 
 func semanticRoleIsEqual(expected *rbacv1.Role, curr *rbacv1.Role) bool {
 	return equality.Semantic.DeepDerivative(expected.Rules, curr.Rules) &&
+		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
+		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
+}
+
+func semanticClusterRoleBindingIsEqual(expected *rbacv1.ClusterRoleBinding, curr *rbacv1.ClusterRoleBinding) bool {
+	return equality.Semantic.DeepDerivative(expected.Subjects, curr.Subjects) &&
+		equality.Semantic.DeepDerivative(expected.RoleRef, curr.RoleRef) &&
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }
