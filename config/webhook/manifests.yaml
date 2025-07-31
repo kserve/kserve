@@ -209,3 +209,30 @@ webhooks:
           - DELETE
         resources:
           - localmodelcaches
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: llminferenceserviceconfig.serving.kserve.io
+webhooks:
+  - clientConfig:
+      service:
+        name: $(webhookServiceName)
+        namespace: $(kserveNamespace)
+        path: /validate-serving-kserve-io-v1alpha1-llminferenceserviceconfig
+    failurePolicy: Fail
+    name: llminferenceserviceconfig.kserve-webhook-server.validator
+    sideEffects: None
+    admissionReviewVersions: [ "v1", "v1beta1" ]
+    rules:
+      - apiGroups:
+          - serving.kserve.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - llminferenceserviceconfigs
