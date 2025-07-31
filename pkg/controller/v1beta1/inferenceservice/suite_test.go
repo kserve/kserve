@@ -37,7 +37,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	routev1 "github.com/openshift/api/route/v1"
 
@@ -70,7 +70,7 @@ var _ = BeforeSuite(func() {
 	ctx, cancel := context.WithCancel(context.TODO())
 	By("bootstrapping test environment")
 	crdDirectoryPaths := []string{
-		filepath.Join("..", "..", "..", "..", "test", "crds"),
+		filepath.Join(pkgtest.ProjectRoot(), "test", "crds"),
 	}
 	testEnv := pkgtest.SetupEnvTest(crdDirectoryPaths)
 	var err error
@@ -96,7 +96,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	err = routev1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-	err = gatewayapiv1.Install(scheme.Scheme)
+	err = gwapiv1.Install(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = kedav1alpha1.AddToScheme(scheme.Scheme)

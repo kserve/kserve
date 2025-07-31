@@ -1,0 +1,12 @@
+{{ template "chart.header" . }}
+{{ template "chart.description" . }}
+
+{{ template "chart.versionBadge" . }}{{ template "chart.typeBadge" . }}{{ template "chart.appVersionBadge" . }}
+
+## Installing the Chart
+
+To install the chart, run the following:
+
+```console
+$ helm install llmisvc-crd oci://ghcr.io/kserve/charts/llmisvc-crd --version {{ template "chart.version" . }}
+```

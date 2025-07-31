@@ -216,3 +216,5 @@ linters-settings:
         alias: "ctrl"
       - pkg: "sigs.k8s.io/controller-runtime/runtime"
         alias: "runtime"
+      - pkg: "sigs.k8s.io/gateway-api/apis/v1"
+        alias: "gwapiv1"
