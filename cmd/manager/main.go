@@ -40,7 +40,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	routev1 "github.com/openshift/api/route/v1"
 
@@ -236,7 +236,7 @@ func main() {
 	}
 
 	setupLog.Info("Setting up gateway api scheme")
-	if err := gatewayapiv1.Install(mgr.GetScheme()); err != nil {
+	if err := gwapiv1.Install(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add Gateway APIs to scheme")
 		os.Exit(1)
 	}

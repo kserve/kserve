@@ -126,6 +126,14 @@ manifests: controller-gen yq
 	# Copy the minimal crd to the helm chart
 	cp config/crd/minimal/* charts/kserve-crd-minimal/templates/
 	rm charts/kserve-crd-minimal/templates/kustomization.yaml
+    
+	# Generate llmisvc rbac
+	@$(CONTROLLER_GEN) rbac:roleName=llmisvc-manager-role paths={./pkg/controller/v1alpha1/llmisvc} output:rbac:artifacts:config=config/rbac/llmisvc
+	# Copy the cluster role to the helm chart
+	cat config/rbac/llmisvc/role.yaml > charts/llmisvc-resources/templates/clusterrole.yaml
+	# Copy llmisvc crd
+	cp config/crd/full/serving.kserve.io_llminferenceservices.yaml charts/llmisvc-crd/templates/
+	cp config/crd/full/serving.kserve.io_llminferenceserviceconfigs.yaml charts/llmisvc-crd/templates/
 
 # Generate code
 generate: controller-gen helm-docs
