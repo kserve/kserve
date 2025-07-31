@@ -188,7 +188,7 @@ class VLLMModel(
                     self.openai_serving_models,
                     request_logger=self.request_logger,
                 )
-                if self.model_config.task == "score"
+                if self.model_config.task == "classify"
                 else None
             )
 

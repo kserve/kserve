@@ -124,7 +124,7 @@ class TestDataPlane:
     async def test_server_metadata(self):
         with open(pathlib.Path(__file__).parent.parent / "pyproject.toml") as toml_file:
             toml_config = tomlkit.load(toml_file)
-            version = toml_config["tool"]["poetry"]["version"].strip()
+            version = toml_config["project"]["version"].strip()
 
         dataplane = DataPlane(model_registry=ModelRepository())
         expected_metadata = {

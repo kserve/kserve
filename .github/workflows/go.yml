@@ -10,9 +10,11 @@ on:
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: true
+
 permissions:
     contents: write
     pull-requests: write
+
 jobs:
     test:
         name: Test
@@ -157,27 +159,34 @@ jobs:
                   pr-number: ${{ github.event.pull_request.number }}
                   message: |
                     ## 📊 Go Test Coverage Report
+              - name: post coverage report
+                # this has evalated permission to post back the coverage, only restricted to this step.
+                if: github.event_name == 'pull_request_target'
+                uses: thollander/actions-comment-pull-request@v3
+                with:
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+                  comment-tag: coverage-report
+                  pr-number: ${{ github.event.pull_request.number }}
+                  message: |
+                    ## 📊 Go Test Coverage Report
 
-                    ${{ 
-                      steps.current-coverage.outputs.coverage > steps.master-coverage.outputs.coverage 
-                      && '✅ **Overall code coverage increased.**' 
-                      || steps.current-coverage.outputs.coverage < steps.master-coverage.outputs.coverage 
-                      && '❌ **Overall code coverage decreased.**' 
-                      || 'ℹ️ **Overall code coverage unchanged.**' 
-                    }}
+                      **🔍 Coverage Summary**
+                      - **Pull Request Coverage:** `${{ steps.current-coverage.outputs.coverage }}%`
+                      - **Main Branch Coverage:** `${{ steps.master-coverage.outputs.coverage }}%`
 
-                    **🔍 Coverage Summary**
-                    - **Pull Request Coverage:** `${{ steps.current-coverage.outputs.coverage }}%`
-                    - **Main Branch Coverage:** `${{ steps.master-coverage.outputs.coverage }}%`
+                      <details>
+                      <summary>📄 Click to expand full coverage breakdown</summary>
 
-                    <details>
-                    <summary>📄 Click to expand full coverage breakdown</summary>
+                      ```
+                      ${{ steps.full_coverage_report.outputs.report }}
+                      ```
 
-                    ```
-                    ${{ steps.full_coverage_report.outputs.report }}
-                    ```
+                      </details>
+              - name: Rename and upload master coverage
+                if: github.ref_name == 'master'
+                run: mv coverage.out master-coverage.out
 
-                    </details>
+                  </details>
               - name: Rename and upload master coverage
                 if: github.ref_name == 'master'
                 run: mv coverage.out master-coverage.out

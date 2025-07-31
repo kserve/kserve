@@ -10347,11 +10347,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						}},
 						Processors: &otelv1beta1.AnyConfig{Object: map[string]interface{}{
-							"filter/ottl": map[string]interface{}{
-								"error_mode": "ignore",
+							"filter/metrics": map[string]interface{}{
 								"metrics": map[string]interface{}{
-									"metric": []interface{}{
-										`name != "process_cpu_seconds_total"`,
+									"include": map[string]interface{}{
+										"match_type":   "strict",
+										"metric_names": []interface{}{string("process_cpu_seconds_total")},
 									},
 								},
 							},
@@ -10369,7 +10369,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Pipelines: map[string]*otelv1beta1.Pipeline{
 								"metrics": {
 									Receivers:  []string{"prometheus"},
-									Processors: []string{"filter/ottl"},
+									Processors: []string{"filter/metrics"},
 									Exporters:  []string{"otlp"},
 								},
 							},
