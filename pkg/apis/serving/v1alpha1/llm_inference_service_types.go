@@ -134,10 +134,6 @@ type LLMModelSpec struct {
 	// Allows for specifying one or more LoRA adapters to be applied to the base model.
 	// +optional
 	LoRA *LoRASpec `json:"lora,omitempty"`
-
-	// Storage specification for the model, such as path and credentials.
-	// This is used by the storage-initializer to correctly download the model from the specified URI.
-	Storage *LLMStorageSpec `json:"storage,omitempty"`
 }
 
 // LoRASpec defines the configuration for LoRA adapters.
@@ -263,21 +259,6 @@ type ParallelismSpec struct {
 	// Expert enables expert parallelism.
 	// +optional
 	Expert bool `json:"expert,omitempty"`
-}
-
-// LLMStorageSpec is a copy of the v1beta1.StorageSpec. It is duplicated here to avoid
-// import cycles between the v1alpha1 and v1beta1 API packages.
-type LLMStorageSpec struct {
-	// The path to the model object in the storage. It cannot co-exist
-	// with the storageURI.
-	// +optional
-	Path *string `json:"path,omitempty"`
-	// Parameters to override the default storage credentials and config.
-	// +optional
-	Parameters *map[string]string `json:"parameters,omitempty"`
-	// The Storage Key in the secret for this model.
-	// +optional
-	StorageKey *string `json:"key,omitempty"`
 }
 
 // UntypedObjectReference is a reference to an object without a specific Group/Version/Kind.
