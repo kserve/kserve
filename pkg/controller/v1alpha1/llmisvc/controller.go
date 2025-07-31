@@ -18,8 +18,15 @@ package llmisvc
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
-	"k8s.io/apimachinery/pkg/runtime"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/webhook/admission/pod"
+
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -34,7 +41,8 @@ import (
 // This controller is responsible for managing the lifecycle of LLMInferenceService resources.
 type LLMISVCReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	record.EventRecorder
+	Clientset kubernetes.Interface
 }
 
 func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -49,4 +57,40 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.LLMInferenceService{}).
 		Complete(r)
+}
+
+func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, error) {
+	isvcConfigMap, errCfgMap := v1beta1.GetInferenceServiceConfigMap(ctx, clientset) // Fetch directly from API Server
+	if errCfgMap != nil {
+		return nil, fmt.Errorf("failed to load InferenceServiceConfigMap: %w", errCfgMap)
+	}
+
+	ingressConfig, errConvert := v1beta1.NewIngressConfig(isvcConfigMap)
+	if errConvert != nil {
+		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to IngressConfig: %w", errConvert)
+	}
+
+	storageInitializerConfig, errConvert := pod.GetStorageInitializerConfigs(isvcConfigMap)
+	if errConvert != nil {
+		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to StorageInitializerConfig: %w", errConvert)
+	}
+
+	return NewConfig(ingressConfig, storageInitializerConfig), nil
+}
+
+func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *pod.StorageInitializerConfig) *Config {
+	igwNs := constants.KServeNamespace
+	igwName := ingressConfig.KserveIngressGateway
+	igw := strings.Split(igwName, "/")
+	if len(igw) == 2 {
+		igwNs = igw[0]
+		igwName = igw[1]
+	}
+
+	return &Config{
+		SystemNamespace:         constants.KServeNamespace,
+		IngressGatewayNamespace: igwNs,
+		IngressGatewayName:      igwName,
+		StorageConfig:           storageConfig,
+	}
 }
