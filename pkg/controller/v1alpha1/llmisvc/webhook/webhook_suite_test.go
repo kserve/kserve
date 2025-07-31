@@ -14,16 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package llmisvc
+package webhook_test
 
 import (
-	"github.com/kserve/kserve/pkg/types"
+	"testing"
+
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc/fixture"
+
+	pkgtest "github.com/kserve/kserve/pkg/testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-type Config struct {
-	SystemNamespace         string `json:"systemNamespace,omitempty"`
-	IngressGatewayName      string `json:"ingressGatewayName,omitempty"`
-	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
-
-	StorageConfig *types.StorageInitializerConfig `json:"-"`
+func TestWebhooks(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "LLMInferenceService Controller Suite")
 }
+
+var envTest *pkgtest.Client
+
+var _ = SynchronizedBeforeSuite(func() {
+	envTest = fixture.SetupTestEnv()
+}, func() {})
