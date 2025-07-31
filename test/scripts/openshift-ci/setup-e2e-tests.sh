@@ -60,10 +60,11 @@ fi
 
 echo "Installing KServe Python SDK ..."
 pushd $PROJECT_ROOT >/dev/null
-  ./test/scripts/gh-actions/setup-poetry.sh
+  ./test/scripts/gh-actions/setup-uv.sh
 popd
 pushd $PROJECT_ROOT/python/kserve >/dev/null
-  poetry install --with=test --no-interaction
+  uv sync --active --group test
+  uv pip install timeout-sampler
 popd
 
 $MY_PATH/deploy.cma.sh
