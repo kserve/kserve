@@ -72,7 +72,7 @@ var WellKnownDefaultConfigs = sets.New[string](
 // combineBaseRefsConfig applies well-known config overlays to inject default values for various components, when some components are
 // enabled. These LLMInferenceServiceConfig resources must exist in either resource namespace (prioritized) or
 // SystemNamespace (e.g. `kserve`).
-func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, reconcilerConfig *Config) (*v1alpha1.LLMInferenceServiceConfig, error) {
+func (r *LLMInferenceServiceReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, reconcilerConfig *Config) (*v1alpha1.LLMInferenceServiceConfig, error) {
 	// Creates the initial spec with the merged BaseRefs, so that we know what's "Enabled".
 	resolvedSpec := *llmSvc.Spec.DeepCopy()
 	for _, ref := range llmSvc.Spec.BaseRefs {
@@ -205,7 +205,7 @@ func ReplaceVariables(llmSvc *v1alpha1.LLMInferenceService, llmSvcCfg *v1alpha1.
 
 // getConfig retrieves kserveapis.LLMInferenceServiceConfig with the given name from either the kserveapis.LLMInferenceService
 // namespace or from the SystemNamespace (e.g. 'kserve'), prioritizing the former.
-func (r *LLMISVCReconciler) getConfig(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, name string) (*v1alpha1.LLMInferenceServiceConfig, error) {
+func (r *LLMInferenceServiceReconciler) getConfig(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, name string) (*v1alpha1.LLMInferenceServiceConfig, error) {
 	cfg := &v1alpha1.LLMInferenceServiceConfig{}
 	if err := r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: llmSvc.Namespace}, cfg); err != nil {
 		if apierrors.IsNotFound(err) {
