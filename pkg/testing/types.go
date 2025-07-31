@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2023 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,10 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package llmisvc
+package testing
 
-type Config struct {
-	SystemNamespace         string `json:"systemNamespace,omitempty"`
-	IngressGatewayName      string `json:"ingressGatewayName,omitempty"`
-	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
-}
+import (
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+)
+
+type (
+	SetupFunc       func(cfg *rest.Config, mgr ctrl.Manager) error
+	AddToSchemeFunc func(scheme *runtime.Scheme) error
+)

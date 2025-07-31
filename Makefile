@@ -99,6 +99,8 @@ manifests: controller-gen yq
 	# Copy the llmisvc templates 
 	cp config/llmisvc/* charts/llmisvc-resources/templates/ 
 	rm charts/llmisvc-resources/templates/kustomization.yaml
+	# Copy the webhook configuration to the helm chart
+	cat config/webhook/manifests.yaml > charts/kserve-resources/templates/webhookconfiguration.yaml
 	
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
