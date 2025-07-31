@@ -19,7 +19,8 @@ package llmisvc
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -34,7 +35,8 @@ import (
 // This controller is responsible for managing the lifecycle of LLMInferenceService resources.
 type LLMISVCReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	record.EventRecorder
+	Clientset kubernetes.Interface
 }
 
 func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
