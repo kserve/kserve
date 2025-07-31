@@ -18,7 +18,7 @@
 
 
 # Update KServe configurations to use the correct tag. This replaces all 'latest' entries in the configmap include the
-# agent and storage-initializer.
+# agent and storage-initializer, localmodelnodeagent.
 sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice.yaml
 
 # Update cluster resources
@@ -31,4 +31,4 @@ sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/manager_image_patch.ya
 sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/localmodel_manager_image_patch.yaml
 
 # Update localmodel agent image tag
-sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/localmodelnode_agent_image_patch.yaml
+sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice-enable-modelcache.yaml
