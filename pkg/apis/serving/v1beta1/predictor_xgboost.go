@@ -17,11 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	"strconv"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // XGBoostSpec defines arguments for configuring XGBoost model serving.
@@ -30,9 +29,7 @@ type XGBoostSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &XGBoostSpec{}
-)
+var _ ComponentImplementation = &XGBoostSpec{}
 
 // Default sets defaults on the resource
 func (x *XGBoostSpec) Default(config *InferenceServicesConfig) {
@@ -43,71 +40,10 @@ func (x *XGBoostSpec) Default(config *InferenceServicesConfig) {
 		x.ProtocolVersion = &defaultProtocol
 	}
 
-	setResourceRequirementDefaults(&x.Resources)
+	setResourceRequirementDefaults(config, &x.Resources)
 }
 
-// nolint: unused
-func (x *XGBoostSpec) getEnvVarsV2() []v1.EnvVar {
-	vars := []v1.EnvVar{
-		{
-			Name:  constants.MLServerHTTPPortEnv,
-			Value: strconv.Itoa(int(constants.MLServerISRestPort)),
-		},
-		{
-			Name:  constants.MLServerGRPCPortEnv,
-			Value: strconv.Itoa(int(constants.MLServerISGRPCPort)),
-		},
-		{
-			Name:  constants.MLServerModelsDirEnv,
-			Value: constants.DefaultModelLocalMountPath,
-		},
-	}
-
-	if x.StorageURI == nil {
-		vars = append(
-			vars,
-			v1.EnvVar{
-				Name:  constants.MLServerLoadModelsStartupEnv,
-				Value: strconv.FormatBool(false),
-			},
-		)
-	}
-
-	return vars
-}
-
-// nolint: unused
-func (x *XGBoostSpec) getDefaultsV2(metadata metav1.ObjectMeta) []v1.EnvVar {
-	// These env vars set default parameters that can always be overridden
-	// individually through `model-settings.json` config files.
-	// These will be used as fallbacks for any missing properties and / or to run
-	// without a `model-settings.json` file in place.
-	vars := []v1.EnvVar{
-		{
-			Name:  constants.MLServerModelImplementationEnv,
-			Value: constants.MLServerXGBoostImplementation,
-		},
-	}
-
-	if x.StorageURI != nil {
-		// These env vars only make sense as a default for non-MMS servers
-		vars = append(
-			vars,
-			v1.EnvVar{
-				Name:  constants.MLServerModelNameEnv,
-				Value: metadata.Name,
-			},
-			v1.EnvVar{
-				Name:  constants.MLServerModelURIEnv,
-				Value: constants.DefaultModelLocalMountPath,
-			},
-		)
-	}
-
-	return vars
-}
-
-func (x *XGBoostSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {
+func (x *XGBoostSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *corev1.Container {
 	return &x.Container
 }
 

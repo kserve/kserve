@@ -18,33 +18,31 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-KUBE_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
-CODEGEN_VERSION=$(cd "${KUBE_ROOT}" && grep 'k8s.io/code-generator' go.mod | awk '{print $2}')
+SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+SCRIPT_ROOT="${SCRIPT_DIR}/.."
+CODEGEN_VERSION=$(cd "${SCRIPT_ROOT}" && grep 'k8s.io/code-generator' go.mod | awk '{print $2}')
+KUBE_CODEGEN_TAG=${CODEGEN_VERSION}
+
+# For debugging purposes
+echo "Codegen version ${CODEGEN_VERSION}"
 
 if [ -z "${GOPATH:-}" ]; then
     GOPATH=$(go env GOPATH)
     export GOPATH
 fi
 CODEGEN_PKG="$GOPATH/pkg/mod/k8s.io/code-generator@${CODEGEN_VERSION}"
+THIS_PKG="github.com/kserve/kserve"
 
-# To avoid permission denied error
-chmod +x "${CODEGEN_PKG}/generate-groups.sh"
-chmod +x "${CODEGEN_PKG}/generate-internal-groups.sh"
+# shellcheck source=/dev/null
+source "${CODEGEN_PKG}/kube_codegen.sh"
 
-# We can not generate client-go for v1alpha1 and v1beta1 and add them to the same directory.
-# So, we add each to a separate directory.
-# Generating files for v1alpha1
-"${CODEGEN_PKG}/generate-groups.sh" \
-    "deepcopy,client,informer,lister" \
-    "github.com/kserve/kserve/pkg/clientv1alpha1" \
-    "github.com/kserve/kserve/pkg/apis" \
-    "serving:v1alpha1" \
-    --go-header-file "${KUBE_ROOT}/hack/boilerplate.go.txt"
+kube::codegen::gen_helpers \
+    --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
+    "${SCRIPT_ROOT}"
 
-# Generating files for v1beta1
-"${CODEGEN_PKG}/generate-groups.sh" \
-    "deepcopy,client,informer,lister" \
-    "github.com/kserve/kserve/pkg/client" \
-    "github.com/kserve/kserve/pkg/apis" \
-    "serving:v1beta1" \
-    --go-header-file "${KUBE_ROOT}/hack/boilerplate.go.txt"
+kube::codegen::gen_client \
+    --with-watch \
+    --output-dir "${SCRIPT_ROOT}/pkg/client" \
+    --output-pkg "${THIS_PKG}/pkg/client" \
+    --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
+    "${SCRIPT_ROOT}/pkg/apis"

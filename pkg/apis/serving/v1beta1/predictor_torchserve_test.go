@@ -22,7 +22,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -60,9 +60,9 @@ func TestTorchServeValidation(t *testing.T) {
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						RuntimeVersion: proto.String("0.7.0"),
-						Container: v1.Container{
-							Resources: v1.ResourceRequirements{
-								Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
+						Container: corev1.Container{
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
 							},
 						},
 					},
@@ -88,9 +88,17 @@ func TestTorchServeDefaulter(t *testing.T) {
 
 	protocolV1 := constants.ProtocolV1
 
-	defaultResource = v1.ResourceList{
-		v1.ResourceMemory: resource.MustParse("2Gi"),
-		v1.ResourceCPU:    resource.MustParse("1"),
+	defaultResource := corev1.ResourceList{
+		corev1.ResourceMemory: resource.MustParse("2Gi"),
+		corev1.ResourceCPU:    resource.MustParse("1"),
+	}
+	config := &InferenceServicesConfig{
+		Resource: ResourceConfig{
+			CPULimit:      "1",
+			MemoryLimit:   "2Gi",
+			CPURequest:    "1",
+			MemoryRequest: "2Gi",
+		},
 	}
 	scenarios := map[string]struct {
 		spec     PredictorSpec
@@ -106,9 +114,9 @@ func TestTorchServeDefaulter(t *testing.T) {
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						ProtocolVersion: &protocolV1,
-						Container: v1.Container{
+						Container: corev1.Container{
 							Name: constants.InferenceServiceContainerName,
-							Resources: v1.ResourceRequirements{
+							Resources: corev1.ResourceRequirements{
 								Requests: defaultResource,
 								Limits:   defaultResource,
 							},
@@ -131,9 +139,9 @@ func TestTorchServeDefaulter(t *testing.T) {
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						RuntimeVersion:  proto.String("0.7.0"),
 						ProtocolVersion: &protocolV1,
-						Container: v1.Container{
+						Container: corev1.Container{
 							Name: constants.InferenceServiceContainerName,
-							Resources: v1.ResourceRequirements{
+							Resources: corev1.ResourceRequirements{
 								Requests: defaultResource,
 								Limits:   defaultResource,
 							},
@@ -146,7 +154,7 @@ func TestTorchServeDefaulter(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.PyTorch.Default(nil)
+			scenario.spec.PyTorch.Default(config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
@@ -205,12 +213,12 @@ func TestTorchServeSpec_GetContainer(t *testing.T) {
 				PyTorch: &TorchServeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						StorageURI: proto.String("s3://modelzoo"),
-						Container: v1.Container{
+						Container: corev1.Container{
 							Name:      constants.InferenceServiceContainerName,
 							Image:     "image:0.1",
 							Args:      nil,
 							Env:       nil,
-							Resources: v1.ResourceRequirements{},
+							Resources: corev1.ResourceRequirements{},
 						},
 					},
 				},

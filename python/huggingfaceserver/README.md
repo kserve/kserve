@@ -140,6 +140,34 @@ spec:
           nvidia.com/gpu: "1"
 ```
 
+4. To Use Speculative model loading include the flag ` --speculative-model="facebook/opt-125m" --num-speculative-tokens 5` in the container args. In this case the vLLM backend will use speculative model.
+
+```yaml
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: huggingface-llama2
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: huggingface
+      args:
+      - --model_name=llama2
+      - --model_id=meta-llama/Llama-2-7b-chat-hf
+      - --speculative-model="facebook/opt-125m"
+      - --num-speculative-tokens 5
+      resources:
+        limits:
+          cpu: "6"
+          memory: 24Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "6"
+          memory: 24Gi
+          nvidia.com/gpu: "1"
+```
+
 
 If vllm needs to be disabled include the flag `--backend=huggingface` in the container args. In this case the HuggingFace backend is used.
 
@@ -187,3 +215,38 @@ curl -H "content-type:application/json" -v localhost:8080/openai/v1/chat/complet
 
 {"id":"cmpl-87ee252062934e2f8f918dce011e8484","choices":[{"finish_reason":"length","index":0,"message":{"content":"<generated_response>","tool_calls":null,"role":"assistant","function_call":null},"logprobs":null}],"created":1715353461,"model":"gpt2","system_fingerprint":null,"object":"chat.completion","usage":{"completion_tokens":30,"prompt_tokens":3,"total_tokens":33}}
 ```
+
+### KServe HuggingFace vLLM Runtime Support for CPU
+vLLM powered by [Intel® Extension for PyTorch*](https://github.com/intel/intel-extension-for-pytorch) supports all LLM models from vLLM supported models list and can perform optimal model serving on all x86-64 CPUs with, at least, AVX2 support. You can find more information [here](https://docs.vllm.ai/en/stable/getting_started/installation/cpu/index.html). To run the vLLM engine on a CPU, a separate vLLM package is required, which entails creating a different Hugging Face server Docker image. The Docker image supporting the vLLM runtime on GPUs has a '-gpu' suffix in its tag (e.g., kserve/huggingfaceserver:v0.14.0-gpu), while the image for CPU support does not include the suffix (e.g., kserve/huggingfaceserver:v0.14.0). The runtime image to be used will be determined based on whether the InferenceService specifies nvidia.com/gpu in its resource requirements.
+
+Serve the llama3.1 model using KServe HuggingFace vLLM runtime on CPU. For the llama3.1 model, vLLM is supported and used as the default backend.
+If available for a model, vLLM is set as the default backend, otherwise KServe HuggingFace runtime is used as a failsafe.
+You can find vLLM supported models [here](https://docs.vllm.ai/en/latest/models/supported_models.html).
+
+```yaml
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: huggingface-llama3.1
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: huggingface
+      args:
+      - --model_name=llama3.1
+      - --model_id=meta-llama/Meta-Llama-3.1-8B-Instruct
+      resources:
+        limits:
+          cpu: "16"
+          memory: 32Gi
+        requests:
+          cpu: "16"
+          memory: 32Gi
+```
+
+**Points to note**:
+
+- The Hugging Face vLLM Runtime CPU image is compatible with all x86-64 CPUs that support at least the AVX2 instruction set architecture (ISA). On CPUs lacking atleast AVX2 support, model loading will fail.
+- LoRA serving is not supported.
+- Tensor and pipeline parallelism are not currently enabled in vLLM integration.

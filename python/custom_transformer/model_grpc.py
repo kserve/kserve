@@ -43,11 +43,11 @@ def image_transform(data):
 
 
 class ImageTransformer(Model):
-    def __init__(self, name: str, predictor_host: str, protocol: str):
+    def __init__(
+        self,
+        name: str,
+    ):
         super().__init__(name)
-        self.predictor_host = predictor_host
-        self.protocol = protocol
-        self.model_name = name
         self.ready = True
 
     def preprocess(
@@ -65,9 +65,7 @@ class ImageTransformer(Model):
                 data=input_tensors,
             )
         ]
-        infer_request = InferRequest(
-            model_name=self.model_name, infer_inputs=infer_inputs
-        )
+        infer_request = InferRequest(model_name=self.name, infer_inputs=infer_inputs)
         return infer_request
 
 
@@ -77,9 +75,5 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     if args.configure_logging:
         logging.configure_logging(args.log_config_file)
-    model = ImageTransformer(
-        args.model_name,
-        predictor_host=args.predictor_host,
-        protocol=args.predictor_protocol,
-    )
+    model = ImageTransformer(args.model_name)
     ModelServer(workers=1).start([model])

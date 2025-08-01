@@ -46,7 +46,6 @@ if __name__ == "__main__":
         logging.configure_logging(args.log_config_file)
     model = ARTModel(
         args.model_name,
-        args.predictor_host,
         adversary_type=args.adversary_type,
         nb_classes=args.nb_classes,
         max_iter=args.max_iter,

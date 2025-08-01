@@ -109,6 +109,7 @@ chmod +x $GOPATH/bin/yq
 sed -i -e "s/latest/${PULL_BASE_SHA}/g" config/overlays/test/configmap/inferenceservice.yaml
 sed -i -e "s/latest/${PULL_BASE_SHA}/g" config/overlays/test/clusterresources/kustomization.yaml
 sed -i -e "s/latest/${PULL_BASE_SHA}/g" config/overlays/test/manager_image_patch.yaml
+sed -i -e "s/latest/${PULL_BASE_SHA}/g" config/overlays/test/localmodel_manager_image_patch.yaml
 make deploy-ci
 
 echo "Waiting for KServe started ..."

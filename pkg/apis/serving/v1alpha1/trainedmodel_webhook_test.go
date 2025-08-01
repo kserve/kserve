@@ -18,11 +18,12 @@ package v1alpha1
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 var (
@@ -127,13 +128,14 @@ func TestValidateCreate(t *testing.T) {
 		},
 	}
 
+	validator := TrainedModelValidator{}
 	for testName, scenario := range scenarios {
 		t.Run(testName, func(t *testing.T) {
 			tm := &scenario.tm
 			for tmField, value := range scenario.update {
 				tm.update(tmField, value)
 			}
-			warnings, err := scenario.tm.ValidateCreate()
+			warnings, err := validator.ValidateCreate(t.Context(), tm)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
@@ -251,13 +253,14 @@ func TestValidateUpdate(t *testing.T) {
 		},
 	}
 
+	validator := TrainedModelValidator{}
 	for testName, scenario := range scenarios {
 		t.Run(testName, func(t *testing.T) {
 			tm := &scenario.tm
 			for tmField, value := range scenario.update {
 				tm.update(tmField, value)
 			}
-			warnings, err := scenario.tm.ValidateUpdate(old)
+			warnings, err := validator.ValidateUpdate(t.Context(), old, tm)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
@@ -283,9 +286,10 @@ func TestValidateDelete(t *testing.T) {
 		},
 	}
 
+	validator := TrainedModelValidator{}
 	for testName, scenario := range scenarios {
 		t.Run(testName, func(t *testing.T) {
-			warnings, err := scenario.tm.ValidateDelete()
+			warnings, err := validator.ValidateDelete(t.Context(), &scenario.tm)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
@@ -297,15 +301,18 @@ func TestValidateDelete(t *testing.T) {
 }
 
 func (tm *TrainedModel) update(tmField string, value string) {
-	if tmField == name {
+	switch tmField {
+	case name:
 		tm.Name = value
-	} else if tmField == infereceservice {
+	case infereceservice:
 		tm.Spec.InferenceService = value
-	} else if tmField == storageURI {
+	case storageURI:
 		tm.Spec.Model.StorageURI = value
-	} else if tmField == framework {
+	case framework:
 		tm.Spec.Model.Framework = value
-	} else if tmField == memory {
+	case memory:
 		tm.Spec.Model.Memory = resource.MustParse(value)
+	default:
+		// do nothing
 	}
 }

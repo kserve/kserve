@@ -23,8 +23,9 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/kserve/kserve/pkg/agent/mocks"
 	"github.com/onsi/gomega"
+
+	"github.com/kserve/kserve/pkg/agent/mocks"
 )
 
 func TestCreate(t *testing.T) {
@@ -33,32 +34,32 @@ func TestCreate(t *testing.T) {
 	// This would get called in StartPullerAndProcessModels
 	syscall.Umask(0)
 
-	tmpDir, _ := os.MkdirTemp("", "test-create-")
-	defer os.RemoveAll(tmpDir)
-
+	tmpDir := t.TempDir()
 	folderPath := path.Join(tmpDir, "foo")
 	filePath := path.Join(folderPath, "bar.txt")
 	f, err := Create(filePath)
+	if err != nil {
+		t.Fatalf("Unable to create file: %v", err)
+	}
 	defer f.Close()
 
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(folderPath).To(gomega.BeADirectory())
 
 	info, _ := os.Stat(folderPath)
 	mode := info.Mode()
-	expectedMode := os.FileMode(0777)
+	expectedMode := os.FileMode(0o777)
 	g.Expect(mode.Perm()).To(gomega.Equal(expectedMode))
 }
 
 func TestFileExists(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	syscall.Umask(0)
-	tmpDir, _ := os.MkdirTemp("", "test")
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Test case for existing file
 	f, err := os.CreateTemp(tmpDir, "tmpfile")
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(FileExists(f.Name())).To(gomega.BeTrue())
 	f.Close()
 
@@ -73,19 +74,29 @@ func TestFileExists(t *testing.T) {
 func TestRemoveDir(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	syscall.Umask(0)
-	tmpDir, _ := os.MkdirTemp("", "test")
-	subDir, _ := os.MkdirTemp(tmpDir, "test")
-	os.CreateTemp(subDir, "tmp")
+	tmpDir := t.TempDir()
+
+	// Create a subdirectory within tmpDir
+	subDir := filepath.Join(tmpDir, "test")
+	err := os.Mkdir(subDir, 0o755)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	f, err := os.CreateTemp(subDir, "tmp")
+	if err != nil {
+		t.Fatalf("os.CreateTemp failed: %v", err)
+	}
+	defer f.Close()
+
 	os.CreateTemp(tmpDir, "tmp")
 
-	err := RemoveDir(tmpDir)
-	g.Expect(err).To(gomega.BeNil())
+	err = RemoveDir(tmpDir)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	_, err = os.Stat(tmpDir)
 	g.Expect(os.IsNotExist(err)).To(gomega.BeTrue())
 
 	// Test case for non existing directory
 	err = RemoveDir("directoryNotExist")
-	g.Expect(err).NotTo(gomega.BeNil())
+	g.Expect(err).To(gomega.HaveOccurred())
 }
 
 func TestGetProvider(t *testing.T) {
@@ -99,13 +110,13 @@ func TestGetProvider(t *testing.T) {
 		},
 	}
 	provider, err := GetProvider(mockProviders, S3)
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(provider).Should(gomega.Equal(mockProviders[S3]))
 
 	// When providers map does not have specified provider
 	for _, protocol := range SupportedProtocols {
 		provider, err = GetProvider(map[Protocol]Provider{}, protocol)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 		g.Expect(provider).ShouldNot(gomega.BeNil())
 	}
 }

@@ -22,11 +22,12 @@ import (
 	"google.golang.org/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestLightGBMValidation(t *testing.T) {
@@ -60,10 +61,19 @@ func TestLightGBMValidation(t *testing.T) {
 
 func TestLightGBMDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
+	defaultResource := corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse("1"),
+		corev1.ResourceMemory: resource.MustParse("2Gi"),
 	}
+	config := &InferenceServicesConfig{
+		Resource: ResourceConfig{
+			CPULimit:      "1",
+			MemoryLimit:   "2Gi",
+			CPURequest:    "1",
+			MemoryRequest: "2Gi",
+		},
+	}
+
 	scenarios := map[string]struct {
 		spec     PredictorSpec
 		expected PredictorSpec
@@ -80,9 +90,9 @@ func TestLightGBMDefaulter(t *testing.T) {
 				LightGBM: &LightGBMSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						RuntimeVersion: proto.String("v0.3.0"),
-						Container: v1.Container{
+						Container: corev1.Container{
 							Name: constants.InferenceServiceContainerName,
-							Resources: v1.ResourceRequirements{
+							Resources: corev1.ResourceRequirements{
 								Requests: defaultResource,
 								Limits:   defaultResource,
 							},
@@ -95,7 +105,7 @@ func TestLightGBMDefaulter(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.LightGBM.Default(nil)
+			scenario.spec.LightGBM.Default(config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
@@ -104,20 +114,19 @@ func TestLightGBMDefaulter(t *testing.T) {
 }
 
 func TestCreateLightGBMModelServingContainer(t *testing.T) {
-
-	var requestedResource = v1.ResourceRequirements{
-		Limits: v1.ResourceList{
+	requestedResource := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
 			"cpu": resource.MustParse("100m"),
 		},
-		Requests: v1.ResourceList{
+		Requests: corev1.ResourceList{
 			"cpu": resource.MustParse("90m"),
 		},
 	}
-	var config = InferenceServicesConfig{}
+	config := InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
-		expectedContainerSpec *v1.Container
+		expectedContainerSpec *corev1.Container
 	}{
 		"ContainerSpecWithDefaultImage": {
 			isvc: InferenceService{
@@ -130,7 +139,7 @@ func TestCreateLightGBMModelServingContainer(t *testing.T) {
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
 								RuntimeVersion: proto.String("0.1.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Resources: requestedResource,
 								},
 							},
@@ -138,7 +147,7 @@ func TestCreateLightGBMModelServingContainer(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &v1.Container{
+			expectedContainerSpec: &corev1.Container{
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 			},
@@ -153,7 +162,7 @@ func TestCreateLightGBMModelServingContainer(t *testing.T) {
 						LightGBM: &LightGBMSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: proto.String("gs://someUri"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
 								},
@@ -162,7 +171,7 @@ func TestCreateLightGBMModelServingContainer(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &v1.Container{
+			expectedContainerSpec: &corev1.Container{
 				Image:     "customImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
@@ -182,7 +191,7 @@ func TestCreateLightGBMModelServingContainer(t *testing.T) {
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
 								RuntimeVersion: proto.String("0.1.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Resources: requestedResource,
 								},
 							},
@@ -190,7 +199,7 @@ func TestCreateLightGBMModelServingContainer(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &v1.Container{
+			expectedContainerSpec: &corev1.Container{
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 			},
@@ -209,7 +218,7 @@ func TestCreateLightGBMModelServingContainer(t *testing.T) {
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
 								RuntimeVersion: proto.String("0.1.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Resources: requestedResource,
 									Args: []string{
 										constants.ArgumentWorkers + "=1",
@@ -220,7 +229,7 @@ func TestCreateLightGBMModelServingContainer(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &v1.Container{
+			expectedContainerSpec: &corev1.Container{
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 				Args: []string{

@@ -41,7 +41,99 @@ data:
                "defaultImageVersion": "latest"
            }
        }
-     
+    # ====================================== ISVC CONFIGURATION ======================================
+    # Example - setting custom annotation  
+     inferenceService: |-
+       {
+         "serviceAnnotationDisallowedList": [
+            "my.custom.annotation/1"  
+         ],
+         "serviceLabelDisallowedList": [
+            "my.custom.label.1"  
+         ]
+       }
+    # Example - setting custom annotation
+    inferenceService: |-
+      {
+        # ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative 
+        # revisions, which prevents the reconciliation loop to be triggered if the annotations is 
+        # configured here are used.
+        # Default values are:
+        #  "autoscaling.knative.dev/min-scale",
+        #  "autoscaling.knative.dev/max-scale",
+        #  "internal.serving.kserve.io/storage-initializer-sourceuri",
+        #  "kubectl.kubernetes.io/last-applied-configuration"
+        # Any new value will be appended to the list.
+        "serviceAnnotationDisallowedList": [
+          "my.custom.annotation/1"  
+        ],
+        # ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions
+        # which prevents the reconciliation loop to be triggered if the labels is configured here are used.
+        "serviceLabelDisallowedList": [
+          "my.custom.label.1"  
+        ]
+      } 
+    # Example - setting custom resource
+    inferenceService: |-
+      {
+        "resource": {
+          "cpuLimit": "1",
+          "memoryLimit": "2Gi",
+          "cpuRequest": "1",
+          "memoryRequest": "2Gi"
+        }
+      }
+    # Example - setting custom resource
+    inferenceService: |-
+      {
+        # resource contains the default resource configuration for the inference service.
+        # you can override this configuration by specifying the resources in the inference service yaml.
+        # If you want to unbound the resource (limits and requests), you can set the value to null or "" 
+        # or just remove the specific field from the config.
+        "resource": {
+           # cpuLimit is the limits.cpu to set for the inference service.
+           "cpuLimit": "1",
+    
+           # memoryLimit is the limits.memory to set for the inference service.
+           "memoryLimit": "2Gi",
+    
+           # cpuRequest is the requests.cpu to set for the inference service.
+           "cpuRequest": "1",
+    
+           # memoryRequest is the requests.memory to set for the inference service.
+           "memoryRequest": "2Gi"
+        }
+     }
+    # ====================================== MultiNode CONFIGURATION ======================================
+    # Example   
+    multiNode: |-
+      {
+        "customGPUResourceTypeList": [
+          "custom.com/gpu"
+        ]
+      }
+    # Example of multinode configuration
+    multiNode: |-
+      {      
+        # CustomGPUResourceTypeList is a list of custom GPU resource types intended to identify the GPU type of a resource,
+        # not to restrict the user from using a specific GPU type.
+        # The MultiNode runtime pod will dynamically add GPU resources based on the registered GPU types.
+        "customGPUResourceTypeList": [
+          "custom.com/gpu"
+        ]
+      }  
+     # ====================================== OTelCollector CONFIGURATION ======================================
+     # Example
+     opentelemetryCollector: |-
+       {
+         # scrapeInterval is the interval at which the OpenTelemetry Collector will scrape the metrics.
+         "scrapeInterval": "5s",
+         # metricScalerEndpoint is the endpoint from which the KEDA's ScaledObject will scrape the metrics.
+         "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318",
+         # metricReceiverEndpoint is the endpoint from which the OpenTelemetry Collector will scrape the metrics.
+          "metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317"
+       }
+      
      # ====================================== STORAGE INITIALIZER CONFIGURATION ======================================
      # Example
      storageInitializer: |-
@@ -85,7 +177,7 @@ data:
            # if pvc volume is provided in storageuri then the pvc volume is directly mounted to /mnt/models in the user container.
            # rather than symlink it to a shared volume. For more info see https://github.com/kserve/kserve/issues/2737
            "enableDirectPvcVolumeMount": true,
-    
+
            # enableModelcar enabled allows you to directly access an OCI container image by
            # using a source URL with an "oci://" schema.
            "enableModelcar": false,
@@ -190,9 +282,10 @@ data:
      # ====================================== INGRESS CONFIGURATION ======================================
      # Example
      ingress: |-
-       {
+       {    
+           "enableGatewayApi": false,
+           "kserveIngressGateway": "kserve/kserve-ingress-gateway",
            "ingressGateway" : "knative-serving/knative-ingress-gateway",
-           "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
            "localGateway" : "knative-serving/knative-local-gateway",
            "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
            "ingressDomain"  : "example.com",
@@ -204,15 +297,31 @@ data:
            "disableIngressCreation": false
        }
      ingress: |-
-       {
+       {   
+           # enableGatewayApi specifies whether to use Gateway API instead of Ingress to serve external traffic.
+           "enableGatewayApi": false,
+
+           # KServe implements [Gateway API](https://gateway-api.sigs.k8s.io/) to serve external traffic. 
+           # By default, KServe configures a default gateway to serve external traffic.
+           # But, KServe can be configured to use a custom gateway by modifying this configuration.
+           # The gateway should be specified in format <gateway namespace>/<gateway name>
+           # NOTE: This configuration only applicable for raw deployment.
+           "kserveIngressGateway": "kserve/kserve-ingress-gateway",
+     
            # ingressGateway specifies the ingress gateway to serve external traffic.
            # The gateway should be specified in format <gateway namespace>/<gateway name>
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
            "ingressGateway" : "knative-serving/knative-ingress-gateway",
      
-           # ingressService specifies the hostname of the ingress service.
+           # knativeLocalGatewayService specifies the hostname of the Knative's local gateway service.
+           # The default KServe configurations are re-using the Istio local gateways for Knative. In this case, this
+           # knativeLocalGatewayService field can be left unset. When unset, the value of "localGatewayService" will be used.
+           # However, sometimes it may be better to have local gateways specifically for KServe (e.g. when enabling strict mTLS in Istio).
+           # Under such setups where KServe is needed to have its own local gateways, the values of the "localGateway" and
+           # "localGatewayService" should point to the KServe local gateways. Then, this knativeLocalGatewayService field
+           # should point to the Knative's local gateway service.
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
-           "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
+           "knativeLocalGatewayService": "",
      
            # localGateway specifies the gateway which handles the network traffic within the cluster.
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
@@ -377,7 +486,9 @@ data:
            "cpuLimit": "1",
            "headers": {
              "propagate": []
-           }
+           },
+           "imagePullPolicy": "IfNotPresent",
+           "imagePullSecrets": ["docker-secret"]
        }
      # router is the implementation of inference graph.
      router: |-
@@ -407,6 +518,13 @@ data:
                 "*Trace-Id*"
              ]
            }
+
+           # imagePullPolicy specifies when the router image should be pulled from registry.
+           "imagePullPolicy": "IfNotPresent",
+           
+           # # imagePullSecrets specifies the list of secrets to be used for pulling the router image from registry.
+           # https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+           "imagePullSecrets": ["docker-secret"]
        }
      
      # ====================================== DEPLOYMENT CONFIGURATION ======================================
@@ -425,7 +543,20 @@ data:
          # ModelMesh https://kserve.github.io/website/master/admin/modelmesh/
          "defaultDeploymentMode": "Serverless"
        }
-     
+
+     # ====================================== SERVICE CONFIGURATION ======================================
+     # Example
+     service: |-
+       {
+         "serviceClusterIPNone":  false
+       }
+     service: |-
+       {
+          # ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None.
+          # If the DeploymentMode is Raw, the default value for ServiceClusterIPNone if not set is false
+          # "serviceClusterIPNone":  false
+       }
+
      # ====================================== METRICS CONFIGURATION ======================================
      # Example
      metricsAggregator: |-
@@ -446,6 +577,26 @@ data:
          # the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port.
          "enablePrometheusScraping" : "false"
        }
+      
+     # ====================================== LOCALMODEL CONFIGURATION ======================================
+     # Example
+     localModel: |-
+       {
+         "enabled": false,
+         # jobNamespace specifies the namespace where the download job will be created.
+         "jobNamespace": "kserve-localmodel-jobs",
+         # defaultJobImage specifies the default image used for the download job.
+         "defaultJobImage" : "kserve/storage-initializer:latest",
+         # Kubernetes modifies the filesystem group ID on the attached volume.
+         "fsGroup": 1000,
+         # TTL for the download job after it is finished.
+         "jobTTLSecondsAfterFinished": 3600,
+         # The frequency at which the local model agent reconciles the local models
+         # This is to detect if models are missing from local disk
+         "reconcilationFrequencyInSecs": 60,
+         # This is to disable localmodel pv and pvc management for namespaces without isvcs
+         "disableVolumeManagement": false
+       }
 
   explainers: |-
     {
@@ -465,9 +616,10 @@ data:
         "caBundleConfigMapName": "",
         "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
         "enableDirectPvcVolumeMount": true,
-        "enableModelcar": false,
+        "enableModelcar": true,
         "cpuModelcar": "10m",
-        "memoryModelcar": "15Mi"
+        "memoryModelcar": "15Mi",
+        "uidModelcar": 1010
     }
 
   credentials: |-
@@ -492,9 +644,10 @@ data:
     }
 
   ingress: |-
-    {
+    {   
+        "enableGatewayApi": false,
+        "kserveIngressGateway": "kserve/kserve-ingress-gateway",
         "ingressGateway" : "knative-serving/knative-ingress-gateway",
-        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
         "localGateway" : "knative-serving/knative-local-gateway",
         "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
         "ingressDomain"  : "example.com",
@@ -541,7 +694,8 @@ data:
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
-        "cpuLimit": "1"
+        "cpuLimit": "1",
+        "imagePullPolicy": "IfNotPresent"
     }
 
   deploy: |-
@@ -553,4 +707,34 @@ data:
     {
       "enableMetricAggregation": "false",
       "enablePrometheusScraping" : "false"
+    }
+
+  localModel: |-
+    {
+      "enabled": false,
+      "jobNamespace": "kserve-localmodel-jobs",
+      "defaultJobImage" : "kserve/storage-initializer:latest",
+      "fsGroup": 1000
+    }
+
+  security: |-
+    {
+      "autoMountServiceAccountToken": true
+    }
+
+  inferenceService: |-
+    {
+      "resource": {
+          "cpuLimit": "1",
+          "memoryLimit": "2Gi",
+          "cpuRequest": "1",
+          "memoryRequest": "2Gi"
+        }
+    }
+
+  opentelemetryCollector: |-
+    {
+      "scrapeInterval": "5s",
+      "metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
+      "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
     }

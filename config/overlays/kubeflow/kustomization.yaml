@@ -21,6 +21,7 @@ configurations:
 - params.yaml
 
 replacements:
+# Replace the namespace with the namespace of the controller manager.
   - source:
       fieldPath: metadata.namespace
       kind: Deployment
@@ -45,6 +46,11 @@ replacements:
       - select:
           kind: ValidatingWebhookConfiguration
           name: inferencegraph.serving.kserve.io
+        fieldPaths:
+          - webhooks.*.clientConfig.service.namespace
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: localmodelcache.serving.kserve.io 
         fieldPaths:
           - webhooks.*.clientConfig.service.namespace
       - select:
@@ -113,7 +119,14 @@ replacements:
         options:
           delimiter: '/'
           index: 0
-
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: localmodelcache.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
 patches:
 - path: patches/statefulset.yaml
 - path: patches/namespace.yaml

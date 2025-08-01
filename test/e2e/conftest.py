@@ -16,6 +16,7 @@ import asyncio
 
 import pytest
 import pytest_asyncio
+
 import kserve
 from kserve import InferenceRESTClient, RESTConfig
 from kserve.constants.constants import PredictorProtocol
@@ -38,7 +39,11 @@ def event_loop():
 @pytest_asyncio.fixture(scope="session")
 async def rest_v1_client():
     v1_client = InferenceRESTClient(
-        config=RESTConfig(timeout=60, verbose=True, protocol=PredictorProtocol.REST_V1)
+        config=RESTConfig(
+            timeout=180,
+            verbose=True,
+            protocol=PredictorProtocol.REST_V1,
+        )
     )
     yield v1_client
     await v1_client.close()
@@ -47,7 +52,25 @@ async def rest_v1_client():
 @pytest_asyncio.fixture(scope="session")
 async def rest_v2_client():
     v2_client = InferenceRESTClient(
-        config=RESTConfig(timeout=60, verbose=True, protocol=PredictorProtocol.REST_V2)
+        config=RESTConfig(
+            timeout=180,
+            verbose=True,
+            protocol=PredictorProtocol.REST_V2,
+        )
     )
     yield v2_client
     await v2_client.close()
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--network-layer",
+        default="istio",
+        type=str,
+        help="Network layer to used for testing. Default is istio. Allowed values are istio-ingress, envoy-gatewayapi, istio-gatewayapi",
+    )
+
+
+@pytest.fixture(scope="session")
+def network_layer(request):
+    return request.config.getoption("--network-layer")

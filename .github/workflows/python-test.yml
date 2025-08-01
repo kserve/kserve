@@ -12,35 +12,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-    name: Lint
-    steps:
-      - name: Check out source repository
-        uses: actions/checkout@v4
-      - name: Set up Python environment ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Lint with flake8
-        uses: py-actions/flake8@v2
-        with:
-          args: "--config .flake8"
-          path: "."
-      - name: Check formatting with black
-        uses: psf/black@stable
-        with:
-          options: "--check --diff --config python/pyproject.toml"
-          src: "."
-          version: "~= 24.3"
   build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -54,24 +31,22 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
-
-      - name: Configure Poetry cache
+      - name: Install uv
+        run: pip install uv
+        
+      - name: Set up virtualenv
         run: |
-          sudo mkdir -p /mnt/poetry
-          # change permission so that poetry can install without sudo
-          sudo chown -R $USER /mnt/poetry
-          poetry config cache-dir /mnt/poetry
-
-      # load poetry cache if cache exists
-      - name: Load poetry cache
-        id: cached-poetry-dependencies
+          uv venv .venv
+          # source .venv/bin/activate
+          # pip install --upgrade pip
+        
+      - name: Load uv cache
         uses: actions/cache@v4
+        id: cached-uv
         with:
-          path: /mnt/poetry
-          key: poetry-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
-
+          path: .venv
+          key: uv-${{ runner.os }}-${{ hashFiles('**/uv.lock') }}
+        
       # ----------------------------------------Kserve Unit Tests--------------------------------------------------------
       # load cached kserve venv if cache exists
       - name: Load cached kserve venv
@@ -79,7 +54,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: python/kserve/.venv
-          key: kserve-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock') }}
+          key: kserve-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock') }}
       # install kserve dependencies if cache does not exist
       - name: Install kserve dependencies
         if: steps.cached-kserve-dependencies.outputs.cache-hit != 'true'
@@ -96,35 +71,39 @@ jobs:
           source kserve/.venv/bin/activate
           pytest --cov=kserve ./kserve
 
-      # ----------------------------------------Kserve Pydantic V1 Unit Tests--------------------------------------------
-      - name: Setup kserve pydantic v1 directory
+      # ----------------------------------------Kserve Numpy 1.x Unit Tests--------------------------------------------
+      - name: Setup kserve numpy 1-x directory
         run: |
-          mkdir -p python/kserve-pydantic-v1
-          cp -r python/kserve/* python/kserve-pydantic-v1
-          cd python/kserve-pydantic-v1
+          mkdir -p python/kserve-numpy-1-x
+          cp -r python/kserve/* python/kserve-numpy-1-x
+          cd python/kserve-numpy-1-x
           # update the lock file without installing dependencies
-          poetry update "pydantic<2.0" --lock
-      - name: Load cached kserve pydantic v1 venv
-        id: cached-kserve-pydantic-v1-dependencies
+          uv pip install "numpy<2.0"
+      - name: Load cached kserve numpy 1-x venv
+        id: cached-kserve-numpy-1-x-dependencies
         uses: actions/cache@v3
         with:
-          path: python/kserve-pydantic-v1/.venv
-          key: kserve-pydantic-v1-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve-pydantic-v1/poetry.lock') }}
-      # install kserve pydantic v1 dependencies if cache does not exist
-      - name: Install kserve pydantic v1 dependencies
-        if: steps.cached-kserve-pydantic-v1-dependencies.outputs.cache-hit != 'true'
+          path: python/kserve-numpy-1-x/.venv
+          key: kserve-numpy-1-x-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve-numpy-1-x/uv.lock') }}
+      # install kserve numpy 1-x dependencies if cache does not exist
+      - name: Install kserve numpy 1-x dependencies
+        if: ${{ steps.cached-kserve-numpy-1-x-dependencies.outputs.cache-hit != 'true' }}
         run: |
-          cd python/kserve-pydantic-v1
+          cd python/kserve-numpy-1-x
           make install_dependencies
-      - name: Install kserve pydantic v1
+      - name: Install kserve numpy 1-x
         run: |
-          cd python/kserve-pydantic-v1
+          cd python/kserve-numpy-1-x
           make dev_install
-      - name: Test kserve pydantic v1
+      - name: View numpy version
+        run: |
+          cd python/kserve-numpy-1-x
+          uv pip show numpy
+      - name: Test kserve numpy 1-x
         run: |
           cd python
-          source kserve-pydantic-v1/.venv/bin/activate
-          pytest --cov=kserve ./kserve-pydantic-v1
+          source kserve-numpy-1-x/.venv/bin/activate
+          pytest --cov=kserve ./kserve-numpy-1-x
 
       # ----------------------------------------Sklearn Server Unit Tests------------------------------------------------
       # load cached sklearn venv if cache exists
@@ -133,7 +112,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: python/sklearnserver/.venv
-          key: sklearn-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/sklearnserver/poetry.lock') }}
+          key: sklearn-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/sklearnserver/uv.lock') }}
         # install sklearn server dependencies if cache does not exist
       - name: Install sklearn dependencies
         if: steps.cached-sklearn-dependencies.outputs.cache-hit != 'true'
@@ -157,7 +136,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: python/xgbserver/.venv
-          key: xgb-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/xgbserver/poetry.lock') }}
+          key: xgb-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/xgbserver/uv.lock') }}
         # install xgb server dependencies if cache does not exist
       - name: Install xgb dependencies
         if: steps.cached-xgb-dependencies.outputs.cache-hit != 'true'
@@ -181,7 +160,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: python/pmmlserver/.venv
-          key: pmml-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/pmmlserver/poetry.lock') }}
+          key: pmml-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/pmmlserver/uv.lock') }}
         # install pmml server dependencies if cache does not exist
       - name: Install pmml dependencies
         if: steps.cached-pmml-dependencies.outputs.cache-hit != 'true'
@@ -205,7 +184,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: python/lgbserver/.venv
-          key: lgb-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/lgbserver/poetry.lock') }}
+          key: lgb-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/lgbserver/uv.lock') }}
         # install lgb server dependencies if cache does not exist
       - name: Install lgb dependencies
         if: steps.cached-lgb-dependencies.outputs.cache-hit != 'true'
@@ -229,8 +208,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: python/paddleserver/.venv
-          key: paddle-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/paddleserver/poetry.lock') }}
-        # install paddle server dependencies if cache does not exist
+          key: paddle-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/paddleserver/uv.lock') }}
+
       - name: Install paddle dependencies
         if: steps.cached-paddle-dependencies.outputs.cache-hit != 'true'
         run: |
@@ -241,46 +220,59 @@ jobs:
         run: |
           cd python/paddleserver
           make dev_install
-      - name: Test paddleserver
+      - name: Test paddleserver 
         run: |
           cd python
           source paddleserver/.venv/bin/activate
           pytest --cov=paddleserver ./paddleserver
 
-      # ----------------------------------------Huggingface Server Unit Tests------------------------------------------------
-      # load cached huggingface venv if cache exists
-      - name: Load cached huggingface venv
-        if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.8') }}
-        id: huggingface-dependencies
+      # ----------------------------------------Huggingface CPU Server Unit Tests------------------------------------------------
+      # load cached huggingface cpu venv if cache exists
+      - name: Load cached huggingface cpu venv
+        id: huggingface-cpu-dependencies
         uses: actions/cache@v4
         with:
-          path: /mnt/python/huggingfaceserver-venv
-          key: huggingface-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/huggingfaceserver/poetry.lock') }}
-        # install huggingface server dependencies if cache does not exist
-      - name: Configure poetry for huggingface server
-        if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.8') }}
+          path: /mnt/python/huggingfaceserver-cpu-venv
+          key: huggingface-cpu-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/huggingfaceserver/uv.lock') }}
+      
+      - name: Setup Python environment
         run: |
-          poetry config virtualenvs.path /mnt/python/huggingfaceserver-venv
-          poetry config virtualenvs.in-project false
-      - name: Install huggingface dependencies
-        if: ${{ steps.cached-huggingface-dependencies.outputs.cache-hit != 'true' && !startsWith(steps.setup-python.outputs.python-version, '3.8') }}
+          sudo mkdir -p /mnt/python/huggingfaceserver-cpu-venv
+          sudo chown -R $USER /mnt/python/huggingfaceserver-cpu-venv
+          uv venv /mnt/python/huggingfaceserver-cpu-venv
+          echo "/mnt/python/huggingfaceserver-cpu-venv/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
         run: |
-          sudo mkdir -p /mnt/python/huggingfaceserver-venv
-          # change permission so that poetry can install without sudo
-          sudo chown -R $USER /mnt/python/huggingfaceserver-venv
+          export VIRTUAL_ENV=/mnt/python/huggingfaceserver-cpu-venv
           cd python/huggingfaceserver
-          make install_dependencies
-      - name: Install huggingface server
-        if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.8') }}
+          make install_cpu_dependencies
+
+      - name: Install huggingface cpu server
         run: |
+          export VIRTUAL_ENV=/mnt/python/huggingfaceserver-cpu-venv
           cd python/huggingfaceserver
           make dev_install
-      - name: Test huggingfaceserver
-        if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.8') }}
+          
+      - name: Run tests
         run: |
+          sudo apt-get update
+          sudo apt-get install -y libnuma-dev
           cd python/huggingfaceserver
-          poetry run -- pytest --cov=huggingfaceserver -vv
+          /mnt/python/huggingfaceserver-cpu-venv/bin/python -m ensurepip --upgrade
+          /mnt/python/huggingfaceserver-cpu-venv/bin/python -m pip install --upgrade pip
 
-      - name: Free space after tests
+          /mnt/python/huggingfaceserver-cpu-venv/bin/python -m pip install pytest pytest-cov
+          bash tests/setup_vllm.sh
+          source /mnt/python/huggingfaceserver-cpu-venv/bin/activate
+          /mnt/python/huggingfaceserver-cpu-venv/bin/python -m pytest --cov=huggingfaceserver -vv -k 'not test_vllm'
+          # TODO: The following tests need to be reworked since IPEX support is relatively new for both vLLM and KServe
+          # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_chat_with_reasoning.py
+          # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_chat_with_tools.py
+          # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_generative.py
+        env:
+          VLLM_ENGINE_ITERATION_TIMEOUT_S: 3600
+
+      - name: Free space after cpu tests
         run: |
           df -hT

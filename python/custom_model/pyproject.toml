@@ -1,36 +1,25 @@
-[tool.poetry]
+[project]
+authors = [
+    {name = "The KServe Authors"},
+]
+license = {text = "Apache-2.0"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "kserve[ray] @ file:///${PROJECT_ROOT}/../kserve",
+    "torchvision==0.21.0+cpu",
+    "torch==2.6.0+cpu",
+    "pillow<11.0.0,>=10.3.0",
+]
 name = "custom-model"
-version = "0.13.0"
+version = "0.15.2"
 description = "Custom model implementation. Not intended for use outside KServe Frameworks Images."
-authors = ["The KServe Authors"]
-license = "https://github.com/kserve/kserve/blob/master/LICENSE"
-packages = [
-    { include = "*.py" }
+
+[dependency-groups]
+dev = [
+    "black[colorama]~=24.3.0",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.9,<3.12"
-kserve = {path = "../kserve", develop = true}
-torchvision = {version = "0.15.1+cpu", source = "pytorch"}
-torch = {version = "2.0.0", source = "pytorch"}
-pillow = "^10.3.0"
-
-
-[[tool.poetry.source]]
-name = "pytorch"
-url = "https://download.pytorch.org/whl/cpu"
-priority = "explicit"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-black = { version = "~24.3.0", extras = ["colorama"] }
-
-[tool.poetry-version-plugin]
-source = "file"
-file_path = "../VERSION"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.uv.sources]
+# For PyTorch CPU on Linux x86_64 with Python 3.11
+torch = { url = "https://download.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp311-cp311-linux_x86_64.whl" }
+torchvision = { url = "https://download.pytorch.org/whl/cpu/torchvision-0.21.0%2Bcpu-cp311-cp311-linux_x86_64.whl" }

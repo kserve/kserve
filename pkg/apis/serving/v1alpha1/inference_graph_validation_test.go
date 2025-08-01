@@ -17,12 +17,14 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"errors"
 	"fmt"
+	"testing"
+
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func makeTestInferenceGraph() InferenceGraph {
@@ -122,7 +124,7 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 		"without root node": {
 			ig:              makeTestInferenceGraph(),
 			nodes:           make(map[string]InferenceRouter),
-			errMatcher:      gomega.MatchError(fmt.Errorf(RootNodeNotFoundError)),
+			errMatcher:      gomega.MatchError(errors.New(RootNodeNotFoundError)),
 			warningsMatcher: gomega.BeEmpty(),
 		},
 		"with root node": {
@@ -260,6 +262,7 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 		},
 	}
 
+	validator := InferenceGraphValidator{}
 	for testName, scenario := range scenarios {
 		t.Run(testName, func(t *testing.T) {
 			ig := &scenario.ig
@@ -267,14 +270,13 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 				ig.update(igField, value)
 			}
 			ig.Spec.Nodes = scenario.nodes
-			warnings, err := scenario.ig.ValidateCreate()
+			warnings, err := validator.ValidateCreate(t.Context(), ig)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
 			if !g.Expect(warnings).To(scenario.warningsMatcher) {
 				t.Errorf("got %s, want %t", warnings, scenario.warningsMatcher)
 			}
-
 		})
 	}
 }
@@ -300,6 +302,7 @@ func TestInferenceGraph_ValidateUpdate(t *testing.T) {
 		},
 	}
 
+	validator := InferenceGraphValidator{}
 	for testName, scenario := range scenarios {
 		t.Run(testName, func(t *testing.T) {
 			ig := &scenario.ig
@@ -307,7 +310,7 @@ func TestInferenceGraph_ValidateUpdate(t *testing.T) {
 				ig.update(igField, value)
 			}
 			ig.Spec.Nodes = scenario.nodes
-			warnings, err := scenario.ig.ValidateUpdate(old)
+			warnings, err := validator.ValidateUpdate(t.Context(), old, ig)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
@@ -337,6 +340,7 @@ func TestInferenceGraph_ValidateDelete(t *testing.T) {
 		},
 	}
 
+	validator := InferenceGraphValidator{}
 	for testName, scenario := range scenarios {
 		t.Run(testName, func(t *testing.T) {
 			ig := &scenario.ig
@@ -344,7 +348,7 @@ func TestInferenceGraph_ValidateDelete(t *testing.T) {
 				ig.update(igField, value)
 			}
 			ig.Spec.Nodes = scenario.nodes
-			warnings, err := scenario.ig.ValidateDelete()
+			warnings, err := validator.ValidateDelete(t.Context(), ig)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}

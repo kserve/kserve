@@ -19,13 +19,15 @@ package v1beta1
 import (
 	"testing"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestCustomPredictorValidation(t *testing.T) {
@@ -38,13 +40,13 @@ func TestCustomPredictorValidation(t *testing.T) {
 		"ValidProtocolV1": {
 			spec: PredictorSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas:          GetIntReference(3),
+					MinReplicas:          ptr.To(int32(3)),
 					ContainerConcurrency: proto.Int64(-1),
 				},
 				PodSpec: PodSpec{
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "PROTOCOL",
 									Value: "v1",
@@ -59,13 +61,13 @@ func TestCustomPredictorValidation(t *testing.T) {
 		"ValidProtocolV2": {
 			spec: PredictorSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas:          GetIntReference(3),
+					MinReplicas:          ptr.To(int32(3)),
 					ContainerConcurrency: proto.Int64(-1),
 				},
 				PodSpec: PodSpec{
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "PROTOCOL",
 									Value: "v2",
@@ -80,13 +82,13 @@ func TestCustomPredictorValidation(t *testing.T) {
 		"InvalidValidProtocol": {
 			spec: PredictorSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas:          GetIntReference(3),
+					MinReplicas:          ptr.To(int32(3)),
 					ContainerConcurrency: proto.Int64(-1),
 				},
 				PodSpec: PodSpec{
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "PROTOCOL",
 									Value: "unknown",
@@ -113,10 +115,19 @@ func TestCustomPredictorValidation(t *testing.T) {
 
 func TestCustomPredictorDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
+	defaultResource := corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse("1"),
+		corev1.ResourceMemory: resource.MustParse("2Gi"),
 	}
+	config := &InferenceServicesConfig{
+		Resource: ResourceConfig{
+			CPULimit:      "1",
+			MemoryLimit:   "2Gi",
+			CPURequest:    "1",
+			MemoryRequest: "2Gi",
+		},
+	}
+
 	scenarios := map[string]struct {
 		spec     PredictorSpec
 		expected PredictorSpec
@@ -124,9 +135,9 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 		"DefaultResources": {
 			spec: PredictorSpec{
 				PodSpec: PodSpec{
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "hdfs://modelzoo",
@@ -138,18 +149,70 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 			},
 			expected: PredictorSpec{
 				PodSpec: PodSpec{
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "hdfs://modelzoo",
 								},
 							},
-							Resources: v1.ResourceRequirements{
+							Resources: corev1.ResourceRequirements{
 								Requests: defaultResource,
 								Limits:   defaultResource,
+							},
+						},
+					},
+				},
+			},
+		}, "PredictorContainerWithoutName": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Image: "custom-predictor:0.1.0",
+							Args: []string{
+								"--model_name",
+								"someName",
+								"--http_port",
+								"8080",
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
+								},
+							},
+							Resources: corev1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+						},
+					},
+				},
+			},
+			expected: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  constants.InferenceServiceContainerName,
+							Image: "custom-predictor:0.1.0",
+							Resources: corev1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+							Args: []string{
+								"--model_name",
+								"someName",
+								"--http_port",
+								"8080",
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
+								},
 							},
 						},
 					},
@@ -161,7 +224,7 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			customPredictor := NewCustomPredictor(&scenario.spec.PodSpec)
-			customPredictor.Default(nil)
+			customPredictor.Default(config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
@@ -170,26 +233,25 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 }
 
 func TestCreateCustomPredictorContainer(t *testing.T) {
-
-	var requestedResource = v1.ResourceRequirements{
-		Limits: v1.ResourceList{
+	requestedResource := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "100",
 			},
 			"memory": resource.MustParse("1Gi"),
 		},
-		Requests: v1.ResourceList{
+		Requests: corev1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "90",
 			},
 			"memory": resource.MustParse("1Gi"),
 		},
 	}
-	var config = InferenceServicesConfig{}
+	config := InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
-		expectedContainerSpec *v1.Container
+		expectedContainerSpec *corev1.Container
 	}{
 		"ContainerSpecWithCustomImage": {
 			isvc: InferenceService{
@@ -199,8 +261,9 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
+									Name:  constants.InferenceServiceContainerName,
 									Image: "custom-predictor:0.1.0",
 									Args: []string{
 										"--model_name",
@@ -208,7 +271,7 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 										"--http_port",
 										"8080",
 									},
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  "STORAGE_URI",
 											Value: "hdfs://modelzoo",
@@ -221,7 +284,7 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &v1.Container{
+			expectedContainerSpec: &corev1.Container{
 				Image:     "custom-predictor:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
@@ -231,7 +294,60 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 					"--http_port",
 					"8080",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
+					{
+						Name:  "STORAGE_URI",
+						Value: "hdfs://modelzoo",
+					},
+				},
+			},
+		}, "CustomPredictorContainerWithTransformer": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "custom-predictor-transformer-collocation",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  constants.InferenceServiceContainerName,
+									Image: "custom-predictor:0.1.0",
+									Args: []string{
+										"--model_name",
+										"someName",
+										"--http_port",
+										"8080",
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "hdfs://modelzoo",
+										},
+									},
+									Resources: requestedResource,
+								},
+								{
+									Name:      constants.TransformerContainerName,
+									Image:     "kserve/transformer:1.0",
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &corev1.Container{
+				Image:     "custom-predictor:0.1.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+				Args: []string{
+					"--model_name",
+					"someName",
+					"--http_port",
+					"8080",
+				},
+				Env: []corev1.EnvVar{
 					{
 						Name:  "STORAGE_URI",
 						Value: "hdfs://modelzoo",
@@ -245,9 +361,7 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
 			predictor.Default(&config)
 			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
-			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
-				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
-			}
+			g.Expect(res).To(gomega.BeComparableTo(scenario.expectedContainerSpec))
 		})
 	}
 }
@@ -261,9 +375,9 @@ func TestCustomPredictorGetProtocol(t *testing.T) {
 		"Default protocol": {
 			spec: PredictorSpec{
 				PodSpec: PodSpec{
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "s3://modelzoo",
@@ -278,9 +392,9 @@ func TestCustomPredictorGetProtocol(t *testing.T) {
 		"protocol v2": {
 			spec: PredictorSpec{
 				PodSpec: PodSpec{
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "s3://modelzoo",
@@ -299,11 +413,11 @@ func TestCustomPredictorGetProtocol(t *testing.T) {
 		"Collocation With Protocol Specified": {
 			spec: PredictorSpec{
 				PodSpec: PodSpec{
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
 							Name:  constants.InferenceServiceContainerName,
 							Image: "kserve/testImage:1.0",
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "s3://modelzoo",
@@ -313,7 +427,7 @@ func TestCustomPredictorGetProtocol(t *testing.T) {
 						{
 							Name:  constants.TransformerContainerName,
 							Image: "kserve/transformer:1.0",
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "s3://modelzoo",
@@ -332,11 +446,11 @@ func TestCustomPredictorGetProtocol(t *testing.T) {
 		"Collocation Default Protocol": {
 			spec: PredictorSpec{
 				PodSpec: PodSpec{
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
 							Name:  constants.InferenceServiceContainerName,
 							Image: "kserve/testImage:1.0",
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "s3://modelzoo",
@@ -346,7 +460,7 @@ func TestCustomPredictorGetProtocol(t *testing.T) {
 						{
 							Name:  constants.TransformerContainerName,
 							Image: "kserve/transformer:1.0",
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "s3://modelzoo",
@@ -363,5 +477,71 @@ func TestCustomPredictorGetProtocol(t *testing.T) {
 		customPredictor := NewCustomPredictor(&scenario.spec.PodSpec)
 		protocol := customPredictor.GetProtocol()
 		g.Expect(protocol).To(scenario.matcher)
+	}
+}
+
+func TestCustomPredictorGetStorageUri(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		spec     PredictorSpec
+		expected *string
+	}{
+		"StorageUriSet": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: "s3://modelzoo",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: ptr.To("s3://modelzoo"),
+		},
+		"StorageUriNotSet": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							Env:  []corev1.EnvVar{},
+						},
+					},
+				},
+			},
+			expected: nil,
+		},
+		"DifferentContainerName": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "different-container",
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: "s3://modelzoo",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: nil,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			customPredictor := NewCustomPredictor(&scenario.spec.PodSpec)
+			storageUri := customPredictor.GetStorageUri()
+			g.Expect(storageUri).To(gomega.BeComparableTo(scenario.expected))
+		})
 	}
 }

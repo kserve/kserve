@@ -23,6 +23,8 @@ env:
   BASE_ARTIFACT_PREFIX: "base"
   # Controller images
   CONTROLLER_IMG: "kserve-controller"
+  LOCALMODEL_CONTROLLER_IMG: "kserve-localmodel-controller"
+  LOCALMODEL_AGENT_IMG: "kserve-localmodelnode-agent"
   STORAGE_INIT_IMG: "storage-initializer"
   AGENT_IMG: "agent"
   ROUTER_IMG: "router"
@@ -33,6 +35,7 @@ env:
   PMML_IMG: "pmmlserver"
   PADDLE_IMG: "paddleserver"
   CUSTOM_MODEL_GRPC_IMG: "custom-model-grpc"
+  CUSTOM_MODEL_GRPC_IMG_TAG: "kserve/custom-model-grpc:${{ github.sha }}"
   HUGGINGFACE_IMG: "huggingfaceserver"
   # Explainer images
   ART_IMG: "art-explainer"
@@ -55,6 +58,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -71,6 +77,22 @@ jobs:
         with:
           name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.CONTROLLER_IMG }}-${{ github.sha }}
           path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CONTROLLER_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload localmodel controller image
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LOCALMODEL_CONTROLLER_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LOCALMODEL_CONTROLLER_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload localmodel agent image
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LOCALMODEL_AGENT_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LOCALMODEL_AGENT_IMG }}-${{ github.sha }}
           compression-level: 0
           if-no-files-found: error
 
@@ -98,26 +120,8 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
-  poetry-check:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.9"
-
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
-
-      - name: Check poetry lock file consistency
-        run: ./test/scripts/gh-actions/check-poetry-lockfile.sh
-
   predictor-runtime-build:
     runs-on: ubuntu-latest
-    needs: [poetry-check]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -210,7 +214,6 @@ jobs:
 
   explainer-runtime-build:
     runs-on: ubuntu-latest
-    needs: [poetry-check]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -236,7 +239,6 @@ jobs:
 
   graph-tests-images-build:
     runs-on: ubuntu-latest
-    needs: [poetry-check]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -272,12 +274,8 @@ jobs:
           if-no-files-found: error
 
   test-predictor:
-    runs-on: ubuntu-latest
-    needs:
-      [
-        kserve-image-build,
-        predictor-runtime-build,
-      ]
+    runs-on: ubuntu-22.04
+    needs: [kserve-image-build, predictor-runtime-build]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -288,7 +286,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version-file: go.mod
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -316,8 +314,8 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
 
       - name: Install KServe
         run: |
@@ -337,7 +335,7 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh
 
   test-transformer-explainer-mms:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
@@ -350,7 +348,8 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version-file: go.mod
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -395,13 +394,13 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
 
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
-          
+
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
 
@@ -416,13 +415,9 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh
 
   test-graph:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
-      [
-        kserve-image-build,
-        predictor-runtime-build,
-        graph-tests-images-build,
-      ]
+      [kserve-image-build, predictor-runtime-build, graph-tests-images-build]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -430,7 +425,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version-file: go.mod
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -473,11 +468,13 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
 
       - name: Install KServe
         run: |
+          # export VIRTUAL_ENV=python/kserve/.venv
+          # source $VIRTUAL_ENV/bin/activate
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
@@ -493,14 +490,10 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
-
   test-path-based-routing:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
-      [
-        kserve-image-build,
-        predictor-runtime-build
-      ]
+      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -508,7 +501,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version-file: go.mod
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -551,13 +544,19 @@ jobs:
           name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.IMAGE_TRANSFORMER_IMG }}-${{ github.sha }}
           path: ./tmp
 
+      - name: Download Art Explainer image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.EXPLAINER_ARTIFACT_PREFIX }}-${{ env.ART_IMG }}-${{ github.sha }}
+          path: ./tmp
+
       - name: Load docker images
         uses: ./.github/actions/load-docker-images
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
 
       - name: Install KServe
         run: |
@@ -568,7 +567,7 @@ jobs:
 
       - name: Patch inferenceservice config
         run: |
-          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-ingress.yaml
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-path-template.yaml
           kubectl describe configmaps -n kserve inferenceservice-config
 
       - name: Run E2E tests with path-based routing
@@ -582,7 +581,7 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh
 
   test-qpext:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [kserve-image-build, predictor-runtime-build]
     steps:
       - name: Checkout source
@@ -594,7 +593,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version-file: go.mod
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -625,8 +624,9 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
@@ -647,22 +647,25 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh
 
   test-with-helm:
-    runs-on: ubuntu-latest
-    needs:
-      [kserve-image-build]
+    runs-on: ubuntu-22.04
+    needs: [kserve-image-build]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version-file: go.mod
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.9"
 
-      - uses: ./.github/actions/free-up-disk-space
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
 
@@ -672,12 +675,11 @@ jobs:
       - name: Download base images
         uses: ./.github/actions/base-download
 
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
 
       - name: Install Kserve from helm
         run: |
-          ./test/scripts/gh-actions/setup-modelmesh-dep.sh
           ./test/scripts/gh-actions/setup-kserve-helm.sh
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
@@ -694,9 +696,14 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh
 
   test-raw:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # Test with Ingress and Gateway API
+        network-layer: ["istio-ingress", "envoy-gatewayapi", "istio-gatewayapi"]
     needs:
-      [kserve-image-build, predictor-runtime-build]
+      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -707,7 +714,8 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version-file: go.mod
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -720,6 +728,8 @@ jobs:
         uses: ./.github/actions/kserve-dep-setup
         with:
           deployment-mode: "raw"
+          enable-keda: "true"
+          network-layer: ${{ matrix.network-layer }}
 
       - name: Download base images
         uses: ./.github/actions/base-download
@@ -742,31 +752,63 @@ jobs:
           name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ github.sha }}
           path: ./tmp
 
-      - name: Download transformer image
+      - name: Download transformer and explainer artifacts
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.IMAGE_TRANSFORMER_IMG }}-${{ github.sha }}
           path: ./tmp
+          pattern: +(${{ env.TRANSFORMER_ARTIFACT_PREFIX }}|${{ env.EXPLAINER_ARTIFACT_PREFIX }})-*
+          merge-multiple: true
 
       - name: Load docker images
         uses: ./.github/actions/load-docker-images
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
 
       - name: Install KServe
         run: |
-          ./test/scripts/gh-actions/setup-kserve.sh "raw"
+          ./test/scripts/gh-actions/setup-kserve.sh "raw" ${{ matrix.network-layer }}
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
 
+      - name: Log the config map
+        run: |
+          kubectl describe configmaps -n kserve inferenceservice-config
+
+      - name: Enable Gateway API
+        if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
+        run: |
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-enable-gateway-api.yaml
+
       - name: Run E2E tests
         timeout-minutes: 30
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6" ${{ matrix.network-layer }}
+
+      - name: Patch inferenceservice config for path based routing
+        if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
+        run: |
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-path-template.yaml
+          kubectl describe configmaps -n kserve inferenceservice-config
+
+      - name: Run E2E tests with path based routing
+        if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6" ${{ matrix.network-layer }}
+
+      - name: Patch inferenceservice config for cluster ip none
+        run: |
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-enable-cluster-ip.yaml
+          kubectl describe configmaps -n kserve inferenceservice-config
+
+      - name: Run E2E tests - cluster ip none
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "rawcipn" "1" ${{ matrix.network-layer }}
 
       - name: Check system status
         if: always()
@@ -774,7 +816,7 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh
 
   test-kourier:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       [kserve-image-build, predictor-runtime-build, graph-tests-images-build]
     steps:
@@ -787,7 +829,8 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version-file: go.mod
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -828,8 +871,8 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
 
       - name: Install KServe
         run: |
@@ -858,9 +901,8 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh "kourier"
 
   test-llm:
-    runs-on: ubuntu-latest
-    needs:
-      [ kserve-image-build, predictor-runtime-build]
+    runs-on: ubuntu-22.04
+    needs: [kserve-image-build, predictor-runtime-build]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -871,7 +913,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version-file: go.mod
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -897,8 +939,8 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
 
       - name: Install KServe
         run: |
@@ -915,4 +957,187 @@ jobs:
       - name: Check system status
         if: always()
         run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+  test-huggingface-server-vllm:
+    runs-on: ubuntu-22.04
+    needs: [kserve-image-build, predictor-runtime-build]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: Download huggingface server image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.HUGGINGFACE_IMG }}-${{ github.sha }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Run E2E tests
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "vllm" "1"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+  test-modelcache:
+    runs-on: ubuntu-22.04
+    needs: [kserve-image-build, predictor-runtime-build]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Create tmp-images directory
+        run: |
+          sudo mkdir -p /tmp-images
+          sudo chown -R $USER /tmp-images
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+        with:
+          nodes: 3
+          driver: "docker"
+          start-args: "--mount --mount-string=/tmp-images:/tmp-images"
+
+      - name: Create minikube tunnel
+        run: |
+          nohup minikube tunnel > minikube-tunnel.log 2>&1 &
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download base images
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp-images
+          pattern: ${{ env.BASE_ARTIFACT_PREFIX }}-*
+          merge-multiple: true
+
+      - name: Load base docker images
+        run: |
+          ls -l /tmp-images
+          minikube ssh -n minikube -- ls -l /tmp-images
+          files=$(find /tmp-images -maxdepth 1 -type f)
+          for file in ${files[@]};do
+            echo "Loading image $(basename ${file})"
+            minikube ssh -n minikube -- docker image load -i ${file}
+            minikube ssh -n minikube-m02 -- docker image load -i ${file}
+            minikube ssh -n minikube-m03 -- docker image load -i ${file}
+          done
+          sudo rm -rf /tmp-images/*
+          minikube ssh -n minikube -- docker image ls
+          minikube ssh -n minikube-m02 -- docker image ls
+          minikube ssh -n minikube-m03 -- docker image ls
+
+      - name: Download huggingface server image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.HUGGINGFACE_IMG }}-${{ github.sha }}
+          path: /tmp-images
+
+      - name: Load runtime docker images
+        run: |
+          files=$(find /tmp-images -maxdepth 1 -type f)
+          for file in ${files[@]};do
+            echo "Loading image $(basename ${file})"
+            minikube ssh -n minikube-m02 -- docker image load -i ${file}
+          done
+          sudo rm -rf tmp-images/*
+          minikube ssh -n minikube-m02 -- docker image ls
+
+      - name: Create model root directory
+        run: |
+          minikube ssh -n minikube-m02 -- sudo mkdir -p -m=777 /models
+          minikube ssh -n minikube-m03 -- sudo mkdir -p -m=777 /models
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Enable modelcache
+        run: |
+          sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice-enable-modelcache.yaml
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-enable-modelcache.yaml
+          kubectl describe configmaps -n kserve inferenceservice-config
+
+      - name: Create localmodel job namespace
+        run: |
+          kubectl create ns kserve-localmodel-jobs
+
+      - name: Label worker nodes for modelcache
+        run: |
+          kubectl label nodes -l '!node-role.kubernetes.io/control-plane' kserve/localmodel=worker
+
+      - name: Enable nodeselector in knative
+        run: |
+          kubectl patch configmaps -n knative-serving config-features --patch '{"data": {"kubernetes.podspec-nodeselector": "enabled"}}'
+
+      - name: Run E2E tests
+        timeout-minutes: 15
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "modelcache" "1"
+
+      - name: Check system status
+        if: always()
+        run: |
+          echo "::group::Minikube tunnel logs"
+          cat minikube-tunnel.log
+          echo "::endgroup::"
           ./test/scripts/gh-actions/status-check.sh

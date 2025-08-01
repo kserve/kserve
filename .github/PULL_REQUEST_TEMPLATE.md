@@ -1,8 +1,9 @@
 <!--  Thanks for sending a pull request!  Here are some tips for you:
 1. If this is your first time, read our contributor guidelines https://www.kubeflow.org/docs/about/contributing/ and developer guide https://github.com/kserve/kserve/blob/master/docs/DEVELOPER_GUIDE.md
-2. If you want *faster* PR reviews, read how: https://git.k8s.io/community/contributors/guide/pull-requests.md#best-practices-for-faster-reviews
-3. Follow the instructions for writing a release note: https://git.k8s.io/community/contributors/guide/release-notes.md
-4. If the PR is unfinished, see how to mark it: https://git.k8s.io/community/contributors/guide/pull-requests.md#marking-unfinished-pull-requests
+2. Before raising a PR, please run `make precommit` to check the code style.
+3. If you want *faster* PR reviews, read how: https://git.k8s.io/community/contributors/guide/pull-requests.md#best-practices-for-faster-reviews
+4. Follow the instructions for writing a release note: https://git.k8s.io/community/contributors/guide/release-notes.md
+5. If the PR is unfinished, see how to mark it: https://git.k8s.io/community/contributors/guide/pull-requests.md#marking-unfinished-pull-requests
 -->
 
 **What this PR does / why we need it**:

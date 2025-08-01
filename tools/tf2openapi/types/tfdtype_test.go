@@ -43,11 +43,11 @@ func TestTFDTypeSchemaB64(t *testing.T) {
 	tfDType := DtB64String
 	schema := tfDType.Schema()
 	expectedSchema := &openapi3.Schema{
-		Type: "object",
+		Type: &openapi3.Types{openapi3.TypeObject},
 		Properties: map[string]*openapi3.SchemaRef{
 			"b64": {
 				Value: &openapi3.Schema{
-					Type: "string",
+					Type: &openapi3.Types{openapi3.TypeString},
 				},
 			},
 		},

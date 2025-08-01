@@ -17,17 +17,15 @@ limitations under the License.
 package v1beta1
 
 import (
-	"reflect"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
-	v1 "k8s.io/api/core/v1"
 )
 
 // PredictorImplementation defines common functions for all predictors e.g Tensorflow, Triton, etc
 // +kubebuilder:object:generate=false
-type PredictorImplementation interface {
-}
+type PredictorImplementation interface{}
 
 // PredictorSpec defines the configuration for a predictor,
 // The following fields follow a "1-of" semantic. Users must specify exactly one spec.
@@ -56,14 +54,32 @@ type PredictorSpec struct {
 	// Model spec for any arbitrary framework.
 	Model *ModelSpec `json:"model,omitempty"`
 
-	// This spec is dual purpose. <br />
-	// 1) Provide a full PodSpec for custom predictor.
-	// The field PodSpec.Containers is mutually exclusive with other predictors (i.e. TFServing). <br />
-	// 2) Provide a predictor (i.e. TFServing) and specify PodSpec
-	// overrides, you must not provide PodSpec.Containers in this case. <br />
+	// WorkerSpec for enabling multi-node/multi-gpu
+	WorkerSpec *WorkerSpec `json:"workerSpec,omitempty"`
+
+	// This spec serves three purposes. <br />
+	// 1) To provide a full PodSpec for a custom predictor.
+	//    The field PodSpec.Containers is mutually exclusive with other predictors (e.g., TFServing). <br />
+	// 2) To provide a predictor (e.g., TFServing) and specify PodSpec overrides. <br />
+	// 3) To provide a pre/post-processing container for a predictor. <br />
+	// You must not specify kserve-container on podSpec unless you are using a custom predictor.
 	PodSpec `json:",inline"`
 	// Component extension defines the deployment configurations for a predictor
 	ComponentExtensionSpec `json:",inline"`
+}
+
+type WorkerSpec struct {
+	PodSpec `json:",inline"`
+
+	// PipelineParallelSize defines the number of parallel workers.
+	// It also represents the number of replicas in the worker set, where each worker set serves as a scaling unit.
+	// +optional
+	PipelineParallelSize *int `json:"pipelineParallelSize,omitempty"`
+
+	// TensorParallelSize specifies the number of GPUs to be used per node.
+	// It indicates the degree of parallelism for tensor computations across the available GPUs.
+	// +optional
+	TensorParallelSize *int `json:"tensorParallelSize,omitempty"`
 }
 
 var _ Component = &PredictorSpec{}
@@ -82,26 +98,17 @@ type PredictorExtensionSpec struct {
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
 	// +optional
-	v1.Container `json:",inline"`
+	corev1.Container `json:",inline"`
 	// Storage Spec for model location
 	// +optional
-	Storage *StorageSpec `json:"storage,omitempty"`
+	Storage *ModelStorageSpec `json:"storage,omitempty"`
 }
 
-type StorageSpec struct {
-	// The path to the model object in the storage. It cannot co-exist
-	// with the storageURI.
-	// +optional
-	Path *string `json:"path,omitempty"`
+type ModelStorageSpec struct {
+	StorageSpec `json:",inline"`
 	// The path to the model schema file in the storage.
 	// +optional
 	SchemaPath *string `json:"schemaPath,omitempty"`
-	// Parameters to override the default storage credentials and config.
-	// +optional
-	Parameters *map[string]string `json:"parameters,omitempty"`
-	// The Storage Key in the secret for this model.
-	// +optional
-	StorageKey *string `json:"key,omitempty"`
 }
 
 // GetImplementations returns the implementations for the component
@@ -121,7 +128,15 @@ func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified
 	if len(s.PodSpec.Containers) != 0 {
-		implementations = append(implementations, NewCustomPredictor(&s.PodSpec))
+		for _, container := range s.PodSpec.Containers {
+			if container.Name == constants.InferenceServiceContainerName {
+				implementations = append(implementations, NewCustomPredictor(&s.PodSpec))
+			}
+		}
+		if len(implementations) == 0 {
+			// If no predictor container is found, assume the first container is the predictor container
+			implementations = append(implementations, NewCustomPredictor(&s.PodSpec))
+		}
 	}
 
 	return implementations
@@ -152,44 +167,6 @@ func (p *PredictorExtensionSpec) GetStorageUri() *string {
 }
 
 // GetStorageSpec returns the predictor storage spec object
-func (p *PredictorExtensionSpec) GetStorageSpec() *StorageSpec {
+func (p *PredictorExtensionSpec) GetStorageSpec() *ModelStorageSpec {
 	return p.Storage
-}
-
-// GetPredictorImplementations GetPredictor returns the implementation for the predictor
-func (s *PredictorSpec) GetPredictorImplementations() []ComponentImplementation {
-	implementations := NonNilPredictors([]ComponentImplementation{
-		s.XGBoost,
-		s.PyTorch,
-		s.Triton,
-		s.SKLearn,
-		s.Tensorflow,
-		s.ONNX,
-		s.PMML,
-		s.LightGBM,
-		s.Paddle,
-		s.Model,
-	})
-	// This struct is not a pointer, so it will never be nil; include if containers are specified
-	if len(s.PodSpec.Containers) != 0 {
-		implementations = append(implementations, NewCustomPredictor(&s.PodSpec))
-	}
-	return implementations
-}
-
-func (s *PredictorSpec) GetPredictorImplementation() *ComponentImplementation {
-	predictors := s.GetPredictorImplementations()
-	if len(predictors) == 0 {
-		return nil
-	}
-	return &predictors[0]
-}
-
-func NonNilPredictors(objects []ComponentImplementation) (results []ComponentImplementation) {
-	for _, object := range objects {
-		if !reflect.ValueOf(object).IsNil() {
-			results = append(results, object)
-		}
-	}
-	return results
 }

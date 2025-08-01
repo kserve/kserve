@@ -17,8 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/kserve/kserve/pkg/utils"
-	v1 "k8s.io/api/core/v1"
 )
 
 // ExplainerSpec defines the container spec for a model explanation server,
@@ -47,10 +48,10 @@ type ExplainerExtensionSpec struct {
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
 	// +optional
-	v1.Container `json:",inline"`
+	corev1.Container `json:",inline"`
 	// Storage Spec for model location
 	// +optional
-	Storage *StorageSpec `json:"storage,omitempty"`
+	Storage *ModelStorageSpec `json:"storage,omitempty"`
 }
 
 var _ Component = &ExplainerSpec{}
@@ -71,7 +72,7 @@ func (e *ExplainerExtensionSpec) GetStorageUri() *string {
 }
 
 // GetStorageSpec returns the predictor storage spec object
-func (e *ExplainerExtensionSpec) GetStorageSpec() *StorageSpec {
+func (e *ExplainerExtensionSpec) GetStorageSpec() *ModelStorageSpec {
 	return e.Storage
 }
 

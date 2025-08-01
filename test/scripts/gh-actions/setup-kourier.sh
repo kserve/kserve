@@ -21,21 +21,23 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-CERT_MANAGER_VERSION="v1.5.0"
+CERT_MANAGER_VERSION="v1.15.1"
 YQ_VERSION="v4.28.1"
+GATEWAY_API_VERSION="v1.2.1"
 
 echo "Installing yq ..."
 wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
+
+echo "Installing Gateway CRDs ..."
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
 
 source  ./test/scripts/gh-actions/install-knative-operator.sh
 
 echo "Installing Knative serving and Kourier..."
 kubectl apply -f ./test/overlays/knative/knative-serving-kourier.yaml
-# sleep to avoid running kubectl wait before pods are created
-sleep 15
 
 echo "Waiting for Knative and Kourier to be ready ..."
-kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-kourier-controller,3scale-kourier-gateway)'
+kubectl wait --for=condition=Ready -n knative-serving KnativeServing knative-serving --timeout=300s
 
 echo "Installing cert-manager ..."
 kubectl create namespace cert-manager

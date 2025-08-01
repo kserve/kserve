@@ -1,0 +1,8 @@
+{
+  "model": "bge-reranker-base",
+  "query": "What is the capital of France?",
+  "documents": [
+    "The capital of Brazil is Brasilia.",
+    "The capital of France is Paris."
+  ]
+}

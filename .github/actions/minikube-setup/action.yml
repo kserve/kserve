@@ -1,24 +1,38 @@
 name: 'Minikube setup action'
 description: 'Sets up minikube on the github runner'
 
+inputs:
+  nodes:
+    description: 'Number of nodes to start minikube with'
+    required: false
+    default: '1'
+  driver:
+    description: 'Driver to use for minikube'
+    required: false
+    default: 'none'
+  start-args:
+    description: 'Additional arguments to pass to minikube start'
+    required: false
+    default: ''
+
 runs:
   using: "composite"
   steps:
     - name: Install kubectl
       uses: azure/setup-kubectl@v4.0.0
       with:
-        version: 'v1.27.4'
+        version: 'v1.30.7'
 
     - name: Setup Minikube
       uses: medyagh/setup-minikube@latest
       with:
-        minikube-version: '1.32.0'
-        kubernetes-version: 'v1.27.4'
-        driver: 'none'
-        network-plugin: 'cni'
-        cni: 'calico'
+        minikube-version: '1.35.0'
+        kubernetes-version: 'v1.30.7'
+        driver: ${{ inputs.driver }}
         wait: 'all'
-        start-args: --wait-timeout=6m0s
+        cpus: 'max'
+        memory: 'max'
+        start-args: --wait-timeout=6m0s --nodes=${{ inputs.nodes }} ${{ inputs.start-args }}
 
     - name: Check Kubernetes pods
       shell: bash

@@ -1,40 +1,29 @@
-[tool.poetry]
-name = "aifserver"
-version = "0.13.0"
-description = "'Model Server implementation for AI fairness. Not intended for use outside KServe Frameworks Images."
-authors = ["Andrew Butler <Andrew.Butler@ibm.com>"]
-license = "https://github.com/kserve/kserve/blob/master/LICENSE"
-readme = "README.md"
-repository = "https://github.com/kserve/kserve/tree/master/python/aiffairness"
-packages = [
-    { include = "aifserver" }
+[project]
+authors = [
+    {name = "Andrew Butler", email = "Andrew.Butler@ibm.com"},
 ]
+license = {text = "Apache-2.0"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "kserve @ file:///${PROJECT_ROOT}/../kserve",
+    "aif360<1.0.0,>=0.6.1",
+    "nest-asyncio<2.0.0,>=1.5.8",
+    "requests[security]<3.0.0,>=2.24.0",
+]
+name = "aifserver"
+version = "0.15.2"
+description = "'Model Server implementation for AI fairness. Not intended for use outside KServe Frameworks Images."
+readme = "README.md"
 
-[tool.poetry.dependencies]
-python = ">=3.8,<3.12"
-kserve = {path = "../kserve", develop = true}
-aif360 = "^0.2.3"
-nest-asyncio = "^1.4.0"
-requests = {version = "^2.24.0", extras = ["security"]}
+[project.urls]
+repository = "https://github.com/kserve/kserve/tree/master/python/aiffairness"
 
-[tool.poetry.group.test]
-optional = true
-
-[tool.poetry.group.test.dependencies]
-pytest = "^7.2.0"
-pytest-cov = "^4.0.0"
-mypy = "^0.991"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-black = { version = "~24.3.0", extras = ["colorama"] }
-
-[tool.poetry-version-plugin]
-source = "file"
-file_path = "../VERSION"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[dependency-groups]
+test = [
+    "pytest<8.0.0,>=7.4.4",
+    "pytest-cov<6.0.0,>=5.0.0",
+    "mypy<1.0,>=0.991",
+]
+dev = [
+    "black[colorama]~=24.3.0",
+]

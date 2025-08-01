@@ -15,20 +15,25 @@
 # limitations under the License.
 
 # The script is used to deploy knative and kserve, and run e2e tests.
+# Usage: run-e2e-tests.sh $MARKER $PARALLELISM $NETWORK_LAYER
 
 set -o errexit
 set -o nounset
 set -o pipefail
 
 echo "Starting E2E functional tests ..."
-if [ $# -eq 2 ]; then
-  echo "Parallelism requested for pytest is $2"
-else
-  echo "No parallelism requested for pytest. Will use default value of 1"
-fi
-
+MARKER="${1}"
 PARALLELISM="${2:-1}"
+NETWORK_LAYER="${3:-'istio'}"
+
+echo "Parallelism requested for pytest is ${PARALLELISM}"
+
 source python/kserve/.venv/bin/activate
 pushd test/e2e >/dev/null
-  pytest -m "$1" --ignore=qpext --log-cli-level=INFO -n $PARALLELISM --dist worksteal
+  if [[ $MARKER == "raw" && $NETWORK_LAYER == "istio-ingress" ]]; then
+    echo "Skipping explainer tests for raw deployment with ingress"
+    pytest -m "$MARKER" --ignore=qpext --log-cli-level=INFO -n $PARALLELISM --dist worksteal --network-layer $NETWORK_LAYER --ignore=explainer/
+  else
+    pytest -m "$MARKER" --ignore=qpext --log-cli-level=INFO -n $PARALLELISM --dist worksteal --network-layer $NETWORK_LAYER
+  fi
 popd

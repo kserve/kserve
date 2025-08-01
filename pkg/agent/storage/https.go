@@ -59,6 +59,10 @@ func (m *HTTPSProvider) DownloadModel(modelDir string, modelName string, storage
 	return nil
 }
 
+func (m *HTTPSProvider) UploadObject(bucket string, key string, object []byte) error {
+	return errors.New("upload not supported for HTTPS storage")
+}
+
 type HTTPSDownloader struct {
 	StorageUri string
 	ModelDir   string
@@ -68,7 +72,7 @@ type HTTPSDownloader struct {
 
 func (h *HTTPSDownloader) Download(client http.Client) error {
 	// Create request
-	req, err := http.NewRequest("GET", h.StorageUri, nil)
+	req, err := http.NewRequest(http.MethodGet, h.StorageUri, nil)
 	if err != nil {
 		return err
 	}
@@ -96,11 +100,11 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 		}
 	}()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("URI: %s returned a %d response code", h.StorageUri, resp.StatusCode)
 	}
 	// Write content into file(s)
-	contentType := resp.Header.Get("Content-type")
+	contentType := resp.Header.Get("Content-Type")
 	fileDirectory := filepath.Join(h.ModelDir, h.ModelName)
 
 	switch {
@@ -142,6 +146,7 @@ func (h *HTTPSDownloader) extractHeaders() (headers map[string]string, err error
 }
 
 func createNewFile(fileFullName string) (*os.File, error) {
+	fileFullName = filepath.Clean(fileFullName)
 	if FileExists(fileFullName) {
 		if err := os.Remove(fileFullName); err != nil {
 			return nil, fmt.Errorf("file is unable to be deleted: %w", err)
@@ -168,13 +173,14 @@ func extractZipFiles(reader io.Reader, dest string) error {
 
 	// Read all the files from zip archive
 	for _, zipFile := range zipReader.File {
-		fileFullPath := filepath.Join(dest, zipFile.Name) // #nosecG305
-		if !strings.HasPrefix(fileFullPath, filepath.Clean(dest)+string(os.PathSeparator)) {
+		dest = filepath.Clean(dest)
+		fileFullPath := filepath.Clean(filepath.Join(dest, filepath.Clean(zipFile.Name)))
+		if !strings.HasPrefix(fileFullPath, dest+string(os.PathSeparator)) {
 			return fmt.Errorf("%s: illegal file path", fileFullPath)
 		}
 
 		if zipFile.Mode().IsDir() {
-			err = os.MkdirAll(fileFullPath, 0755)
+			err = os.MkdirAll(fileFullPath, 0o755)
 			if err != nil {
 				return fmt.Errorf("unable to create new directory %s", fileFullPath)
 			}
@@ -191,17 +197,18 @@ func extractZipFiles(reader io.Reader, dest string) error {
 			return fmt.Errorf("unable to open file: %w", err)
 		}
 
-		_, err = io.CopyN(file, rc, DEFAULT_MAX_DECOMPRESSION_SIZE) // gosec G110
-		closeErr := file.Close()
-		if closeErr != nil {
+		if zipFile.UncompressedSize64 > DEFAULT_MAX_DECOMPRESSION_SIZE {
+			return fmt.Errorf("file %s exceeds the maximum decompression size %d", zipFile.Name, DEFAULT_MAX_DECOMPRESSION_SIZE)
+		}
+		limitReader := io.LimitReader(rc, DEFAULT_MAX_DECOMPRESSION_SIZE)
+		if _, err = io.Copy(file, limitReader); err != nil {
+			return err
+		}
+		if closeErr := file.Close(); closeErr != nil {
 			return closeErr
 		}
-		closeErr = rc.Close()
-		if closeErr != nil {
+		if closeErr := rc.Close(); closeErr != nil {
 			return closeErr
-		}
-		if err != nil {
-			return fmt.Errorf("unable to copy file content: %w", err)
 		}
 	}
 	return nil
@@ -230,9 +237,10 @@ func extractTarFiles(reader io.Reader, dest string) error {
 			return fmt.Errorf("unable to access next tar file: %w", err)
 		}
 
-		fileFullPath := filepath.Join(dest, header.Name) // #nosec G305
+		dest = filepath.Clean(dest)
+		fileFullPath := filepath.Clean(filepath.Join(dest, filepath.Clean(header.Name)))
 		if header.Typeflag == tar.TypeDir {
-			err = os.MkdirAll(fileFullPath, 0755)
+			err = os.MkdirAll(fileFullPath, 0o755)
 			if err != nil {
 				return fmt.Errorf("unable to create new directory %s", fileFullPath)
 			}
@@ -245,8 +253,8 @@ func extractTarFiles(reader io.Reader, dest string) error {
 			return err
 		}
 
-		// gosec G110
-		if _, err := io.CopyN(newFile, tr, DEFAULT_MAX_DECOMPRESSION_SIZE); err != nil {
+		limitReader := io.LimitReader(tr, DEFAULT_MAX_DECOMPRESSION_SIZE)
+		if _, err := io.Copy(newFile, limitReader); err != nil {
 			return fmt.Errorf("unable to copy contents to %s: %w", header.Name, err)
 		}
 	}

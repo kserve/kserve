@@ -6,7 +6,6 @@ metadata:
   name: inferenceservice.serving.kserve.io
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
@@ -26,7 +25,6 @@ webhooks:
         resources:
           - inferenceservices
   - clientConfig:
-      caBundle: Cg==
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
@@ -62,7 +60,6 @@ metadata:
   name: inferenceservice.serving.kserve.io
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
@@ -89,7 +86,6 @@ metadata:
   name: trainedmodel.serving.kserve.io
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
@@ -116,7 +112,6 @@ metadata:
   name: inferencegraph.serving.kserve.io
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
@@ -143,7 +138,6 @@ metadata:
   name: clusterservingruntime.serving.kserve.io
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
@@ -170,7 +164,6 @@ metadata:
   name: servingruntime.serving.kserve.io
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
@@ -189,3 +182,30 @@ webhooks:
           - UPDATE
         resources:
           - servingruntimes
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: localmodelcache.serving.kserve.io
+webhooks:
+  - clientConfig:
+      service:
+        name: $(webhookServiceName)
+        namespace: $(kserveNamespace)
+        path: /validate-serving-kserve-io-v1alpha1-localmodelcache
+    failurePolicy: Fail
+    name: localmodelcache.kserve-webhook-server.validator
+    sideEffects: None
+    admissionReviewVersions: ["v1beta1"]
+    rules:
+      - apiGroups:
+          - serving.kserve.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - localmodelcaches

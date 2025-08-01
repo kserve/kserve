@@ -11,19 +11,28 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import pytest
 
 from kserve import ModelRepository, Model
-from kserve.protocol.rest.openai import CompletionRequest, OpenAIModel
+from kserve.protocol.rest.openai import (
+    CompletionRequest,
+    OpenAIGenerativeModel,
+    OpenAIEncoderModel,
+)
 from unittest.mock import patch
-from kserve.protocol.rest.openai.types.openapi import (
-    CreateChatCompletionResponse as ChatCompletion,
-    CreateChatCompletionStreamResponse as ChatCompletionChunk,
-    CreateCompletionResponse as Completion,
+from kserve.protocol.rest.openai.types import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    Completion,
+    Embedding,
+    EmbeddingRequest,
+    Rerank,
+    RerankRequest,
 )
 from typing import AsyncIterator, Union
 
 
-class DummyOpenAIModel(OpenAIModel):
+class DummyOpenAIGenerativeModel(OpenAIGenerativeModel):
     async def create_completion(
         self, params: CompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
@@ -35,9 +44,18 @@ class DummyOpenAIModel(OpenAIModel):
         pass
 
 
+class DummyOpenAIEncoderModel(OpenAIEncoderModel):
+    async def create_embedding(self, params: EmbeddingRequest) -> Embedding:
+        pass
+
+    async def create_rerank(self, params: RerankRequest) -> Rerank:
+        pass
+
+
 def test_adding_kserve_model():
     repo = ModelRepository()
-    repo.update(Model(name="kserve-model"))
+    model = Model(name="kserve-model")
+    repo.update(model)
 
     actual = repo.get_model("kserve-model")
 
@@ -45,42 +63,73 @@ def test_adding_kserve_model():
     assert isinstance(actual, Model)
     assert actual.name == "kserve-model"
 
+    repo.update(model, name="additional-model-name")
+    actual = repo.get_model("additional-model-name")
+    assert actual is not None
+    assert isinstance(actual, Model)
+    assert actual is model
 
-def test_adding_openai_model():
+
+def test_adding_openai_completion_model():
     repo = ModelRepository()
-    repo.update(DummyOpenAIModel(name="openai-model"))
+    repo.update(DummyOpenAIGenerativeModel(name="openai-completion-model"))
 
-    actual = repo.get_model("openai-model")
+    actual = repo.get_model("openai-completion-model")
 
     assert actual is not None
-    assert isinstance(actual, OpenAIModel)
-    assert actual.name == "openai-model"
+    assert isinstance(actual, OpenAIGenerativeModel)
+    assert actual.name == "openai-completion-model"
 
 
-def test_is_model_ready_nonexistent_model():
+def test_adding_openai_embedding_model():
     repo = ModelRepository()
-    actual = repo.is_model_ready("none-model")
+    repo.update(DummyOpenAIEncoderModel(name="openai-embedding-model"))
+
+    actual = repo.get_model("openai-embedding-model")
+
+    assert actual is not None
+    assert isinstance(actual, OpenAIEncoderModel)
+    assert actual.name == "openai-embedding-model"
+
+
+def test_adding_rerank_model():
+    repo = ModelRepository()
+    repo.update(DummyOpenAIEncoderModel(name="rerank-model"))
+
+    actual = repo.get_model("rerank-model")
+
+    assert actual is not None
+    assert isinstance(actual, OpenAIEncoderModel)
+    assert actual.name == "rerank-model"
+
+
+@pytest.mark.asyncio
+async def test_is_model_ready_nonexistent_model():
+    repo = ModelRepository()
+    actual = await repo.is_model_ready("none-model")
     assert actual is False
 
 
-def test_is_model_ready_kserve_model():
+@pytest.mark.asyncio
+async def test_is_model_ready_kserve_model():
     repo = ModelRepository()
     model = Model(name="kserve-model")
     repo.update(model)
     with patch.object(model, "healthy"):
         model.healthy.side_effect = lambda: model.ready
-        actual = repo.is_model_ready("kserve-model")
+        actual = await repo.is_model_ready("kserve-model")
         assert actual is False
         model.load()
-        actual = repo.is_model_ready("kserve-model")
+        actual = await repo.is_model_ready("kserve-model")
         assert actual is True
         assert len(model.healthy.call_args) == 2
 
 
-def test_is_model_ready_openai_model():
+@pytest.mark.asyncio
+async def test_is_model_ready_openai_model():
     repo = ModelRepository()
-    model = DummyOpenAIModel(name="openai-model")
+    model = DummyOpenAIGenerativeModel(name="openai-model")
     repo.update(model)
 
-    actual = repo.is_model_ready("openai-model")
+    actual = await repo.is_model_ready("openai-model")
     assert actual is True

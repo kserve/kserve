@@ -1,34 +1,21 @@
-[tool.poetry]
-name = "custom_tokenizer"
-version = "0.13.0"
-description = "Custom Tokenizer Examples. Not intended for use outside KServe Frameworks Images."
-authors = ["Dan Sun <dsun20@bloomberg.net>"]
-license = "https://github.com/kserve/kserve/blob/master/LICENSE"
-packages = [
-    { include = "*.py" }
+[project]
+authors = [
+    {name = "Dan Sun", email = "dsun20@bloomberg.net"},
 ]
+license = {text = "Apache-2.0"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "kserve @ file:///${PROJECT_ROOT}/../kserve",
+]
+name = "custom_tokenizer"
+version = "0.15.2"
+description = "Custom Tokenizer Examples. Not intended for use outside KServe Frameworks Images."
 
-[tool.poetry.dependencies]
-python = ">=3.9,<3.12"
-kserve = {path = "../kserve", develop = true}
-
-[tool.poetry.group.test]
-optional = true
-
-[tool.poetry.group.test.dependencies]
-pytest = "^7.2.0"
-mypy = "^0.991"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-black = { version = "~24.3.0", extras = ["colorama"] }
-
-[tool.poetry-version-plugin]
-source = "file"
-file_path = "../VERSION"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[dependency-groups]
+test = [
+    "pytest<8.0.0,>=7.4.4",
+    "mypy<1.0,>=0.991",
+]
+dev = [
+    "black[colorama]~=24.3.0",
+]

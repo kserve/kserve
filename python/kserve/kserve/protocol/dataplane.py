@@ -14,37 +14,36 @@
 
 import time
 from importlib import metadata
-from typing import Dict, Optional, Tuple, Union
+from inspect import iscoroutinefunction
+from typing import Dict, Optional, Tuple, Union, cast
 
 import cloudevents.exceptions as ce
 import orjson
-
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
-from ray.serve.handle import DeploymentHandle
+from grpc import RpcError
+from httpx import HTTPError
 
 from ..constants import constants
+from ..constants.constants import INFERENCE_CONTENT_LENGTH_HEADER, PredictorProtocol
 from ..errors import InvalidInput, ModelNotFound
+from ..inference_client import RESTConfig
 from ..logging import logger
-from ..model import InferenceVerb, Model
+from ..model import BaseKServeModel, InferenceModel, InferenceVerb
+from ..predictor_config import PredictorConfig
 from ..model_repository import ModelRepository
+from ..utils.inference_client_factory import InferenceClientFactory
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
+from .. import context as kserve_context
 from .infer_type import InferRequest, InferResponse
-from .rest.openai import OpenAIModel
+from .rest.v2_datamodels import InferenceRequest
 
 JSON_HEADERS = [
     "application/json",
     "application/cloudevents+json",
     "application/ld+json",
+    "application/octet-stream",
 ]
-
-# RayServeHandle used to be the return type of serve.run.
-# RayServeSyncHandle has been the return type of serve.run since Ray 2.5.
-# DeploymentHandle will be the new return type (still under feature flag in Ray 2.7).
-# ref https://github.com/ray-project/ray/pull/37817
-# On Ray 2.10, it now returns DeploymentHandle:
-# https://docs.ray.io/en/latest/serve/api/index.html#deployment-handles
-ModelHandleType = Union[Model, DeploymentHandle]
 
 
 class DataPlane:
@@ -57,19 +56,59 @@ class DataPlane:
         # Dynamically fetching version of the installed 'kserve' distribution. The assumption is
         # that 'kserve' will already be installed by the time this class is instantiated.
         self._server_version = metadata.version("kserve")
+        self._inference_grpc_client = None
+        self._inference_rest_client = None
 
     @property
     def model_registry(self):
         return self._model_registry
 
-    def get_model_from_registry(self, name: str) -> ModelHandleType:
+    @property
+    def predictor_config(self) -> Optional[PredictorConfig]:
+        # Return predictor config from context, may be None
+        return kserve_context.get_predictor_config()
+
+    @property
+    def rest_client(self):
+        if self._inference_rest_client is None:
+            predictor_config = self.predictor_config
+            if predictor_config is None:
+                raise RuntimeError(
+                    "PredictorConfig is required to create REST client but is None."
+                )
+            self._inference_rest_client = InferenceClientFactory().get_rest_client(
+                RESTConfig(
+                    protocol=predictor_config.predictor_protocol,
+                    retries=predictor_config.predictor_request_retries,
+                    timeout=predictor_config.predictor_request_timeout_seconds,
+                )
+            )
+        return self._inference_rest_client
+
+    @property
+    def grpc_client(self):
+        if self._inference_grpc_client is None:
+            predictor_config = self.predictor_config
+            if predictor_config is None:
+                raise RuntimeError(
+                    "PredictorConfig is required to create GRPC client but is None."
+                )
+            self._inference_grpc_client = InferenceClientFactory().get_grpc_client(
+                url=predictor_config.predictor_host,
+                timeout=predictor_config.predictor_request_timeout_seconds,
+                retries=predictor_config.predictor_request_retries,
+                use_ssl=predictor_config.predictor_use_ssl,
+            )
+        return self._inference_grpc_client
+
+    def get_model_from_registry(self, name: str) -> BaseKServeModel:
         model = self._model_registry.get_model(name)
         if model is None:
             raise ModelNotFound(name)
 
         return model
 
-    def get_model(self, name: str) -> ModelHandleType:
+    async def get_model(self, name: str) -> BaseKServeModel:
         """Get the model instance with the given name.
 
         Args:
@@ -81,7 +120,8 @@ class DataPlane:
         model = self._model_registry.get_model(name)
         if model is None:
             raise ModelNotFound(name)
-        if not self._model_registry.is_model_ready(name):
+        is_ready = await self._model_registry.is_model_ready(name)
+        if not is_ready:
             model.load()
         return model
 
@@ -182,12 +222,20 @@ class DataPlane:
         # TODO: model versioning is not supported yet
         model = self.get_model_from_registry(model_name)
 
-        if isinstance(model, DeploymentHandle):
-            input_types = await model.get_input_types.remote()
-            output_types = await model.get_output_types.remote()
-        else:
-            input_types = model.get_input_types()
-            output_types = model.get_output_types()
+        if not isinstance(model, InferenceModel):
+            raise ValueError(
+                f"Model of type {type(model).__name__} does not support inference"
+            )
+        input_types = (
+            await model.get_input_types()
+            if iscoroutinefunction(model.get_input_types)
+            else model.get_input_types()
+        )
+        output_types = (
+            await model.get_output_types()
+            if iscoroutinefunction(model.get_output_types)
+            else model.get_output_types()
+        )
 
         return {
             "name": model_name,
@@ -196,8 +244,7 @@ class DataPlane:
             "outputs": output_types,
         }
 
-    @staticmethod
-    async def ready() -> bool:
+    async def ready(self) -> bool:
         """Server ready.
 
         Returns ``True``. Primarily meant to be used as Kubernetes readiness check.
@@ -205,13 +252,37 @@ class DataPlane:
         Returns:
             bool: True
         """
+        # If predictor host is present, then it means this is a transformer,
+        # We should also need to check the predictor server's health if predictor health check is enabled.
+        if self.predictor_config and self.predictor_config.predictor_health_check:
+            if (
+                self.predictor_config.predictor_protocol
+                == PredictorProtocol.GRPC_V2.value
+            ):
+                return await self.grpc_client.is_server_ready()
+            elif (
+                self.predictor_config.predictor_protocol
+                == PredictorProtocol.REST_V1.value
+            ):
+                # V1 Protocol does not have readiness endpoint. We will use server liveness endpoint instead.
+                return await self.rest_client.is_server_live(
+                    self.predictor_config.predictor_base_url
+                )
+            else:
+                return await self.rest_client.is_server_ready(
+                    self.predictor_config.predictor_base_url
+                )
         return True
 
-    def model_ready(self, model_name: str) -> bool:
+    async def model_ready(
+        self, model_name: str, disable_predictor_health_check: bool = False
+    ) -> bool:
         """Check if a model is ready.
 
         Args:
             model_name (str): name of the model
+            disable_predictor_health_check (bool): Flag to disable predictor health
+            check for infer/predict requests.
 
         Returns:
             bool: True if the model is ready, False otherwise.
@@ -222,13 +293,58 @@ class DataPlane:
         if self._model_registry.get_model(model_name) is None:
             raise ModelNotFound(model_name)
 
-        return self._model_registry.is_model_ready(model_name)
+        # If predictor host is present, then it means this is a transformer,
+        # We should also check the predictor model's health if predictor health check is enabled.
+        if (
+            not disable_predictor_health_check
+            and self.predictor_config
+            and self.predictor_config.predictor_health_check
+        ):
+            if (
+                self.predictor_config.predictor_protocol
+                == PredictorProtocol.GRPC_V2.value
+            ):
+                try:
+                    is_ready = await self.grpc_client.is_model_ready(
+                        model_name=model_name
+                    )
+                    return is_ready
+                except RpcError:
+                    # Logged in the grpc client
+                    return False
+            else:
+                try:
+                    is_ready = await self.rest_client.is_model_ready(
+                        base_url=self.predictor_config.predictor_base_url,
+                        model_name=model_name,
+                    )
+                    return is_ready
+                except HTTPError as exc:
+                    logger.debug(
+                        "check predictor readiness - HTTP exception for %s - %s",
+                        exc.request.url,
+                        exc,
+                    )
+                    return False
 
-    def decode(self, body, headers) -> Tuple[Union[Dict, InferRequest], Dict]:
+        return await self._model_registry.is_model_ready(model_name)
+
+    def decode(
+        self,
+        body,
+        headers,
+        protocol_version: str = PredictorProtocol.REST_V1.value,
+        model_name: str = None,
+    ) -> Tuple[Union[Dict, InferRequest], Dict]:
         t1 = time.time()
         attributes = {}
         if isinstance(body, InferRequest):
             return body, attributes
+        elif isinstance(body, InferenceRequest) or (
+            protocol_version.lower() == PredictorProtocol.REST_V2.value
+            and isinstance(body, bytes)
+        ):
+            return self.decode_inference_request(body, headers, model_name), attributes
         if headers:
             if has_binary_headers(headers):
                 # returns CloudEvent
@@ -238,13 +354,7 @@ class DataPlane:
                 and headers["content-type"] not in JSON_HEADERS
             ):
                 return body, attributes
-            else:
-                if type(body) is bytes:
-                    try:
-                        body = orjson.loads(body)
-                    except orjson.JSONDecodeError as e:
-                        raise InvalidInput(f"Unrecognized request format: {e}")
-        elif type(body) is bytes:
+        if type(body) is bytes:
             try:
                 body = orjson.loads(body)
             except orjson.JSONDecodeError as e:
@@ -280,15 +390,35 @@ class DataPlane:
                 del attributes["data"]
         return decoded_body, attributes
 
+    def decode_inference_request(
+        self, body: Union[bytes, InferenceRequest], headers: Dict, model_name: str
+    ) -> InferRequest:
+        if isinstance(body, bytes):
+            json_length = headers.get(INFERENCE_CONTENT_LENGTH_HEADER, None)
+            if json_length is None:
+                raise InvalidInput(
+                    f"received byte inputs, but the"
+                    f"'{INFERENCE_CONTENT_LENGTH_HEADER}' header is missing."
+                )
+            return InferRequest.from_bytes(body, int(json_length), model_name)
+        else:
+            return InferRequest.from_inference_request(body, model_name)
+
     def encode(
-        self, model_name, response, headers, req_attributes: Dict
+        self,
+        model_name,
+        response,
+        headers,
+        req_attributes: Dict,
     ) -> Tuple[Dict, Dict[str, str]]:
         response_headers = {}
         # if we received a cloudevent, then also return a cloudevent
         is_cloudevent = False
         is_binary_cloudevent = False
         if isinstance(response, InferResponse):
-            response = response.to_rest()
+            response, json_size = response.to_rest()
+            if json_size is not None:
+                response_headers[INFERENCE_CONTENT_LENGTH_HEADER] = str(json_size)
         if headers:
             if has_binary_headers(headers):
                 is_cloudevent = True
@@ -333,15 +463,16 @@ class DataPlane:
         .. _CloudEvent: https://cloudevents.io/
         """
         # call model locally or remote model workers
-        model = self.get_model(model_name)
-        if isinstance(model, OpenAIModel):
-            error_msg = f"Model {model_name} is of type OpenAIModel. It does not support the infer method."
-            raise InvalidInput(reason=error_msg)
-        if isinstance(model, DeploymentHandle):
-            response = await model.remote(request, headers=headers)
-        else:
-            response = await model(request, headers=headers)
-        return response, headers
+        response_headers = {}
+        model = await self.get_model(model_name)
+        if not isinstance(model, InferenceModel):
+            raise ValueError(
+                f"Model of type {type(model).__name__} does not support inference"
+            )
+        model = cast(InferenceModel, model)
+        response, res_headers = await model(request, headers=headers)
+        response_headers.update(res_headers)
+        return response, response_headers
 
     async def explain(
         self,
@@ -363,14 +494,14 @@ class DataPlane:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         # call model locally or remote model workers
-        model = self.get_model(model_name)
-        if isinstance(model, OpenAIModel):
-            logger.warning(
-                f"Model {model_name} is of type OpenAIModel. It does not support the explain method."
-                " A request exercised this path and will cause a server crash."
+        response_headers = headers if headers else {}
+        model = await self.get_model(model_name)
+        if not isinstance(model, InferenceModel):
+            raise ValueError(
+                f"Model of type {type(model).__name__} does not support inference"
             )
-        if isinstance(model, DeploymentHandle):
-            response = await model.remote(request, verb=InferenceVerb.EXPLAIN)
-        else:
-            response = await model(request, verb=InferenceVerb.EXPLAIN)
-        return response, headers
+        response, res_headers = await model(
+            request, verb=InferenceVerb.EXPLAIN, headers=headers
+        )
+        response_headers.update(res_headers)
+        return response, response_headers

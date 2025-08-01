@@ -5,10 +5,17 @@ metadata:
   name: kserve-controller-manager
   namespace: {{ .Release.Namespace }}
   labels:
+    app.kubernetes.io/name: kserve-controller-manager
     control-plane: kserve-controller-manager
     controller-tools.k8s.io: "1.0"
+    {{- if .Values.kserve.controller.labels }}
+    {{- toYaml .Values.kserve.controller.labels | nindent 4 }}
+    {{- end }}
   annotations:
     prometheus.io/scrape: 'true'
+    {{- if .Values.kserve.controller.annotations }}
+    {{- toYaml .Values.kserve.controller.annotations | nindent 4 }}
+    {{- end }}
 spec:
   selector:
     matchLabels:
@@ -17,10 +24,17 @@ spec:
   template:
     metadata:
       labels:
+        app.kubernetes.io/name: kserve-controller-manager
         control-plane: kserve-controller-manager
         controller-tools.k8s.io: "1.0"
+        {{- if .Values.kserve.controller.podLabels }}
+        {{- toYaml .Values.kserve.controller.podLabels | nindent 8 }}
+        {{- end }}
       annotations:
         kubectl.kubernetes.io/default-container: manager
+        {{- if .Values.kserve.controller.podAnnotations }}
+        {{- toYaml .Values.kserve.controller.podAnnotations | nindent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: kserve-controller-manager
       {{- with .Values.kserve.controller.nodeSelector }}
@@ -39,6 +53,10 @@ spec:
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.kserve.controller.securityContext}}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: kube-rbac-proxy
         image: "{{ .Values.kserve.controller.rbacProxyImage }}"
@@ -50,13 +68,25 @@ spec:
         ports:
         - containerPort: 8443
           name: https
+        securityContext:
+          {{- with .Values.kserve.controller.rbacProxy.securityContext}}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+        resources:
+          {{- with .Values.kserve.controller.rbacProxy.resources }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
       - command:
         - /manager
         image: "{{ .Values.kserve.controller.image }}:{{ .Values.kserve.controller.tag }}"
         imagePullPolicy: IfNotPresent
         name: manager
+        securityContext:
+          {{- with .Values.kserve.controller.containerSecurityContext}}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
         args:
-        - "--metrics-addr=127.0.0.1:8080"
+        - "--metrics-addr={{ .Values.kserve.controller.metricsBindAddress }}:{{ .Values.kserve.controller.metricsBindPort }}"
         - "--leader-elect"
         env:
           - name: POD_NAMESPACE
@@ -67,14 +97,14 @@ spec:
             value: kserve-webhook-server-cert
         livenessProbe:
           failureThreshold: 5
-          initialDelaySeconds: 10
+          initialDelaySeconds: 30
           httpGet:
             path: /healthz
             port: 8081
           timeoutSeconds: 5
         readinessProbe:
-          initialDelaySeconds: 10
-          failureThreshold: 10
+          initialDelaySeconds: 30
+          failureThreshold: 5
           periodSeconds: 5
           httpGet:
             path: /readyz

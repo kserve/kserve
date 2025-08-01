@@ -51,6 +51,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 async def test_mms_sklearn_kserve(
     protocol_version: str, storage_uri: str, rest_v1_client, rest_v2_client
 ):
+    service_name = f"isvc-sklearn-mms-{protocol_version}"
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -63,10 +64,9 @@ async def test_mms_sklearn_kserve(
         ),
     )
 
-    service_name = f"isvc-sklearn-mms-{protocol_version}"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -166,6 +166,7 @@ async def test_mms_sklearn_kserve(
 async def test_mms_xgboost_kserve(
     protocol_version: str, storage_uri: str, rest_v1_client, rest_v2_client
 ):
+    service_name = f"isvc-xgboost-mms-{protocol_version}"
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -179,10 +180,9 @@ async def test_mms_xgboost_kserve(
         ),
     )
 
-    service_name = f"isvc-xgboost-mms-{protocol_version}"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),

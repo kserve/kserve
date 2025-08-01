@@ -20,20 +20,29 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestTransformerDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
+	defaultResource := corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse("1"),
+		corev1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	config := &InferenceServicesConfig{
+		Resource: ResourceConfig{
+			CPULimit:      "1",
+			MemoryLimit:   "2Gi",
+			CPURequest:    "1",
+			MemoryRequest: "2Gi",
+		},
 	}
 	scenarios := map[string]struct {
 		spec     TransformerSpec
@@ -42,9 +51,9 @@ func TestTransformerDefaulter(t *testing.T) {
 		"DefaultResources": {
 			spec: TransformerSpec{
 				PodSpec: PodSpec{
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "hdfs://modelzoo",
@@ -56,16 +65,16 @@ func TestTransformerDefaulter(t *testing.T) {
 			},
 			expected: TransformerSpec{
 				PodSpec: PodSpec{
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "hdfs://modelzoo",
 								},
 							},
-							Resources: v1.ResourceRequirements{
+							Resources: corev1.ResourceRequirements{
 								Requests: defaultResource,
 								Limits:   defaultResource,
 							},
@@ -79,7 +88,7 @@ func TestTransformerDefaulter(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			CustomTransformer := NewCustomTransformer(&scenario.spec.PodSpec)
-			CustomTransformer.Default(nil)
+			CustomTransformer.Default(config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
@@ -88,15 +97,14 @@ func TestTransformerDefaulter(t *testing.T) {
 }
 
 func TestCreateTransformerContainer(t *testing.T) {
-
-	var requestedResource = v1.ResourceRequirements{
-		Limits: v1.ResourceList{
+	requestedResource := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "100",
 			},
 			"memory": resource.MustParse("1Gi"),
 		},
-		Requests: v1.ResourceList{
+		Requests: corev1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "90",
 			},
@@ -106,7 +114,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
-		expectedContainerSpec *v1.Container
+		expectedContainerSpec *corev1.Container
 	}{
 		"ContainerSpecWithCustomImage": {
 			isvc: InferenceService{
@@ -118,7 +126,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 						SKLearn: &SKLearnSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: proto.String("gs://someUri"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
 								},
@@ -127,10 +135,10 @@ func TestCreateTransformerContainer(t *testing.T) {
 					},
 					Transformer: &TransformerSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Image: "transformer:0.1.0",
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  "STORAGE_URI",
 											Value: "hdfs://modelzoo",
@@ -143,7 +151,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &v1.Container{
+			expectedContainerSpec: &corev1.Container{
 				Image:     "transformer:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
@@ -151,11 +159,11 @@ func TestCreateTransformerContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
+					fmt.Sprintf("%s.%s", constants.PredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{
 						Name:  "STORAGE_URI",
 						Value: "hdfs://modelzoo",
@@ -176,7 +184,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 						SKLearn: &SKLearnSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: proto.String("gs://someUri"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Resources: requestedResource,
 								},
 							},
@@ -187,10 +195,10 @@ func TestCreateTransformerContainer(t *testing.T) {
 							ContainerConcurrency: proto.Int64(2),
 						},
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Image: "transformer:0.1.0",
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  "STORAGE_URI",
 											Value: "hdfs://modelzoo",
@@ -203,7 +211,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &v1.Container{
+			expectedContainerSpec: &corev1.Container{
 				Image:     "transformer:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
@@ -211,13 +219,13 @@ func TestCreateTransformerContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
+					fmt.Sprintf("%s.%s", constants.PredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 					"--workers",
 					"2",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{
 						Name:  "STORAGE_URI",
 						Value: "hdfs://modelzoo",
@@ -238,7 +246,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 						SKLearn: &SKLearnSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: proto.String("gs://someUri"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Resources: requestedResource,
 									Args: []string{
 										"--workers",
@@ -253,10 +261,10 @@ func TestCreateTransformerContainer(t *testing.T) {
 							ContainerConcurrency: proto.Int64(2),
 						},
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Image: "transformer:0.1.0",
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  "STORAGE_URI",
 											Value: "hdfs://modelzoo",
@@ -279,7 +287,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &v1.Container{
+			expectedContainerSpec: &corev1.Container{
 				Image:     "transformer:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
@@ -293,7 +301,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 					"--workers",
 					"1",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{
 						Name:  "STORAGE_URI",
 						Value: "hdfs://modelzoo",
@@ -307,7 +315,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 			transformer := scenario.isvc.Spec.Transformer.GetImplementation()
 			transformer.Default(nil)
 			res := transformer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Transformer.ComponentExtensionSpec,
-				nil, constants.DefaultPredictorServiceName("someName"))
+				nil, constants.PredictorServiceName("someName"))
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}
@@ -323,11 +331,11 @@ func TestTransformerGetProtocol(t *testing.T) {
 	}{
 		"DefaultProtocol": {
 			spec: &CustomTransformer{
-				PodSpec: v1.PodSpec{
-					Containers: []v1.Container{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Image: "transformer:0.1.0",
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "hdfs://modelzoo",
@@ -352,11 +360,11 @@ func TestTransformerGetProtocol(t *testing.T) {
 		},
 		"ProtocolSpecified": {
 			spec: &CustomTransformer{
-				PodSpec: v1.PodSpec{
-					Containers: []v1.Container{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Image: "transformer:0.1.0",
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "hdfs://modelzoo",
@@ -386,5 +394,219 @@ func TestTransformerGetProtocol(t *testing.T) {
 	for _, scenario := range scenarios {
 		protocol := scenario.spec.GetProtocol()
 		g.Expect(protocol).To(scenario.matcher)
+	}
+}
+
+func TestCustomTransformer_GetContainer(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	requestedResource := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("1"),
+			corev1.ResourceMemory: resource.MustParse("2Gi"),
+		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("1"),
+			corev1.ResourceMemory: resource.MustParse("2Gi"),
+		},
+	}
+	baseContainer := corev1.Container{
+		Image: "transformer:0.1.0",
+		Env: []corev1.EnvVar{
+			{
+				Name:  "STORAGE_URI",
+				Value: "hdfs://modelzoo",
+			},
+		},
+		Resources: requestedResource,
+	}
+	tests := map[string]struct {
+		metadata      metav1.ObjectMeta
+		extensions    *ComponentExtensionSpec
+		container     corev1.Container
+		predictorHost string
+		annotations   map[string]string
+		expectedArgs  []string
+	}{
+		"Default args are set": {
+			metadata: metav1.ObjectMeta{
+				Name:      "my-transformer",
+				Namespace: "my-namespace",
+			},
+			extensions:    &ComponentExtensionSpec{},
+			container:     baseContainer,
+			predictorHost: "predictor-host",
+			expectedArgs: []string{
+				"--model_name", "my-transformer",
+				"--predictor_host", "predictor-host.my-namespace",
+				"--http_port", "8080",
+			},
+		},
+		"ContainerConcurrency sets workers": {
+			metadata: metav1.ObjectMeta{
+				Name:      "my-transformer",
+				Namespace: "my-namespace",
+			},
+			extensions: &ComponentExtensionSpec{
+				ContainerConcurrency: proto.Int64(3),
+			},
+			container:     baseContainer,
+			predictorHost: "predictor-host",
+			expectedArgs: []string{
+				"--model_name", "my-transformer",
+				"--predictor_host", "predictor-host.my-namespace",
+				"--http_port", "8080",
+				"--workers", "3",
+			},
+		},
+		"Args already present are not duplicated": {
+			metadata: metav1.ObjectMeta{
+				Name:      "my-transformer",
+				Namespace: "my-namespace",
+			},
+			extensions: &ComponentExtensionSpec{
+				ContainerConcurrency: proto.Int64(2),
+			},
+			container: func() corev1.Container {
+				c := baseContainer
+				c.Args = []string{
+					"--model_name", "already-set",
+					"--predictor_host", "localhost",
+					"--http_port", "8080",
+					"--workers", "1",
+				}
+				return c
+			}(),
+			predictorHost: "predictor-host",
+			expectedArgs: []string{
+				"--model_name", "already-set",
+				"--predictor_host", "localhost",
+				"--http_port", "8080",
+				"--workers", "1",
+			},
+		},
+		"ModelMesh deployment mode sets protocol and host": {
+			metadata: metav1.ObjectMeta{
+				Name:      "my-transformer",
+				Namespace: "my-namespace",
+				Annotations: map[string]string{
+					constants.DeploymentMode:                 string(constants.ModelMeshDeployment),
+					constants.PredictorHostAnnotationKey:     "mm-predictor-host",
+					constants.PredictorProtocolAnnotationKey: string(constants.ProtocolV2),
+				},
+			},
+			extensions:    &ComponentExtensionSpec{},
+			container:     baseContainer,
+			predictorHost: "predictor-host",
+			expectedArgs: []string{
+				"--model_name", "my-transformer",
+				"--predictor_host", "mm-predictor-host",
+				"--http_port", "8080",
+				"--protocol", "v2",
+			},
+		},
+		"ModelMesh deployment mode does not duplicate protocol": {
+			metadata: metav1.ObjectMeta{
+				Name:      "my-transformer",
+				Namespace: "my-namespace",
+				Annotations: map[string]string{
+					constants.DeploymentMode:                 string(constants.ModelMeshDeployment),
+					constants.PredictorHostAnnotationKey:     "mm-predictor-host",
+					constants.PredictorProtocolAnnotationKey: string(constants.ProtocolV2),
+				},
+			},
+			extensions: &ComponentExtensionSpec{},
+			container: func() corev1.Container {
+				c := baseContainer
+				c.Args = []string{"--protocol", "v2"}
+				return c
+			}(),
+			predictorHost: "predictor-host",
+			expectedArgs: []string{
+				"--protocol", "v2",
+				"--model_name", "my-transformer",
+				"--predictor_host", "mm-predictor-host",
+				"--http_port", "8080",
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			ct := &CustomTransformer{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{tc.container},
+				},
+			}
+			container := ct.GetContainer(tc.metadata, tc.extensions, nil, tc.predictorHost)
+			g.Expect(container.Image).To(gomega.Equal(tc.container.Image))
+			g.Expect(container.Env).To(gomega.Equal(tc.container.Env))
+			g.Expect(container.Resources).To(gomega.Equal(tc.container.Resources))
+		})
+	}
+}
+
+func TestCustomTransformer_GetStorageUri(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	tests := map[string]struct {
+		envVars     []corev1.EnvVar
+		expectedUri *string
+	}{
+		"STORAGE_URI present": {
+			envVars: []corev1.EnvVar{
+				{
+					Name:  constants.CustomSpecStorageUriEnvVarKey,
+					Value: "s3://my-bucket/model",
+				},
+			},
+			expectedUri: func() *string { s := "s3://my-bucket/model"; return &s }(),
+		},
+		"STORAGE_URI not present": {
+			envVars: []corev1.EnvVar{
+				{
+					Name:  "OTHER_ENV",
+					Value: "value",
+				},
+			},
+			expectedUri: nil,
+		},
+		"Multiple envs, STORAGE_URI present": {
+			envVars: []corev1.EnvVar{
+				{
+					Name:  "FOO",
+					Value: "bar",
+				},
+				{
+					Name:  constants.CustomSpecStorageUriEnvVarKey,
+					Value: "gs://bucket/model",
+				},
+			},
+			expectedUri: func() *string { s := "gs://bucket/model"; return &s }(),
+		},
+		"No envs": {
+			envVars:     nil,
+			expectedUri: nil,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			ct := &CustomTransformer{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Env: tc.envVars,
+						},
+					},
+				},
+			}
+			uri := ct.GetStorageUri()
+			if tc.expectedUri == nil {
+				g.Expect(uri).To(gomega.BeNil())
+			} else {
+				g.Expect(uri).ToNot(gomega.BeNil())
+				g.Expect(*uri).To(gomega.Equal(*tc.expectedUri))
+			}
+		})
 	}
 }

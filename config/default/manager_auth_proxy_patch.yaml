@@ -10,7 +10,15 @@ spec:
     spec:
       containers:
       - name: kube-rbac-proxy
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+        image: quay.io/brancz/kube-rbac-proxy:v0.18.0
         args:
         - "--secure-listen-address=0.0.0.0:8443"
         - "--upstream=http://127.0.0.1:8080/"
@@ -22,5 +30,7 @@ spec:
           name: https
       - name: manager
         args:
+        # When changing args, also update manager.yaml because the following
+        # list of args will fully override the arguments in manager.yaml.
         - "--metrics-addr=127.0.0.1:8080"
         - "--leader-elect"

@@ -35,17 +35,35 @@ type InferenceServiceSpec struct {
 	Transformer *TransformerSpec `json:"transformer,omitempty"`
 }
 
+// StorageSpec defines a spec for an object in an object store
+type StorageSpec struct {
+	// The path to the object in the storage. Note that this path is relative to the storage URI.
+	// +optional
+	Path *string `json:"path,omitempty"`
+	// Parameters to override the default storage credentials and config.
+	// +optional
+	Parameters *map[string]string `json:"parameters,omitempty"`
+	// The Storage Key in the secret for this object.
+	// +optional
+	StorageKey *string `json:"key,omitempty"`
+}
+
+type LoggerStorageSpec struct {
+	StorageSpec        `json:",inline"`
+	ServiceAccountName *string `json:"serviceAccountName,omitempty"`
+}
+
 // LoggerType controls the scope of log publishing
 // +kubebuilder:validation:Enum=all;request;response
 type LoggerType string
 
 // LoggerType Enum
 const (
-	// Logger mode to log both request and response
+	// LogAll Logger mode to log both request and response
 	LogAll LoggerType = "all"
-	// Logger mode to log only request
+	// LogRequest Logger mode to log only request
 	LogRequest LoggerType = "request"
-	// Logger mode to log only response
+	// LogResponse Logger mode to log only response
 	LogResponse LoggerType = "response"
 )
 
@@ -61,7 +79,33 @@ type LoggerSpec struct {
 	// - "response": log only response <br />
 	// +optional
 	Mode LoggerType `json:"mode,omitempty"`
+	// Matched metadata HTTP headers for propagating to inference logger cloud events.
+	// +optional
+	MetadataHeaders []string `json:"metadataHeaders,omitempty"`
+	// Matched inference service annotations for propagating to inference logger cloud events.
+	// +optional
+	MetadataAnnotations []string `json:"metadataAnnotations,omitempty"`
+	// Specifies the storage location for the inference logger cloud events.
+	// +optional
+	Storage *LoggerStorageSpec `json:"storage,omitempty"`
 }
+
+// MetricsBackend enum
+// +kubebuilder:validation:Enum=prometheus;graphite
+type MetricsBackend string
+
+const (
+	PrometheusBackend MetricsBackend = "prometheus"
+	GraphiteBackend   MetricsBackend = "graphite"
+)
+
+// PodsMetricsBackend enum
+// +kubebuilder:validation:Enum=opentelemetry
+type PodsMetricsBackend string
+
+const (
+	OpenTelemetryBackend PodsMetricsBackend = "opentelemetry"
+)
 
 // Batcher specifies optional payload batching available for all components
 type Batcher struct {
@@ -78,7 +122,6 @@ type Batcher struct {
 
 // InferenceService is the Schema for the InferenceServices API
 // +k8s:openapi-gen=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
@@ -103,7 +146,6 @@ type InferenceService struct {
 
 // InferenceServiceList contains a list of Service
 // +k8s:openapi-gen=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 type InferenceServiceList struct {
 	metav1.TypeMeta `json:",inline"`

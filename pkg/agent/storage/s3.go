@@ -33,6 +33,7 @@ import (
 type S3Provider struct {
 	Client     s3iface.S3API
 	Downloader s3manageriface.DownloadWithIterator
+	Uploader   s3manageriface.UploadWithIterator
 }
 
 var log = logf.Log.WithName("modelAgent")
@@ -46,6 +47,25 @@ type S3ObjectDownloader struct {
 	Bucket     string
 	Prefix     string
 	downloader s3manageriface.DownloadWithIterator
+}
+
+type S3ObjectUploader struct {
+	Uploader s3manageriface.UploadWithIterator
+}
+
+func (m *S3Provider) UploadObject(bucket string, key string, object []byte) error {
+	uploader := &S3ObjectUploader{
+		Uploader: m.Uploader,
+	}
+	return uploader.Upload([]s3manager.BatchUploadObject{
+		{
+			Object: &s3manager.UploadInput{
+				Bucket: aws.String(bucket),
+				Key:    aws.String(key),
+				Body:   aws.ReadSeekCloser(strings.NewReader(string(object))),
+			},
+		},
+	})
 }
 
 func (m *S3Provider) DownloadModel(modelDir string, modelName string, storageUri string) error {
@@ -88,7 +108,7 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc s3iface.S3API) ([]s3manager.Bat
 		return nil, fmt.Errorf("%s has no objects or does not exist", s.StorageUri)
 	}
 
-	var foundObject = false
+	foundObject := false
 
 	for _, object := range resp.Contents {
 		if strings.HasSuffix(*object.Key, "/") {
@@ -141,4 +161,8 @@ func (s *S3ObjectDownloader) Download(objects []s3manager.BatchDownloadObject) e
 		return err
 	}
 	return nil
+}
+
+func (s *S3ObjectUploader) Upload(objects []s3manager.BatchUploadObject) error {
+	return s.Uploader.UploadWithIterator(aws.BackgroundContext(), &s3manager.UploadObjectsIterator{Objects: objects})
 }

@@ -17,10 +17,11 @@ limitations under the License.
 package v1beta1
 
 import (
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // HuggingFaceRuntimeSpec defines arguments for configuring HuggingFace model serving.
@@ -29,9 +30,7 @@ type HuggingFaceRuntimeSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &HuggingFaceRuntimeSpec{}
-)
+var _ ComponentImplementation = &HuggingFaceRuntimeSpec{}
 
 // Validate returns an error if invalid
 func (o *HuggingFaceRuntimeSpec) Validate() error {
@@ -43,11 +42,11 @@ func (o *HuggingFaceRuntimeSpec) Validate() error {
 // Default sets defaults on the resource
 func (o *HuggingFaceRuntimeSpec) Default(config *InferenceServicesConfig) {
 	o.Container.Name = constants.InferenceServiceContainerName
-	setResourceRequirementDefaults(&o.Resources)
+	setResourceRequirementDefaults(config, &o.Resources)
 }
 
 // GetContainer transforms the resource into a container spec
-func (o *HuggingFaceRuntimeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {
+func (o *HuggingFaceRuntimeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *corev1.Container {
 	return &o.Container
 }
 

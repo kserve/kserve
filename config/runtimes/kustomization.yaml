@@ -12,6 +12,7 @@ resources:
 - kserve-lgbserver.yaml
 - kserve-torchserve.yaml
 - kserve-huggingfaceserver.yaml
+- kserve-huggingfaceserver-multinode.yaml
 
 images:
   # SMS Only Runtimes
@@ -54,3 +55,7 @@ images:
 - name: huggingfaceserver
   newName: kserve/huggingfaceserver
   newTag: latest
+
+- name: huggingfaceserver-gpu
+  newName: kserve/huggingfaceserver
+  newTag: latest-gpu

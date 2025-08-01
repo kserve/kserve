@@ -32,6 +32,8 @@ type StorageContainerSpec struct {
 
 	// List of URI formats that this container supports
 	SupportedUriFormats []SupportedUriFormat `json:"supportedUriFormats" validate:"required"`
+	// +kubebuilder:default="initContainer"
+	WorkloadType WorkloadType `json:"workloadType,omitempty"`
 }
 
 // SupportedUriFormat can be either prefix or regex. Todo: Add validation that only one of them is set.
@@ -42,7 +44,14 @@ type SupportedUriFormat struct {
 }
 
 // +k8s:openapi-gen=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type WorkloadType string
+
+const (
+	InitContainer         WorkloadType = "initContainer"
+	LocalModelDownloadJob WorkloadType = "localModelDownloadJob"
+)
+
+// +k8s:openapi-gen=true
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope="Cluster"
@@ -58,7 +67,6 @@ type ClusterStorageContainer struct {
 
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ClusterStorageContainerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

@@ -17,33 +17,35 @@ limitations under the License.
 package utils
 
 import (
+	"errors"
 	"strconv"
 	"testing"
 
 	"github.com/onsi/gomega/types"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	knativeV1 "knative.dev/pkg/apis/duck/v1"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	. "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	. "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestIsMMSPredictor(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	var requestedResource = v1.ResourceRequirements{
-		Limits: v1.ResourceList{
+	requestedResource := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
 			"cpu": resource.MustParse("100m"),
 		},
-		Requests: v1.ResourceList{
+		Requests: corev1.ResourceList{
 			"cpu": resource.MustParse("90m"),
 		},
 	}
@@ -64,7 +66,7 @@ func TestIsMMSPredictor(t *testing.T) {
 								Name: "sklearn",
 							},
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								Container: v1.Container{
+								Container: corev1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
 								},
@@ -88,7 +90,7 @@ func TestIsMMSPredictor(t *testing.T) {
 							},
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: proto.String("gs://someUri"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
 								},
@@ -107,7 +109,8 @@ func TestIsMMSPredictor(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						HuggingFace: &HuggingFaceRuntimeSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{RuntimeVersion: proto.String("latest")}},
+							PredictorExtensionSpec: PredictorExtensionSpec{RuntimeVersion: proto.String("latest")},
+						},
 					},
 				},
 			},
@@ -121,10 +124,11 @@ func TestIsMMSPredictor(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
-								{Name: constants.InferenceServiceContainerName,
+							Containers: []corev1.Container{
+								{
+									Name:  constants.InferenceServiceContainerName,
 									Image: "some-image",
-									Env:   []v1.EnvVar{{Name: constants.CustomSpecMultiModelServerEnvVarKey, Value: strconv.FormatBool(true)}},
+									Env:   []corev1.EnvVar{{Name: constants.CustomSpecMultiModelServerEnvVarKey, Value: strconv.FormatBool(true)}},
 								},
 							},
 						},
@@ -141,12 +145,14 @@ func TestIsMMSPredictor(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
-								{Name: constants.InferenceServiceContainerName,
+							Containers: []corev1.Container{
+								{
+									Name:  constants.InferenceServiceContainerName,
 									Image: "some-image",
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{Name: constants.CustomSpecMultiModelServerEnvVarKey, Value: strconv.FormatBool(false)},
-										{Name: constants.CustomSpecStorageUriEnvVarKey, Value: "gs://some-uri"}},
+										{Name: constants.CustomSpecStorageUriEnvVarKey, Value: "gs://some-uri"},
+									},
 								},
 							},
 						},
@@ -163,8 +169,9 @@ func TestIsMMSPredictor(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
-								{Name: constants.InferenceServiceContainerName,
+							Containers: []corev1.Container{
+								{
+									Name:  constants.InferenceServiceContainerName,
 									Image: "some-image",
 								},
 							},
@@ -190,17 +197,17 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	reqResourcesScenarios := map[string]struct {
-		resource v1.ResourceRequirements
+		resource corev1.ResourceRequirements
 		expected bool
 	}{
 		"EnoughMemoryResource": {
 			// Enough memory
-			resource: v1.ResourceRequirements{
-				Limits: v1.ResourceList{
+			resource: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
 					"cpu":    resource.MustParse("100m"),
 					"memory": resource.MustParse("100Gi"),
 				},
-				Requests: v1.ResourceList{
+				Requests: corev1.ResourceList{
 					"cpu":    resource.MustParse("90m"),
 					"memory": resource.MustParse("100Gi"),
 				},
@@ -209,12 +216,12 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 		},
 		"NotEnoughMemoryResource": {
 			// Enough memory
-			resource: v1.ResourceRequirements{
-				Limits: v1.ResourceList{
+			resource: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
 					"cpu":    resource.MustParse("100m"),
 					"memory": resource.MustParse("1Mi"),
 				},
-				Requests: v1.ResourceList{
+				Requests: corev1.ResourceList{
 					"cpu":    resource.MustParse("90m"),
 					"memory": resource.MustParse("1Mi"),
 				},
@@ -241,7 +248,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 						Predictor: PredictorSpec{
 							LightGBM: &LightGBMSpec{
 								PredictorExtensionSpec: PredictorExtensionSpec{
-									Container: v1.Container{
+									Container: corev1.Container{
 										Image:     "customImage:0.1.0",
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
@@ -262,7 +269,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 							LightGBM: &LightGBMSpec{
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									StorageURI: proto.String("gs://someUri"),
-									Container: v1.Container{
+									Container: corev1.Container{
 										Image:     "customImage:0.1.0",
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
@@ -282,7 +289,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 						Predictor: PredictorSpec{
 							ONNX: &ONNXRuntimeSpec{
 								PredictorExtensionSpec: PredictorExtensionSpec{
-									Container: v1.Container{
+									Container: corev1.Container{
 										Image:     "mcr.microsoft.com/onnxruntime/server:v0.5.0",
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
@@ -303,7 +310,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 							ONNX: &ONNXRuntimeSpec{
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									StorageURI: proto.String("gs://someUri"),
-									Container: v1.Container{
+									Container: corev1.Container{
 										Image:     "mcr.microsoft.com/onnxruntime/server:v0.5.0",
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
@@ -323,7 +330,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 						Predictor: PredictorSpec{
 							PMML: &PMMLSpec{
 								PredictorExtensionSpec: PredictorExtensionSpec{
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -343,7 +350,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 							PMML: &PMMLSpec{
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									StorageURI: proto.String("gs://someUri"),
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -363,7 +370,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 							SKLearn: &SKLearnSpec{
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									ProtocolVersion: &protocolV1,
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -383,7 +390,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 							SKLearn: &SKLearnSpec{
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									ProtocolVersion: &protocolV2,
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -404,7 +411,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									StorageURI:      proto.String("gs://someUri"),
 									ProtocolVersion: &protocolV1,
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -425,7 +432,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									StorageURI:      proto.String("gs://someUri"),
 									ProtocolVersion: &protocolV2,
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -444,7 +451,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 						Predictor: PredictorSpec{
 							Tensorflow: &TFServingSpec{
 								PredictorExtensionSpec: PredictorExtensionSpec{
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -464,7 +471,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 							Tensorflow: &TFServingSpec{
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									StorageURI: proto.String("gs://someUri"),
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -484,7 +491,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 							PyTorch: &TorchServeSpec{
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									ProtocolVersion: &protocolV1,
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -504,7 +511,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 							PyTorch: &TorchServeSpec{
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									ProtocolVersion: &protocolV2,
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -525,7 +532,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									StorageURI:      proto.String("gs://someUri"),
 									ProtocolVersion: &protocolV1,
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -546,7 +553,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									StorageURI:      proto.String("gs://someUri"),
 									ProtocolVersion: &protocolV2,
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -566,7 +573,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 							Triton: &TritonSpec{
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									ProtocolVersion: &protocolV1,
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -587,7 +594,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									StorageURI:      proto.String("gs://someUri"),
 									ProtocolVersion: &protocolV1,
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -607,7 +614,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 							XGBoost: &XGBoostSpec{
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									RuntimeVersion: proto.String("0.1.0"),
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -628,7 +635,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									ProtocolVersion: &protocolV2,
 									RuntimeVersion:  proto.String("0.1.0"),
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -649,7 +656,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 								PredictorExtensionSpec: PredictorExtensionSpec{
 									StorageURI:     proto.String("gs://someUri"),
 									RuntimeVersion: proto.String("0.1.0"),
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -671,7 +678,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 									StorageURI:      proto.String("gs://someUri"),
 									ProtocolVersion: &protocolV2,
 									RuntimeVersion:  proto.String("0.1.0"),
-									Container: v1.Container{
+									Container: corev1.Container{
 										Name:      constants.InferenceServiceContainerName,
 										Resources: reqResourcesScenario.resource,
 									},
@@ -694,53 +701,54 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 		}
 	}
 }
+
 func TestMergeRuntimeContainers(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	scenarios := map[string]struct {
-		containerBase     *v1.Container
-		containerOverride *v1.Container
-		expected          *v1.Container
+		containerBase     *corev1.Container
+		containerOverride *corev1.Container
+		expected          *corev1.Container
 	}{
 		"BasicMerge": {
-			containerBase: &v1.Container{
+			containerBase: &corev1.Container{
 				Name:  "kserve-container",
 				Image: "default-image",
 				Args: []string{
 					"--foo=bar",
 					"--test=dummy",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{Name: "PORT", Value: "8080"},
 					{Name: "PORT2", Value: "8081"},
 				},
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("1"),
-						v1.ResourceMemory: resource.MustParse("2Gi"),
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
 					},
-					Requests: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("1"),
-						v1.ResourceMemory: resource.MustParse("2Gi"),
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
 					},
 				},
 			},
-			containerOverride: &v1.Container{
+			containerOverride: &corev1.Container{
 				Args: []string{
 					"--new-arg=baz",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{Name: "PORT2", Value: "8082"},
 					{Name: "Some", Value: "Var"},
 				},
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("2"),
-						v1.ResourceMemory: resource.MustParse("4Gi"),
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
 					},
 				},
 			},
-			expected: &v1.Container{
+			expected: &corev1.Container{
 				Name:  "kserve-container",
 				Image: "default-image",
 				Args: []string{
@@ -748,19 +756,19 @@ func TestMergeRuntimeContainers(t *testing.T) {
 					"--test=dummy",
 					"--new-arg=baz",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{Name: "PORT", Value: "8080"},
 					{Name: "PORT2", Value: "8082"},
 					{Name: "Some", Value: "Var"},
 				},
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("2"),
-						v1.ResourceMemory: resource.MustParse("4Gi"),
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
 					},
-					Requests: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("1"),
-						v1.ResourceMemory: resource.MustParse("2Gi"),
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
 					},
 				},
 			},
@@ -782,8 +790,8 @@ func TestMergePodSpec(t *testing.T) {
 
 	scenarios := map[string]struct {
 		podSpecBase     *v1alpha1.ServingRuntimePodSpec
-		podSpecOverride *v1beta1.PodSpec
-		expected        *v1.PodSpec
+		podSpecOverride *PodSpec
+		expected        *corev1.PodSpec
 	}{
 		"BasicMerge": {
 			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
@@ -791,97 +799,97 @@ func TestMergePodSpec(t *testing.T) {
 					"foo": "bar",
 					"aaa": "bbb",
 				},
-				Tolerations: []v1.Toleration{
-					{Key: "key1", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
+				Tolerations: []corev1.Toleration{
+					{Key: "key1", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule},
 				},
-				Volumes: []v1.Volume{
+				Volumes: []corev1.Volume{
 					{
 						Name: "foo",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 								ClaimName: "bar",
 							},
 						},
 					},
 					{
 						Name: "aaa",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 								ClaimName: "bbb",
 							},
 						},
 					},
 				},
-				ImagePullSecrets: []v1.LocalObjectReference{
+				ImagePullSecrets: []corev1.LocalObjectReference{
 					{Name: "foo"},
 				},
 			},
-			podSpecOverride: &v1beta1.PodSpec{
+			podSpecOverride: &PodSpec{
 				NodeSelector: map[string]string{
 					"foo": "baz",
 					"xxx": "yyy",
 				},
 				ServiceAccountName: "testAccount",
-				Volumes: []v1.Volume{
+				Volumes: []corev1.Volume{
 					{
 						Name: "foo",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 								ClaimName: "baz",
 							},
 						},
 					},
 					{
 						Name: "xxx",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 								ClaimName: "yyy",
 							},
 						},
 					},
 				},
-				ImagePullSecrets: []v1.LocalObjectReference{
+				ImagePullSecrets: []corev1.LocalObjectReference{
 					{Name: "foo"},
 					{Name: "bar"},
 				},
 			},
-			expected: &v1.PodSpec{
+			expected: &corev1.PodSpec{
 				NodeSelector: map[string]string{
 					"foo": "baz",
 					"xxx": "yyy",
 					"aaa": "bbb",
 				},
-				Tolerations: []v1.Toleration{
-					{Key: "key1", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
+				Tolerations: []corev1.Toleration{
+					{Key: "key1", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule},
 				},
 				ServiceAccountName: "testAccount",
-				Volumes: []v1.Volume{
+				Volumes: []corev1.Volume{
 					{
 						Name: "foo",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 								ClaimName: "baz",
 							},
 						},
 					},
 					{
 						Name: "xxx",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 								ClaimName: "yyy",
 							},
 						},
 					},
 					{
 						Name: "aaa",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 								ClaimName: "bbb",
 							},
 						},
 					},
 				},
-				ImagePullSecrets: []v1.LocalObjectReference{
+				ImagePullSecrets: []corev1.LocalObjectReference{
 					{Name: "foo"},
 					{Name: "bar"},
 				},
@@ -916,7 +924,7 @@ func TestGetServingRuntime(t *testing.T) {
 				},
 			},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: tfRuntime + "-image:latest",
@@ -933,7 +941,7 @@ func TestGetServingRuntime(t *testing.T) {
 				},
 			},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: sklearnRuntime + "-image:latest",
@@ -987,34 +995,39 @@ func TestGetServingRuntime(t *testing.T) {
 	mockClient := fake.NewClientBuilder().WithLists(runtimes, clusterRuntimes).WithScheme(s).Build()
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, _ := GetServingRuntime(mockClient, scenario.runtimeName, namespace)
+			res, _, isClusterServingRuntime := GetServingRuntime(t.Context(), mockClient, scenario.runtimeName, namespace)
 			if !g.Expect(res).To(gomega.Equal(&scenario.expected)) {
 				t.Errorf("got %v, want %v", res, &scenario.expected)
+			}
+			// Check if the returned runtime is a cluster serving runtime
+			if name == "ClusterServingRuntime" {
+				g.Expect(isClusterServingRuntime).To(gomega.BeTrue())
+			} else {
+				g.Expect(isClusterServingRuntime).To(gomega.BeFalse())
 			}
 		})
 	}
 
 	// Check invalid case
 	t.Run("InvalidServingRuntime", func(t *testing.T) {
-		res, err := GetServingRuntime(mockClient, "foo", namespace)
+		res, err, _ := GetServingRuntime(t.Context(), mockClient, "foo", namespace)
 		if !g.Expect(res).To(gomega.BeNil()) {
 			t.Errorf("got %v, want %v", res, nil)
 		}
 		g.Expect(err.Error()).To(gomega.ContainSubstring("No ServingRuntimes or ClusterServingRuntimes with the name"))
 	})
-
 }
 
 func TestReplacePlaceholders(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	scenarios := map[string]struct {
-		container *v1.Container
+		container *corev1.Container
 		meta      metav1.ObjectMeta
-		expected  *v1.Container
+		expected  *corev1.Container
 	}{
 		"ReplaceArgsAndEnvPlaceholders": {
-			container: &v1.Container{
+			container: &corev1.Container{
 				Name:  "kserve-container",
 				Image: "default-image",
 				Args: []string{
@@ -1022,18 +1035,18 @@ func TestReplacePlaceholders(t *testing.T) {
 					"--test=dummy",
 					"--new-arg=baz",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{Name: "PORT", Value: "8080"},
 					{Name: "MODELS_DIR", Value: "{{.Labels.modelDir}}"},
 				},
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("2"),
-						v1.ResourceMemory: resource.MustParse("4Gi"),
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
 					},
-					Requests: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("1"),
-						v1.ResourceMemory: resource.MustParse("2Gi"),
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
 					},
 				},
 			},
@@ -1043,7 +1056,7 @@ func TestReplacePlaceholders(t *testing.T) {
 					"modelDir": "/mnt/models",
 				},
 			},
-			expected: &v1.Container{
+			expected: &corev1.Container{
 				Name:  "kserve-container",
 				Image: "default-image",
 				Args: []string{
@@ -1051,18 +1064,18 @@ func TestReplacePlaceholders(t *testing.T) {
 					"--test=dummy",
 					"--new-arg=baz",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{Name: "PORT", Value: "8080"},
 					{Name: "MODELS_DIR", Value: "/mnt/models"},
 				},
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("2"),
-						v1.ResourceMemory: resource.MustParse("4Gi"),
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
 					},
-					Requests: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("1"),
-						v1.ResourceMemory: resource.MustParse("2Gi"),
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
 					},
 				},
 			},
@@ -1082,14 +1095,14 @@ func TestUpdateImageTag(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	scenarios := map[string]struct {
-		container      *v1.Container
+		container      *corev1.Container
 		runtimeVersion *string
 		servingRuntime string
-		isvcConfig     *v1beta1.InferenceServicesConfig
+		isvcConfig     *InferenceServicesConfig
 		expected       string
 	}{
 		"UpdateRuntimeVersion": {
-			container: &v1.Container{
+			container: &corev1.Container{
 				Name:  "kserve-container",
 				Image: "tfserving",
 				Args: []string{
@@ -1097,18 +1110,18 @@ func TestUpdateImageTag(t *testing.T) {
 					"--test=dummy",
 					"--new-arg=baz",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{Name: "PORT", Value: "8080"},
 					{Name: "MODELS_DIR", Value: "/mnt/models"},
 				},
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("2"),
-						v1.ResourceMemory: resource.MustParse("4Gi"),
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
 					},
-					Requests: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("1"),
-						v1.ResourceMemory: resource.MustParse("2Gi"),
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
 					},
 				},
 			},
@@ -1116,8 +1129,8 @@ func TestUpdateImageTag(t *testing.T) {
 			servingRuntime: constants.TFServing,
 			expected:       "tfserving:2.6.2",
 		},
-		"UpdateGPUImageTag": {
-			container: &v1.Container{
+		"UpdateTFServingGPUImageTag": {
+			container: &corev1.Container{
 				Name:  "kserve-container",
 				Image: "tfserving:1.14.0",
 				Args: []string{
@@ -1125,12 +1138,12 @@ func TestUpdateImageTag(t *testing.T) {
 					"--test=dummy",
 					"--new-arg=baz",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{Name: "PORT", Value: "8080"},
 					{Name: "MODELS_DIR", Value: "/mnt/models"},
 				},
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
 						"nvidia.com/gpu": resource.MustParse("1"),
 					},
 				},
@@ -1139,8 +1152,31 @@ func TestUpdateImageTag(t *testing.T) {
 			servingRuntime: constants.TFServing,
 			expected:       "tfserving:1.14.0-gpu",
 		},
+		"UpdateHuggingFaceServerGPUImageTag": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "huggingfaceserver:1.14.0",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []corev1.EnvVar{
+					{Name: "PORT", Value: "8080"},
+					{Name: "MODELS_DIR", Value: "/mnt/models"},
+				},
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						"nvidia.com/gpu": resource.MustParse("1"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.HuggingFaceServer,
+			expected:       "huggingfaceserver:1.14.0-gpu",
+		},
 		"UpdateGPUImageTagWithProxy": {
-			container: &v1.Container{
+			container: &corev1.Container{
 				Name:  "kserve-container",
 				Image: "localhost:8888/tfserving:1.14.0",
 				Args: []string{
@@ -1148,12 +1184,12 @@ func TestUpdateImageTag(t *testing.T) {
 					"--test=dummy",
 					"--new-arg=baz",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{Name: "PORT", Value: "8080"},
 					{Name: "MODELS_DIR", Value: "/mnt/models"},
 				},
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
 						"nvidia.com/gpu": resource.MustParse("1"),
 					},
 				},
@@ -1163,7 +1199,7 @@ func TestUpdateImageTag(t *testing.T) {
 			expected:       "localhost:8888/tfserving:1.14.0-gpu",
 		},
 		"UpdateRuntimeVersionWithProxy": {
-			container: &v1.Container{
+			container: &corev1.Container{
 				Name:  "kserve-container",
 				Image: "localhost:8888/tfserving",
 				Args: []string{
@@ -1171,18 +1207,18 @@ func TestUpdateImageTag(t *testing.T) {
 					"--test=dummy",
 					"--new-arg=baz",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{Name: "PORT", Value: "8080"},
 					{Name: "MODELS_DIR", Value: "/mnt/models"},
 				},
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("2"),
-						v1.ResourceMemory: resource.MustParse("4Gi"),
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
 					},
-					Requests: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("1"),
-						v1.ResourceMemory: resource.MustParse("2Gi"),
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
 					},
 				},
 			},
@@ -1191,7 +1227,7 @@ func TestUpdateImageTag(t *testing.T) {
 			expected:       "localhost:8888/tfserving:2.6.2",
 		},
 		"UpdateRuntimeVersionWithProxyAndTag": {
-			container: &v1.Container{
+			container: &corev1.Container{
 				Name:  "kserve-container",
 				Image: "localhost:8888/tfserving:1.2.3",
 				Args: []string{
@@ -1199,18 +1235,18 @@ func TestUpdateImageTag(t *testing.T) {
 					"--test=dummy",
 					"--new-arg=baz",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{Name: "PORT", Value: "8080"},
 					{Name: "MODELS_DIR", Value: "/mnt/models"},
 				},
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("2"),
-						v1.ResourceMemory: resource.MustParse("4Gi"),
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
 					},
-					Requests: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("1"),
-						v1.ResourceMemory: resource.MustParse("2Gi"),
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
 					},
 				},
 			},
@@ -1233,42 +1269,42 @@ func TestGetDeploymentMode(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		annotations  map[string]string
-		deployConfig *v1beta1.DeployConfig
+		deployConfig *DeployConfig
 		expected     constants.DeploymentModeType
 	}{
 		"RawDeployment": {
 			annotations: map[string]string{
 				constants.DeploymentMode: string(constants.RawDeployment),
 			},
-			deployConfig: &v1beta1.DeployConfig{},
-			expected:     constants.DeploymentModeType(constants.RawDeployment),
+			deployConfig: &DeployConfig{},
+			expected:     constants.RawDeployment,
 		},
 		"ServerlessDeployment": {
 			annotations: map[string]string{
 				constants.DeploymentMode: string(constants.Serverless),
 			},
-			deployConfig: &v1beta1.DeployConfig{},
-			expected:     constants.DeploymentModeType(constants.Serverless),
+			deployConfig: &DeployConfig{},
+			expected:     constants.Serverless,
 		},
 		"ModelMeshDeployment": {
 			annotations: map[string]string{
 				constants.DeploymentMode: string(constants.ModelMeshDeployment),
 			},
-			deployConfig: &v1beta1.DeployConfig{},
-			expected:     constants.DeploymentModeType(constants.ModelMeshDeployment),
+			deployConfig: &DeployConfig{},
+			expected:     constants.ModelMeshDeployment,
 		},
 		"DefaultDeploymentMode": {
 			annotations: map[string]string{},
-			deployConfig: &v1beta1.DeployConfig{
+			deployConfig: &DeployConfig{
 				DefaultDeploymentMode: string(constants.Serverless),
 			},
-			expected: constants.DeploymentModeType(constants.Serverless),
+			expected: constants.Serverless,
 		},
 	}
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			deploymentMode := GetDeploymentMode(scenario.annotations, scenario.deployConfig)
+			deploymentMode := GetDeploymentMode("", scenario.annotations, scenario.deployConfig)
 			if !g.Expect(deploymentMode).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", deploymentMode, scenario.expected)
 			}
@@ -1278,11 +1314,11 @@ func TestGetDeploymentMode(t *testing.T) {
 
 func TestModelName(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	var requestedResource = v1.ResourceRequirements{
-		Limits: v1.ResourceList{
+	requestedResource := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
 			"cpu": resource.MustParse("100m"),
 		},
-		Requests: v1.ResourceList{
+		Requests: corev1.ResourceList{
 			"cpu": resource.MustParse("90m"),
 		},
 	}
@@ -1303,7 +1339,7 @@ func TestModelName(t *testing.T) {
 								Name: "sklearn",
 							},
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								Container: v1.Container{
+								Container: corev1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
 								},
@@ -1327,7 +1363,7 @@ func TestModelName(t *testing.T) {
 							},
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: proto.String("gs://someUri"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Args:      []string{"--model_name=sklearn-custom"},
 									Resources: requestedResource,
 								},
@@ -1346,8 +1382,9 @@ func TestModelName(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
-								{Name: constants.InferenceServiceContainerName,
+							Containers: []corev1.Container{
+								{
+									Name:  constants.InferenceServiceContainerName,
 									Image: "some-image",
 								},
 							},
@@ -1365,8 +1402,9 @@ func TestModelName(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
-								{Name: constants.InferenceServiceContainerName,
+							Containers: []corev1.Container{
+								{
+									Name:  constants.InferenceServiceContainerName,
 									Image: "some-image",
 									Args:  []string{"--model_name=custom-model"},
 								},
@@ -1389,8 +1427,8 @@ func TestModelName(t *testing.T) {
 								Name: "sklearn",
 							},
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								Container: v1.Container{
-									Env:       []v1.EnvVar{{Name: constants.MLServerModelNameEnv, Value: "sklearn-custom"}},
+								Container: corev1.Container{
+									Env:       []corev1.EnvVar{{Name: constants.MLServerModelNameEnv, Value: "sklearn-custom"}},
 									Resources: requestedResource,
 								},
 							},
@@ -1408,8 +1446,9 @@ func TestModelName(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Transformer: &TransformerSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
-								{Name: constants.InferenceServiceContainerName,
+							Containers: []corev1.Container{
+								{
+									Name:  constants.InferenceServiceContainerName,
 									Image: "some-image",
 									Args:  []string{"--model_name=custom-model"},
 								},
@@ -1422,7 +1461,7 @@ func TestModelName(t *testing.T) {
 								Name: "sklearn",
 							},
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								Container: v1.Container{
+								Container: corev1.Container{
 									Resources: requestedResource,
 								},
 							},
@@ -1445,7 +1484,7 @@ func TestModelName(t *testing.T) {
 							},
 
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								Container: v1.Container{
+								Container: corev1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
 									Args:      []string{"--model_name=sklearn", "--model_dir", "/mnt/models", "--model_name", "iris"},
@@ -1470,7 +1509,7 @@ func TestModelName(t *testing.T) {
 							},
 
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								Container: v1.Container{
+								Container: corev1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
 									Args:      []string{"--model_dir", "/mnt/models", "--model_name iris"}, // This format is not recognized by the modelserver. So we ignore this format.
@@ -1495,7 +1534,7 @@ func TestModelName(t *testing.T) {
 							},
 
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								Container: v1.Container{
+								Container: corev1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
 									Args:      []string{"--model_dir", "/mnt/models", "--model_name", "iris"},
@@ -1521,14 +1560,42 @@ func TestModelName(t *testing.T) {
 
 func TestGetPredictorEndpoint(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	var requestedResource = v1.ResourceRequirements{
-		Limits: v1.ResourceList{
+	requestedResource := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
 			"cpu": resource.MustParse("100m"),
 		},
-		Requests: v1.ResourceList{
+		Requests: corev1.ResourceList{
 			"cpu": resource.MustParse("90m"),
 		},
 	}
+	namespace := "default"
+
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("Failed to add v1alpha1 to scheme %s", err)
+	}
+	protocolV1Runtime := &v1alpha1.ServingRuntime{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mocked-v1-runtime",
+			Namespace: namespace,
+		},
+		Spec: v1alpha1.ServingRuntimeSpec{
+			ProtocolVersions: []constants.InferenceServiceProtocol{"v1"},
+		},
+	}
+	protocolV2Runtime := &v1alpha1.ServingRuntime{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mocked-v2-runtime",
+			Namespace: namespace,
+		},
+		Spec: v1alpha1.ServingRuntimeSpec{
+			ProtocolVersions: []constants.InferenceServiceProtocol{"v2"},
+		},
+	}
+	mockClient := fake.NewClientBuilder().WithScheme(s).WithObjects(protocolV1Runtime, protocolV2Runtime).Build()
 
 	scenarios := map[string]struct {
 		isvc        InferenceService
@@ -1547,7 +1614,7 @@ func TestGetPredictorEndpoint(t *testing.T) {
 								Name: "sklearn",
 							},
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								Container: v1.Container{
+								Container: corev1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
 								},
@@ -1614,7 +1681,7 @@ func TestGetPredictorEndpoint(t *testing.T) {
 					},
 					Transformer: &TransformerSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name:  constants.InferenceServiceContainerName,
 									Image: "kserve/transformer:1.0",
@@ -1683,11 +1750,11 @@ func TestGetPredictorEndpoint(t *testing.T) {
 					},
 					Transformer: &TransformerSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name:  constants.InferenceServiceContainerName,
 									Image: "kserve/transformer:1.0",
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  constants.CustomSpecProtocolEnvVarKey,
 											Value: string(constants.ProtocolV2),
@@ -1718,13 +1785,13 @@ func TestGetPredictorEndpoint(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name:      constants.InferenceServiceContainerName,
 									Image:     "kserve/custom-image:1.0",
 									Args:      []string{"--model_name=sklearn-custom"},
 									Resources: requestedResource,
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  constants.CustomSpecProtocolEnvVarKey,
 											Value: string(constants.ProtocolV2),
@@ -1773,11 +1840,11 @@ func TestGetPredictorEndpoint(t *testing.T) {
 					},
 					Transformer: &TransformerSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name:  constants.InferenceServiceContainerName,
 									Image: "kserve/transformer:1.0",
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  constants.CustomSpecProtocolEnvVarKey,
 											Value: string(constants.ProtocolV2),
@@ -1797,11 +1864,73 @@ func TestGetPredictorEndpoint(t *testing.T) {
 			expectedUrl: "",
 			expectedErr: gomega.MatchError("service sklearn is not ready"),
 		},
+		"NoProtocolWithRuntimeProtocolV1": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "sklearn",
+					Namespace: namespace,
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							Runtime: ptr.To("mocked-v1-runtime"),
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("s3://test"),
+							},
+						},
+					},
+				},
+				Status: InferenceServiceStatus{
+					Address: &knativeV1.Addressable{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "sklearn-predictor.default.svc.cluster.local",
+						},
+					},
+				},
+			},
+			expectedUrl: "http://sklearn-predictor.default.svc.cluster.local/v1/models/sklearn:predict",
+			expectedErr: gomega.BeNil(),
+		},
+		"NoProtocolWithRuntimeProtocolV2": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "sklearn",
+					Namespace: namespace,
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							Runtime: ptr.To("mocked-v2-runtime"),
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("s3://test"),
+							},
+						},
+					},
+				},
+				Status: InferenceServiceStatus{
+					Address: &knativeV1.Addressable{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "sklearn-predictor.default.svc.cluster.local",
+						},
+					},
+				},
+			},
+			expectedUrl: "http://sklearn-predictor.default.svc.cluster.local/v2/models/sklearn/infer",
+			expectedErr: gomega.BeNil(),
+		},
 	}
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, err := GetPredictorEndpoint(&scenario.isvc)
+			res, err := GetPredictorEndpoint(t.Context(), mockClient, &scenario.isvc)
 			g.Expect(err).To(scenario.expectedErr)
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedUrl)) {
 				t.Errorf("got %s, want %s", res, scenario.expectedUrl)
@@ -1832,7 +1961,7 @@ func TestValidateStorageURIForDefaultStorageInitializer(t *testing.T) {
 	}
 	mockClient := fake.NewClientBuilder().WithScheme(s).Build()
 	for _, uri := range validUris {
-		if err := ValidateStorageURI(&uri, mockClient); err != nil {
+		if err := ValidateStorageURI(t.Context(), &uri, mockClient); err != nil {
 			t.Errorf("%q validation failed: %s", uri, err)
 		}
 	}
@@ -1849,7 +1978,7 @@ func TestValidateStorageURIForCustomPrefix(t *testing.T) {
 	}
 	mockClient := fake.NewClientBuilder().WithScheme(s).Build()
 	for _, uri := range invalidUris {
-		if err := ValidateStorageURI(&uri, mockClient); err == nil {
+		if err := ValidateStorageURI(t.Context(), &uri, mockClient); err == nil {
 			t.Errorf("%q validation failed: error expected", uri)
 		}
 	}
@@ -1861,15 +1990,16 @@ func TestValidateStorageURIForDefaultStorageInitializerCRD(t *testing.T) {
 			Name: "custom",
 		},
 		Spec: v1alpha1.StorageContainerSpec{
-			Container: v1.Container{
+			Container: corev1.Container{
 				Image: "kserve/storage-initializer:latest",
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
-						v1.ResourceMemory: resource.MustParse("200Mi"),
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("200Mi"),
 					},
 				},
 			},
 			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+			WorkloadType:        v1alpha1.InitContainer,
 		},
 	}
 
@@ -1886,8 +2016,368 @@ func TestValidateStorageURIForDefaultStorageInitializerCRD(t *testing.T) {
 	}
 	mockClient := fake.NewClientBuilder().WithLists(storageContainerSpecs).WithScheme(s).Build()
 	for _, uri := range validUris {
-		if err := ValidateStorageURI(&uri, mockClient); err != nil {
+		if err := ValidateStorageURI(t.Context(), &uri, mockClient); err != nil {
 			t.Errorf("%q validation failed: %s", uri, err)
 		}
+	}
+}
+
+func TestAddEnvVarToPodSpec(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		pod                 *corev1.Pod
+		targetContainerName string
+		envName             string
+		envValue            string
+		expectedPodSpec     *corev1.PodSpec
+		expectedErr         gomega.OmegaMatcher
+	}{
+		"addNewEnv": {
+			targetContainerName: "test-container",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "test-container",
+							Env: []corev1.EnvVar{
+								{
+									Name:  "EXISTING_VAR",
+									Value: "existing_value",
+								},
+							},
+						},
+					},
+				},
+			},
+			envName:  "NEW_ENV",
+			envValue: "new_value",
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name: "test-container",
+						Env: []corev1.EnvVar{
+							{
+								Name:  "EXISTING_VAR",
+								Value: "existing_value",
+							},
+							{
+								Name:  "NEW_ENV",
+								Value: "new_value",
+							},
+						},
+					},
+				},
+			},
+			expectedErr: gomega.BeNil(),
+		},
+		"updateExistingEnv": {
+			targetContainerName: "test-container",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "test-container",
+							Env: []corev1.EnvVar{
+								{
+									Name:  "EXISTING_VAR",
+									Value: "existing_value",
+								},
+							},
+						},
+					},
+				},
+			},
+			envName:  "EXISTING_VAR",
+			envValue: "updated_value",
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name: "test-container",
+						Env: []corev1.EnvVar{
+							{
+								Name:  "EXISTING_VAR",
+								Value: "updated_value",
+							},
+						},
+					},
+				},
+			},
+			expectedErr: gomega.BeNil(),
+		},
+		"updateExistingEnvWithSpecificContainer": {
+			targetContainerName: "target-container",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "target-container",
+							Env: []corev1.EnvVar{
+								{
+									Name:  "EXISTING_VAR",
+									Value: "existing_value",
+								},
+							},
+						},
+						{
+							Name: "test-container",
+							Env: []corev1.EnvVar{
+								{
+									Name:  "EXISTING_VAR",
+									Value: "existing_value",
+								},
+							},
+						},
+					},
+				},
+			},
+			envName:  "EXISTING_VAR",
+			envValue: "updated_value",
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name: "target-container",
+						Env: []corev1.EnvVar{
+							{
+								Name:  "EXISTING_VAR",
+								Value: "updated_value",
+							},
+						},
+					},
+					{
+						Name: "test-container",
+						Env: []corev1.EnvVar{
+							{
+								Name:  "EXISTING_VAR",
+								Value: "existing_value",
+							},
+						},
+					},
+				},
+			},
+			expectedErr: gomega.BeNil(),
+		},
+		"addNewEnvWithSpecificContainer": {
+			targetContainerName: "target-container",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "target-container",
+							Env: []corev1.EnvVar{
+								{
+									Name:  "EXISTING_VAR",
+									Value: "existing_value",
+								},
+							},
+						},
+						{
+							Name: "test-container",
+							Env: []corev1.EnvVar{
+								{
+									Name:  "EXISTING_VAR",
+									Value: "existing_value",
+								},
+							},
+						},
+					},
+				},
+			},
+			envName:  "NEW_ENV",
+			envValue: "new_value",
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name: "target-container",
+						Env: []corev1.EnvVar{
+							{
+								Name:  "EXISTING_VAR",
+								Value: "existing_value",
+							},
+							{
+								Name:  "NEW_ENV",
+								Value: "new_value",
+							},
+						},
+					},
+					{
+						Name: "test-container",
+						Env: []corev1.EnvVar{
+							{
+								Name:  "EXISTING_VAR",
+								Value: "existing_value",
+							},
+						},
+					},
+				},
+			},
+			expectedErr: gomega.BeNil(),
+		},
+		"AddEnvToWrongContainer": {
+			targetContainerName: "test-container",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "wrong-container",
+							Env: []corev1.EnvVar{
+								{
+									Name:  "EXISTING_VAR",
+									Value: "existing_value",
+								},
+							},
+						},
+					},
+				},
+			},
+			envName:  "EXISTING_VAR",
+			envValue: "updated_value",
+			expectedPodSpec: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name: "test-container",
+						Env: []corev1.EnvVar{
+							{
+								Name:  "EXISTING_VAR",
+								Value: "existing_value",
+							},
+						},
+					},
+				},
+			},
+			expectedErr: gomega.Equal(errors.New("target container(test-container) does not exist")),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			err := AddEnvVarToPodSpec(&scenario.pod.Spec, scenario.targetContainerName, scenario.envName, scenario.envValue)
+			g.Expect(err).To(scenario.expectedErr)
+			g.Expect(scenario.pod.Spec.Containers[0].Env).Should(gomega.Equal(scenario.expectedPodSpec.Containers[0].Env))
+		})
+	}
+}
+
+func TestMergeServingRuntimeAndInferenceServiceSpecs(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		srContainers        []corev1.Container
+		isvcContainer       corev1.Container
+		isvc                *InferenceService
+		targetContainerName string
+		srPodSpec           v1alpha1.ServingRuntimePodSpec
+		isvcPodSpec         PodSpec
+		expectedContainer   *corev1.Container
+		expectedPodSpec     *corev1.PodSpec
+		expectedErr         gomega.OmegaMatcher
+	}{
+		"Merge container when there is no target container": {
+			srContainers: []corev1.Container{
+				{Name: "containerA"},
+			},
+			isvcContainer:       corev1.Container{Name: "containerA"},
+			isvc:                &InferenceService{},
+			targetContainerName: "containerA",
+			srPodSpec:           v1alpha1.ServingRuntimePodSpec{},
+			isvcPodSpec:         PodSpec{},
+			expectedContainer:   &corev1.Container{Name: "containerA"},
+			expectedPodSpec:     &corev1.PodSpec{},
+			expectedErr:         gomega.BeNil(),
+		},
+		"Merge container when there is target container": {
+			srContainers: []corev1.Container{
+				{Name: "containerA"},
+			},
+			isvcContainer: corev1.Container{
+				Name: "containerA",
+				Env:  []corev1.EnvVar{{Name: "test", Value: "test"}},
+			},
+			isvc:                &InferenceService{},
+			targetContainerName: "containerA",
+			srPodSpec:           v1alpha1.ServingRuntimePodSpec{},
+			isvcPodSpec:         PodSpec{},
+			expectedContainer: &corev1.Container{
+				Name: "containerA",
+				Env:  []corev1.EnvVar{{Name: "test", Value: "test"}},
+			},
+			expectedPodSpec: &corev1.PodSpec{},
+			expectedErr:     gomega.BeNil(),
+		},
+		"Return error when invalid container name": {
+			srContainers:        []corev1.Container{{Name: "containerA"}},
+			isvcContainer:       corev1.Container{Name: "containerB"},
+			isvc:                &InferenceService{},
+			targetContainerName: "nonExistentContainer",
+			srPodSpec:           v1alpha1.ServingRuntimePodSpec{},
+			isvcPodSpec:         PodSpec{},
+			expectedContainer:   nil,
+			expectedPodSpec:     nil,
+			expectedErr:         gomega.HaveOccurred(),
+		},
+		"Merge podSpec when there is target container": {
+			srContainers: []corev1.Container{
+				{Name: "containerA"},
+			},
+			isvcContainer:       corev1.Container{Name: "containerA"},
+			isvc:                &InferenceService{},
+			targetContainerName: "containerA",
+			srPodSpec:           v1alpha1.ServingRuntimePodSpec{Containers: []corev1.Container{{Name: "containerA", Env: []corev1.EnvVar{{Name: "original", Value: "original"}}}}},
+			isvcPodSpec:         PodSpec{Containers: []corev1.Container{{Name: "containerA", Env: []corev1.EnvVar{{Name: "test", Value: "test"}}}}},
+			expectedContainer:   &corev1.Container{Name: "containerA"},
+			expectedPodSpec:     &corev1.PodSpec{Containers: []corev1.Container{{Name: "containerA", Env: []corev1.EnvVar{{Name: "original", Value: "original"}, {Name: "test", Value: "test"}}}}},
+			expectedErr:         gomega.BeNil(),
+		},
+		"Merge podSpec when there is no target container": {
+			srContainers: []corev1.Container{
+				{Name: "containerA"},
+			},
+			isvcContainer:       corev1.Container{Name: "containerA"},
+			isvc:                &InferenceService{},
+			targetContainerName: "containerA",
+			srPodSpec:           v1alpha1.ServingRuntimePodSpec{Containers: []corev1.Container{{Name: "containerA", Env: []corev1.EnvVar{{Name: "original", Value: "original"}}}}},
+			isvcPodSpec:         PodSpec{Containers: []corev1.Container{{Name: "containerB", Env: []corev1.EnvVar{{Name: "test", Value: "test"}}}}},
+			expectedContainer:   &corev1.Container{Name: "containerA"},
+			expectedPodSpec:     &corev1.PodSpec{Containers: []corev1.Container{{Name: "containerA", Env: []corev1.EnvVar{{Name: "original", Value: "original"}}}}},
+			expectedErr:         gomega.BeNil(),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			index, mergedContainer, mergedPodSpec, err := MergeServingRuntimeAndInferenceServiceSpecs(
+				scenario.srContainers,
+				scenario.isvcContainer,
+				scenario.isvc,
+				scenario.targetContainerName,
+				scenario.srPodSpec,
+				scenario.isvcPodSpec,
+			)
+
+			if scenario.expectedErr == gomega.BeNil() {
+				g.Expect(index).To(gomega.Equal(0))
+				g.Expect(err).To(scenario.expectedErr)
+				g.Expect(mergedContainer).To(gomega.Equal(scenario.expectedContainer))
+				g.Expect(mergedPodSpec).To(gomega.Equal(scenario.expectedPodSpec))
+			} else {
+				g.Expect(index).NotTo(gomega.Equal(-1))
+				g.Expect(err).To(scenario.expectedErr)
+			}
+		})
 	}
 }

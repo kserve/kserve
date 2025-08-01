@@ -28,20 +28,11 @@ from kserve import (
     ModelServer,
     logging,
 )
-from kserve.model import PredictorConfig
 
 
 class Tokenizer(kserve.Model):
-    def __init__(
-        self,
-        name: str,
-        predictor_host: str,
-        predictor_protocol: str,
-        predictor_use_ssl: bool,
-    ):
-        super().__init__(
-            name, PredictorConfig(predictor_host, predictor_protocol, predictor_use_ssl)
-        )
+    def __init__(self, name: str):
+        super().__init__(name)
         self.short_paragraph_text = (
             "The Apollo program was the third United States human spaceflight program. "
             "First conceived as a three-man spacecraft to follow the one-man Project Mercury "
@@ -126,10 +117,5 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     if args.configure_logging:
         logging.configure_logging(args.log_config_file)
-    model = Tokenizer(
-        args.model_name,
-        predictor_host=args.predictor_host,
-        predictor_protocol=args.predictor_protocol,
-        predictor_use_ssl=args.predictor_use_ssl,
-    )
+    model = Tokenizer(args.model_name)
     ModelServer().start([model])

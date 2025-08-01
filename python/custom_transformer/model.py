@@ -30,7 +30,7 @@ from kserve import (
     InferResponse,
     logging,
 )
-from kserve.model import PredictorProtocol, PredictorConfig
+from kserve.model import PredictorProtocol
 
 
 def image_transform(model_name, data):
@@ -60,16 +60,8 @@ def image_transform(model_name, data):
 
 
 class ImageTransformer(Model):
-    def __init__(
-        self,
-        name: str,
-        predictor_host: str,
-        predictor_protocol: str,
-        predictor_use_ssl: bool,
-    ):
-        super().__init__(
-            name, PredictorConfig(predictor_host, predictor_protocol, predictor_use_ssl)
-        )
+    def __init__(self, name: str):
+        super().__init__(name, return_response_headers=True)
         self.ready = True
 
     def preprocess(
@@ -100,7 +92,7 @@ class ImageTransformer(Model):
         infer_request = InferRequest(model_name=self.name, infer_inputs=infer_inputs)
 
         # Transform to KServe v1/v2 inference protocol
-        if self.protocol == PredictorProtocol.REST_V1.value:
+        if self.predictor_config.predictor_protocol == PredictorProtocol.REST_V1.value:
             inputs = [{"data": input_tensor.tolist()} for input_tensor in input_tensors]
             payload = {"instances": inputs}
             return payload
@@ -108,15 +100,20 @@ class ImageTransformer(Model):
             return infer_request
 
     def postprocess(
-        self, infer_response: Union[Dict, InferResponse], headers: Dict[str, str] = None
+        self,
+        infer_response: Union[Dict, InferResponse],
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
         if "request-type" in headers and headers["request-type"] == "v1":
-            if self.protocol == PredictorProtocol.REST_V1.value:
+            if (
+                self.predictor_config.predictor_protocol
+                == PredictorProtocol.REST_V1.value
+            ):
                 return infer_response
             else:
                 # if predictor protocol is v2 but transformer uses v1
-                res = infer_response.to_rest()
-                return {"predictions": res["outputs"][0]["data"]}
+                return {"predictions": infer_response.outputs[0].as_numpy().tolist()}
         else:
             return infer_response
 
@@ -127,10 +124,5 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     if args.configure_logging:
         logging.configure_logging(args.log_config_file)
-    model = ImageTransformer(
-        args.model_name,
-        predictor_host=args.predictor_host,
-        predictor_protocol=args.predictor_protocol,
-        predictor_use_ssl=args.predictor_use_ssl,
-    )
+    model = ImageTransformer(args.model_name)
     ModelServer().start([model])

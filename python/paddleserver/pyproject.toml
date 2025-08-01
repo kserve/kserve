@@ -1,38 +1,26 @@
-[tool.poetry]
-name = "paddleserver"
-version = "0.13.0"
-description = "Model Server implementation for Paddle. Not intended for use outside KServe Frameworks Images"
-authors = ["Zhengyuan Zhang <zhangzhengyuan0604@gmail.com>"]
-license = "https://github.com/kserve/kserve/blob/master/LICENSE"
-readme = "README.md"
-packages = [
-    { include = "paddleserver" },
+[project]
+authors = [
+    {name = "Zhengyuan Zhang", email = "zhangzhengyuan0604@gmail.com"},
 ]
+license = {text = "Apache-2.0"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "kserve[storage] @ file:///${PROJECT_ROOT}/../kserve",
+    "paddlepaddle>=2.6.1,<=3.0.0; platform_system != 'Windows'",
+    "setuptools<71.0.0,>=70.0.0",
+]
+name = "paddleserver"
+version = "0.15.2"
+description = "Model Server implementation for Paddle. Not intended for use outside KServe Frameworks Images"
+readme = "README.md"
 
-[tool.poetry.dependencies]
-python = ">=3.8,<3.12"
-kserve = {path = "../kserve", extras = ["storage"], develop = true}
-paddlepaddle = {version="^2.6.1", markers = "platform_system != 'Windows'"}
-
-[tool.poetry.group.test]
-optional = true
-
-[tool.poetry.group.test.dependencies]
-pytest = "^7.2.0"
-pytest-cov = "^4.0.0"
-mypy = "^0.991"
-opencv-python = "^4.2.0"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-black = { version = "~24.3.0", extras = ["colorama"] }
-
-[tool.poetry-version-plugin]
-source = "file"
-file_path = "../VERSION"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[dependency-groups]
+test = [
+    "pytest<8.0.0,>=7.4.4",
+    "pytest-cov<6.0.0,>=5.0.0",
+    "mypy<1.0,>=0.991",
+    "opencv-python<5.0.0,>=4.10.0",
+]
+dev = [
+    "black[colorama]~=24.3.0",
+]

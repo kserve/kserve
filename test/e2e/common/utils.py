@@ -39,8 +39,7 @@ TRANSFORMER_CONTAINER = "transformer-container"
 STORAGE_URI_ENV = "STORAGE_URI"
 
 
-def grpc_client(host):
-    cluster_ip = get_cluster_ip()
+def grpc_client(host, cluster_ip):
     if ":" not in cluster_ip:
         cluster_ip = cluster_ip + ":80"
     logger.info("Cluster IP: %s", cluster_ip)
@@ -51,16 +50,18 @@ def grpc_client(host):
         channel_args=[
             ("grpc.ssl_target_name_override", host),
         ],
+        timeout=120,
     )
 
 
 async def predict_isvc(
     client: InferenceRESTClient,
     service_name,
-    input_path,
+    input: Union[str, InferRequest],
     version=constants.KSERVE_V1BETA1_VERSION,
     model_name=None,
     is_batch=False,
+    network_layer: str = "istio",
 ) -> Union[InferResponse, Dict, List[Union[Dict, InferResponse]]]:
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -70,15 +71,15 @@ async def predict_isvc(
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    cluster_ip, host, path = get_isvc_endpoint(isvc)
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc, network_layer)
     if model_name is None:
         model_name = service_name
-    base_url = f"http://{cluster_ip}{path}"
+    base_url = f"{scheme}://{cluster_ip}{path}"
     return await predict(
         client,
         base_url,
         host,
-        input_path,
+        input,
         model_name=model_name,
         is_batch=is_batch,
         is_graph=False,
@@ -89,13 +90,16 @@ async def predict(
     client: InferenceRESTClient,
     url,
     host,
-    input_path,
+    input: Union[str, InferRequest],
     model_name=None,
     is_batch=False,
     is_graph=False,
 ) -> Union[InferResponse, Dict, List[Union[Dict, InferResponse]]]:
-    with open(input_path) as json_file:
-        data = json.load(json_file)
+    if isinstance(input, str):
+        with open(input) as json_file:
+            data = json.load(json_file)
+    else:
+        data = input
     headers = {"Host": host, "Content-Type": "application/json"}
     if is_batch:
         with futures.ThreadPoolExecutor(max_workers=4) as executor:
@@ -154,6 +158,7 @@ async def predict_ig(
     ig_name,
     input_path,
     version=constants.KSERVE_V1ALPHA1_VERSION,
+    network_layer: str = "istio",
 ) -> Union[InferResponse, Dict]:
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -163,22 +168,23 @@ async def predict_ig(
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    cluster_ip, host, _ = get_isvc_endpoint(ig)
-    url = f"http://{cluster_ip}"
+    scheme, cluster_ip, host, _ = get_isvc_endpoint(ig, network_layer)
+    url = f"{scheme}://{cluster_ip}"
     return await predict(client, url, host, input_path, is_graph=True)
 
 
-async def explain(service_name, input_path):
-    res = await explain_response(service_name, input_path)
-    return res["data"]["precision"]
-
-
-async def explain_art(client, service_name, input_path):
-    res = await explain_response(client, service_name, input_path)
+async def explain_art(
+    client, service_name, input_path, network_layer: str = "istio"
+) -> Dict:
+    res = await explain_response(
+        client, service_name, input_path, network_layer=network_layer
+    )
     return res["explanations"]["adversarial_prediction"]
 
 
-async def explain_response(client, service_name, input_path) -> Dict:
+async def explain_response(
+    client, service_name, input_path, network_layer: str
+) -> Dict:
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
@@ -187,8 +193,8 @@ async def explain_response(client, service_name, input_path) -> Dict:
         namespace=KSERVE_TEST_NAMESPACE,
         version=constants.KSERVE_V1BETA1_VERSION,
     )
-    cluster_ip, host, _ = get_isvc_endpoint(isvc)
-    url = f"http://{cluster_ip}"
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc, network_layer)
+    url = f"{scheme}://{cluster_ip}{path}"
     headers = {"Host": host}
     with open(input_path) as json_file:
         data = json.load(json_file)
@@ -223,11 +229,24 @@ async def explain_response(client, service_name, input_path) -> Dict:
         return response
 
 
-def get_cluster_ip(name="istio-ingressgateway", namespace="istio-system"):
+def get_cluster_ip(namespace="istio-system", labels: dict = None):
     cluster_ip = os.environ.get("KSERVE_INGRESS_HOST_PORT")
     if cluster_ip is None:
         api_instance = k8s_client.CoreV1Api(k8s_client.ApiClient())
-        service = api_instance.read_namespaced_service(name, namespace)
+        if labels is None:
+            labels = {
+                "app": "istio-ingressgateway",
+                "istio": "ingressgateway",
+            }
+        label_selector = ",".join([f"{key}={value}" for key, value in labels.items()])
+        services = api_instance.list_namespaced_service(
+            namespace, label_selector=label_selector
+        )
+        if services.items:
+            service = services.items[0]
+        else:
+            raise RuntimeError(f"No service found with labels: {labels}")
+
         if service.status.load_balancer.ingress is None:
             cluster_ip = service.spec.cluster_ip
         else:
@@ -244,6 +263,7 @@ async def predict_grpc(
     parameters=None,
     version=constants.KSERVE_V1BETA1_VERSION,
     model_name=None,
+    network_layer: str = "istio",
 ) -> InferResponse:
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -253,11 +273,11 @@ async def predict_grpc(
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    _, host, _ = get_isvc_endpoint(isvc)
+    _, cluster_ip, host, _ = get_isvc_endpoint(isvc, network_layer)
 
     if model_name is None:
         model_name = service_name
-    client = grpc_client(host)
+    client = grpc_client(host, cluster_ip)
 
     response = await client.infer(
         InferRequest.from_grpc(
@@ -288,14 +308,27 @@ async def predict_modelmesh(
         return response
 
 
-def get_isvc_endpoint(isvc):
+def get_isvc_endpoint(isvc, network_layer: str = "istio"):
+    scheme = urlparse(isvc["status"]["url"]).scheme
     host = urlparse(isvc["status"]["url"]).netloc
     path = urlparse(isvc["status"]["url"]).path
     if os.environ.get("CI_USE_ISVC_HOST") == "1":
         cluster_ip = host
-    else:
+    elif network_layer == "istio" or network_layer == "istio-ingress":
         cluster_ip = get_cluster_ip()
-    return cluster_ip, host, path
+    elif network_layer == "envoy-gatewayapi":
+        cluster_ip = get_cluster_ip(
+            namespace="envoy-gateway-system",
+            labels={"serving.kserve.io/gateway": "kserve-ingress-gateway"},
+        )
+    elif network_layer == "istio-gatewayapi":
+        cluster_ip = get_cluster_ip(
+            namespace="kserve",
+            labels={"serving.kserve.io/gateway": "kserve-ingress-gateway"},
+        )
+    else:
+        raise ValueError(f"Unknown network layer {network_layer}")
+    return scheme, cluster_ip, host, path
 
 
 def generate(
@@ -304,35 +337,171 @@ def generate(
     version=constants.KSERVE_V1BETA1_VERSION,
     chat_completions=True,
 ):
+    url_suffix = "v1/chat/completions" if chat_completions else "v1/completions"
+    res = _openai_request(service_name, input_json, version, url_suffix)
+    return _process_non_streaming_response(res)
+
+
+def embed(
+    service_name,
+    input_json,
+    version=constants.KSERVE_V1BETA1_VERSION,
+):
+    res = _openai_request(service_name, input_json, version, "v1/embeddings")
+    return _process_non_streaming_response(res)
+
+
+def rerank(
+    service_name,
+    input_json,
+    version=constants.KSERVE_V1BETA1_VERSION,
+):
+    res = _openai_request(service_name, input_json, version, "v1/rerank")
+    return _process_non_streaming_response(res)
+
+
+def _get_openai_endpoint_and_host(
+    service_name, url_suffix, version=constants.KSERVE_V1BETA1_VERSION
+):
+    """
+    Get the OpenAI endpoint for the given service name.
+    Args:
+        service_name: The name of the inference service
+        url_suffix: The suffix for the OpenAI endpoint (e.g., "v1/chat/completions")
+        version: The version of the inference service. Defaults to v1beta1
+    Returns:
+        A tuple containing the OpenAI endpoint URL and the host name
+    """
+    kfs_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    isvc = kfs_client.get(
+        service_name, namespace=KSERVE_TEST_NAMESPACE, version=version
+    )
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
+    return f"{scheme}://{cluster_ip}{path}/openai/{url_suffix}", host
+
+
+def _openai_request(
+    service_name,
+    input_json,
+    version=constants.KSERVE_V1BETA1_VERSION,
+    url_suffix="",
+    stream=False,
+):
     with open(input_json) as json_file:
         data = json.load(json_file)
 
-        kfs_client = KServeClient(
-            config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
-        )
-        isvc = kfs_client.get(
-            service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
-            version=version,
-        )
-        cluster_ip, host, path = get_isvc_endpoint(isvc)
+        url, host = _get_openai_endpoint_and_host(service_name, url_suffix, version)
         headers = {"Host": host, "Content-Type": "application/json"}
 
-        if chat_completions:
-            url = f"http://{cluster_ip}{path}/openai/v1/chat/completions"
-        else:
-            url = f"http://{cluster_ip}{path}/openai/v1/completions"
         logger.info("Sending Header = %s", headers)
         logger.info("Sending url = %s", url)
         logger.info("Sending request data: %s", data)
         # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
         time.sleep(10)
-        response = requests.post(url, json.dumps(data), headers=headers)
-        logger.info(
-            "Got response code %s, content %s", response.status_code, response.content
-        )
-        if response.status_code == 200:
-            preds = json.loads(response.content.decode("utf-8"))
-            return preds
-        else:
+        response = requests.post(url, json.dumps(data), headers=headers, stream=stream)
+        logger.info("Got response code %s", response.status_code)
+        if not response.status_code == 200:
             response.raise_for_status()
+        return response
+
+
+def _process_non_streaming_response(response):
+    preds = json.loads(response.content.decode("utf-8"))
+    logger.info("Got response content %s", preds)
+    return preds
+
+
+def chat_completion_stream(
+    service_name,
+    input_json,
+    version=constants.KSERVE_V1BETA1_VERSION,
+):
+    """
+    Make a chat completion streaming request to the inference service and collect all chunks.
+    Returns a tuple containing full response text and all chunks received.
+    """
+    res = _openai_request(
+        service_name, input_json, version, "v1/chat/completions", stream=True
+    )
+
+    chunks = []
+    full_content = ""
+
+    for line in res.iter_lines():
+        if line:
+            # Remove the "data: " prefix and process the chunk
+            line = line.decode("utf-8")
+            if line.startswith("data: ") and line != "data: [DONE]":
+                chunk_data = json.loads(line[6:])  # Skip "data: "
+                if "choices" in chunk_data and len(chunk_data["choices"]) > 0:
+                    delta = chunk_data["choices"][0].get("delta", {})
+                    content = delta.get("content", "")
+                    if content:
+                        chunks.append(content)
+                        full_content += content
+    return full_content, chunks
+
+
+def completion_stream(
+    service_name,
+    input_json,
+    version=constants.KSERVE_V1BETA1_VERSION,
+):
+    """
+    Make a streaming request to the text completion inference service and collect all chunks.
+    Returns a tuple containing full response text and all chunks received.
+    """
+    res = _openai_request(
+        service_name, input_json, version, "v1/completions", stream=True
+    )
+    chunks = []
+    full_content = ""
+
+    for line in res.iter_lines():
+        if line:
+            # Remove the "data: " prefix and process the chunk
+            line = line.decode("utf-8")
+            if line.startswith("data: ") and line != "data: [DONE]":
+                chunk_data = json.loads(line[6:])  # Skip "data: "
+                if "choices" in chunk_data and len(chunk_data["choices"]) > 0:
+                    text = chunk_data["choices"][0].get("text", "")
+                    if text:
+                        chunks.append(text)
+                        full_content += text
+
+    return full_content, chunks
+
+
+def is_model_ready(
+    rest_client,
+    service_name,
+    model_name,
+    version=constants.KSERVE_V1BETA1_VERSION,
+    network_layer: str = "istio",
+):
+    kfs_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    isvc = kfs_client.get(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        version=version,
+    )
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc, network_layer)
+    if model_name is None:
+        model_name = service_name
+    base_url = f"{scheme}://{cluster_ip}{path}"
+    headers = {"Host": host}
+    return rest_client.is_model_ready(base_url, model_name, headers=headers)
+
+
+def extract_process_ids_from_logs(logs: str) -> set[int]:
+    process_ids = set()
+    for line in logs.splitlines():
+        tokens = line.strip().split()
+        if len(tokens) >= 5 and tokens[3] == "kserve.trace":
+            process_ids.add(int(tokens[2]))
+    logger.info("Extracted process ids: %s", process_ids)
+    return process_ids

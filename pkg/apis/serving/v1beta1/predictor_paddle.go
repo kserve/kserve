@@ -17,9 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/kserve/kserve/pkg/constants"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 type PaddleServerSpec struct {
@@ -29,10 +30,10 @@ type PaddleServerSpec struct {
 func (p *PaddleServerSpec) Default(config *InferenceServicesConfig) {
 	// TODO: add GPU support
 	p.Container.Name = constants.InferenceServiceContainerName
-	setResourceRequirementDefaults(&p.Resources)
+	setResourceRequirementDefaults(config, &p.Resources)
 }
 
-func (p *PaddleServerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {
+func (p *PaddleServerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *corev1.Container {
 	return &p.Container
 }
 

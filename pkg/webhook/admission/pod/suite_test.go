@@ -18,24 +18,30 @@ package pod
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
 )
 
-var cfg *rest.Config
-var c client.Client
-var clientset kubernetes.Interface
+var (
+	cfg       *rest.Config
+	c         client.Client
+	clientset kubernetes.Interface
+)
 
 func TestMain(m *testing.M) {
-	t := pkgtest.SetupEnvTest()
+	crdDirectoryPaths := []string{
+		filepath.Join(pkgtest.ProjectRoot(), "test", "crds"),
+	}
+	t := pkgtest.SetupEnvTest(crdDirectoryPaths)
 
 	err := v1alpha1.AddToScheme(scheme.Scheme)
 	if err != nil {

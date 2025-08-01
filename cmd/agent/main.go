@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-logr/zapr"
@@ -58,14 +59,18 @@ var (
 	configDir    = flag.String("config-dir", "/mnt/configs", "directory for model config files")
 	modelDir     = flag.String("model-dir", "/mnt/models", "directory for model files")
 	// logger flags
-	logUrl           = flag.String("log-url", "", "The URL to send request/response logs to")
-	workers          = flag.Int("workers", 5, "Number of workers")
-	sourceUri        = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
-	logMode          = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
-	inferenceService = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
-	namespace        = flag.String("namespace", "", "The namespace to add as header to log events")
-	endpoint         = flag.String("endpoint", "", "The endpoint name to add as header to log events")
-	component        = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
+	logUrl              = flag.String("log-url", "", "The URL to send request/response logs to")
+	workers             = flag.Int("workers", 5, "Number of workers")
+	sourceUri           = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
+	logMode             = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
+	logStorePath        = flag.String("log-store-path", "", "The path to the log output")
+	logStoreFormat      = flag.String("log-store-format", "json", "Format for log output, 'json' or 'yaml'")
+	inferenceService    = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
+	namespace           = flag.String("namespace", "", "The namespace to add as header to log events")
+	endpoint            = flag.String("endpoint", "", "The endpoint name to add as header to log events")
+	component           = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
+	metadataHeaders     = flag.StringSlice("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
+	metadataAnnotations = flag.StringSlice("metadata-annotations", nil, "Allow list of metadata annotation to be passed with payload logging")
 	// batcher flags
 	enableBatcher = flag.Bool("enable-batcher", false, "Enable request batcher")
 	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
@@ -74,6 +79,8 @@ var (
 	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout") //nolint: unused
 	// This creates an abstract socket instead of an actual file.
 	unixSocketPath = "@/kserve/agent.sock"
+	CaCertFile     = flag.String("logger-ca-cert-file", "service-ca.crt", "The logger CA certificate file")
+	TlsSkipVerify  = flag.Bool("logger-tls-skip-verify", false, "Skip verification of TLS certificate")
 )
 
 const (
@@ -93,6 +100,9 @@ type config struct {
 	UserPort               int    `split_words:"true"`
 	RevisionTimeoutSeconds int    `split_words:"true"`
 	ServingReadinessProbe  string `split_words:"true" required:"true"`
+	// See https://github.com/knative/serving/issues/12387
+	EnableHTTP2AutoDetection   bool `envconfig:"ENABLE_HTTP2_AUTO_DETECTION"` // optional
+	EnableMultiContainerProbes bool `split_words:"true"`
 	// Logging configuration
 	ServingLoggingConfig         string `split_words:"true"`
 	ServingLoggingLevel          string `split_words:"true"`
@@ -109,6 +119,10 @@ type loggerArgs struct {
 	namespace        string
 	endpoint         string
 	component        string
+	metadataHeaders  []string
+	annotations      map[string]string
+	certName         string
+	tlsSkipVerify    bool
 }
 
 type batcherArgs struct {
@@ -130,7 +144,7 @@ func main() {
 	// Setup probe to run for checking user container healthiness.
 	probe := func() bool { return true }
 	if env.ServingReadinessProbe != "" {
-		probe = buildProbe(logger, env.ServingReadinessProbe).ProbeContainer
+		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection, env.EnableMultiContainerProbes).ProbeContainer
 	}
 
 	if *enablePuller {
@@ -141,7 +155,7 @@ func main() {
 	var loggerArgs *loggerArgs
 	if *logUrl != "" {
 		logger.Info("Starting logger")
-		loggerArgs = startLogger(*workers, logger)
+		loggerArgs = startLogger(*workers, logStorePath, logStoreFormat, logger)
 	}
 
 	var batcherArgs *batcherArgs
@@ -151,7 +165,7 @@ func main() {
 	}
 	logger.Info("Starting agent http server...")
 	ctx := signals.NewContext()
-	mainServer, drain := buildServer(ctx, *port, *componentPort, loggerArgs, batcherArgs, probe, logger)
+	mainServer, drain := buildServer(*port, *componentPort, loggerArgs, batcherArgs, probe, logger)
 	servers := map[string]*http.Server{
 		"main": mainServer,
 	}
@@ -213,7 +227,7 @@ func main() {
 		logger.Errorw("Failed to bring up agent, shutting down.", zap.Error(err))
 		// This extra flush is needed because defers are not handled via os.Exit calls.
 		if err := logger.Sync(); err != nil {
-			logger.Errorw("Error syncing logger: %v", err)
+			logger.Errorf("Error syncing logger: %v", err)
 		}
 		os.Stdout.Sync()
 		os.Stderr.Sync()
@@ -252,18 +266,18 @@ func startBatcher(logger *zap.SugaredLogger) *batcherArgs {
 	}
 }
 
-func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
+func startLogger(workers int, logStorePath *string, logStoreFormat *string, log *zap.SugaredLogger) *loggerArgs {
 	loggingMode := v1beta1.LoggerType(*logMode)
 	switch loggingMode {
 	case v1beta1.LogAll, v1beta1.LogRequest, v1beta1.LogResponse:
 	default:
-		logger.Errorf("Malformed log-mode %s", *logMode)
+		log.Errorf("Malformed log-mode %s", *logMode)
 		os.Exit(-1)
 	}
 
 	logUrlParsed, err := url.Parse(*logUrl)
 	if err != nil {
-		logger.Errorf("Malformed log-url %s", *logUrl)
+		log.Errorf("Malformed log-url %s", *logUrl)
 		os.Exit(-1)
 	}
 
@@ -273,11 +287,35 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 
 	sourceUriParsed, err := url.Parse(*sourceUri)
 	if err != nil {
-		logger.Errorf("Malformed source_uri %s", *sourceUri)
+		log.Errorf("Malformed source_uri %s", *sourceUri)
 		os.Exit(-1)
 	}
-	logger.Info("Starting the log dispatcher")
-	kfslogger.StartDispatcher(workers, logger)
+
+	annotationKVPair := map[string]string{}
+	for _, annotations := range *metadataAnnotations {
+		k, v, found := strings.Cut(annotations, "=")
+		if found {
+			annotationKVPair[k] = v
+		} else {
+			log.Errorf("annotation does not adhere to desired format got key: %s value: %s", k, v)
+			os.Exit(-1)
+		}
+	}
+
+	var store kfslogger.Store
+	if kfslogger.GetStorageStrategy(*logUrl) != kfslogger.HttpStorage {
+		if logStoreFormat != nil && *logStoreFormat != "" && logStorePath != nil && *logStorePath != "" {
+			log.Infow("Logger storage is enabled", "path", logStorePath, "logStoreFormat", logStoreFormat)
+			store, err = kfslogger.NewStoreForScheme(logUrlParsed.Scheme, *logStorePath, *logStoreFormat, log)
+			if err != nil {
+				log.Errorw("Error creating logger store", zap.Error(err))
+				os.Exit(-1)
+			}
+		}
+	}
+
+	log.Info("Starting the log dispatcher")
+	kfslogger.StartDispatcher(workers, store, log)
 	return &loggerArgs{
 		loggerType:       loggingMode,
 		logUrl:           logUrlParsed,
@@ -286,6 +324,10 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		endpoint:         *endpoint,
 		namespace:        *namespace,
 		component:        *component,
+		metadataHeaders:  *metadataHeaders,
+		annotations:      annotationKVPair,
+		certName:         *CaCertFile,
+		tlsSkipVerify:    *TlsSkipVerify,
 	}
 }
 
@@ -301,21 +343,27 @@ func startModelPuller(logger *zap.SugaredLogger) {
 	go watcher.Start()
 }
 
-func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
-	coreProbe, err := readiness.DecodeProbe(probeJSON)
+func buildProbe(logger *zap.SugaredLogger, probeJSON string, autodetectHTTP2 bool, multiContainerProbes bool) *readiness.Probe {
+	coreProbes, err := readiness.DecodeProbes(probeJSON, multiContainerProbes)
 	if err != nil {
 		logger.Fatalw("Agent failed to parse readiness probe", zap.Error(err))
 		panic("Agent failed to parse readiness probe")
 	}
-	newProbe := readiness.NewProbe(coreProbe)
-	if newProbe.InitialDelaySeconds == 0 {
-		newProbe.InitialDelaySeconds = 10
+	for _, probe := range coreProbes {
+		if probe.InitialDelaySeconds == 0 {
+			probe.InitialDelaySeconds = 10
+		}
 	}
+	if autodetectHTTP2 {
+		return readiness.NewProbeWithHTTP2AutoDetection(coreProbes)
+	}
+	newProbe := readiness.NewProbe(coreProbes)
 	return newProbe
 }
 
-func buildServer(ctx context.Context, port string, userPort int, loggerArgs *loggerArgs, batcherArgs *batcherArgs, // nolint unparam
-	probeContainer func() bool, logging *zap.SugaredLogger) (server *http.Server, drain func()) {
+func buildServer(port string, userPort int, loggerArgs *loggerArgs, batcherArgs *batcherArgs,
+	probeContainer func() bool, logging *zap.SugaredLogger,
+) (server *http.Server, drain func()) {
 	logging.Infof("Building server user port %d port %s", userPort, port)
 	target := &url.URL{
 		Scheme: "http",
@@ -339,7 +387,8 @@ func buildServer(ctx context.Context, port string, userPort int, loggerArgs *log
 	}
 	if loggerArgs != nil {
 		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
-			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler)
+			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler,
+			loggerArgs.metadataHeaders, loggerArgs.certName, loggerArgs.annotations, loggerArgs.tlsSkipVerify)
 	}
 
 	composedHandler = queue.ForwardedShimHandler(composedHandler)

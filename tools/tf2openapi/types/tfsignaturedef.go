@@ -8,9 +8,9 @@ outputs. It is the internal model representation for the SignatureDef defined in
 import (
 	"errors"
 	"fmt"
+	ptr "k8s.io/utils/ptr"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/kserve/kserve/pkg/utils"
 	pb "github.com/kserve/kserve/tools/tf2openapi/generated/protobuf"
 )
 
@@ -116,23 +116,23 @@ func canHaveRowSchema(t []TFTensor) bool {
 func (t *TFSignatureDef) rowFormatWrapper() (*openapi3.Schema, *openapi3.Schema) {
 	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_row_format
 	return &openapi3.Schema{
-			Type: "object",
+			Type: &openapi3.Types{openapi3.TypeObject},
 			Properties: map[string]*openapi3.SchemaRef{
 				"instances": rowSchema(t.Inputs).NewRef(),
 			},
 			Required: []string{"instances"},
 			AdditionalProperties: openapi3.AdditionalProperties{
-				Has:    utils.Bool(false),
+				Has:    ptr.To(false),
 				Schema: nil,
 			},
 		}, &openapi3.Schema{
-			Type: "object",
+			Type: &openapi3.Types{openapi3.TypeObject},
 			Properties: map[string]*openapi3.SchemaRef{
 				"predictions": rowSchema(t.Outputs).NewRef(),
 			},
 			Required: []string{"predictions"},
 			AdditionalProperties: openapi3.AdditionalProperties{
-				Has:    utils.Bool(false),
+				Has:    ptr.To(false),
 				Schema: nil,
 			},
 		}
@@ -141,23 +141,23 @@ func (t *TFSignatureDef) rowFormatWrapper() (*openapi3.Schema, *openapi3.Schema)
 func (t *TFSignatureDef) colFormatWrapper() (*openapi3.Schema, *openapi3.Schema) {
 	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_column_format
 	return &openapi3.Schema{
-			Type: "object",
+			Type: &openapi3.Types{openapi3.TypeObject},
 			Properties: map[string]*openapi3.SchemaRef{
 				"inputs": colSchema(t.Inputs).NewRef(),
 			},
 			Required: []string{"inputs"},
 			AdditionalProperties: openapi3.AdditionalProperties{
-				Has:    utils.Bool(false),
+				Has:    ptr.To(false),
 				Schema: nil,
 			},
 		}, &openapi3.Schema{
-			Type: "object",
+			Type: &openapi3.Types{openapi3.TypeObject},
 			Properties: map[string]*openapi3.SchemaRef{
 				"outputs": colSchema(t.Outputs).NewRef(),
 			},
 			Required: []string{"outputs"},
 			AdditionalProperties: openapi3.AdditionalProperties{
-				Has:    utils.Bool(false),
+				Has:    ptr.To(false),
 				Schema: nil,
 			},
 		}
@@ -177,7 +177,7 @@ func rowSchema(t []TFTensor) *openapi3.Schema {
 		schema.Items.Value.Required = append(schema.Items.Value.Required, i.Name)
 	}
 	schema.AdditionalProperties = openapi3.AdditionalProperties{
-		Has:    utils.Bool(false),
+		Has:    ptr.To(false),
 		Schema: nil,
 	}
 	return schema
@@ -195,7 +195,7 @@ func colSchema(t []TFTensor) *openapi3.Schema {
 		schema.Required = append(schema.Required, i.Name)
 	}
 	schema.AdditionalProperties = openapi3.AdditionalProperties{
-		Has:    utils.Bool(false),
+		Has:    ptr.To(false),
 		Schema: nil,
 	}
 	return schema

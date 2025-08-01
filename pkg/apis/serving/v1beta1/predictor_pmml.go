@@ -17,10 +17,11 @@ limitations under the License.
 package v1beta1
 
 import (
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // PMMLSpec defines arguments for configuring PMML model serving.
@@ -29,9 +30,7 @@ type PMMLSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &PMMLSpec{}
-)
+var _ ComponentImplementation = &PMMLSpec{}
 
 // Validate returns an error if invalid
 func (p *PMMLSpec) Validate() error {
@@ -43,10 +42,10 @@ func (p *PMMLSpec) Validate() error {
 // Default sets defaults on the resource
 func (p *PMMLSpec) Default(config *InferenceServicesConfig) {
 	p.Container.Name = constants.InferenceServiceContainerName
-	setResourceRequirementDefaults(&p.Resources)
+	setResourceRequirementDefaults(config, &p.Resources)
 }
 
-func (p *PMMLSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {
+func (p *PMMLSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *corev1.Container {
 	return &p.Container
 }
 

@@ -1,15 +1,27 @@
-approvers:
-  - njhill
-  - rachitchauhan43
+owners:
+  - terrytangyuan
   - yuzisun
-reviewers:
-  - alexagriffith
-  - andyi2it
-  - ckadner
-  - cmaddalozzo
-  - israel-hdez
+
+approvers:
+  - Jooho
   - lizzzcai
   - rachitchauhan43
   - sivanantha321
+  - terrytangyuan
+  - yuzisun
+
+reviewers:
+  - andyi2it
+  - cmaddalozzo
+  - Datta0
+  - gavrissh
+  - greenmoon55
+  - israel-hdez
+  - johnugeorge
+  - Jooho
+  - lizzzcai
+  - rachitchauhan43
+  - sivanantha321
+  - spolti
   - terrytangyuan
   - yuzisun

@@ -1,0 +1,35 @@
+name: "Precommit Check"
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  precommit-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+            python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          go mod download
+          cd qpext && go mod download
+
+      - name: Check
+        shell: bash
+        run: |
+          make check

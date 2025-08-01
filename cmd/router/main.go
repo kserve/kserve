@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,37 +18,110 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"crypto/rand"
 	"encoding/json"
 	goerrors "errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
+	"net/url"
 	"os"
+	"os/signal"
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/pkg/errors"
-
+	flag "github.com/spf13/pflag"
 	"github.com/tidwall/gjson"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"crypto/rand"
-	"math/big"
-
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	flag "github.com/spf13/pflag"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
-var log = logf.Log.WithName("InferenceGraphRouter")
+// _isInMesh is an auxiliary global variable for isInIstioMesh function.
+var _isInMesh *bool
+
+// isInIstioMesh checks if the InferenceGraph pod belongs to the mesh by
+// checking the presence of the sidecar. It is known that when the sidecar
+// is present, Envoy will be using port 15000 with standard HTTP. Thus, the
+// presence of the sidecar is assumed if this port responds with an HTTP 200 status
+// when doing a "GET /" request.
+//
+// The result of the check is cached in the _isInMesh global variable. Since a
+// pod cannot be modified, a single check is enough for the whole life of the pod.
+// The check cannot be done at start-up, because there is the possibility of
+// false negatives, since there is no guarantee that the Istio sidecar has already
+// started. So, the isInIstioMesh func should be used after the first inference
+// request is received when it is guaranteed that the Istio sidecar is in ready state.
+//
+// Reference:
+// - https://istio.io/latest/docs/ops/deployment/application-requirements/#ports-used-by-istio)
+func isInIstioMesh() (bool, error) {
+	if _isInMesh != nil {
+		return *_isInMesh, nil
+	}
+
+	isInMesh := false
+	client := http.Client{
+		Timeout: time.Second * 3,
+	}
+	response, err := client.Get("http://localhost:15000")
+	if err == nil {
+		if response.StatusCode == http.StatusOK {
+			isInMesh = true
+		}
+	} else if errors.Is(err, syscall.ECONNREFUSED) {
+		// Assume no Istio sidecar. Thus, this pod is not
+		// part of the mesh.
+		err = nil
+	}
+
+	if response != nil && response.Body != nil {
+		err = response.Body.Close()
+	}
+
+	_isInMesh = &isInMesh
+	return *_isInMesh, err
+}
 
 func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, int, error) {
 	defer timeTrack(time.Now(), "step", serviceUrl)
 	log.Info("Entering callService", "url", serviceUrl)
-	req, err := http.NewRequest("POST", serviceUrl, bytes.NewBuffer(input))
+
+	parsedServiceUrl, parseServiceUrlErr := url.Parse(serviceUrl)
+	if parseServiceUrlErr != nil {
+		return nil, 500, parseServiceUrlErr
+	}
+	if parsedServiceUrl.Scheme == "https" {
+		if isInMesh, isInMeshErr := isInIstioMesh(); isInMeshErr != nil {
+			return nil, 500, isInMeshErr
+		} else if isInMesh {
+			// In this branch, it has been resolved that the Inference Graph is
+			// part of the Istio mesh. In this case, even if the target service
+			// is using HTTPS, it is better to use plain-text HTTP:
+			// * If the target service is also part of the mesh, Istio will take
+			//   care of properly applying TLS policies (e.g. mutual TLS).
+			// * If the target service is _not_ part of the mesh, it still is better
+			//   to let Istio manage TLS by configuring the sidecar to do TLS
+			//   origination and prevent double TLS (see: https://istio.io/latest/docs/ops/common-problems/network-issues/#double-tls)
+			//
+			// If the Inference Graph is not part of the mesh, the indicated
+			// schema is used.
+			parsedServiceUrl.Scheme = "http"
+			serviceUrl = parsedServiceUrl.String()
+
+			log.Info("Using plain-text schema to let Istio manage TLS termination", "url", serviceUrl)
+		}
+	}
+
+	req, err := http.NewRequest(http.MethodPost, serviceUrl, bytes.NewBuffer(input))
 	if err != nil {
 		log.Error(err, "An error occurred while preparing request object with serviceUrl.", "serviceUrl", serviceUrl)
 		return nil, 500, err
@@ -72,8 +145,16 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 	if val := req.Header.Get("Content-Type"); val == "" {
 		req.Header.Add("Content-Type", "application/json")
 	}
-	resp, err := http.DefaultClient.Do(req)
 
+	var client *http.Client
+	if routerTimeouts == nil || routerTimeouts.ServiceClient == nil {
+		client = http.DefaultClient
+	} else {
+		client = &http.Client{
+			Timeout: time.Duration(*routerTimeouts.ServiceClient) * time.Second,
+		}
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Error(err, "An error has occurred while calling service", "service", serviceUrl)
 		return nil, 500, err
@@ -244,11 +325,11 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 
 			if step.Condition != "" {
 				if !gjson.ValidBytes(responseBytes) {
-					return nil, 500, fmt.Errorf("invalid response")
+					return nil, 500, errors.New("invalid response")
 				}
 				// if the condition does not match for the step in the sequence we stop and return the response
 				if !gjson.GetBytes(responseBytes, step.Condition).Exists() {
-					return responseBytes, 500, nil
+					return responseBytes, 200, nil
 				}
 			}
 			if responseBytes, statusCode, err = executeStep(step, graph, request, headers); err != nil {
@@ -299,8 +380,6 @@ func prepareErrorResponse(err error, errorMessage string) []byte {
 	return errorResponseBytes
 }
 
-var inferenceGraph *v1alpha1.InferenceGraphSpec
-
 func graphHandler(w http.ResponseWriter, req *http.Request) {
 	inputBytes, _ := io.ReadAll(req.Body)
 	if response, statusCode, err := routeStep(v1alpha1.GraphRootNodeName, *inferenceGraph, inputBytes, req.Header); err != nil {
@@ -335,9 +414,54 @@ func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
 	return compiled, goerrors.Join(allErrors...)
 }
 
+func getTimeout(value, defaultValue *int64) *int64 {
+	if value != nil {
+		return value
+	}
+	return defaultValue
+}
+
+func initTimeouts(graph v1alpha1.InferenceGraphSpec) {
+	defaultServerRead := int64(constants.RouterTimeoutsServerRead)
+	defaultServerWrite := int64(constants.RouterTimeoutServerWrite)
+	defaultServerIdle := int64(constants.RouterTimeoutServerIdle)
+
+	timeouts := &v1alpha1.InfereceGraphRouterTimeouts{
+		ServerRead:    &defaultServerRead,
+		ServerWrite:   &defaultServerWrite,
+		ServerIdle:    &defaultServerIdle,
+		ServiceClient: nil,
+	}
+
+	if graph.RouterTimeouts != nil {
+		timeouts.ServerRead = getTimeout(graph.RouterTimeouts.ServerRead, &defaultServerRead)
+		timeouts.ServerWrite = getTimeout(graph.RouterTimeouts.ServerWrite, &defaultServerWrite)
+		timeouts.ServerIdle = getTimeout(graph.RouterTimeouts.ServerIdle, &defaultServerIdle)
+		timeouts.ServiceClient = getTimeout(graph.RouterTimeouts.ServiceClient, nil)
+	}
+
+	routerTimeouts = timeouts
+}
+
+// Mainly used for kubernetes readiness probe. It responds with "503 shutting down" if server is shutting down,
+// otherwise returns "200 OK".
+func readyHandler(w http.ResponseWriter, req *http.Request) {
+	if isShuttingDown {
+		http.Error(w, "shutting down", http.StatusServiceUnavailable)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
 var (
-	jsonGraph              = flag.String("graph-json", "", "serialized json graph def")
+	jsonGraph                                           = flag.String("graph-json", "", "serialized json graph def")
+	inferenceGraph         *v1alpha1.InferenceGraphSpec = nil
 	compiledHeaderPatterns []*regexp.Regexp
+	isShuttingDown                                               = false
+	drainSleepDuration                                           = 30 * time.Second
+	routerTimeouts         *v1alpha1.InfereceGraphRouterTimeouts = nil
+	log                                                          = logf.Log.WithName("InferenceGraphRouter")
+	signalChan                                                   = make(chan os.Signal, 1)
 )
 
 func main() {
@@ -352,26 +476,53 @@ func main() {
 			log.Error(err, "Failed to compile some header patterns")
 		}
 	}
+
 	inferenceGraph = &v1alpha1.InferenceGraphSpec{}
 	err := json.Unmarshal([]byte(*jsonGraph), inferenceGraph)
 	if err != nil {
 		log.Error(err, "failed to unmarshall inference graph json")
 		os.Exit(1)
 	}
+	initTimeouts(*inferenceGraph)
 
 	http.HandleFunc("/", graphHandler)
+	http.HandleFunc(constants.RouterReadinessEndpoint, readyHandler)
 
 	server := &http.Server{
-		Addr:         ":8080",                        // specify the address and port
-		Handler:      http.HandlerFunc(graphHandler), // specify your HTTP handler
-		ReadTimeout:  time.Minute,                    // set the maximum duration for reading the entire request, including the body
-		WriteTimeout: time.Minute,                    // set the maximum duration before timing out writes of the response
-		IdleTimeout:  3 * time.Minute,                // set the maximum amount of time to wait for the next request when keep-alives are enabled
+		Addr:         ":" + strconv.Itoa(constants.RouterPort),
+		Handler:      nil,                                                      // default server mux
+		ReadTimeout:  time.Duration(*routerTimeouts.ServerRead) * time.Second,  // set the maximum duration for reading the entire request, including the body
+		WriteTimeout: time.Duration(*routerTimeouts.ServerWrite) * time.Second, // set the maximum duration before timing out writes of the response
+		IdleTimeout:  time.Duration(*routerTimeouts.ServerIdle) * time.Second,  // set the maximum amount of time to wait for the next request when keep-alives are enabled
 	}
-	err = server.ListenAndServe()
 
-	if err != nil {
-		log.Error(err, "failed to listen on 8080")
+	go func() {
+		err = server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error(err, fmt.Sprintf("Failed to serve on address %v", server.Addr))
+			os.Exit(1)
+		}
+	}()
+
+	// Blocks until SIGTERM or SIGINT is received
+	handleSignals(server)
+}
+
+func handleSignals(server *http.Server) {
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+
+	sig := <-signalChan
+	log.Info("Received shutdown signal", "signal", sig)
+	// Fail the readiness probe
+	isShuttingDown = true
+	log.Info(fmt.Sprintf("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration))
+	// Sleep to give networking a little bit more time to remove the pod
+	// from its configuration and propagate that to all loadbalancers and nodes.
+	time.Sleep(drainSleepDuration)
+	// Shut down the server gracefully
+	if err := server.Shutdown(context.Background()); err != nil {
+		log.Error(err, "Failed to shutdown the server gracefully")
 		os.Exit(1)
 	}
+	log.Info("Server gracefully shutdown")
 }

@@ -17,7 +17,7 @@ limitations under the License.
 package azure
 
 import (
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -37,7 +37,7 @@ const (
 
 var (
 	LegacyAzureEnvKeys        = []string{LegacyAzureSubscriptionId, LegacyAzureTenantId, LegacyAzureClientId, LegacyAzureClientSecret}
-	AzureEnvKeys              = []string{AzureSubscriptionId, AzureTenantId, AzureClientId, AzureClientSecret}
+	AzureEnvKeys              = []string{AzureSubscriptionId, AzureTenantId, AzureClientId, AzureClientSecret, AzureStorageAccessKey}
 	legacyAzureEnvKeyMappings = map[string]string{
 		AzureSubscriptionId: LegacyAzureSubscriptionId,
 		AzureTenantId:       LegacyAzureTenantId,
@@ -46,21 +46,21 @@ var (
 	}
 )
 
-func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
-	envs := make([]v1.EnvVar, 0, len(AzureEnvKeys))
+func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
+	envs := make([]corev1.EnvVar, 0, len(AzureEnvKeys))
 	for _, k := range AzureEnvKeys {
 		dataKey := k
 		legacyDataKey := legacyAzureEnvKeyMappings[k]
 		if _, ok := secret.Data[legacyDataKey]; ok {
 			dataKey = legacyDataKey
 		}
-		// Leave out the AzureClientSecret env var if not defined as Data in the secret
-		if _, ok := secret.Data[dataKey]; !(!ok && dataKey == AzureClientSecret) {
-			envs = append(envs, v1.EnvVar{
+		// Leave out the AzureClientSecret or AzureStorageAccessKey env var if not defined as Data in the secret
+		if _, ok := secret.Data[dataKey]; !(!ok && (dataKey == AzureClientSecret || dataKey == AzureStorageAccessKey)) {
+			envs = append(envs, corev1.EnvVar{
 				Name: k,
-				ValueFrom: &v1.EnvVarSource{
-					SecretKeyRef: &v1.SecretKeySelector{
-						LocalObjectReference: v1.LocalObjectReference{
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
 							Name: secret.Name,
 						},
 						Key: dataKey,
@@ -73,13 +73,13 @@ func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 	return envs
 }
 
-func BuildStorageAccessKeySecretEnv(secret *v1.Secret) []v1.EnvVar {
-	envs := []v1.EnvVar{
+func BuildStorageAccessKeySecretEnv(secret *corev1.Secret) []corev1.EnvVar {
+	envs := []corev1.EnvVar{
 		{
 			Name: AzureStorageAccessKey,
-			ValueFrom: &v1.EnvVarSource{
-				SecretKeyRef: &v1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
 						Name: secret.Name,
 					},
 					Key: AzureStorageAccessKey,

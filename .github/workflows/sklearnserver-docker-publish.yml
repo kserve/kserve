@@ -39,7 +39,7 @@ jobs:
       - name: Run tests
         uses: docker/build-push-action@v5
         with:
-          platforms: linux/amd64, linux/arm64/v8
+          platforms: linux/amd64,linux/arm64/v8
           context: python
           file: python/sklearn.Dockerfile
           push: false
@@ -91,12 +91,13 @@ jobs:
           echo IMAGE_ID=$IMAGE_ID >> $GITHUB_ENV
 
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
-          platforms: linux/amd64, linux/arm64/v8
+          platforms: linux/amd64,linux/arm64/v8
           context: python
           file: python/sklearn.Dockerfile
           push: true
           tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
           # https://github.com/docker/buildx/issues/1533
           provenance: false
+          sbom: true

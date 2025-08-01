@@ -9,6 +9,10 @@ inputs:
     description:  'Kserve deployment mode. Supported values are serverless and raw'
     required: false
     default: 'serverless'
+  enable-keda:
+    description: 'Enable KEDA for autoscaling'
+    required: false
+    default: 'false'
 runs:
   using: "composite"
   steps:
@@ -17,21 +21,13 @@ runs:
       run: |
         shopt -s nocasematch 
 
-        if [[ "${{ inputs.network-layer }}" == "istio" ]]; then
-            echo "Selected network layer ${{ inputs.network-layer }}"
-            ./test/scripts/gh-actions/setup-deps.sh ${{ inputs.deployment-mode }}
-        
-            kubectl get pods -n istio-system
-            kubectl describe svc -n istio-system istio-ingressgateway
-        elif [[ "${{ inputs.network-layer }}" == "kourier" ]]; then
-            echo "Selected network layer ${{ inputs.network-layer }}"
-            ./test/scripts/gh-actions/setup-kourier.sh
+        if [[ "${{ inputs.network-layer }}" == "kourier" ]]; then
+          echo "Selected network layer ${{ inputs.network-layer }}"
+          ./test/scripts/gh-actions/setup-kourier.sh
         else
-          echo "Unsupported network layer"
+          echo "Selected network layer ${{ inputs.network-layer }}"
+          ./test/scripts/gh-actions/setup-deps.sh ${{ inputs.deployment-mode }} "${{ inputs.network-layer }}" "${{ inputs.enable-keda }}"
         fi
-
-        kubectl get pods -n knative-serving
-        kubectl get pods -n cert-manager
 
     - name: Update test overlays
       shell: bash

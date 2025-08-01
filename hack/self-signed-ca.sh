@@ -75,7 +75,7 @@ done
 [ -z "${secret}" ] && secret=kserve-webhook-server-cert
 [ -z "${namespace}" ] && namespace=kserve
 [ -z "${webhookDeployment}" ] && webhookDeployment=kserve-controller-manager
-[ "${#validatingWebhookNames[@]}" -eq 0 ] && validatingWebhookNames=("inferenceservice.serving.kserve.io" "inferencegraph.serving.kserve.io" "servingruntime.serving.kserve.io" "clusterservingruntime.serving.kserve.io" "trainedmodel.serving.kserve.io")
+[ "${#validatingWebhookNames[@]}" -eq 0 ] && validatingWebhookNames=("inferenceservice.serving.kserve.io" "inferencegraph.serving.kserve.io" "servingruntime.serving.kserve.io" "clusterservingruntime.serving.kserve.io" "trainedmodel.serving.kserve.io" "localmodelcache.serving.kserve.io")
 [ "${#mutatingWebhookNames[@]}" -eq 0 ] && mutatingWebhookNames=("inferenceservice.serving.kserve.io")
 [ -z "${service}" ] && service=kserve-webhook-server-service
 webhookDeploymentName=${webhookDeployment}
@@ -159,7 +159,7 @@ for webhookConfigName in "${mutatingWebhookConfigNames[@]}"; do
   mutatingPatchString=${mutatingPatchString%, }']'
   mutatingPatchString=$(echo ${mutatingPatchString} | sed "s|{{CA_BUNDLE}}|${caBundle}|g")
 
-  echo "patching ca bundle for mutating webhook configuration..."
+  echo "patching ca bundle for mutating webhook configuration(${webhookConfigName})..."
   kubectl patch mutatingwebhookconfiguration "${webhookConfigName}" \
     --type='json' -p="${mutatingPatchString}"
 done
@@ -175,13 +175,16 @@ for webhookConfigName in "${validatingWebhookConfigNames[@]}"; do
   validatingPatchString=${validatingPatchString%, }']'
   validatingPatchString=$(echo ${validatingPatchString} | sed "s|{{CA_BUNDLE}}|${caBundle}|g")
 
-  echo "patching ca bundle for validating webhook configuration..."
+  echo "patching ca bundle for validating webhook configuration(${webhookConfigName})..."
   kubectl patch validatingwebhookconfiguration "${webhookConfigName}" \
     --type='json' -p="${validatingPatchString}"
 done
 
-echo "patching ca bundler for conversion webhook configuration.."
-conversionPatchString='[{"op": "replace", "path": "/spec/conversion/webhook/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}]'
-conversionPatchString=$(echo ${conversionPatchString} | sed "s|{{CA_BUNDLE}}|${caBundle}|g")
-kubectl patch CustomResourceDefinition inferenceservices.serving.kserve.io \
-  --type='json' -p="${conversionPatchString}"
+# The conversion webhook has been removed: https://github.com/kserve/kserve/pull/3700/files. 
+# However, this is kept as a reference for potential future use of the conversion webhook.
+
+# echo "patching ca bundler for conversion webhook configuration.."
+# conversionPatchString='[{"op": "replace", "path": "/spec/conversion/webhook/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}]'
+# conversionPatchString=$(echo ${conversionPatchString} | sed "s|{{CA_BUNDLE}}|${caBundle}|g")
+# kubectl patch CustomResourceDefinition inferenceservices.serving.kserve.io \
+#   --type='json' -p="${conversionPatchString}"
