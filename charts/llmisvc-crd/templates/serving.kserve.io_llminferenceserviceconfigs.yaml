@@ -67,17 +67,6 @@ spec:
                     type: object
                   name:
                     type: string
-                  storage:
-                    properties:
-                      key:
-                        type: string
-                      parameters:
-                        additionalProperties:
-                          type: string
-                        type: object
-                      path:
-                        type: string
-                    type: object
                   uri:
                     type: string
                 required:
@@ -85,22 +74,44 @@ spec:
                 type: object
               parallelism:
                 properties:
+                  data:
+                    format: int32
+                    type: integer
+                  dataLocal:
+                    format: int32
+                    type: integer
+                  dataRPCPort:
+                    format: int32
+                    type: integer
+                  expert:
+                    type: boolean
                   pipeline:
-                    format: int64
+                    format: int32
                     type: integer
                   tensor:
-                    format: int64
+                    format: int32
                     type: integer
                 type: object
               prefill:
                 properties:
                   parallelism:
                     properties:
+                      data:
+                        format: int32
+                        type: integer
+                      dataLocal:
+                        format: int32
+                        type: integer
+                      dataRPCPort:
+                        format: int32
+                        type: integer
+                      expert:
+                        type: boolean
                       pipeline:
-                        format: int64
+                        format: int32
                         type: integer
                       tensor:
-                        format: int64
+                        format: int32
                         type: integer
                     type: object
                   replicas:
@@ -19538,8 +19549,6 @@ spec:
                 required:
                 - containers
                 type: object
-            required:
-            - model
             type: object
         type: object
     served: true
