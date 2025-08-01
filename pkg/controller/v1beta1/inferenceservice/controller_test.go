@@ -1071,7 +1071,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 		// Wait for a specific condition on an InferenceService to reach the desired status
 		expectIsvcConditionStatus := func(ctx context.Context, serviceKey types.NamespacedName, conditionType apis.ConditionType, expectedStatus corev1.ConditionStatus) {
-			message := fmt.Sprintf("The '%s' condition for InferenceService'%s' should be '%s'",
+			message := fmt.Sprintf("The '%s' condition for InferenceService '%s' should be '%s'",
 				conditionType, serviceKey.Name, expectedStatus)
 
 			actualIsvc := &v1beta1.InferenceService{}

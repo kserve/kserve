@@ -275,8 +275,8 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			Status: corev1.ConditionFalse,
 		}
 		isvc.Status.SetCondition(v1beta1.Stopped, defaultStoppedCondition)
+		existingStoppedCondition = defaultStoppedCondition
 	}
-	existingStoppedCondition = isvc.Status.GetCondition(v1beta1.Stopped)
 	if forceStopRuntime {
 		// If the inference service's stopped condition is not set or
 		// If the inference service is currently running, update its status to signal that it should be stopped
