@@ -23,6 +23,7 @@ package v1beta1
 import (
 	"github.com/kserve/kserve/pkg/constants"
 	"k8s.io/api/apps/v1"
+	"k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
@@ -70,6 +71,11 @@ func (in *AutoScalingSpec) DeepCopyInto(out *AutoScalingSpec) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.Behavior != nil {
+		in, out := &in.Behavior, &out.Behavior
+		*out = new(v2.HorizontalPodAutoscalerBehavior)
+		(*in).DeepCopyInto(*out)
 	}
 }
 
