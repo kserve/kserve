@@ -753,7 +753,7 @@ func TestCreateKedaScaledObject_AdvancedConfigFromConfigMap(t *testing.T) {
 	}
 	configMap := &corev1.ConfigMap{
 		Data: map[string]string{
-			"opentelemetryCollector": `{
+			"autoscaler": `{
 				"scaleUpStabilizationWindowSeconds": "15",
 				"scaleDownStabilizationWindowSeconds": "45"
 			}`,

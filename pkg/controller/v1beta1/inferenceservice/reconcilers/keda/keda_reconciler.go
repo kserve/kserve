@@ -199,14 +199,14 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 
 	// Fallback to configmap if not set in componentExtension
 	if scaleDownStabilizationWindowSeconds == nil || scaleUpStabilizationWindowSeconds == nil {
-		if otelConfig, err := v1beta1.NewOtelCollectorConfig(configMap); err == nil {
-			if scaleDownStabilizationWindowSeconds == nil && otelConfig.ScaleDownStabilizationWindowSeconds != "" {
-				if val, err := strconv.ParseInt(otelConfig.ScaleDownStabilizationWindowSeconds, 10, 32); err == nil {
+		if autoscalerConfig, err := v1beta1.NewAutoscalerConfig(configMap); err == nil {
+			if scaleDownStabilizationWindowSeconds == nil && autoscalerConfig.ScaleDownStabilizationWindowSeconds != "" {
+				if val, err := strconv.ParseInt(autoscalerConfig.ScaleDownStabilizationWindowSeconds, 10, 32); err == nil {
 					scaleDownStabilizationWindowSeconds = ptr.To(int32(val))
 				}
 			}
-			if scaleUpStabilizationWindowSeconds == nil && otelConfig.ScaleUpStabilizationWindowSeconds != "" {
-				if val, err := strconv.ParseInt(otelConfig.ScaleUpStabilizationWindowSeconds, 10, 32); err == nil {
+			if scaleUpStabilizationWindowSeconds == nil && autoscalerConfig.ScaleUpStabilizationWindowSeconds != "" {
+				if val, err := strconv.ParseInt(autoscalerConfig.ScaleUpStabilizationWindowSeconds, 10, 32); err == nil {
 					scaleUpStabilizationWindowSeconds = ptr.To(int32(val))
 				}
 			}

@@ -1404,6 +1404,17 @@
         }
       }
     },
+    "v1beta1.AutoscalerConfig": {
+      "type": "object",
+      "properties": {
+        "scaleDownStabilizationWindowSeconds": {
+          "type": "string"
+        },
+        "scaleUpStabilizationWindowSeconds": {
+          "type": "string"
+        }
+      }
+    },
     "v1beta1.Batcher": {
       "description": "Batcher specifies optional payload batching available for all components",
       "type": "object",
@@ -4258,12 +4269,6 @@
           "type": "string"
         },
         "metricScalerEndpoint": {
-          "type": "string"
-        },
-        "scaleDownStabilizationWindowSeconds": {
-          "type": "string"
-        },
-        "scaleUpStabilizationWindowSeconds": {
           "type": "string"
         },
         "scrapeInterval": {
