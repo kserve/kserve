@@ -86,17 +86,6 @@ spec:
                     type: object
                   name:
                     type: string
-                  storage:
-                    properties:
-                      key:
-                        type: string
-                      parameters:
-                        additionalProperties:
-                          type: string
-                        type: object
-                      path:
-                        type: string
-                    type: object
                   uri:
                     type: string
                 required:
