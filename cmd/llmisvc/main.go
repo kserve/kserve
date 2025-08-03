@@ -135,8 +135,8 @@ func main() {
 	}
 
 	if err := (&llmisvc.LLMISVCReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:        mgr.GetClient(),
+		EventRecorder: mgr.GetEventRecorderFor("llminferenceservice-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceService")
 		os.Exit(1)
