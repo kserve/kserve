@@ -30,8 +30,6 @@ import (
 )
 
 func (r *LLMISVCReconciler) propagateDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
-	logger := log.FromContext(ctx)
-
 	curr := &appsv1.Deployment{}
 	err := retry.OnError(retry.DefaultRetry, apierrors.IsNotFound, func() error {
 		return r.Client.Get(ctx, client.ObjectKeyFromObject(expected), curr)
