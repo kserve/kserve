@@ -191,7 +191,7 @@ func (r *LLMInferenceServiceReconciler) expectedSchedulerService(ctx context.Con
 		},
 	}
 
-	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
+	if llmSvc.Spec.Router.HasSchedulerTemplate() {
 		podSpec := llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
 
 		desiredPorts := sets.New("grpc", "grpc-health", "metrics")
@@ -259,7 +259,7 @@ func (r *LLMInferenceServiceReconciler) expectedSchedulerInferenceModel(ctx cont
 
 	im := &igwapi.InferenceModel{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-inference-model"),
+			Name:      v1alpha1.InferenceModelName(llmSvc),
 			Namespace: llmSvc.GetNamespace(),
 			Labels:    labels,
 			OwnerReferences: []metav1.OwnerReference{
@@ -271,7 +271,7 @@ func (r *LLMInferenceServiceReconciler) expectedSchedulerInferenceModel(ctx cont
 			PoolRef: igwapi.PoolObjectReference{
 				Group: "inference.networking.x-k8s.io",
 				Kind:  "InferencePool",
-				Name:  igwapi.ObjectName(kmeta.ChildName(llmSvc.GetName(), "-inference-pool")),
+				Name:  igwapi.ObjectName(llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc)),
 			},
 			Criticality: llmSvc.Spec.Model.Criticality,
 		},
@@ -308,7 +308,7 @@ func (r *LLMInferenceServiceReconciler) expectedSchedulerDeployment(ctx context.
 		},
 	}
 
-	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
+	if llmSvc.Spec.Router.HasSchedulerTemplate() {
 		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
 		for i := range d.Spec.Template.Spec.Containers {
 			if d.Spec.Template.Spec.Containers[i].Name != "main" {
