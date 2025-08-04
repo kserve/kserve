@@ -45,7 +45,7 @@ const (
 	certificatesExpirationAnnotation = "certificates.kserve.io/expiration"
 )
 
-func (r *LLMInferenceServiceReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
+func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	log.FromContext(ctx).Info("Reconciling self-signed certificates secret")
 
 	// Generating a new certificate is quite slow and expensive as it generates a new certificate, check if the current
@@ -69,7 +69,7 @@ func (r *LLMInferenceServiceReconciler) reconcileSelfSignedCertsSecret(ctx conte
 
 type createCertFunc func() ([]byte, []byte, error)
 
-func (r *LLMInferenceServiceReconciler) expectedSelfSignedCertsSecret(llmSvc *v1alpha1.LLMInferenceService, certFunc createCertFunc) (*corev1.Secret, error) {
+func (r *LLMISVCReconciler) expectedSelfSignedCertsSecret(llmSvc *v1alpha1.LLMInferenceService, certFunc createCertFunc) (*corev1.Secret, error) {
 	keyBytes, certBytes, err := certFunc()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create self-signed TLS certificate: %w", err)
@@ -143,7 +143,7 @@ func createSelfSignedTLSCertificate() ([]byte, []byte, error) {
 	return keyBytes, certBytes, nil
 }
 
-func (r *LLMInferenceServiceReconciler) getExistingSelfSignedCertificate(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *corev1.Secret {
+func (r *LLMISVCReconciler) getExistingSelfSignedCertificate(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *corev1.Secret {
 	curr := &corev1.Secret{}
 	key := client.ObjectKey{Namespace: llmSvc.GetNamespace(), Name: kmeta.ChildName(llmSvc.GetName(), "-kserve-self-signed-certs")}
 	err := r.Client.Get(ctx, key, curr)

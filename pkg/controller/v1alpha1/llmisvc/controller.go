@@ -33,15 +33,15 @@ import (
 //+kubebuilder:rbac:groups=leaderworkerset.x-k8s.io,resources=leaderworkersets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings;clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
 
-// LLMInferenceServiceReconciler reconciles an LLMInferenceService object.
-// It orchestrates the reconciliation of child resources based on the spec.
-type LLMInferenceServiceReconciler struct {
+// LLMISVCReconciler reconciles a LLMInferenceService object
+// This controller is responsible for managing the lifecycle of LLMInferenceService resources.
+type LLMISVCReconciler struct {
 	client.Client
 	record.EventRecorder
 	Clientset kubernetes.Interface
 }
 
-func (r *LLMInferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 	log.Info("Reconciling LLMISVC", "name", req.Name, "namespace", req.Namespace)
 	// Implement the reconciliation logic here
@@ -49,7 +49,7 @@ func (r *LLMInferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *LLMInferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.LLMInferenceService{}).
 		Complete(r)

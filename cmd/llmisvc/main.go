@@ -157,7 +157,7 @@ func main() {
 	setupLog.Info("Setting up LLMInferenceService controller")
 	llmEventBroadcaster := record.NewBroadcaster()
 	llmEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
-	if err = (&llmisvc.LLMInferenceServiceReconciler{
+	if err = (&llmisvc.LLMISVCReconciler{
 		Client:        mgr.GetClient(),
 		Clientset:     clientSet,
 		EventRecorder: llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceController"}),
