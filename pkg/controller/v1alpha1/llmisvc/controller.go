@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -54,7 +53,6 @@ type Config struct {
 // This controller is responsible for managing the lifecycle of LLMInferenceService resources.
 type LLMISVCReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
 	record.EventRecorder
 	Clientset kubernetes.Interface
 }
