@@ -23,7 +23,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -82,7 +81,6 @@ type Config struct {
 // It fetches the LLMInferenceService and delegates the reconciliation of its constituent parts.
 type LLMISVCReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
 	record.EventRecorder
 	Clientset kubernetes.Interface
 }
