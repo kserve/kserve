@@ -2,13 +2,14 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  creationTimestamp: null
   name: inferenceservice.serving.kserve.io
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
 webhooks:
   - clientConfig:
       service:
-        name: $(webhookServiceName)
-        namespace: $(kserveNamespace)
+        name: kserve-webhook-server-service
+        namespace: {{ .Release.Namespace }}
         path: /mutate-serving-kserve-io-v1beta1-inferenceservice
     failurePolicy: Fail
     name: inferenceservice.kserve-webhook-server.defaulter
@@ -26,18 +27,14 @@ webhooks:
           - inferenceservices
   - clientConfig:
       service:
-        name: $(webhookServiceName)
-        namespace: $(kserveNamespace)
+        name: kserve-webhook-server-service
+        namespace: {{ .Release.Namespace }}
         path: /mutate-pods
     failurePolicy: Fail
     name: inferenceservice.kserve-webhook-server.pod-mutator
     sideEffects: None
     reinvocationPolicy: IfNeeded
     admissionReviewVersions: ["v1beta1"]
-    namespaceSelector:
-      matchExpressions:
-        - key: control-plane
-          operator: DoesNotExist
     objectSelector:
       matchExpressions:
         - key: serving.kserve.io/inferenceservice
@@ -56,13 +53,14 @@ webhooks:
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  creationTimestamp: null
   name: inferenceservice.serving.kserve.io
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
 webhooks:
   - clientConfig:
       service:
-        name: $(webhookServiceName)
-        namespace: $(kserveNamespace)
+        name: kserve-webhook-server-service
+        namespace: {{ .Release.Namespace }}
         path: /validate-serving-kserve-io-v1beta1-inferenceservice
     failurePolicy: Fail
     name: inferenceservice.kserve-webhook-server.validator
@@ -78,17 +76,19 @@ webhooks:
           - UPDATE
         resources:
           - inferenceservices
+
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  creationTimestamp: null
   name: trainedmodel.serving.kserve.io
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
 webhooks:
   - clientConfig:
       service:
-        name: $(webhookServiceName)
-        namespace: $(kserveNamespace)
+        name: kserve-webhook-server-service
+        namespace: {{ .Release.Namespace }}
         path: /validate-serving-kserve-io-v1alpha1-trainedmodel
     failurePolicy: Fail
     name: trainedmodel.kserve-webhook-server.validator
@@ -104,17 +104,20 @@ webhooks:
           - UPDATE
         resources:
           - trainedmodels
+
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   creationTimestamp: null
   name: inferencegraph.serving.kserve.io
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
 webhooks:
   - clientConfig:
       service:
-        name: $(webhookServiceName)
-        namespace: $(kserveNamespace)
+        name: kserve-webhook-server-service
+        namespace: {{ .Release.Namespace }}
         path: /validate-serving-kserve-io-v1alpha1-inferencegraph
     failurePolicy: Fail
     name: inferencegraph.kserve-webhook-server.validator
@@ -136,11 +139,13 @@ kind: ValidatingWebhookConfiguration
 metadata:
   creationTimestamp: null
   name: clusterservingruntime.serving.kserve.io
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
 webhooks:
   - clientConfig:
       service:
-        name: $(webhookServiceName)
-        namespace: $(kserveNamespace)
+        name: kserve-webhook-server-service
+        namespace: {{ .Release.Namespace }}
         path: /validate-serving-kserve-io-v1alpha1-clusterservingruntime
     failurePolicy: Fail
     name: clusterservingruntime.kserve-webhook-server.validator
@@ -162,11 +167,13 @@ kind: ValidatingWebhookConfiguration
 metadata:
   creationTimestamp: null
   name: servingruntime.serving.kserve.io
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
 webhooks:
   - clientConfig:
       service:
-        name: $(webhookServiceName)
-        namespace: $(kserveNamespace)
+        name: kserve-webhook-server-service
+        namespace: {{ .Release.Namespace }}
         path: /validate-serving-kserve-io-v1alpha1-servingruntime
     failurePolicy: Fail
     name: servingruntime.kserve-webhook-server.validator
@@ -188,11 +195,13 @@ kind: ValidatingWebhookConfiguration
 metadata:
   creationTimestamp: null
   name: localmodelcache.serving.kserve.io
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
 webhooks:
   - clientConfig:
       service:
-        name: $(webhookServiceName)
-        namespace: $(kserveNamespace)
+        name: kserve-webhook-server-service
+        namespace: {{ .Release.Namespace }}
         path: /validate-serving-kserve-io-v1alpha1-localmodelcache
     failurePolicy: Fail
     name: localmodelcache.kserve-webhook-server.validator
@@ -215,11 +224,13 @@ kind: ValidatingWebhookConfiguration
 metadata:
   creationTimestamp: null
   name: llminferenceserviceconfig.serving.kserve.io
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
 webhooks:
   - clientConfig:
       service:
-        name: $(webhookServiceName)
-        namespace: $(kserveNamespace)
+        name: kserve-webhook-server-service
+        namespace: {{ .Release.Namespace }}
         path: /validate-serving-kserve-io-v1alpha1-llminferenceserviceconfig
     failurePolicy: Fail
     name: llminferenceserviceconfig.kserve-webhook-server.validator
