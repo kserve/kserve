@@ -35,7 +35,54 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const ModeSidecar = "sidecar"
+const (
+	ProcessorResourcedetectionEnv = "resourcedetection/env"
+	ProcessorTransform            = "transform"
+	ProcessorFilterMetrics        = "filter/metrics"
+	JobNameOtelCollector          = "otel-collector"
+	PrometheusReceiver            = "prometheus"
+	OtlpExporter                  = "otlp"
+	ModeSidecar                   = "sidecar"
+
+	AnnotationPrometheusPort = "prometheus.kserve.io/port"
+	DefaultPrometheusPort    = "8080"
+
+	ResourcedetectionDetectorEnv = "env"
+	ResourcedetectionTimeout     = "2s"
+	ResourcedetectionOverride    = false
+	TransformContextDatapoint    = "datapoint"
+	StatementSetNamespace        = "set(attributes[\"namespace\"], resource.attributes[\"k8s.namespace.name\"])"
+	StatementSetDeployment       = "set(attributes[\"deployment\"], resource.attributes[\"k8s.deployment.name\"])"
+	StatementSetPod              = "set(attributes[\"pod\"], resource.attributes[\"k8s.pod.name\"])"
+
+	MatchTypeStrict = "strict"
+	PipelineMetrics = "metrics"
+	CompressionNone = "none"
+	TlsKey          = "tls"
+	TlsInsecureKey  = "insecure"
+	EndpointKey     = "endpoint"
+
+	KeyDetectors        = "detectors"
+	KeyTimeout          = "timeout"
+	KeyOverride         = "override"
+	KeyMetricStatements = "metric_statements"
+	KeyContext          = "context"
+	KeyStatements       = "statements"
+	KeyMetrics          = "metrics"
+	KeyInclude          = "include"
+	KeyMatchType        = "match_type"
+	KeyMetricNames      = "metric_names"
+	KeyConfig           = "config"
+	KeyScrapeConfigs    = "scrape_configs"
+	KeyJobName          = "job_name"
+	KeyScrapeInterval   = "scrape_interval"
+	KeyStaticConfigs    = "static_configs"
+	KeyTargets          = "targets"
+	KeyCompression      = "compression"
+	KeyTls              = "tls"
+	KeyInsecure         = "insecure"
+	KeyEndpoint         = "endpoint"
+)
 
 var log = logf.Log.WithName("OTelReconciler")
 
@@ -62,10 +109,45 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 	metricNames []string,
 	otelConfig v1beta1.OtelCollectorConfig,
 ) *otelv1beta1.OpenTelemetryCollector {
-	port, ok := componentMeta.Annotations["prometheus.kserve.io/port"]
+	port, ok := componentMeta.Annotations[AnnotationPrometheusPort]
 	if !ok {
-		log.Info("Annotation prometheus.kserve.io/port is missing, using default value 8080 to configure OTel Collector")
-		port = "8080"
+		log.Info(fmt.Sprintf("Annotation %s is missing, using default value %s to configure OTel Collector", AnnotationPrometheusPort, DefaultPrometheusPort))
+		port = DefaultPrometheusPort
+	}
+
+	processors := map[string]interface{}{
+		ProcessorResourcedetectionEnv: map[string]interface{}{
+			KeyDetectors: []interface{}{ResourcedetectionDetectorEnv},
+			KeyTimeout:   ResourcedetectionTimeout,
+			KeyOverride:  ResourcedetectionOverride,
+		},
+		ProcessorTransform: map[string]interface{}{
+			KeyMetricStatements: []interface{}{
+				map[string]interface{}{
+					KeyContext: TransformContextDatapoint,
+					KeyStatements: []interface{}{
+						StatementSetNamespace,
+						StatementSetDeployment,
+						StatementSetPod,
+					},
+				},
+			},
+		},
+	}
+
+	pipelineProcessors := []string{ProcessorResourcedetectionEnv, ProcessorTransform}
+
+	// Add filter processor to include all specified metrics
+	if len(metricNames) > 0 {
+		processors[ProcessorFilterMetrics] = map[string]interface{}{
+			KeyMetrics: map[string]interface{}{
+				KeyInclude: map[string]interface{}{
+					KeyMatchType:   MatchTypeStrict,
+					KeyMetricNames: metricNames,
+				},
+			},
+		}
+		pipelineProcessors = append(pipelineProcessors, ProcessorFilterMetrics)
 	}
 
 	otelCollector := &otelv1beta1.OpenTelemetryCollector{
@@ -75,18 +157,18 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 			Annotations: componentMeta.Annotations,
 		},
 		Spec: otelv1beta1.OpenTelemetryCollectorSpec{
-			Mode: otelv1beta1.ModeSidecar,
+			Mode: ModeSidecar,
 			Config: otelv1beta1.Config{
 				Receivers: otelv1beta1.AnyConfig{Object: map[string]interface{}{
-					"prometheus": map[string]interface{}{
-						"config": map[string]interface{}{
-							"scrape_configs": []interface{}{
+					PrometheusReceiver: map[string]interface{}{
+						KeyConfig: map[string]interface{}{
+							KeyScrapeConfigs: []interface{}{
 								map[string]interface{}{
-									"job_name":        "otel-collector",
-									"scrape_interval": otelConfig.ScrapeInterval,
-									"static_configs": []interface{}{
+									KeyJobName:        JobNameOtelCollector,
+									KeyScrapeInterval: otelConfig.ScrapeInterval,
+									KeyStaticConfigs: []interface{}{
 										map[string]interface{}{
-											"targets": []interface{}{"localhost:" + port},
+											KeyTargets: []interface{}{"localhost:" + port},
 										},
 									},
 								},
@@ -95,40 +177,26 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 					},
 				}},
 				Exporters: otelv1beta1.AnyConfig{Object: map[string]interface{}{
-					"otlp": map[string]interface{}{
-						"endpoint":    otelConfig.MetricReceiverEndpoint,
-						"compression": "none",
-						"tls": map[string]interface{}{
-							"insecure": true,
+					OtlpExporter: map[string]interface{}{
+						KeyEndpoint:    otelConfig.MetricReceiverEndpoint,
+						KeyCompression: CompressionNone,
+						KeyTls: map[string]interface{}{
+							KeyInsecure: true,
 						},
 					},
 				}},
+				Processors: &otelv1beta1.AnyConfig{Object: processors},
 				Service: otelv1beta1.Service{
 					Pipelines: map[string]*otelv1beta1.Pipeline{
-						"metrics": {
-							Receivers:  []string{"prometheus"},
-							Processors: []string{},
-							Exporters:  []string{"otlp"},
+						PipelineMetrics: {
+							Receivers:  []string{PrometheusReceiver},
+							Processors: pipelineProcessors,
+							Exporters:  []string{OtlpExporter},
 						},
 					},
 				},
 			},
 		},
-	}
-
-	// Add filter processor to include all specified metrics
-	if len(metricNames) > 0 {
-		otelCollector.Spec.Config.Processors = &otelv1beta1.AnyConfig{Object: map[string]interface{}{
-			"filter/metrics": map[string]interface{}{
-				"metrics": map[string]interface{}{
-					"include": map[string]interface{}{
-						"match_type":   "strict",
-						"metric_names": metricNames,
-					},
-				},
-			},
-		}}
-		otelCollector.Spec.Config.Service.Pipelines["metrics"].Processors = []string{"filter/metrics"}
 	}
 
 	return otelCollector

@@ -22,15 +22,11 @@ set -o nounset
 set -o pipefail
 
 echo "Starting E2E functional tests ..."
-if [ $# -eq 2 ]; then
-  echo "Parallelism requested for pytest is $2"
-else
-  echo "No parallelism requested for pytest. Will use default value of 1"
-fi
-
 MARKER="${1}"
 PARALLELISM="${2:-1}"
 NETWORK_LAYER="${3:-'istio'}"
+
+echo "Parallelism requested for pytest is ${PARALLELISM}"
 
 source python/kserve/.venv/bin/activate
 

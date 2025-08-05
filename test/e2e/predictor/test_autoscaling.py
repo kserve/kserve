@@ -680,7 +680,7 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
     trigger_metadata = scaledobject_resp["items"][0]["spec"]["triggers"][0]["metadata"]
     trigger_type = scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"]
     assert trigger_type == "external"
-    assert trigger_metadata["metricQuery"] == "http_requests_per_second"
+    assert trigger_metadata["metricQuery"] == 'sum(http_requests_per_second{namespace="kserve-ci-e2e-test", deployment="isvc-sklearn-keda-otel-add-on-predictor"})'
     assert trigger_metadata["scalerAddress"] == "keda-otel-scaler.keda.svc:4318"
     assert trigger_metadata["targetValue"] == "50.000000"
     res = await predict_isvc(
