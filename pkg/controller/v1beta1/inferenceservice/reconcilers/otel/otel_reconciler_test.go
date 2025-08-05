@@ -37,12 +37,12 @@ func TestCreateOtelCollector(t *testing.T) {
 	testCases := []struct {
 		name           string
 		componentMeta  metav1.ObjectMeta
-		metric         v1beta1.MetricsSpec
+		metricNames    []string
 		otelConfig     v1beta1.OtelCollectorConfig
 		expectedConfig map[string]interface{}
 	}{
 		{
-			name: "test with port annotation",
+			name: "test with port annotation and single metric",
 			componentMeta: metav1.ObjectMeta{
 				Name:      "test-service",
 				Namespace: "default",
@@ -50,13 +50,7 @@ func TestCreateOtelCollector(t *testing.T) {
 					"prometheus.kserve.io/port": "9090",
 				},
 			},
-			metric: v1beta1.MetricsSpec{
-				PodMetric: &v1beta1.PodMetricSource{
-					Metric: v1beta1.PodMetrics{
-						MetricNames: []string{"request-count"},
-					},
-				},
-			},
+			metricNames: []string{"request-count"},
 			otelConfig: v1beta1.OtelCollectorConfig{
 				ScrapeInterval:         "15s",
 				MetricReceiverEndpoint: "otel-collector:4317",
@@ -72,18 +66,12 @@ func TestCreateOtelCollector(t *testing.T) {
 			},
 		},
 		{
-			name: "test without port annotation",
+			name: "test without port annotation and multiple metrics",
 			componentMeta: metav1.ObjectMeta{
 				Name:      "test-service",
 				Namespace: "default",
 			},
-			metric: v1beta1.MetricsSpec{
-				PodMetric: &v1beta1.PodMetricSource{
-					Metric: v1beta1.PodMetrics{
-						MetricNames: []string{"request-count"},
-					},
-				},
-			},
+			metricNames: []string{"metric1", "metric2"},
 			otelConfig: v1beta1.OtelCollectorConfig{
 				ScrapeInterval: "30s",
 			},
@@ -101,7 +89,7 @@ func TestCreateOtelCollector(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			collector := createOtelCollector(tc.componentMeta, tc.metric, tc.otelConfig)
+			collector := createOtelCollector(tc.componentMeta, tc.metricNames, tc.otelConfig)
 
 			assert.Equal(t, tc.componentMeta.Name, collector.Name)
 			assert.Equal(t, tc.componentMeta.Namespace, collector.Namespace)
@@ -124,15 +112,15 @@ func TestCreateOtelCollector(t *testing.T) {
 			assert.Equal(t, tc.expectedConfig["static_configs"].([]interface{})[0].(map[string]interface{})["targets"], targets)
 
 			// Verify filter processor if metric names exist
-			if len(tc.metric.PodMetric.Metric.MetricNames) > 0 {
+			if len(tc.metricNames) > 0 {
 				processors := collector.Spec.Config.Processors.Object
-				filterOttl := processors["filter/ottl"].(map[string]interface{})
-				metrics := filterOttl["metrics"].(map[string]interface{})
-				metricFilters := metrics["metric"].([]interface{})
-
-				assert.Len(t, metricFilters, len(tc.metric.PodMetric.Metric.MetricNames))
+				filterMetrics := processors["filter/metrics"].(map[string]interface{})
+				metrics := filterMetrics["metrics"].(map[string]interface{})
+				include := metrics["include"].(map[string]interface{})
+				metricNames := include["metric_names"].([]string)
+				assert.ElementsMatch(t, tc.metricNames, metricNames)
 				// Verify processors in pipeline
-				assert.Equal(t, []string{"filter/ottl"}, collector.Spec.Config.Service.Pipelines["metrics"].Processors)
+				assert.Equal(t, []string{"filter/metrics"}, collector.Spec.Config.Service.Pipelines["metrics"].Processors)
 			} else {
 				assert.Empty(t, collector.Spec.Config.Service.Pipelines["metrics"].Processors)
 			}
@@ -149,12 +137,6 @@ func TestReconcileCreate(t *testing.T) {
 		Namespace: "default",
 	}
 
-	metric := v1beta1.MetricsSpec{
-		PodMetric: &v1beta1.PodMetricSource{
-			Metric: v1beta1.PodMetrics{},
-		},
-	}
-
 	otelConfig := v1beta1.OtelCollectorConfig{
 		ScrapeInterval:         "15s",
 		MetricReceiverEndpoint: "otel-collector:4317",
@@ -167,7 +149,7 @@ func TestReconcileCreate(t *testing.T) {
 	// Create fake client
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
 	// Create reconciler
-	reconciler, err := NewOtelReconciler(client, scheme, componentMeta, metric, otelConfig)
+	reconciler, err := NewOtelReconciler(client, scheme, componentMeta, []string{}, otelConfig)
 	require.NoError(t, err)
 
 	// Test reconcile - should create a new resource
@@ -190,12 +172,6 @@ func TestReconcileUpdate(t *testing.T) {
 	componentMeta := metav1.ObjectMeta{
 		Name:      "test-service",
 		Namespace: "default",
-	}
-
-	metric := v1beta1.MetricsSpec{
-		PodMetric: &v1beta1.PodMetricSource{
-			Metric: v1beta1.PodMetrics{},
-		},
 	}
 
 	otelConfig := v1beta1.OtelCollectorConfig{
@@ -249,7 +225,7 @@ func TestReconcileUpdate(t *testing.T) {
 	// Create fake client with existing collector
 	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existingCollector).Build()
 	// Create reconciler
-	reconciler, err := NewOtelReconciler(client, scheme, componentMeta, metric, otelConfig)
+	reconciler, err := NewOtelReconciler(client, scheme, componentMeta, []string{}, otelConfig)
 	require.NoError(t, err)
 
 	// Test reconcile - should update existing resource
@@ -291,12 +267,6 @@ func TestSetControllerReferences(t *testing.T) {
 		},
 	}
 
-	metric := v1beta1.MetricsSpec{
-		PodMetric: &v1beta1.PodMetricSource{
-			Metric: v1beta1.PodMetrics{},
-		},
-	}
-
 	otelConfig := v1beta1.OtelCollectorConfig{
 		ScrapeInterval:         "15s",
 		MetricReceiverEndpoint: "otel-collector:4317",
@@ -310,7 +280,7 @@ func TestSetControllerReferences(t *testing.T) {
 	// Create fake client
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
 	// Create reconciler
-	reconciler, err := NewOtelReconciler(client, scheme, componentMeta, metric, otelConfig)
+	reconciler, err := NewOtelReconciler(client, scheme, componentMeta, []string{}, otelConfig)
 	require.NoError(t, err)
 
 	// Test set controller reference

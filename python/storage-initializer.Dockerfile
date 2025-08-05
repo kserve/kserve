@@ -14,35 +14,38 @@ RUN microdnf install -y --setopt=ubi-9-appstream-rpms.module_hotfixes=1 --disabl
       krb5-workstation \
       krb5-libs  \
       krb5-devel  \
+      gcc-c++ \
+      make tar \
     && microdnf clean all \
     && alternatives --install /usr/bin/python python /usr/bin/python3.11 1
 
+RUN microdnf update -y && microdnf clean all
 
-# Install Poetry
-ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.8.3
-
-RUN python -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip install --upgrade pip && ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION}
-ENV PATH="$PATH:${POETRY_HOME}/bin"
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
 # Activate virtual env
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python -m venv $VIRTUAL_ENV
+RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN cd kserve && poetry install --no-root --no-interaction --no-cache --extras "storage"
-COPY kserve kserve
-RUN cd kserve && poetry install --no-interaction --no-cache --extras "storage"
+# Install Python dependencies
+COPY kserve/pyproject.toml kserve/uv.lock kserve/
+RUN cd kserve && uv sync --extra storage --active --no-cache 
 
-RUN pip install --no-cache-dir krbcontext==0.10 hdfs~=2.6.0 requests-kerberos==0.14.0
+COPY kserve kserve
+RUN cd kserve && uv sync --extra storage --active --no-cache 
+
+# Install Kerberos-related packages
+RUN uv pip install --no-cache-dir krbcontext==0.10 hdfs~=2.6.0 requests-kerberos==0.14.0
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
 COPY third_party/pip-licenses.py pip-licenses.py
 # TODO: Remove this when upgrading to python 3.11+
-RUN pip install --no-cache-dir tomli
+RUN uv pip install --no-cache-dir tomli
 RUN mkdir -p third_party/library && python3 pip-licenses.py
 
 
