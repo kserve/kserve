@@ -14,14 +14,13 @@ RUN microdnf install -y --setopt=ubi-9-appstream-rpms.module_hotfixes=1 --disabl
       krb5-workstation \
       krb5-libs  \
       krb5-devel  \
+      gcc-c++ \
+      make tar \
     && microdnf clean all \
     && alternatives --install /usr/bin/python python /usr/bin/python3.11 1
 
+RUN microdnf update -y && microdnf clean all
 
-# Install all system dependencies first
-RUN microdnf update -y && \
-    microdnf install -y python3-devel gcc gcc-c++ make tar && \
-    microdnf clean all
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
     ln -s /root/.local/bin/uv /usr/local/bin/uv
@@ -40,16 +39,13 @@ COPY kserve kserve
 RUN cd kserve && uv sync --extra storage --active --no-cache 
 
 # Install Kerberos-related packages
-RUN uv pip install --no-cache \
-    krbcontext==0.10 \
-    hdfs~=2.6.0 \
-    requests-kerberos==0.14.0
+RUN uv pip install --no-cache-dir krbcontext==0.10 hdfs~=2.6.0 requests-kerberos==0.14.0
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
 COPY third_party/pip-licenses.py pip-licenses.py
 # TODO: Remove this when upgrading to python 3.11+
-RUN pip install --no-cache-dir tomli
+RUN uv pip install --no-cache-dir tomli
 RUN mkdir -p third_party/library && python3 pip-licenses.py
 
 
