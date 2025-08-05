@@ -214,6 +214,32 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   creationTimestamp: null
+  name: llminferenceservice.serving.kserve.io
+webhooks:
+  - clientConfig:
+      service:
+        name: $(webhookServiceName)
+        namespace: $(kserveNamespace)
+        path: /validate-serving-kserve-io-v1alpha1-llminferenceservice
+    failurePolicy: Fail
+    name: llminferenceservice.kserve-webhook-server.validator
+    sideEffects: None
+    admissionReviewVersions: [ "v1", "v1beta1" ]
+    rules:
+      - apiGroups:
+          - serving.kserve.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - llminferenceservices
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
   name: llminferenceserviceconfig.serving.kserve.io
 webhooks:
   - clientConfig:
@@ -236,30 +262,3 @@ webhooks:
           - DELETE
         resources:
           - llminferenceserviceconfigs
----
-apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
-metadata:
-  creationTimestamp: null
-  name: localmodelcache.serving.kserve.io
-webhooks:
-  - clientConfig:
-      service:
-        name: $(webhookServiceName)
-        namespace: $(kserveNamespace)
-        path: /validate-serving-kserve-io-v1alpha1-localmodelcache
-    failurePolicy: Fail
-    name: localmodelcache.kserve-webhook-server.validator
-    sideEffects: None
-    admissionReviewVersions: ["v1beta1"]
-    rules:
-      - apiGroups:
-          - serving.kserve.io
-        apiVersions:
-          - v1alpha1
-        operations:
-          - CREATE
-          - UPDATE
-          - DELETE
-        resources:
-          - localmodelcaches
