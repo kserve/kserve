@@ -21,10 +21,9 @@ import (
 )
 
 type Config struct {
-	SystemNamespace             string   `json:"systemNamespace,omitempty"`
-	IngressGatewayName          string   `json:"ingressGatewayName,omitempty"`
-	IngressGatewayNamespace     string   `json:"ingressGatewayNamespace,omitempty"`
-	IstioGatewayControllerNames []string `json:"istioGatewayControllerNames,omitempty"`
+	SystemNamespace         string `json:"systemNamespace,omitempty"`
+	IngressGatewayName      string `json:"ingressGatewayName,omitempty"`
+	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
 
 	StorageConfig *pod.StorageInitializerConfig `json:"-"`
 }

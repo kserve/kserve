@@ -25,8 +25,6 @@ import (
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"knative.dev/pkg/kmeta"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -59,32 +57,6 @@ func RequiredResources(ctx context.Context, c client.Client, ns string) {
 
 	gomega.Expect(c.Create(ctx, DefaultGateway(ns))).To(gomega.Succeed())
 	gomega.Expect(c.Create(ctx, DefaultGatewayClass())).To(gomega.Succeed())
-}
-
-func IstioShadowService(name, ns string) *corev1.Service {
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "istio-shadow",
-			Namespace: ns,
-			Labels: map[string]string{
-				"istio.io/inferencepool-name": kmeta.ChildName(name, "-inference-pool"),
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "http",
-					Port:       80,
-					TargetPort: intstr.IntOrString{IntVal: 8000},
-				},
-				{
-					Name:       "https",
-					Port:       443,
-					TargetPort: intstr.IntOrString{IntVal: 8001},
-				},
-			},
-		},
-	}
 }
 
 func DefaultGateway(ns string) *gwapiv1.Gateway {
