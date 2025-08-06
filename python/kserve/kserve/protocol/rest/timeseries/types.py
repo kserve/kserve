@@ -17,6 +17,8 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Union
 from enum import Enum
 from pydantic import BaseModel, Field
+from datetime import timedelta
+from dateutil.relativedelta import relativedelta
 
 # the basic time series type
 TimeSeries = Union[List[float], List[List[float]]]
@@ -52,6 +54,26 @@ class Frequency(str, Enum):
     QUARTER_SHORT = "Q"
     YEAR = "year"
     YEAR_SHORT = "Y"
+
+
+FREQUENCY_MAP = {
+    "S": lambda steps: timedelta(seconds=steps),
+    "second": lambda steps: timedelta(seconds=steps),
+    "T": lambda steps: timedelta(minutes=steps),
+    "minute": lambda steps: timedelta(minutes=steps),
+    "H": lambda steps: timedelta(hours=steps),
+    "hour": lambda steps: timedelta(hours=steps),
+    "D": lambda steps: timedelta(days=steps),
+    "day": lambda steps: timedelta(days=steps),
+    "W": lambda steps: timedelta(weeks=steps),
+    "week": lambda steps: timedelta(weeks=steps),
+    "M": lambda steps: relativedelta(months=steps),
+    "month": lambda steps: relativedelta(months=steps),
+    "Q": lambda steps: relativedelta(months=3 * steps),
+    "quarter": lambda steps: relativedelta(months=3 * steps),
+    "Y": lambda steps: relativedelta(years=steps),
+    "year": lambda steps: relativedelta(years=steps),
+}
 
 
 class Status(str, Enum):
