@@ -34532,7 +34532,6 @@ spec:
                                     namespace:
                                       maxLength: 63
                                       minLength: 1
-                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                       type: string
                                     port:
                                       format: int32
@@ -35285,29 +35284,6 @@ spec:
                                                 required:
                                                 - type
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: replaceFullPath must be
-                                                    specified when type is set to
-                                                    'ReplaceFullPath'
-                                                  rule: 'self.type == ''ReplaceFullPath''
-                                                    ? has(self.replaceFullPath) :
-                                                    true'
-                                                - message: type must be 'ReplaceFullPath'
-                                                    when replaceFullPath is set
-                                                  rule: 'has(self.replaceFullPath)
-                                                    ? self.type == ''ReplaceFullPath''
-                                                    : true'
-                                                - message: replacePrefixMatch must
-                                                    be specified when type is set
-                                                    to 'ReplacePrefixMatch'
-                                                  rule: 'self.type == ''ReplacePrefixMatch''
-                                                    ? has(self.replacePrefixMatch)
-                                                    : true'
-                                                - message: type must be 'ReplacePrefixMatch'
-                                                    when replacePrefixMatch is set
-                                                  rule: 'has(self.replacePrefixMatch)
-                                                    ? self.type == ''ReplacePrefixMatch''
-                                                    : true'
                                             type: object
                                         required:
                                         - type
@@ -35449,59 +35425,6 @@ spec:
                                                 maxLength: 1024
                                                 type: string
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: value must be an absolute path
-                                                and start with '/' when type one of
-                                                ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? self.value.startsWith(''/'') : true'
-                                            - message: must not contain '//' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''//'') : true'
-                                            - message: must not contain '/./' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''/./'') :
-                                                true'
-                                            - message: must not contain '/../' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''/../'') :
-                                                true'
-                                            - message: must not contain '%2f' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''%2f'') :
-                                                true'
-                                            - message: must not contain '%2F' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''%2F'') :
-                                                true'
-                                            - message: must not contain '#' when type
-                                                one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''#'') : true'
-                                            - message: must not end with '/..' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.endsWith(''/..'') :
-                                                true'
-                                            - message: must not end with '/.' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.endsWith(''/.'') : true'
-                                            - message: type must be one of ['Exact',
-                                                'PathPrefix', 'RegularExpression']
-                                              rule: self.type in ['Exact','PathPrefix']
-                                                || self.type == 'RegularExpression'
-                                            - message: must only contain valid characters
-                                                (matching ^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$)
-                                                for types ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? self.value.matches(r"""^(?:[-A-Za-z0-9/._~!$&''()*+,;=:@]|[%][0-9a-fA-F]{2})+$""")
-                                                : true'
                                           queryParams:
                                             items:
                                               properties:
