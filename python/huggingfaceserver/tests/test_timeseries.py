@@ -13,9 +13,7 @@
 # limitations under the License.
 
 import pytest
-
 import dateutil.parser
-from datetime import timedelta
 
 from transformers import AutoConfig
 
@@ -29,37 +27,8 @@ from kserve.protocol.rest.timeseries.types import (
     TimeSeriesInput,
     ForecastOptions,
     Frequency,
+    FREQUENCY_MAP,
 )
-
-
-def get_timedelta_for_frequency(frequency, steps):
-    """Returns a timedelta or relativedelta for the given frequency and steps."""
-    from dateutil.relativedelta import relativedelta
-
-    freq_map = {
-        "S": lambda s: timedelta(seconds=s),
-        "second": lambda s: timedelta(seconds=s),
-        "T": lambda s: timedelta(minutes=s),
-        "minute": lambda s: timedelta(minutes=s),
-        "H": lambda s: timedelta(hours=s),
-        "hour": lambda s: timedelta(hours=s),
-        "D": lambda s: timedelta(days=s),
-        "day": lambda s: timedelta(days=s),
-        "W": lambda s: timedelta(weeks=s),
-        "week": lambda s: timedelta(weeks=s),
-        "M": lambda s: relativedelta(months=s),
-        "month": lambda s: relativedelta(months=s),
-        "Q": lambda s: relativedelta(months=3 * s),
-        "quarter": lambda s: relativedelta(months=3 * s),
-        "Y": lambda s: relativedelta(years=s),
-        "year": lambda s: relativedelta(years=s),
-    }
-    f = frequency if isinstance(frequency, str) else frequency.value
-    f = f.upper()
-    for key in freq_map:
-        if f == key.upper():
-            return freq_map[key](steps)
-    raise ValueError(f"Unknown frequency: {frequency}")
 
 
 def verify_forecast_response(response, request):
@@ -102,9 +71,7 @@ def verify_forecast_response(response, request):
             input_start = dateutil.parser.isoparse(corresponding_input.start_timestamp)
             freq = corresponding_input.frequency
             steps = len(corresponding_input.series)
-            expected_output_start = input_start + get_timedelta_for_frequency(
-                freq, steps
-            )
+            expected_output_start = input_start + FREQUENCY_MAP[freq](steps)
             actual_output_start = dateutil.parser.isoparse(content.start_timestamp)
             assert actual_output_start == expected_output_start, (
                 f"For series '{content.name}', expected start_timestamp {expected_output_start.isoformat()} "
@@ -188,5 +155,7 @@ async def test_timesfm_forecast(load_timesfm):
     )
 
     response = await model.forecast(request)
+    print(type(response))
+    print(response)
     assert isinstance(response, ForecastResponse)
     verify_forecast_response(response, request)
