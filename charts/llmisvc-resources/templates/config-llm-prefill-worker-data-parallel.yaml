@@ -1,0 +1,124 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-prefill-worker-data-parallel
+spec:
+  prefill:
+    worker:
+      containers:
+        - image: ghcr.io/llm-d/llm-d:v0.2.0
+          imagePullPolicy: IfNotPresent
+          name: main
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          stdin: true
+          tty: true
+          command:
+            - "/bin/sh"
+            - "-c"
+          args:
+            - |-
+
+              START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Prefill.Parallelism.DataLocal 1 }} ))
+              if [ "${LWS_WORKER_INDEX:-0}" -eq 0 ]; then
+                #################
+                # Leader-only launch
+                #################
+                vllm serve \
+                  {{ .Spec.Model.Name }} \
+                  --port 8000 \
+                  --api-server-count 4 \
+                  --disable-log-requests \
+                  {{- if .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel \{{- end }}
+                  {{- if .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }} \{{- end }}
+                  --data-parallel-size {{ or .Spec.Prefill.Parallelism.Data 1 }} \
+                  --data-parallel-size-local {{ or .Spec.Prefill.Parallelism.DataLocal 1 }} \
+                  --data-parallel-address $(LWS_LEADER_ADDRESS) \
+                  --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
+                  --data-parallel-start-rank $START_RANK \
+                  --trust-remote-code \
+                  --enable-ssl-refresh \
+                  --ssl-certfile \
+                  /etc/ssl/certs/tls.crt \
+                  --ssl-keyfile \
+                  /etc/ssl/certs/tls.key
+              else
+                #################
+                # Worker-only launch
+                #################
+                vllm serve \
+                  {{ .Spec.Model.Name }} \
+                  --port 8000 \
+                  --disable-log-requests \
+                  {{- if .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel \{{- end }}
+                  {{- if .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }} \{{- end }}
+                  --data-parallel-size {{ or .Spec.Prefill.Parallelism.Data 1 }} \
+                  --data-parallel-size-local {{ or .Spec.Prefill.Parallelism.DataLocal 1 }} \
+                  --data-parallel-address $(LWS_LEADER_ADDRESS) \
+                  --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
+                  --data-parallel-start-rank $START_RANK \
+                  --trust-remote-code \
+                  --headless \
+                  --enable-ssl-refresh \
+                  --ssl-certfile \
+                  /etc/ssl/certs/tls.crt \
+                  --ssl-keyfile \
+                  /etc/ssl/certs/tls.key
+              fi
+          env:
+            - name: HOME
+              value: /home
+            - name: VLLM_LOGGING_LEVEL
+              value: INFO
+            - name: HF_HUB_CACHE
+              value: /models
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              add:
+                - "IPC_LOCK"
+                - "SYS_RAWIO"
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: FallbackToLogsOnError
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTPS
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTPS
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 60
+          volumeMounts:
+            - mountPath: /home
+              name: home
+            - mountPath: /dev/shm
+              name: dshm
+            - mountPath: /models
+              name: model-cache
+            - mountPath: /etc/ssl/certs
+              name: tls-certs
+              readOnly: true
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - emptyDir: { }
+          name: home
+        - emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+          name: dshm
+        - emptyDir: { }
+          name: model-cache
+        - name: tls-certs
+          secret:
+            secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
