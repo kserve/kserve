@@ -92,7 +92,7 @@ kserve:
     enablePrometheusScraping: "false"
   controller:
     # -- KServe deployment mode: "Standard", "KNative".
-    deploymentMode: "Standard"
+    deploymentMode: "Knative"
 
     # -- KServe controller manager rbac proxy contrainer image
     rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.18.0
