@@ -202,7 +202,7 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
         ),
     )
 
-    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
+    annotations = {"serving.kserve.io/deploymentMode": "Standard"}
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -254,7 +254,7 @@ async def test_sklearn_rolling_update():
         ),
     )
 
-    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
+    annotations = {"serving.kserve.io/deploymentMode": "Standard"}
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -337,7 +337,7 @@ async def test_sklearn_env_update():
         ),
     )
 
-    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
+    annotations = {"serving.kserve.io/deploymentMode": "Standard"}
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
