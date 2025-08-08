@@ -96,7 +96,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	)
 
 	Context("with knative configured to not allow zero initial scale", func() {
-		When("a Serverless InferenceService is created with an initial scale annotation and value of zero", func() {
+		When("a KNative InferenceService is created with an initial scale annotation and value of zero", func() {
 			It("should ignore the annotation", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -121,7 +121,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    "Serverless",
+							"serving.kserve.io/deploymentMode":    "KNative",
 							autoscaling.InitialScaleAnnotationKey: "0",
 						},
 					},
@@ -157,7 +157,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(actualService.Spec.Template.Annotations).NotTo(HaveKey(autoscaling.InitialScaleAnnotationKey))
 			})
 		})
-		When("a Serverless InferenceService is created with an initial scale annotation and valid non-zero integer value", func() {
+		When("a KNative InferenceService is created with an initial scale annotation and valid non-zero integer value", func() {
 			It("should override the default initial scale value with the annotation value", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -182,7 +182,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    "Serverless",
+							"serving.kserve.io/deploymentMode":    "KNative",
 							autoscaling.InitialScaleAnnotationKey: "3",
 						},
 					},
@@ -218,7 +218,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("3"))
 			})
 		})
-		When("a Serverless InferenceService is created with an initial scale annotation and invalid non-integer value", func() {
+		When("a KNative InferenceService is created with an initial scale annotation and invalid non-integer value", func() {
 			It("should ignore the annotation", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -243,7 +243,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    "Serverless",
+							"serving.kserve.io/deploymentMode":    "KNative",
 							autoscaling.InitialScaleAnnotationKey: "non-integer",
 						},
 					},
@@ -309,7 +309,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return k8sClient.Patch(context.TODO(), configAutoscaler, client.RawPatch(types.StrategicMergePatchType, configPatch))
 			}, timeout).Should(Succeed())
 		})
-		When("a Serverless InferenceService is created with an initial scale annotation and value of zero", func() {
+		When("a KNative InferenceService is created with an initial scale annotation and value of zero", func() {
 			It("should override the default initial scale value with the annotation value", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -334,7 +334,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    "Serverless",
+							"serving.kserve.io/deploymentMode":    "KNative",
 							autoscaling.InitialScaleAnnotationKey: "0",
 						},
 					},
@@ -370,7 +370,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
-		When("a Serverless InferenceService is created with an initial scale annotation and valid non-zero integer value", func() {
+		When("a KNative InferenceService is created with an initial scale annotation and valid non-zero integer value", func() {
 			It("should override the default initial scale value with the annotation value", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -395,7 +395,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    "Serverless",
+							"serving.kserve.io/deploymentMode":    "KNative",
 							autoscaling.InitialScaleAnnotationKey: "3",
 						},
 					},
@@ -431,7 +431,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("3"))
 			})
 		})
-		When("a Serverless InferenceService is created with an initial scale annotation and invalid non-integer value", func() {
+		When("a KNative InferenceService is created with an initial scale annotation and invalid non-integer value", func() {
 			It("should ignore the annotation", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -456,7 +456,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    "Serverless",
+							"serving.kserve.io/deploymentMode":    "KNative",
 							autoscaling.InitialScaleAnnotationKey: "non-integer",
 						},
 					},
@@ -570,7 +570,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						"key3": "val3FromISVC",
 					},
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": "Serverless",
+						"serving.kserve.io/deploymentMode": "KNative",
 						"key2":                             "val2FromISVC",
 						"key3":                             "val3FromISVC",
 					},
@@ -634,7 +634,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									"key3":                                "val3FromPredictor",
 								},
 								Annotations: map[string]string{
-									"serving.kserve.io/deploymentMode":                         "Serverless",
+									"serving.kserve.io/deploymentMode":                         "KNative",
 									constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
 									"autoscaling.knative.dev/max-scale":                        "3",
 									"autoscaling.knative.dev/min-scale":                        "1",
@@ -827,7 +827,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": "Serverless",
+						"serving.kserve.io/deploymentMode": "KNative",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -899,7 +899,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      name,
 					Namespace: namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": "Serverless",
+						"serving.kserve.io/deploymentMode": "KNative",
 					},
 				},
 
@@ -1410,7 +1410,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Name:      name,
 						Namespace: namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode": "Serverless",
+							"serving.kserve.io/deploymentMode": "KNative",
 						},
 					},
 					Spec: v1beta1.InferenceServiceSpec{
@@ -1707,7 +1707,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Name:      name,
 						Namespace: namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode": "Serverless",
+							"serving.kserve.io/deploymentMode": "KNative",
 						},
 					},
 					Spec: v1beta1.InferenceServiceSpec{
@@ -1985,7 +1985,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						"key2": "val2FromISVC",
 					},
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": "Serverless",
+						"serving.kserve.io/deploymentMode": "KNative",
 						"key1":                             "val1FromISVC",
 						"key2":                             "val2FromISVC",
 					},
@@ -2113,7 +2113,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									"key2":                               "val2FromTransformer",
 								},
 								Annotations: map[string]string{
-									"serving.kserve.io/deploymentMode":  "Serverless",
+									"serving.kserve.io/deploymentMode":  "KNative",
 									"autoscaling.knative.dev/class":     "kpa.autoscaling.knative.dev",
 									"autoscaling.knative.dev/max-scale": "3",
 									"autoscaling.knative.dev/min-scale": "1",
@@ -2367,7 +2367,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"key2": "val2FromISVC",
 						},
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode": "Serverless",
+							"serving.kserve.io/deploymentMode": "KNative",
 							"key1":                             "val1FromISVC",
 							"key2":                             "val2FromISVC",
 						},
@@ -2435,7 +2435,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"key2":                                "val2FromISVC",
 									},
 									Annotations: map[string]string{
-										"serving.kserve.io/deploymentMode":                         "Serverless",
+										"serving.kserve.io/deploymentMode":                         "KNative",
 										constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
 										"autoscaling.knative.dev/max-scale":                        "3",
 										"autoscaling.knative.dev/min-scale":                        "1",
@@ -2690,7 +2690,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"key2": "val2FromISVC",
 						},
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode": "Serverless",
+							"serving.kserve.io/deploymentMode": "KNative",
 							"key1":                             "val1FromISVC",
 							"key2":                             "val2FromISVC",
 						},
@@ -2745,7 +2745,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"key2":                                "val2FromISVC",
 									},
 									Annotations: map[string]string{
-										"serving.kserve.io/deploymentMode":                         "Serverless",
+										"serving.kserve.io/deploymentMode":                         "KNative",
 										constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
 										"autoscaling.knative.dev/max-scale":                        "3",
 										"autoscaling.knative.dev/min-scale":                        "1",
@@ -3001,7 +3001,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"key2": "val2FromISVC",
 						},
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode": "Serverless",
+							"serving.kserve.io/deploymentMode": "KNative",
 							"key1":                             "val1FromISVC",
 							"key2":                             "val2FromISVC",
 						},
@@ -3072,7 +3072,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"key2":                                "val2FromISVC",
 									},
 									Annotations: map[string]string{
-										"serving.kserve.io/deploymentMode":                         "Serverless",
+										"serving.kserve.io/deploymentMode":                         "KNative",
 										constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
 										"autoscaling.knative.dev/max-scale":                        "3",
 										"autoscaling.knative.dev/min-scale":                        "1",
@@ -3284,7 +3284,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"key2": "val2FromISVC",
 						},
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode": "Serverless",
+							"serving.kserve.io/deploymentMode": "KNative",
 							"key1":                             "val1FromISVC",
 							"key2":                             "val2FromISVC",
 						},
@@ -3354,7 +3354,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"key2":                                "val2FromISVC",
 									},
 									Annotations: map[string]string{
-										"serving.kserve.io/deploymentMode":  "Serverless",
+										"serving.kserve.io/deploymentMode":  "KNative",
 										"autoscaling.knative.dev/max-scale": "3",
 										"autoscaling.knative.dev/min-scale": "1",
 										"autoscaling.knative.dev/class":     "kpa.autoscaling.knative.dev",
