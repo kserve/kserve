@@ -746,7 +746,13 @@ data:
     {
       "scrapeInterval": "5s",
       "metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
-      "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
+      "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318",
+      "resource": {
+          "cpuLimit": "1",
+          "memoryLimit": "2Gi",
+          "cpuRequest": "1",
+          "memoryRequest": "2Gi"
+      }
     }
 
   autoscaler: |-
