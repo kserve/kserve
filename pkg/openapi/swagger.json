@@ -4271,6 +4271,10 @@
         "metricScalerEndpoint": {
           "type": "string"
         },
+        "resource": {
+          "default": {},
+          "$ref": "#/definitions/v1beta1.ResourceConfig"
+        },
         "scrapeInterval": {
           "type": "string"
         }
