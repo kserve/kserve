@@ -1315,7 +1315,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			}
 
 			// --- Reusable Check Functions ---
-			// setInferenceGraphToReady updates the status of the given InferenceGraph to Ready
+			// Updates the status of the deployment to Ready
 			// and applies the change to the Kubernetes API server.
 			expectDeploymentToBeReady := func(ctx context.Context, serviceKey types.NamespacedName) {
 				actualDeployment := &appsv1.Deployment{}
