@@ -397,6 +397,6 @@ func TestCreateOtelCollectorWithNoResources(t *testing.T) {
 	resources := collector.Spec.OpenTelemetryCommonFields.Resources
 
 	// Check that limits and requests maps are either nil or empty
-	assert.True(t, len(resources.Limits) == 0)
-	assert.True(t, len(resources.Requests) == 0)
+	assert.Empty(t, resources.Limits)
+	assert.Empty(t, resources.Requests)
 }
