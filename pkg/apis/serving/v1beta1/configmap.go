@@ -25,27 +25,30 @@ import (
 	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
 // ConfigMap Keys
 const (
-	ExplainerConfigKeyName        = "explainers"
-	InferenceServiceConfigKeyName = "inferenceService"
-	IngressConfigKeyName          = "ingress"
-	DeployConfigName              = "deploy"
-	LocalModelConfigName          = "localModel"
-	SecurityConfigName            = "security"
-	ServiceConfigName             = "service"
-	ResourceConfigName            = "resource"
-	MultiNodeConfigKeyName        = "multiNode"
-	OtelCollectorConfigName       = "opentelemetryCollector"
-	AutoscalerConfigName          = "autoscaler"
+	ExplainerConfigKeyName             = "explainers"
+	InferenceServiceConfigKeyName      = "inferenceService"
+	IngressConfigKeyName               = "ingress"
+	DeployConfigName                   = "deploy"
+	LocalModelConfigName               = "localModel"
+	SecurityConfigName                 = "security"
+	ServiceConfigName                  = "service"
+	ResourceConfigName                 = "resource"
+	MultiNodeConfigKeyName             = "multiNode"
+	OtelCollectorConfigName            = "opentelemetryCollector"
+	StorageInitializerConfigMapKeyName = "storageInitializer"
+	AutoscalerConfigName               = "autoscaler"
 )
 
 const (
@@ -378,4 +381,43 @@ func NewServiceConfig(isvcConfigMap *corev1.ConfigMap) (*ServiceConfig, error) {
 		}
 	}
 	return serviceConfig, nil
+}
+
+// GetStorageInitializerConfigs parses the StorageInitializer configuration from the provided ConfigMap.
+// It unmarshalls JSON configuration under the "storageInitializer" key into a StorageInitializerConfig struct.
+// The fields related to CPU and memory resource values are validated to contain valid Kubernetes resource quantities.
+//
+// Parameters:
+//
+//	configMap: The Kubernetes ConfigMap containing the storage initializer configuration.
+//
+// Returns:
+//
+//	*types.StorageInitializerConfig: The parsed storage initializer configuration.
+//	error: An error if the configuration is missing, invalid, or resource values cannot be parsed.
+func GetStorageInitializerConfigs(configMap *corev1.ConfigMap) (*types.StorageInitializerConfig, error) {
+	storageInitializerConfig := &types.StorageInitializerConfig{}
+	if initializerConfig, ok := configMap.Data[StorageInitializerConfigMapKeyName]; ok {
+		err := json.Unmarshal([]byte(initializerConfig), &storageInitializerConfig)
+		if err != nil {
+			panic(fmt.Errorf("Unable to unmarshall %v json string due to %w ", StorageInitializerConfigMapKeyName, err))
+		}
+	}
+	// Ensure that we set proper values for CPU/Memory Limit/Request
+	resourceDefaults := map[string]string{
+		"memoryRequest":  storageInitializerConfig.MemoryRequest,
+		"memoryLimit":    storageInitializerConfig.MemoryLimit,
+		"cpuRequest":     storageInitializerConfig.CpuRequest,
+		"cpuLimit":       storageInitializerConfig.CpuLimit,
+		"cpuModelcar":    storageInitializerConfig.CpuModelcar,
+		"memoryModelcar": storageInitializerConfig.MemoryModelcar,
+	}
+	for key, value := range resourceDefaults {
+		_, err := resource.ParseQuantity(value)
+		if err != nil {
+			return storageInitializerConfig, fmt.Errorf("failed to parse resource configuration for %q.%q: %w", StorageInitializerConfigMapKeyName, key, err)
+		}
+	}
+
+	return storageInitializerConfig, nil
 }

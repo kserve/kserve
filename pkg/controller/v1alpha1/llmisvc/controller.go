@@ -20,10 +20,13 @@ import (
 	"context"
 
 	"k8s.io/client-go/kubernetes"
+
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
 	"k8s.io/client-go/tools/record"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
