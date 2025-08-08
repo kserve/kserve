@@ -1091,7 +1091,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, objKey, obj)
 				return err == nil
-			}, time.Second*30, interval).Should(BeTrue(), "%T %s should exist", obj, objKey.Name)
+			}, timeout, interval).Should(BeTrue(), "%T %s should exist", obj, objKey.Name)
 		}
 
 		// Checks that any Kubernetes object to be not found.
@@ -1099,7 +1099,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			Consistently(func() bool {
 				err := k8sClient.Get(ctx, objKey, obj)
 				return apierr.IsNotFound(err)
-			}, time.Second*10, interval).Should(BeTrue(), "%T %s should not be created", obj, objKey.Name)
+			}, timeout, interval).Should(BeTrue(), "%T %s should not be created", obj, objKey.Name)
 		}
 
 		// Wait for any Kubernetes object to be not found.
