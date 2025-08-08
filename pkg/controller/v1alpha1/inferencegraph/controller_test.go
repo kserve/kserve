@@ -1157,7 +1157,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				return ig
 			}
 
-			It("Should keep the knative service when the annotation is set to false", func() {
+			It("Should keep the knative service when the StopAnnotationKey annotation is set to false", func() {
 				ctx, cancel := context.WithCancel(context.Background())
 				DeferCleanup(cancel)
 
@@ -1183,7 +1183,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
 			})
 
-			It("Should not create the knative service when the annotation is set to true", func() {
+			It("Should not create the knative service when the StopAnnotationKey annotation is set to true", func() {
 				ctx, cancel := context.WithCancel(context.Background())
 				DeferCleanup(cancel)
 
@@ -1208,7 +1208,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionTrue)
 			})
 
-			It("Should delete the knative service when the annotation is updated to true on an existing IG", func() {
+			It("Should delete the knative service when the StopAnnotationKey annotation is updated to true on an existing IG", func() {
 				ctx, cancel := context.WithCancel(context.Background())
 				DeferCleanup(cancel)
 
@@ -1247,7 +1247,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionTrue)
 			})
 
-			It("Should create the knative service when the annotation is updated to false on an existing IG", func() {
+			It("Should create the knative service when the StopAnnotationKey annotation is updated to false on an existing IG", func() {
 				ctx, cancel := context.WithCancel(context.Background())
 				DeferCleanup(cancel)
 
@@ -1332,7 +1332,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(k8sClient.Status().Update(ctx, updatedDeployment)).NotTo(HaveOccurred())
 			}
 
-			It("Should keep the service/deployment when the annotation is set to false", func() {
+			It("Should keep the service/deployment when the StopAnnotationKey annotation is set to false", func() {
 				ctx, cancel := context.WithCancel(context.Background())
 				DeferCleanup(cancel)
 
@@ -1361,7 +1361,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
 			})
 
-			It("Should not create the service/deployment when the annotation is set to true", func() {
+			It("Should not create the service/deployment when the StopAnnotationKey annotation is set to true", func() {
 				ctx, cancel := context.WithCancel(context.Background())
 				DeferCleanup(cancel)
 
@@ -1387,7 +1387,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionTrue)
 			})
 
-			It("Should delete the service/deployment when the annotation is updated to true on an existing IG", func() {
+			It("Should delete the service/deployment when the StopAnnotationKey annotation is updated to true on an existing IG", func() {
 				ctx, cancel := context.WithCancel(context.Background())
 				DeferCleanup(cancel)
 
@@ -1429,7 +1429,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionTrue)
 			})
 
-			It("Should create the service/deployment when the annotation is updated to false on an existing IG", func() {
+			It("Should create the service/deployment when the StopAnnotationKey annotation is updated to false on an existing IG", func() {
 				ctx, cancel := context.WithCancel(context.Background())
 				DeferCleanup(cancel)
 
