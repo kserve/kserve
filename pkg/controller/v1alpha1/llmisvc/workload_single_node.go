@@ -46,6 +46,7 @@ func (r *LLMISVCReconciler) propagateDeploymentStatus(ctx context.Context, expec
 			return nil
 		}
 	}
+
 	notReady(string(appsv1.DeploymentProgressing), "")
 	return nil
 }
