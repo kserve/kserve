@@ -211,6 +211,9 @@ run: generate fmt vet go-lint
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
+	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
+	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
+	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
 	kubectl apply --server-side=true --force-conflicts -k config/crd
 	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
@@ -225,6 +228,9 @@ deploy: manifests
 
 
 deploy-dev: manifests
+	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
+	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
+	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
 	kubectl apply --server-side=true --force-conflicts -k config/crd
 	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
 	./hack/image_patch_dev.sh development
@@ -262,6 +268,9 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 	kubectl apply --server-side=true -k config/overlays/dev-image-config
 
 deploy-ci: manifests
+	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
+	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
+	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
 	kubectl apply --server-side=true --force-conflicts -k config/crd
 	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
 	kubectl apply --server-side=true -k config/overlays/test
