@@ -230,6 +230,13 @@ func GetDeploymentMode(statusDeploymentMode string, annotations map[string]strin
 	return constants.DeploymentModeType(deployConfig.DefaultDeploymentMode)
 }
 
+// getKeyFromArgs extract the key from args.
+// If you pass "--key=value" then the key such as "--key" is extracted.
+func getKeyFromArgs(arg string) string {
+	parts := strings.SplitN(arg, "=", 2)
+	return parts[0]
+}
+
 // MergeRuntimeContainers Merge the predictor or transformer Container struct with the runtime Container struct, allowing users
 // to override runtime container settings from the predictor spec.
 func MergeRuntimeContainers(runtimeContainer *corev1.Container, isvcContainer *corev1.Container) (*corev1.Container, error) {
@@ -261,6 +268,25 @@ func MergeRuntimeContainers(runtimeContainer *corev1.Container, isvcContainer *c
 	if mergedContainer.Name == "" {
 		mergedContainer.Name = runtimeContainerName
 	}
+
+	// Creating the set of key from isvcContainer.Args
+	isvcKeys := make(map[string]struct{})
+	for _, arg := range isvcContainer.Args {
+		key := getKeyFromArgs(arg)
+		isvcKeys[key] = struct{}{}
+	}
+
+	// Filtering runtimeContainer.Args
+	var filteredArgs []string
+	for _, arg := range runtimeContainer.Args {
+		key := getKeyFromArgs(arg)
+		if _, exists := isvcKeys[key]; !exists {
+			filteredArgs = append(filteredArgs, arg)
+		}
+	}
+
+	// Overwrite runtimeContainer.Args with the filtered args
+	runtimeContainer.Args = filteredArgs
 
 	// Strategic merge patch will replace args but more useful behaviour here is to concatenate
 	mergedContainer.Args = append(append([]string{}, runtimeContainer.Args...), isvcContainer.Args...)
