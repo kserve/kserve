@@ -19,6 +19,7 @@ package logger
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -86,11 +87,12 @@ type LoggerHandler struct {
 	annotations      map[string]string
 	certName         string
 	tlsSkipVerify    bool
+	customLogSchema  string
 }
 
 func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
 	inferenceService string, namespace string, endpoint string, component string, next http.Handler, metadataHeaders []string,
-	certName string, annotations map[string]string, tlsSkipVerify bool,
+	certName string, annotations map[string]string, tlsSkipVerify bool, customLogSchema string,
 ) http.Handler {
 	logf.SetLogger(zap.New())
 	return &LoggerHandler{
@@ -107,11 +109,13 @@ func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
 		metadataHeaders:  metadataHeaders,
 		certName:         certName,
 		tlsSkipVerify:    tlsSkipVerify,
+		customLogSchema:  customLogSchema,
 	}
 }
 
 // call svc and add send request/responses to logUrl
 func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(eh.metadataHeaders)
 	if network.IsKubeletProbe(r) {
 		if eh.next != nil {
 			eh.next.ServeHTTP(w, r)
@@ -156,6 +160,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Metadata:         metadata,
 			CertName:         eh.certName,
 			TlsSkipVerify:    eh.tlsSkipVerify,
+			CustomSchema:     eh.customLogSchema,
 		}); err != nil {
 			eh.log.Error(err, "Failed to log request")
 		}
@@ -190,6 +195,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				Component:        eh.component,
 				CertName:         eh.certName,
 				TlsSkipVerify:    eh.tlsSkipVerify,
+				CustomSchema:     eh.customLogSchema,
 			}); err != nil {
 				eh.log.Error(err, "Failed to log response")
 			}
