@@ -13,6 +13,9 @@ spec:
     shortNames:
     - tm
     singular: trainedmodel
+    categories:
+      - all
+      - kserve
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
