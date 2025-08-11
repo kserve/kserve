@@ -238,11 +238,26 @@ func extractTarFiles(reader io.Reader, dest string) error {
 		}
 
 		dest = filepath.Clean(dest)
+		absDest, err := filepath.Abs(dest)
+		if err != nil {
+			return fmt.Errorf("unable to resolve absolute path for destination: %w", err)
+		}
+
 		fileFullPath := filepath.Clean(filepath.Join(dest, filepath.Clean(header.Name)))
+		absFileFullPath, err := filepath.Abs(fileFullPath)
+		if err != nil {
+			return fmt.Errorf("unable to resolve absolute path for file: %w", err)
+		}
+
+		// Ensure the file path is within the destination directory
+		if !strings.HasPrefix(absFileFullPath, absDest+string(os.PathSeparator)) {
+			return fmt.Errorf("detected potential directory traversal attempt: %s", header.Name)
+		}
+
 		if header.Typeflag == tar.TypeDir {
-			err = os.MkdirAll(fileFullPath, 0o755)
+			err = os.MkdirAll(absFileFullPath, 0o755)
 			if err != nil {
-				return fmt.Errorf("unable to create new directory %s", fileFullPath)
+				return fmt.Errorf("unable to create new directory %s", absFileFullPath)
 			}
 
 			continue
