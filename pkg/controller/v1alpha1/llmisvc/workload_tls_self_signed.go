@@ -45,6 +45,8 @@ const (
 	certificatesExpirationAnnotation = "certificates.kserve.io/expiration"
 )
 
+// reconcileSelfSignedCertsSecret reconciles the secret containing self-signed certs used by the server to serve TLS.
+// These self signed certs are used for cluster internal communication encryption by the workload and the scheduler.
 func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	log.FromContext(ctx).Info("Reconciling self-signed certificates secret")
 

@@ -61,6 +61,8 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 	return nil
 }
 
+// reconcileSchedulerAuthDelegatorBinding reconciles the auth-delegator role binding associated with the scheduler's service account.
+// This role binding allows the scheduler's service account to perform authentication and authorization checks.
 func (r *LLMISVCReconciler) reconcileSchedulerAuthDelegatorBinding(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount) error {
 	authDelegatorBinding := r.expectedSchedulerAuthDelegatorBinding(llmSvc, sa)
 	if !llmSvc.DeletionTimestamp.IsZero() || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {

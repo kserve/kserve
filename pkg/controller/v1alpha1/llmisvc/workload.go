@@ -71,6 +71,9 @@ func hasRoutingSidecar(pod corev1.PodSpec) bool {
 	return routingSidecar(&pod) != nil
 }
 
+// routingSidecar returns the routing sidecar container within a pod if present.
+// The routing sidecar is used for disaggregated serving (separate prefill and decode instances) for multi node workloads
+// and is used in the single node deployment topology when prefill/decode is enabled for single node workloads.
 func routingSidecar(pod *corev1.PodSpec) *corev1.Container {
 	if pod != nil {
 		for i := range pod.InitContainers {
