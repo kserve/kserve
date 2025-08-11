@@ -1,12 +1,10 @@
-# V1beta1OtelCollectorConfig
+# V1beta1HorizontalPodAutoscalerConfig
 
+HorizontalPodAutoscalerConfig contains the configuration for the Horizontal Pod Autoscaler.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**metric_receiver_endpoint** | **str** |  | [optional] 
-**metric_scaler_endpoint** | **str** |  | [optional] 
-**resource** | [**V1beta1ResourceConfig**](V1beta1ResourceConfig.md) |  | [optional] 
-**scrape_interval** | **str** |  | [optional] 
+**behavior** | [**V1beta1HorizontalPodAutoscalerBehavior**](V1beta1HorizontalPodAutoscalerBehavior.md) |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

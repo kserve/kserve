@@ -48,6 +48,7 @@ const (
 	MultiNodeConfigKeyName             = "multiNode"
 	OtelCollectorConfigName            = "opentelemetryCollector"
 	StorageInitializerConfigMapKeyName = "storageInitializer"
+	AutoscalerConfigName               = "autoscaler"
 )
 
 const (
@@ -78,9 +79,15 @@ type ExplainersConfig struct {
 }
 
 type OtelCollectorConfig struct {
-	ScrapeInterval         string `json:"scrapeInterval,omitempty"`
-	MetricReceiverEndpoint string `json:"metricReceiverEndpoint,omitempty"`
-	MetricScalerEndpoint   string `json:"metricScalerEndpoint,omitempty"`
+	ScrapeInterval         string         `json:"scrapeInterval,omitempty"`
+	MetricReceiverEndpoint string         `json:"metricReceiverEndpoint,omitempty"`
+	MetricScalerEndpoint   string         `json:"metricScalerEndpoint,omitempty"`
+	Resource               ResourceConfig `json:"resource,omitempty"` // Resource configuration for otel collector
+}
+
+type AutoscalerConfig struct {
+	ScaleUpStabilizationWindowSeconds   string `json:"scaleUpStabilizationWindowSeconds,omitempty"`
+	ScaleDownStabilizationWindowSeconds string `json:"scaleDownStabilizationWindowSeconds,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -174,6 +181,17 @@ func NewOtelCollectorConfig(isvcConfigMap *corev1.ConfigMap) (*OtelCollectorConf
 		}
 	}
 	return otelConfig, nil
+}
+
+func NewAutoscalerConfig(isvcConfigMap *corev1.ConfigMap) (*AutoscalerConfig, error) {
+	autoscalerConfig := &AutoscalerConfig{}
+	if autoscaler, ok := isvcConfigMap.Data[AutoscalerConfigName]; ok {
+		err := json.Unmarshal([]byte(autoscaler), autoscalerConfig)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse autoscaler config json: %w", err)
+		}
+	}
+	return autoscalerConfig, nil
 }
 
 func NewInferenceServicesConfig(isvcConfigMap *corev1.ConfigMap) (*InferenceServicesConfig, error) {
