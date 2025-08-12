@@ -122,7 +122,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Steps: []v1alpha1.InferenceStep{
 									{
 										InferenceTarget: v1alpha1.InferenceTarget{
-											ServiceURL: "http://someservice.exmaple.com",
+											ServiceURL: "http://someservice.example.com",
 										},
 									},
 								},
@@ -178,7 +178,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Steps: []v1alpha1.InferenceStep{
 									{
 										InferenceTarget: v1alpha1.InferenceTarget{
-											ServiceURL: "http://someservice.exmaple.com",
+											ServiceURL: "http://someservice.example.com",
 										},
 									},
 								},
@@ -234,7 +234,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Steps: []v1alpha1.InferenceStep{
 									{
 										InferenceTarget: v1alpha1.InferenceTarget{
-											ServiceURL: "http://someservice.exmaple.com",
+											ServiceURL: "http://someservice.example.com",
 										},
 									},
 								},
@@ -319,7 +319,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Steps: []v1alpha1.InferenceStep{
 									{
 										InferenceTarget: v1alpha1.InferenceTarget{
-											ServiceURL: "http://someservice.exmaple.com",
+											ServiceURL: "http://someservice.example.com",
 										},
 									},
 								},
@@ -374,7 +374,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Steps: []v1alpha1.InferenceStep{
 									{
 										InferenceTarget: v1alpha1.InferenceTarget{
-											ServiceURL: "http://someservice.exmaple.com",
+											ServiceURL: "http://someservice.example.com",
 										},
 									},
 								},
@@ -429,7 +429,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Steps: []v1alpha1.InferenceStep{
 									{
 										InferenceTarget: v1alpha1.InferenceTarget{
-											ServiceURL: "http://someservice.exmaple.com",
+											ServiceURL: "http://someservice.example.com",
 										},
 									},
 								},
@@ -482,7 +482,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							Steps: []v1alpha1.InferenceStep{
 								{
 									InferenceTarget: v1alpha1.InferenceTarget{
-										ServiceURL: "http://someservice.exmaple.com",
+										ServiceURL: "http://someservice.example.com",
 									},
 								},
 							},
@@ -538,7 +538,7 @@ var _ = Describe("Inference Graph controller test", func() {
 											},
 											Args: []string{
 												"--graph-json",
-												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{}}",
+												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{}}",
 											},
 											Resources: corev1.ResourceRequirements{
 												Limits: corev1.ResourceList{
@@ -620,7 +620,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							Steps: []v1alpha1.InferenceStep{
 								{
 									InferenceTarget: v1alpha1.InferenceTarget{
-										ServiceURL: "http://someservice.exmaple.com",
+										ServiceURL: "http://someservice.example.com",
 									},
 								},
 							},
@@ -676,7 +676,7 @@ var _ = Describe("Inference Graph controller test", func() {
 											},
 											Args: []string{
 												"--graph-json",
-												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{\"limits\":{\"cpu\":\"123m\",\"memory\":\"123Mi\"},\"requests\":{\"cpu\":\"123m\",\"memory\":\"123Mi\"}}}",
+												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{\"limits\":{\"cpu\":\"123m\",\"memory\":\"123Mi\"},\"requests\":{\"cpu\":\"123m\",\"memory\":\"123Mi\"}}}",
 											},
 											Resources: corev1.ResourceRequirements{
 												Limits: corev1.ResourceList{
@@ -772,7 +772,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							Steps: []v1alpha1.InferenceStep{
 								{
 									InferenceTarget: v1alpha1.InferenceTarget{
-										ServiceURL: "http://someservice.exmaple.com",
+										ServiceURL: "http://someservice.example.com",
 									},
 								},
 							},
@@ -828,7 +828,7 @@ var _ = Describe("Inference Graph controller test", func() {
 											},
 											Args: []string{
 												"--graph-json",
-												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{},\"affinity\":{\"podAffinity\":{\"preferredDuringSchedulingIgnoredDuringExecution\":[{\"weight\":100,\"podAffinityTerm\":{\"labelSelector\":{\"matchExpressions\":[{\"key\":\"serving.kserve.io/inferencegraph\",\"operator\":\"In\",\"values\":[\"singlenode3\"]}]},\"topologyKey\":\"topology.kubernetes.io/zone\"}}]}}}",
+												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{},\"affinity\":{\"podAffinity\":{\"preferredDuringSchedulingIgnoredDuringExecution\":[{\"weight\":100,\"podAffinityTerm\":{\"labelSelector\":{\"matchExpressions\":[{\"key\":\"serving.kserve.io/inferencegraph\",\"operator\":\"In\",\"values\":[\"singlenode3\"]}]},\"topologyKey\":\"topology.kubernetes.io/zone\"}}]}}}",
 											},
 											Resources: corev1.ResourceRequirements{
 												Limits: corev1.ResourceList{
@@ -924,7 +924,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							Steps: []v1alpha1.InferenceStep{
 								{
 									InferenceTarget: v1alpha1.InferenceTarget{
-										ServiceURL: "http://someservice.exmaple.com",
+										ServiceURL: "http://someservice.example.com",
 									},
 								},
 							},
@@ -1030,7 +1030,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							Steps: []v1alpha1.InferenceStep{
 								{
 									InferenceTarget: v1alpha1.InferenceTarget{
-										ServiceURL: "http://someservice.exmaple.com",
+										ServiceURL: "http://someservice.example.com",
 									},
 								},
 							},
@@ -1086,7 +1086,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			return *actualIG
 		}
 
-		// Waits for any Kubernestes object to be found
+		// Waits for any Kubernetes object to be found
 		expectResourceToExist := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, objKey, obj)
@@ -1146,7 +1146,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Steps: []v1alpha1.InferenceStep{
 									{
 										InferenceTarget: v1alpha1.InferenceTarget{
-											ServiceURL: "http://someservice.exmaple.com",
+											ServiceURL: "http://someservice.example.com",
 										},
 									},
 								},
