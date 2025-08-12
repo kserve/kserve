@@ -102,7 +102,7 @@ func TestGetKedaMetrics_PodMetricSourceType(t *testing.T) {
 	assert.Equal(t, "http://otel-server", triggers[0].Metadata["scalerAddress"])
 	// The metricQuery should now include namespace and deployment selectors
 	assert.Equal(t, "sum(otel_query{namespace=\"test-namespace\", deployment=\"test-component\"})", triggers[0].Metadata["metricQuery"])
-	assert.Equal(t, "200.000000", triggers[0].Metadata["targetValue"])
+	assert.Equal(t, "200", triggers[0].Metadata["targetValue"])
 }
 
 func TestCreateKedaScaledObject(t *testing.T) {
@@ -650,7 +650,7 @@ func TestGetKedaMetrics_PodMetricSourceType_Success(t *testing.T) {
 	trigger := triggers[0]
 	assert.Equal(t, "external", trigger.Type)
 	assert.Equal(t, "sum(otel_query{namespace=\"test-namespace\", deployment=\"test-component\"})", trigger.Metadata["metricQuery"])
-	assert.Equal(t, "200.000000", trigger.Metadata["targetValue"])
+	assert.Equal(t, "200", trigger.Metadata["targetValue"])
 	assert.Equal(t, "http://otel-server", trigger.Metadata["scalerAddress"])
 	assert.Equal(t, "sum", trigger.Metadata["operationOverTime"])
 }
