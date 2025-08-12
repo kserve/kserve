@@ -2195,7 +2195,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
 		}
 
-		// Waits for any Kubernestes object to be found
+		// Waits for any Kubernetes object to be found
 		expectResourceToExist := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, objKey, obj)
