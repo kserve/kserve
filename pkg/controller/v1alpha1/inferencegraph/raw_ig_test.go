@@ -77,7 +77,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 						Steps: []InferenceStep{
 							{
 								InferenceTarget: InferenceTarget{
-									ServiceURL: "http://someservice.exmaple.com",
+									ServiceURL: "http://someservice.example.com",
 								},
 							},
 						},
@@ -101,7 +101,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 						Steps: []InferenceStep{
 							{
 								InferenceTarget: InferenceTarget{
-									ServiceURL: "http://someservice.exmaple.com",
+									ServiceURL: "http://someservice.example.com",
 								},
 							},
 						},
@@ -136,7 +136,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 						Steps: []InferenceStep{
 							{
 								InferenceTarget: InferenceTarget{
-									ServiceURL: "http://someservice.exmaple.com",
+									ServiceURL: "http://someservice.example.com",
 								},
 							},
 						},
@@ -161,7 +161,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 						Steps: []InferenceStep{
 							{
 								InferenceTarget: InferenceTarget{
-									ServiceURL: "http://someservice.exmaple.com",
+									ServiceURL: "http://someservice.example.com",
 								},
 							},
 						},
@@ -197,7 +197,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 					Name:  "basic-ig",
 					Args: []string{
 						"--graph-json",
-						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{}}",
+						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{}}",
 					},
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
@@ -231,7 +231,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 					Name:  "basic-ig",
 					Args: []string{
 						"--graph-json",
-						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{}}",
+						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{}}",
 					},
 					Env: []corev1.EnvVar{
 						{
@@ -271,7 +271,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 					Name:  "resource-ig",
 					Args: []string{
 						"--graph-json",
-						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{\"limits\":{\"cpu\":\"100m\",\"memory\":\"500Mi\"},\"requests\":{\"cpu\":\"100m\",\"memory\":\"100Mi\"}}}",
+						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{\"limits\":{\"cpu\":\"100m\",\"memory\":\"500Mi\"},\"requests\":{\"cpu\":\"100m\",\"memory\":\"100Mi\"}}}",
 					},
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
@@ -305,7 +305,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 					Name:  "resource-ig",
 					Args: []string{
 						"--graph-json",
-						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{\"limits\":{\"cpu\":\"100m\",\"memory\":\"500Mi\"},\"requests\":{\"cpu\":\"100m\",\"memory\":\"100Mi\"}},\"tolerations\":[{\"key\":\"key1\",\"operator\":\"Equal\",\"value\":\"value1\",\"effect\":\"NoSchedule\"}]}",
+						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{\"limits\":{\"cpu\":\"100m\",\"memory\":\"500Mi\"},\"requests\":{\"cpu\":\"100m\",\"memory\":\"100Mi\"}},\"tolerations\":[{\"key\":\"key1\",\"operator\":\"Equal\",\"value\":\"value1\",\"effect\":\"NoSchedule\"}]}",
 					},
 					Resources: corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{
