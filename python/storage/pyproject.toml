@@ -15,7 +15,7 @@ dependencies = [
     "huggingface-hub[hf-transfer]>=0.32.0",
 ]
 name = "kserve-storage"
-version = "00002"
+version = "0.15.2"
 readme = "README.md"
 description = "KServe Storage Handler. This module is responsible to download the models from the provided source"
 classifiers = [
@@ -25,7 +25,3 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-[tool.uv]
-# TODO remove later
-index-url = "https://test.pypi.org/simple/"
-extra-index-url = ["https://pypi.org/simple"]
