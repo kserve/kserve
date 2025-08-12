@@ -153,12 +153,12 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 
 	var urls []*apis.URL
 	for _, route := range routes {
-		discoverURL, err := DiscoverURLs(ctx, r.Client, route)
+		discoverURLs, err := DiscoverURLs(ctx, r.Client, route)
 		if IgnoreExternalAddressNotFound(err) != nil {
 			return fmt.Errorf("failed to discover URL for route %s/%s: %w", route.GetNamespace(), route.GetName(), err)
 		}
-		if discoverURL != nil {
-			urls = append(urls, discoverURL...)
+		if discoverURLs != nil {
+			urls = append(urls, discoverURLs...)
 		}
 	}
 
@@ -168,6 +168,7 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 
 	externalURLs := FilterExternalURLs(urls)
 	if len(externalURLs) == 0 {
+		// This can happen depending on the cluster and Gateway configuration, but only for externalURLs
 		logger.Info("no public URL discovered")
 	} else {
 		llmSvc.Status.URL = externalURLs[0]

@@ -37,6 +37,9 @@ type resolvedGateway struct {
 	parentRef    gwapiv1.ParentReference
 }
 
+// e.g. given a route with ParentRefs [{Name: "gw-a"}, {Name: "gw-b"}], it will return two entries
+// resolving Gateways "gw-a" and "gw-b" (in their respective namespaces or the route's namespace),
+// along with each Gateway's GatewayClass, preserving the original ParentReference.
 func discoverGateways(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute) ([]resolvedGateway, error) {
 	gateways := make([]resolvedGateway, 0)
 	for _, parentRef := range route.Spec.ParentRefs {
@@ -61,6 +64,8 @@ func discoverGateways(ctx context.Context, c client.Client, route *gwapiv1.HTTPR
 	return gateways, nil
 }
 
+// e.g. with route hostnames ["api.example.com"], listener HTTPS:443, path "/v1", and Gateway address "1.2.3.4",
+// it will return ["https://api.example.com/v1"]; if no hostnames, it will fall back to ["https://1.2.3.4/v1"].
 func DiscoverURLs(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute) ([]*apis.URL, error) {
 	var urls []*apis.URL
 
@@ -100,6 +105,7 @@ func DiscoverURLs(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute
 	return urls, nil
 }
 
+// e.g. if route.Spec.Rules[0].Matches[0].Path.Value = "/chat", it will return "/chat"; if unset, it will return "/".
 func extractRoutePath(route *gwapiv1.HTTPRoute) string {
 	if len(route.Spec.Rules) > 0 && len(route.Spec.Rules[0].Matches) > 0 {
 		// TODO how do we deal with regexp
@@ -108,6 +114,8 @@ func extractRoutePath(route *gwapiv1.HTTPRoute) string {
 	return "/"
 }
 
+// Will return the first listener in the gateway that matches given a section name
+// e.g. if sectionName is "kserve-route", it will return the first listener that matches "kserve-route"
 func selectListener(gateway *gwapiv1.Gateway, sectionName *gwapiv1.SectionName) *gwapiv1.Listener {
 	if sectionName != nil {
 		for _, listener := range gateway.Spec.Listeners {
@@ -120,6 +128,7 @@ func selectListener(gateway *gwapiv1.Gateway, sectionName *gwapiv1.SectionName) 
 	return &gateway.Spec.Listeners[0]
 }
 
+// e.g. if listener.Protocol is "HTTPS", it will return "https", defaulting to "http"
 func extractSchemeFromListener(listener *gwapiv1.Listener) string {
 	if listener.Protocol == gwapiv1.HTTPSProtocolType {
 		return "https"
@@ -127,6 +136,7 @@ func extractSchemeFromListener(listener *gwapiv1.Listener) string {
 	return "http"
 }
 
+// e.g. if route.Spec.Hostnames is ["foo.com", "bar.com"], it will return ["foo.com", "bar.com"]
 func extractRouteHostnames(route *gwapiv1.HTTPRoute) []string {
 	var hostnames []string
 	for _, h := range route.Spec.Hostnames {
@@ -138,6 +148,7 @@ func extractRouteHostnames(route *gwapiv1.HTTPRoute) []string {
 	return hostnames
 }
 
+// e.g. if addresses is [{"Value": "192.168.1.1"}, {"Value": "192.168.1.2"}], it will return ["192.168.1.1", "192.168.1.2"]
 func extractAddressValues(addresses []gwapiv1.GatewayStatusAddress) []string {
 	var values []string
 	for _, addr := range addresses {
@@ -148,6 +159,8 @@ func extractAddressValues(addresses []gwapiv1.GatewayStatusAddress) []string {
 	return values
 }
 
+// e.g. hostnames ["a.com","b.com"], scheme "http", port 80, path "/p" will return ["http://a.com/p","http://b.com/p"].
+// e.g. hostnames ["a.com"], scheme "https", port 8443, path "/" will return ["https://a.com:8443/"].
 func combineIntoURLs(hostnames []string, scheme string, port gwapiv1.PortNumber, path string) ([]*apis.URL, error) {
 	urls := make([]*apis.URL, 0, len(hostnames))
 
@@ -174,6 +187,7 @@ func combineIntoURLs(hostnames []string, scheme string, port gwapiv1.PortNumber,
 	return urls, nil
 }
 
+// e.g. ("a.com", 8080) will return "a.com:8080"; ("a.com", nil) or ("a.com", 0) will return "a.com".
 func joinHostPort(host string, port *gwapiv1.PortNumber) string {
 	if port != nil && *port != 0 {
 		return net.JoinHostPort(host, fmt.Sprint(*port))
@@ -186,10 +200,13 @@ type ExternalAddressNotFoundError struct {
 	GatewayName      string
 }
 
+// e.g. (&ExternalAddressNotFoundError{GatewayNamespace: "ns", GatewayName: "gw"}).Error()
+// will return "Gateway ns/gw has no external address found".
 func (e *ExternalAddressNotFoundError) Error() string {
 	return fmt.Sprintf("Gateway %s/%s has no external address found", e.GatewayNamespace, e.GatewayName)
 }
 
+// e.g. if err is of type *ExternalAddressNotFoundError, it will return nil; otherwise it will return err unchanged.
 func IgnoreExternalAddressNotFound(err error) error {
 	if IsExternalAddressNotFound(err) {
 		return nil
@@ -197,6 +214,7 @@ func IgnoreExternalAddressNotFound(err error) error {
 	return err
 }
 
+// e.g. will return true for &ExternalAddressNotFoundError{...}; will return false for other error types or nil.
 func IsExternalAddressNotFound(err error) bool {
 	var externalAddrNotFoundErr *ExternalAddressNotFoundError
 	return errors.As(err, &externalAddrNotFoundErr)
