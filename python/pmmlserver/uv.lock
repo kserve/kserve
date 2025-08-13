@@ -1010,7 +1010,7 @@ test = [
 
 [[package]]
 name = "kserve-storage"
-version = "2"
+version = "0.15.2"
 source = { directory = "../storage" }
 dependencies = [
     { name = "azure-identity" },
