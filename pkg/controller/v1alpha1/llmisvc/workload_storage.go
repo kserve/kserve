@@ -30,7 +30,7 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 )
 
-// attachModelArtifacts configures a PodSpec to fetch and use a model froma provided URI in the LLMInferenceService.
+// attachModelArtifacts configures a PodSpec to fetch and use a model from a provided URI in the LLMInferenceService.
 // The storage backend (PVC, OCI, Hugging Face, or S3) is determined from the URI schema and the appropriate helper function
 // is called to configure the PodSpec. This function will adjust volumes, container arguments, container volume mounts,
 // add containers, and do other changes to the PodSpec to ensure the model is fetched properly from storage.
