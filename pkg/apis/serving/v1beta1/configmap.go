@@ -341,18 +341,18 @@ func NewDeployConfig(isvcConfigMap *corev1.ConfigMap) (*DeployConfig, error) {
 		}
 
 		if deployConfig.DefaultDeploymentMode == string(constants.LegacyServerless) {
-			// LegacyServerless is deprecated, so we convert it to KNative
-			deployConfig.DefaultDeploymentMode = string(constants.KNative)
+			// LegacyServerless is deprecated, so we convert it to Knative
+			deployConfig.DefaultDeploymentMode = string(constants.Knative)
 		}
 		if deployConfig.DefaultDeploymentMode == string(constants.LegacyRawDeployment) {
 			// LegacyRawDeployment is deprecated, so we convert it to Standard
 			deployConfig.DefaultDeploymentMode = string(constants.Standard)
 		}
 
-		if deployConfig.DefaultDeploymentMode != string(constants.KNative) &&
+		if deployConfig.DefaultDeploymentMode != string(constants.Knative) &&
 			deployConfig.DefaultDeploymentMode != string(constants.Standard) &&
 			deployConfig.DefaultDeploymentMode != string(constants.ModelMeshDeployment) {
-			return nil, errors.New("invalid deployment mode. Supported modes are KNative," +
+			return nil, errors.New("invalid deployment mode. Supported modes are Knative," +
 				" Standard and ModelMesh")
 		}
 	}

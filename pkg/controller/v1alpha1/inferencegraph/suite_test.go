@@ -122,7 +122,7 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(k8sClient.Create(context.Background(), configAutoscaler)).Should(Succeed())
 
-	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "KNative"}
+	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Knative"}
 
 	err = (&InferenceGraphReconciler{
 		Client:    k8sClient,

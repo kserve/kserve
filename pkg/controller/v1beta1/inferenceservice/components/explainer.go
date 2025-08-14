@@ -71,7 +71,7 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(e.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
 	})
-	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
+	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
 	if sourceURI := explainer.GetStorageUri(); sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI

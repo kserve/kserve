@@ -1399,7 +1399,7 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	oldIsvc := makeTestInferenceService()
 	oldIsvc.Status = InferenceServiceStatus{
-		DeploymentMode: string(constants.KNative),
+		DeploymentMode: string(constants.Knative),
 	}
 	updatedIsvc := oldIsvc.DeepCopy()
 	updatedIsvc.Annotations = map[string]string{
@@ -1413,7 +1413,7 @@ func TestDeploymentModeUpdate(t *testing.T) {
 
 	updatedIsvc1 := oldIsvc.DeepCopy()
 	updatedIsvc1.Annotations = map[string]string{
-		constants.DeploymentMode: string(constants.KNative),
+		constants.DeploymentMode: string(constants.Knative),
 	}
 	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc1)
 	// Annotation matches status, update is accepted
