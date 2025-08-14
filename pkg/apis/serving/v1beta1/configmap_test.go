@@ -385,7 +385,7 @@ func TestNewOtelCollectorConfig(t *testing.T) {
 func TestNewDeployConfig_WithValidConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	validModes := []string{
-		string(constants.KNative),
+		string(constants.Knative),
 		string(constants.Standard),
 		string(constants.ModelMeshDeployment),
 	}
@@ -436,7 +436,7 @@ func TestNewDeployConfig_LegacyDeploymentMode(t *testing.T) {
 	}
 	expected := []string{
 		string(constants.Standard),
-		string(constants.KNative),
+		string(constants.Knative),
 	}
 	for i, mode := range validModes {
 		cm := &corev1.ConfigMap{

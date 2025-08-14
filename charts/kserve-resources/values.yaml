@@ -91,8 +91,8 @@ kserve:
     # the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port.
     enablePrometheusScraping: "false"
   controller:
-    # -- KServe deployment mode: "Standard", "KNative".
-    deploymentMode: "KNative"
+    # -- KServe deployment mode: "Standard", "Knative".
+    deploymentMode: "Knative"
 
     # -- KServe controller manager rbac proxy contrainer image
     rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.18.0
