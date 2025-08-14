@@ -1293,7 +1293,7 @@ var _ = Describe("Inference Graph controller test", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
+							"serving.kserve.io/deploymentMode": string(constants.Standard),
 						},
 					},
 					Spec: v1alpha1.InferenceGraphSpec{
