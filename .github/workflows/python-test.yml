@@ -3,8 +3,12 @@ name: Python package
 on:
   push:
     branches: [master, release*]
+    paths-ignore:
+      - "**.md"
   pull_request:
     branches: []
+    paths-ignore:
+      - "**.md"
   workflow_dispatch:
 
 concurrency:
