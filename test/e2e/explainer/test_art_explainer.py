@@ -120,7 +120,7 @@ async def test_raw_tabular_explainer(rest_v1_client, network_layer):
         metadata=client.V1ObjectMeta(
             name=service_name,
             namespace=KSERVE_TEST_NAMESPACE,
-            annotations={"serving.kserve.io/deploymentMode": "RawDeployment"},
+            annotations={"serving.kserve.io/deploymentMode": "Standard"},
         ),
         spec=V1beta1InferenceServiceSpec(
             predictor=V1beta1PredictorSpec(

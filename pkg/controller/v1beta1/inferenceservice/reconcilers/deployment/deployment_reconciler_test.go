@@ -55,7 +55,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					"annotation": "annotation-value",
 				},
 				Labels: map[string]string{
-					constants.DeploymentMode:  string(constants.RawDeployment),
+					constants.DeploymentMode:  string(constants.Standard),
 					constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
 				},
 			},
@@ -87,7 +87,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					"annotation": "annotation-value",
 				},
 				Labels: map[string]string{
-					constants.DeploymentMode:  string(constants.RawDeployment),
+					constants.DeploymentMode:  string(constants.Standard),
 					constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 				},
 			},
@@ -98,7 +98,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					"annotation": "annotation-value",
 				},
 				Labels: map[string]string{
-					constants.DeploymentMode:  string(constants.RawDeployment),
+					constants.DeploymentMode:  string(constants.Standard),
 					constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 				},
 			},
@@ -173,7 +173,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Labels: map[string]string{
 						constants.RawDeploymentAppLabel: "isvc.default-predictor",
 						constants.AutoscalerClass:       string(constants.AutoscalerClassHPA),
-						constants.DeploymentMode:        string(constants.RawDeployment),
+						constants.DeploymentMode:        string(constants.Standard),
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
@@ -199,7 +199,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							Labels: map[string]string{
 								constants.RawDeploymentAppLabel: "isvc.default-predictor",
 								constants.AutoscalerClass:       string(constants.AutoscalerClassHPA),
-								constants.DeploymentMode:        string(constants.RawDeployment),
+								constants.DeploymentMode:        string(constants.Standard),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -246,7 +246,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Labels: map[string]string{
 						"app":                               "isvc.default-predictor",
 						"serving.kserve.io/autoscalerClass": "none",
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
@@ -272,7 +272,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							Labels: map[string]string{
 								"app":                               "isvc.default-predictor",
 								"serving.kserve.io/autoscalerClass": "none",
-								"serving.kserve.io/deploymentMode":  "RawDeployment",
+								"serving.kserve.io/deploymentMode":  "Standard",
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -328,7 +328,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Labels: map[string]string{
 						constants.RawDeploymentAppLabel: "isvc.default-predictor-worker",
 						constants.AutoscalerClass:       string(constants.AutoscalerClassNone),
-						constants.DeploymentMode:        string(constants.RawDeployment),
+						constants.DeploymentMode:        string(constants.Standard),
 					},
 				},
 				Spec: appsv1.DeploymentSpec{
@@ -355,7 +355,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							Labels: map[string]string{
 								constants.RawDeploymentAppLabel: "isvc.default-predictor-worker",
 								constants.AutoscalerClass:       string(constants.AutoscalerClassNone),
-								constants.DeploymentMode:        string(constants.RawDeployment),
+								constants.DeploymentMode:        string(constants.Standard),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -1035,7 +1035,7 @@ func TestNewDeploymentReconciler(t *testing.T) {
 					Name:      "test-predictor",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
 					},
 					Annotations: map[string]string{},
@@ -1064,7 +1064,7 @@ func TestNewDeploymentReconciler(t *testing.T) {
 					Name:      "test-predictor",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 					Annotations: map[string]string{},
@@ -1073,7 +1073,7 @@ func TestNewDeploymentReconciler(t *testing.T) {
 					Name:      "worker-predictor",
 					Namespace: "test-ns",
 					Labels: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 					Annotations: map[string]string{},

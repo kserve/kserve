@@ -33,7 +33,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
+annotations = {"serving.kserve.io/deploymentMode": "Standard"}
 
 
 @pytest.mark.raw

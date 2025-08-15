@@ -37,7 +37,7 @@ async def test_batcher_raw(rest_v1_client, network_layer):
     service_name = "isvc-raw-sklearn-batcher-" + suffix
 
     annotations = dict()
-    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
+    annotations["serving.kserve.io/deploymentMode"] = "Standard"
 
     predictor = V1beta1PredictorSpec(
         batcher=V1beta1Batcher(
