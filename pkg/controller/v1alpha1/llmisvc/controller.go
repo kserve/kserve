@@ -21,9 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/webhook/admission/pod"
+	"github.com/kserve/kserve/pkg/types"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
@@ -31,11 +29,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices;llminferenceservices/finalizers,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices;llminferenceservices/finalizers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=leaderworkerset.x-k8s.io,resources=leaderworkersets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings;clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
 
@@ -72,7 +73,7 @@ func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, e
 		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to IngressConfig: %w", errConvert)
 	}
 
-	storageInitializerConfig, errConvert := pod.GetStorageInitializerConfigs(isvcConfigMap)
+	storageInitializerConfig, errConvert := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
 	if errConvert != nil {
 		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to StorageInitializerConfig: %w", errConvert)
 	}
@@ -80,7 +81,7 @@ func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, e
 	return NewConfig(ingressConfig, storageInitializerConfig), nil
 }
 
-func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *pod.StorageInitializerConfig) *Config {
+func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.StorageInitializerConfig) *Config {
 	igwNs := constants.KServeNamespace
 	igwName := ingressConfig.KserveIngressGateway
 	igw := strings.Split(igwName, "/")
