@@ -568,6 +568,7 @@ requires-dist = [
     { name = "six", specifier = ">=1.16.0,<2.0.0" },
     { name = "tabulate", specifier = ">=0.9.0,<1.0.0" },
     { name = "timing-asgi", specifier = ">=0.3.0,<1.0.0" },
+    { name = "transformers", marker = "extra == 'llm'", specifier = "<4.54.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.6,<1.0.0" },
     { name = "vllm", marker = "extra == 'llm'", specifier = "==0.9.2" },
 ]
@@ -586,6 +587,7 @@ test = [
     { name = "pytest-cov", specifier = ">=5.0.0,<6.0.0" },
     { name = "pytest-httpx", specifier = ">=0.30.0,<1.0.0" },
     { name = "pytest-xdist", specifier = ">=3.0.2,<4.0.0" },
+    { name = "timeout-sampler", specifier = ">=1.0.0,<2.0.0" },
     { name = "tomlkit", specifier = ">=0.12.0,<1.0.0" },
 ]
 

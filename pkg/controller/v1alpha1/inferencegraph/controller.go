@@ -268,7 +268,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 					"Failed to find inference graph deployment  %s", graph.Name)
 			}
 		}
-	
+
 		routeReconciler := OpenShiftRouteReconciler{
 			Scheme: r.Scheme,
 			Client: r.Client,
