@@ -21,7 +21,7 @@ images:
   newTag: 2.6.2
 
 - name: kserve-sklearnserver
-  newName: kserve/sklearnserver
+  newName: ghcr.io/kserve/kserve/sklearnserver
   newTag: latest
 
 - name: mlserver
@@ -29,7 +29,7 @@ images:
   newTag: 1.5.0
 
 - name: kserve-xgbserver
-  newName: kserve/xgbserver
+  newName: ghcr.io/kserve/kserve/xgbserver
   newTag: latest
 
 - name: kserve-tritonserver
@@ -37,15 +37,15 @@ images:
   newTag: 23.05-py3
 
 - name: kserve-pmmlserver
-  newName: kserve/pmmlserver
+  newName: ghcr.io/kserve/pmmlserver
   newTag: latest
 
 - name: kserve-paddleserver
-  newName: kserve/paddleserver
+  newName: ghcr.io/kserve/paddleserver
   newTag: latest
 
 - name: kserve-lgbserver
-  newName: kserve/lgbserver
+  newName: ghcr.io/kserve/lgbserver
   newTag: latest
 
 - name: kserve-torchserve
@@ -53,9 +53,9 @@ images:
   newTag: 0.9.0
 
 - name: huggingfaceserver
-  newName: kserve/huggingfaceserver
+  newName: ghcr.io/kserve/huggingfaceserver
   newTag: latest
 
 - name: huggingfaceserver-gpu
-  newName: kserve/huggingfaceserver
+  newName: ghcr.io/kserve/huggingfaceserver
   newTag: latest-gpu
