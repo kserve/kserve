@@ -80,7 +80,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 func (mutator *Mutator) mutate(pod *corev1.Pod, configMap *corev1.ConfigMap) error {
 	credentialBuilder := credentials.NewCredentialBuilder(mutator.Client, mutator.Clientset, configMap)
 
-	storageInitializerConfig, err := getStorageInitializerConfigs(configMap)
+	storageInitializerConfig, err := v1beta1.GetStorageInitializerConfigs(configMap)
 	if err != nil {
 		return err
 	}
