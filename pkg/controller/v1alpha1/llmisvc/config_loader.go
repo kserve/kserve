@@ -28,15 +28,6 @@ import (
 	"github.com/kserve/kserve/pkg/types"
 )
 
-type Config struct {
-	SystemNamespace             string   `json:"systemNamespace,omitempty"`
-	IngressGatewayName          string   `json:"ingressGatewayName,omitempty"`
-	IngressGatewayNamespace     string   `json:"ingressGatewayNamespace,omitempty"`
-	IstioGatewayControllerNames []string `json:"istioGatewayControllerNames,omitempty"`
-
-	StorageConfig *types.StorageInitializerConfig `json:"-"`
-}
-
 // NewConfig creates an instance of llm-specific config based on predefined values
 // in IngressConfig struct
 func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.StorageInitializerConfig) *Config {
