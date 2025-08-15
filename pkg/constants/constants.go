@@ -38,8 +38,8 @@ const (
 )
 
 var (
-	KServeNamespace              = getEnvOrDefault("POD_NAMESPACE", "kserve")
-	AutoscalerConfigmapNamespace = getEnvOrDefault("KNATIVE_CONFIG_AUTOSCALER_NAMESPACE", DefaultKnServingNamespace)
+	KServeNamespace              = GetEnvOrDefault("POD_NAMESPACE", "kserve")
+	AutoscalerConfigmapNamespace = GetEnvOrDefault("KNATIVE_CONFIG_AUTOSCALER_NAMESPACE", DefaultKnServingNamespace)
 )
 
 // InferenceService Constants
@@ -592,7 +592,7 @@ func (v InferenceServiceVerb) String() string {
 	return string(v)
 }
 
-func getEnvOrDefault(key string, fallback string) string {
+func GetEnvOrDefault(key string, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
 	}
