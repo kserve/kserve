@@ -16,8 +16,14 @@ limitations under the License.
 
 package llmisvc
 
+import (
+	"github.com/kserve/kserve/pkg/types"
+)
+
 type Config struct {
 	SystemNamespace         string `json:"systemNamespace,omitempty"`
 	IngressGatewayName      string `json:"ingressGatewayName,omitempty"`
 	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
+
+	StorageConfig *types.StorageInitializerConfig `json:"-"`
 }
