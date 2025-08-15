@@ -38,10 +38,20 @@ rules:
   - update
   - watch
 - apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - serving.kserve.io
   resources:
   - inferenceservices
-  - localmodelnodegroups
   verbs:
   - get
   - list
@@ -67,6 +77,27 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelnodegroups
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelnodegroups/finalizers
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - serving.kserve.io
   resources:

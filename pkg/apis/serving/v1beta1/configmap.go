@@ -134,13 +134,19 @@ type DeployConfig struct {
 
 // +kubebuilder:object:generate=false
 type LocalModelConfig struct {
-	Enabled                      bool   `json:"enabled"`
-	JobNamespace                 string `json:"jobNamespace"`
-	DefaultJobImage              string `json:"defaultJobImage,omitempty"`
-	FSGroup                      *int64 `json:"fsGroup,omitempty"`
-	JobTTLSecondsAfterFinished   *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
-	ReconcilationFrequencyInSecs *int64 `json:"reconcilationFrequencyInSecs,omitempty"`
-	DisableVolumeManagement      bool   `json:"disableVolumeManagement,omitempty"`
+	Enabled                        bool   `json:"enabled"`
+	JobNamespace                   string `json:"jobNamespace"`
+	DefaultJobImage                string `json:"defaultJobImage,omitempty"`
+	FSGroup                        *int64 `json:"fsGroup,omitempty"`
+	JobTTLSecondsAfterFinished     *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
+	ReconcilationFrequencyInSecs   *int64 `json:"reconcilationFrequencyInSecs,omitempty"`
+	DisableVolumeManagement        bool   `json:"disableVolumeManagement,omitempty"`
+	LocalModelAgentImage           string `json:"localModelAgentImage,omitempty"`
+	LocalModelAgentImagePullPolicy string `json:"localModelAgentImagePullPolicy,omitempty"`
+	LocalModelAgentCpuLimit        string `json:"localModelAgentCpuLimit,omitempty"`
+	LocalModelAgentMemoryLimit     string `json:"localModelAgentMemoryLimit,omitempty"`
+	LocalModelAgentCpuRequest      string `json:"localModelAgentCpuRequest,omitempty"`
+	LocalModelAgentMemoryRequest   string `json:"localModelAgentMemoryRequest,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -358,7 +364,19 @@ func NewLocalModelConfig(isvcConfigMap *corev1.ConfigMap) (*LocalModelConfig, er
 			return nil, err
 		}
 	}
+	if err := validateLocalModelAgentImagePullPolicy(localModelConfig); err != nil {
+		return nil, err
+	}
 	return localModelConfig, nil
+}
+
+func validateLocalModelAgentImagePullPolicy(localModelConfig *LocalModelConfig) error {
+	if localModelConfig.LocalModelAgentImagePullPolicy != string(corev1.PullAlways) &&
+		localModelConfig.LocalModelAgentImagePullPolicy != string(corev1.PullIfNotPresent) &&
+		localModelConfig.LocalModelAgentImagePullPolicy != string(corev1.PullNever) {
+		return fmt.Errorf("invalid local model agent image pull policy: %s", localModelConfig.LocalModelAgentImagePullPolicy)
+	}
+	return nil
 }
 
 func NewSecurityConfig(isvcConfigMap *corev1.ConfigMap) (*SecurityConfig, error) {

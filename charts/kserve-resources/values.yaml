@@ -426,26 +426,27 @@ kserve:
       defaultVersion: *defaultVersion
       imagePullSecrets: []
   localmodel:
-    enabled: false
-    controller:
-      image: kserve/kserve-localmodel-controller
-      tag: *defaultVersion
-    jobNamespace: kserve-localmodel-jobs
-    jobTTLSecondsAfterFinished: 3600
-    securityContext:
-      fsGroup: 1000
-    disableVolumeManagement: false
-    agent:
-      nodeSelector: {}
-      affinity: {}
-      tolerations: []
-      hostPath: /mnt/models
-      image: kserve/kserve-localmodelnode-agent
-      tag: *defaultVersion
-      reconcilationFrequencyInSecs: 60
+      enabled: false
+      controller:
+        image: kserve/kserve-localmodel-controller
+        tag: *defaultVersion
+      jobNamespace: kserve-localmodel-jobs
+      jobTTLSecondsAfterFinished: 3600
       securityContext:
-        runAsUser: 1000
-        runAsNonRoot: true
+        fsGroup: 1000
+      disableVolumeManagement: false
+      agent:
+        image: kserve/kserve-localmodelnode-agent
+        tag: *defaultVersion
+        imagePullPolicy: Always
+        reconcilationFrequencyInSecs: 60
+        resources:
+          requests:
+            cpu: 100m
+            memory: 200Mi
+          limits:
+            cpu: 100m
+            memory: 300Mi
   security:
     autoMountServiceAccountToken: true
   inferenceservice:

@@ -83,7 +83,7 @@ py-lint: $(FLAKE8_LINT)
 manifests: controller-gen yq
 	@$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths={./pkg/controller/v1alpha1/inferencegraph,./pkg/controller/v1alpha1/trainedmodel,./pkg/controller/v1beta1/...} output:rbac:artifacts:config=config/rbac
-	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
+	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths={./pkg/controller/v1alpha1/localmodel,./pkg/controller/v1alpha1/localmodelnodegroup} output:rbac:artifacts:config=config/rbac/localmodel
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodelnode-agent-role paths=./pkg/controller/v1alpha1/localmodelnode output:rbac:artifacts:config=config/rbac/localmodelnode
 	# Copy the cluster role to the helm chart
 	cp config/rbac/auth_proxy_role.yaml charts/kserve-resources/templates/clusterrole.yaml
@@ -268,7 +268,7 @@ undeploy:
 undeploy-dev:
 	kubectl delete -k config/overlays/development
 
-bump-version:
+bump-version: yq
 	@echo "bumping version numbers for this release"
 	@hack/prepare-for-release.sh $(PRIOR_VERSION) $(NEW_VERSION)
 

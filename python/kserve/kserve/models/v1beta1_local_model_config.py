@@ -53,6 +53,12 @@ class V1beta1LocalModelConfig(object):
         'fs_group': 'int',
         'job_namespace': 'str',
         'job_ttl_seconds_after_finished': 'int',
+        'local_model_agent_cpu_limit': 'str',
+        'local_model_agent_cpu_request': 'str',
+        'local_model_agent_image': 'str',
+        'local_model_agent_image_pull_policy': 'str',
+        'local_model_agent_memory_limit': 'str',
+        'local_model_agent_memory_request': 'str',
         'reconcilation_frequency_in_secs': 'int'
     }
 
@@ -63,10 +69,16 @@ class V1beta1LocalModelConfig(object):
         'fs_group': 'fsGroup',
         'job_namespace': 'jobNamespace',
         'job_ttl_seconds_after_finished': 'jobTTLSecondsAfterFinished',
+        'local_model_agent_cpu_limit': 'localModelAgentCpuLimit',
+        'local_model_agent_cpu_request': 'localModelAgentCpuRequest',
+        'local_model_agent_image': 'localModelAgentImage',
+        'local_model_agent_image_pull_policy': 'localModelAgentImagePullPolicy',
+        'local_model_agent_memory_limit': 'localModelAgentMemoryLimit',
+        'local_model_agent_memory_request': 'localModelAgentMemoryRequest',
         'reconcilation_frequency_in_secs': 'reconcilationFrequencyInSecs'
     }
 
-    def __init__(self, default_job_image=None, disable_volume_management=None, enabled=False, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, reconcilation_frequency_in_secs=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, default_job_image=None, disable_volume_management=None, enabled=False, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, local_model_agent_cpu_limit=None, local_model_agent_cpu_request=None, local_model_agent_image=None, local_model_agent_image_pull_policy=None, local_model_agent_memory_limit=None, local_model_agent_memory_request=None, reconcilation_frequency_in_secs=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1LocalModelConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -78,6 +90,12 @@ class V1beta1LocalModelConfig(object):
         self._fs_group = None
         self._job_namespace = None
         self._job_ttl_seconds_after_finished = None
+        self._local_model_agent_cpu_limit = None
+        self._local_model_agent_cpu_request = None
+        self._local_model_agent_image = None
+        self._local_model_agent_image_pull_policy = None
+        self._local_model_agent_memory_limit = None
+        self._local_model_agent_memory_request = None
         self._reconcilation_frequency_in_secs = None
         self.discriminator = None
 
@@ -91,6 +109,18 @@ class V1beta1LocalModelConfig(object):
         self.job_namespace = job_namespace
         if job_ttl_seconds_after_finished is not None:
             self.job_ttl_seconds_after_finished = job_ttl_seconds_after_finished
+        if local_model_agent_cpu_limit is not None:
+            self.local_model_agent_cpu_limit = local_model_agent_cpu_limit
+        if local_model_agent_cpu_request is not None:
+            self.local_model_agent_cpu_request = local_model_agent_cpu_request
+        if local_model_agent_image is not None:
+            self.local_model_agent_image = local_model_agent_image
+        if local_model_agent_image_pull_policy is not None:
+            self.local_model_agent_image_pull_policy = local_model_agent_image_pull_policy
+        if local_model_agent_memory_limit is not None:
+            self.local_model_agent_memory_limit = local_model_agent_memory_limit
+        if local_model_agent_memory_request is not None:
+            self.local_model_agent_memory_request = local_model_agent_memory_request
         if reconcilation_frequency_in_secs is not None:
             self.reconcilation_frequency_in_secs = reconcilation_frequency_in_secs
 
@@ -223,6 +253,132 @@ class V1beta1LocalModelConfig(object):
         """
 
         self._job_ttl_seconds_after_finished = job_ttl_seconds_after_finished
+
+    @property
+    def local_model_agent_cpu_limit(self):
+        """Gets the local_model_agent_cpu_limit of this V1beta1LocalModelConfig.  # noqa: E501
+
+
+        :return: The local_model_agent_cpu_limit of this V1beta1LocalModelConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._local_model_agent_cpu_limit
+
+    @local_model_agent_cpu_limit.setter
+    def local_model_agent_cpu_limit(self, local_model_agent_cpu_limit):
+        """Sets the local_model_agent_cpu_limit of this V1beta1LocalModelConfig.
+
+
+        :param local_model_agent_cpu_limit: The local_model_agent_cpu_limit of this V1beta1LocalModelConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._local_model_agent_cpu_limit = local_model_agent_cpu_limit
+
+    @property
+    def local_model_agent_cpu_request(self):
+        """Gets the local_model_agent_cpu_request of this V1beta1LocalModelConfig.  # noqa: E501
+
+
+        :return: The local_model_agent_cpu_request of this V1beta1LocalModelConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._local_model_agent_cpu_request
+
+    @local_model_agent_cpu_request.setter
+    def local_model_agent_cpu_request(self, local_model_agent_cpu_request):
+        """Sets the local_model_agent_cpu_request of this V1beta1LocalModelConfig.
+
+
+        :param local_model_agent_cpu_request: The local_model_agent_cpu_request of this V1beta1LocalModelConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._local_model_agent_cpu_request = local_model_agent_cpu_request
+
+    @property
+    def local_model_agent_image(self):
+        """Gets the local_model_agent_image of this V1beta1LocalModelConfig.  # noqa: E501
+
+
+        :return: The local_model_agent_image of this V1beta1LocalModelConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._local_model_agent_image
+
+    @local_model_agent_image.setter
+    def local_model_agent_image(self, local_model_agent_image):
+        """Sets the local_model_agent_image of this V1beta1LocalModelConfig.
+
+
+        :param local_model_agent_image: The local_model_agent_image of this V1beta1LocalModelConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._local_model_agent_image = local_model_agent_image
+
+    @property
+    def local_model_agent_image_pull_policy(self):
+        """Gets the local_model_agent_image_pull_policy of this V1beta1LocalModelConfig.  # noqa: E501
+
+
+        :return: The local_model_agent_image_pull_policy of this V1beta1LocalModelConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._local_model_agent_image_pull_policy
+
+    @local_model_agent_image_pull_policy.setter
+    def local_model_agent_image_pull_policy(self, local_model_agent_image_pull_policy):
+        """Sets the local_model_agent_image_pull_policy of this V1beta1LocalModelConfig.
+
+
+        :param local_model_agent_image_pull_policy: The local_model_agent_image_pull_policy of this V1beta1LocalModelConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._local_model_agent_image_pull_policy = local_model_agent_image_pull_policy
+
+    @property
+    def local_model_agent_memory_limit(self):
+        """Gets the local_model_agent_memory_limit of this V1beta1LocalModelConfig.  # noqa: E501
+
+
+        :return: The local_model_agent_memory_limit of this V1beta1LocalModelConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._local_model_agent_memory_limit
+
+    @local_model_agent_memory_limit.setter
+    def local_model_agent_memory_limit(self, local_model_agent_memory_limit):
+        """Sets the local_model_agent_memory_limit of this V1beta1LocalModelConfig.
+
+
+        :param local_model_agent_memory_limit: The local_model_agent_memory_limit of this V1beta1LocalModelConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._local_model_agent_memory_limit = local_model_agent_memory_limit
+
+    @property
+    def local_model_agent_memory_request(self):
+        """Gets the local_model_agent_memory_request of this V1beta1LocalModelConfig.  # noqa: E501
+
+
+        :return: The local_model_agent_memory_request of this V1beta1LocalModelConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._local_model_agent_memory_request
+
+    @local_model_agent_memory_request.setter
+    def local_model_agent_memory_request(self, local_model_agent_memory_request):
+        """Sets the local_model_agent_memory_request of this V1beta1LocalModelConfig.
+
+
+        :param local_model_agent_memory_request: The local_model_agent_memory_request of this V1beta1LocalModelConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._local_model_agent_memory_request = local_model_agent_memory_request
 
     @property
     def reconcilation_frequency_in_secs(self):

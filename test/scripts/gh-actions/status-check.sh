@@ -22,6 +22,10 @@ echo "::group::Describe Pods in kserve-ci-e2e-test namespace"
 kubectl describe pods -n kserve-ci-e2e-test
 echo "::endgroup::"
 
+echo "::group::Describe Pods in kserve namespace"
+kubectl describe pods -n kserve
+echo "::endgroup::"
+
 echo "::group::K8s Events in kserve-ci-e2e-test namespace"
 kubectl get events -n kserve-ci-e2e-test
 echo "::endgroup::"
@@ -39,7 +43,7 @@ kubectl logs -l control-plane=kserve-localmodel-controller-manager -n kserve -c 
 echo "::endgroup::"
 
 echo "::group::Kserve ModelCache Agent Logs"
-for pod in $(kubectl get pods -l control-plane=kserve-localmodelnode-agent -o jsonpath='{.items[*].metadata.name}' -n kserve); do
+for pod in $(kubectl get pods -l "app.kubernetes.io/component=localmodelnode-agent" -o jsonpath='{.items[*].metadata.name}' -n kserve); do
     echo "=====================================  Logs for modelcache agent: $pod  ========================================="
     kubectl logs "$pod" -c manager -n kserve --tail -1
     echo "================================================================================================================"

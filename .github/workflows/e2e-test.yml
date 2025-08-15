@@ -1129,10 +1129,6 @@ jobs:
         run: |
           kubectl create ns kserve-localmodel-jobs
 
-      - name: Label worker nodes for modelcache
-        run: |
-          kubectl label nodes -l '!node-role.kubernetes.io/control-plane' kserve/localmodel=worker
-
       - name: Enable nodeselector in knative
         run: |
           kubectl patch configmaps -n knative-serving config-features --patch '{"data": {"kubernetes.podspec-nodeselector": "enabled"}}'
