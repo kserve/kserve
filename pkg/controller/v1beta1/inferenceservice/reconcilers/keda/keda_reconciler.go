@@ -67,7 +67,7 @@ func NewKedaReconciler(client client.Client,
 	}, nil
 }
 
-func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, configMap *corev1.ConfigMap,
+func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec, configMap *corev1.ConfigMap,
 ) ([]kedav1alpha1.ScaleTriggers, error) {
 	var triggers []kedav1alpha1.ScaleTriggers
 
@@ -156,8 +156,12 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, configMap *cor
 
 				if triggerType == string(constants.AutoScalerMetricsSourceOpenTelemetry) {
 					trigger.Type = "external"
+					// Inject namespace and deployment label selectors into the query for metric isolation.
+					// This ensures the metricQuery only selects metrics for the correct deployment and namespace.
+					// Example: sum(<query>{namespace="<namespace>", deployment="<deployment>"})
+					metricQuery := fmt.Sprintf("sum(%s{namespace=\"%s\", deployment=\"%s\"})", query, componentMeta.Namespace, componentMeta.Name)
 					trigger.Metadata = map[string]string{
-						"metricQuery":   query,
+						"metricQuery":   metricQuery,
 						"targetValue":   fmt.Sprintf("%f", targetValue),
 						"scalerAddress": MetricScalerEndpoint,
 					}
@@ -182,6 +186,35 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	MinReplicas := componentExtension.MinReplicas
 	MaxReplicas := componentExtension.MaxReplicas
 
+	var scaleDownStabilizationWindowSeconds, scaleUpStabilizationWindowSeconds *int32
+
+	if componentExtension.AutoScaling != nil && componentExtension.AutoScaling.Behavior != nil {
+		if sd := componentExtension.AutoScaling.Behavior.ScaleDown; sd != nil {
+			scaleDownStabilizationWindowSeconds = sd.StabilizationWindowSeconds
+		}
+		if su := componentExtension.AutoScaling.Behavior.ScaleUp; su != nil {
+			scaleUpStabilizationWindowSeconds = su.StabilizationWindowSeconds
+		}
+	}
+
+	// Fallback to configmap if not set in componentExtension
+	if scaleDownStabilizationWindowSeconds == nil || scaleUpStabilizationWindowSeconds == nil {
+		if autoscalerConfig, err := v1beta1.NewAutoscalerConfig(configMap); err == nil {
+			if scaleDownStabilizationWindowSeconds == nil && autoscalerConfig.ScaleDownStabilizationWindowSeconds != "" {
+				if val, err := strconv.ParseInt(autoscalerConfig.ScaleDownStabilizationWindowSeconds, 10, 32); err == nil {
+					scaleDownStabilizationWindowSeconds = ptr.To(int32(val))
+				}
+			}
+			if scaleUpStabilizationWindowSeconds == nil && autoscalerConfig.ScaleUpStabilizationWindowSeconds != "" {
+				if val, err := strconv.ParseInt(autoscalerConfig.ScaleUpStabilizationWindowSeconds, 10, 32); err == nil {
+					scaleUpStabilizationWindowSeconds = ptr.To(int32(val))
+				}
+			}
+		} else {
+			return nil, err
+		}
+	}
+
 	if MinReplicas == nil {
 		MinReplicas = &constants.DefaultMinReplicas
 	}
@@ -189,7 +222,7 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	if MaxReplicas < *MinReplicas {
 		MaxReplicas = *MinReplicas
 	}
-	triggers, err := getKedaMetrics(componentExtension, configMap)
+	triggers, err := getKedaMetrics(componentMeta, componentExtension, configMap)
 	if err != nil {
 		return nil, err
 	}
@@ -209,6 +242,25 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 			MinReplicaCount: MinReplicas,
 			MaxReplicaCount: ptr.To(MaxReplicas),
 		},
+	}
+
+	if scaleDownStabilizationWindowSeconds != nil || scaleUpStabilizationWindowSeconds != nil {
+		hpaBehavior := &autoscalingv2.HorizontalPodAutoscalerBehavior{}
+		if scaleDownStabilizationWindowSeconds != nil {
+			hpaBehavior.ScaleDown = &autoscalingv2.HPAScalingRules{
+				StabilizationWindowSeconds: scaleDownStabilizationWindowSeconds,
+			}
+		}
+		if scaleUpStabilizationWindowSeconds != nil {
+			hpaBehavior.ScaleUp = &autoscalingv2.HPAScalingRules{
+				StabilizationWindowSeconds: scaleUpStabilizationWindowSeconds,
+			}
+		}
+		scaledobject.Spec.Advanced = &kedav1alpha1.AdvancedConfig{
+			HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
+				Behavior: hpaBehavior,
+			},
+		}
 	}
 
 	return scaledobject, nil

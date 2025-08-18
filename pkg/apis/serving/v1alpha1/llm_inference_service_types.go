@@ -59,6 +59,8 @@ type LLMInferenceServiceConfig struct {
 // LLMInferenceServiceSpec defines the desired state of LLMInferenceService.
 type LLMInferenceServiceSpec struct {
 	// Model specification, including its URI, potential LoRA adapters, and storage details.
+	// It's optional for `LLMInferenceServiceConfig` kind.
+	// +optional
 	Model LLMModelSpec `json:"model"`
 
 	// WorkloadSpec configurations for the primary inference deployment.
@@ -132,10 +134,6 @@ type LLMModelSpec struct {
 	// Allows for specifying one or more LoRA adapters to be applied to the base model.
 	// +optional
 	LoRA *LoRASpec `json:"lora,omitempty"`
-
-	// Storage specification for the model, such as path and credentials.
-	// This is used by the storage-initializer to correctly download the model from the specified URI.
-	Storage *LLMStorageSpec `json:"storage,omitempty"`
 }
 
 // LoRASpec defines the configuration for LoRA adapters.
@@ -245,26 +243,22 @@ type InferencePoolSpec struct {
 type ParallelismSpec struct {
 	// Tensor parallelism size.
 	// +optional
-	Tensor *int64 `json:"tensor,omitempty"`
+	Tensor *int32 `json:"tensor,omitempty"`
 	// Pipeline parallelism size.
 	// +optional
-	Pipeline *int64 `json:"pipeline,omitempty"`
-	// TODO more to be added ...
-}
-
-// LLMStorageSpec is a copy of the v1beta1.StorageSpec. It is duplicated here to avoid
-// import cycles between the v1alpha1 and v1beta1 API packages.
-type LLMStorageSpec struct {
-	// The path to the model object in the storage. It cannot co-exist
-	// with the storageURI.
+	Pipeline *int32 `json:"pipeline,omitempty"`
+	// Data parallelism size.
 	// +optional
-	Path *string `json:"path,omitempty"`
-	// Parameters to override the default storage credentials and config.
+	Data *int32 `json:"data,omitempty"`
+	// DataLocal data local parallelism size.
 	// +optional
-	Parameters *map[string]string `json:"parameters,omitempty"`
-	// The Storage Key in the secret for this model.
+	DataLocal *int32 `json:"dataLocal,omitempty"`
+	// DataRPCPort is the data parallelism RPC port.
 	// +optional
-	StorageKey *string `json:"key,omitempty"`
+	DataRPCPort *int32 `json:"dataRPCPort,omitempty"`
+	// Expert enables expert parallelism.
+	// +optional
+	Expert bool `json:"expert,omitempty"`
 }
 
 // UntypedObjectReference is a reference to an object without a specific Group/Version/Kind.

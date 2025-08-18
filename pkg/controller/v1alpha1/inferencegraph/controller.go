@@ -143,6 +143,9 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	r.Log.Info("Reconciling inference graph", "apiVersion", graph.APIVersion, "graph", graph.Name)
+
+	forceStopRuntime := utils.GetForceStopRuntime(graph)
+
 	configMap, err := r.Clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(ctx, constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		r.Log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
@@ -153,10 +156,13 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, err
 	}
 	// resolve service urls
-	for node, router := range graph.Spec.Nodes {
-		for i, route := range router.Steps {
-			isvc := v1beta1.InferenceService{}
-			if route.ServiceName != "" {
+	if !forceStopRuntime {
+		for node, router := range graph.Spec.Nodes {
+			for i, route := range router.Steps {
+				isvc := v1beta1.InferenceService{}
+				if route.ServiceName == "" {
+					continue
+				}
 				err := r.Client.Get(ctx, types.NamespacedName{Namespace: graph.Namespace, Name: route.ServiceName}, &isvc)
 				if err == nil {
 					if graph.Spec.Nodes[node].Steps[i].ServiceURL == "" {
@@ -175,6 +181,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 		}
 	}
+
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
 	if err != nil {
 		r.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
@@ -195,18 +202,22 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 
 		r.Log.Info("Inference graph raw", "deployment conditions", deployment.Status.Conditions)
-		igAvailable := false
-		for _, con := range deployment.Status.Conditions {
-			if con.Type == appsv1.DeploymentAvailable {
-				igAvailable = true
-				break
+		if !forceStopRuntime {
+			// Check if the deployment is ready. If not, requeue
+			igAvailable := false
+			for _, con := range deployment.Status.Conditions {
+				if con.Type == appsv1.DeploymentAvailable {
+					igAvailable = true
+					break
+				}
+			}
+			if !igAvailable {
+				// If Deployment resource not yet available, IG is not available as well. Reconcile again.
+				return reconcile.Result{Requeue: true}, errors.Wrapf(err,
+					"Failed to find inference graph deployment  %s", graph.Name)
 			}
 		}
-		if !igAvailable {
-			// If Deployment resource not yet available, IG is not available as well. Reconcile again.
-			return reconcile.Result{Requeue: true}, errors.Wrapf(err,
-				"Failed to find inference graph deployment  %s", graph.Name)
-		}
+
 		logger.Info("Inference graph raw before propagate status")
 		PropagateRawStatus(&graph.Status, deployment, url)
 	} else {
@@ -254,6 +265,52 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 					graph.Status.URL = nil
 				}
 			}
+		}
+	}
+
+	// Handle InferenceGraph status updates based on the force stop annotation.
+	// If true, transition the service to a stopped and unready state; otherwise, ensure it's not marked as stopped.
+	transition_time := apis.VolatileTime{Inner: metav1.Now()}
+	existingStoppedCondition := graph.Status.GetCondition(v1beta1.Stopped)
+	if existingStoppedCondition == nil {
+		defaultStoppedCondition := apis.Condition{
+			LastTransitionTime: transition_time,
+			Type:               v1beta1.Stopped,
+			Status:             corev1.ConditionFalse,
+		}
+		graph.Status.Conditions = append(graph.Status.Conditions, defaultStoppedCondition)
+		existingStoppedCondition = &defaultStoppedCondition
+	}
+	if forceStopRuntime {
+		// If the graph's stopped condition is not set or
+		// If the graph is currently running, update its status to signal that it should be stopped
+		if existingStoppedCondition.Status == corev1.ConditionFalse {
+			// Add the stopped condition
+			stoppedCondition := apis.Condition{
+				LastTransitionTime: transition_time,
+				Type:               v1beta1.Stopped,
+				Status:             corev1.ConditionTrue,
+			}
+			readyCondition := apis.Condition{
+				LastTransitionTime: transition_time,
+				Type:               apis.ConditionReady,
+				Status:             corev1.ConditionFalse,
+				Reason:             v1beta1.StoppedISVCReason,
+			}
+			graph.Status.Conditions = []apis.Condition{stoppedCondition, readyCondition}
+
+			graph.Status.URL = nil
+		}
+	} else {
+		// If the graph's stopped condition is not set or
+		// If the graph is currently stopped, update its status to signal that it should resume
+		if existingStoppedCondition.Status == corev1.ConditionTrue {
+			resumeCondition := apis.Condition{
+				LastTransitionTime: transition_time,
+				Type:               v1beta1.Stopped,
+				Status:             corev1.ConditionFalse,
+			}
+			graph.Status.Conditions = append(graph.Status.Conditions, resumeCondition)
 		}
 	}
 

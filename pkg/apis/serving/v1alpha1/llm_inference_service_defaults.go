@@ -1,5 +1,6 @@
 /*
-Copyright 2021 The KServe Authors.
+
+Copyright 2025 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,10 +15,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package v1alpha1
 
-import "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+import (
+	"context"
 
-type Strategy interface {
-	GetOrAssignShard(trainedModel *v1alpha1.TrainedModel) int
+	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
+)
+
+var _ apis.Defaultable = &LLMInferenceService{}
+
+func (in *LLMInferenceService) SetDefaults(_ context.Context) {
+	if in.Spec.Model.Name == nil || *in.Spec.Model.Name == "" {
+		in.Spec.Model.Name = ptr.To(in.GetName())
+	}
 }
