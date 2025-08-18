@@ -275,10 +275,11 @@ var (
 
 // GPU Constants
 const (
-	NvidiaGPUResourceType = "nvidia.com/gpu"
-	AmdGPUResourceType    = "amd.com/gpu"
-	IntelGPUResourceType  = "intel.com/gpu"
-	GaudiGPUResourceType  = "habana.ai/gaudi"
+	NvidiaGPUResourceType          = "nvidia.com/gpu"
+	NvidiaMigGPUResourceTypePrefix = "nvidia.com/mig"
+	AmdGPUResourceType             = "amd.com/gpu"
+	IntelGPUResourceType           = "intel.com/gpu"
+	GaudiGPUResourceType           = "habana.ai/gaudi"
 )
 
 var CustomGPUResourceTypesAnnotationKey = KServeAPIGroupName + "/gpu-resource-types"
