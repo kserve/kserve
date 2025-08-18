@@ -70,6 +70,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec":               schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AuthenticationRef":              schema_pkg_apis_serving_v1beta1_AuthenticationRef(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec":                schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoscalerConfig":               schema_pkg_apis_serving_v1beta1_AutoscalerConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher":                        schema_pkg_apis_serving_v1beta1_Batcher(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentExtensionSpec":         schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentStatusSpec":            schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref),
@@ -2616,11 +2617,41 @@ func schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref common.ReferenceCallbac
 							},
 						},
 					},
+					"behavior": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Behavior contains the scaling behavior configuration for the Horizontal Pod Autoscaler.",
+							Ref:         ref("k8s.io/api/autoscaling/v2.HorizontalPodAutoscalerBehavior"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricsSpec"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricsSpec", "k8s.io/api/autoscaling/v2.HorizontalPodAutoscalerBehavior"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_AutoscalerConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"scaleUpStabilizationWindowSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"scaleDownStabilizationWindowSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -7748,9 +7779,17 @@ func schema_pkg_apis_serving_v1beta1_OtelCollectorConfig(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig"},
 	}
 }
 
