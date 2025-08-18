@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -48,13 +49,26 @@ func Delete[O client.Object, T client.Object](ctx context.Context, c clientWithR
 	typeLogLine := logLineForObject(expected)
 	ownerLogLine := logLineForObject(owner)
 
-	if !metav1.IsControlledBy(expected, owner) {
-		return fmt.Errorf("failed to delete %s %s/%s: it is not controlled by %s %s/%s",
-			typeLogLine,
-			expected.GetNamespace(), expected.GetName(),
-			ownerLogLine,
-			owner.GetNamespace(), owner.GetName(),
-		)
+	if isNamespaced, err := apiutil.IsObjectNamespaced(expected, c.Scheme(), c.RESTMapper()); err != nil {
+		return fmt.Errorf("failed to resolve if resource is namespaced %s: %w", typeLogLine, err)
+	} else if isNamespaced {
+		if !metav1.IsControlledBy(expected, owner) {
+			return fmt.Errorf("failed to delete %s %s/%s: it is not controlled by %s %s/%s",
+				typeLogLine,
+				expected.GetNamespace(), expected.GetName(),
+				ownerLogLine,
+				owner.GetNamespace(), owner.GetName(),
+			)
+		} else if !owner.GetDeletionTimestamp().IsZero() {
+			// If the owner is being deleted, assume the owned resource is going
+			// to be automatically garbage colleted by the cluster
+			return nil
+		}
+	}
+
+	// Don't re-try deletion, if the owned object is already being deleted
+	if !expected.GetDeletionTimestamp().IsZero() {
+		return nil
 	}
 
 	if err := c.Delete(ctx, expected); err != nil {
@@ -85,13 +99,17 @@ func Update[O client.Object, T client.Object](ctx context.Context, c clientWithR
 	typeLogLine := logLineForObject(expected)
 	ownerLogLine := logLineForObject(owner)
 
-	if !metav1.IsControlledBy(curr, owner) {
-		return fmt.Errorf("failed to update %s %s/%s: it is not controlled by %s %s/%s",
-			typeLogLine,
-			curr.GetNamespace(), curr.GetName(),
-			ownerLogLine,
-			owner.GetNamespace(), owner.GetName(),
-		)
+	if isNamespaced, err := apiutil.IsObjectNamespaced(expected, c.Scheme(), c.RESTMapper()); err != nil {
+		return fmt.Errorf("failed to resolve if resource is namespaced %s: %w", typeLogLine, err)
+	} else if isNamespaced {
+		if !metav1.IsControlledBy(curr, owner) {
+			return fmt.Errorf("failed to update %s %s/%s: it is not controlled by %s %s/%s",
+				typeLogLine,
+				curr.GetNamespace(), curr.GetName(),
+				ownerLogLine,
+				owner.GetNamespace(), owner.GetName(),
+			)
+		}
 	}
 
 	expected.SetResourceVersion(curr.GetResourceVersion())

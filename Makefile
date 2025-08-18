@@ -99,11 +99,14 @@ manifests: controller-gen yq
 	# Copy the llmisvc templates 
 	cp config/llmisvc/* charts/llmisvc-resources/templates/ 
 	rm charts/llmisvc-resources/templates/kustomization.yaml
-	# Copy the webhook configuration to the helm chart
-	cat config/webhook/manifests.yaml > charts/kserve-resources/templates/webhookconfiguration.yaml
 	
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
+
+	# Remove validation for the LLMInferenceServiceConfig API so that we can use Go templates to inject values at runtime.
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.matches.items.properties.path.x-kubernetes-validations)' -i config/crd/full/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.filters.items.properties.urlRewrite.properties.path.x-kubernetes-validations)' -i config/crd/full/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.parentRefs.items.properties.namespace.pattern)' -i config/crd/full/serving.kserve.io_llminferenceserviceconfigs.yaml
 
 	#remove the required property on framework as name field needs to be optional
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
@@ -208,6 +211,11 @@ run: generate fmt vet go-lint
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
+	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
+	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
+	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
+	kubectl apply --server-side=true --force-conflicts -k config/crd
+	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	echo > ../certmanager/certificate.yaml; \
@@ -220,6 +228,11 @@ deploy: manifests
 
 
 deploy-dev: manifests
+	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
+	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
+	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
+	kubectl apply --server-side=true --force-conflicts -k config/crd
+	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
 	./hack/image_patch_dev.sh development
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
@@ -255,6 +268,11 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 	kubectl apply --server-side=true -k config/overlays/dev-image-config
 
 deploy-ci: manifests
+	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
+	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
+	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
+	kubectl apply --server-side=true --force-conflicts -k config/crd
+	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
 	kubectl apply --server-side=true -k config/overlays/test
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
