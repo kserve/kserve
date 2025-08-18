@@ -69,6 +69,11 @@ replacements:
       - webhooks.*.clientConfig.service.name
     select:
       kind: ValidatingWebhookConfiguration
+      name: llminferenceservice.serving.kserve.io
+  - fieldPaths:
+      - webhooks.*.clientConfig.service.name
+    select:
+      kind: ValidatingWebhookConfiguration
       name: llminferenceserviceconfig.serving.kserve.io
   - fieldPaths:
     - spec.commonName
@@ -122,6 +127,11 @@ replacements:
     select:
       kind: ValidatingWebhookConfiguration
       name: localmodelcache.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.namespace
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: llminferenceservice.serving.kserve.io
   - fieldPaths:
     - webhooks.*.clientConfig.service.namespace
     select:
@@ -208,6 +218,14 @@ replacements:
       index: 0
     select:
       kind: ValidatingWebhookConfiguration
+      name: llminferenceservice.serving.kserve.io
+  - fieldPaths:
+      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: '/'
+      index: 0
+    select:
+      kind: ValidatingWebhookConfiguration
       name: llminferenceserviceconfig.serving.kserve.io
 
     # Protect the /metrics endpoint by putting it behind auth.
@@ -233,4 +251,5 @@ patches:
 - path: cainjection_conversion_webhook.yaml
 - path: localmodel_manager_image_patch.yaml
 - path: localmodelnode_agent_image_patch.yaml
+- path: llmisvc_validatingwebhook_cainjection_patch.yaml
 - path: llmisvcconfig_validatingwebhook_cainjection_patch.yaml
