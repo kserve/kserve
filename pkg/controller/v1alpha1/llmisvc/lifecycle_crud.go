@@ -49,7 +49,7 @@ func Delete[O client.Object, T client.Object](ctx context.Context, c clientWithR
 	typeLogLine := logLineForObject(expected)
 	ownerLogLine := logLineForObject(owner)
 
-	if isNamespaced, err := apiutil.IsObjectNamespaced(expected, c.Scheme(), c.RESTMapper()); err != nil {
+	if isNamespaced, err := apiutil.IsObjectNamespaced(expected, c.Scheme(), c.RESTMapper()); err != nil && !meta.IsNoMatchError(err) {
 		return fmt.Errorf("failed to resolve if resource is namespaced %s: %w", typeLogLine, err)
 	} else if isNamespaced {
 		if !metav1.IsControlledBy(expected, owner) {
