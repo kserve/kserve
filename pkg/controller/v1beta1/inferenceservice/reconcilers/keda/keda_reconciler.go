@@ -186,35 +186,6 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	MinReplicas := componentExtension.MinReplicas
 	MaxReplicas := componentExtension.MaxReplicas
 
-	var scaleDownStabilizationWindowSeconds, scaleUpStabilizationWindowSeconds *int32
-
-	if componentExtension.AutoScaling != nil && componentExtension.AutoScaling.Behavior != nil {
-		if sd := componentExtension.AutoScaling.Behavior.ScaleDown; sd != nil {
-			scaleDownStabilizationWindowSeconds = sd.StabilizationWindowSeconds
-		}
-		if su := componentExtension.AutoScaling.Behavior.ScaleUp; su != nil {
-			scaleUpStabilizationWindowSeconds = su.StabilizationWindowSeconds
-		}
-	}
-
-	// Fallback to configmap if not set in componentExtension
-	if scaleDownStabilizationWindowSeconds == nil || scaleUpStabilizationWindowSeconds == nil {
-		if autoscalerConfig, err := v1beta1.NewAutoscalerConfig(configMap); err == nil {
-			if scaleDownStabilizationWindowSeconds == nil && autoscalerConfig.ScaleDownStabilizationWindowSeconds != "" {
-				if val, err := strconv.ParseInt(autoscalerConfig.ScaleDownStabilizationWindowSeconds, 10, 32); err == nil {
-					scaleDownStabilizationWindowSeconds = ptr.To(int32(val))
-				}
-			}
-			if scaleUpStabilizationWindowSeconds == nil && autoscalerConfig.ScaleUpStabilizationWindowSeconds != "" {
-				if val, err := strconv.ParseInt(autoscalerConfig.ScaleUpStabilizationWindowSeconds, 10, 32); err == nil {
-					scaleUpStabilizationWindowSeconds = ptr.To(int32(val))
-				}
-			}
-		} else {
-			return nil, err
-		}
-	}
-
 	if MinReplicas == nil {
 		MinReplicas = &constants.DefaultMinReplicas
 	}
@@ -242,25 +213,6 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 			MinReplicaCount: MinReplicas,
 			MaxReplicaCount: ptr.To(MaxReplicas),
 		},
-	}
-
-	if scaleDownStabilizationWindowSeconds != nil || scaleUpStabilizationWindowSeconds != nil {
-		hpaBehavior := &autoscalingv2.HorizontalPodAutoscalerBehavior{}
-		if scaleDownStabilizationWindowSeconds != nil {
-			hpaBehavior.ScaleDown = &autoscalingv2.HPAScalingRules{
-				StabilizationWindowSeconds: scaleDownStabilizationWindowSeconds,
-			}
-		}
-		if scaleUpStabilizationWindowSeconds != nil {
-			hpaBehavior.ScaleUp = &autoscalingv2.HPAScalingRules{
-				StabilizationWindowSeconds: scaleUpStabilizationWindowSeconds,
-			}
-		}
-		scaledobject.Spec.Advanced = &kedav1alpha1.AdvancedConfig{
-			HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
-				Behavior: hpaBehavior,
-			},
-		}
 	}
 
 	return scaledobject, nil

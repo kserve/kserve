@@ -774,6 +774,50 @@ func TestMergeSpecs(t *testing.T) {
 			},
 		},
 		{
+			name: "merge storage spec",
+			cfgs: []v1alpha1.LLMInferenceServiceSpec{
+				{
+					Model: v1alpha1.LLMModelSpec{
+						URI: mustParseURL("model-uri"),
+						Storage: &v1alpha1.LLMStorageSpec{
+							Path:       ptr.To("/models/base"),
+							StorageKey: ptr.To("base-key"),
+							Parameters: &map[string]string{
+								"region": "us-east-1",
+								"bucket": "my-bucket",
+							},
+						},
+					},
+				},
+				{
+					Model: v1alpha1.LLMModelSpec{
+						Storage: &v1alpha1.LLMStorageSpec{
+							Path:       ptr.To("/models/override"),
+							StorageKey: ptr.To("override-key"),
+							Parameters: &map[string]string{
+								"region":     "us-west-2",
+								"encryption": "aes256",
+							},
+						},
+					},
+				},
+			},
+			want: v1alpha1.LLMInferenceServiceSpec{
+				Model: v1alpha1.LLMModelSpec{
+					URI: mustParseURL("model-uri"),
+					Storage: &v1alpha1.LLMStorageSpec{
+						Path:       ptr.To("/models/override"),
+						StorageKey: ptr.To("override-key"),
+						Parameters: &map[string]string{
+							"region":     "us-west-2",
+							"bucket":     "my-bucket",
+							"encryption": "aes256",
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "merge model criticality",
 			cfgs: []v1alpha1.LLMInferenceServiceSpec{
 				{
@@ -912,6 +956,10 @@ func TestMergeSpecs(t *testing.T) {
 								{StorageURI: "base-adapter", Framework: "pytorch", Memory: resource.MustParse("1Gi")},
 							},
 						},
+						Storage: &v1alpha1.LLMStorageSpec{
+							Path:       ptr.To("/base/path"),
+							StorageKey: ptr.To("base-key"),
+						},
 					},
 					WorkloadSpec: v1alpha1.WorkloadSpec{
 						Replicas: ptr.To[int32](1),
@@ -932,6 +980,12 @@ func TestMergeSpecs(t *testing.T) {
 						LoRA: &v1alpha1.LoRASpec{
 							Adapters: []v1alpha1.ModelSpec{
 								{StorageURI: "override-adapter", Framework: "tensorflow", Memory: resource.MustParse("2Gi")},
+							},
+						},
+						Storage: &v1alpha1.LLMStorageSpec{
+							Path: ptr.To("/override/path"),
+							Parameters: &map[string]string{
+								"new-param": "new-value",
 							},
 						},
 					},
@@ -958,6 +1012,13 @@ func TestMergeSpecs(t *testing.T) {
 					LoRA: &v1alpha1.LoRASpec{
 						Adapters: []v1alpha1.ModelSpec{
 							{StorageURI: "override-adapter", Framework: "tensorflow", Memory: resource.MustParse("2Gi")},
+						},
+					},
+					Storage: &v1alpha1.LLMStorageSpec{
+						Path:       ptr.To("/override/path"),
+						StorageKey: ptr.To("base-key"), // Base key preserved
+						Parameters: &map[string]string{
+							"new-param": "new-value",
 						},
 					},
 				},
@@ -1123,6 +1184,45 @@ func TestReplaceVariables(t *testing.T) {
 										{Name: "DEPLOYMENT_NAME", Value: "test-llm-deployment"},
 									},
 								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "template in model storage parameters",
+			cfg: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Model: v1alpha1.LLMModelSpec{
+						URI: mustParseURL("s3://ai-team/models/llama-model"),
+						Storage: &v1alpha1.LLMStorageSpec{
+							Path: ptr.To("/models/{{ .Name }}"),
+							Parameters: &map[string]string{
+								"bucket":    "{{ .Namespace }}-models",
+								"model-id":  "{{ .Name }}",
+								"full-path": "{{ .Namespace }}/{{ .Name }}",
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha1.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "llama-model",
+					Namespace: "ai-team",
+				},
+			},
+			want: &v1alpha1.LLMInferenceServiceConfig{
+				Spec: v1alpha1.LLMInferenceServiceSpec{
+					Model: v1alpha1.LLMModelSpec{
+						URI: mustParseURL("s3://ai-team/models/llama-model"),
+						Storage: &v1alpha1.LLMStorageSpec{
+							Path: ptr.To("/models/llama-model"),
+							Parameters: &map[string]string{
+								"bucket":    "ai-team-models",
+								"model-id":  "llama-model",
+								"full-path": "ai-team/llama-model",
 							},
 						},
 					},

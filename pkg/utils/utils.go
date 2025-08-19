@@ -19,7 +19,6 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -132,27 +131,6 @@ func AppendEnvVarIfNotExists(slice []corev1.EnvVar, elems ...corev1.EnvVar) []co
 	return slice
 }
 
-// Add an environment variable with the given value to the environments
-// variables of the given container, potentially replacing an env var that already exists
-// with this name
-func AddOrReplaceEnv(container *corev1.Container, envKey string, envValue string) {
-	if container.Env == nil {
-		container.Env = []corev1.EnvVar{}
-	}
-
-	for i, envVar := range container.Env {
-		if envVar.Name == envKey {
-			container.Env[i].Value = envValue
-			return
-		}
-	}
-
-	container.Env = append(container.Env, corev1.EnvVar{
-		Name:  envKey,
-		Value: envValue,
-	})
-}
-
 func AppendPortIfNotExists(slice []corev1.ContainerPort, elems ...corev1.ContainerPort) []corev1.ContainerPort {
 	for _, elem := range elems {
 		isElemExists := false
@@ -235,40 +213,6 @@ func GetEnvVarValue(envVars []corev1.EnvVar, key string) (string, bool) {
 		}
 	}
 	return "", false // if key does not exist, return "", false
-}
-
-func GetContainerWithName(podSpec *corev1.PodSpec, name string) *corev1.Container {
-	for idx, container := range podSpec.Containers {
-		if strings.Compare(container.Name, name) == 0 {
-			return &podSpec.Containers[idx]
-		}
-	}
-	return nil
-}
-
-func GetInitContainerWithName(podSpec *corev1.PodSpec, name string) *corev1.Container {
-	for idx, container := range podSpec.InitContainers {
-		if strings.Compare(container.Name, name) == 0 {
-			return &podSpec.InitContainers[idx]
-		}
-	}
-	return nil
-}
-
-// AddVolumeMountIfNotPresent adds a volume mount to a given container but only if no volume mount
-// with this name has been already added. Container must not be nil
-func AddVolumeMountIfNotPresent(container *corev1.Container, mountName, mountPath string, readOnly bool) {
-	for _, v := range container.VolumeMounts {
-		if v.Name == mountName {
-			return
-		}
-	}
-	modelMount := corev1.VolumeMount{
-		Name:      mountName,
-		MountPath: mountPath,
-		ReadOnly:  readOnly,
-	}
-	container.VolumeMounts = append(container.VolumeMounts, modelMount)
 }
 
 // Returns the value of the stop annotation
@@ -434,18 +378,4 @@ func GetGPUResourceQtyByType(resourceRequirements *corev1.ResourceRequirements, 
 	qty := resource.NewQuantity(0, resource.DecimalSI)
 
 	return "", qty, false
-}
-
-// GetParentDirectory returns the parent directory of the given path,
-// or "/" if the path is a top-level directory.
-func GetParentDirectory(path string) string {
-	// Get the parent directory
-	parentDir := filepath.Dir(path)
-
-	// Check if it's a top-level directory
-	if parentDir == "." || parentDir == "/" {
-		return "/"
-	}
-
-	return parentDir
 }

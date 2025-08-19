@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
 
@@ -74,14 +73,12 @@ func TestMutator_Handle(t *testing.T) {
 				},
 				Immutable: nil,
 				Data: map[string]string{
-					v1beta1.StorageInitializerConfigMapKeyName: `{
+					StorageInitializerConfigMapKeyName: `{
 						"image" : "kserve/storage-initializer:latest",
 						"memoryRequest": "100Mi",
 						"memoryLimit": "1Gi",
 						"cpuRequest": "100m",
 						"cpuLimit": "1",
-						"cpuModelcar": "100m",
-						"memoryModelcar": "50Mi",
 						"storageSpecSecretName": "storage-config"
 					}`,
 					LoggerConfigMapKeyName: `{
@@ -182,14 +179,12 @@ func TestMutator_Handle(t *testing.T) {
 				},
 				Immutable: nil,
 				Data: map[string]string{
-					v1beta1.StorageInitializerConfigMapKeyName: `{
+					StorageInitializerConfigMapKeyName: `{
 						"image" : "kserve/storage-initializer:latest",
 						"memoryRequest": "100Mi",
 						"memoryLimit": "1Gi",
 						"cpuRequest": "100m",
 						"cpuLimit": "1",
-						"cpuModelcar": "100m",
-						"memoryModelcar": "50Mi",
 						"storageSpecSecretName": "storage-config"
 					}`,
 					LoggerConfigMapKeyName: `{

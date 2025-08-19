@@ -91,7 +91,7 @@ class BaseKServeModel(ABC):
         self.ready = False
 
     def stop_engine(self):
-        """Stop Engine handler can be overridden to perform the engine shutdown"""
+        """Stop Engine handler can be overriden to perform the engine shutdown"""
         self.ready = False
 
 

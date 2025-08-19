@@ -202,13 +202,10 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, err
 	}
 	// resolve service urls
-	if !forceStopRuntime {
-		for node, router := range graph.Spec.Nodes {
-			for i, route := range router.Steps {
-				isvc := v1beta1.InferenceService{}
-				if route.ServiceName == "" {
-					continue
-				}
+	for node, router := range graph.Spec.Nodes {
+		for i, route := range router.Steps {
+			isvc := v1beta1.InferenceService{}
+			if route.ServiceName != "" {
 				err := r.Client.Get(ctx, types.NamespacedName{Namespace: graph.Namespace, Name: route.ServiceName}, &isvc)
 				if err == nil {
 					if graph.Spec.Nodes[node].Steps[i].ServiceURL == "" {
@@ -253,20 +250,17 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 
 		r.Log.Info("Inference graph raw", "deployment conditions", deployment.Status.Conditions)
-		if !forceStopRuntime {
-			// Check if the deployment is ready. If not, requeue
-			igAvailable := false
-			for _, con := range deployment.Status.Conditions {
-				if con.Type == appsv1.DeploymentAvailable {
-					igAvailable = true
-					break
-				}
+		igAvailable := false
+		for _, con := range deployment.Status.Conditions {
+			if con.Type == appsv1.DeploymentAvailable {
+				igAvailable = true
+				break
 			}
-			if !igAvailable {
-				// If Deployment resource not yet available, IG is not available as well. Reconcile again.
-				return reconcile.Result{Requeue: true}, errors.Wrapf(err,
-					"Failed to find inference graph deployment  %s", graph.Name)
-			}
+		}
+		if !igAvailable {
+			// If Deployment resource not yet available, IG is not available as well. Reconcile again.
+			return reconcile.Result{Requeue: true}, errors.Wrapf(err,
+				"Failed to find inference graph deployment  %s", graph.Name)
 		}
 
 		routeReconciler := OpenShiftRouteReconciler{
@@ -342,8 +336,8 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			Status:             corev1.ConditionFalse,
 		}
 		graph.Status.Conditions = append(graph.Status.Conditions, defaultStoppedCondition)
-		existingStoppedCondition = &defaultStoppedCondition
 	}
+	existingStoppedCondition = graph.Status.GetCondition(v1beta1.Stopped)
 	if forceStopRuntime {
 		// If the graph's stopped condition is not set or
 		// If the graph is currently running, update its status to signal that it should be stopped

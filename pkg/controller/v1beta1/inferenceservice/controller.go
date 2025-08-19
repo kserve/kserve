@@ -268,19 +268,12 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 	// Handle InferenceService status updates based on the force stop annotation.
 	// If true, transition the service to a stopped and unready state; otherwise, ensure it's not marked as stopped.
-	existingStoppedCondition := isvc.Status.GetCondition(v1beta1.Stopped)
-	if existingStoppedCondition == nil {
-		defaultStoppedCondition := &apis.Condition{
-			Type:   v1beta1.Stopped,
-			Status: corev1.ConditionFalse,
-		}
-		isvc.Status.SetCondition(v1beta1.Stopped, defaultStoppedCondition)
-		existingStoppedCondition = defaultStoppedCondition
-	}
 	if forceStopRuntime {
-		// If the inference service's stopped condition is not set or
-		// If the inference service is currently running, update its status to signal that it should be stopped
-		if existingStoppedCondition.Status == corev1.ConditionFalse {
+		// Exit early if we have already set the status to stopped
+		existingStoppedCondition := isvc.Status.GetCondition(v1beta1.Stopped)
+		if existingStoppedCondition != nil && existingStoppedCondition.Status == corev1.ConditionTrue {
+			// TODO: Set condition to stoppING
+		} else {
 			// Add the stopped condition
 			stoppedCondition := &apis.Condition{
 				Type:   v1beta1.Stopped,
@@ -289,15 +282,11 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			isvc.Status.SetCondition(v1beta1.Stopped, stoppedCondition)
 		}
 	} else {
-		// If the inference service's stopped condition is not set or
-		// If the inference service is currently stopped, update its status to signal that it should resume
-		if existingStoppedCondition.Status == corev1.ConditionTrue {
-			resumeCondition := &apis.Condition{
-				Type:   v1beta1.Stopped,
-				Status: corev1.ConditionFalse,
-			}
-			isvc.Status.SetCondition(v1beta1.Stopped, resumeCondition)
+		resumeCondition := &apis.Condition{
+			Type:   v1beta1.Stopped,
+			Status: corev1.ConditionFalse,
 		}
+		isvc.Status.SetCondition(v1beta1.Stopped, resumeCondition)
 	}
 	// reconcile RoutesReady and LatestDeploymentReady conditions for serverless deployment
 	if deploymentMode == constants.Serverless {

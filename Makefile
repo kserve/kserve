@@ -150,7 +150,7 @@ uv-lock: $(UV)
 # Update the kserve package first as other packages depends on it.
 	cd ./python && \
 	cd kserve && $(UV) lock && cd .. && \
-	for file in $$(find . -type f -name "pyproject.toml" -not -path "./pyproject.toml" -not -path "*.venv/*" -not -path "*/site-packages/*" -not -path "*/__pypackages__/*" -not -path "*/build/*"); do \
+	for file in $$(find . -type f -name "/pyproject.toml" -not -path "./pyproject.toml" -not -path "*.venv/*" -not -path "*/site-packages/*" -not -path "*/__pypackages__/*" -not -path "*/build/*"); do \
 		folder=$$(dirname "$$file"); \
 		echo "moving into folder $$folder"; \
 		case "$$folder" in \

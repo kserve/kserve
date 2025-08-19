@@ -63,8 +63,6 @@ jobs:
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          cache-binary: true
 
       - name: Build KServe images
         run: |
@@ -133,8 +131,6 @@ jobs:
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          cache-binary: true
 
       - name: Build runtime server images
         run: |
@@ -224,8 +220,6 @@ jobs:
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          cache-binary: true
 
       - name: Build runtime server images
         run: |
@@ -254,8 +248,6 @@ jobs:
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          cache-binary: true
 
       - name: Build test images needed for graph tests
         run: |
