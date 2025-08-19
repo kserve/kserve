@@ -51,12 +51,6 @@ func LLMInferenceServiceSample() *v1alpha1.LLMInferenceService {
 			Model: v1alpha1.LLMModelSpec{
 				Name: ptr.To("llama"),
 				URI:  *modelURL,
-				Storage: &v1alpha1.LLMStorageSpec{
-					Path: ptr.To("/models"),
-					Parameters: &map[string]string{
-						"storageUri": modelURL.String(),
-					},
-				},
 			},
 			WorkloadSpec: v1alpha1.WorkloadSpec{
 				Replicas: ptr.To[int32](2),

@@ -69,6 +69,7 @@ from kserve.models.v1alpha1_trained_model_spec import V1alpha1TrainedModelSpec
 from kserve.models.v1beta1_art_explainer_spec import V1beta1ARTExplainerSpec
 from kserve.models.v1beta1_authentication_ref import V1beta1AuthenticationRef
 from kserve.models.v1beta1_auto_scaling_spec import V1beta1AutoScalingSpec
+from kserve.models.v1beta1_autoscaler_config import V1beta1AutoscalerConfig
 from kserve.models.v1beta1_batcher import V1beta1Batcher
 from kserve.models.v1beta1_component_extension_spec import V1beta1ComponentExtensionSpec
 from kserve.models.v1beta1_component_status_spec import V1beta1ComponentStatusSpec
