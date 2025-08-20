@@ -6,11 +6,11 @@ license = {text = "Apache-2.0"}
 requires-python = "<3.13,>=3.9"
 dependencies = [
     "kserve[llm,storage] @ file:///${PROJECT_ROOT}/../kserve",
-    "transformers>=4.51.2",
+    "transformers>=4.55.2",
     "accelerate<2.0.0,>=1.6.0",
     "torch>=2.7.0",
     "triton>=3.2.0",
-    "vllm==0.9.2",
+    "vllm==0.10.1",
     "bitsandbytes>=0.45.3",
     "modelscope<2.0.0,>=1.16.0",
     "setuptools>=70.0.0",

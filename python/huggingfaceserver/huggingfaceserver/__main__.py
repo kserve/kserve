@@ -14,28 +14,27 @@
 
 import argparse
 from pathlib import Path
-from typing import cast, Union
+from typing import Union, cast
 
-import torch
 import kserve
-from huggingfaceserver.request_logger import RequestLogger
+import torch
 from kserve import logging
 from kserve.logging import logger
 from kserve.storage import Storage
-
 from transformers import AutoConfig
 
+from huggingfaceserver.request_logger import RequestLogger
 from huggingfaceserver.task import (
+    SUPPORTED_TASKS,
     MLTask,
     infer_task_from_model_architecture,
     is_generative_task,
-    SUPPORTED_TASKS,
 )
 
 from . import (
-    HuggingfaceGenerativeModel,
-    HuggingfaceEncoderModel,
     Backend,
+    HuggingfaceEncoderModel,
+    HuggingfaceGenerativeModel,
 )
 from .vllm.utils import (
     infer_vllm_supported_from_model_architecture,
