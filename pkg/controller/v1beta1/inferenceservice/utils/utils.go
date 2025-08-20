@@ -341,6 +341,12 @@ func ReplacePlaceholders(container *corev1.Container, meta metav1.ObjectMeta) er
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
 func UpdateImageTag(container *corev1.Container, runtimeVersion *string, servingRuntime *string) {
 	image := container.Image
+
+	// If image uses a digest (e.g. image@sha256:...), do not change it.
+	if strings.Contains(image, "@sha256:") {
+		return
+	}
+
 	if runtimeVersion != nil {
 		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
 		if len(re.FindString(image)) == 0 {
