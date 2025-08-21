@@ -42,7 +42,8 @@ import (
 )
 
 func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService,
-	ingressConfig *v1beta1.IngressConfig) error {
+	ingressConfig *v1beta1.IngressConfig,
+) error {
 	logger := log.FromContext(ctx).WithName("reconcileRouter")
 	ctx = log.IntoContext(ctx, logger)
 
