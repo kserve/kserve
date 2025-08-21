@@ -5,7 +5,8 @@ authors = [
 license = {text = "Apache-2.0"}
 requires-python = "<3.13,>=3.9"
 dependencies = [
-    "kserve[storage] @ file:///${PROJECT_ROOT}/../kserve",
+    "kserve @ file:///${PROJECT_ROOT}/../kserve",
+    "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
     "lightgbm[scikit-learn]~=4.5.0",
     "pandas<3.0.0,>=2.2.0",
 ]
