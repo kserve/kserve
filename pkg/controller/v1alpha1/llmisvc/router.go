@@ -39,11 +39,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 // reconcileRouter handles the networking and routing components for the LLM service
 // This includes schedulers, HTTP routes, and various validation checks
-func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
+func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService,
+	ingressConfig *v1beta1.IngressConfig) error {
 	logger := log.FromContext(ctx).WithName("reconcileRouter")
 	ctx = log.IntoContext(ctx, logger)
 
@@ -69,6 +71,11 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	if err := r.reconcileHTTPRoutes(ctx, llmSvc); err != nil {
 		llmSvc.MarkHTTPRoutesNotReady("HTTPRouteReconcileError", "Failed to reconcile HTTPRoute: %v", err.Error())
 		return fmt.Errorf("failed to reconcile HTTP routes: %w", err)
+	}
+
+	if err := r.reconcileIngress(ctx, llmSvc, ingressConfig); err != nil {
+		llmSvc.MarkRouterNotReady("IngressReconcileError", "Failed to reconcile Ingress: %v", err.Error())
+		return fmt.Errorf("failed to reconcile Ingress: %w", err)
 	}
 
 	// Evaluate the subconditions to determine overall router health
