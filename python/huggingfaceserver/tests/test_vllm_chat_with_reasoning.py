@@ -13,12 +13,10 @@
 # limitations under the License.
 
 
-import pytest
 import openai
+import pytest
 import pytest_asyncio
-
 from server import RemoteOpenAIServer
-
 
 MODEL = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
 MODEL_NAME = "test-model"
@@ -33,7 +31,6 @@ def server():  # noqa: F811
         "--max-model-len",
         "2048",
         "--trust_remote_code",
-        "--enable-reasoning",
         "--reasoning-parser",
         "deepseek_r1",
     ]
