@@ -42,6 +42,9 @@ func (r *LLMISVCReconciler) reconcileIngress(ctx context.Context, llmSvc *v1alph
 	logger.Info("Reconciling Ingress")
 
 	expectedIngress, err := r.expectedIngress(ctx, llmSvc, ingressConfig)
+	if err != nil {
+		return fmt.Errorf("failed to construct expected ingress: %w", err)
+	}
 
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route != nil || llmSvc.Spec.Router.Route.HTTP != nil ||
 		llmSvc.Spec.Router.Ingress == nil || llmSvc.Spec.Router.Ingress.Refs != nil {
@@ -115,7 +118,7 @@ func (r *LLMISVCReconciler) collectReferencedIngresses(ctx context.Context, llmS
 			ingress := &netv1.Ingress{}
 			if err := r.Get(ctx, types.NamespacedName{Namespace: string(ingressRef.Namespace), Name: string(ingressRef.Name)}, ingress); err != nil {
 				if apierrors.IsNotFound(err) {
-					// TODO: mark conditon if not found
+					// TODO: mark condition if not found
 					continue
 				}
 				return referencedIngress, fmt.Errorf("failed to get Ingress %s/%s: %w", ingressRef.Namespace, ingressRef.Name, err)
@@ -128,13 +131,15 @@ func (r *LLMISVCReconciler) collectReferencedIngresses(ctx context.Context, llmS
 }
 
 func (r *LLMISVCReconciler) updateRoutingStatusFromIngress(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, ingressConfig *v1beta1.IngressConfig, ingresses ...*netv1.Ingress) error {
+	logger := log.FromContext(ctx)
+	logger.V(1).Info("Updating routing status from ingress", "ingressCount", len(ingresses))
 
-	var urls []*apis.URL
 	hosts := extractIngressHostNames(ingresses)
 	if len(hosts) == 0 {
 		return fmt.Errorf("no ingress hosts found for llmisvc %s/%s", llmSvc.GetNamespace(), llmSvc.GetName())
 	}
 	scheme := ingressConfig.UrlScheme
+	urls := make([]*apis.URL, 0, len(hosts))
 	for _, host := range hosts {
 		url := &apis.URL{
 			Scheme: scheme,
