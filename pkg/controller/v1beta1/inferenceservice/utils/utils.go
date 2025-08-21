@@ -203,14 +203,14 @@ func GetPredictorEndpoint(ctx context.Context, client client.Client, isvc *v1bet
 }
 
 /*
-GetDeploymentMode returns the current deployment mode, supports Serverless and RawDeployment
+GetDeploymentMode returns the current deployment mode, supports Knative and Standard
 case 1: no serving.kserve.org/deploymentMode annotation
 
 	return config.deploy.defaultDeploymentMode
 
 case 2: serving.kserve.org/deploymentMode is set
 
-	        if the mode is "RawDeployment", "Serverless" or "ModelMesh", return it.
+	        if the mode is "Standard", "Knative" or "ModelMesh", return it.
 			else return config.deploy.defaultDeploymentMode
 */
 func GetDeploymentMode(statusDeploymentMode string, annotations map[string]string, deployConfig *v1beta1.DeployConfig) constants.DeploymentModeType {
@@ -221,8 +221,17 @@ func GetDeploymentMode(statusDeploymentMode string, annotations map[string]strin
 
 	// Second priority, if the status doesn't have the deploymentMode recorded, is explicit annotations
 	deploymentMode, ok := annotations[constants.DeploymentMode]
-	if ok && (deploymentMode == string(constants.RawDeployment) || deploymentMode ==
-		string(constants.Serverless) || deploymentMode == string(constants.ModelMeshDeployment)) {
+	if deploymentMode == string(constants.LegacyRawDeployment) {
+		// LegacyRawDeployment is deprecated, so we treat it as Standard
+		deploymentMode = string(constants.Standard)
+	}
+	if deploymentMode == string(constants.LegacyServerless) {
+		// LegacyServerless is deprecated, so we treat it as Knative
+		deploymentMode = string(constants.Knative)
+	}
+	if ok && (deploymentMode == string(constants.Standard) ||
+		deploymentMode == string(constants.Knative) ||
+		deploymentMode == string(constants.ModelMeshDeployment)) {
 		return constants.DeploymentModeType(deploymentMode)
 	}
 

@@ -159,7 +159,7 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 
 	if !ok && deployConfig != nil {
 		if deployConfig.DefaultDeploymentMode == string(constants.ModelMeshDeployment) ||
-			deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
+			deployConfig.DefaultDeploymentMode == string(constants.Standard) {
 			if isvc.ObjectMeta.Annotations == nil {
 				isvc.ObjectMeta.Annotations = map[string]string{}
 			}
