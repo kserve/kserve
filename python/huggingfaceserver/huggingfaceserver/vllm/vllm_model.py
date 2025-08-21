@@ -13,42 +13,42 @@
 # limitations under the License.
 
 from argparse import Namespace
+from typing import Any, Dict, Optional, Union, AsyncGenerator
 from http import HTTPStatus
-from typing import Any, AsyncGenerator, Dict, Optional, Union
 
 import torch
-import vllm.envs as envs
 from fastapi import Request
+from vllm import AsyncEngineArgs
+import vllm.envs as envs
+from vllm.entrypoints.logger import RequestLogger
+from vllm.engine.protocol import EngineClient
+from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
+from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
+from vllm.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
+from vllm.entrypoints.openai.serving_score import ServingScores
+from vllm.entrypoints.openai.tool_parsers import ToolParserManager
+from vllm.entrypoints.openai.serving_models import BaseModelPath, OpenAIServingModels
+from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
+from vllm.entrypoints.chat_utils import load_chat_template
+from vllm.entrypoints.openai.protocol import ErrorResponse as engineError
+from vllm.reasoning import ReasoningParserManager
+
+from kserve.protocol.rest.openai.errors import create_error_response
 from kserve.protocol.rest.openai import (
     OpenAIEncoderModel,
     OpenAIGenerativeModel,
 )
-from kserve.protocol.rest.openai.errors import create_error_response
 from kserve.protocol.rest.openai.types import (
-    ChatCompletion,
-    ChatCompletionRequest,
     Completion,
+    ChatCompletion,
     CompletionRequest,
-    Embedding,
+    ChatCompletionRequest,
     EmbeddingRequest,
+    Embedding,
     ErrorResponse,
-    Rerank,
     RerankRequest,
+    Rerank,
 )
-from vllm import AsyncEngineArgs
-from vllm.engine.protocol import EngineClient
-from vllm.entrypoints.chat_utils import load_chat_template
-from vllm.entrypoints.logger import RequestLogger
-from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
-from vllm.entrypoints.openai.protocol import ErrorResponse as engineError
-from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
-from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
-from vllm.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
-from vllm.entrypoints.openai.serving_models import BaseModelPath, OpenAIServingModels
-from vllm.entrypoints.openai.serving_score import ServingScores
-from vllm.entrypoints.openai.tool_parsers import ToolParserManager
-from vllm.reasoning import ReasoningParserManager
-
 from .utils import build_async_engine_client_from_engine_args, build_vllm_engine_args
 
 
