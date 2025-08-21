@@ -698,3 +698,9 @@ data:
       "metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
       "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
     }
+
+  autoscaler: |-
+    {
+      "scaleUpStabilizationWindowSeconds": "0",
+      "scaleDownStabilizationWindowSeconds": "300"
+    }

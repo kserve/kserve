@@ -11,3 +11,5 @@ resources:
   - serving.kserve.io_localmodelcaches.yaml
   - serving.kserve.io_localmodelnodegroups.yaml
   - serving.kserve.io_localmodelnodes.yaml
+  - serving.kserve.io_llminferenceservices.yaml
+  - serving.kserve.io_llminferenceserviceconfigs.yaml
