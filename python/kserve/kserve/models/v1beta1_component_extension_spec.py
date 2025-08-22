@@ -57,6 +57,7 @@ class V1beta1ComponentExtensionSpec(object):
         'logger': 'V1beta1LoggerSpec',
         'max_replicas': 'int',
         'min_replicas': 'int',
+        'rollout': 'V1beta1RolloutSpec',
         'scale_metric': 'str',
         'scale_metric_type': 'str',
         'scale_target': 'int',
@@ -74,13 +75,14 @@ class V1beta1ComponentExtensionSpec(object):
         'logger': 'logger',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
+        'rollout': 'rollout',
         'scale_metric': 'scaleMetric',
         'scale_metric_type': 'scaleMetricType',
         'scale_target': 'scaleTarget',
         'timeout': 'timeout'
     }
 
-    def __init__(self, annotations=None, auto_scaling=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_metric_type=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, annotations=None, auto_scaling=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, rollout=None, scale_metric=None, scale_metric_type=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ComponentExtensionSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -96,6 +98,7 @@ class V1beta1ComponentExtensionSpec(object):
         self._logger = None
         self._max_replicas = None
         self._min_replicas = None
+        self._rollout = None
         self._scale_metric = None
         self._scale_metric_type = None
         self._scale_target = None
@@ -122,6 +125,8 @@ class V1beta1ComponentExtensionSpec(object):
             self.max_replicas = max_replicas
         if min_replicas is not None:
             self.min_replicas = min_replicas
+        if rollout is not None:
+            self.rollout = rollout
         if scale_metric is not None:
             self.scale_metric = scale_metric
         if scale_metric_type is not None:
@@ -352,6 +357,27 @@ class V1beta1ComponentExtensionSpec(object):
         """
 
         self._min_replicas = min_replicas
+
+    @property
+    def rollout(self):
+        """Gets the rollout of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+
+        :return: The rollout of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: V1beta1RolloutSpec
+        """
+        return self._rollout
+
+    @rollout.setter
+    def rollout(self, rollout):
+        """Sets the rollout of this V1beta1ComponentExtensionSpec.
+
+
+        :param rollout: The rollout of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: V1beta1RolloutSpec
+        """
+
+        self._rollout = rollout
 
     @property
     def scale_metric(self):

@@ -14,6 +14,7 @@ Name | Type | Description | Notes
 **logger** | [**V1beta1LoggerSpec**](V1beta1LoggerSpec.md) |  | [optional] 
 **max_replicas** | **int** | Maximum number of replicas for autoscaling. | [optional] 
 **min_replicas** | **int** | Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero. | [optional] 
+**rollout** | [**V1beta1RolloutSpec**](V1beta1RolloutSpec.md) |  | [optional] 
 **scale_metric** | **str** | ScaleMetric defines the scaling metric type watched by autoscaler. possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics). | [optional] 
 **scale_metric_type** | **str** | Type of metric to use. Options are Utilization, or AverageValue. | [optional] 
 **scale_target** | **int** | ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/). | [optional] 
