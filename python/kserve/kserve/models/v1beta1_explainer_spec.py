@@ -1447,7 +1447,7 @@ class V1beta1ExplainerSpec(object):
     def subdomain(self):
         """Gets the subdomain of this V1beta1ExplainerSpec.  # noqa: E501
 
-        If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.  # noqa: E501
+        If specified, the fully qualified Pod hostname will be \"&lt;hostname&gt;.&lt;subdomain&gt;.&lt;pod namespace&gt;.svc.&lt;cluster domain&gt;\". If not specified, the pod will not have a domainname at all.  # noqa: E501
 
         :return: The subdomain of this V1beta1ExplainerSpec.  # noqa: E501
         :rtype: str
@@ -1458,7 +1458,7 @@ class V1beta1ExplainerSpec(object):
     def subdomain(self, subdomain):
         """Sets the subdomain of this V1beta1ExplainerSpec.
 
-        If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.  # noqa: E501
+        If specified, the fully qualified Pod hostname will be \"&lt;hostname&gt;.&lt;subdomain&gt;.&lt;pod namespace&gt;.svc.&lt;cluster domain&gt;\". If not specified, the pod will not have a domainname at all.  # noqa: E501
 
         :param subdomain: The subdomain of this V1beta1ExplainerSpec.  # noqa: E501
         :type: str
