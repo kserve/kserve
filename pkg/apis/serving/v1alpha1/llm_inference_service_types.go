@@ -214,8 +214,8 @@ type IngressSpec struct {
 //
 // The Scheduler is only effective when having multiple inference pod replicas.
 //
-// Step 1: Gateway (Envoy) <-- ExtProc --> EPP (select the optimal replica to handle the request)
-// Step 2: Gateway (Envoy) <-- forward request --> Inference Pod X
+// Step 1: Gateway (Envoy) &lt;-- ExtProc --&gt; EPP (select the optimal replica to handle the request)
+// Step 2: Gateway (Envoy) &lt;-- forward request --&gt; Inference Pod X
 type SchedulerSpec struct {
 	// Pool configuration for the InferencePool, which is part of the Inference Gateway extension.
 	// +optional

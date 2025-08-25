@@ -756,7 +756,7 @@
       ],
       "properties": {
         "framework": {
-          "description": "Machine Learning \u003cframework name\u003e The values could be: \"tensorflow\",\"pytorch\",\"sklearn\",\"onnx\",\"xgboost\", \"myawesomeinternalframework\" etc.",
+          "description": "Machine Learning \u0026lt;framework name\u0026gt; The values could be: \"tensorflow\",\"pytorch\",\"sklearn\",\"onnx\",\"xgboost\", \"myawesomeinternalframework\" etc.",
           "type": "string",
           "default": ""
         },
@@ -2891,7 +2891,7 @@
           "type": "boolean"
         },
         "subdomain": {
-          "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
+          "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
         },
         "terminationGracePeriodSeconds": {
@@ -4900,7 +4900,7 @@
           "type": "boolean"
         },
         "subdomain": {
-          "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
+          "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
         },
         "terminationGracePeriodSeconds": {
@@ -5430,7 +5430,7 @@
           "$ref": "#/definitions/v1beta1.SKLearnSpec"
         },
         "subdomain": {
-          "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
+          "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
         },
         "tensorflow": {
@@ -6390,7 +6390,7 @@
           "type": "boolean"
         },
         "subdomain": {
-          "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
+          "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
         },
         "terminationGracePeriodSeconds": {
@@ -6832,7 +6832,7 @@
           "type": "boolean"
         },
         "subdomain": {
-          "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
+          "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
         },
         "tensorParallelSize": {
