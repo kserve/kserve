@@ -48,6 +48,20 @@ spec:
               baseRefs:
                 items:
                   properties:
+<<<<<<< HEAD
+=======
+                    criticality:
+                      enum:
+                        - Critical
+                        - Standard
+                        - Sheddable
+                      type: string
+                    lora:
+                      properties:
+                        adapters:
+                          x-kubernetes-preserve-unknown-fields: true
+                      type: object
+>>>>>>> c51abe6a1 (Update LoRA types in llmisvc to use LLMModelSpec (#861))
                     name:
                       default: ""
                       type: string
