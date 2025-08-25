@@ -58,7 +58,7 @@ $(HELM_DOCS): $(LOCALBIN)
 	$(call go-install-tool,$(HELM_DOCS),github.com/norwoodj/helm-docs/cmd/helm-docs,$(HELM_DOCS_VERSION))
 
 $(PYTHON_VENV): | $(LOCALBIN)
-	python -m venv $(PYTHON_VENV)
+	python3 -m venv $(PYTHON_VENV)
 	$(PYTHON_BIN)/pip install --upgrade pip
 
 $(BLACK_FMT) $(FLAKE8_LINT): $(PYTHON_VENV)
