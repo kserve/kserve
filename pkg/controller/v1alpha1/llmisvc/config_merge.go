@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
-	gatewayapi "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -205,9 +205,9 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		for i := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules {
 			for j := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs {
 				if isDefaultBackendRef(llmSvc, llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].BackendRef) {
-					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Group = ptr.To[gatewayapi.Group]("")
-					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Kind = ptr.To[gatewayapi.Kind]("Service")
-					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Name = gatewayapi.ObjectName(kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"))
+					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Group = ptr.To[gwapiv1.Group]("")
+					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Kind = ptr.To[gwapiv1.Kind]("Service")
+					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Name = gwapiv1.ObjectName(kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"))
 				}
 			}
 		}
@@ -222,7 +222,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		for i := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules {
 			for j := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs {
 				if isDefaultBackendRef(llmSvc, llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].BackendRef) {
-					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Name = gatewayapi.ObjectName(llmSvcCfg.Spec.Router.Scheduler.Pool.Ref.Name)
+					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Name = gwapiv1.ObjectName(llmSvcCfg.Spec.Router.Scheduler.Pool.Ref.Name)
 				}
 			}
 		}
@@ -347,9 +347,9 @@ func mergeSpecs(ctx context.Context, base, override v1alpha1.LLMInferenceService
 	return finalSpec, nil
 }
 
-func isDefaultBackendRef(llmSvc *v1alpha1.LLMInferenceService, ref gatewayapi.BackendRef) bool {
+func isDefaultBackendRef(llmSvc *v1alpha1.LLMInferenceService, ref gwapiv1.BackendRef) bool {
 	defaultInfPoolName := (&v1alpha1.SchedulerSpec{}).InferencePoolName(llmSvc)
-	return ptr.Deref[gatewayapi.Group](ref.Group, "") == igwapi.GroupName &&
-		ptr.Deref[gatewayapi.Kind](ref.Kind, "") == "InferencePool" &&
+	return ptr.Deref[gwapiv1.Group](ref.Group, "") == igwapi.GroupName &&
+		ptr.Deref[gwapiv1.Kind](ref.Kind, "") == "InferencePool" &&
 		string(ref.Name) == defaultInfPoolName
 }

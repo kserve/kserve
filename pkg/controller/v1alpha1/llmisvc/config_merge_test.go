@@ -34,7 +34,7 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
-	gatewayapi "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
@@ -546,9 +546,9 @@ func TestMergeSpecs(t *testing.T) {
 					Router: &v1alpha1.RouterSpec{
 						Route: &v1alpha1.GatewayRoutesSpec{
 							HTTP: &v1alpha1.HTTPRouteSpec{
-								Spec: &gatewayapi.HTTPRouteSpec{
-									CommonRouteSpec: gatewayapi.CommonRouteSpec{
-										ParentRefs: []gatewayapi.ParentReference{
+								Spec: &gwapiv1.HTTPRouteSpec{
+									CommonRouteSpec: gwapiv1.CommonRouteSpec{
+										ParentRefs: []gwapiv1.ParentReference{
 											{
 												Name: "my-parent",
 											},
@@ -635,9 +635,9 @@ func TestMergeSpecs(t *testing.T) {
 				Router: &v1alpha1.RouterSpec{
 					Route: &v1alpha1.GatewayRoutesSpec{
 						HTTP: &v1alpha1.HTTPRouteSpec{
-							Spec: &gatewayapi.HTTPRouteSpec{
-								CommonRouteSpec: gatewayapi.CommonRouteSpec{
-									ParentRefs: []gatewayapi.ParentReference{
+							Spec: &gwapiv1.HTTPRouteSpec{
+								CommonRouteSpec: gwapiv1.CommonRouteSpec{
+									ParentRefs: []gwapiv1.ParentReference{
 										{
 											Name: "my-parent",
 										},
@@ -1749,9 +1749,9 @@ spec:
 			},
 			want: func(llmSvc *v1alpha1.LLMInferenceServiceConfig, g *GomegaWithT) {
 				httpRouteSpec := llmSvc.Spec.Router.Route.HTTP.Spec
-				expectedGatewayRef := gatewayapi.ParentReference{
+				expectedGatewayRef := gwapiv1.ParentReference{
 					Name:      "my-gateway",
-					Namespace: ptr.To(gatewayapi.Namespace("my-ns")),
+					Namespace: ptr.To(gwapiv1.Namespace("my-ns")),
 				}
 				g.Expect(httpRouteSpec).To(ktesting.HaveGatewayRefs(expectedGatewayRef))
 				g.Expect(llmSvc.Namespace).To(Equal("my-kserve"))
