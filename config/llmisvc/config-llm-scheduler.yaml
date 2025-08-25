@@ -59,6 +59,9 @@ spec:
               - --grpcHealthPort
               - "9003"
               - --secureServing
+              - --modelServerMetricsScheme
+              - "https"
+              - --modelServerMetricsHttpsInsecureSkipVerify
               - --certPath
               - "/etc/ssl/certs"
             resources:
