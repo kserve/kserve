@@ -3743,8 +3743,6 @@ spec:
                           x-kubernetes-list-map-keys:
                             - name
                           x-kubernetes-list-type: map
-                      required:
-                        - containers
                       type: object
                     worker:
                       properties:
@@ -7372,8 +7370,6 @@ spec:
                           x-kubernetes-list-map-keys:
                             - name
                           x-kubernetes-list-type: map
-                      required:
-                        - containers
                       type: object
                   type: object
                 replicas:
@@ -12014,8 +12010,6 @@ spec:
                               x-kubernetes-list-map-keys:
                                 - name
                               x-kubernetes-list-type: map
-                          required:
-                            - containers
                           type: object
                       type: object
                   type: object
@@ -15645,8 +15639,6 @@ spec:
                       x-kubernetes-list-map-keys:
                         - name
                       x-kubernetes-list-type: map
-                  required:
-                    - containers
                   type: object
                 worker:
                   properties:
@@ -19274,8 +19266,6 @@ spec:
                       x-kubernetes-list-map-keys:
                         - name
                       x-kubernetes-list-type: map
-                  required:
-                    - containers
                   type: object
               type: object
           type: object
