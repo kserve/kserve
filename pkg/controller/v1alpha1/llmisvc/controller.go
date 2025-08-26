@@ -19,26 +19,39 @@ package llmisvc
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	kserveTypes "github.com/kserve/kserve/pkg/types"
+	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+
+	"github.com/kserve/kserve/pkg/constants"
+
+	"knative.dev/pkg/reconciler"
+
+	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	gatewayapi "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/kserve/kserve/pkg/utils"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
@@ -49,13 +62,12 @@ var childResourcesPredicate, _ = predicate.LabelSelectorPredicate(metav1.LabelSe
 	},
 })
 
-type Config struct {
-	SystemNamespace             string   `json:"systemNamespace,omitempty"`
-	IngressGatewayName          string   `json:"ingressGatewayName,omitempty"`
-	IngressGatewayNamespace     string   `json:"ingressGatewayNamespace,omitempty"`
-	IstioGatewayControllerNames []string `json:"istioGatewayControllerNames,omitempty"`
-
-	StorageConfig *kserveTypes.StorageInitializerConfig `json:"-"`
+// LLMISVCReconciler reconciles an LLMInferenceService object.
+// It orchestrates the reconciliation of child resources based on the spec.
+type LLMISVCReconciler struct {
+	client.Client
+	record.EventRecorder
+	Clientset kubernetes.Interface
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -75,64 +87,15 @@ type Config struct {
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings;clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch
 //+kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews;subjectaccessreviews,verbs=create
-//+kubebuilder:rbac:groups=networking.istio.io,resources=destinationrules,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:urls=/metrics,verbs=get
 
 // Reconcile is the main entry point for the reconciliation loop.
 // It fetches the LLMInferenceService and delegates the reconciliation of its constituent parts.
-type LLMISVCReconciler struct {
-	client.Client
-	record.EventRecorder
-	Clientset kubernetes.Interface
-}
-
-// NewConfig creates an instance of llm-specific config based on predefined values
-// in IngressConfig struct
-func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *kserveTypes.StorageInitializerConfig) *Config {
-	igwNs := constants.KServeNamespace
-	igwName := ingressConfig.KserveIngressGateway
-	igw := strings.Split(igwName, "/")
-	if len(igw) == 2 {
-		igwNs = igw[0]
-		igwName = igw[1]
-	}
-
-	return &Config{
-		SystemNamespace:         constants.KServeNamespace,
-		IngressGatewayNamespace: igwNs,
-		IngressGatewayName:      igwName,
-		// TODO make it configurable
-		IstioGatewayControllerNames: []string{
-			"istio.io/gateway-controller",
-			"istio.io/unmanaged-gateway",
-			"openshift.io/gateway-controller",
-		},
-		StorageConfig: storageConfig,
-	}
-}
-
-func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, error) {
-	isvcConfigMap, errCfgMap := v1beta1.GetInferenceServiceConfigMap(ctx, clientset) // Fetch directly from API Server
-	if errCfgMap != nil {
-		return nil, fmt.Errorf("failed to load InferenceServiceConfigMap: %w", errCfgMap)
-	}
-
-	ingressConfig, errConvert := v1beta1.NewIngressConfig(isvcConfigMap)
-	if errConvert != nil {
-		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to IngressConfig: %w", errConvert)
-	}
-
-	storageInitializerConfig, errConvert := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
-	if errConvert != nil {
-		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to StorageInitializerConfig: %w", errConvert)
-	}
-
-	return NewConfig(ingressConfig, storageInitializerConfig), nil
-}
-
 func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := logf.FromContext(ctx)
-	log.Info("Reconciling LLMISVC", "name", req.Name, "namespace", req.Namespace)
-	// Implement the reconciliation logic here
+	logger := log.FromContext(ctx).WithName("LLMInferenceService")
+	ctx = log.IntoContext(ctx, logger)
+
+	logger.Info("Starting reconciliation")
 	original := &v1alpha1.LLMInferenceService{}
 	if err := r.Get(ctx, req.NamespacedName, original); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -146,10 +109,10 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			}
 		}
 	} else {
-		logf.Log.Info("Marked for deletion, finalizing resources")
+		logger.Info("Marked for deletion, finalizing resources")
 		if controllerutil.ContainsFinalizer(original, finalizerName) {
 			if cleanupErr := r.finalize(ctx, original); cleanupErr != nil {
-				logf.Log.Error(cleanupErr, "Finalization failed")
+				logger.Error(cleanupErr, "Finalization failed")
 				return ctrl.Result{}, cleanupErr
 			}
 
@@ -165,18 +128,17 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	resource := original.DeepCopy()
 
-	// TODO: add pre-process and post-process reconciliation and re-enable this code
-	// reconciler.PreProcessReconcile(ctx, resource)
-	// reconciler.PostProcessReconcile(ctx, resource, original)
+	reconciler.PreProcessReconcile(ctx, resource)
 	reconcileErr := r.reconcile(ctx, resource)
+	reconciler.PostProcessReconcile(ctx, resource, original)
 
 	if reconcileErr != nil {
-		logf.Log.Error(reconcileErr, "Failed to reconcile LLMInferenceService")
+		logger.Error(reconcileErr, "Failed to reconcile LLMInferenceService")
 		r.Eventf(original, corev1.EventTypeWarning, "Error", "Reconciliation failed: %v", reconcileErr.Error())
 	}
 
 	if err := r.updateStatus(ctx, resource); err != nil {
-		logf.Log.Error(err, "Failed to update status for LLMInferenceService")
+		logger.Error(err, "Failed to update status for LLMInferenceService")
 		return ctrl.Result{}, err
 	}
 
@@ -184,8 +146,8 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
-	logger := logf.FromContext(ctx).WithName("reconcile")
-	ctx = logf.IntoContext(ctx, logger)
+	logger := log.FromContext(ctx).WithName("reconcile")
+	ctx = log.IntoContext(ctx, logger)
 
 	// TODO(ctrl): add watch on CfgMap with predicate and cache tuning to trigger reconcile when it changes
 	config, configErr := LoadConfig(ctx, r.Clientset)
@@ -199,29 +161,26 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha1.LLMI
 		return fmt.Errorf("failed to combine base-configurations: %w", err)
 	}
 	llmSvc.MarkPresetsCombinedReady()
+
+	logger.Info("Reconciling with combined base configurations", "combined.spec", baseCfg.Spec, "original.spec", llmSvc.Spec)
 	// We are only writing to status, so we can safely use the original object.
 	llmSvc.Spec = baseCfg.Spec
 
-	logger.Info("Reconciling with combined base configurations", "spec", llmSvc.Spec)
+	if err := r.reconcileWorkload(ctx, llmSvc, config.StorageConfig, config.CredentialConfig); err != nil {
+		return fmt.Errorf("failed to reconcile workload: %w", err)
+	}
 
-	// TODO: add workload reconciliation and re-enable this code
-	// if err := r.reconcileWorkload(ctx, llmSvc, config.StorageConfig); err != nil {
-	// 	return fmt.Errorf("failed to reconcile workload: %w", err)
-	// }
-
-	// TODO: add router reconciliation and re-enable this code
-	// if err := r.reconcileRouter(ctx, llmSvc); err != nil {
-	// 	return fmt.Errorf("failed to reconcile networking: %w", err)
-	// }
+	if err := r.reconcileRouter(ctx, llmSvc); err != nil {
+		return fmt.Errorf("failed to reconcile networking: %w", err)
+	}
 
 	return nil
 }
 
 func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
-	// TODO: add scheduler service account finalization and re-enable this code
-	// if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
-	// 	return fmt.Errorf("failed to finalize scheduler service account: %w", err)
-	// }
+	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
+		return fmt.Errorf("failed to finalize scheduler service account: %w", err)
+	}
 
 	return nil
 }
@@ -248,8 +207,162 @@ func (r *LLMISVCReconciler) updateStatus(ctx context.Context, desired *v1alpha1.
 }
 
 // SetupWithManager sets up the controller with the Manager.
+// It configures watches for the LLMInferenceService and its owned resources.
 func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	logger := mgr.GetLogger().WithName("LLMInferenceService.SetupWithManager")
+
+	b := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.LLMInferenceService{}).
-		Complete(r)
+		Watches(&v1alpha1.LLMInferenceServiceConfig{}, r.enqueueOnLLMInferenceServiceConfigChange(logger)).
+		Owns(&netv1.Ingress{}, builder.WithPredicates(childResourcesPredicate)).
+		Owns(&appsv1.Deployment{}, builder.WithPredicates(childResourcesPredicate)).
+		Owns(&corev1.Secret{}, builder.WithPredicates(childResourcesPredicate)).
+		Owns(&corev1.Service{}, builder.WithPredicates(childResourcesPredicate))
+
+	if err := gatewayapi.Install(mgr.GetScheme()); err != nil {
+		return fmt.Errorf("failed to add GIE APIs to scheme: %w", err)
+	}
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), gatewayapi.GroupVersion.String(), "HTTPRoute"); ok && err == nil {
+		b = b.Owns(&gatewayapi.HTTPRoute{}, builder.WithPredicates(childResourcesPredicate))
+	}
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), gatewayapi.GroupVersion.String(), "Gateway"); ok && err == nil {
+		b = b.Watches(&gatewayapi.Gateway{}, r.enqueueOnGatewayChange(logger))
+	}
+
+	if err := igwapi.Install(mgr.GetScheme()); err != nil {
+		return fmt.Errorf("failed to add GIE APIs to scheme: %w", err)
+	}
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapi.GroupVersion.String(), "InferencePool"); ok && err == nil {
+		b = b.Owns(&igwapi.InferencePool{}, builder.WithPredicates(childResourcesPredicate))
+	}
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapi.GroupVersion.String(), "InferenceModel"); ok && err == nil {
+		b = b.Owns(&igwapi.InferenceModel{}, builder.WithPredicates(childResourcesPredicate))
+	}
+
+	if err := lwsapi.AddToScheme(mgr.GetScheme()); err != nil {
+		return fmt.Errorf("failed to add LeaderWorkerSet APIs to scheme: %w", err)
+	}
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), lwsapi.GroupVersion.String(), "LeaderWorkerSet"); ok && err == nil {
+		b = b.Owns(&lwsapi.LeaderWorkerSet{}, builder.WithPredicates(childResourcesPredicate))
+	}
+
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), monitoringv1.SchemeGroupVersion.String(), "ServiceMonitor"); ok && err == nil {
+		b = b.Owns(&monitoringv1.ServiceMonitor{}, builder.WithPredicates(childResourcesPredicate))
+	}
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), monitoringv1.SchemeGroupVersion.String(), "PodMonitor"); ok && err == nil {
+		b = b.Owns(&monitoringv1.PodMonitor{}, builder.WithPredicates(childResourcesPredicate))
+	}
+
+	return b.Complete(r)
+}
+
+func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.EventHandler {
+	logger = logger.WithName("enqueueOnGatewayChange")
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+		sub := object.(*gatewayapi.Gateway)
+		reqs := make([]reconcile.Request, 0, 2)
+
+		listNamespace := corev1.NamespaceAll
+
+		cfg, err := LoadConfig(ctx, r.Clientset)
+		if err != nil {
+			logger.Error(err, "Failed to load config")
+			return reqs
+		}
+
+		// When a Gateway is modified, we need to find all LLMInferenceService instances that might
+		// depend on it and trigger their reconciliation.
+		continueToken := ""
+		for {
+			llmSvcList := &v1alpha1.LLMInferenceServiceList{}
+			if err := r.Client.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
+				logger.Error(err, "Failed to list LLMInferenceService")
+				return reqs
+			}
+			for _, llmSvc := range llmSvcList.Items {
+				// If it's not using the router or gateway, skip the resource.
+				if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Gateway == nil {
+					continue
+				}
+
+				// If the LLMInferenceService is using the global gateway, requeue the resource.
+				if !llmSvc.Spec.Router.Gateway.HasRefs() && sub.Name == cfg.IngressGatewayName && sub.Namespace == cfg.IngressGatewayNamespace {
+					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+						Namespace: llmSvc.Namespace,
+						Name:      llmSvc.Name,
+					}})
+					continue
+				}
+
+				for _, ref := range llmSvc.Spec.Router.Gateway.Refs {
+					if string(ref.Name) == sub.Name && string(ref.Namespace) == sub.Namespace {
+						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+							Namespace: llmSvc.Namespace,
+							Name:      llmSvc.Name,
+						}})
+					}
+				}
+			}
+
+			if llmSvcList.Continue == "" {
+				break
+			}
+			continueToken = llmSvcList.Continue
+		}
+
+		return reqs
+	})
+}
+
+func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr.Logger) handler.EventHandler {
+	logger = logger.WithName("enqueueOnLLMInferenceServiceConfigChange")
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+		sub := object.(*v1alpha1.LLMInferenceServiceConfig)
+		reqs := make([]reconcile.Request, 0, 2)
+
+		listNamespace := sub.GetNamespace()
+
+		// LLMInferenceServiceConfig in the system namespace can be used by any LLMInferenceService.
+		if sub.Namespace == constants.KServeNamespace {
+			listNamespace = corev1.NamespaceAll
+		}
+
+		// When an LLMInferenceServiceConfig is modified, we need to find all LLMInferenceService instances that might
+		// depend on it and trigger their reconciliation.
+		continueToken := ""
+		for {
+			llmSvcList := &v1alpha1.LLMInferenceServiceList{}
+			if err := r.Client.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
+				logger.Error(err, "Failed to list LLMInferenceService")
+				return reqs
+			}
+			for _, llmSvc := range llmSvcList.Items {
+				// If the mutated LLMInferenceServiceConfig is a well-known template and is in the system or
+				// LLMInferenceService namespace, we need to re-queue the specific LLMInferenceService.
+				if WellKnownDefaultConfigs.Has(sub.Name) && (sub.Namespace == constants.KServeNamespace || sub.Namespace == llmSvc.Namespace) {
+					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+						Namespace: llmSvc.Namespace,
+						Name:      llmSvc.Name,
+					}})
+					continue
+				}
+
+				for _, ref := range llmSvc.Spec.BaseRefs {
+					if ref.Name == sub.Name {
+						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+							Namespace: llmSvc.Namespace,
+							Name:      llmSvc.Name,
+						}})
+					}
+				}
+			}
+
+			if llmSvcList.Continue == "" {
+				break
+			}
+			continueToken = llmSvcList.Continue
+		}
+
+		return reqs
+	})
 }
