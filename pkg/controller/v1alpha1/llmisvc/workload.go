@@ -34,9 +34,13 @@ import (
 )
 
 const (
+	// routingSidecarContainerName is the name of the routing sidecar container
+	// that handles prefill disaggregation routing.
 	routingSidecarContainerName = "llm-d-routing-sidecar"
 )
 
+// sidecarSSRFProtectionRules defines RBAC rules for the routing sidecar
+// These permissions are needed to discover and monitor inference pools and pods.
 var sidecarSSRFProtectionRules = []rbacv1.PolicyRule{
 	{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list", "watch"}},
 	{APIGroups: []string{"inference.networking.x-k8s.io"}, Resources: []string{"inferencepools"}, Verbs: []string{"get", "list", "watch"}},
@@ -50,8 +54,10 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 
 	logger.Info("Reconciling Workload")
 
+	// Ensure readiness is determined even if errors occur
 	defer llmSvc.DetermineWorkloadReadiness()
 
+	// Set up TLS certificates for secure communication
 	if err := r.reconcileSelfSignedCertsSecret(ctx, llmSvc); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileCertsError", err.Error())
 		return fmt.Errorf("failed to reconcile self-signed certificates secret: %w", err)
@@ -60,16 +66,19 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	// We need to always reconcile every type of workload to handle transitions from P/D to another topology (meaning
 	// finalizing superfluous workloads).
 
+	// Handle multi-node deployments using LeaderWorkerSets
 	if err := r.reconcileMultiNodeWorkload(ctx, llmSvc, storageConfig, credentialConfig); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileMultiNodeWorkloadError", err.Error())
 		return fmt.Errorf("failed to reconcile multi node workload: %w", err)
 	}
 
+	// Handle single-node deployments using standard Deployments
 	if err := r.reconcileSingleNodeWorkload(ctx, llmSvc, storageConfig, credentialConfig); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileSingleNodeWorkloadError", err.Error())
 		return fmt.Errorf("failed to reconcile single node workload: %w", err)
 	}
 
+	// Create Service to expose workload pods
 	if err := r.reconcileWorkloadService(ctx, llmSvc); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileWorkloadServiceError", err.Error())
 		return fmt.Errorf("failed to reconcile workload service: %w", err)

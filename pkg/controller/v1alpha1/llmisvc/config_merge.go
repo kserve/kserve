@@ -36,17 +36,24 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
+// Configuration template names for different LLM deployment patterns
+// These configs are automatically applied based on the service configuration
 const (
 	configPrefix                            = "kserve-"
+	// Single node deployment template
 	configTemplateName                      = configPrefix + "config-llm-template"
+	// Disaggregated prefill/decode templates
 	configDecodeTemplateName                = configPrefix + "config-llm-decode-template"
+	configPrefillTemplateName               = configPrefix + "config-llm-prefill-template"
+	// Pipeline parallel worker configurations
 	configDecodeWorkerPipelineParallelName  = configPrefix + "config-llm-decode-worker-pipeline-parallel"
 	configWorkerPipelineParallelName        = configPrefix + "config-llm-worker-pipeline-parallel"
+	configPrefillWorkerPipelineParallelName = configPrefix + "config-llm-prefill-worker-pipeline-parallel"
+	// Data parallel worker configurations
 	configWorkerDataParallelName            = configPrefix + "config-llm-worker-data-parallel"
 	configDecodeWorkerDataParallelName      = configPrefix + "config-llm-decode-worker-data-parallel"
-	configPrefillTemplateName               = configPrefix + "config-llm-prefill-template"
-	configPrefillWorkerPipelineParallelName = configPrefix + "config-llm-prefill-worker-pipeline-parallel"
 	configPrefillWorkerDataParallelName     = configPrefix + "config-llm-prefill-worker-data-parallel"
+	// Router and scheduler configurations
 	configRouterSchedulerName               = configPrefix + "config-llm-scheduler"
 	configRouterRouteName                   = configPrefix + "config-llm-router-route"
 )
@@ -58,6 +65,8 @@ var _ = sets.New[string](
 	configWorkerPipelineParallelName,
 )
 
+// WellKnownDefaultConfigs contains the set of default configuration templates
+// that are automatically applied based on the LLM service deployment pattern
 var WellKnownDefaultConfigs = sets.New[string](
 	configTemplateName,
 	configDecodeTemplateName,
@@ -72,6 +81,7 @@ var WellKnownDefaultConfigs = sets.New[string](
 // combineBaseRefsConfig applies well-known config overlays to inject default values for various components, when some components are
 // enabled. These LLMInferenceServiceConfig resources must exist in either resource namespace (prioritized) or
 // SystemNamespace (e.g. `kserve`).
+// It determines which deployment pattern is being used (single node, multi-node, disaggregated) and applies appropriate defaults.
 func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, reconcilerConfig *Config) (*v1alpha1.LLMInferenceServiceConfig, error) {
 	// Creates the initial spec with the merged BaseRefs, so that we know what's "Enabled".
 	resolvedSpec := *llmSvc.Spec.DeepCopy()
@@ -173,6 +183,8 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	return llmSvcCfg, nil
 }
 
+// ReplaceVariables processes the configuration as a Go template to substitute
+// variables with values from the LLM service and global configuration
 func ReplaceVariables(llmSvc *v1alpha1.LLMInferenceService, llmSvcCfg *v1alpha1.LLMInferenceServiceConfig, reconcilerConfig *Config) (*v1alpha1.LLMInferenceServiceConfig, error) {
 	templateBytes, _ := json.Marshal(llmSvcCfg)
 	buf := bytes.NewBuffer(nil)
@@ -205,6 +217,7 @@ func ReplaceVariables(llmSvc *v1alpha1.LLMInferenceService, llmSvcCfg *v1alpha1.
 
 // getConfig retrieves kserveapis.LLMInferenceServiceConfig with the given name from either the kserveapis.LLMInferenceService
 // namespace or from the SystemNamespace (e.g. 'kserve'), prioritizing the former.
+// This allows for both global default configs and service-specific overrides.
 func (r *LLMISVCReconciler) getConfig(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, name string) (*v1alpha1.LLMInferenceServiceConfig, error) {
 	cfg := &v1alpha1.LLMInferenceServiceConfig{}
 	if err := r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: llmSvc.Namespace}, cfg); err != nil {
@@ -241,6 +254,8 @@ func MergeSpecs(cfgs ...v1alpha1.LLMInferenceServiceSpec) (v1alpha1.LLMInference
 
 // mergeSpecs performs a strategic merge by creating a clean patch from the override
 // object and applying it to the base object.
+// This ensures that only explicitly set fields in the override are applied, preventing
+// zero-valued fields from overwriting meaningful base values.
 func mergeSpecs(base, override v1alpha1.LLMInferenceServiceSpec) (v1alpha1.LLMInferenceServiceSpec, error) {
 	baseJSON, err := json.Marshal(base)
 	if err != nil {

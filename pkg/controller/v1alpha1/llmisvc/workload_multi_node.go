@@ -38,6 +38,8 @@ import (
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 )
 
+// reconcileMultiNodeWorkload manages multi-node deployments using LeaderWorkerSets
+// This handles both main workloads and disaggregated prefill workloads
 func (r *LLMISVCReconciler) reconcileMultiNodeWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	log.FromContext(ctx).Info("Reconciling multi-node workload")
 
@@ -56,12 +58,15 @@ func (r *LLMISVCReconciler) reconcileMultiNodeWorkload(ctx context.Context, llmS
 	return nil
 }
 
+// reconcileMultiNodeMainWorkload manages the main inference workload using LeaderWorkerSet
+// This is used for multi-node deployments with worker coordination
 func (r *LLMISVCReconciler) reconcileMultiNodeMainWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	expected, err := r.expectedMainMultiNodeLWS(ctx, llmSvc, storageConfig, credentialConfig)
 	if err != nil {
 		return fmt.Errorf("failed to build the expected main LWS: %w", err)
 	}
 
+	// Clean up if multi-node worker is not configured
 	if llmSvc.Spec.Worker == nil {
 		if err := Delete(ctx, r, llmSvc, expected); err != nil {
 			return err
@@ -74,6 +79,8 @@ func (r *LLMISVCReconciler) reconcileMultiNodeMainWorkload(ctx context.Context, 
 	return r.propagateLeaderWorkerSetStatus(ctx, expected, llmSvc.MarkMainWorkloadReady, llmSvc.MarkMainWorkloadNotReady)
 }
 
+// reconcileMultiNodePrefillWorkload manages disaggregated prefill workloads
+// This is used when prefill and decode are separated for performance optimization
 func (r *LLMISVCReconciler) reconcileMultiNodePrefillWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	expected, err := r.expectedPrefillMultiNodeLWS(ctx, llmSvc, storageConfig, credentialConfig)
 	if err != nil {

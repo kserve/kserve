@@ -22,6 +22,8 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
+// getInferencePoolWorkloadLabelSelector creates a label selector for identifying workload pods
+// that belong to a specific LLMInferenceService.
 func getInferencePoolWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha1.LLMInferenceServiceSpec) map[string]string {
 	s := map[string]string{
 		"app.kubernetes.io/part-of": "llminferenceservice",

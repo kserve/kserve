@@ -31,21 +31,10 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 )
 
-// attachModelArtifacts configures a PodSpec to fetch and use a model froma provided URI in the LLMInferenceService.
+// attachModelArtifacts configures a PodSpec to fetch and use a model from a provided URI in the LLMInferenceService.
 // The storage backend (PVC, OCI, Hugging Face, or S3) is determined from the URI schema and the appropriate helper function
 // is called to configure the PodSpec. This function will adjust volumes, container arguments, container volume mounts,
 // add containers, and do other changes to the PodSpec to ensure the model is fetched properly from storage.
-//
-// Parameters:
-//   - ctx: The context for API calls and logging.
-//   - llmSvc: The LLMInferenceService resource containing the model specification.
-//   - podSpec: The PodSpec to configure with the model artifact.
-//   - storageConfig: The storage initializer configuration.
-//   - credentialConfig: The credential configuration used for model downloads.
-//
-// Returns:
-//
-//	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, podSpec *corev1.PodSpec, storageConfig *types.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	modelUri := llmSvc.Spec.Model.URI.String()
 	schema, _, sepFound := strings.Cut(modelUri, "://")

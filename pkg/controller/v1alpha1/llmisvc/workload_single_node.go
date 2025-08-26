@@ -39,6 +39,8 @@ import (
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 )
 
+// reconcileSingleNodeWorkload manages single-node deployments using standard Deployments
+// This is the simplest deployment pattern for LLM inference services
 func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	log.FromContext(ctx).Info("Reconciling single-node workload")
 
@@ -56,11 +58,14 @@ func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llm
 	return nil
 }
 
+// reconcileSingleNodeMainWorkload manages the main inference deployment
+// This handles the primary workload when not using multi-node.
 func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	expected, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, storageConfig, credentialConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get expected main deployment: %w", err)
 	}
+	// Clean up single-node deployment if multi-node worker is configured
 	if llmSvc.Spec.Worker != nil {
 		return Delete(ctx, r, llmSvc, expected)
 	}
@@ -70,7 +75,10 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context,
 	return r.propagateDeploymentStatus(ctx, expected, llmSvc.MarkMainWorkloadReady, llmSvc.MarkMainWorkloadNotReady)
 }
 
+// expectedSingleNodeMainDeployment creates the Deployment spec for single-node inference
+// The role determines whether this handles just decode or both prefill and decode
 func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) (*appsv1.Deployment, error) {
+	// Determine the role based on whether disaggregated prefill is configured
 	role := "decode"
 	if llmSvc.Spec.Prefill == nil {
 		role = "both"

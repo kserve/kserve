@@ -29,11 +29,15 @@ import (
 	"github.com/kserve/kserve/pkg/types"
 )
 
+// Config holds configuration needed for LLM inference services
+// It aggregates ingress, storage, and credential settings from the KServe configmap
 type Config struct {
 	SystemNamespace         string `json:"systemNamespace,omitempty"`
 	IngressGatewayName      string `json:"ingressGatewayName,omitempty"`
 	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
 
+	// Storage and credential configs are excluded from JSON serialization
+	// as they contain sensitive information
 	StorageConfig    *types.StorageInitializerConfig `json:"-"`
 	CredentialConfig *credentials.CredentialConfig   `json:"-"`
 }
@@ -43,6 +47,8 @@ type Config struct {
 func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) *Config {
 	igwNs := constants.KServeNamespace
 	igwName := ingressConfig.KserveIngressGateway
+	// Parse gateway name to extract namespace and name components
+	// Format can be either "gateway-name" or "namespace/gateway-name"
 	igw := strings.Split(igwName, "/")
 	if len(igw) == 2 {
 		igwNs = igw[0]
@@ -58,8 +64,11 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 	}
 }
 
+// LoadConfig loads configuration from the KServe configmap in the cluster
+// It fetches and converts the configmap into structured config objects needed by LLM services
 func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, error) {
-	isvcConfigMap, errCfgMap := v1beta1.GetInferenceServiceConfigMap(ctx, clientset) // Fetch directly from API Server
+	// Fetch the KServe configmap directly from the API server to get latest values
+	isvcConfigMap, errCfgMap := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
 	if errCfgMap != nil {
 		return nil, fmt.Errorf("failed to load InferenceServiceConfigMap: %w", errCfgMap)
 	}

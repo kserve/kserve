@@ -41,23 +41,30 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
+// reconcileRouter handles the networking and routing components for the LLM service
+// This includes schedulers, HTTP routes, and various validation checks
 func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	logger := log.FromContext(ctx).WithName("reconcileRouter")
 	ctx = log.IntoContext(ctx, logger)
 
 	logger.Info("Reconciling Router")
 
+	// Ensure readiness is determined even if errors occur
 	defer llmSvc.DetermineRouterReadiness()
 
+	// Validate that referenced resources exist before proceeding
 	if err := r.validateRouterReferences(ctx, llmSvc); err != nil {
+		llmSvc.MarkHTTPRoutesNotReady("HTTPRouteReconcileError", "Failed to validate router references: %v", err.Error())
 		return err
 	}
 
+	// Reconcile the scheduler component that manages inference pools
 	if err := r.reconcileScheduler(ctx, llmSvc); err != nil {
 		llmSvc.MarkSchedulerWorkloadNotReady("SchedulerReconcileError", "Failed to reconcile scheduler: %v", err.Error())
 		return fmt.Errorf("failed to reconcile scheduler: %w", err)
 	}
 
+	// Reconcile HTTP routes for traffic routing
 	// We do not support Gateway's spec, when creating HTTPRoutes either the default gateway or those provided
 	// as refs are attached to reconciled routes
 	if err := r.reconcileHTTPRoutes(ctx, llmSvc); err != nil {
@@ -65,7 +72,7 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 		return fmt.Errorf("failed to reconcile HTTP routes: %w", err)
 	}
 
-	// Evaluate the subconditions
+	// Evaluate the subconditions to determine overall router health
 	if err := r.EvaluateInferencePoolConditions(ctx, llmSvc); err != nil {
 		return fmt.Errorf("failed to evaluate Inference Pool conditions: %w", err)
 	}
@@ -81,16 +88,20 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	return nil
 }
 
+// reconcileHTTPRoutes manages HTTPRoute resources for traffic routing
+// It handles both custom routes (via refs) and generated routes (via spec)
 func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling HTTPRoute")
 
 	expectedHTTPRoute := r.expectedHTTPRoute(ctx, llmSvc)
 
+	// Clean up if router or routes are not configured
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
 		return Delete(ctx, r, llmSvc, expectedHTTPRoute)
 	}
 
+	// Collect any explicitly referenced HTTPRoutes
 	referencedRoutes, err := r.collectReferencedRoutes(ctx, llmSvc)
 	if err != nil {
 		return fmt.Errorf("failed to collect referenced routes: %w", err)
@@ -98,6 +109,7 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 
 	route := llmSvc.Spec.Router.Route
 
+	// If using custom routes via refs, delete our our own
 	if route.HTTP.HasRefs() {
 		return Delete(ctx, r, llmSvc, expectedHTTPRoute)
 	}
@@ -112,6 +124,8 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 	return r.updateRoutingStatus(ctx, llmSvc, referencedRoutes...)
 }
 
+// collectReferencedRoutes gathers all HTTPRoutes referenced by the service
+// This is used for status updates and condition evaluation
 func (r *LLMISVCReconciler) collectReferencedRoutes(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) ([]*gatewayapi.HTTPRoute, error) {
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil || !llmSvc.Spec.Router.Route.HTTP.HasRefs() {
 		return nil, nil
@@ -119,6 +133,7 @@ func (r *LLMISVCReconciler) collectReferencedRoutes(ctx context.Context, llmSvc 
 
 	referencedRoutes := make([]*gatewayapi.HTTPRoute, 0, len(llmSvc.Spec.Router.Route.HTTP.Refs))
 
+	// Fetch each referenced route
 	for _, routeRef := range llmSvc.Spec.Router.Route.HTTP.Refs {
 		route := &gatewayapi.HTTPRoute{}
 		if err := r.Client.Get(ctx, types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: routeRef.Name}, route); err != nil {
@@ -135,6 +150,8 @@ func (r *LLMISVCReconciler) collectReferencedRoutes(ctx context.Context, llmSvc 
 	return referencedRoutes, nil
 }
 
+// expectedHTTPRoute creates the HTTPRoute specification for this service
+// This route is created when the service specifies inline routing configuration
 func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *gatewayapi.HTTPRoute {
 	httpRoute := &gatewayapi.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{

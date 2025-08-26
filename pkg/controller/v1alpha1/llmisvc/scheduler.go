@@ -40,6 +40,8 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
+// reconcileScheduler manages the scheduler component and its related resources
+// The scheduler handles load balancing for inference pods
 func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	log.FromContext(ctx).Info("Reconciling Scheduler")
 
@@ -61,8 +63,11 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 	return nil
 }
 
+// reconcileSchedulerAuthDelegatorBinding manages RBAC for authentication delegation
+// This allows the scheduler to authenticate requests to `/metrics`
 func (r *LLMISVCReconciler) reconcileSchedulerAuthDelegatorBinding(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount) error {
 	authDelegatorBinding := r.expectedSchedulerAuthDelegatorBinding(llmSvc, sa)
+	// Clean up binding if scheduler is not configured or uses external pool
 	if !llmSvc.DeletionTimestamp.IsZero() || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		return Delete(ctx, r, llmSvc, authDelegatorBinding)
 	}
@@ -74,8 +79,11 @@ func (r *LLMISVCReconciler) reconcileSchedulerAuthDelegatorBinding(ctx context.C
 	return nil
 }
 
+// reconcileSchedulerRole manages the RBAC role for scheduler permissions
+// The scheduler needs permissions to manage inference pools and related resources
 func (r *LLMISVCReconciler) reconcileSchedulerRole(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	role := r.expectedSchedulerRole(llmSvc)
+	// Clean up role if scheduler is not configured or uses external pool
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		return Delete(ctx, r, llmSvc, role)
 	}
@@ -86,8 +94,11 @@ func (r *LLMISVCReconciler) reconcileSchedulerRole(ctx context.Context, llmSvc *
 	return nil
 }
 
+// reconcileSchedulerRoleBinding binds the scheduler role to its service account
+// This grants the scheduler the necessary permissions to operate
 func (r *LLMISVCReconciler) reconcileSchedulerRoleBinding(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount) error {
 	roleBinding := r.expectedSchedulerRoleBinding(llmSvc, sa)
+	// Clean up binding if scheduler is not configured or uses external pool
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		return Delete(ctx, r, llmSvc, roleBinding)
 	}

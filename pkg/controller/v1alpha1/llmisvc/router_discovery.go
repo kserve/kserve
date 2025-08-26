@@ -35,15 +35,20 @@ import (
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+// resolvedGateway contains a Gateway and its associated GatewayClass
+// This provides all the information needed to understand gateway capabilities
 type resolvedGateway struct {
 	gateway      *gatewayapi.Gateway
 	gatewayClass *gatewayapi.GatewayClass
 	parentRef    gatewayapi.ParentReference
 }
 
+// DiscoverGateways finds and resolves all gateways referenced by an HTTPRoute
+// It fetches the Gateway and GatewayClass resources to provide complete routing context
 func DiscoverGateways(ctx context.Context, c client.Client, route *gatewayapi.HTTPRoute) ([]resolvedGateway, error) {
 	gateways := make([]resolvedGateway, 0)
 	for _, parentRef := range route.Spec.ParentRefs {
+		// Resolve namespace (defaults to route's namespace if not specified)
 		ns := ptr.Deref((&parentRef).Namespace, gatewayapi.Namespace(route.Namespace))
 		gwNS, gwName := string(ns), string((&parentRef).Name)
 
@@ -65,6 +70,8 @@ func DiscoverGateways(ctx context.Context, c client.Client, route *gatewayapi.HT
 	return gateways, nil
 }
 
+// DiscoverURLs extracts accessible URLs from an HTTPRoute by examining its gateways
+// It constructs URLs based on gateway listeners and addresses
 func DiscoverURLs(ctx context.Context, c client.Client, route *gatewayapi.HTTPRoute) ([]*apis.URL, error) {
 	var urls []*apis.URL
 
@@ -73,6 +80,7 @@ func DiscoverURLs(ctx context.Context, c client.Client, route *gatewayapi.HTTPRo
 		return nil, fmt.Errorf("failed to discover gateways: %w", err)
 	}
 
+	// Extract URLs from each gateway based on its listeners and addresses
 	for _, g := range gateways {
 		listener := selectListener(g.gateway, g.parentRef.SectionName)
 		scheme := extractSchemeFromListener(listener)

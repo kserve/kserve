@@ -56,6 +56,8 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
+// childResourcesPredicate filters events to only those from resources owned by LLMInferenceService
+// This prevents unnecessary reconciliation triggers from unrelated resources
 var childResourcesPredicate, _ = predicate.LabelSelectorPredicate(metav1.LabelSelector{
 	MatchLabels: map[string]string{
 		"app.kubernetes.io/part-of": "llminferenceservice",
@@ -91,6 +93,7 @@ type LLMISVCReconciler struct {
 
 // Reconcile is the main entry point for the reconciliation loop.
 // It fetches the LLMInferenceService and delegates the reconciliation of its constituent parts.
+// The reconciler follows the standard Kubernetes controller pattern with finalizers for cleanup.
 func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithName("LLMInferenceService")
 	ctx = log.IntoContext(ctx, logger)
@@ -101,14 +104,17 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// Handle finalizer for proper cleanup on deletion
 	finalizerName := constants.KServeAPIGroupName + "/llmisvc-finalizer"
 	if original.DeletionTimestamp.IsZero() {
+		// Resource is not being deleted, ensure finalizer is present
 		if controllerutil.AddFinalizer(original, finalizerName) {
 			if err := r.Update(ctx, original); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
 	} else {
+		// Resource is being deleted, perform cleanup
 		logger.Info("Marked for deletion, finalizing resources")
 		if controllerutil.ContainsFinalizer(original, finalizerName) {
 			if cleanupErr := r.finalize(ctx, original); cleanupErr != nil {
@@ -116,6 +122,7 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				return ctrl.Result{}, cleanupErr
 			}
 
+			// Cleanup successful, remove finalizer to allow deletion
 			controllerutil.RemoveFinalizer(original, finalizerName)
 			if err := r.Update(ctx, original); err != nil {
 				return ctrl.Result{}, err
@@ -126,8 +133,10 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
+	// Work with a copy to avoid modifying the original until status update
 	resource := original.DeepCopy()
 
+	// Pre/post process hooks for status management
 	reconciler.PreProcessReconcile(ctx, resource)
 	reconcileErr := r.reconcile(ctx, resource)
 	reconciler.PostProcessReconcile(ctx, resource, original)
@@ -145,16 +154,21 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, reconcileErr
 }
 
+// reconcile handles the core business logic of reconciling an LLMInferenceService
+// It loads configuration, merges base configs, and reconciles workload and router components
 func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	logger := log.FromContext(ctx).WithName("reconcile")
 	ctx = log.IntoContext(ctx, logger)
 
+	// Load global configuration from KServe configmap
 	// TODO(ctrl): add watch on CfgMap with predicate and cache tuning to trigger reconcile when it changes
 	config, configErr := LoadConfig(ctx, r.Clientset)
 	if configErr != nil {
 		return fmt.Errorf("failed to load ingress config: %w", configErr)
 	}
 
+	// Combine base configurations with service-specific overrides
+	// This includes default configs based on deployment pattern (single node, multi-node, etc.)
 	baseCfg, err := r.combineBaseRefsConfig(ctx, llmSvc, config)
 	if err != nil {
 		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", err.Error())
@@ -163,6 +177,7 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha1.LLMI
 	llmSvc.MarkPresetsCombinedReady()
 
 	logger.Info("Reconciling with combined base configurations", "combined.spec", baseCfg.Spec, "original.spec", llmSvc.Spec)
+	// Replace the spec with the merged configuration for reconciliation
 	// We are only writing to status, so we can safely use the original object.
 	llmSvc.Spec = baseCfg.Spec
 
@@ -177,6 +192,7 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha1.LLMI
 	return nil
 }
 
+// finalize performs cleanup operations when the LLMInferenceService is being deleted
 func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
 		return fmt.Errorf("failed to finalize scheduler service account: %w", err)
@@ -185,13 +201,17 @@ func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha1.LLMIn
 	return nil
 }
 
+// updateStatus updates the status of the LLMInferenceService with retry on conflict
+// This prevents race conditions when multiple controllers update the same resource
 func (r *LLMISVCReconciler) updateStatus(ctx context.Context, desired *v1alpha1.LLMInferenceService) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Always fetch the latest version to avoid conflicts
 		latest := &v1alpha1.LLMInferenceService{}
 		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(desired), latest); err != nil {
 			return err
 		}
 
+		// Skip update if status hasn't changed
 		if equality.Semantic.DeepEqual(latest.Status, desired.Status) {
 			return nil
 		}
@@ -208,6 +228,7 @@ func (r *LLMISVCReconciler) updateStatus(ctx context.Context, desired *v1alpha1.
 
 // SetupWithManager sets up the controller with the Manager.
 // It configures watches for the LLMInferenceService and its owned resources.
+// The controller conditionally registers watchers based on CRD availability to avoid errors in environments where optional CRDs are not installed.
 func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	logger := mgr.GetLogger().WithName("LLMInferenceService.SetupWithManager")
 
@@ -256,6 +277,8 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return b.Complete(r)
 }
 
+// enqueueOnGatewayChange creates an event handler that triggers reconciliation of LLMInferenceServices
+// when a Gateway they depend on changes. This is necessary because Gateway changes can affect routing.
 func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.EventHandler {
 	logger = logger.WithName("enqueueOnGatewayChange")
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
@@ -272,6 +295,7 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 
 		// When a Gateway is modified, we need to find all LLMInferenceService instances that might
 		// depend on it and trigger their reconciliation.
+		// Use pagination to handle large numbers of services efficiently
 		continueToken := ""
 		for {
 			llmSvcList := &v1alpha1.LLMInferenceServiceList{}
@@ -280,12 +304,12 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 				return reqs
 			}
 			for _, llmSvc := range llmSvcList.Items {
-				// If it's not using the router or gateway, skip the resource.
+				// Skip services that don't use gateways
 				if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Gateway == nil {
 					continue
 				}
 
-				// If the LLMInferenceService is using the global gateway, requeue the resource.
+				// Check if service uses the global default gateway
 				if !llmSvc.Spec.Router.Gateway.HasRefs() && sub.Name == cfg.IngressGatewayName && sub.Namespace == cfg.IngressGatewayNamespace {
 					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 						Namespace: llmSvc.Namespace,
@@ -294,6 +318,7 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 					continue
 				}
 
+				// Check if service explicitly references this gateway
 				for _, ref := range llmSvc.Spec.Router.Gateway.Refs {
 					if string(ref.Name) == sub.Name && string(ref.Namespace) == sub.Namespace {
 						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
@@ -314,6 +339,8 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 	})
 }
 
+// enqueueOnLLMInferenceServiceConfigChange creates an event handler that triggers reconciliation of LLMInferenceServices
+// when configuration templates they depend on change. This ensures services are updated when their configs change.
 func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr.Logger) handler.EventHandler {
 	logger = logger.WithName("enqueueOnLLMInferenceServiceConfigChange")
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
@@ -322,7 +349,7 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 
 		listNamespace := sub.GetNamespace()
 
-		// LLMInferenceServiceConfig in the system namespace can be used by any LLMInferenceService.
+		// System namespace configs are global and can affect services in any namespace
 		if sub.Namespace == constants.KServeNamespace {
 			listNamespace = corev1.NamespaceAll
 		}
@@ -337,8 +364,7 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 				return reqs
 			}
 			for _, llmSvc := range llmSvcList.Items {
-				// If the mutated LLMInferenceServiceConfig is a well-known template and is in the system or
-				// LLMInferenceService namespace, we need to re-queue the specific LLMInferenceService.
+				// Check if this is a well-known config template that services automatically inherit
 				if WellKnownDefaultConfigs.Has(sub.Name) && (sub.Namespace == constants.KServeNamespace || sub.Namespace == llmSvc.Namespace) {
 					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 						Namespace: llmSvc.Namespace,
@@ -347,6 +373,7 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 					continue
 				}
 
+				// Check if service explicitly references this config
 				for _, ref := range llmSvc.Spec.BaseRefs {
 					if ref.Name == sub.Name {
 						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
