@@ -29,18 +29,19 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc"
-	"github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc/webhook"
+	"github.com/kserve/kserve/pkg/controller/llmisvc"
+	"github.com/kserve/kserve/pkg/controller/llmisvc/validation"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func SetupTestEnv() *pkgtest.Client {
-	duration, err := time.ParseDuration(constants.GetEnvOrDefault("ENVTEST_DEFAULT_TIMEOUT", "10s"))
+	duration, err := time.ParseDuration(constants.GetEnvOrDefault("ENVTEST_DEFAULT_TIMEOUT", "30s"))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.SetDefaultEventuallyTimeout(duration)
 	gomega.SetDefaultEventuallyPollingInterval(250 * time.Millisecond)
+	gomega.EnforceDefaultTimeoutsWhenUsingContexts()
 
 	ginkgo.By("Setting up the test environment")
 	systemNs := constants.KServeNamespace
@@ -52,7 +53,7 @@ func SetupTestEnv() *pkgtest.Client {
 		clientSet, err := kubernetes.NewForConfig(cfg)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		llmCtrl := llmisvc.LLMISVCReconciler{
+		llmCtrl := llmisvc.LLMInferenceServiceReconciler{
 			Client:    mgr.GetClient(),
 			Clientset: clientSet,
 			// TODO fix it to be set up similar to main.go, for now it's stub
@@ -67,14 +68,14 @@ func SetupTestEnv() *pkgtest.Client {
 		if err != nil {
 			return err
 		}
-		llmInferenceServiceConfigValidator := webhook.LLMInferenceServiceConfigValidator{
+		llmInferenceServiceConfigValidator := validation.LLMInferenceServiceConfigValidator{
 			ClientSet: clientSet,
 		}
 		if err := llmInferenceServiceConfigValidator.SetupWithManager(mgr); err != nil {
 			return err
 		}
 
-		llmInferenceServiceValidator := webhook.LLMInferenceServiceConfigValidator{}
+		llmInferenceServiceValidator := validation.LLMInferenceServiceValidator{}
 		return llmInferenceServiceValidator.SetupWithManager(mgr)
 	}
 

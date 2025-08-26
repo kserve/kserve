@@ -36,7 +36,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/yaml"
 )
 
@@ -87,18 +87,18 @@ func IstioShadowService(name, ns string) *corev1.Service {
 	}
 }
 
-func DefaultGateway(ns string) *gwapiv1.Gateway {
+func DefaultGateway(ns string) *gatewayapiv1.Gateway {
 	defaultGateway := Gateway(constants.GatewayName,
-		InNamespace[*gwapiv1.Gateway](ns),
+		InNamespace[*gatewayapiv1.Gateway](ns),
 		WithClassName(defaultGatewayClass),
 		WithInfrastructureLabels("serving.kserve.io/gateway", constants.GatewayName),
-		WithListeners(gwapiv1.Listener{
+		WithListeners(gatewayapiv1.Listener{
 			Name:     "http",
 			Port:     80,
-			Protocol: gwapiv1.HTTPProtocolType,
-			AllowedRoutes: &gwapiv1.AllowedRoutes{
-				Namespaces: &gwapiv1.RouteNamespaces{
-					From: ptr.To(gwapiv1.NamespacesFromAll),
+			Protocol: gatewayapiv1.HTTPProtocolType,
+			AllowedRoutes: &gatewayapiv1.AllowedRoutes{
+				Namespaces: &gatewayapiv1.RouteNamespaces{
+					From: ptr.To(gatewayapiv1.NamespacesFromAll),
 				},
 			},
 		}),
@@ -107,12 +107,12 @@ func DefaultGateway(ns string) *gwapiv1.Gateway {
 	return defaultGateway
 }
 
-func DefaultGatewayClass() *gwapiv1.GatewayClass {
-	return &gwapiv1.GatewayClass{
+func DefaultGatewayClass() *gatewayapiv1.GatewayClass {
+	return &gatewayapiv1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: defaultGatewayClass,
 		},
-		Spec: gwapiv1.GatewayClassSpec{
+		Spec: gatewayapiv1.GatewayClassSpec{
 			ControllerName: "istio.io/gateway-controller",
 		},
 	}
@@ -135,8 +135,7 @@ func InferenceServiceCfgMap(ns string) *corev1.ConfigMap {
 				"cpuLimit": "1",
 				"cpuModelcar": "10m",
 				"memoryModelcar": "15Mi",
-				"enableModelcar": true,
-				"uidModelcar": 1010
+				"enableModelcar": true
 			}`,
 	}
 	configMap := &corev1.ConfigMap{
