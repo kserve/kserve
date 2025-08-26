@@ -32,32 +32,32 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
-	gatewayapi "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // resolvedGateway contains a Gateway and its associated GatewayClass
 // This provides all the information needed to understand gateway capabilities
 type resolvedGateway struct {
-	gateway      *gatewayapi.Gateway
-	gatewayClass *gatewayapi.GatewayClass
-	parentRef    gatewayapi.ParentReference
+	gateway      *gwapiv1.Gateway
+	gatewayClass *gwapiv1.GatewayClass
+	parentRef    gwapiv1.ParentReference
 }
 
 // DiscoverGateways finds and resolves all gateways referenced by an HTTPRoute
 // It fetches the Gateway and GatewayClass resources to provide complete routing context
-func DiscoverGateways(ctx context.Context, c client.Client, route *gatewayapi.HTTPRoute) ([]resolvedGateway, error) {
+func DiscoverGateways(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute) ([]resolvedGateway, error) {
 	gateways := make([]resolvedGateway, 0)
 	for _, parentRef := range route.Spec.ParentRefs {
 		// Resolve namespace (defaults to route's namespace if not specified)
-		ns := ptr.Deref((&parentRef).Namespace, gatewayapi.Namespace(route.Namespace))
+		ns := ptr.Deref((&parentRef).Namespace, gwapiv1.Namespace(route.Namespace))
 		gwNS, gwName := string(ns), string((&parentRef).Name)
 
-		gateway := &gatewayapi.Gateway{}
+		gateway := &gwapiv1.Gateway{}
 		if err := c.Get(ctx, types.NamespacedName{Namespace: gwNS, Name: gwName}, gateway); err != nil {
 			return nil, fmt.Errorf("failed to get Gateway %s/%s for route %s/%s: %w", gwNS, gwName, route.Namespace, route.Name, err)
 		}
 
-		gatewayClass := &gatewayapi.GatewayClass{}
+		gatewayClass := &gwapiv1.GatewayClass{}
 		if err := c.Get(ctx, types.NamespacedName{Name: string(gateway.Spec.GatewayClassName)}, gatewayClass); err != nil {
 			return nil, fmt.Errorf("failed to get GatewayClass %q for gateway %s/%s: %w", string(gateway.Spec.GatewayClassName), gwNS, gwName, err)
 		}
@@ -72,7 +72,7 @@ func DiscoverGateways(ctx context.Context, c client.Client, route *gatewayapi.HT
 
 // DiscoverURLs extracts accessible URLs from an HTTPRoute by examining its gateways
 // It constructs URLs based on gateway listeners and addresses
-func DiscoverURLs(ctx context.Context, c client.Client, route *gatewayapi.HTTPRoute) ([]*apis.URL, error) {
+func DiscoverURLs(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute) ([]*apis.URL, error) {
 	var urls []*apis.URL
 
 	gateways, err := DiscoverGateways(ctx, c, route)
@@ -112,7 +112,10 @@ func DiscoverURLs(ctx context.Context, c client.Client, route *gatewayapi.HTTPRo
 	return urls, nil
 }
 
-func extractRoutePath(route *gatewayapi.HTTPRoute) string {
+// extractRoutePath extracts the path from the first rule of an HTTPRoute
+// This is used to construct the complete URL for the route
+// Currently only handles exact path matches, not regex patterns
+func extractRoutePath(route *gwapiv1.HTTPRoute) string {
 	if len(route.Spec.Rules) > 0 && len(route.Spec.Rules[0].Matches) > 0 {
 		// TODO how do we deal with regexp
 		return ptr.Deref(route.Spec.Rules[0].Matches[0].Path.Value, "/")
@@ -120,8 +123,12 @@ func extractRoutePath(route *gatewayapi.HTTPRoute) string {
 	return "/"
 }
 
-func selectListener(gateway *gatewayapi.Gateway, sectionName *gatewayapi.SectionName) *gatewayapi.Listener {
+// selectListener chooses the appropriate listener from a Gateway
+// If a specific sectionName is provided, it searches for that listener by name
+// Otherwise, it defaults to the first listener in the Gateway
+func selectListener(gateway *gwapiv1.Gateway, sectionName *gwapiv1.SectionName) *gwapiv1.Listener {
 	if sectionName != nil {
+		// Search for the specifically named listener
 		for _, listener := range gateway.Spec.Listeners {
 			if listener.Name == *sectionName {
 				return &listener
@@ -129,20 +136,27 @@ func selectListener(gateway *gatewayapi.Gateway, sectionName *gatewayapi.Section
 		}
 	}
 
+	// Default to the first listener if no specific section is requested
 	return &gateway.Spec.Listeners[0]
 }
 
-func extractSchemeFromListener(listener *gatewayapi.Listener) string {
-	if listener.Protocol == gatewayapi.HTTPSProtocolType {
+// extractSchemeFromListener determines the URL scheme (http/https) based on the listener protocol
+// This is essential for constructing valid URLs that match the Gateway's configuration
+func extractSchemeFromListener(listener *gwapiv1.Listener) string {
+	if listener.Protocol == gwapiv1.HTTPSProtocolType {
 		return "https"
 	}
+	// Default to HTTP for all other protocols (HTTP, TCP, etc.)
 	return "http"
 }
 
-func extractRouteHostnames(route *gatewayapi.HTTPRoute) []string {
+// extractRouteHostnames extracts valid hostnames from an HTTPRoute specification
+// It filters out empty strings and wildcard hostnames which cannot be used in URLs
+func extractRouteHostnames(route *gwapiv1.HTTPRoute) []string {
 	var hostnames []string
 	for _, h := range route.Spec.Hostnames {
 		host := string(h)
+		// Skip empty hostnames and wildcards as they cannot form valid URLs
 		if host != "" && host != "*" {
 			hostnames = append(hostnames, host)
 		}
@@ -150,9 +164,13 @@ func extractRouteHostnames(route *gatewayapi.HTTPRoute) []string {
 	return hostnames
 }
 
-func extractAddressValues(addresses []gatewayapi.GatewayStatusAddress) []string {
+// extractAddressValues extracts the address values from Gateway status addresses
+// These addresses are typically IP addresses or hostnames where the Gateway is accessible
+// Used as fallback when no specific hostnames are defined in the HTTPRoute
+func extractAddressValues(addresses []gwapiv1.GatewayStatusAddress) []string {
 	var values []string
 	for _, addr := range addresses {
+		// Only include non-empty address values
 		if addr.Value != "" {
 			values = append(values, addr.Value)
 		}
@@ -160,18 +178,24 @@ func extractAddressValues(addresses []gatewayapi.GatewayStatusAddress) []string 
 	return values
 }
 
-func combineIntoURLs(hostnames []string, scheme string, port gatewayapi.PortNumber, path string) ([]*apis.URL, error) {
+// combineIntoURLs constructs complete URLs from hostnames, scheme, port, and path components
+// It handles standard ports (80 for HTTP, 443 for HTTPS) by omitting them from the URL
+// Returns a sorted list of URLs for consistent ordering
+func combineIntoURLs(hostnames []string, scheme string, port gwapiv1.PortNumber, path string) ([]*apis.URL, error) {
 	urls := make([]*apis.URL, 0, len(hostnames))
 
+	// Sort hostnames for consistent URL ordering
 	sortedHostnames := make([]string, len(hostnames))
 	copy(sortedHostnames, hostnames)
 	slices.Sort(sortedHostnames)
 
 	for _, hostname := range sortedHostnames {
 		var urlStr string
+		// Include port in URL only if it's not the standard port for the scheme
 		if (scheme == "http" && port != 80) || (scheme == "https" && port != 443) {
 			urlStr = fmt.Sprintf("%s://%s%s", scheme, joinHostPort(hostname, &port), path)
 		} else {
+			// Use standard port - omit from URL for cleaner appearance
 			urlStr = fmt.Sprintf("%s://%s%s", scheme, hostname, path)
 		}
 
@@ -186,13 +210,18 @@ func combineIntoURLs(hostnames []string, scheme string, port gatewayapi.PortNumb
 	return urls, nil
 }
 
-func joinHostPort(host string, port *gatewayapi.PortNumber) string {
+// joinHostPort safely combines a hostname and port into a host:port string
+// Uses net.JoinHostPort to handle IPv6 addresses correctly with brackets
+// Returns just the host if port is nil or zero
+func joinHostPort(host string, port *gwapiv1.PortNumber) string {
 	if port != nil && *port != 0 {
 		return net.JoinHostPort(host, fmt.Sprint(*port))
 	}
 	return host
 }
 
+// ExternalAddressNotFoundError indicates that a Gateway has no external addresses
+// This typically occurs when the Gateway is not yet provisioned by the infrastructure
 type ExternalAddressNotFoundError struct {
 	GatewayNamespace string
 	GatewayName      string
@@ -202,6 +231,8 @@ func (e *ExternalAddressNotFoundError) Error() string {
 	return fmt.Sprintf("Gateway %s/%s has no external address found", e.GatewayNamespace, e.GatewayName)
 }
 
+// IgnoreExternalAddressNotFound converts ExternalAddressNotFoundError to nil
+// This is useful when external addresses are optional or may not be immediately available
 func IgnoreExternalAddressNotFound(err error) error {
 	if IsExternalAddressNotFound(err) {
 		return nil
@@ -209,30 +240,23 @@ func IgnoreExternalAddressNotFound(err error) error {
 	return err
 }
 
+// IsExternalAddressNotFound checks if an error is of type ExternalAddressNotFoundError
 func IsExternalAddressNotFound(err error) bool {
 	var externalAddrNotFoundErr *ExternalAddressNotFoundError
 	return errors.As(err, &externalAddrNotFoundErr)
 }
 
-func filter[T any](s []T, predicateFn func(T) bool) []T {
-	out := make([]T, 0, len(s))
-	for _, x := range s {
-		if predicateFn(x) {
-			out = append(out, x)
-		}
-	}
-	return out
-}
-
 // EvaluateGatewayReadiness checks the readiness status of Gateways and returns those that are not ready
-func EvaluateGatewayReadiness(ctx context.Context, gateways []*gatewayapi.Gateway) []*gatewayapi.Gateway {
+// This is used to determine if routing can proceed or if we need to wait for Gateway provisioning
+func EvaluateGatewayReadiness(ctx context.Context, gateways []*gwapiv1.Gateway) []*gwapiv1.Gateway {
 	logger := log.FromContext(ctx)
-	notReadyGateways := make([]*gatewayapi.Gateway, 0)
+	notReadyGateways := make([]*gwapiv1.Gateway, 0)
 
 	for _, gateway := range gateways {
 		ready := IsGatewayReady(gateway)
 		logger.Info("Gateway readiness evaluated", "gateway", fmt.Sprintf("%s/%s", gateway.Namespace, gateway.Name), "ready", ready)
 
+		// Collect gateways that are not ready for status reporting
 		if !ready {
 			notReadyGateways = append(notReadyGateways, gateway)
 		}
@@ -242,10 +266,12 @@ func EvaluateGatewayReadiness(ctx context.Context, gateways []*gatewayapi.Gatewa
 }
 
 // IsGatewayReady determines if a Gateway is ready based on its status conditions
-func IsGatewayReady(gateway *gatewayapi.Gateway) bool {
+// A Gateway is considered ready when it has a "Programmed" condition with status True
+// The "Programmed" condition indicates that the Gateway has been configured and is operational
+func IsGatewayReady(gateway *gwapiv1.Gateway) bool {
 	// Check for the standard Gateway API "Programmed" condition
 	for _, condition := range gateway.Status.Conditions {
-		if condition.Type == string(gatewayapi.GatewayConditionProgrammed) {
+		if condition.Type == string(gwapiv1.GatewayConditionProgrammed) {
 			return condition.Status == metav1.ConditionTrue
 		}
 	}
@@ -255,14 +281,16 @@ func IsGatewayReady(gateway *gatewayapi.Gateway) bool {
 }
 
 // EvaluateHTTPRouteReadiness checks the readiness status of HTTPRoutes and returns those that are not ready
-func EvaluateHTTPRouteReadiness(ctx context.Context, routes []*gatewayapi.HTTPRoute) []*gatewayapi.HTTPRoute {
+// This helps determine if traffic routing is functional or if there are configuration issues
+func EvaluateHTTPRouteReadiness(ctx context.Context, routes []*gwapiv1.HTTPRoute) []*gwapiv1.HTTPRoute {
 	logger := log.FromContext(ctx)
-	notReadyRoutes := make([]*gatewayapi.HTTPRoute, 0)
+	notReadyRoutes := make([]*gwapiv1.HTTPRoute, 0)
 
 	for _, route := range routes {
 		ready := IsHTTPRouteReady(route)
 		logger.Info("HTTPRoute readiness evaluated", "route", fmt.Sprintf("%s/%s", route.Namespace, route.Name), "ready", ready)
 
+		// Collect routes that are not ready for status reporting
 		if !ready {
 			notReadyRoutes = append(notReadyRoutes, route)
 		}
@@ -271,17 +299,21 @@ func EvaluateHTTPRouteReadiness(ctx context.Context, routes []*gatewayapi.HTTPRo
 	return notReadyRoutes
 }
 
-// IsHTTPRouteReady determines if an HTTPRoute is ready based on its status conditions.
-func IsHTTPRouteReady(route *gatewayapi.HTTPRoute) bool {
+// IsHTTPRouteReady determines if an HTTPRoute is ready based on its status conditions
+// An HTTPRoute is ready only when ALL parent Gateways have accepted it
+// This ensures that traffic can flow through all configured paths
+func IsHTTPRouteReady(route *gwapiv1.HTTPRoute) bool {
 	if route == nil || len(route.Spec.ParentRefs) == 0 {
 		return false
 	}
 
+	// Check that all parent references have corresponding status entries
 	if len(route.Status.RouteStatus.Parents) != len(route.Spec.ParentRefs) {
 		// HTTPRoute is ready only when _all_ parents have accepted the route.
 		return false
 	}
 
+	// Check for any non-ready conditions across all parents
 	if cond, missing := nonReadyHTTPRouteTopLevelCondition(route); cond != nil || missing {
 		return false
 	}
@@ -289,16 +321,22 @@ func IsHTTPRouteReady(route *gatewayapi.HTTPRoute) bool {
 	return true
 }
 
-func nonReadyHTTPRouteTopLevelCondition(route *gatewayapi.HTTPRoute) (*metav1.Condition, bool) {
+// nonReadyHTTPRouteTopLevelCondition checks for any non-ready conditions in an HTTPRoute
+// Returns the first problematic condition found, or indicates if any conditions are missing
+// A condition is considered stale if its ObservedGeneration is less than the route's current Generation
+func nonReadyHTTPRouteTopLevelCondition(route *gwapiv1.HTTPRoute) (*metav1.Condition, bool) {
 	if route == nil {
 		return nil, true
 	}
 
 	for _, parent := range route.Status.RouteStatus.Parents {
-		cond := meta.FindStatusCondition(parent.Conditions, string(gatewayapi.RouteConditionAccepted))
+		// Look for the "Accepted" condition which indicates Gateway acceptance
+		cond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionAccepted))
 		if cond == nil {
+			// Missing condition indicates the route is not ready
 			return nil, true
 		}
+		// Check if condition is stale (based on older generation)
 		staleCondition := cond.ObservedGeneration > 0 && cond.ObservedGeneration < route.Generation
 		if cond.Status != metav1.ConditionTrue || staleCondition {
 			return cond, false
@@ -308,12 +346,15 @@ func nonReadyHTTPRouteTopLevelCondition(route *gatewayapi.HTTPRoute) (*metav1.Co
 	return nil, false
 }
 
-// IsInferencePoolReady checks if an InferencePool has been accepted by all parents.
+// IsInferencePoolReady checks if an InferencePool has been accepted by all parents
+// InferencePools manage collections of inference workloads for load balancing
+// They must be accepted by their parent Gateways to be considered operational
 func IsInferencePoolReady(pool *igwapi.InferencePool) bool {
 	if pool == nil || len(pool.Status.Parents) == 0 {
 		return false
 	}
 
+	// Check for any non-ready conditions across all parents
 	if cond, missing := nonReadyInferencePoolTopLevelCondition(pool); cond != nil || missing {
 		return false
 	}
@@ -321,16 +362,22 @@ func IsInferencePoolReady(pool *igwapi.InferencePool) bool {
 	return true
 }
 
+// nonReadyInferencePoolTopLevelCondition checks for any non-ready conditions in an InferencePool
+// Similar to HTTPRoute validation but uses InferencePool-specific condition types
+// Returns the first problematic condition or indicates missing conditions
 func nonReadyInferencePoolTopLevelCondition(pool *igwapi.InferencePool) (*metav1.Condition, bool) {
 	if pool == nil {
 		return nil, true
 	}
 
 	for _, parent := range pool.Status.Parents {
+		// Look for the "Accepted" condition specific to InferencePools
 		cond := meta.FindStatusCondition(parent.Conditions, string(igwapi.InferencePoolConditionAccepted))
 		if cond == nil {
+			// Missing condition indicates the pool is not ready
 			return nil, true
 		}
+		// Check if condition is stale (based on older generation)
 		staleCondition := cond.ObservedGeneration > 0 && cond.ObservedGeneration < pool.Generation
 		if cond.Status != metav1.ConditionTrue || staleCondition {
 			return cond, false

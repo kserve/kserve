@@ -39,23 +39,23 @@ import (
 // Configuration template names for different LLM deployment patterns
 // These configs are automatically applied based on the service configuration
 const (
-	configPrefix                            = "kserve-"
+	configPrefix = "kserve-"
 	// Single node deployment template
-	configTemplateName                      = configPrefix + "config-llm-template"
+	configTemplateName = configPrefix + "config-llm-template"
 	// Disaggregated prefill/decode templates
-	configDecodeTemplateName                = configPrefix + "config-llm-decode-template"
-	configPrefillTemplateName               = configPrefix + "config-llm-prefill-template"
+	configDecodeTemplateName  = configPrefix + "config-llm-decode-template"
+	configPrefillTemplateName = configPrefix + "config-llm-prefill-template"
 	// Pipeline parallel worker configurations
 	configDecodeWorkerPipelineParallelName  = configPrefix + "config-llm-decode-worker-pipeline-parallel"
 	configWorkerPipelineParallelName        = configPrefix + "config-llm-worker-pipeline-parallel"
 	configPrefillWorkerPipelineParallelName = configPrefix + "config-llm-prefill-worker-pipeline-parallel"
 	// Data parallel worker configurations
-	configWorkerDataParallelName            = configPrefix + "config-llm-worker-data-parallel"
-	configDecodeWorkerDataParallelName      = configPrefix + "config-llm-decode-worker-data-parallel"
-	configPrefillWorkerDataParallelName     = configPrefix + "config-llm-prefill-worker-data-parallel"
+	configWorkerDataParallelName        = configPrefix + "config-llm-worker-data-parallel"
+	configDecodeWorkerDataParallelName  = configPrefix + "config-llm-decode-worker-data-parallel"
+	configPrefillWorkerDataParallelName = configPrefix + "config-llm-prefill-worker-data-parallel"
 	// Router and scheduler configurations
-	configRouterSchedulerName               = configPrefix + "config-llm-scheduler"
-	configRouterRouteName                   = configPrefix + "config-llm-router-route"
+	configRouterSchedulerName = configPrefix + "config-llm-scheduler"
+	configRouterRouteName     = configPrefix + "config-llm-router-route"
 )
 
 // FIXME move those presets to well-known when they're finally known :)
@@ -159,7 +159,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		llmSvcCfg.Spec.Router.Scheduler.Pool != nil &&
 		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec != nil &&
 		len(llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.Selector) == 0 {
-		selector := getInferencePoolWorkloadLabelSelector(llmSvc.ObjectMeta, &llmSvcCfg.Spec)
+		selector := GetWorkloadLabelSelector(llmSvc.ObjectMeta, &llmSvcCfg.Spec)
 
 		gieSelector := make(map[igwapi.LabelKey]igwapi.LabelValue, len(selector))
 		for k, v := range selector {

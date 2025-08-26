@@ -1537,7 +1537,7 @@ func validateOciStorageForPodSpec(podSpec *corev1.PodSpec) {
 
 	// Check the model server has an envvar indicating that the model may not be mounted immediately.
 	Expect(mainContainer.Env).To(ContainElement(And(
-		HaveField("Name", constants.ModelInitModeEnv),
+		HaveField("Name", constants.ModelInitModeEnvVarKey),
 		HaveField("Value", "async"),
 	)))
 

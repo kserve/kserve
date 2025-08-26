@@ -20,7 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
-	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
@@ -85,7 +85,7 @@ func WithHTTPRouteRefs(refs ...corev1.LocalObjectReference) LLMInferenceServiceO
 	}
 }
 
-func WithHTTPRouteSpec(spec *gatewayapiv1.HTTPRouteSpec) LLMInferenceServiceOption {
+func WithHTTPRouteSpec(spec *gwapiv1.HTTPRouteSpec) LLMInferenceServiceOption {
 	return func(llmSvc *v1alpha1.LLMInferenceService) {
 		if llmSvc.Spec.Router == nil {
 			llmSvc.Spec.Router = &v1alpha1.RouterSpec{}
@@ -124,8 +124,8 @@ func WithManagedRoute() LLMInferenceServiceOption {
 
 func LLMGatewayRef(name, namespace string) v1alpha1.UntypedObjectReference {
 	return v1alpha1.UntypedObjectReference{
-		Name:      gatewayapiv1.ObjectName(name),
-		Namespace: gatewayapiv1.Namespace(namespace),
+		Name:      gwapiv1.ObjectName(name),
+		Namespace: gwapiv1.Namespace(namespace),
 	}
 }
 

@@ -25,25 +25,25 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/onsi/gomega/types"
-	gatewayapi "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // extractHTTPRoute safely extracts HTTPRoute from either pointer or value type
-func extractHTTPRoute(actual any) (*gatewayapi.HTTPRoute, error) {
+func extractHTTPRoute(actual any) (*gwapiv1.HTTPRoute, error) {
 	switch v := actual.(type) {
-	case gatewayapi.HTTPRouteSpec:
-		return &gatewayapi.HTTPRoute{Spec: v}, nil
-	case *gatewayapi.HTTPRouteSpec:
+	case gwapiv1.HTTPRouteSpec:
+		return &gwapiv1.HTTPRoute{Spec: v}, nil
+	case *gwapiv1.HTTPRouteSpec:
 		if v == nil {
 			return nil, errors.New("expected non-nil gatewayapi.HTTPRouteSpec, but got nil")
 		}
-		return &gatewayapi.HTTPRoute{Spec: *v}, nil
-	case *gatewayapi.HTTPRoute:
+		return &gwapiv1.HTTPRoute{Spec: *v}, nil
+	case *gwapiv1.HTTPRoute:
 		if v == nil {
 			return nil, errors.New("expected non-nil gatewayapi.HTTPRoute, but got nil")
 		}
 		return v, nil
-	case gatewayapi.HTTPRoute:
+	case gwapiv1.HTTPRoute:
 		return &v, nil
 	default:
 		return nil, fmt.Errorf("expected gatewayapi.HTTPRoute gatewayapi.HTTPRouteSpec, but got %T", actual)
@@ -51,15 +51,15 @@ func extractHTTPRoute(actual any) (*gatewayapi.HTTPRoute, error) {
 }
 
 // HaveGatewayRefs returns a matcher that checks if an HTTPRoute has the specified gateway parent refs
-func HaveGatewayRefs(expectedGateways ...gatewayapi.ParentReference) types.GomegaMatcher {
+func HaveGatewayRefs(expectedGateways ...gwapiv1.ParentReference) types.GomegaMatcher {
 	return &haveGatewayRefsMatcher{
 		expectedGatewayNames: expectedGateways,
 	}
 }
 
 type haveGatewayRefsMatcher struct {
-	expectedGatewayNames []gatewayapi.ParentReference
-	actualParentRefs     []gatewayapi.ParentReference
+	expectedGatewayNames []gwapiv1.ParentReference
+	actualParentRefs     []gwapiv1.ParentReference
 	actualGatewayNames   []string
 }
 
@@ -71,7 +71,7 @@ func (matcher *haveGatewayRefsMatcher) Match(actual any) (success bool, err erro
 
 	matcher.actualParentRefs = httpRoute.Spec.ParentRefs
 
-	expectedSet := make(map[string]gatewayapi.ParentReference)
+	expectedSet := make(map[string]gwapiv1.ParentReference)
 	for _, ref := range matcher.expectedGatewayNames {
 		expectedSet[string(ref.Name)] = ref
 	}
@@ -101,15 +101,15 @@ func (matcher *haveGatewayRefsMatcher) NegatedFailureMessage(actual any) string 
 }
 
 // HaveBackendRefs returns a matcher that checks if an HTTPRoute has the specified backend refs.
-func HaveBackendRefs(backends ...gatewayapi.HTTPBackendRef) types.GomegaMatcher {
+func HaveBackendRefs(backends ...gwapiv1.HTTPBackendRef) types.GomegaMatcher {
 	return &haveBackendRefsMatcher{
 		expectedBackendRefs: backends,
 	}
 }
 
 type haveBackendRefsMatcher struct {
-	expectedBackendRefs []gatewayapi.HTTPBackendRef
-	actualBackendRefs   []gatewayapi.HTTPBackendRef
+	expectedBackendRefs []gwapiv1.HTTPBackendRef
+	actualBackendRefs   []gwapiv1.HTTPBackendRef
 }
 
 func (matcher *haveBackendRefsMatcher) Match(actual any) (success bool, err error) {

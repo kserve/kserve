@@ -25,7 +25,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	gatewayapi "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
@@ -119,7 +119,7 @@ func (r *LLMISVCReconciler) validateGatewayReferences(ctx context.Context, llmSv
 	var missingGateways []string
 
 	for _, ref := range llmSvc.Spec.Router.Gateway.Refs {
-		gateway := &gatewayapi.Gateway{}
+		gateway := &gwapiv1.Gateway{}
 		gatewayKey := types.NamespacedName{
 			Name:      string(ref.Name),
 			Namespace: string(ref.Namespace),
@@ -158,7 +158,7 @@ func (r *LLMISVCReconciler) validateHTTPRouteReferences(ctx context.Context, llm
 	var missingRoutes []string
 
 	for _, routeRef := range llmSvc.Spec.Router.Route.HTTP.Refs {
-		route := &gatewayapi.HTTPRoute{}
+		route := &gwapiv1.HTTPRoute{}
 		if err := r.Client.Get(ctx, types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: routeRef.Name}, route); err != nil {
 			if apierrors.IsNotFound(err) {
 				missingRoutes = append(missingRoutes, fmt.Sprintf("HTTPRoute %s/%s does not exist", llmSvc.GetNamespace(), routeRef.Name))
@@ -177,7 +177,7 @@ func (r *LLMISVCReconciler) validateHTTPRouteReferences(ctx context.Context, llm
 }
 
 // validateHTTPRouteTargets checks if referenced HTTPRoutes properly target the inference service
-func (r *LLMISVCReconciler) validateHTTPRouteTargets(ctx context.Context, routes []*gatewayapi.HTTPRoute) error {
+func (r *LLMISVCReconciler) validateHTTPRouteTargets(ctx context.Context, routes []*gwapiv1.HTTPRoute) error {
 	logger := log.FromContext(ctx).WithName("validateHTTPRouteTargets")
 
 	var targetErrors []string
@@ -199,7 +199,7 @@ func (r *LLMISVCReconciler) validateHTTPRouteTargets(ctx context.Context, routes
 				gatewayKey.Namespace = route.Namespace
 			}
 
-			gateway := &gatewayapi.Gateway{}
+			gateway := &gwapiv1.Gateway{}
 			err := r.Client.Get(ctx, gatewayKey, gateway)
 			if err != nil {
 				if apierrors.IsNotFound(err) {
@@ -243,7 +243,7 @@ func (r *LLMISVCReconciler) validateManagedHTTPRouteSpec(ctx context.Context, ll
 			gatewayKey.Namespace = llmSvc.GetNamespace()
 		}
 
-		gateway := &gatewayapi.Gateway{}
+		gateway := &gwapiv1.Gateway{}
 		err := r.Client.Get(ctx, gatewayKey, gateway)
 		if err != nil {
 			if apierrors.IsNotFound(err) {

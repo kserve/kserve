@@ -34,7 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
-	gatewayapi "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -109,13 +109,13 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 
 	route := llmSvc.Spec.Router.Route
 
-	// If using custom routes via refs, delete our our own
+	// If using custom routes via refs, delete our own
 	if route.HTTP.HasRefs() {
 		return Delete(ctx, r, llmSvc, expectedHTTPRoute)
 	}
 
 	if route.HTTP.HasSpec() {
-		if err := Reconcile(ctx, r, llmSvc, &gatewayapi.HTTPRoute{}, expectedHTTPRoute, semanticHTTPRouteIsEqual); err != nil {
+		if err := Reconcile(ctx, r, llmSvc, &gwapiv1.HTTPRoute{}, expectedHTTPRoute, semanticHTTPRouteIsEqual); err != nil {
 			return fmt.Errorf("failed to reconcile HTTPRoute %s/%s: %w", expectedHTTPRoute.GetNamespace(), expectedHTTPRoute.GetName(), err)
 		}
 		referencedRoutes = append(referencedRoutes, expectedHTTPRoute)
@@ -126,16 +126,16 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 
 // collectReferencedRoutes gathers all HTTPRoutes referenced by the service
 // This is used for status updates and condition evaluation
-func (r *LLMISVCReconciler) collectReferencedRoutes(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) ([]*gatewayapi.HTTPRoute, error) {
+func (r *LLMISVCReconciler) collectReferencedRoutes(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) ([]*gwapiv1.HTTPRoute, error) {
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil || !llmSvc.Spec.Router.Route.HTTP.HasRefs() {
 		return nil, nil
 	}
 
-	referencedRoutes := make([]*gatewayapi.HTTPRoute, 0, len(llmSvc.Spec.Router.Route.HTTP.Refs))
+	referencedRoutes := make([]*gwapiv1.HTTPRoute, 0, len(llmSvc.Spec.Router.Route.HTTP.Refs))
 
 	// Fetch each referenced route
 	for _, routeRef := range llmSvc.Spec.Router.Route.HTTP.Refs {
-		route := &gatewayapi.HTTPRoute{}
+		route := &gwapiv1.HTTPRoute{}
 		if err := r.Client.Get(ctx, types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: routeRef.Name}, route); err != nil {
 			if apierrors.IsNotFound(err) {
 				// Skip missing routes - validation is handled separately
@@ -152,8 +152,8 @@ func (r *LLMISVCReconciler) collectReferencedRoutes(ctx context.Context, llmSvc 
 
 // expectedHTTPRoute creates the HTTPRoute specification for this service
 // This route is created when the service specifies inline routing configuration
-func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *gatewayapi.HTTPRoute {
-	httpRoute := &gatewayapi.HTTPRoute{
+func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *gwapiv1.HTTPRoute {
+	httpRoute := &gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-route"),
 			Namespace: llmSvc.GetNamespace(),
@@ -173,7 +173,7 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 
 		// If Gateway is not managed (has .refs), re-attach the expected route to the referenced gateways
 		if llmSvc.Spec.Router.Gateway.HasRefs() {
-			httpRoute.Spec.CommonRouteSpec.ParentRefs = make([]gatewayapi.ParentReference, 0, len(llmSvc.Spec.Router.Gateway.Refs))
+			httpRoute.Spec.CommonRouteSpec.ParentRefs = make([]gwapiv1.ParentReference, 0, len(llmSvc.Spec.Router.Gateway.Refs))
 			for _, ref := range llmSvc.Spec.Router.Gateway.Refs {
 				httpRoute.Spec.CommonRouteSpec.ParentRefs = append(httpRoute.Spec.CommonRouteSpec.ParentRefs, toGatewayRef(ref))
 			}
@@ -183,7 +183,7 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 	return httpRoute
 }
 
-func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, routes ...*gatewayapi.HTTPRoute) error {
+func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, routes ...*gwapiv1.HTTPRoute) error {
 	logger := log.FromContext(ctx)
 
 	var urls []*apis.URL
@@ -218,14 +218,14 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 	return nil
 }
 
-func toGatewayRef(ref v1alpha1.UntypedObjectReference) gatewayapi.ParentReference {
-	return gatewayapi.ParentReference{
+func toGatewayRef(ref v1alpha1.UntypedObjectReference) gwapiv1.ParentReference {
+	return gwapiv1.ParentReference{
 		// TODO(api): With this structure we are missing the ability to narrow a section of targeted gateway by the route we are creating
 		// missing SectionName and Port will implicitly bind the route to the first listener in the parent
 		Name:      ref.Name,
 		Namespace: &ref.Namespace,
-		Group:     ptr.To(gatewayapi.Group("gateway.networking.k8s.io")),
-		Kind:      ptr.To(gatewayapi.Kind("Gateway")),
+		Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+		Kind:      ptr.To(gwapiv1.Kind("Gateway")),
 	}
 }
 
@@ -237,7 +237,7 @@ func RouterLabels(llmSvc *v1alpha1.LLMInferenceService) map[string]string {
 	}
 }
 
-func semanticHTTPRouteIsEqual(e *gatewayapi.HTTPRoute, c *gatewayapi.HTTPRoute) bool {
+func semanticHTTPRouteIsEqual(e *gwapiv1.HTTPRoute, c *gwapiv1.HTTPRoute) bool {
 	return equality.Semantic.DeepDerivative(e.Spec, c.Spec) &&
 		equality.Semantic.DeepDerivative(e.Labels, c.Labels) &&
 		equality.Semantic.DeepDerivative(e.Annotations, c.Annotations)
@@ -284,13 +284,13 @@ func (r *LLMISVCReconciler) EvaluateGatewayConditions(ctx context.Context, llmSv
 }
 
 // CollectReferencedGateways retrieves all Gateway objects referenced in the LLMInferenceService spec
-func (r *LLMISVCReconciler) CollectReferencedGateways(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) ([]*gatewayapi.Gateway, error) {
+func (r *LLMISVCReconciler) CollectReferencedGateways(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) ([]*gwapiv1.Gateway, error) {
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Gateway == nil || !llmSvc.Spec.Router.Gateway.HasRefs() {
 		return nil, nil
 	}
 
 	// Use a map to ensure gateways are not repeated (keyed by namespace/name)
-	gatewayMap := make(map[string]*gatewayapi.Gateway)
+	gatewayMap := make(map[string]*gwapiv1.Gateway)
 	routes, err := r.collectReferencedRoutes(ctx, llmSvc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect referenced routes: %w", err)
@@ -307,7 +307,7 @@ func (r *LLMISVCReconciler) CollectReferencedGateways(ctx context.Context, llmSv
 	}
 
 	for _, ref := range llmSvc.Spec.Router.Gateway.Refs {
-		gateway := &gatewayapi.Gateway{}
+		gateway := &gwapiv1.Gateway{}
 		gatewayKey := types.NamespacedName{
 			Name:      string(ref.Name),
 			Namespace: string(ref.Namespace),
@@ -328,7 +328,7 @@ func (r *LLMISVCReconciler) CollectReferencedGateways(ctx context.Context, llmSv
 	}
 
 	// Convert map values to slice
-	gateways := make([]*gatewayapi.Gateway, 0, len(gatewayMap))
+	gateways := make([]*gwapiv1.Gateway, 0, len(gatewayMap))
 	for _, gw := range gatewayMap {
 		gateways = append(gateways, gw)
 	}
@@ -356,7 +356,7 @@ func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llm
 	}
 
 	// Collect all HTTPRoutes (both referenced and managed)
-	var allRoutes []*gatewayapi.HTTPRoute
+	var allRoutes []*gwapiv1.HTTPRoute
 
 	// Get referenced routes
 	referencedRoutes, err := r.collectReferencedRoutes(ctx, llmSvc)
@@ -370,7 +370,7 @@ func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llm
 	if llmSvc.Spec.Router.Route.HTTP.HasSpec() {
 		expectedHTTPRoute := r.expectedHTTPRoute(ctx, llmSvc)
 		// Try to get the actual managed route from the cluster
-		managedRoute := &gatewayapi.HTTPRoute{}
+		managedRoute := &gwapiv1.HTTPRoute{}
 		if err := r.Client.Get(ctx, types.NamespacedName{
 			Namespace: expectedHTTPRoute.Namespace,
 			Name:      expectedHTTPRoute.Name,

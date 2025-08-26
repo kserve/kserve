@@ -29,8 +29,8 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/llmisvc"
-	"github.com/kserve/kserve/pkg/controller/llmisvc/validation"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc/validation"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,7 +53,7 @@ func SetupTestEnv() *pkgtest.Client {
 		clientSet, err := kubernetes.NewForConfig(cfg)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		llmCtrl := llmisvc.LLMInferenceServiceReconciler{
+		llmCtrl := llmisvc.LLMISVCReconciler{
 			Client:    mgr.GetClient(),
 			Clientset: clientSet,
 			// TODO fix it to be set up similar to main.go, for now it's stub
