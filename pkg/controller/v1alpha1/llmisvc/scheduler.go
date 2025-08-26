@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2023 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -61,11 +61,9 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 	return nil
 }
 
-// reconcileSchedulerAuthDelegatorBinding reconciles the auth-delegator role binding associated with the scheduler's service account.
-// This role binding allows the scheduler's service account to perform authentication and authorization checks.
 func (r *LLMISVCReconciler) reconcileSchedulerAuthDelegatorBinding(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount) error {
 	authDelegatorBinding := r.expectedSchedulerAuthDelegatorBinding(llmSvc, sa)
-	if !llmSvc.DeletionTimestamp.IsZero() || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
+	if !llmSvc.DeletionTimestamp.IsZero() || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		return Delete(ctx, r, llmSvc, authDelegatorBinding)
 	}
 
@@ -78,7 +76,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerAuthDelegatorBinding(ctx context.C
 
 func (r *LLMISVCReconciler) reconcileSchedulerRole(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	role := r.expectedSchedulerRole(llmSvc)
-	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		return Delete(ctx, r, llmSvc, role)
 	}
 	if err := Reconcile(ctx, r, llmSvc, &rbacv1.Role{}, role, semanticRoleIsEqual); err != nil {
@@ -90,7 +88,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerRole(ctx context.Context, llmSvc *
 
 func (r *LLMISVCReconciler) reconcileSchedulerRoleBinding(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount) error {
 	roleBinding := r.expectedSchedulerRoleBinding(llmSvc, sa)
-	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		return Delete(ctx, r, llmSvc, roleBinding)
 	}
 
@@ -108,7 +106,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerServiceAccount(ctx context.Context
 		return r.reconcileSchedulerAuthDelegatorBinding(ctx, llmSvc, serviceAccount)
 	}
 
-	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		return Delete(ctx, r, llmSvc, serviceAccount)
 	}
 
@@ -129,7 +127,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerServiceAccount(ctx context.Context
 
 func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	scheduler := r.expectedSchedulerDeployment(ctx, llmSvc)
-	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		return Delete(ctx, r, llmSvc, scheduler)
 	}
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, scheduler, semanticDeploymentIsEqual); err != nil {
@@ -140,7 +138,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, ll
 
 func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	expected := r.expectedSchedulerInferencePool(ctx, llmSvc)
-	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		return Delete(ctx, r, llmSvc, expected)
 	}
 
@@ -153,7 +151,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context,
 
 func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	expected := r.expectedSchedulerService(ctx, llmSvc)
-	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil {
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		return Delete(ctx, r, llmSvc, expected)
 	}
 
@@ -166,7 +164,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSv
 
 func (r *LLMISVCReconciler) reconcileSchedulerInferenceModel(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	expected := r.expectedSchedulerInferenceModel(ctx, llmSvc)
-	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		return Delete(ctx, r, llmSvc, expected)
 	}
 
@@ -183,17 +181,17 @@ func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      llmSvc.Spec.Router.EPPServiceName(llmSvc),
 			Namespace: llmSvc.GetNamespace(),
-			Labels:    r.schedulerLabels(llmSvc),
+			Labels:    SchedulerLabels(llmSvc),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha1.LLMInferenceServiceGVK),
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: r.schedulerLabels(llmSvc),
+			Selector: SchedulerLabels(llmSvc),
 		},
 	}
 
-	if llmSvc.Spec.Router.HasSchedulerTemplate() {
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
 		podSpec := llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
 
 		desiredPorts := sets.New("grpc", "grpc-health", "metrics")
@@ -235,7 +233,7 @@ func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *igwapi.InferencePool {
-	labels := r.schedulerLabels(llmSvc)
+	labels := SchedulerLabels(llmSvc)
 
 	ip := &igwapi.InferencePool{
 		ObjectMeta: metav1.ObjectMeta{
@@ -257,11 +255,11 @@ func (r *LLMISVCReconciler) expectedSchedulerInferencePool(ctx context.Context, 
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerInferenceModel(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *igwapi.InferenceModel {
-	labels := r.schedulerLabels(llmSvc)
+	labels := SchedulerLabels(llmSvc)
 
 	im := &igwapi.InferenceModel{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      v1alpha1.InferenceModelName(llmSvc),
+			Name:      kmeta.ChildName(llmSvc.GetName(), "-inference-model"),
 			Namespace: llmSvc.GetNamespace(),
 			Labels:    labels,
 			OwnerReferences: []metav1.OwnerReference{
@@ -273,7 +271,7 @@ func (r *LLMISVCReconciler) expectedSchedulerInferenceModel(ctx context.Context,
 			PoolRef: igwapi.PoolObjectReference{
 				Group: "inference.networking.x-k8s.io",
 				Kind:  "InferencePool",
-				Name:  igwapi.ObjectName(llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc)),
+				Name:  igwapi.ObjectName(kmeta.ChildName(llmSvc.GetName(), "-inference-pool")),
 			},
 			Criticality: llmSvc.Spec.Model.Criticality,
 		},
@@ -288,7 +286,7 @@ func (r *LLMISVCReconciler) expectedSchedulerInferenceModel(ctx context.Context,
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *appsv1.Deployment {
-	labels := r.schedulerLabels(llmSvc)
+	labels := SchedulerLabels(llmSvc)
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-router-scheduler"),
@@ -310,7 +308,7 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		},
 	}
 
-	if llmSvc.Spec.Router.HasSchedulerTemplate() {
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
 		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
 		for i := range d.Spec.Template.Spec.Containers {
 			if d.Spec.Template.Spec.Containers[i].Name != "main" {
@@ -400,7 +398,7 @@ func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(llmSvc *v1alpha1.LLM
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha1.LLMInferenceServiceGVK),
 			},
-			Labels: r.schedulerLabels(llmSvc),
+			Labels: SchedulerLabels(llmSvc),
 		},
 	}
 
@@ -418,7 +416,7 @@ func (r *LLMISVCReconciler) expectedSchedulerAuthDelegatorBinding(llmSvc *v1alph
 	crb := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   kmeta.ChildName(llmSvc.GetNamespace(), "-"+llmSvc.GetName()+"-epp-auth-rb"),
-			Labels: r.schedulerLabels(llmSvc),
+			Labels: SchedulerLabels(llmSvc),
 		},
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
@@ -442,7 +440,7 @@ func (r *LLMISVCReconciler) expectedSchedulerRole(llmSvc *v1alpha1.LLMInferenceS
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha1.LLMInferenceServiceGVK),
 			},
-			Labels: r.schedulerLabels(llmSvc),
+			Labels: SchedulerLabels(llmSvc),
 		},
 		Rules: []rbacv1.PolicyRule{
 			{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list", "watch"}},
@@ -461,7 +459,7 @@ func (r *LLMISVCReconciler) expectedSchedulerRoleBinding(llmSvc *v1alpha1.LLMInf
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha1.LLMInferenceServiceGVK),
 			},
-			Labels: r.schedulerLabels(llmSvc),
+			Labels: SchedulerLabels(llmSvc),
 		},
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
@@ -522,7 +520,7 @@ func semanticRoleBindingIsEqual(expected *rbacv1.RoleBinding, curr *rbacv1.RoleB
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }
 
-func (r *LLMISVCReconciler) schedulerLabels(llmSvc *v1alpha1.LLMInferenceService) map[string]string {
+func SchedulerLabels(llmSvc *v1alpha1.LLMInferenceService) map[string]string {
 	return map[string]string{
 		"app.kubernetes.io/component": "llminferenceservice-router-scheduler",
 		"app.kubernetes.io/name":      llmSvc.GetName(),
