@@ -142,11 +142,6 @@ type RawDeploymentRolloutStrategy struct {
 
 // RolloutSpec defines the rollout strategy configuration using Kubernetes deployment strategy
 type RolloutSpec struct {
-	// Mode specifies the rollout strategy mode. Valid values are "Availability" and "ResourceAware".
-	// Availability mode: prioritizes service availability during rollouts (maxUnavailable=0, maxSurge=configured value)
-	// ResourceAware mode: prioritizes resource efficiency during rollouts (maxSurge=0, maxUnavailable=configured value)
-	// +kubebuilder:validation:Enum=Availability;ResourceAware
-	Mode string `json:"mode"`
 	// MaxSurge specifies the maximum number of pods that can be created above the desired replica count.
 	// Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).
 	MaxSurge string `json:"maxSurge"`
@@ -154,14 +149,6 @@ type RolloutSpec struct {
 	// Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).
 	MaxUnavailable string `json:"maxUnavailable"`
 }
-
-// RolloutStrategyMode constants
-const (
-	// RolloutStrategyAvailability means the deployment will roll out by launching new pods first and terminating the old ones
-	RolloutStrategyAvailability = "Availability"
-	// RolloutStrategyResourceAware means the deployment will roll out by terminating old pods first and launching new ones
-	RolloutStrategyResourceAware = "ResourceAware"
-)
 
 // +kubebuilder:object:generate=false
 type LocalModelConfig struct {

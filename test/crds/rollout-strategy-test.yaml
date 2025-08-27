@@ -11,7 +11,7 @@ spec:
       modelFormat:
         name: sklearn
       storageUri: "s3://test-bucket/model"
-    # Test high availability deployment strategy
+    # Test Availability Mode deployment strategy (zero downtime)
     deploymentStrategy:
       type: RollingUpdate
       rollingUpdate:
@@ -22,7 +22,7 @@ spec:
     custom:
       container:
         image: test-transformer:latest
-    # Test resource-efficient deployment strategy
+    # Test ResourceAware Mode deployment strategy (resource efficient)
     deploymentStrategy:
       type: RollingUpdate
       rollingUpdate:

@@ -21,22 +21,24 @@ The `ComponentExtensionSpec` supports two approaches for rollout strategy config
 
 ## RolloutSpec (ConfigMap Configuration)
 
-Defines the rollout strategy configuration for ConfigMap defaults.
+Defines the rollout strategy configuration for ConfigMap defaults. Users can configure different rollout modes by setting appropriate `maxSurge` and `maxUnavailable` values:
+
+**Availability Mode (Zero Downtime)**:
+- Set `maxUnavailable: "0"` and `maxSurge` to desired value/percentage
+- New pods are created before old pods are terminated
+
+**ResourceAware Mode (Resource Efficient)**:
+- Set `maxSurge: "0"` and `maxUnavailable` to desired value/percentage  
+- Old pods are terminated before new pods are created
 
 ### Fields
 
 | Field | Type | Description | Required | Default |
 |-------|------|-------------|----------|---------|
-| `mode` | `string` | Rollout strategy mode. Valid values: `"Availability"`, `"ResourceAware"` | Yes | - |
 | `maxSurge` | `string` | Maximum number of pods that can be created above desired replica count (e.g., `"1"`, `"25%"`) | Yes | - |
 | `maxUnavailable` | `string` | Maximum number of pods that can be unavailable during update (e.g., `"1"`, `"25%"`) | Yes | - |
 
-### Mode Values
 
-- **`Availability`**: Prioritizes service availability during rollouts
-  - Sets `maxUnavailable=0`, `maxSurge=<configured value>`
-- **`ResourceAware`**: Prioritizes resource efficiency during rollouts
-  - Sets `maxSurge=0`, `maxUnavailable=<configured value>`
 
 ## DeployConfig
 
@@ -72,9 +74,8 @@ data:
       "defaultDeploymentMode": "RawDeployment",
       "rawDeploymentRolloutStrategy": {
         "defaultRollout": {
-          "mode": "Availability",
-          "maxSurge": "1",
-          "maxUnavailable": "1"
+          "maxSurge": "1",        # For Availability mode: set maxUnavailable: "0" 
+          "maxUnavailable": "1"   # For ResourceAware mode: set maxSurge: "0"
         }
       }
     }
@@ -82,11 +83,12 @@ data:
 
 ## Example InferenceService (Direct DeploymentStrategy)
 
+### Availability Mode Example:
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: example
+  name: availability-mode-example
   annotations:
     serving.kserve.io/deploymentMode: "RawDeployment"
 spec:
@@ -95,11 +97,34 @@ spec:
       modelFormat:
         name: sklearn
       storageUri: "s3://my-bucket/model"
+    # Availability mode: maxUnavailable = 0, maxSurge = desired value
     deploymentStrategy:
       type: RollingUpdate
       rollingUpdate:
-        maxUnavailable: "0"
-        maxSurge: "1"
+        maxUnavailable: "0"    # Zero downtime
+        maxSurge: "1"          # Allow one extra pod
+```
+
+### ResourceAware Mode Example:
+```yaml
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: resource-aware-example
+  annotations:
+    serving.kserve.io/deploymentMode: "RawDeployment"
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: sklearn
+      storageUri: "s3://my-bucket/model"
+    # ResourceAware mode: maxSurge = 0, maxUnavailable = desired value
+    deploymentStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: "0"          # Resource efficient
+        maxUnavailable: "1"    # Allow one pod unavailable
 ```
 
 ## Example InferenceService (Using ConfigMap Defaults)
@@ -123,11 +148,10 @@ spec:
 ## Validation Rules
 
 ### For ConfigMap Configuration:
-1. **Mode Validation**: Must be exactly `"Availability"` or `"ResourceAware"` (case-sensitive)
-2. **maxSurge Validation**: Must be a valid number or percentage string
+1. **maxSurge Validation**: Must be a valid number or percentage string
    - Valid percentages: `"25%"`, `"50%"`, `"100%"`
    - Valid numbers: `"1"`, `"2"`, `"5"`
-3. **maxUnavailable Validation**: Same format as maxSurge
+2. **maxUnavailable Validation**: Same format as maxSurge
 
 ### For Direct DeploymentStrategy:
 1. **type**: Must be `"RollingUpdate"`

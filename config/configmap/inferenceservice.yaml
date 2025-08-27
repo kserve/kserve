@@ -537,46 +537,41 @@ data:
            "imagePullSecrets": ["docker-secret"]
        }
      
-     # ====================================== DEPLOYMENT CONFIGURATION ======================================
-     # Example
-     deploy: |-
-       {
-         "defaultDeploymentMode": "RawDeployment",
-         "rawDeploymentRolloutStrategy": {
-           "defaultRollout": {
-             "mode": "Availability",
-             "maxSurge": "1",
-             "maxUnavailable": "1"
-           }
-         }
-       }
+    # ====================================== DEPLOYMENT CONFIGURATION ======================================
+    # Example
+    deploy: |-
+      {
+        "defaultDeploymentMode": "RawDeployment",
+        "rawDeploymentRolloutStrategy": {
+          "defaultRollout": {
+            "maxSurge": "1",
+            "maxUnavailable": "1"
+          }
+        }
+      }
 
-     deploy: |-
-       {
-         # defaultDeploymentMode specifies the default deployment mode of the kserve. The supported values are
-         # Serverless, RawDeployment and ModelMesh. Users can override the deployment mode at service level
-         # by adding the annotation serving.kserve.io/deploymentMode.For more info on deployment mode visit
-         # Serverless https://kserve.github.io/website/master/admin/serverless/serverless/
-         # RawDeployment https://kserve.github.io/website/master/admin/kubernetes_deployment/
-         # ModelMesh https://kserve.github.io/website/master/admin/modelmesh/
-         "defaultDeploymentMode": "RawDeployment",
-         # rawDeploymentRolloutStrategy specifies the default rollout strategy for raw deployments
-         "rawDeploymentRolloutStrategy": {
-           # defaultRollout specifies the default rollout configuration using Kubernetes deployment strategy
-           "defaultRollout": {
-             # mode specifies the rollout strategy mode. Valid values are "Availability" and "ResourceAware"
-             # Availability mode: prioritizes service availability during rollouts
-             # ResourceAware mode: prioritizes resource efficiency during rollouts
-             "mode": "Availability",
-             # maxSurge specifies the maximum number of pods that can be created above the desired replica count
-             # Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%)
-             "maxSurge": "1",
-             # maxUnavailable specifies the maximum number of pods that can be unavailable during the update
-             # Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%)
-             "maxUnavailable": "1"
-           }
-         }
-       }
+    deploy: |-
+      {
+        # defaultDeploymentMode specifies the default deployment mode of the kserve. The supported values are
+        # Serverless, RawDeployment and ModelMesh. Users can override the deployment mode at service level
+        # by adding the annotation serving.kserve.io/deploymentMode.For more info on deployment mode visit
+        # Serverless https://kserve.github.io/website/master/admin/serverless/serverless/
+        # RawDeployment https://kserve.github.io/website/master/admin/kubernetes_deployment/
+        # ModelMesh https://kserve.github.io/website/master/admin/modelmesh/
+        # "defaultDeploymentMode": "RawDeployment",
+        # rawDeploymentRolloutStrategy specifies the default rollout strategy for raw deployments
+        # "rawDeploymentRolloutStrategy": {
+          # defaultRollout specifies the default rollout configuration using Kubernetes deployment strategy
+          # "defaultRollout": {
+            # maxSurge specifies the maximum number of pods that can be created above the desired replica count
+            # Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%)
+            # "maxSurge": "1",
+            # maxUnavailable specifies the maximum number of pods that can be unavailable during the update
+            # Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%)
+            # "maxUnavailable": "1"
+          # }
+        # }
+      }
 
      # ====================================== SERVICE CONFIGURATION ======================================
      # Example

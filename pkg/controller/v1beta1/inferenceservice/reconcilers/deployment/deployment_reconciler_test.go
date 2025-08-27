@@ -1278,101 +1278,63 @@ func TestApplyRolloutStrategyFromConfigmap(t *testing.T) {
 	tests := []struct {
 		name                   string
 		deployConfig           *v1beta1.DeployConfig
-		inputSpec              *appsv1.DeploymentSpec
 		expectedMaxSurge       *intstr.IntOrString
 		expectedMaxUnavailable *intstr.IntOrString
-		description            string
 	}{
 		{
-			name: "Availability mode with RawDeployment",
+			name: "Apply rollout strategy with RawDeployment mode",
 			deployConfig: &v1beta1.DeployConfig{
 				DefaultDeploymentMode: "RawDeployment",
 				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
 					DefaultRollout: &v1beta1.RolloutSpec{
-						Mode:           v1beta1.RolloutStrategyAvailability,
 						MaxSurge:       "1",
 						MaxUnavailable: "1",
 					},
 				},
 			},
-			inputSpec:              &appsv1.DeploymentSpec{},
 			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "1"},
-			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "0"},
-			description:            "Availability mode should set maxUnavailable=0 and maxSurge=configured value",
-		},
-		{
-			name: "ResourceAware mode with RawDeployment",
-			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode: "RawDeployment",
-				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
-					DefaultRollout: &v1beta1.RolloutSpec{
-						Mode:           v1beta1.RolloutStrategyResourceAware,
-						MaxSurge:       "1",
-						MaxUnavailable: "1",
-					},
-				},
-			},
-			inputSpec:              &appsv1.DeploymentSpec{},
-			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "0"},
 			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "1"},
-			description:            "ResourceAware mode should set maxSurge=0 and maxUnavailable=configured value",
 		},
 		{
-			name: "Serverless deployment mode should not apply rollout strategy",
+			name: "No rollout strategy applied for Serverless mode",
 			deployConfig: &v1beta1.DeployConfig{
 				DefaultDeploymentMode: "Serverless",
 				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
 					DefaultRollout: &v1beta1.RolloutSpec{
-						Mode:           v1beta1.RolloutStrategyAvailability,
-						MaxSurge:       "1",
-						MaxUnavailable: "1",
+						MaxSurge:       "50%",
+						MaxUnavailable: "25%",
 					},
 				},
 			},
-			inputSpec:              &appsv1.DeploymentSpec{},
-			expectedMaxSurge:       nil,
-			expectedMaxUnavailable: nil,
-			description:            "Serverless mode should not apply rollout strategy",
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "25%"}, // Default value
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "25%"}, // Default value
 		},
 		{
-			name: "No rollout strategy configured",
-			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode: "RawDeployment",
-			},
-			inputSpec:              &appsv1.DeploymentSpec{},
-			expectedMaxSurge:       nil,
-			expectedMaxUnavailable: nil,
-			description:            "No rollout strategy should result in no changes",
-		},
-		{
-			name:                   "Nil deploy config",
+			name:                   "No rollout strategy configured",
 			deployConfig:           nil,
-			inputSpec:              &appsv1.DeploymentSpec{},
-			expectedMaxSurge:       nil,
-			expectedMaxUnavailable: nil,
-			description:            "Nil config should result in no changes",
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "25%"}, // Default value
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "25%"}, // Default value
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Apply the rollout strategy
-			applyRolloutStrategyFromConfigmap(tt.inputSpec, tt.deployConfig)
-
-			// Check if strategy was applied correctly
-			if tt.expectedMaxSurge == nil && tt.expectedMaxUnavailable == nil {
-				// No rollout strategy should be applied
-				if tt.inputSpec.Strategy.RollingUpdate != nil {
-					assert.Nil(t, tt.inputSpec.Strategy.RollingUpdate.MaxSurge, tt.description)
-					assert.Nil(t, tt.inputSpec.Strategy.RollingUpdate.MaxUnavailable, tt.description)
-				}
-			} else {
-				// Rollout strategy should be applied
-				assert.NotNil(t, tt.inputSpec.Strategy.RollingUpdate, tt.description)
-				assert.Equal(t, tt.expectedMaxSurge, tt.inputSpec.Strategy.RollingUpdate.MaxSurge, tt.description)
-				assert.Equal(t, tt.expectedMaxUnavailable, tt.inputSpec.Strategy.RollingUpdate.MaxUnavailable, tt.description)
-				assert.Equal(t, appsv1.RollingUpdateDeploymentStrategyType, tt.inputSpec.Strategy.Type, tt.description)
+			deployment := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{},
 			}
+
+			// Set default deployment spec first
+			setDefaultDeploymentSpec(&deployment.Spec)
+
+			// Apply rollout strategy from configmap
+			applyRolloutStrategyFromConfigmap(&deployment.Spec, tt.deployConfig)
+
+			// Verify the deployment strategy type is RollingUpdate
+			assert.Equal(t, appsv1.RollingUpdateDeploymentStrategyType, deployment.Spec.Strategy.Type)
+
+			// Verify maxSurge and maxUnavailable values
+			assert.Equal(t, tt.expectedMaxSurge, deployment.Spec.Strategy.RollingUpdate.MaxSurge, tt.name+" - MaxSurge")
+			assert.Equal(t, tt.expectedMaxUnavailable, deployment.Spec.Strategy.RollingUpdate.MaxUnavailable, tt.name+" - MaxUnavailable")
 		})
 	}
 }
@@ -1400,7 +1362,6 @@ func TestCreateRawDeploymentWithPrecedence(t *testing.T) {
 				DefaultDeploymentMode: "RawDeployment",
 				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
 					DefaultRollout: &v1beta1.RolloutSpec{
-						Mode:           v1beta1.RolloutStrategyAvailability,
 						MaxSurge:       "1",
 						MaxUnavailable: "1",
 					},
@@ -1418,14 +1379,13 @@ func TestCreateRawDeploymentWithPrecedence(t *testing.T) {
 				DefaultDeploymentMode: "RawDeployment",
 				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
 					DefaultRollout: &v1beta1.RolloutSpec{
-						Mode:           v1beta1.RolloutStrategyAvailability,
 						MaxSurge:       "2",
 						MaxUnavailable: "1",
 					},
 				},
 			},
 			expectedMaxSurge:         &intstr.IntOrString{Type: intstr.String, StrVal: "2"},
-			expectedMaxUnavailable:   &intstr.IntOrString{Type: intstr.String, StrVal: "0"},
+			expectedMaxUnavailable:   &intstr.IntOrString{Type: intstr.String, StrVal: "1"},
 			expectedFromUserStrategy: false,
 			description:              "Configmap strategy should be applied when no user strategy",
 		},
@@ -1436,7 +1396,6 @@ func TestCreateRawDeploymentWithPrecedence(t *testing.T) {
 				DefaultDeploymentMode: "Serverless",
 				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
 					DefaultRollout: &v1beta1.RolloutSpec{
-						Mode:           v1beta1.RolloutStrategyAvailability,
 						MaxSurge:       "1",
 						MaxUnavailable: "1",
 					},

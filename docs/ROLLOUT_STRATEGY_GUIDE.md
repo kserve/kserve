@@ -11,21 +11,9 @@ The rollout strategy is applied with the following precedence:
 1. **User-defined DeploymentStrategy** (highest priority) - directly specified in component extension spec
 2. **ConfigMap rollout strategy** (fallback) - applies only when `defaultDeploymentMode` is `"RawDeployment"`
 
-## Rollout Modes (ConfigMap Configuration)
+## ConfigMap Configuration
 
-When using ConfigMap configuration, KServe provides two rollout modes:
-
-### Availability Mode
-- **Purpose**: Ensures high availability during deployments
-- **Behavior**: Prioritizes service availability during rollouts
-- **Kubernetes Settings**: `maxUnavailable=0`, `maxSurge=<configured value>`
-- **Use Case**: Production environments where downtime is not acceptable
-
-### ResourceAware Mode
-- **Purpose**: Optimizes resource usage during deployments
-- **Behavior**: Prioritizes resource efficiency during rollouts
-- **Kubernetes Settings**: `maxSurge=0`, `maxUnavailable=<configured value>`
-- **Use Case**: Resource-constrained environments or cost optimization
+When using ConfigMap configuration, you can specify `maxSurge` and `maxUnavailable` values directly. These values are applied to the Kubernetes deployment strategy when `defaultDeploymentMode` is set to `"RawDeployment"`.
 
 ## Configuration
 
@@ -90,12 +78,29 @@ data:
     }
 ```
 
+## Rollout Strategy Modes
+
+KServe supports two main rollout strategy approaches that you can configure either globally via ConfigMap or per-service via `deploymentStrategy`:
+
+### Availability Mode (Zero Downtime)
+- **Purpose**: Ensures high availability during deployments by launching new pods first
+- **Configuration**: Set `maxUnavailable: "0"` and `maxSurge` to desired value/percentage
+- **Behavior**: New pods are created before old pods are terminated
+- **Use Case**: Production environments where downtime is not acceptable
+
+### ResourceAware Mode (Resource Efficient)  
+- **Purpose**: Optimizes resource usage during deployments by terminating old pods first
+- **Configuration**: Set `maxSurge: "0"` and `maxUnavailable` to desired value/percentage
+- **Behavior**: Old pods are terminated before new pods are created
+- **Use Case**: Resource-constrained environments or cost optimization
+
 ### Configuration Parameters
 
-For ConfigMap configuration:
-- **mode**: Either `"Availability"` or `"ResourceAware"`
+For both direct `deploymentStrategy` and ConfigMap configuration:
 - **maxSurge**: Maximum number of pods that can be created above the desired replica count (e.g., `"1"`, `"25%"`)
 - **maxUnavailable**: Maximum number of pods that can be unavailable during update (e.g., `"1"`, `"25%"`)
+
+KServe can configure default `maxSurge` and `maxUnavailable` values globally for all InferenceServices via ConfigMap. When users do not specify anything in the `deploymentStrategy` section of their InferenceService, the service will pick up these default values from the ConfigMap when `defaultDeploymentMode` is `"RawDeployment"`.
 
 For direct DeploymentStrategy configuration:
 - **type**: Should be `"RollingUpdate"`
@@ -147,13 +152,15 @@ The final rollout strategy values are determined by this priority order:
 
 ## Examples
 
-### Example 1: High Availability Deployment (Using DeploymentStrategy)
+### Example 1: Availability Mode - High Availability Deployment
+
+**Availability Mode**: Launch new pods first, terminate old pods after (zero downtime)
 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: high-availability-model
+  name: availability-mode-model
   annotations:
     serving.kserve.io/deploymentMode: "RawDeployment"
 spec:
@@ -162,6 +169,7 @@ spec:
       modelFormat:
         name: sklearn
       storageUri: "s3://my-bucket/model"
+    # Availability mode: maxUnavailable = 0, maxSurge = desired value
     deploymentStrategy:
       type: RollingUpdate
       rollingUpdate:
@@ -169,15 +177,17 @@ spec:
         maxSurge: "100%"       # Can double the pods during rollout
 ```
 
-This configuration ensures zero downtime during deployments.
+**Behavior**: New pods are created first, then old pods are terminated. Ensures zero downtime but uses more resources temporarily.
 
-### Example 2: Resource-Efficient Deployment (Using DeploymentStrategy)
+### Example 2: ResourceAware Mode - Resource-Efficient Deployment
+
+**ResourceAware Mode**: Terminate old pods first, launch new pods after (resource efficient)
 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: resource-efficient-model
+  name: resource-aware-model
   annotations:
     serving.kserve.io/deploymentMode: "RawDeployment"
 spec:
@@ -186,6 +196,7 @@ spec:
       modelFormat:
         name: sklearn
       storageUri: "s3://my-bucket/model"
+    # ResourceAware mode: maxSurge = 0, maxUnavailable = desired value
     deploymentStrategy:
       type: RollingUpdate
       rollingUpdate:
@@ -193,9 +204,11 @@ spec:
         maxUnavailable: "25%"  # Up to 25% of pods can be unavailable
 ```
 
-This configuration prioritizes resource efficiency over availability.
+**Behavior**: Old pods are terminated first, then new pods are created. Minimizes resource usage but may cause temporary unavailability.
 
-### Example 3: ConfigMap Default Configuration
+### Example 3: Using ConfigMap Global Defaults
+
+When no `deploymentStrategy` is specified, the InferenceService picks up default values from the KServe ConfigMap:
 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
@@ -214,7 +227,7 @@ spec:
     # when defaultDeploymentMode is "RawDeployment"
 ```
 
-This will use the rollout strategy configured in the ConfigMap.
+**Behavior**: Uses the global `rawDeploymentRolloutStrategy` configuration from the KServe ConfigMap, allowing administrators to set organization-wide rollout policies.
 
 ### Example 4: No Rollout Strategy (Uses KServe Defaults)
 
