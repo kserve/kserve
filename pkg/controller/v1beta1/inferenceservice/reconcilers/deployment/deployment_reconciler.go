@@ -162,8 +162,6 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
 	}
 	setDefaultDeploymentSpec(&deployment.Spec)
-	// Apply rollout strategy if specified
-	setRolloutStrategy(&deployment.Spec, componentExt.Rollout, deployConfig)
 	if componentExt.MinReplicas != nil && deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassNone) {
 		deployment.Spec.Replicas = ptr.To(*componentExt.MinReplicas)
 	}
@@ -198,8 +196,6 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
 	}
 	setDefaultDeploymentSpec(&deployment.Spec)
-	// Apply rollout strategy if specified
-	setRolloutStrategy(&deployment.Spec, componentExt.Rollout, deployConfig)
 
 	// For multinode, it needs to keep original pods until new pods are ready with rollingUpdate strategy
 	if deployment.Spec.Strategy.Type == appsv1.RollingUpdateDeploymentStrategyType {
@@ -349,45 +345,6 @@ func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
 	if spec.ProgressDeadlineSeconds == nil {
 		progressDeadlineSeconds := int32(600)
 		spec.ProgressDeadlineSeconds = &progressDeadlineSeconds
-	}
-}
-
-// setRolloutStrategy applies the rollout strategy configuration to the deployment spec
-func setRolloutStrategy(spec *appsv1.DeploymentSpec, rollout *v1beta1.RolloutSpec, deployConfig *v1beta1.DeployConfig) {
-	// Priority: InferenceService spec values > configmap defaults
-	var finalRollout *v1beta1.RolloutSpec
-
-	// First, check if values are specified in the InferenceService spec
-	if rollout != nil {
-		finalRollout = rollout
-	} else if deployConfig != nil && deployConfig.RawDeploymentRolloutStrategy != nil && deployConfig.RawDeploymentRolloutStrategy.DefaultRollout != nil {
-		// Fall back to configmap defaults if not specified in spec
-		finalRollout = deployConfig.RawDeploymentRolloutStrategy.DefaultRollout
-	}
-
-	// If we don't have rollout configuration, don't apply rollout strategy
-	if finalRollout == nil {
-		return
-	}
-
-	// Ensure we have a RollingUpdate strategy
-	if spec.Strategy.Type == "" {
-		spec.Strategy.Type = appsv1.RollingUpdateDeploymentStrategyType
-	}
-	if spec.Strategy.RollingUpdate == nil {
-		spec.Strategy.RollingUpdate = &appsv1.RollingUpdateDeployment{}
-	}
-
-	// Apply the rollout strategy based on the mode
-	switch finalRollout.Mode {
-	case v1beta1.RolloutStrategyAvailability:
-		// Availability mode: maxUnavailable=0, maxSurge=ratio
-		spec.Strategy.RollingUpdate.MaxUnavailable = &intstr.IntOrString{Type: intstr.Int, IntVal: 0}
-		spec.Strategy.RollingUpdate.MaxSurge = &intstr.IntOrString{Type: intstr.String, StrVal: finalRollout.Ratio}
-	case v1beta1.RolloutStrategyResourceAware:
-		// ResourceAware mode: maxSurge=0, maxUnavailable=ratio
-		spec.Strategy.RollingUpdate.MaxSurge = &intstr.IntOrString{Type: intstr.Int, IntVal: 0}
-		spec.Strategy.RollingUpdate.MaxUnavailable = &intstr.IntOrString{Type: intstr.String, StrVal: finalRollout.Ratio}
 	}
 }
 
