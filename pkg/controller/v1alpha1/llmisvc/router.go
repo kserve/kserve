@@ -54,7 +54,6 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 
 	// Validate that referenced resources exist before proceeding
 	if err := r.validateRouterReferences(ctx, llmSvc); err != nil {
-		llmSvc.MarkHTTPRoutesNotReady("HTTPRouteReconcileError", "Failed to validate router references: %v", err.Error())
 		return err
 	}
 

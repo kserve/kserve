@@ -92,6 +92,7 @@ type LLMInferenceServiceSpec struct {
 type WorkloadSpec struct {
 	// Number of replicas for the deployment.
 	// +optional
+	// +kubebuilder:validation:Minimum=0
 	Replicas *int32 `json:"replicas,omitempty"`
 
 	// Parallelism configurations for the runtime, such as tensor and pipeline parallelism.
@@ -243,18 +244,24 @@ type InferencePoolSpec struct {
 type ParallelismSpec struct {
 	// Tensor parallelism size.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	Tensor *int32 `json:"tensor,omitempty"`
 	// Pipeline parallelism size.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	Pipeline *int32 `json:"pipeline,omitempty"`
 	// Data parallelism size.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	Data *int32 `json:"data,omitempty"`
 	// DataLocal data local parallelism size.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	DataLocal *int32 `json:"dataLocal,omitempty"`
 	// DataRPCPort is the data parallelism RPC port.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
 	DataRPCPort *int32 `json:"dataRPCPort,omitempty"`
 	// Expert enables expert parallelism.
 	// +optional

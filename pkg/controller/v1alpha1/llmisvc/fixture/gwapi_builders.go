@@ -17,6 +17,7 @@ limitations under the License.
 package fixture
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -589,6 +590,11 @@ func WithInferencePoolReadyStatus() InferencePoolOption {
 	return func(pool *igwapi.InferencePool) {
 		pool.Status.Parents = []igwapi.PoolStatus{
 			{
+				GatewayRef: corev1.ObjectReference{
+					APIVersion: gwapiv1.GroupVersion.String(),
+					Kind:       "Gateway",
+					Name:       "gateway",
+				},
 				Conditions: []metav1.Condition{
 					{
 						Type:               string(igwapi.InferencePoolConditionAccepted),
