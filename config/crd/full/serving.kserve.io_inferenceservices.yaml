@@ -2998,18 +2998,6 @@ spec:
                       type: object
                     restartPolicy:
                       type: string
-                    rollout:
-                      properties:
-                        mode:
-                          enum:
-                            - Availability
-                            - ResourceAware
-                          type: string
-                        ratio:
-                          type: string
-                      type: object
-                    runtimeClassName:
-                      type: string
                     scaleMetric:
                       enum:
                         - cpu
@@ -11079,18 +11067,6 @@ spec:
                           type: object
                       type: object
                     restartPolicy:
-                      type: string
-                    rollout:
-                      properties:
-                        mode:
-                          enum:
-                            - Availability
-                            - ResourceAware
-                          type: string
-                        ratio:
-                          type: string
-                      type: object
-                    runtimeClassName:
                       type: string
                     scaleMetric:
                       enum:
@@ -20695,17 +20671,6 @@ spec:
                       type: object
                     restartPolicy:
                       type: string
-                    rollout:
-                      properties:
-                        mode:
-                          enum:
-                            - Availability
-                            - ResourceAware
-                          type: string
-                        ratio:
-                          type: string
-                      type: object
-                    runtimeClassName:
                       type: string
                     scaleMetric:
                       enum:
