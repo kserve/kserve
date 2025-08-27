@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -55,26 +54,6 @@ const (
 	DisallowedMultipleContainersInWorkerSpecError    = "the InferenceService %q is invalid: setting multiple containers in workerSpec is not allowed"
 	DisallowedWorkerSpecPipelineParallelSizeEnvError = "the InferenceService %q is invalid: setting PIPELINE_PARALLEL_SIZE in environment variables is not allowed"
 	DisallowedWorkerSpecTensorParallelSizeEnvError   = "the InferenceService %q is invalid: setting TENSOR_PARALLEL_SIZE in environment variables is not allowed"
-)
-
-// RolloutSpec defines the rollout strategy configuration for raw deployments
-type RolloutSpec struct {
-	// Mode specifies the rollout strategy mode. Valid values are "Availability" and "ResourceAware".
-	// Availability mode: launches new pods first, then terminates old pods (maxUnavailable=0, maxSurge=ratio)
-	// ResourceAware mode: terminates old pods first, then launches new pods (maxSurge=0, maxUnavailable=ratio)
-	// +kubebuilder:validation:Enum=Availability;ResourceAware
-	Mode string `json:"mode"`
-	// Ratio specifies the rollout ratio as a percentage (e.g., "25%") or absolute number.
-	// This value is used to set either maxSurge (Availability mode) or maxUnavailable (ResourceAware mode).
-	Ratio string `json:"ratio"`
-}
-
-// RolloutStrategyMode constants
-const (
-	// RolloutStrategyAvailability means the deployment will roll out by launching new pods first and terminating the old pods later
-	RolloutStrategyAvailability = "Availability"
-	// RolloutStrategyResourceAware means the deployment will roll out by terminating the old pods first and then launching new pods
-	RolloutStrategyResourceAware = "ResourceAware"
 )
 
 // SupportedStorageSpecURIPrefixList Constants
@@ -152,9 +131,6 @@ type ComponentExtensionSpec struct {
 	// The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.
 	// +optional
 	DeploymentStrategy *appsv1.DeploymentStrategy `json:"deploymentStrategy,omitempty"`
-	// Rollout specifies the rollout strategy configuration for raw deployments.
-	// +optional
-	Rollout *RolloutSpec `json:"rollout,omitempty"`
 }
 
 type AutoScalingSpec struct {
@@ -369,7 +345,6 @@ func (s *ComponentExtensionSpec) Validate() error {
 		validateContainerConcurrency(s.ContainerConcurrency),
 		validateReplicas(s.MinReplicas, s.MaxReplicas),
 		validateLogger(s.Logger),
-		validateRollout(s.Rollout),
 	})
 }
 
@@ -436,30 +411,6 @@ func validateLogger(logger *LoggerSpec) error {
 		}
 	}
 
-	return nil
-}
-
-func validateRollout(rollout *RolloutSpec) error {
-	if rollout == nil {
-		return nil
-	}
-	if rollout.Mode != RolloutStrategyAvailability && rollout.Mode != RolloutStrategyResourceAware {
-		return fmt.Errorf("rollout.mode must be one of %s or %s", RolloutStrategyAvailability, RolloutStrategyResourceAware)
-	}
-	// Validate that rollout.Ratio is either a percentage or a valid number
-	ratioStr := rollout.Ratio
-	if strings.HasSuffix(ratioStr, "%") {
-		// Remove % and validate it's a number
-		numStr := strings.TrimSuffix(ratioStr, "%")
-		if _, err := strconv.Atoi(numStr); err != nil {
-			return fmt.Errorf("rollout.ratio percentage must be a valid number, got: %s", ratioStr)
-		}
-	} else {
-		// Validate it's a valid number
-		if _, err := strconv.Atoi(ratioStr); err != nil {
-			return fmt.Errorf("rollout.ratio must be a valid number or percentage, got: %s", ratioStr)
-		}
-	}
 	return nil
 }
 

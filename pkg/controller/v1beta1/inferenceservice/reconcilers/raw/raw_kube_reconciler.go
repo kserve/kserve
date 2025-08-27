@@ -114,7 +114,7 @@ func NewRawKubeReconciler(ctx context.Context,
 		log.Error(err1, "failed to get service config")
 	}
 
-	// Get deploy config for rollout strategy defaults
+	// Get deploy config
 	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
 	if err != nil {
 		log.Error(err, "failed to get deploy config")

@@ -130,16 +130,6 @@ type IngressConfig struct {
 // +kubebuilder:object:generate=false
 type DeployConfig struct {
 	DefaultDeploymentMode string `json:"defaultDeploymentMode,omitempty"`
-	// RawDeploymentRolloutStrategy specifies the default rollout strategy for raw deployments
-	// +optional
-	RawDeploymentRolloutStrategy *RawDeploymentRolloutStrategy `json:"rawDeploymentRolloutStrategy,omitempty"`
-}
-
-// RawDeploymentRolloutStrategy defines the rollout strategy configuration for raw deployments
-type RawDeploymentRolloutStrategy struct {
-	// DefaultRollout specifies the default rollout configuration
-	// +optional
-	DefaultRollout *RolloutSpec `json:"defaultRollout,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
