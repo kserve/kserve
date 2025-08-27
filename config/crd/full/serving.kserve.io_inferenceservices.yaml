@@ -20671,7 +20671,6 @@ spec:
                       type: object
                     restartPolicy:
                       type: string
-                      type: string
                     scaleMetric:
                       enum:
                         - cpu
