@@ -138,9 +138,10 @@ spec:
 
 When configuring rollout strategies, the following priority order applies:
 
-1. **User-defined deploymentStrategy** (highest priority) - specified in component extension spec
-2. **ConfigMap rollout strategy** (fallback) - only applies when `defaultDeploymentMode` is `"RawDeployment"`
-3. **KServe default values** (if no configuration is provided)
+1. **Multinode deployment override** (HIGHEST priority) - automatic for Ray workloads with `RAY_NODE_COUNT` environment variable
+2. **User-defined deploymentStrategy** (high priority) - specified in component extension spec
+3. **ConfigMap rollout strategy** (fallback) - only applies when `defaultDeploymentMode` is `"RawDeployment"`
+4. **KServe default values** (if no configuration is provided)
 
 **Important**: The ConfigMap rollout strategy only applies when:
 - No user-defined `deploymentStrategy` is specified in the component spec
@@ -154,15 +155,17 @@ When no rollout strategy is specified anywhere, KServe applies these defaults:
 - **maxSurge**: `25%`
 
 ### Multinode Deployment Override
-For multinode deployments, KServe automatically overrides with:
+For multinode deployments (Ray workloads), KServe automatically overrides ALL rollout strategy configurations with:
 - **maxUnavailable**: `0%`
 - **maxSurge**: `100%`
+
+This override takes precedence over all other configurations, including user-defined `deploymentStrategy`.
 
 ### Default Values Summary
 
 | Configuration | maxUnavailable | maxSurge | Notes |
 |---------------|----------------|----------|-------|
 | **No rollout strategy specified** | `25%` | `25%` | KServe defaults |
-| **Multinode deployment** | `0%` | `100%` | Overrides KServe defaults |
+| **Multinode deployment** | `0%` | `100%` | Overrides ALL other configurations |
 | **Availability mode** | `0` | `<ratio>` | From rollout spec |
 | **ResourceAware mode** | `<ratio>` | `0` | From rollout spec | 
