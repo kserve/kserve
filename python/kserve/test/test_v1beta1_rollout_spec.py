@@ -51,9 +51,7 @@ class TestV1beta1RolloutSpec(unittest.TestCase):
         # model = kserve.models.v1beta1_rollout_spec.V1beta1RolloutSpec()  # noqa: E501
         if include_optional:
             return V1beta1RolloutSpec(
-                mode="Availability", 
-                max_surge="1", 
-                max_unavailable="1"
+                mode="Availability", max_surge="1", max_unavailable="1"
             )
         else:
             return V1beta1RolloutSpec(

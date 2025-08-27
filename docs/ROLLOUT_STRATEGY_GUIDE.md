@@ -262,14 +262,6 @@ If you were using the previous rollout strategy configuration, update your Infer
 
 ### Option 1: Use Direct DeploymentStrategy (Recommended)
 ```yaml
-# Old format (deprecated) 
-spec:
-  predictor:
-    rollout:
-      mode: "Availability"
-      ratio: "25%"
-
-# New format - Direct DeploymentStrategy
 spec:
   predictor:
     deploymentStrategy:
