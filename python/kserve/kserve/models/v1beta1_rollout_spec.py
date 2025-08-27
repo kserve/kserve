@@ -48,17 +48,15 @@ class V1beta1RolloutSpec(object):
     """
     openapi_types = {
         'max_surge': 'str',
-        'max_unavailable': 'str',
-        'mode': 'str'
+        'max_unavailable': 'str'
     }
 
     attribute_map = {
         'max_surge': 'maxSurge',
-        'max_unavailable': 'maxUnavailable',
-        'mode': 'mode'
+        'max_unavailable': 'maxUnavailable'
     }
 
-    def __init__(self, max_surge='', max_unavailable='', mode='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, max_surge='', max_unavailable='', local_vars_configuration=None):  # noqa: E501
         """V1beta1RolloutSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -66,12 +64,10 @@ class V1beta1RolloutSpec(object):
 
         self._max_surge = None
         self._max_unavailable = None
-        self._mode = None
         self.discriminator = None
 
         self.max_surge = max_surge
         self.max_unavailable = max_unavailable
-        self.mode = mode
 
     @property
     def max_surge(self):
@@ -122,31 +118,6 @@ class V1beta1RolloutSpec(object):
             raise ValueError("Invalid value for `max_unavailable`, must not be `None`")  # noqa: E501
 
         self._max_unavailable = max_unavailable
-
-    @property
-    def mode(self):
-        """Gets the mode of this V1beta1RolloutSpec.  # noqa: E501
-
-        Mode specifies the rollout strategy mode. Valid values are \"Availability\" and \"ResourceAware\". Availability mode: prioritizes service availability during rollouts (maxUnavailable=0, maxSurge=configured value) ResourceAware mode: prioritizes resource efficiency during rollouts (maxSurge=0, maxUnavailable=configured value)  # noqa: E501
-
-        :return: The mode of this V1beta1RolloutSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._mode
-
-    @mode.setter
-    def mode(self, mode):
-        """Sets the mode of this V1beta1RolloutSpec.
-
-        Mode specifies the rollout strategy mode. Valid values are \"Availability\" and \"ResourceAware\". Availability mode: prioritizes service availability during rollouts (maxUnavailable=0, maxSurge=configured value) ResourceAware mode: prioritizes resource efficiency during rollouts (maxSurge=0, maxUnavailable=configured value)  # noqa: E501
-
-        :param mode: The mode of this V1beta1RolloutSpec.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and mode is None:  # noqa: E501
-            raise ValueError("Invalid value for `mode`, must not be `None`")  # noqa: E501
-
-        self._mode = mode
 
     def to_dict(self):
         """Returns the model properties as a dict"""

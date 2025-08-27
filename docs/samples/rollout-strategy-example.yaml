@@ -11,8 +11,9 @@ spec:
       modelFormat:
         name: sklearn
       storageUri: "s3://my-bucket/model"
-    # Example 1: Direct deployment strategy for high availability
-    # This ensures zero downtime during rollouts
+    # Example 1: Availability Mode - Direct deployment strategy for high availability
+    # Configuration: maxUnavailable = 0, maxSurge = desired value
+    # Behavior: New pods are created first, then old pods are terminated (zero downtime)
     deploymentStrategy:
       type: RollingUpdate
       rollingUpdate:
@@ -26,8 +27,9 @@ spec:
         env:
           - name: MODEL_NAME
             value: "my-model"
-    # Example 2: Resource-efficient deployment strategy
-    # This prioritizes resource efficiency over availability
+    # Example 2: ResourceAware Mode - Resource-efficient deployment strategy  
+    # Configuration: maxSurge = 0, maxUnavailable = desired value
+    # Behavior: Old pods are terminated first, then new pods are created (resource efficient)
     deploymentStrategy:
       type: RollingUpdate
       rollingUpdate:
@@ -49,8 +51,9 @@ spec:
       modelFormat:
         name: sklearn
       storageUri: "s3://my-bucket/model"
-    # No deploymentStrategy specified - will use ConfigMap defaults
+    # No deploymentStrategy specified - will use ConfigMap global defaults  
     # when defaultDeploymentMode is "RawDeployment"
+    # Allows administrators to set organization-wide rollout policies
 
 ---
 # Example 4: Multinode deployment (Ray workload)

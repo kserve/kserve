@@ -381,17 +381,11 @@ func applyRolloutStrategyFromConfigmap(spec *appsv1.DeploymentSpec, deployConfig
 		spec.Strategy.RollingUpdate = &appsv1.RollingUpdateDeployment{}
 	}
 
-	// Apply rollout strategy based on mode
-	switch rollout.Mode {
-	case v1beta1.RolloutStrategyAvailability:
-		// Availability mode: prioritizes service availability
-		// Set maxUnavailable = 0, maxSurge = configured value
-		spec.Strategy.RollingUpdate.MaxUnavailable = &intstr.IntOrString{Type: intstr.String, StrVal: "0"}
+	// Apply rollout strategy directly from configmap values
+	if rollout.MaxSurge != "" {
 		spec.Strategy.RollingUpdate.MaxSurge = &intstr.IntOrString{Type: intstr.String, StrVal: rollout.MaxSurge}
-	case v1beta1.RolloutStrategyResourceAware:
-		// ResourceAware mode: prioritizes resource efficiency
-		// Set maxSurge = 0, maxUnavailable = configured value
-		spec.Strategy.RollingUpdate.MaxSurge = &intstr.IntOrString{Type: intstr.String, StrVal: "0"}
+	}
+	if rollout.MaxUnavailable != "" {
 		spec.Strategy.RollingUpdate.MaxUnavailable = &intstr.IntOrString{Type: intstr.String, StrVal: rollout.MaxUnavailable}
 	}
 }

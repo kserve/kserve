@@ -56,7 +56,6 @@ class TestV1beta1RawDeploymentRolloutStrategy(unittest.TestCase):
 
             return V1beta1RawDeploymentRolloutStrategy(
                 default_rollout=V1beta1RolloutSpec(
-                    mode="Availability",
                     max_surge="1",
                     max_unavailable="1",
                 )

@@ -5547,7 +5547,6 @@
       "description": "RolloutSpec defines the rollout strategy configuration using Kubernetes deployment strategy",
       "type": "object",
       "required": [
-        "mode",
         "maxSurge",
         "maxUnavailable"
       ],
@@ -5559,11 +5558,6 @@
         },
         "maxUnavailable": {
           "description": "MaxUnavailable specifies the maximum number of pods that can be unavailable during the update. Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).",
-          "type": "string",
-          "default": ""
-        },
-        "mode": {
-          "description": "Mode specifies the rollout strategy mode. Valid values are \"Availability\" and \"ResourceAware\". Availability mode: prioritizes service availability during rollouts (maxUnavailable=0, maxSurge=configured value) ResourceAware mode: prioritizes resource efficiency during rollouts (maxSurge=0, maxUnavailable=configured value)",
           "type": "string",
           "default": ""
         }

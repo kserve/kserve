@@ -10004,14 +10004,6 @@ func schema_pkg_apis_serving_v1beta1_RolloutSpec(ref common.ReferenceCallback) c
 				Description: "RolloutSpec defines the rollout strategy configuration using Kubernetes deployment strategy",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"mode": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Mode specifies the rollout strategy mode. Valid values are \"Availability\" and \"ResourceAware\". Availability mode: prioritizes service availability during rollouts (maxUnavailable=0, maxSurge=configured value) ResourceAware mode: prioritizes resource efficiency during rollouts (maxSurge=0, maxUnavailable=configured value)",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"maxSurge": {
 						SchemaProps: spec.SchemaProps{
 							Description: "MaxSurge specifies the maximum number of pods that can be created above the desired replica count. Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).",
@@ -10029,7 +10021,7 @@ func schema_pkg_apis_serving_v1beta1_RolloutSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				Required: []string{"mode", "maxSurge", "maxUnavailable"},
+				Required: []string{"maxSurge", "maxUnavailable"},
 			},
 		},
 	}
