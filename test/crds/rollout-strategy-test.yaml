@@ -50,4 +50,32 @@ spec:
       modelFormat:
         name: sklearn
       storageUri: "s3://test-bucket/model"
-    # No deployment strategy - should use ConfigMap defaults when defaultDeploymentMode is "RawDeployment" 
+    # No deployment strategy - should use ConfigMap defaults when defaultDeploymentMode is "RawDeployment"
+
+---
+# Test case for multinode deployment automatic override
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: rollout-strategy-multinode-test
+  namespace: default
+  annotations:
+    serving.kserve.io/deploymentMode: "RawDeployment"
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: huggingface
+      storageUri: "s3://test-bucket/llm-model"
+    containers:
+    - name: kserve-container
+      image: test-ray-server:latest
+      env:
+      - name: RAY_NODE_COUNT
+        value: "2"
+    # This deploymentStrategy will be overridden for multinode
+    deploymentStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: "25%"  # Will be overridden to "0%"
+        maxSurge: "50%"        # Will be overridden to "100%" 

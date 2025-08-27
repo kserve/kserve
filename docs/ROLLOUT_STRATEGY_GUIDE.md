@@ -111,20 +111,26 @@ If neither the InferenceService spec nor the ConfigMap defines rollout strategy 
 
 ### Special Case: Multinode Deployments
 
-For multinode deployments, KServe automatically overrides the rollout strategy to ensure high availability:
+For multinode deployments (Ray workloads), KServe automatically overrides ALL rollout strategy configurations to ensure high availability:
 
 - **maxUnavailable**: `0%` (no pods are taken down during rollout)
 - **maxSurge**: `100%` (can have up to double the number of pods during rollout)
 
-This ensures that original pods remain available until new pods are ready.
+**Important**: This override takes precedence over ALL other configurations, including:
+- User-defined `deploymentStrategy` in the component spec
+- ConfigMap rollout strategy defaults
+- KServe default values
+
+This behavior is triggered automatically when the `RAY_NODE_COUNT` environment variable is detected in the inference service configuration. It ensures that original pods remain available until new pods are ready, which is critical for maintaining distributed Ray cluster stability during updates.
 
 ### Priority Order
 
 The final rollout strategy values are determined by this priority order:
 
-1. **User-defined DeploymentStrategy** (highest priority) - specified in component extension spec
-2. **ConfigMap rollout strategy** (fallback) - only applies when `defaultDeploymentMode` is `"RawDeployment"`
-3. **KServe default values** (if no configuration is provided)
+1. **Multinode deployment override** (HIGHEST priority) - automatic for Ray workloads with `RAY_NODE_COUNT` environment variable
+2. **User-defined DeploymentStrategy** (high priority) - specified in component extension spec
+3. **ConfigMap rollout strategy** (fallback) - only applies when `defaultDeploymentMode` is `"RawDeployment"`
+4. **KServe default values** (if no configuration is provided)
 
 **Important**: The ConfigMap rollout strategy only applies when:
 - No user-defined `deploymentStrategy` is specified in the component spec
@@ -135,7 +141,7 @@ The final rollout strategy values are determined by this priority order:
 | Configuration | maxUnavailable | maxSurge | Notes |
 |---------------|----------------|----------|-------|
 | **No rollout strategy specified** | `25%` | `25%` | KServe defaults |
-| **Multinode deployment** | `0%` | `100%` | Overrides KServe defaults |
+| **Multinode deployment** | `0%` | `100%` | Overrides ALL other configurations |
 | **Availability mode** | `0` | `<ratio>` | From rollout spec |
 | **ResourceAware mode** | `<ratio>` | `0` | From rollout spec |
 
