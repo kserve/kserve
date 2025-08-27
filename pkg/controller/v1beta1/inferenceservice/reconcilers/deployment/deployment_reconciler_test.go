@@ -1273,3 +1273,211 @@ func deepCopyDeploymentList(src []*appsv1.Deployment) []*appsv1.Deployment {
 	}
 	return copied
 }
+
+func TestApplyRolloutStrategyFromConfigmap(t *testing.T) {
+	tests := []struct {
+		name                   string
+		deployConfig           *v1beta1.DeployConfig
+		inputSpec              *appsv1.DeploymentSpec
+		expectedMaxSurge       *intstr.IntOrString
+		expectedMaxUnavailable *intstr.IntOrString
+		description            string
+	}{
+		{
+			name: "Availability mode with RawDeployment",
+			deployConfig: &v1beta1.DeployConfig{
+				DefaultDeploymentMode: "RawDeployment",
+				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						Mode:           v1beta1.RolloutStrategyAvailability,
+						MaxSurge:       "1",
+						MaxUnavailable: "1",
+					},
+				},
+			},
+			inputSpec:              &appsv1.DeploymentSpec{},
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "1"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "0"},
+			description:            "Availability mode should set maxUnavailable=0 and maxSurge=configured value",
+		},
+		{
+			name: "ResourceAware mode with RawDeployment",
+			deployConfig: &v1beta1.DeployConfig{
+				DefaultDeploymentMode: "RawDeployment",
+				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						Mode:           v1beta1.RolloutStrategyResourceAware,
+						MaxSurge:       "1",
+						MaxUnavailable: "1",
+					},
+				},
+			},
+			inputSpec:              &appsv1.DeploymentSpec{},
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "0"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "1"},
+			description:            "ResourceAware mode should set maxSurge=0 and maxUnavailable=configured value",
+		},
+		{
+			name: "Serverless deployment mode should not apply rollout strategy",
+			deployConfig: &v1beta1.DeployConfig{
+				DefaultDeploymentMode: "Serverless",
+				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						Mode:           v1beta1.RolloutStrategyAvailability,
+						MaxSurge:       "1",
+						MaxUnavailable: "1",
+					},
+				},
+			},
+			inputSpec:              &appsv1.DeploymentSpec{},
+			expectedMaxSurge:       nil,
+			expectedMaxUnavailable: nil,
+			description:            "Serverless mode should not apply rollout strategy",
+		},
+		{
+			name: "No rollout strategy configured",
+			deployConfig: &v1beta1.DeployConfig{
+				DefaultDeploymentMode: "RawDeployment",
+			},
+			inputSpec:              &appsv1.DeploymentSpec{},
+			expectedMaxSurge:       nil,
+			expectedMaxUnavailable: nil,
+			description:            "No rollout strategy should result in no changes",
+		},
+		{
+			name:                   "Nil deploy config",
+			deployConfig:           nil,
+			inputSpec:              &appsv1.DeploymentSpec{},
+			expectedMaxSurge:       nil,
+			expectedMaxUnavailable: nil,
+			description:            "Nil config should result in no changes",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Apply the rollout strategy
+			applyRolloutStrategyFromConfigmap(tt.inputSpec, tt.deployConfig)
+
+			// Check if strategy was applied correctly
+			if tt.expectedMaxSurge == nil && tt.expectedMaxUnavailable == nil {
+				// No rollout strategy should be applied
+				if tt.inputSpec.Strategy.RollingUpdate != nil {
+					assert.Nil(t, tt.inputSpec.Strategy.RollingUpdate.MaxSurge, tt.description)
+					assert.Nil(t, tt.inputSpec.Strategy.RollingUpdate.MaxUnavailable, tt.description)
+				}
+			} else {
+				// Rollout strategy should be applied
+				assert.NotNil(t, tt.inputSpec.Strategy.RollingUpdate, tt.description)
+				assert.Equal(t, tt.expectedMaxSurge, tt.inputSpec.Strategy.RollingUpdate.MaxSurge, tt.description)
+				assert.Equal(t, tt.expectedMaxUnavailable, tt.inputSpec.Strategy.RollingUpdate.MaxUnavailable, tt.description)
+				assert.Equal(t, appsv1.RollingUpdateDeploymentStrategyType, tt.inputSpec.Strategy.Type, tt.description)
+			}
+		})
+	}
+}
+
+func TestCreateRawDeploymentWithPrecedence(t *testing.T) {
+	tests := []struct {
+		name                     string
+		deploymentStrategy       *appsv1.DeploymentStrategy
+		deployConfig             *v1beta1.DeployConfig
+		expectedMaxSurge         *intstr.IntOrString
+		expectedMaxUnavailable   *intstr.IntOrString
+		expectedFromUserStrategy bool
+		description              string
+	}{
+		{
+			name: "User strategy takes precedence over configmap",
+			deploymentStrategy: &appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
+					MaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "50%"},
+					MaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "50%"},
+				},
+			},
+			deployConfig: &v1beta1.DeployConfig{
+				DefaultDeploymentMode: "RawDeployment",
+				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						Mode:           v1beta1.RolloutStrategyAvailability,
+						MaxSurge:       "1",
+						MaxUnavailable: "1",
+					},
+				},
+			},
+			expectedMaxSurge:         &intstr.IntOrString{Type: intstr.String, StrVal: "50%"},
+			expectedMaxUnavailable:   &intstr.IntOrString{Type: intstr.String, StrVal: "50%"},
+			expectedFromUserStrategy: true,
+			description:              "User-specified strategy should take precedence over configmap",
+		},
+		{
+			name:               "Configmap strategy when no user strategy",
+			deploymentStrategy: nil,
+			deployConfig: &v1beta1.DeployConfig{
+				DefaultDeploymentMode: "RawDeployment",
+				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						Mode:           v1beta1.RolloutStrategyAvailability,
+						MaxSurge:       "2",
+						MaxUnavailable: "1",
+					},
+				},
+			},
+			expectedMaxSurge:         &intstr.IntOrString{Type: intstr.String, StrVal: "2"},
+			expectedMaxUnavailable:   &intstr.IntOrString{Type: intstr.String, StrVal: "0"},
+			expectedFromUserStrategy: false,
+			description:              "Configmap strategy should be applied when no user strategy",
+		},
+		{
+			name:               "No strategy applied for Serverless mode",
+			deploymentStrategy: nil,
+			deployConfig: &v1beta1.DeployConfig{
+				DefaultDeploymentMode: "Serverless",
+				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						Mode:           v1beta1.RolloutStrategyAvailability,
+						MaxSurge:       "1",
+						MaxUnavailable: "1",
+					},
+				},
+			},
+			expectedMaxSurge:         &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+			expectedMaxUnavailable:   &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+			expectedFromUserStrategy: false,
+			description:              "Default strategy should be used for non-RawDeployment modes",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create test data
+			componentExt := &v1beta1.ComponentExtensionSpec{
+				DeploymentStrategy: tt.deploymentStrategy,
+			}
+
+			objectMeta := metav1.ObjectMeta{
+				Name:      "test-deployment",
+				Namespace: "test-namespace",
+				Labels:    make(map[string]string),
+			}
+
+			podSpec := &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "test-container",
+						Image: "test-image",
+					},
+				},
+			}
+
+			// Create deployment
+			deployment := createRawDefaultDeployment(objectMeta, componentExt, podSpec, tt.deployConfig)
+
+			// Verify strategy
+			assert.NotNil(t, deployment.Spec.Strategy.RollingUpdate, tt.description)
+			assert.Equal(t, tt.expectedMaxSurge, deployment.Spec.Strategy.RollingUpdate.MaxSurge, tt.description+" - MaxSurge")
+			assert.Equal(t, tt.expectedMaxUnavailable, deployment.Spec.Strategy.RollingUpdate.MaxUnavailable, tt.description+" - MaxUnavailable")
+		})
+	}
+}

@@ -2,33 +2,42 @@
 
 ## Overview
 
-KServe supports configurable rollout strategies for raw deployments, allowing you to control how new versions of your models are deployed. This feature provides two distinct rollout modes: **Availability** and **ResourceAware**, each optimized for different deployment scenarios.
+KServe supports configurable rollout strategies for raw deployments, allowing you to control how new versions of your models are deployed. Rollout strategies can be configured through the ConfigMap defaults or by setting Kubernetes `DeploymentStrategy` directly in the component extension spec.
 
-## Rollout Modes
+## Configuration Priority
+
+The rollout strategy is applied with the following precedence:
+
+1. **User-defined DeploymentStrategy** (highest priority) - directly specified in component extension spec
+2. **ConfigMap rollout strategy** (fallback) - applies only when `defaultDeploymentMode` is `"RawDeployment"`
+
+## Rollout Modes (ConfigMap Configuration)
+
+When using ConfigMap configuration, KServe provides two rollout modes:
 
 ### Availability Mode
 - **Purpose**: Ensures high availability during deployments
-- **Behavior**: Launches new pods first, then terminates old pods
-- **Kubernetes Settings**: `maxUnavailable=0`, `maxSurge=<ratio>`
+- **Behavior**: Prioritizes service availability during rollouts
+- **Kubernetes Settings**: `maxUnavailable=0`, `maxSurge=<configured value>`
 - **Use Case**: Production environments where downtime is not acceptable
 
 ### ResourceAware Mode
 - **Purpose**: Optimizes resource usage during deployments
-- **Behavior**: Terminates old pods first, then launches new pods
-- **Kubernetes Settings**: `maxSurge=0`, `maxUnavailable=<ratio>`
+- **Behavior**: Prioritizes resource efficiency during rollouts
+- **Kubernetes Settings**: `maxSurge=0`, `maxUnavailable=<configured value>`
 - **Use Case**: Resource-constrained environments or cost optimization
 
 ## Configuration
 
-### InferenceService Level Configuration
+### Method 1: Direct DeploymentStrategy Configuration (Recommended)
 
-You can configure rollout strategy at the component level (predictor, transformer, explainer) within your InferenceService:
+You can configure Kubernetes deployment strategy directly at the component level:
 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: rollout-strategy-example
+  name: deployment-strategy-example
   namespace: default
   annotations:
     serving.kserve.io/deploymentMode: "RawDeployment"
@@ -38,33 +47,28 @@ spec:
       modelFormat:
         name: sklearn
       storageUri: "s3://my-bucket/model"
-    # Availability mode - high availability
-    rollout:
-      mode: "Availability"
-      ratio: "50%"
+    # Direct Kubernetes deployment strategy configuration
+    deploymentStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: "0"      # High availability
+        maxSurge: "1"            # Allow one extra pod
     
   transformer:
     custom:
       container:
         image: my-transformer:latest
-    # ResourceAware mode - resource efficiency
-    rollout:
-      mode: "ResourceAware"
-      ratio: "25%"
+    # Resource-efficient deployment strategy
+    deploymentStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: "0"            # Resource efficient
+        maxUnavailable: "1"      # Allow one pod to be unavailable
 ```
 
-### Configuration Parameters
+### Method 2: ConfigMap Default Configuration
 
-- **mode**: Either `"Availability"` or `"ResourceAware"`
-- **ratio**: Can be specified as:
-  - Percentage (e.g., `"25%"`, `"50%"`)
-  - Absolute number (e.g., `"2"`, `"5"`)
-
-### Default Configuration
-
-### ConfigMap Defaults
-
-If no rollout strategy is specified in the InferenceService, KServe will use default values from the ConfigMap:
+Configure defaults in the KServe ConfigMap that apply when no user-defined deployment strategy is specified and `defaultDeploymentMode` is set to `"RawDeployment"`:
 
 ```yaml
 apiVersion: v1
@@ -75,15 +79,28 @@ metadata:
 data:
   deploy: |-
     {
-      "defaultDeploymentMode": "Serverless",
+      "defaultDeploymentMode": "RawDeployment",
       "rawDeploymentRolloutStrategy": {
         "defaultRollout": {
           "mode": "Availability",
-          "ratio": "25%"
+          "maxSurge": "1",
+          "maxUnavailable": "1"
         }
       }
     }
 ```
+
+### Configuration Parameters
+
+For ConfigMap configuration:
+- **mode**: Either `"Availability"` or `"ResourceAware"`
+- **maxSurge**: Maximum number of pods that can be created above the desired replica count (e.g., `"1"`, `"25%"`)
+- **maxUnavailable**: Maximum number of pods that can be unavailable during update (e.g., `"1"`, `"25%"`)
+
+For direct DeploymentStrategy configuration:
+- **type**: Should be `"RollingUpdate"`
+- **rollingUpdate.maxSurge**: Same as above
+- **rollingUpdate.maxUnavailable**: Same as above
 
 ### KServe Defaults (When No ConfigMap Defaults)
 
@@ -105,12 +122,13 @@ This ensures that original pods remain available until new pods are ready.
 
 The final rollout strategy values are determined by this priority order:
 
-1. **InferenceService spec values** (highest priority for single deployments)
-2. **ConfigMap default values** (fallback for single deployments)
-3. **KServe default values** (if no rollout strategy configured for single deployments)
-4. **Multinode override** (always applies to worker deployments, overriding all other settings)
+1. **User-defined DeploymentStrategy** (highest priority) - specified in component extension spec
+2. **ConfigMap rollout strategy** (fallback) - only applies when `defaultDeploymentMode` is `"RawDeployment"`
+3. **KServe default values** (if no configuration is provided)
 
-**Important**: For multinode deployments, the multinode override (maxUnavailable: 0%, maxSurge: 100%) is applied to worker deployments **after** any rollout strategy is set, effectively overriding spec values and ConfigMap defaults for worker nodes.
+**Important**: The ConfigMap rollout strategy only applies when:
+- No user-defined `deploymentStrategy` is specified in the component spec
+- The `defaultDeploymentMode` in the ConfigMap is set to `"RawDeployment"`
 
 ### Default Values Summary
 
@@ -123,7 +141,7 @@ The final rollout strategy values are determined by this priority order:
 
 ## Examples
 
-### Example 1: High Availability Deployment
+### Example 1: High Availability Deployment (Using DeploymentStrategy)
 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
@@ -138,16 +156,16 @@ spec:
       modelFormat:
         name: sklearn
       storageUri: "s3://my-bucket/model"
-    rollout:
-      mode: "Availability"
-      ratio: "100%"
+    deploymentStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: "0"    # No pods unavailable during rollout
+        maxSurge: "100%"       # Can double the pods during rollout
 ```
 
-This configuration ensures that during deployment:
-- `maxUnavailable=0` (no pods are taken down during rollout)
-- `maxSurge=100%` (can have up to double the number of pods during rollout)
+This configuration ensures zero downtime during deployments.
 
-### Example 2: Resource-Efficient Deployment
+### Example 2: Resource-Efficient Deployment (Using DeploymentStrategy)
 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
@@ -162,22 +180,22 @@ spec:
       modelFormat:
         name: sklearn
       storageUri: "s3://my-bucket/model"
-    rollout:
-      mode: "ResourceAware"
-      ratio: "25%"
+    deploymentStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: "0"          # No extra pods during rollout
+        maxUnavailable: "25%"  # Up to 25% of pods can be unavailable
 ```
 
-This configuration ensures that during deployment:
-- `maxSurge=0` (no extra pods are created during rollout)
-- `maxUnavailable=25%` (up to 25% of pods can be unavailable during rollout)
+This configuration prioritizes resource efficiency over availability.
 
-### Example 3: Mixed Strategy Deployment
+### Example 3: ConfigMap Default Configuration
 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: mixed-strategy-model
+  name: configmap-defaults-model
   annotations:
     serving.kserve.io/deploymentMode: "RawDeployment"
 spec:
@@ -186,20 +204,11 @@ spec:
       modelFormat:
         name: sklearn
       storageUri: "s3://my-bucket/model"
-    # High availability for predictor
-    rollout:
-      mode: "Availability"
-      ratio: "50%"
-  
-  transformer:
-    custom:
-      container:
-        image: my-transformer:latest
-    # Resource efficient for transformer
-    rollout:
-      mode: "ResourceAware"
-      ratio: "25%"
+    # No deploymentStrategy specified - will use ConfigMap defaults
+    # when defaultDeploymentMode is "RawDeployment"
 ```
+
+This will use the rollout strategy configured in the ConfigMap.
 
 ### Example 4: No Rollout Strategy (Uses KServe Defaults)
 
@@ -224,10 +233,15 @@ spec:
 
 ## Validation
 
-The rollout strategy configuration is validated to ensure:
+### For ConfigMap Configuration:
 - **mode** is one of: `"Availability"` or `"ResourceAware"`
-- **ratio** is a valid number or percentage string
-- Percentage values must be properly formatted (e.g., `"25%"` not `"25"`)
+- **maxSurge** is a valid number or percentage string (e.g., `"1"`, `"25%"`)
+- **maxUnavailable** is a valid number or percentage string (e.g., `"1"`, `"25%"`)
+
+### For Direct DeploymentStrategy:
+- **type** must be `"RollingUpdate"`
+- **rollingUpdate.maxSurge** follows Kubernetes validation rules
+- **rollingUpdate.maxUnavailable** follows Kubernetes validation rules
 
 ## Best Practices
 
@@ -238,30 +252,62 @@ The rollout strategy configuration is validated to ensure:
 
 ## Migration from Previous Versions
 
-If you were using the previous rollout strategy configuration (individual `rolloutStrategy` and `rolloutRatio` fields), update your InferenceService specs to use the new nested `rollout` object:
+If you were using the previous rollout strategy configuration, update your InferenceService specs to use the new approaches:
 
+### Option 1: Use Direct DeploymentStrategy (Recommended)
 ```yaml
-# Old format (deprecated)
-spec:
-  predictor:
-    rolloutStrategy: "Availability"
-    rolloutRatio: "25%"
-
-# New format
+# Old format (deprecated) 
 spec:
   predictor:
     rollout:
       mode: "Availability"
       ratio: "25%"
+
+# New format - Direct DeploymentStrategy
+spec:
+  predictor:
+    deploymentStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: "0"    # Availability mode
+        maxSurge: "25%"        # Use the ratio value
+```
+
+### Option 2: Use ConfigMap Configuration
+Configure defaults in the ConfigMap instead of per-InferenceService configuration:
+
+```yaml
+# ConfigMap configuration
+data:
+  deploy: |-
+    {
+      "defaultDeploymentMode": "RawDeployment",
+      "rawDeploymentRolloutStrategy": {
+        "defaultRollout": {
+          "mode": "Availability",
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        }
+      }
+    }
+
+# InferenceService (no deployment strategy needed)
+spec:
+  predictor:
+    model:
+      # ... model configuration
+    # No rollout configuration - uses ConfigMap defaults
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Invalid Mode**: Ensure the mode is exactly `"Availability"` or `"ResourceAware"` (case-sensitive)
-2. **Invalid Ratio**: Ensure ratio is a valid number or percentage (e.g., `"25%"`, `"2"`)
-3. **Missing Annotation**: Ensure `serving.kserve.io/deploymentMode: "RawDeployment"` is set for raw deployments
+1. **ConfigMap not applied**: Ensure the ConfigMap rollout strategy only applies when `defaultDeploymentMode` is `"RawDeployment"`
+2. **Invalid Mode**: For ConfigMap configuration, ensure mode is exactly `"Availability"` or `"ResourceAware"` (case-sensitive)
+3. **Invalid maxSurge/maxUnavailable**: Ensure values are valid numbers or percentages (e.g., `"1"`, `"25%"`)
+4. **Missing Annotation**: Ensure `serving.kserve.io/deploymentMode: "RawDeployment"` is set for raw deployments
+5. **User strategy not taking precedence**: Remember that user-defined `deploymentStrategy` always takes precedence over ConfigMap settings
 
 ### Verification
 
@@ -278,29 +324,27 @@ kubectl rollout status deployment <deployment-name>
 kubectl get pods -l app=<deployment-name>
 ```
 
-### Checking Default Values
+### Checking Configuration
 
-To see what default values are actually being applied:
+To see what rollout strategy configuration is being applied:
 
 ```bash
-# Check if ConfigMap has rollout defaults
+# Check ConfigMap rollout defaults
 kubectl get configmap inferenceservice-config -n kserve -o jsonpath='{.data.deploy}' | jq '.rawDeploymentRolloutStrategy'
 
 # Check the actual deployment strategy being used
 kubectl get deployment <deployment-name> -o jsonpath='{.spec.strategy.rollingUpdate}'
 
-# Example output for KServe defaults:
-# {
-#   "maxUnavailable": "25%",
-#   "maxSurge": "25%"
-# }
+# Check if user-defined deploymentStrategy is specified
+kubectl get isvc <isvc-name> -o jsonpath='{.spec.predictor.deploymentStrategy}'
 ```
 
-### Understanding Which Defaults Are Applied
+### Understanding Which Strategy Is Applied
 
-1. **If you see `maxUnavailable: "0%"` and `maxSurge: "100%"`**: This is a multinode deployment override
-2. **If you see `maxUnavailable: "25%"` and `maxSurge: "25%"`**: These are KServe defaults (no rollout strategy specified)
-3. **If you see custom values**: These are from your InferenceService spec or ConfigMap defaults
+1. **If you see custom maxSurge/maxUnavailable values**: Check if they match your user-defined `deploymentStrategy` (highest priority)
+2. **If ConfigMap mode is "Availability"**: Expect `maxUnavailable: "0"` and `maxSurge: <configured value>`
+3. **If ConfigMap mode is "ResourceAware"**: Expect `maxSurge: "0"` and `maxUnavailable: <configured value>`
+4. **If you see `maxUnavailable: "25%"` and `maxSurge: "25%"`**: These are KServe defaults (no strategy configured anywhere)
 
 ## Related Documentation
 

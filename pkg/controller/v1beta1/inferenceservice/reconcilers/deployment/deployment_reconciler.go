@@ -159,9 +159,13 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 		},
 	}
 	if componentExt.DeploymentStrategy != nil {
+		// User-specified deployment strategy takes precedence
 		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
+	} else {
+		// Use configmap rollout strategy as fallback
+		setDefaultDeploymentSpec(&deployment.Spec)
+		applyRolloutStrategyFromConfigmap(&deployment.Spec, deployConfig)
 	}
-	setDefaultDeploymentSpec(&deployment.Spec)
 	if componentExt.MinReplicas != nil && deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassNone) {
 		deployment.Spec.Replicas = ptr.To(*componentExt.MinReplicas)
 	}
@@ -193,11 +197,16 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 		},
 	}
 	if componentExt.DeploymentStrategy != nil {
+		// User-specified deployment strategy takes precedence
 		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
+	} else {
+		// Use configmap rollout strategy as fallback
+		setDefaultDeploymentSpec(&deployment.Spec)
+		applyRolloutStrategyFromConfigmap(&deployment.Spec, deployConfig)
 	}
-	setDefaultDeploymentSpec(&deployment.Spec)
 
 	// For multinode, it needs to keep original pods until new pods are ready with rollingUpdate strategy
+	// This overrides any rollout strategy for multinode deployments
 	if deployment.Spec.Strategy.Type == appsv1.RollingUpdateDeploymentStrategyType {
 		deployment.Spec.Strategy.RollingUpdate = &appsv1.RollingUpdateDeployment{
 			MaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "0%"},
@@ -345,6 +354,45 @@ func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
 	if spec.ProgressDeadlineSeconds == nil {
 		progressDeadlineSeconds := int32(600)
 		spec.ProgressDeadlineSeconds = &progressDeadlineSeconds
+	}
+}
+
+// applyRolloutStrategyFromConfigmap applies the rollout strategy configuration from configmap to the deployment spec
+func applyRolloutStrategyFromConfigmap(spec *appsv1.DeploymentSpec, deployConfig *v1beta1.DeployConfig) {
+	// Only apply rollout strategy when DefaultDeploymentMode is RawDeployment
+	if deployConfig == nil || deployConfig.DefaultDeploymentMode != "RawDeployment" {
+		return
+	}
+
+	// If no rollout strategy configured, don't apply rollout strategy
+	if deployConfig.RawDeploymentRolloutStrategy == nil || deployConfig.RawDeploymentRolloutStrategy.DefaultRollout == nil {
+		return
+	}
+
+	rollout := deployConfig.RawDeploymentRolloutStrategy.DefaultRollout
+
+	// Ensure we have a rolling update strategy
+	if spec.Strategy.Type != appsv1.RollingUpdateDeploymentStrategyType {
+		spec.Strategy.Type = appsv1.RollingUpdateDeploymentStrategyType
+	}
+
+	// Initialize RollingUpdate if nil
+	if spec.Strategy.RollingUpdate == nil {
+		spec.Strategy.RollingUpdate = &appsv1.RollingUpdateDeployment{}
+	}
+
+	// Apply rollout strategy based on mode
+	switch rollout.Mode {
+	case v1beta1.RolloutStrategyAvailability:
+		// Availability mode: prioritizes service availability
+		// Set maxUnavailable = 0, maxSurge = configured value
+		spec.Strategy.RollingUpdate.MaxUnavailable = &intstr.IntOrString{Type: intstr.String, StrVal: "0"}
+		spec.Strategy.RollingUpdate.MaxSurge = &intstr.IntOrString{Type: intstr.String, StrVal: rollout.MaxSurge}
+	case v1beta1.RolloutStrategyResourceAware:
+		// ResourceAware mode: prioritizes resource efficiency
+		// Set maxSurge = 0, maxUnavailable = configured value
+		spec.Strategy.RollingUpdate.MaxSurge = &intstr.IntOrString{Type: intstr.String, StrVal: "0"}
+		spec.Strategy.RollingUpdate.MaxUnavailable = &intstr.IntOrString{Type: intstr.String, StrVal: rollout.MaxUnavailable}
 	}
 }
 
