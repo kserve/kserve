@@ -117,8 +117,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodSpec":                        schema_pkg_apis_serving_v1beta1_PodSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorExtensionSpec":         schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec":                  schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.RawDeploymentRolloutStrategy":   schema_pkg_apis_serving_v1beta1_RawDeploymentRolloutStrategy(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig":                 schema_pkg_apis_serving_v1beta1_ResourceConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource":           schema_pkg_apis_serving_v1beta1_ResourceMetricSource(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.RolloutSpec":                    schema_pkg_apis_serving_v1beta1_RolloutSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec":                    schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SecurityConfig":                 schema_pkg_apis_serving_v1beta1_SecurityConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ServiceConfig":                  schema_pkg_apis_serving_v1beta1_ServiceConfig(ref),
@@ -2069,6 +2071,7 @@ func schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref common.ReferenceC
 						},
 					},
 				},
+				
 			},
 		},
 	}
@@ -2589,6 +2592,7 @@ func schema_pkg_apis_serving_v1beta1_AuthenticationRef(ref common.ReferenceCallb
 						},
 					},
 				},
+				
 			},
 		},
 	}
@@ -4376,9 +4380,16 @@ func schema_pkg_apis_serving_v1beta1_DeployConfig(ref common.ReferenceCallback) 
 							Format: "",
 						},
 					},
+					"rawDeploymentRolloutStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.RawDeploymentRolloutStrategy"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.RawDeploymentRolloutStrategy"},
 	}
 }
 
@@ -4738,6 +4749,7 @@ func schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref common.Reference
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -5816,6 +5828,7 @@ func schema_pkg_apis_serving_v1beta1_HuggingFaceRuntimeSpec(ref common.Reference
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -6575,6 +6588,7 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -6886,6 +6900,7 @@ func schema_pkg_apis_serving_v1beta1_ModelFormat(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 	}
@@ -7692,6 +7707,7 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -8055,6 +8071,7 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -8379,6 +8396,7 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -9245,6 +9263,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -9891,6 +9910,27 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_RawDeploymentRolloutStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RawDeploymentRolloutStrategy defines the rollout strategy configuration for raw deployments",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"defaultRollout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DefaultRollout specifies the default rollout configuration",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.RolloutSpec"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.RolloutSpec"},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_ResourceConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -9954,6 +9994,44 @@ func schema_pkg_apis_serving_v1beta1_ResourceMetricSource(ref common.ReferenceCa
 		},
 		Dependencies: []string{
 			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_RolloutSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RolloutSpec defines the rollout strategy configuration using Kubernetes deployment strategy",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Mode specifies the rollout strategy mode. Valid values are \"Availability\" and \"ResourceAware\". Availability mode: prioritizes service availability during rollouts (maxUnavailable=0, maxSurge=configured value) ResourceAware mode: prioritizes resource efficiency during rollouts (maxSurge=0, maxUnavailable=configured value)",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"maxSurge": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxSurge specifies the maximum number of pods that can be created above the desired replica count. Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"maxUnavailable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxUnavailable specifies the maximum number of pods that can be unavailable during the update. Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"mode", "maxSurge", "maxUnavailable"},
+			},
+		},
 	}
 }
 
@@ -10275,6 +10353,7 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -10682,6 +10761,7 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -11007,6 +11087,7 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -11899,6 +11980,7 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -12692,6 +12774,7 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{

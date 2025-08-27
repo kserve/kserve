@@ -47,33 +47,87 @@ class V1beta1RolloutSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'mode': 'str',
-        'ratio': 'str'
+        'max_surge': 'str',
+        'max_unavailable': 'str',
+        'mode': 'str'
     }
 
     attribute_map = {
-        'mode': 'mode',
-        'ratio': 'ratio'
+        'max_surge': 'maxSurge',
+        'max_unavailable': 'maxUnavailable',
+        'mode': 'mode'
     }
 
-    def __init__(self, mode='', ratio='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, max_surge='', max_unavailable='', mode='', local_vars_configuration=None):  # noqa: E501
         """V1beta1RolloutSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._max_surge = None
+        self._max_unavailable = None
         self._mode = None
-        self._ratio = None
         self.discriminator = None
 
+        self.max_surge = max_surge
+        self.max_unavailable = max_unavailable
         self.mode = mode
-        self.ratio = ratio
+
+    @property
+    def max_surge(self):
+        """Gets the max_surge of this V1beta1RolloutSpec.  # noqa: E501
+
+        MaxSurge specifies the maximum number of pods that can be created above the desired replica count. Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).  # noqa: E501
+
+        :return: The max_surge of this V1beta1RolloutSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._max_surge
+
+    @max_surge.setter
+    def max_surge(self, max_surge):
+        """Sets the max_surge of this V1beta1RolloutSpec.
+
+        MaxSurge specifies the maximum number of pods that can be created above the desired replica count. Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).  # noqa: E501
+
+        :param max_surge: The max_surge of this V1beta1RolloutSpec.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and max_surge is None:  # noqa: E501
+            raise ValueError("Invalid value for `max_surge`, must not be `None`")  # noqa: E501
+
+        self._max_surge = max_surge
+
+    @property
+    def max_unavailable(self):
+        """Gets the max_unavailable of this V1beta1RolloutSpec.  # noqa: E501
+
+        MaxUnavailable specifies the maximum number of pods that can be unavailable during the update. Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).  # noqa: E501
+
+        :return: The max_unavailable of this V1beta1RolloutSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._max_unavailable
+
+    @max_unavailable.setter
+    def max_unavailable(self, max_unavailable):
+        """Sets the max_unavailable of this V1beta1RolloutSpec.
+
+        MaxUnavailable specifies the maximum number of pods that can be unavailable during the update. Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).  # noqa: E501
+
+        :param max_unavailable: The max_unavailable of this V1beta1RolloutSpec.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and max_unavailable is None:  # noqa: E501
+            raise ValueError("Invalid value for `max_unavailable`, must not be `None`")  # noqa: E501
+
+        self._max_unavailable = max_unavailable
 
     @property
     def mode(self):
         """Gets the mode of this V1beta1RolloutSpec.  # noqa: E501
 
-        Mode specifies the rollout strategy mode. Valid values are \"Availability\" and \"ResourceAware\". Availability mode: launches new pods first, then terminates old pods (maxUnavailable=0, maxSurge=ratio) ResourceAware mode: terminates old pods first, then launches new pods (maxSurge=0, maxUnavailable=ratio)  # noqa: E501
+        Mode specifies the rollout strategy mode. Valid values are \"Availability\" and \"ResourceAware\". Availability mode: prioritizes service availability during rollouts (maxUnavailable=0, maxSurge=configured value) ResourceAware mode: prioritizes resource efficiency during rollouts (maxSurge=0, maxUnavailable=configured value)  # noqa: E501
 
         :return: The mode of this V1beta1RolloutSpec.  # noqa: E501
         :rtype: str
@@ -84,7 +138,7 @@ class V1beta1RolloutSpec(object):
     def mode(self, mode):
         """Sets the mode of this V1beta1RolloutSpec.
 
-        Mode specifies the rollout strategy mode. Valid values are \"Availability\" and \"ResourceAware\". Availability mode: launches new pods first, then terminates old pods (maxUnavailable=0, maxSurge=ratio) ResourceAware mode: terminates old pods first, then launches new pods (maxSurge=0, maxUnavailable=ratio)  # noqa: E501
+        Mode specifies the rollout strategy mode. Valid values are \"Availability\" and \"ResourceAware\". Availability mode: prioritizes service availability during rollouts (maxUnavailable=0, maxSurge=configured value) ResourceAware mode: prioritizes resource efficiency during rollouts (maxSurge=0, maxUnavailable=configured value)  # noqa: E501
 
         :param mode: The mode of this V1beta1RolloutSpec.  # noqa: E501
         :type: str
@@ -93,31 +147,6 @@ class V1beta1RolloutSpec(object):
             raise ValueError("Invalid value for `mode`, must not be `None`")  # noqa: E501
 
         self._mode = mode
-
-    @property
-    def ratio(self):
-        """Gets the ratio of this V1beta1RolloutSpec.  # noqa: E501
-
-        Ratio specifies the rollout ratio as a percentage (e.g., \"25%\") or absolute number. This value is used to set either maxSurge (Availability mode) or maxUnavailable (ResourceAware mode).  # noqa: E501
-
-        :return: The ratio of this V1beta1RolloutSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._ratio
-
-    @ratio.setter
-    def ratio(self, ratio):
-        """Sets the ratio of this V1beta1RolloutSpec.
-
-        Ratio specifies the rollout ratio as a percentage (e.g., \"25%\") or absolute number. This value is used to set either maxSurge (Availability mode) or maxUnavailable (ResourceAware mode).  # noqa: E501
-
-        :param ratio: The ratio of this V1beta1RolloutSpec.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and ratio is None:  # noqa: E501
-            raise ValueError("Invalid value for `ratio`, must not be `None`")  # noqa: E501
-
-        self._ratio = ratio
 
     def to_dict(self):
         """Returns the model properties as a dict"""

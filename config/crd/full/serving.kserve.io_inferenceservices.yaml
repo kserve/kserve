@@ -2998,6 +2998,8 @@ spec:
                       type: object
                     restartPolicy:
                       type: string
+                    runtimeClassName:
+                      type: string
                     scaleMetric:
                       enum:
                         - cpu
@@ -11067,6 +11069,8 @@ spec:
                           type: object
                       type: object
                     restartPolicy:
+                      type: string
+                    runtimeClassName:
                       type: string
                     scaleMetric:
                       enum:
@@ -20670,6 +20674,8 @@ spec:
                           type: object
                       type: object
                     restartPolicy:
+                      type: string
+                    runtimeClassName:
                       type: string
                     scaleMetric:
                       enum:

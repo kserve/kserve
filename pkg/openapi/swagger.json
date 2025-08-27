@@ -2406,6 +2406,9 @@
       "properties": {
         "defaultDeploymentMode": {
           "type": "string"
+        },
+        "rawDeploymentRolloutStrategy": {
+          "$ref": "#/definitions/v1beta1.RawDeploymentRolloutStrategy"
         }
       }
     },
@@ -5494,6 +5497,16 @@
         }
       }
     },
+    "v1beta1.RawDeploymentRolloutStrategy": {
+      "description": "RawDeploymentRolloutStrategy defines the rollout strategy configuration for raw deployments",
+      "type": "object",
+      "properties": {
+        "defaultRollout": {
+          "description": "DefaultRollout specifies the default rollout configuration",
+          "$ref": "#/definitions/v1beta1.RolloutSpec"
+        }
+      }
+    },
     "v1beta1.ResourceConfig": {
       "type": "object",
       "properties": {
@@ -5527,6 +5540,32 @@
           "description": "target specifies the target value for the given metric",
           "default": {},
           "$ref": "#/definitions/v1beta1.MetricTarget"
+        }
+      }
+    },
+    "v1beta1.RolloutSpec": {
+      "description": "RolloutSpec defines the rollout strategy configuration using Kubernetes deployment strategy",
+      "type": "object",
+      "required": [
+        "mode",
+        "maxSurge",
+        "maxUnavailable"
+      ],
+      "properties": {
+        "maxSurge": {
+          "description": "MaxSurge specifies the maximum number of pods that can be created above the desired replica count. Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).",
+          "type": "string",
+          "default": ""
+        },
+        "maxUnavailable": {
+          "description": "MaxUnavailable specifies the maximum number of pods that can be unavailable during the update. Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).",
+          "type": "string",
+          "default": ""
+        },
+        "mode": {
+          "description": "Mode specifies the rollout strategy mode. Valid values are \"Availability\" and \"ResourceAware\". Availability mode: prioritizes service availability during rollouts (maxUnavailable=0, maxSurge=configured value) ResourceAware mode: prioritizes resource efficiency during rollouts (maxSurge=0, maxUnavailable=configured value)",
+          "type": "string",
+          "default": ""
         }
       }
     },
