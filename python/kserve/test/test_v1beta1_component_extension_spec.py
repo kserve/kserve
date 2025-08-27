@@ -52,8 +52,6 @@ class TestV1beta1ComponentExtensionSpec(unittest.TestCase):
         optional params are included"""
         # model = kserve.models.v1beta1_component_extension_spec.V1beta1ComponentExtensionSpec()  # noqa: E501
         if include_optional:
-            from kserve.models.v1beta1_rollout_spec import V1beta1RolloutSpec
-
             return V1beta1ComponentExtensionSpec(
                 batcher=kserve.models.v1beta1_batcher.V1beta1Batcher(
                     max_batch_size=56,
@@ -68,10 +66,7 @@ class TestV1beta1ComponentExtensionSpec(unittest.TestCase):
                 ),
                 max_replicas=56,
                 min_replicas=56,
-                rollout=V1beta1RolloutSpec(
-                    mode="Availability",
-                    ratio="25%",
-                ),
+                # rollout field removed - use deploymentStrategy instead
                 timeout=56,
             )
         else:
