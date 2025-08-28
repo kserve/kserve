@@ -177,7 +177,8 @@ func TestPresetFiles(t *testing.T) {
 								{
 									Name:    "main",
 									Image:   "ghcr.io/llm-d/llm-d-dev:v0.2.2",
-									Command: []string{"/bin/bash", "-c"},
+									Command: []string{"/bin/sh", "-c"},
+									Args:    []string{"START_RANK=0\neval \"vllm serve \\\n  /mnt/models \\\n  --served-model-name \"llama\" \\\n  --port 8001 \\\n  --api-server-count ${VLLM_API_SERVER_COUNT:-8} \\\n  --disable-log-requests \\\n--enable-expert-parallel \\\n--tensor-parallel-size 1 \\\n  --data-parallel-size $(( 2 * 4 )) \\\n  --data-parallel-size-local 2 \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port 5555 \\\n  --data-parallel-start-rank $START_RANK \\\n  --data-parallel-hybrid-lb \\\n  ${VLLM_ADDITIONAL_ARGS} \\\n  --trust-remote-code \\\n  --enable-ssl-refresh \\\n  --ssl-certfile \\\n  /etc/ssl/certs/tls.crt \\\n  --ssl-keyfile \\\n  /etc/ssl/certs/tls.key\""},
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8001,
@@ -251,7 +252,6 @@ func TestPresetFiles(t *testing.T) {
 											Add: []corev1.Capability{
 												"IPC_LOCK",
 												"SYS_RAWIO",
-												"NET_RAW",
 											},
 											Drop: []corev1.Capability{"ALL"},
 										},
@@ -299,7 +299,8 @@ func TestPresetFiles(t *testing.T) {
 								{
 									Name:    "main",
 									Image:   "ghcr.io/llm-d/llm-d-dev:v0.2.2",
-									Command: []string{"/bin/bash", "-c"},
+									Command: []string{"/bin/sh", "-c"},
+									Args:    []string{"START_RANK=$(( ${LWS_WORKER_INDEX:-0} * 2 ))\neval \"vllm serve \\\n  /mnt/models \\\n  --served-model-name \"llama\" \\\n  --port 8001 \\\n  --disable-log-requests \\\n--enable-expert-parallel \\\n--tensor-parallel-size 1 \\\n  --data-parallel-size $(( 2 * 4 )) \\\n  --data-parallel-size-local 2 \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port 5555 \\\n  --data-parallel-start-rank $START_RANK \\\n  --data-parallel-hybrid-lb \\\n  ${VLLM_ADDITIONAL_ARGS} \\\n  --trust-remote-code \\\n  --headless \\\n  --enable-ssl-refresh \\\n  --ssl-certfile \\\n  /etc/ssl/certs/tls.crt \\\n  --ssl-keyfile \\\n  /etc/ssl/certs/tls.key\""},
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8001,

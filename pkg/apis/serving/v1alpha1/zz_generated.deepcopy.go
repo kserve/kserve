@@ -731,7 +731,7 @@ func (in *LoRASpec) DeepCopyInto(out *LoRASpec) {
 	*out = *in
 	if in.Adapters != nil {
 		in, out := &in.Adapters, &out.Adapters
-		*out = make([]ModelSpec, len(*in))
+		*out = make([]LLMModelSpec, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
