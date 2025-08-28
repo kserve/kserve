@@ -101,9 +101,7 @@ shopt -u nocasematch
 
 if [[ $DEPLOYMENT_MODE == "raw" ]]; then
   if [[ $ENABLE_KEDA == "true" ]]; then
-    echo "Installing KEDA ..."
-    kubectl apply -f ./test/overlays/keda/keda.yaml
-    kubectl apply -f ./test/overlays/opentelemetry/opentelemetry-operator.yaml
+    echo "KEDA and OpenTelemetry will be installed via Helm later in the script..."
   fi
 fi
 
@@ -128,11 +126,11 @@ if [[ $DEPLOYMENT_MODE == "raw" ]]; then
     helm install keda kedacore/keda --version ${KEDA_VERSION} --namespace keda --create-namespace --wait
     
     echo "Installing OpenTelemetry operator ..."
-    kubectl apply -f https://github.com/open-telemetry/opentelemetry-operator/releases/latest/download/opentelemetry-operator.yaml
-    
-    echo "Waiting for OpenTelemetry operator to be ready ..."
-    kubectl wait --for=condition=Ready -n opentelemetry-operator-system pod -l control-plane=controller-manager --timeout=300s
-    
+    helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts --force-update
+    helm install my-opentelemetry-operator open-telemetry/opentelemetry-operator -n opentelemetry-operator --create-namespace \
+    --set "manager.collectorImage.repository=otel/opentelemetry-collector-contrib"
+    kubectl wait --for=condition=Ready -n opentelemetry-operator pod -l "app.kubernetes.io/instance=my-opentelemetry-operator" --timeout=300s
+  
     echo "Installing KEDA OTel add-on from kedify/otel-add-on ..."
     # Install using Helm from the official OCI registry
     helm upgrade -i keda-otel-scaler -n keda oci://ghcr.io/kedify/charts/otel-add-on --version=v0.0.12
