@@ -490,7 +490,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
                     external=V1beta1ExternalMetricSource(
                         metric=V1beta1ExternalMetrics(
                             backend="prometheus",
-                            server_address="http://prometheus:9090",
+                            server_address="http://demo.prometheus.io:9090",
                             query="http_requests_per_second",
                         ),
                         target=V1beta1MetricTarget(type="Value", value=50),
@@ -540,7 +540,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     trigger_type = scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"]
     assert trigger_type == "prometheus"
     assert trigger_metadata["query"] == "http_requests_per_second"
-    assert trigger_metadata["serverAddress"] == "http://prometheus:9090"
+    assert trigger_metadata["serverAddress"] == "http://demo.prometheus.io:9090"
     assert trigger_metadata["threshold"] == "50.000000"
     res = await predict_isvc(
         rest_v1_client, service_name, INPUT, network_layer=network_layer
