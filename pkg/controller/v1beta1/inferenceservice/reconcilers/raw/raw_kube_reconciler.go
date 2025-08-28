@@ -27,6 +27,9 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/otel"
 	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+    kserveTypes "github.com/kserve/kserve/pkg/types"
+	"github.com/kserve/kserve/pkg/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -59,8 +62,72 @@ func NewRawKubeReconciler(ctx context.Context,
 	componentMeta metav1.ObjectMeta,
 	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+	podSpec *corev1.PodSpec,
+	workerPodSpec *corev1.PodSpec,
+	storageUrisSpec *[]v1beta1.StorageUrisSpec,
+    storageConfig *kserveTypes.StorageInitializerConfig,
 ) (*RawKubeReconciler, error) {
+    if storageUrisSpec != nil && len(*storageUrisSpec) > 0 {
+        var storageVolumeMounts []corev1.VolumeMount
+		var storageVolumes []corev1.Volume
+		var initContainerArgs []string
+
+        for _, storageUri := range *storageUrisSpec {
+            initContainerArgs = append(initContainerArgs, storageUri.Uri, storageUri.Path)
+
+            volumeName := isvcutils.GetVolumeNameFromPath(storageUri.Path)
+            storageVolumeMounts = append(storageVolumeMounts, corev1.VolumeMount{
+                Name:      volumeName,
+                MountPath: storageUri.Path,
+                ReadOnly:  false,
+            })
+
+            storageVolumes = append(storageVolumes, corev1.Volume{
+                Name: volumeName,
+                VolumeSource: corev1.VolumeSource{
+                    EmptyDir: &corev1.EmptyDirVolumeSource{},
+                },
+            })
+        }
+        initContainer := utils.CreateInitContainerWithConfig(initContainerArgs, storageVolumeMounts, storageConfig)
+        // TODO: Mount path needs to be unique? How to? Validate?
+		// TODO: Tests
+		// TODO: Update Docker to take multiple args and download in parallel
+
+        podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
+        podSpec.Volumes = append(podSpec.Volumes, storageVolumes...)
+
+        // After creating init containers, mount volumes to main containers
+        for i := range podSpec.Containers {
+            for _, volumeMount := range storageVolumeMounts {
+                podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts,
+                    corev1.VolumeMount{
+                        Name:      volumeMount.Name,
+                        MountPath: volumeMount.MountPath,
+                        ReadOnly:  true, // Models should be read-only in main containers
+                    })
+            }
+        }
+
+        // Handle worker pod spec if multi-node is enabled
+        if workerPodSpec != nil {
+            workerPodSpec.InitContainers = append(workerPodSpec.InitContainers, *initContainer)
+            workerPodSpec.Volumes = append(workerPodSpec.Volumes, storageVolumes...)
+
+            // Mount volumes to worker containers as read-only
+            for i := range workerPodSpec.Containers {
+                for _, volumeMount := range storageVolumeMounts {
+                    workerPodSpec.Containers[i].VolumeMounts = append(workerPodSpec.Containers[i].VolumeMounts,
+                        corev1.VolumeMount{
+                            Name:      volumeMount.Name,
+                            MountPath: volumeMount.MountPath,
+                            ReadOnly:  true,
+                        })
+                }
+            }
+        }
+    }
+
 	var otelCollector *otel.OtelReconciler
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
 	if err != nil {

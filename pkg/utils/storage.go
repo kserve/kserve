@@ -153,7 +153,7 @@ func AddEmptyDirVolumeIfNotPresent(podSpec *corev1.PodSpec, name string) {
 	})
 }
 
-func CreateInitContainerWithConfig(containerArgs []string, storageConfig *types.StorageInitializerConfig) *corev1.Container {
+func CreateInitContainerWithConfig(containerArgs []string, volumeMounts []corev1.VolumeMount, storageConfig *types.StorageInitializerConfig) *corev1.Container {
 	storageInitializerImage := constants.StorageInitializerContainerImage + ":" + constants.StorageInitializerContainerImageVersion
 
 	if storageConfig.Image != "" {
@@ -165,11 +165,7 @@ func CreateInitContainerWithConfig(containerArgs []string, storageConfig *types.
 			Image: storageInitializerImage,
 			Args: containerArgs,
 			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-			VolumeMounts: []corev1.VolumeMount{{
-				Name:      constants.StorageInitializerVolumeName,
-				MountPath: constants.DefaultModelLocalMountPath,
-				ReadOnly:  false,
-			}},
+			VolumeMounts: volumeMounts,
 			Resources: corev1.ResourceRequirements{
 				Limits: map[corev1.ResourceName]resource.Quantity{
 					corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),
@@ -207,7 +203,13 @@ func AddStorageInitializerContainer(podSpec *corev1.PodSpec, mainContainerName, 
 				constants.DefaultModelLocalMountPath,
 			}
 
-		initContainer = CreateInitContainerWithConfig(containerArgs, storageConfig)
+		volumeMounts := []corev1.VolumeMount{{
+				Name:      constants.StorageInitializerVolumeName,
+				MountPath: constants.DefaultModelLocalMountPath,
+				ReadOnly:  false,
+			}}
+
+		initContainer = CreateInitContainerWithConfig(containerArgs, volumeMounts, storageConfig)
 		podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
 		initContainer = GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName)
 	}

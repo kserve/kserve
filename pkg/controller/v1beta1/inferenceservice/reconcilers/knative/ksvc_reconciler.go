@@ -121,9 +121,7 @@ func createKnativeService(
 				},
 			})
 		}
-		initContainer := utils.CreateInitContainerWithConfig(args, storageConfig)
-		// Will default volume mount cause issues here?
-		initContainer.VolumeMounts = append(initContainer.VolumeMounts, volumeMounts...)
+		initContainer := utils.CreateInitContainerWithConfig(args, volumeMounts, storageConfig)
 
 		podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
 		podSpec.Volumes = append(podSpec.Volumes, volumes...)
