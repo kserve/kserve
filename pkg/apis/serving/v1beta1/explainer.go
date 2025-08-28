@@ -35,6 +35,9 @@ type ExplainerSpec struct {
 	PodSpec `json:",inline"`
 	// Component extension defines the deployment configurations for explainer
 	ComponentExtensionSpec `json:",inline"`
+
+	// Spec for multiple storage uris.
+	StorageUris []StorageUrisSpec `json:"storageUris,omitempty"`
 }
 
 // ExplainerExtensionSpec defines configuration shared across all explainer frameworks

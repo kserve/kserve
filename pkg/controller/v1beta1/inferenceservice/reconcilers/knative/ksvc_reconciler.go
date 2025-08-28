@@ -39,6 +39,8 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/utils"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	kserveTypes "github.com/kserve/kserve/pkg/types"
 )
 
 var log = logf.Log.WithName("KsvcReconciler")
@@ -65,11 +67,13 @@ func NewKsvcReconciler(
 	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec,
 	disallowedLabelList []string,
+	storageUrisSpec *[]v1beta1.StorageUrisSpec,
+	storageConfig *kserveTypes.StorageInitializerConfig,
 ) *KsvcReconciler {
 	return &KsvcReconciler{
 		client:          client,
 		scheme:          scheme,
-		Service:         createKnativeService(componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList),
+		Service:         createKnativeService(componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList, storageUrisSpec, storageConfig),
 		componentExt:    componentExt,
 		componentStatus: componentStatus,
 	}
@@ -81,6 +85,8 @@ func createKnativeService(
 	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec,
 	disallowedLabelList []string,
+	storageUrisSpec *[]v1beta1.StorageUrisSpec,
+	storageConfig *kserveTypes.StorageInitializerConfig,
 ) *knservingv1.Service {
 	annotations := componentMeta.GetAnnotations()
 
@@ -92,6 +98,48 @@ func createKnativeService(
 		componentExtension.MaxReplicas,
 		log,
 	)
+
+	if storageUrisSpec != nil && len(*storageUrisSpec) > 0 {
+		var args []string
+		var volumeMounts []corev1.VolumeMount
+		var volumes []corev1.Volume
+
+		for _, storageUri := range *storageUrisSpec {
+			args = append(args, storageUri.Uri, storageUri.Path)
+
+			volumeName := isvcutils.GetVolumeNameFromPath(storageUri.Path)
+			volumeMounts = append(volumeMounts, corev1.VolumeMount{
+				Name:      volumeName,
+				MountPath: storageUri.Path,
+				ReadOnly:  false,
+			})
+
+			volumes = append(volumes, corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			})
+		}
+		initContainer := utils.CreateInitContainerWithConfig(args, storageConfig)
+		// Will default volume mount cause issues here?
+		initContainer.VolumeMounts = append(initContainer.VolumeMounts, volumeMounts...)
+
+		podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
+		podSpec.Volumes = append(podSpec.Volumes, volumes...)
+
+		// After creating init containers, mount volumes to main containers
+		for i := range podSpec.Containers {
+			for _, volumeMount := range volumeMounts{
+				podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts,
+					corev1.VolumeMount{
+						Name:      volumeMount.Name,
+						MountPath: volumeMount.MountPath,
+						ReadOnly:  true, // Models should be read-only in main containers
+					})
+			}
+		}
+	}
 
 	// ksvc metadata.annotations
 	// rollout-duration must be put under metadata.annotations

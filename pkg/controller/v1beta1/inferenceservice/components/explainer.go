@@ -80,6 +80,15 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
 		}
 	}
+
+	if storageURIs := isvc.Spec.Explainer.StorageUris; storageURIs != nil {
+		for _, storageURI := range storageURIs {
+			err := isvcutils.ValidateStorageURI(ctx, &storageURI.Uri, e.client)
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
+			}
+		}
+	}
 	addLoggerAnnotations(isvc.Spec.Explainer.Logger, annotations)
 
 	explainerName := constants.ExplainerServiceName(isvc.Name)
@@ -184,8 +193,19 @@ func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v
 }
 
 func (e *Explainer) reconcileExplainerKnativeDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta *metav1.ObjectMeta, podSpec *corev1.PodSpec) error {
+	//storageInitializerConfig, errConvert := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, e.clientset)
+    if err != nil {
+        return fmt.Errorf("failed to get InferenceService ConfigMap: %w", err)
+    }
+
+    storageConfig, err := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
+    if err != nil {
+        return fmt.Errorf("failed to get StorageInitializer config: %w", err)
+    }
+
 	r := knative.NewKsvcReconciler(e.client, e.scheme, *objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
-		podSpec, isvc.Status.Components[v1beta1.ExplainerComponent], e.inferenceServiceConfig.ServiceLabelDisallowedList)
+		podSpec, isvc.Status.Components[v1beta1.ExplainerComponent], e.inferenceServiceConfig.ServiceLabelDisallowedList, &isvc.Spec.Explainer.StorageUris, storageConfig)
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, e.scheme); err != nil {
 		return errors.Wrapf(err, "fails to set owner reference for explainer")

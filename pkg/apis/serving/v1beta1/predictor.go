@@ -17,6 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
+	"strings"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -54,6 +56,10 @@ type PredictorSpec struct {
 	// Model spec for any arbitrary framework.
 	Model *ModelSpec `json:"model,omitempty"`
 
+	// Spec for multiple storage uris.
+	// todo: validation, reconciliation??
+	StorageUris []StorageUrisSpec `json:"storageUris,omitempty"`
+
 	// WorkerSpec for enabling multi-node/multi-gpu
 	WorkerSpec *WorkerSpec `json:"workerSpec,omitempty"`
 
@@ -66,6 +72,15 @@ type PredictorSpec struct {
 	PodSpec `json:",inline"`
 	// Component extension defines the deployment configurations for a predictor
 	ComponentExtensionSpec `json:",inline"`
+}
+
+type StorageUrisSpec struct {
+    // +optional
+	Uri  string `json:"uri"`
+
+	// +kubebuilder:default="/mnt/models"
+	// +optional
+    Path string `json:"path"`
 }
 
 type WorkerSpec struct {
@@ -159,6 +174,19 @@ func (p *PredictorExtensionSpec) Validate() error {
 		// Enabling this currently prevents those storage types from working with ModelMesh.
 		// validateStorageSpec(p.GetStorageSpec(), p.GetStorageUri()),
 	})
+}
+
+// Validates that paths are absolute
+func (s *StorageUrisSpec) Validate() error {
+    if s.Uri == "" {
+        return fmt.Errorf("storage URI cannot be empty")
+    }
+
+    if !strings.HasPrefix(s.Path, "/") {
+        return fmt.Errorf("storage path must be absolute: %s", s.Path)
+    }
+
+    return nil
 }
 
 // GetStorageUri returns the predictor storage Uri

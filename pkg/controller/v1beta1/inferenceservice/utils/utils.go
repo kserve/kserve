@@ -506,3 +506,9 @@ func MergeServingRuntimeAndInferenceServiceSpecs(srContainers []corev1.Container
 	}
 	return containerIndexInSR, mergedContainer, mergedPodSpec, nil
 }
+
+// Helper function to generate volume name from path
+func GetVolumeNameFromPath(path string) string {
+    // Convert path to valid volume name (remove slashes, etc.)
+    return strings.ReplaceAll(strings.Trim(path, "/"), "/", "-")
+}

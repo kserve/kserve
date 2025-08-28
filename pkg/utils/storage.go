@@ -153,6 +153,36 @@ func AddEmptyDirVolumeIfNotPresent(podSpec *corev1.PodSpec, name string) {
 	})
 }
 
+func CreateInitContainerWithConfig(containerArgs []string, storageConfig *types.StorageInitializerConfig) *corev1.Container {
+	storageInitializerImage := constants.StorageInitializerContainerImage + ":" + constants.StorageInitializerContainerImageVersion
+
+	if storageConfig.Image != "" {
+		storageInitializerImage = storageConfig.Image
+	}
+
+	return &corev1.Container{
+			Name:  constants.StorageInitializerContainerName,
+			Image: storageInitializerImage,
+			Args: containerArgs,
+			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+			VolumeMounts: []corev1.VolumeMount{{
+				Name:      constants.StorageInitializerVolumeName,
+				MountPath: constants.DefaultModelLocalMountPath,
+				ReadOnly:  false,
+			}},
+			Resources: corev1.ResourceRequirements{
+				Limits: map[corev1.ResourceName]resource.Quantity{
+					corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),
+					corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryLimit),
+				},
+				Requests: map[corev1.ResourceName]resource.Quantity{
+					corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuRequest),
+					corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryRequest),
+				},
+			},
+		}
+}
+
 // AddStorageInitializerContainer configures the KServe storage-initializer in the
 // specified PodSpec:
 //   - An emptyDir volume is added to hold the model to download.
@@ -172,35 +202,12 @@ func AddStorageInitializerContainer(podSpec *corev1.PodSpec, mainContainerName, 
 	// Add storage initializer container, if not present
 	initContainer := GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName)
 	if initContainer == nil {
-		storageInitializerImage := constants.StorageInitializerContainerImage + ":" + constants.StorageInitializerContainerImageVersion
-		if storageConfig.Image != "" {
-			storageInitializerImage = storageConfig.Image
-		}
-
-		initContainer = &corev1.Container{
-			Name:  constants.StorageInitializerContainerName,
-			Image: storageInitializerImage,
-			Args: []string{
+		containerArgs := []string{
 				srcURI,
 				constants.DefaultModelLocalMountPath,
-			},
-			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-			VolumeMounts: []corev1.VolumeMount{{
-				Name:      constants.StorageInitializerVolumeName,
-				MountPath: constants.DefaultModelLocalMountPath,
-				ReadOnly:  false,
-			}},
-			Resources: corev1.ResourceRequirements{
-				Limits: map[corev1.ResourceName]resource.Quantity{
-					corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),
-					corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryLimit),
-				},
-				Requests: map[corev1.ResourceName]resource.Quantity{
-					corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuRequest),
-					corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryRequest),
-				},
-			},
-		}
+			}
+
+		initContainer = CreateInitContainerWithConfig(containerArgs, storageConfig)
 		podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
 		initContainer = GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName)
 	}
