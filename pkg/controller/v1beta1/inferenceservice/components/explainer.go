@@ -82,6 +82,8 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	}
 
 	if storageURIs := isvc.Spec.Explainer.StorageUris; storageURIs != nil {
+		isvcutils.ValidateStorageUrisSpec(storageURIs)
+
 		for _, storageURI := range storageURIs {
 			err := isvcutils.ValidateStorageURI(ctx, &storageURI.Uri, e.client)
 			if err != nil {
@@ -160,8 +162,18 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 }
 
 func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta *metav1.ObjectMeta, podSpec *corev1.PodSpec) error {
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, e.clientset)
+    if err != nil {
+        return errors.Wrapf(err, "failed to get InferenceService ConfigMap")
+    }
+
+    storageConfig, err := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
+    if err != nil {
+        return errors.Wrapf(err, "failed to get StorageInitializer config")
+    }
+
 	r, err := raw.NewRawKubeReconciler(ctx, e.client, e.clientset, e.scheme, *objectMeta, metav1.ObjectMeta{},
-		&isvc.Spec.Explainer.ComponentExtensionSpec, podSpec, nil)
+		&isvc.Spec.Explainer.ComponentExtensionSpec, podSpec, nil, &isvc.Spec.Explainer.StorageUris, storageConfig)
 	if err != nil {
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for explainer")
 	}
@@ -193,15 +205,14 @@ func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v
 }
 
 func (e *Explainer) reconcileExplainerKnativeDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta *metav1.ObjectMeta, podSpec *corev1.PodSpec) error {
-	//storageInitializerConfig, errConvert := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, e.clientset)
     if err != nil {
-        return fmt.Errorf("failed to get InferenceService ConfigMap: %w", err)
+        return errors.Wrapf(err, "failed to get InferenceService ConfigMap")
     }
 
     storageConfig, err := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
     if err != nil {
-        return fmt.Errorf("failed to get StorageInitializer config: %w", err)
+        return errors.Wrapf(err, "failed to get StorageInitializer config")
     }
 
 	r := knative.NewKsvcReconciler(e.client, e.scheme, *objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,

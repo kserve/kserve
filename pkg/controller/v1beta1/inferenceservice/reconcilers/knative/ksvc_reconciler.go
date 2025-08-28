@@ -100,43 +100,7 @@ func createKnativeService(
 	)
 
 	if storageUrisSpec != nil && len(*storageUrisSpec) > 0 {
-		var args []string
-		var volumeMounts []corev1.VolumeMount
-		var volumes []corev1.Volume
-
-		for _, storageUri := range *storageUrisSpec {
-			args = append(args, storageUri.Uri, storageUri.Path)
-
-			volumeName := isvcutils.GetVolumeNameFromPath(storageUri.Path)
-			volumeMounts = append(volumeMounts, corev1.VolumeMount{
-				Name:      volumeName,
-				MountPath: storageUri.Path,
-				ReadOnly:  false,
-			})
-
-			volumes = append(volumes, corev1.Volume{
-				Name: volumeName,
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{},
-				},
-			})
-		}
-		initContainer := utils.CreateInitContainerWithConfig(args, volumeMounts, storageConfig)
-
-		podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
-		podSpec.Volumes = append(podSpec.Volumes, volumes...)
-
-		// After creating init containers, mount volumes to main containers
-		for i := range podSpec.Containers {
-			for _, volumeMount := range volumeMounts{
-				podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts,
-					corev1.VolumeMount{
-						Name:      volumeMount.Name,
-						MountPath: volumeMount.MountPath,
-						ReadOnly:  true, // Models should be read-only in main containers
-					})
-			}
-		}
+		isvcutils.SetupStorageInitialization(storageUrisSpec, podSpec, nil, storageConfig)
 	}
 
 	// ksvc metadata.annotations

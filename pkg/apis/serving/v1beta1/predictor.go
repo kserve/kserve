@@ -17,8 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
-	"strings"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -174,19 +172,6 @@ func (p *PredictorExtensionSpec) Validate() error {
 		// Enabling this currently prevents those storage types from working with ModelMesh.
 		// validateStorageSpec(p.GetStorageSpec(), p.GetStorageUri()),
 	})
-}
-
-// Validates that paths are absolute
-func (s *StorageUrisSpec) Validate() error {
-    if s.Uri == "" {
-        return fmt.Errorf("storage URI cannot be empty")
-    }
-
-    if !strings.HasPrefix(s.Path, "/") {
-        return fmt.Errorf("storage path must be absolute: %s", s.Path)
-    }
-
-    return nil
 }
 
 // GetStorageUri returns the predictor storage Uri

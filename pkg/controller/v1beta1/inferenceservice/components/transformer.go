@@ -84,6 +84,8 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 	}
 
 	if storageURIs := isvc.Spec.Transformer.StorageUris; storageURIs != nil {
+		isvcutils.ValidateStorageUrisSpec(storageURIs)
+
 		for _, storageURI := range storageURIs {
 			err := isvcutils.ValidateStorageURI(ctx, &storageURI.Uri, p.client)
 			if err != nil {
@@ -190,8 +192,18 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 }
 
 func (p *Transformer) reconcileTransformerRawDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta *metav1.ObjectMeta, podSpec *corev1.PodSpec) error {
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, p.clientset)
+    if err != nil {
+        return  errors.Wrapf(err, "failed to get InferenceService ConfigMap")
+    }
+
+    storageConfig, err := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
+    if err != nil {
+        return  errors.Wrapf(err, "failed to get StorageInitializer config")
+    }
+
 	r, err := raw.NewRawKubeReconciler(ctx, p.client, p.clientset, p.scheme, *objectMeta, metav1.ObjectMeta{},
-		&isvc.Spec.Transformer.ComponentExtensionSpec, podSpec, nil)
+		&isvc.Spec.Transformer.ComponentExtensionSpec, podSpec, nil, &isvc.Spec.Transformer.StorageUris, storageConfig)
 	if err != nil {
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for transformer")
 	}
@@ -223,9 +235,18 @@ func (p *Transformer) reconcileTransformerRawDeployment(ctx context.Context, isv
 }
 
 func (p *Transformer) reconcileTransformerKnativeDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta *metav1.ObjectMeta, podSpec *corev1.PodSpec) error {
-	//storageInitializerConfig, errConvert := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, p.clientset)
+    if err != nil {
+        return  errors.Wrapf(err, "failed to get InferenceService ConfigMap")
+    }
+
+    storageConfig, err := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
+    if err != nil {
+        return  errors.Wrapf(err, "failed to get StorageInitializer config")
+    }
+
 	r := knative.NewKsvcReconciler(p.client, p.scheme, *objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
-		podSpec, isvc.Status.Components[v1beta1.TransformerComponent], p.inferenceServiceConfig.ServiceLabelDisallowedList, &isvc.Spec.Transformer.StorageUris)
+		podSpec, isvc.Status.Components[v1beta1.TransformerComponent], p.inferenceServiceConfig.ServiceLabelDisallowedList, &isvc.Spec.Transformer.StorageUris, storageConfig)
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 		return errors.Wrapf(err, "fails to set owner reference for transformer")

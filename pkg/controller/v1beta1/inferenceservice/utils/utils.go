@@ -39,6 +39,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
 
@@ -430,6 +431,181 @@ func ValidateStorageURI(ctx context.Context, storageURI *string, client client.C
 	}
 
 	return fmt.Errorf(v1beta1.UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), *storageURI)
+}
+
+// ValidateStorageUrisSpec validates that paths are absolute
+func ValidateStorageUriSpec(storageUri *v1beta1.StorageUrisSpec) error {
+    //Validate that paths have a common parent
+    if storageUri.Uri == "" {
+        return fmt.Errorf("storage URI cannot be empty")
+    }
+
+    if storageUri.Path == "/" {
+        return fmt.Errorf("storage path cannot be empty")
+    }
+
+    if !strings.HasPrefix(storageUri.Path, "/") {
+        return fmt.Errorf("storage path must be absolute: %s", storageUri.Path)
+    }
+
+    return nil
+}
+
+// ValidateStorageUrisSpec validates that paths are absolute
+func ValidateStorageUrisSpec(storageUris []v1beta1.StorageUrisSpec) error {
+	if len(storageUris) == 0 {
+        return nil
+    }
+
+	// Validate each individual StorageUrisSpec
+    for _, storageUri := range storageUris {
+        if err := ValidateStorageUriSpec(&storageUri); err != nil {
+            return err
+        }
+    }
+
+	// Validate that paths have a common parent path
+	paths := make([]string, len(storageUris))
+    for i, storageUri := range storageUris {
+        paths[i] = storageUri.Path
+    }
+
+	// If only one storage URI, no need to check common parent
+    if len(paths) <= 1 {
+        return nil
+    }
+
+	commonParent := FindCommonParentPath(paths)
+    if commonParent == "/" {
+        return fmt.Errorf("storage paths must have a common parent directory")
+    }
+
+	return nil
+}
+
+// findCommonParentPath finds the common parent directory of multiple paths
+func FindCommonParentPath(paths []string) string {
+    if len(paths) == 0 {
+        return ""
+    }
+
+    if len(paths) == 1 {
+        return paths[0]
+    }
+
+    // Split all paths into components
+    pathComponents := make([][]string, len(paths))
+	minLength := 0
+    for i, path := range paths {
+        // Clean the path and split by "/"
+        cleanPath := strings.Trim(path, "/")
+        if cleanPath == "" {
+            pathComponents[i] = []string{}
+        } else {
+            pathComponents[i] = strings.Split(cleanPath, "/")
+			minLength = min(minLength, len(pathComponents[i]))
+        }
+    }
+
+    // Find common prefix
+    var commonComponents []string
+	for i := 0; i < minLength; i++ {
+		levelComponents := make(map[string]struct{})
+		var pathComponent string
+
+		for _, components := range pathComponents {
+			pathComponent = components[i]
+			levelComponents[pathComponent] = struct{}{}
+		}
+
+		if len(levelComponents) == 1 {
+			commonComponents = append(commonComponents, pathComponent)
+		}
+	}
+
+    if len(commonComponents) == 0 {
+        return "/"
+    }
+
+    return "/" + strings.Join(commonComponents, "/")
+}
+
+
+func prepareStorageResources(storageUris []v1beta1.StorageUrisSpec) ([]corev1.VolumeMount, []corev1.Volume, []string, error) {
+    var initContainerArgs []string
+    var volumeMounts []corev1.VolumeMount
+    var volumes []corev1.Volume
+	var mountPaths []string
+
+	for _, storageUri := range storageUris {
+            initContainerArgs = append(initContainerArgs, storageUri.Uri, storageUri.Path)
+			mountPaths = append(mountPaths, storageUri.Path)
+        }
+
+	mountPath := FindCommonParentPath(mountPaths)
+
+	volumeName := GetVolumeNameFromPath(mountPath)
+
+	volumeMounts = append(volumeMounts, corev1.VolumeMount{
+		Name:      volumeName,
+		MountPath: mountPath,
+		ReadOnly:  false,
+	})
+
+	volumes = append(volumes, corev1.Volume{
+		Name: volumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
+
+    return volumeMounts, volumes, initContainerArgs, nil
+}
+
+func applyStorageTooPodSpec(podSpec *corev1.PodSpec, initContainer *corev1.Container,
+    volumes []corev1.Volume, volumeMounts []corev1.VolumeMount) {
+
+    podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
+    podSpec.Volumes = append(podSpec.Volumes, volumes...)
+
+    // Mount volumes to main containers as read-only
+    for i := range podSpec.Containers {
+        for _, volumeMount := range volumeMounts {
+            podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts,
+                corev1.VolumeMount{
+                    Name:      volumeMount.Name,
+                    MountPath: volumeMount.MountPath,
+                    ReadOnly:  true,
+                })
+        }
+    }
+}
+
+func SetupStorageInitialization(storageUrisSpec *[]v1beta1.StorageUrisSpec,
+    podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+    storageConfig *types.StorageInitializerConfig) error {
+
+    if storageUrisSpec == nil || len(*storageUrisSpec) == 0 {
+        return nil
+    }
+
+    volumeMounts, volumes, args, err := prepareStorageResources(*storageUrisSpec)
+    if err != nil {
+        return err
+    }
+
+    initContainer := utils.CreateInitContainerWithConfig(args, volumeMounts, storageConfig)
+    initContainer.VolumeMounts = append(initContainer.VolumeMounts, volumeMounts...)
+
+    // Apply to main pod spec
+    applyStorageTooPodSpec(podSpec, initContainer, volumes, volumeMounts)
+
+    // Apply to worker pod spec if exists
+    if workerPodSpec != nil {
+        applyStorageTooPodSpec(workerPodSpec, initContainer, volumes, volumeMounts)
+    }
+
+    return nil
 }
 
 // Function to add a new environment variable to a specific container in the PodSpec
