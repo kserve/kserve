@@ -129,7 +129,25 @@ type IngressConfig struct {
 
 // +kubebuilder:object:generate=false
 type DeployConfig struct {
-	DefaultDeploymentMode string `json:"defaultDeploymentMode,omitempty"`
+	DefaultDeploymentMode        string                        `json:"defaultDeploymentMode,omitempty"`
+	RawDeploymentRolloutStrategy *RawDeploymentRolloutStrategy `json:"rawDeploymentRolloutStrategy,omitempty"`
+}
+
+// RawDeploymentRolloutStrategy defines the rollout strategy configuration for raw deployments
+type RawDeploymentRolloutStrategy struct {
+	// DefaultRollout specifies the default rollout configuration
+	// +optional
+	DefaultRollout *RolloutSpec `json:"defaultRollout,omitempty"`
+}
+
+// RolloutSpec defines the rollout strategy configuration using Kubernetes deployment strategy
+type RolloutSpec struct {
+	// MaxSurge specifies the maximum number of pods that can be created above the desired replica count.
+	// Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).
+	MaxSurge string `json:"maxSurge"`
+	// MaxUnavailable specifies the maximum number of pods that can be unavailable during the update.
+	// Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).
+	MaxUnavailable string `json:"maxUnavailable"`
 }
 
 // +kubebuilder:object:generate=false
