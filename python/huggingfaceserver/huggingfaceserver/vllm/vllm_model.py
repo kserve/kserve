@@ -52,9 +52,7 @@ from kserve.protocol.rest.openai.types import (
 from .utils import build_async_engine_client_from_engine_args, build_vllm_engine_args
 
 
-class VLLMModel(
-    OpenAIEncoderModel, OpenAIGenerativeModel
-):  # pylint:disable=c-extension-no-member
+class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-extension-no-member
     engine_client: EngineClient
     vllm_engine_args: AsyncEngineArgs = None
     args: Namespace = None
@@ -98,7 +96,7 @@ class VLLMModel(
 
         valid_reasoning_parses = ReasoningParserManager.reasoning_parsers.keys()
         if (
-            self.args.enable_reasoning
+            self.args.reasoning_parser != ""
             and self.args.reasoning_parser not in valid_reasoning_parses
         ):
             raise KeyError(
@@ -133,7 +131,6 @@ class VLLMModel(
                 model_config=self.model_config,
                 base_model_paths=self.base_model_paths,
                 lora_modules=self.args.lora_modules,
-                prompt_adapters=self.args.prompt_adapters,
             )
             await self.openai_serving_models.init_static_loras()
 
