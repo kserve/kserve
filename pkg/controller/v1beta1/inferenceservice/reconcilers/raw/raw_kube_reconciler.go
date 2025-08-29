@@ -27,6 +27,9 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/otel"
 	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+    kserveTypes "github.com/kserve/kserve/pkg/types"
+	"github.com/kserve/kserve/pkg/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -59,8 +62,16 @@ func NewRawKubeReconciler(ctx context.Context,
 	componentMeta metav1.ObjectMeta,
 	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+	podSpec *corev1.PodSpec,
+	workerPodSpec *corev1.PodSpec,
+	storageUrisSpec *[]v1beta1.StorageUrisSpec,
+    storageConfig *kserveTypes.StorageInitializerConfig,
 ) (*RawKubeReconciler, error) {
+    if storageUrisSpec != nil && len(*storageUrisSpec) > 0 {
+		isvcutils.SetupStorageInitialization(storageUrisSpec, podSpec, workerPodSpec, storageConfig)
+        // TODO: Update Docker to take multiple args and download in parallel
+    }
+
 	var otelCollector *otel.OtelReconciler
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
 	if err != nil {
