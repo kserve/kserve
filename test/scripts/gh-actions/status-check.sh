@@ -91,6 +91,14 @@ for pod in $(kubectl get pods -o jsonpath='{.items[*].metadata.name}' -n keda); 
 done
 echo "::endgroup::"
 
+echo "::group::OpenTelemetry Operator Pod logs"
+for pod in $(kubectl get pods -o jsonpath='{.items[*].metadata.name}' -n opentelemetry-operator); do
+    echo "=====================================  Logs for OpenTelemetry Operator Pod: $pod  ========================================="
+    kubectl logs "$pod" -n opentelemetry-operator --tail 500
+    echo "================================================================================================================"
+done
+echo "::endgroup::"
+
 echo "::group::envoy gateway"
 kubectl describe pods -l serving.kserve.io/gateway=kserve-ingress-gateway -n envoy-gateway-system
 kubectl describe svc -l gateway.envoyproxy.io/owning-gateway-name=kserve-ingress-gateway -n envoy-gateway-system
