@@ -66,7 +66,6 @@ class TestV1beta1ComponentExtensionSpec(unittest.TestCase):
                 ),
                 max_replicas=56,
                 min_replicas=56,
-                # rollout field removed - use deploymentStrategy instead
                 timeout=56,
             )
         else:

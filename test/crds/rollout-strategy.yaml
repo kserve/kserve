@@ -78,4 +78,4 @@ spec:
       type: RollingUpdate
       rollingUpdate:
         maxUnavailable: "25%"  # Will be overridden to "0%"
-        maxSurge: "50%"        # Will be overridden to "100%" 
+        maxSurge: "50%"        # Will be overridden to "100%"
