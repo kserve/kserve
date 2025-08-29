@@ -55,7 +55,6 @@ type PredictorSpec struct {
 	Model *ModelSpec `json:"model,omitempty"`
 
 	// Spec for multiple storage uris.
-	// todo: validation, reconciliation??
 	StorageUris []StorageUrisSpec `json:"storageUris,omitempty"`
 
 	// WorkerSpec for enabling multi-node/multi-gpu

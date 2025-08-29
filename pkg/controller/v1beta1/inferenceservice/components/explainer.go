@@ -71,9 +71,17 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(e.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
 	})
+
+	sourceURI := explainer.GetStorageUri()
+	storageURIs := isvc.Spec.Explainer.StorageUris
+
+	if sourceURI != nil && storageURIs != nil {
+		return ctrl.Result{}, fmt.Errorf("Setting both StorageURI and StorageURIs is not supported.")
+	}
+
 	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
-	if sourceURI := explainer.GetStorageUri(); sourceURI != nil {
+	if sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 		err := isvcutils.ValidateStorageURI(ctx, sourceURI, e.client)
 		if err != nil {
@@ -81,7 +89,7 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		}
 	}
 
-	if storageURIs := isvc.Spec.Explainer.StorageUris; storageURIs != nil {
+	if storageURIs != nil {
 		isvcutils.ValidateStorageUrisSpec(storageURIs)
 
 		for _, storageURI := range storageURIs {

@@ -70,12 +70,20 @@ func NewTransformer(client client.Client, clientset kubernetes.Interface, scheme
 func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error) {
 	p.Log.Info("Reconciling Transformer", "TransformerSpec", isvc.Spec.Transformer)
 	transformer := isvc.Spec.Transformer.GetImplementation()
+	sourceURI := transformer.GetStorageUri()
+	storageURIs := isvc.Spec.Transformer.StorageUris
+
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(p.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
 	})
+
+	if sourceURI != nil && storageURIs != nil {
+		return ctrl.Result{}, fmt.Errorf("Setting both StorageURI and StorageURIs is not supported.")
+	}
+
 	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
-	if sourceURI := transformer.GetStorageUri(); sourceURI != nil {
+	if sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 		err := isvcutils.ValidateStorageURI(ctx, sourceURI, p.client)
 		if err != nil {
@@ -83,7 +91,7 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 		}
 	}
 
-	if storageURIs := isvc.Spec.Transformer.StorageUris; storageURIs != nil {
+	if storageURIs != nil {
 		isvcutils.ValidateStorageUrisSpec(storageURIs)
 
 		for _, storageURI := range storageURIs {
