@@ -24,3 +24,9 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
+[project.optional-dependencies]
+hdfs = [
+    "krbcontext>=0.10.0",
+    "hdfs>=2.6.0,<2.7.0",
+    "requests-kerberos>=0.14.0",
+]
