@@ -1,0 +1,8 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: llminferenceserviceconfig.serving.kserve.io
+  annotations:
+    cert-manager.io/inject-ca-from: $(kserveNamespace)/serving-cert
+webhooks:
+  - name: llminferenceserviceconfig.kserve-webhook-server.validator

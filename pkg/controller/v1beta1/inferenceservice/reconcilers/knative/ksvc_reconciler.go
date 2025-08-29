@@ -45,7 +45,7 @@ var log = logf.Log.WithName("KsvcReconciler")
 
 var managedKsvcAnnotations = map[string]bool{
 	constants.RollOutDurationAnnotationKey: true,
-	// Required for the integration of Openshift Serverless with Openshift Service Mesh
+	// Required for the integration of Openshift Knative with Openshift Service Mesh
 	constants.KnativeOpenshiftEnablePassthroughKey: true,
 }
 
