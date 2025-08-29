@@ -520,6 +520,8 @@ func FindCommonParentPath(paths []string) string {
 
 		if len(levelComponents) == 1 {
 			commonComponents = append(commonComponents, pathComponent)
+		} else {
+			break
 		}
 	}
 
@@ -562,7 +564,7 @@ func prepareStorageResources(storageUris []v1beta1.StorageUrisSpec) ([]corev1.Vo
     return volumeMounts, volumes, initContainerArgs, nil
 }
 
-func applyStorageTooPodSpec(podSpec *corev1.PodSpec, initContainer *corev1.Container,
+func applyStorageToPodSpec(podSpec *corev1.PodSpec, initContainer *corev1.Container,
     volumes []corev1.Volume, volumeMounts []corev1.VolumeMount) {
 
     podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
@@ -598,11 +600,11 @@ func SetupStorageInitialization(storageUrisSpec *[]v1beta1.StorageUrisSpec,
     initContainer.VolumeMounts = append(initContainer.VolumeMounts, volumeMounts...)
 
     // Apply to main pod spec
-    applyStorageTooPodSpec(podSpec, initContainer, volumes, volumeMounts)
+    applyStorageToPodSpec(podSpec, initContainer, volumes, volumeMounts)
 
     // Apply to worker pod spec if exists
     if workerPodSpec != nil {
-        applyStorageTooPodSpec(workerPodSpec, initContainer, volumes, volumeMounts)
+        applyStorageToPodSpec(workerPodSpec, initContainer, volumes, volumeMounts)
     }
 
     return nil

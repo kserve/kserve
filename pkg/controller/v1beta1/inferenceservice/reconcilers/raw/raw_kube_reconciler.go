@@ -69,12 +69,7 @@ func NewRawKubeReconciler(ctx context.Context,
 ) (*RawKubeReconciler, error) {
     if storageUrisSpec != nil && len(*storageUrisSpec) > 0 {
 		isvcutils.SetupStorageInitialization(storageUrisSpec, podSpec, workerPodSpec, storageConfig)
-        // TODO: Tests
-		// TODO: Update Docker to take multiple args and download in parallel
-		// TODO: Validate that storageURI and storageURIs are not both set
-		// NewRawKubeReconciler from raw_ig??
-		// create the common volume mounts for storage
-		// Double check that this works with multi-node??
+        // TODO: Update Docker to take multiple args and download in parallel
     }
 
 	var otelCollector *otel.OtelReconciler
