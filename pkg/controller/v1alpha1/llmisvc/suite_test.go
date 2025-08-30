@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KServe Authors.
+Copyright 2023 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,10 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package llmisvc_test
 
-import "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+import (
+	"testing"
 
-type Strategy interface {
-	GetOrAssignShard(trainedModel *v1alpha1.TrainedModel) int
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc/fixture"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
+)
+
+func TestLLMInferenceServiceController(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "LLMInferenceService Controller Suite")
 }
+
+var envTest *pkgtest.Client
+
+var _ = SynchronizedBeforeSuite(func() {
+	envTest = fixture.SetupTestEnv()
+}, func() {})

@@ -15,9 +15,10 @@ dependencies = [
     "python-dateutil<3.0.0,>=2.8.0",
     "numpy<3.0.0,>=1.26.0",
     "psutil<6.0.0,>=5.9.6",
-    "grpcio<2.0.0,>=1.60.0",
+    "grpcio<2.0.0,>=1.64.1",
+    "grpcio-tools<2.0.0,>=1.64.1",
     "grpc-interceptor<1.0.0,>=0.15.4",
-    "protobuf<5.0.0,>=4.25.4",
+    "protobuf<6.0.0,>=5.27.1",
     "prometheus-client<1.0.0,>=0.20.0",
     "orjson<4.0.0,>=3.9.15",
     "httpx<1.0.0,>=0.27.2",
@@ -54,13 +55,14 @@ repository = "https://github.com/kserve/kserve/tree/master/python/kserve"
 
 [project.optional-dependencies]
 storage = [
-    "requests<3.0.0,>=2.32.2",
-    "google-cloud-storage<3.0.0,>=2.14.0",
-    "azure-storage-blob<13.0.0,>=12.20.0",
-    "azure-storage-file-share<13.0.0,>=12.16.0",
-    "azure-identity<2.0.0,>=1.15.0",
-    "boto3<2.0.0,>=1.29.0",
-    "huggingface-hub[hf-transfer]>=0.32.0",
+    "kserve-storage==2"
+#     "requests<3.0.0,>=2.32.2",
+#    "google-cloud-storage<3.0.0,>=2.14.0",
+#    "azure-storage-blob<13.0.0,>=12.20.0",
+#    "azure-storage-file-share<13.0.0,>=12.16.0",
+#    "azure-identity<2.0.0,>=1.15.0",
+#    "boto3<2.0.0,>=1.29.0",
+#    "huggingface-hub[hf-transfer]>=0.32.0",
 ]
 logging = [
     "asgi-logger<1.0.0,>=0.1.0",
@@ -69,7 +71,7 @@ ray = [
     "ray[serve]>=2.43.0",
 ]
 llm = [
-    "vllm==0.9.0.1",
+    "vllm==0.9.2",
 ]
 
 [dependency-groups]
@@ -89,6 +91,11 @@ test = [
 dev = [
     "black[colorama]~=24.3.0",
 ]
+
+[tool.uv]
+# TODO remove later
+index-url = "https://test.pypi.org/simple/"
+extra-index-url = ["https://pypi.org/simple"]
 
 [build-system]
 requires = ["setuptools>=61.0"]

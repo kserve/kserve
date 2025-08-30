@@ -21,7 +21,7 @@ import kserve
 from huggingfaceserver.request_logger import RequestLogger
 from kserve import logging
 from kserve.logging import logger
-from kserve.storage import Storage
+from kserve_storage import Storage
 
 from transformers import AutoConfig
 
@@ -138,10 +138,19 @@ parser.add_argument(
 parser.add_argument(
     "--return_token_type_ids", action="store_true", help="Return token type ids"
 )
-parser.add_argument(
+
+# Create a mutually exclusive group for output format options
+# This group allows the user to choose between returning probabilities or disabling postprocessing.
+output_format_group = parser.add_mutually_exclusive_group()
+output_format_group.add_argument(
     "--return_probabilities",
     action="store_true",
-    help="Return all probabilities",
+    help="Return probabilities instead of logits for classification tasks such as token classification, text classification and fill-mask.",
+)
+output_format_group.add_argument(
+    "--return_raw_logits",
+    action="store_true",
+    help="Return raw logits without processing. Supported only classification tasks such as token classification, text classification and fill-mask.",
 )
 parser.add_argument(
     "--disable_log_requests", action="store_true", help="Disable logging requests"
@@ -291,6 +300,7 @@ def load_model():
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
                 request_logger=request_logger,
                 return_probabilities=kwargs.get("return_probabilities", False),
+                return_raw_logits=kwargs.get("return_raw_logits", False),
             )
     model.load()
     return model

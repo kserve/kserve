@@ -64,6 +64,13 @@ RUN cd kserve && \
     uv cache clean && \
     rm -rf ~/.cache/uv
 
+ # Copy and install dependencies for kserve-storage using uv
+COPY storage/pyproject.toml storage/uv.lock storage/
+RUN cd storage && uv sync --active --no-cache
+
+COPY storage storage
+RUN cd storage && uv pip install . --no-cache  
+
 # Install huggingfaceserver using UV
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && \
@@ -79,7 +86,7 @@ RUN pip install --no-cache --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-in
     intel-openmp
 
 # install vllm
-ARG VLLM_VERSION=0.9.0.1
+ARG VLLM_VERSION=0.9.2
 ARG VLLM_CPU_DISABLE_AVX512=true
 ENV VLLM_CPU_DISABLE_AVX512=${VLLM_CPU_DISABLE_AVX512}
 ARG VLLM_CPU_AVX512BF16=1
@@ -91,7 +98,7 @@ RUN git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-
 
 # Install vLLM build requirements
 RUN cd vllm && \
-    uv pip install --no-cache -v -r requirements/build.txt && \
+    uv pip install --no-cache -v --index-strategy unsafe-best-match -r requirements/cpu-build.txt && \
     uv cache clean
 
 # Install vLLM cpu requirements
@@ -134,6 +141,7 @@ COPY --from=builder --chown=kserve:kserve third_party third_party
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder --chown=kserve:kserve huggingfaceserver huggingfaceserver
 COPY --from=builder --chown=kserve:kserve kserve kserve
+COPY --from=builder --chown=kserve:kserve storage storage
 
 RUN df -hT
 

@@ -63,6 +63,8 @@ jobs:
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          cache-binary: true
 
       - name: Build KServe images
         run: |
@@ -131,6 +133,8 @@ jobs:
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          cache-binary: true
 
       - name: Build runtime server images
         run: |
@@ -220,6 +224,8 @@ jobs:
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          cache-binary: true
 
       - name: Build runtime server images
         run: |
@@ -248,6 +254,8 @@ jobs:
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          cache-binary: true
 
       - name: Build test images needed for graph tests
         run: |
@@ -407,7 +415,12 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 30
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms or collocation or explainer" "6"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms or collocation" "6"
+
+      - name: Run E2E tests - explainer
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "explainer" "1"
 
       - name: Check system status
         if: always()
@@ -574,6 +587,11 @@ jobs:
         timeout-minutes: 30
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "path_based_routing" "6"
+
+      - name: Run E2E tests with path-based routing - Explainer
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "explainer" "1"
 
       - name: Check system status
         if: always()
