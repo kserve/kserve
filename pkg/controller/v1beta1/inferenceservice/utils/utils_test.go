@@ -775,6 +775,63 @@ func TestMergeRuntimeContainers(t *testing.T) {
 		},
 	}
 
+	argsWithModelName := map[string][]string{
+		"containerBaseArgs": []string{
+			"--model_name=kserve-container",
+		},
+		"containerOverrideArgs": []string{
+			"--model_name=kserve-container-in-args",
+			"--model_id=dummy",
+		},
+		"expectedArgs": []string{
+			"--model_name=kserve-container-in-args",
+			"--model_id=dummy",
+		},
+	}
+
+	argsWithoutModelName := map[string][]string{
+		"containerBaseArgs": []string{
+			"--model_name=kserve-container",
+		},
+		"containerOverrideArgs": []string{
+			"--model_id=dummy",
+		},
+		"expectedArgs": []string{
+			"--model_name=kserve-container",
+			"--model_id=dummy",
+		},
+	}
+
+	// Creating "argCheckMergeWtihArgs" scenario
+	argCheckWithArgs := struct {
+		containerBase     *corev1.Container
+		containerOverride *corev1.Container
+		expected          *corev1.Container
+	}{
+		containerBase:     scenarios["BasicMerge"].containerBase.DeepCopy(),
+		containerOverride: scenarios["BasicMerge"].containerOverride.DeepCopy(),
+		expected:          scenarios["BasicMerge"].expected.DeepCopy(),
+	}
+	argCheckWithArgs.containerBase.Args = argsWithModelName["containerBaseArgs"]
+	argCheckWithArgs.containerOverride.Args = argsWithModelName["containerOverrideArgs"]
+	argCheckWithArgs.expected.Args = argsWithModelName["expectedArgs"]
+	scenarios["argCheckMergeWtihArgs"] = argCheckWithArgs
+
+	// Creating "argCheckMergeWtihoutArgs" scenario
+	argCheckWithoutArgs := struct {
+		containerBase     *corev1.Container
+		containerOverride *corev1.Container
+		expected          *corev1.Container
+	}{
+		containerBase:     scenarios["BasicMerge"].containerBase.DeepCopy(),
+		containerOverride: scenarios["BasicMerge"].containerOverride.DeepCopy(),
+		expected:          scenarios["BasicMerge"].expected.DeepCopy(),
+	}
+	argCheckWithoutArgs.containerBase.Args = argsWithoutModelName["containerBaseArgs"]
+	argCheckWithoutArgs.containerOverride.Args = argsWithoutModelName["containerOverrideArgs"]
+	argCheckWithoutArgs.expected.Args = argsWithoutModelName["expectedArgs"]
+	scenarios["argCheckMergeWtihoutArgs"] = argCheckWithoutArgs
+
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			res, _ := MergeRuntimeContainers(scenario.containerBase, scenario.containerOverride)
