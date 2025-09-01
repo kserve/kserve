@@ -84,6 +84,7 @@ async def test_batcher_raw(rest_v1_client, network_layer):
         for pod in pods.items:
             print(pod)
         raise e
+
     results = await predict_isvc(
         rest_v1_client,
         service_name,
@@ -92,4 +93,16 @@ async def test_batcher_raw(rest_v1_client, network_layer):
         network_layer=network_layer,
     )
     assert all(x == results[0] for x in results)
+
+    results_batch_id = []
+    response_codes = []
+
+    for result in results:
+        results_batch_id.append(result["batchId"])
+        response_codes.append(result["response_code"])
+
+    # Batch results must have the same batch ID.
+    assert len(set(results_batch_id)) == 1
+    # Batch results must have 200 response codes.
+    assert set(response_codes) == {200}
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
