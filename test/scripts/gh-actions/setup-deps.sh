@@ -133,7 +133,7 @@ if [[ $DEPLOYMENT_MODE == "raw" ]]; then
   
     echo "Installing KEDA OTel add-on from kedify/otel-add-on ..."
     # Install using Helm from the official OCI registry
-    helm upgrade -i keda-otel-scaler -n keda oci://ghcr.io/kedify/charts/otel-add-on --version=v0.0.12
+    helm upgrade -i keda-otel-scaler -n keda oci://ghcr.io/kedify/charts/otel-add-on --version=v0.0.12 --namespace keda --wait --set validatingAdmissionPolicy.enabled=false
     
     echo "Checking KEDA and OpenTelemetry operator status ..."
     kubectl get pods -n keda
