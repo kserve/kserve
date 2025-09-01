@@ -18,12 +18,20 @@ package logger
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/cloudevents/sdk-go"
-	"github.com/cloudevents/sdk-go/pkg/cloudevents/transport"
-	"go.uber.org/zap"
 	"net/http"
-	"time"
+	"os"
+	"path/filepath"
+
+	cloudevents "github.com/cloudevents/sdk-go/v2"
+	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
+	"go.uber.org/zap"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 const (
@@ -31,12 +39,14 @@ const (
 	CEInferenceResponse = "org.kubeflow.serving.inference.response"
 
 	// cloud events extension attributes have to be lowercase alphanumeric
-	//TODO: ideally request id would have its own header but make do with ce-id for now
+	// TODO: ideally request id would have its own header but make do with ce-id for now
 	InferenceServiceAttr = "inferenceservicename"
 	NamespaceAttr        = "namespace"
 	ComponentAttr        = "component"
-	//endpoint would be either default or canary
-	EndpointAttr = "endpoint"
+	MetadataAttr         = "metadata"
+	// endpoint would be either default or canary
+	EndpointAttr   = "endpoint"
+	AnnotationAttr = "annotations"
 
 	LoggerWorkerQueueSize = 100
 	CloudEventsIdHeader   = "Ce-Id"
@@ -53,7 +63,7 @@ func QueueLogRequest(req LogRequest) error {
 // NewWorker creates, and returns a new Worker object. Its only argument
 // is a channel that the worker can add itself to whenever it is done its
 // work.
-func NewWorker(id int, workerQueue chan chan LogRequest, logger *zap.SugaredLogger) Worker {
+func NewWorker(id int, workerQueue chan chan LogRequest, store Store, logger *zap.SugaredLogger) Worker {
 	// Create, and return the worker.
 	return Worker{
 		Log:         logger,
@@ -61,10 +71,7 @@ func NewWorker(id int, workerQueue chan chan LogRequest, logger *zap.SugaredLogg
 		Work:        make(chan LogRequest),
 		WorkerQueue: workerQueue,
 		QuitChan:    make(chan bool),
-		Client: http.Client{
-			Timeout: 60 * time.Second,
-		},
-		CeCtx: cloudevents.ContextWithEncoding(context.Background(), cloudevents.Binary),
+		Store:       store,
 	}
 }
 
@@ -74,50 +81,89 @@ type Worker struct {
 	Work        chan LogRequest
 	WorkerQueue chan chan LogRequest
 	QuitChan    chan bool
-	Client      http.Client
-	CeCtx       context.Context
-	CeTransport transport.Transport
+	Store       Store
 }
 
-func (w *Worker) sendCloudEvent(logReq LogRequest) error {
-	t, err := cloudevents.NewHTTPTransport(
+func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
+	t, err := cloudevents.NewHTTP(
 		cloudevents.WithTarget(logReq.Url.String()),
-		cloudevents.WithEncoding(cloudevents.HTTPBinaryV1),
 	)
-
 	if err != nil {
-		return fmt.Errorf("while creating http transport: %s", err)
+		return fmt.Errorf("while creating http transport: %w", err)
+	}
+
+	if logReq.Url.Scheme == "https" {
+		caCertFilePath := filepath.Join(constants.LoggerCaCertMountPath, logReq.CertName)
+		caCertFile, err := os.ReadFile(caCertFilePath)
+		// Do not fail if certificates not found, for backwards compatibility
+		if err == nil {
+			clientCertPool := x509.NewCertPool()
+			if !clientCertPool.AppendCertsFromPEM(caCertFile) {
+				return errors.New("while parsing CA certificate")
+			}
+
+			tlsTransport := &http.Transport{
+				TLSClientConfig: &tls.Config{
+					RootCAs:            clientCertPool,
+					MinVersion:         tls.VersionTLS12,
+					InsecureSkipVerify: logReq.TlsSkipVerify, // #nosec G402
+				},
+			}
+			t.Client.Transport = tlsTransport
+		} else {
+			w.Log.Warnf("using https endpoint but could not find CA cert file %s", caCertFilePath)
+		}
 	}
 
 	c, err := cloudevents.NewClient(t,
 		cloudevents.WithTimeNow(),
 	)
 	if err != nil {
-		return fmt.Errorf("while creating new cloudevents client: %s", err)
+		return fmt.Errorf("while creating new cloudevents client: %w", err)
 	}
 	event := cloudevents.NewEvent(cloudevents.VersionV1)
 	event.SetID(logReq.Id)
-	if logReq.ReqType == InferenceRequest {
-		event.SetType(CEInferenceRequest)
-	} else {
-		event.SetType(CEInferenceResponse)
-	}
+	event.SetType(logReq.ReqType)
 
 	event.SetExtension(InferenceServiceAttr, logReq.InferenceService)
 	event.SetExtension(NamespaceAttr, logReq.Namespace)
 	event.SetExtension(ComponentAttr, logReq.Component)
 	event.SetExtension(EndpointAttr, logReq.Endpoint)
 
-	event.SetSource(logReq.SourceUri.String())
-	if logReq.ContentType != "" {
-		event.SetDataContentType(logReq.ContentType)
+	encodedMetadata, err := json.Marshal(logReq.Metadata)
+	if err != nil {
+		return fmt.Errorf("could not encode metadata as json: %w", err)
 	}
-	if err := event.SetData(*logReq.Bytes); err != nil {
-		return fmt.Errorf("while setting cloudevents data: %s", err)
+	event.SetExtension(MetadataAttr, string(encodedMetadata))
+
+	if len(logReq.Annotations) > 0 {
+		bits, err := json.Marshal(logReq.Annotations)
+		if err != nil {
+			w.Log.Errorf("failed to marshal annotations: %w", err)
+		} else {
+			event.SetExtension(AnnotationAttr, string(bits))
+		}
 	}
 
-	if _, _, err := c.Send(w.CeCtx, event); err != nil {
-		return fmt.Errorf("while sending event: %s", err)
+	event.SetSource(logReq.SourceUri.String())
+	if err := event.SetData(logReq.ContentType, *logReq.Bytes); err != nil {
+		return fmt.Errorf("while setting cloudevents data: %w", err)
+	}
+	ceCtx := cloudevents.WithEncodingBinary(context.Background())
+	res := c.Send(ceCtx, event)
+	if cloudevents.IsUndelivered(res) {
+		return fmt.Errorf("while sending event: %w", res)
+	} else {
+		var httpResult *cehttp.Result
+		if cloudevents.ResultAs(res, &httpResult) {
+			var err error
+			if httpResult.StatusCode != http.StatusOK {
+				err = fmt.Errorf(httpResult.Format, httpResult.Args...)
+			}
+			w.Log.Infof("Sent with status code %d, error: %v", httpResult.StatusCode, err)
+		} else {
+			w.Log.Infof("Send did not return an HTTP response: %s", res)
+		}
 	}
 	return nil
 }
@@ -135,13 +181,30 @@ func (w *Worker) Start() {
 				// Receive a work request.
 				w.Log.Infof("Received work request %d, url: %s, requestId: %s", w.ID, work.Url.String(), work.Id)
 
-				if err := w.sendCloudEvent(work); err != nil {
-					w.Log.Error(err, "Failed to send cloud event, url: %s", work.Url.String())
+				// Determine how we should handle the work request.
+				strategy := GetStorageStrategy(work.Url.String())
+
+				// Use HTTP if the URL scheme is HTTP or HTTPS, or if we don't have a configured logger store.
+				if strategy == HttpStorage {
+					if err := w.sendHttpCloudEvent(work); err != nil {
+						w.Log.Error(err, "Failed to send cloud event, url: %s", work.Url.String())
+					}
+					continue
+				}
+
+				if w.Store == nil {
+					w.Log.Error("Logger store not configured, cannot store event")
+					continue
+				}
+
+				// Store the cloud event in a logger store.
+				if err := w.Store.Store(work.Url, work); err != nil {
+					w.Log.Error(err, "Failed to log cloud event", "url", work.Url.String())
 				}
 
 			case <-w.QuitChan:
 				// We have been asked to stop.
-				fmt.Printf("worker %d stopping\n", w.ID)
+				w.Log.Infof("worker %d stopping\n", w.ID)
 				return
 			}
 		}

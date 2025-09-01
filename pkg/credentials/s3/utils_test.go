@@ -20,20 +20,20 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func TestBuildS3EnvVars(t *testing.T) {
 	scenarios := map[string]struct {
 		config      S3Config
 		annotations map[string]string
-		expected    []v1.EnvVar
+		expected    []corev1.EnvVar
 	}{
 		"S3Endpoint": {
 			annotations: map[string]string{
 				InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
 			},
-			expected: []v1.EnvVar{
+			expected: []corev1.EnvVar{
 				{
 					Name:  S3Endpoint,
 					Value: "s3.aws.com",
@@ -46,15 +46,17 @@ func TestBuildS3EnvVars(t *testing.T) {
 		},
 		"AllAnnotations": {
 			annotations: map[string]string{
-				InferenceServiceS3SecretEndpointAnnotation:   "s3.aws.com",
-				InferenceServiceS3SecretRegionAnnotation:     "us-east-2",
-				InferenceServiceS3SecretSSLAnnotation:        "0",
-				InferenceServiceS3SecretHttpsAnnotation:      "0",
-				InferenceServiceS3UseVirtualBucketAnnotation: "true",
-				InferenceServiceS3UseAnonymousCredential:     "true",
-				InferenceServiceS3CABundleAnnotation:         "value",
+				InferenceServiceS3SecretEndpointAnnotation:    "s3.aws.com",
+				InferenceServiceS3SecretRegionAnnotation:      "us-east-2",
+				InferenceServiceS3SecretSSLAnnotation:         "0",
+				InferenceServiceS3SecretHttpsAnnotation:       "0",
+				InferenceServiceS3UseVirtualBucketAnnotation:  "true",
+				InferenceServiceS3UseAccelerateAnnotation:     "true",
+				InferenceServiceS3UseAnonymousCredential:      "true",
+				InferenceServiceS3CABundleAnnotation:          "value",
+				InferenceServiceS3CABundleConfigMapAnnotation: "value",
 			},
-			expected: []v1.EnvVar{
+			expected: []corev1.EnvVar{
 				{
 					Name:  S3UseHttps,
 					Value: "0",
@@ -84,7 +86,15 @@ func TestBuildS3EnvVars(t *testing.T) {
 					Value: "true",
 				},
 				{
+					Name:  S3UseAccelerate,
+					Value: "true",
+				},
+				{
 					Name:  AWSCABundle,
+					Value: "value",
+				},
+				{
+					Name:  AWSCABundleConfigMap,
 					Value: "value",
 				},
 			},

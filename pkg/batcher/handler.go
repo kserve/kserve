@@ -20,13 +20,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/satori/go.uuid"
-	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"time"
+
+	"github.com/gofrs/uuid/v5"
+	"go.uber.org/zap"
 )
 
 const (
@@ -82,7 +83,7 @@ func GetNowTime() time.Time {
 }
 
 func GenerateUUID() string {
-	return uuid.NewV4().String()
+	return uuid.Must(uuid.NewV4()).String()
 }
 
 func (batcherInfo *BatcherInfo) InitializeInfo() {
@@ -100,7 +101,7 @@ func (handler *BatchHandler) batchPredict() {
 		handler.batcherInfo.Instances,
 	})
 	reader := bytes.NewReader(jsonStr)
-	r := httptest.NewRequest("POST", handler.batcherInfo.Path, reader)
+	r := httptest.NewRequest(http.MethodPost, handler.batcherInfo.Path, reader)
 	rr := httptest.NewRecorder()
 	handler.next.ServeHTTP(rr, r)
 	responseBody := rr.Body.Bytes()
@@ -154,7 +155,8 @@ func (handler *BatchHandler) batchPredict() {
 }
 
 func (handler *BatchHandler) batch() {
-	handler.log.Infof("Starting batch loop maxLatency:%d, maxBatchSize:%d", handler.MaxLatency, handler.MaxBatchSize)
+	handler.log.Infof("Starting batch loop maxLatency:%d, maxBatchSize:%d",
+		handler.MaxLatency, handler.MaxBatchSize)
 	for {
 		select {
 		case req := <-handler.channelIn:
@@ -164,8 +166,8 @@ func (handler *BatchHandler) batch() {
 			handler.batcherInfo.Path = req.Path
 			handler.batcherInfo.CurrentInputLen = len(handler.batcherInfo.Instances)
 			handler.batcherInfo.Instances = append(handler.batcherInfo.Instances, *req.Instances...)
-			var index = make([]int, 0)
-			for i := 0; i < len(*req.Instances); i++ {
+			index := make([]int, 0)
+			for i := range len(*req.Instances) {
 				index = append(index, handler.batcherInfo.CurrentInputLen+i)
 			}
 			handler.batcherInfo.ContextMap[req.ContextInput] = InputInfo{
@@ -219,7 +221,7 @@ func New(maxBatchSize int, maxLatency int, handler http.Handler, logger *zap.Sug
 
 func (handler *BatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// only batch predict requests
-	var predictVerb = regexp.MustCompile(`:predict$`)
+	predictVerb := regexp.MustCompile(`:predict$`)
 	if !predictVerb.MatchString(r.URL.Path) {
 		handler.next.ServeHTTP(w, r)
 		return
@@ -241,8 +243,8 @@ func (handler *BatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	handler.log.Infof("serving request %s", r.URL.Path)
-	var ctx = context.Background()
-	var chl = make(chan Response)
+	ctx := context.Background()
+	chl := make(chan Response)
 	handler.channelIn <- Input{
 		&ctx,
 		r.URL.Path,

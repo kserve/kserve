@@ -20,22 +20,19 @@ import (
 	"net/url"
 )
 
-type LogRequestType string
-
-const (
-	InferenceRequest  LogRequestType = "Request"
-	InferenceResponse LogRequestType = "Response"
-)
-
 type LogRequest struct {
 	Url              *url.URL
 	Bytes            *[]byte
 	ContentType      string
-	ReqType          LogRequestType
+	ReqType          string
 	Id               string
 	SourceUri        *url.URL
 	InferenceService string
 	Namespace        string
 	Component        string
 	Endpoint         string
+	Metadata         map[string][]string
+	Annotations      map[string]string
+	CertName         string
+	TlsSkipVerify    bool
 }

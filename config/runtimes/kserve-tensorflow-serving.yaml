@@ -10,9 +10,11 @@ spec:
     - name: tensorflow
       version: "1"
       autoSelect: true
+      priority: 2
     - name: tensorflow
       version: "2"
       autoSelect: true
+      priority: 2
   protocolVersions:
     - v1
     - grpc-v1
@@ -26,6 +28,14 @@ spec:
         - --rest_api_port=8080
         - --model_base_path=/mnt/models
         - --rest_api_timeout_in_ms=60000
+      securityContext:
+        runAsUser: 1000    # User is not defined in the Dockerfile, so we need to set it here to run as non-root
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
       resources:
         requests:
           cpu: "1"

@@ -20,55 +20,58 @@ import (
 	"context"
 	"fmt"
 
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
-	"github.com/kserve/kserve/pkg/modelconfig"
-	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
+	"github.com/kserve/kserve/pkg/modelconfig"
 )
 
 var log = logf.Log.WithName("Reconciler")
 
 type ModelConfigReconciler struct {
-	client client.Client
-	scheme *runtime.Scheme
+	client    client.Client
+	clientset kubernetes.Interface
+	scheme    *runtime.Scheme
 }
 
-func NewModelConfigReconciler(client client.Client, scheme *runtime.Scheme) *ModelConfigReconciler {
+func NewModelConfigReconciler(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme) *ModelConfigReconciler {
 	return &ModelConfigReconciler{
-		client: client,
-		scheme: scheme,
+		client:    client,
+		clientset: clientset,
+		scheme:    scheme,
 	}
 }
 
-func (c *ModelConfigReconciler) Reconcile(req ctrl.Request, tm *v1alpha1api.TrainedModel) error {
+func (c *ModelConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request, tm *v1alpha1.TrainedModel) error {
 	log.Info("Reconciling TrainedModel", "apiVersion", tm.APIVersion, "trainedmodel", tm.Spec)
 	shardStrategy := memory.MemoryStrategy{}
 	shardId := shardStrategy.GetOrAssignShard(tm)
 	// Use tm's parent InferenceService field to get the model modelConfig
 	modelConfigName := constants.ModelConfigName(tm.Spec.InferenceService, shardId)
-	desiredModelConfig := &corev1.ConfigMap{}
-	log.Info("Reconciling modelConfig", "modelConfigName", modelConfigName)
-	if err := c.client.Get(context.TODO(), types.NamespacedName{Name: modelConfigName, Namespace: req.Namespace}, desiredModelConfig); err != nil {
+	log.Info("Reconciling modelConfig", "modelConfigName", modelConfigName, "namespace", req.Namespace)
+	desiredModelConfig, err := c.clientset.CoreV1().ConfigMaps(req.Namespace).Get(ctx, modelConfigName, metav1.GetOptions{})
+	if err != nil {
 		log.Error(err, "Failed to find model ConfigMap to reconcile for InferenceService", "name", tm.Spec.Model, "namespace", req.Namespace)
 		// Error reading the object - requeue the request.
 		return err
 	}
 	if tm.DeletionTimestamp != nil {
-		//A TrainedModel is being deleted, remove the model from the model configmap
+		// A TrainedModel is being deleted, remove the model from the model configmap
 		deletedConfigs := []string{tm.Name}
 		configDelta := modelconfig.NewConfigsDelta([]modelconfig.ModelConfig{}, deletedConfigs)
 		err := configDelta.Process(desiredModelConfig)
 		if err != nil {
-			return fmt.Errorf("Can not remove model %v from config because of error %v", tm.Name, err)
+			return fmt.Errorf("Can not remove model %v from config because of error %w", tm.Name, err)
 		}
 		// Update the model Config created by the InferenceService controller
-		err = c.client.Update(context.TODO(), desiredModelConfig)
+		err = c.client.Update(ctx, desiredModelConfig)
 		if err != nil {
 			return err
 		}
@@ -79,10 +82,10 @@ func (c *ModelConfigReconciler) Reconcile(req ctrl.Request, tm *v1alpha1api.Trai
 		configDelta := modelconfig.NewConfigsDelta(updatedConfigs, nil)
 		err := configDelta.Process(desiredModelConfig)
 		if err != nil {
-			return fmt.Errorf("Can not add or update a model %v from config because of error %v", tm.Name, err)
+			return fmt.Errorf("Can not add or update a model %v from config because of error %w", tm.Name, err)
 		}
 		// Update the model Config created by the InferenceService controller
-		err = c.client.Update(context.TODO(), desiredModelConfig)
+		err = c.client.Update(ctx, desiredModelConfig)
 		if err != nil {
 			return err
 		}

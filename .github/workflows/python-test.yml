@@ -2,56 +2,286 @@ name: Python package
 
 on:
   push:
-    branches: [ master ]
+    branches: [master, release*]
+    paths-ignore:
+      - "**.md"
   pull_request:
     branches: []
+    paths-ignore:
+      - "**.md"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  flake8-lint:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.7", "3.8", "3.9"]
-    name: Lint
-    steps:
-      - name: Check out source repository
-        uses: actions/checkout@v2
-      - name: Set up Python environment ${{ matrix.python-version }}
-        uses: actions/setup-python@v1
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: flake8 Lint
-        uses: py-actions/flake8@v1
-        with:
-          max-line-length: "120"
-          exclude: "docs/samples/v1beta1/onnx/assets/*.py,python/kserve/test/test_v1*.py,python/kserve/kserve/__init__.py,python/kserve/test/test_knative*.py,python/kserve/kserve/protocol/grpc/grpc_predict_v2*.py"
   build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: [3.7, "3.8", "3.9"]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-    - name: Test with pytest
-      run: |
-        cd python
-        pip install -e ./kserve[test]
-        pytest --cov=kserve ./kserve
-        pip install -e ./sklearnserver
-        pytest --cov=sklearnserver ./sklearnserver
-        pip install -e ./xgbserver
-        pytest --cov=xgbserver ./xgbserver
-        pip install -e ./pmmlserver
-        pytest --cov=pmmlserver ./pmmlserver
-        pip install -e ./lgbserver
-        pytest --cov=lgbserver ./lgbserver
-        pip install -e ./paddleserver[test]
-        pytest --cov=paddleserver ./paddleserver
-        pip install -e ./alibiexplainer
-        pytest --cov=alibiexplainer ./alibiexplainer
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Set up Python ${{ matrix.python-version }}
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        run: pip install uv
+        
+      - name: Set up virtualenv
+        run: |
+          uv venv .venv
+          # source .venv/bin/activate
+          # pip install --upgrade pip
+        
+      - name: Load uv cache
+        uses: actions/cache@v4
+        id: cached-uv
+        with:
+          path: .venv
+          key: uv-${{ runner.os }}-${{ hashFiles('**/uv.lock') }}
+        
+      # ----------------------------------------Kserve Unit Tests--------------------------------------------------------
+      # load cached kserve venv if cache exists
+      - name: Load cached kserve venv
+        id: cached-kserve-dependencies
+        uses: actions/cache@v4
+        with:
+          path: python/kserve/.venv
+          key: kserve-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock') }}
+      # install kserve dependencies if cache does not exist
+      - name: Install kserve dependencies
+        if: steps.cached-kserve-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/kserve
+          make install_dependencies
+      - name: Install kserve
+        run: |
+          cd python/kserve
+          make dev_install
+      - name: Test kserve
+        run: |
+          cd python
+          source kserve/.venv/bin/activate
+          pytest --cov=kserve ./kserve
+      - name: Test kserve Storage
+        run: |
+          cd python
+          source kserve/.venv/bin/activate
+          pytest --cov=storage ./storage
+
+      # ----------------------------------------Kserve Numpy 1.x Unit Tests--------------------------------------------
+      - name: Setup kserve numpy 1-x directory
+        run: |
+          mkdir -p python/kserve-numpy-1-x
+          cp -r python/kserve/* python/kserve-numpy-1-x
+          cd python/kserve-numpy-1-x
+          # update the lock file without installing dependencies
+          uv pip install "numpy<2.0"
+      - name: Load cached kserve numpy 1-x venv
+        id: cached-kserve-numpy-1-x-dependencies
+        uses: actions/cache@v3
+        with:
+          path: python/kserve-numpy-1-x/.venv
+          key: kserve-numpy-1-x-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve-numpy-1-x/uv.lock') }}
+      # install kserve numpy 1-x dependencies if cache does not exist
+      - name: Install kserve numpy 1-x dependencies
+        if: ${{ steps.cached-kserve-numpy-1-x-dependencies.outputs.cache-hit != 'true' }}
+        run: |
+          cd python/kserve-numpy-1-x
+          make install_dependencies
+      - name: Install kserve numpy 1-x
+        run: |
+          cd python/kserve-numpy-1-x
+          make dev_install
+      - name: View numpy version
+        run: |
+          cd python/kserve-numpy-1-x
+          uv pip show numpy
+      - name: Test kserve numpy 1-x
+        run: |
+          cd python
+          source kserve-numpy-1-x/.venv/bin/activate
+          pytest --cov=kserve ./kserve-numpy-1-x
+
+      # ----------------------------------------Sklearn Server Unit Tests------------------------------------------------
+      # load cached sklearn venv if cache exists
+      - name: Load cached sklearn venv
+        id: cached-sklearn-dependencies
+        uses: actions/cache@v4
+        with:
+          path: python/sklearnserver/.venv
+          key: sklearn-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/sklearnserver/uv.lock') }}
+        # install sklearn server dependencies if cache does not exist
+      - name: Install sklearn dependencies
+        if: steps.cached-sklearn-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/sklearnserver
+          make install_dependencies
+      - name: Install sklearnserver
+        run: |
+          cd python/sklearnserver
+          make dev_install
+      - name: Test sklearnserver
+        run: |
+          cd python
+          source sklearnserver/.venv/bin/activate
+          pytest --cov=sklearnserver ./sklearnserver
+
+      # ----------------------------------------Xgb Server Unit Tests------------------------------------------------
+      # load cached xgb venv if cache exists
+      - name: Load cached xgb venv
+        id: cached-xgb-dependencies
+        uses: actions/cache@v4
+        with:
+          path: python/xgbserver/.venv
+          key: xgb-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/xgbserver/uv.lock') }}
+        # install xgb server dependencies if cache does not exist
+      - name: Install xgb dependencies
+        if: steps.cached-xgb-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/xgbserver
+          make install_dependencies
+      - name: Install xgbserver
+        run: |
+          cd python/xgbserver
+          make dev_install
+      - name: Test xgbserver
+        run: |
+          cd python
+          source xgbserver/.venv/bin/activate
+          pytest --cov=xgbserver ./xgbserver
+
+      # ----------------------------------------Pmml Server Unit Tests------------------------------------------------
+      # load cached pmml venv if cache exists
+      - name: Load cached pmml venv
+        id: cached-pmml-dependencies
+        uses: actions/cache@v4
+        with:
+          path: python/pmmlserver/.venv
+          key: pmml-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/pmmlserver/uv.lock') }}
+        # install pmml server dependencies if cache does not exist
+      - name: Install pmml dependencies
+        if: steps.cached-pmml-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/pmmlserver
+          make install_dependencies
+      - name: Install pmmlserver
+        run: |
+          cd python/pmmlserver
+          make dev_install
+      - name: Test pmmlserver
+        run: |
+          cd python
+          source pmmlserver/.venv/bin/activate
+          pytest --cov=pmmlserver ./pmmlserver
+
+      # ----------------------------------------Lgb Server Unit Tests------------------------------------------------
+      # load cached lgb venv if cache exists
+      - name: Load cached lgb venv
+        id: cached-lgb-dependencies
+        uses: actions/cache@v4
+        with:
+          path: python/lgbserver/.venv
+          key: lgb-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/lgbserver/uv.lock') }}
+        # install lgb server dependencies if cache does not exist
+      - name: Install lgb dependencies
+        if: steps.cached-lgb-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/lgbserver
+          make install_dependencies
+      - name: Install lgbserver
+        run: |
+          cd python/lgbserver
+          make dev_install
+      - name: Test lgbserver
+        run: |
+          cd python
+          source lgbserver/.venv/bin/activate
+          pytest --cov=lgbserver ./lgbserver
+
+      # ----------------------------------------Paddle Server Unit Tests------------------------------------------------
+      # load cached paddle venv if cache exists
+      - name: Load cached paddle venv
+        id: cached-paddle-dependencies
+        uses: actions/cache@v4
+        with:
+          path: python/paddleserver/.venv
+          key: paddle-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/paddleserver/uv.lock') }}
+
+      - name: Install paddle dependencies
+        if: steps.cached-paddle-dependencies.outputs.cache-hit != 'true'
+        run: |
+          echo "python version ${{ steps.setup-python.outputs.python-version }}"
+          cd python/paddleserver
+          make install_dependencies
+      - name: Install paddleserver
+        run: |
+          cd python/paddleserver
+          make dev_install
+      - name: Test paddleserver 
+        run: |
+          cd python
+          source paddleserver/.venv/bin/activate
+          pytest --cov=paddleserver ./paddleserver
+
+      # ----------------------------------------Huggingface CPU Server Unit Tests------------------------------------------------
+      # load cached huggingface cpu venv if cache exists
+      - name: Load cached huggingface cpu venv
+        id: huggingface-cpu-dependencies
+        uses: actions/cache@v4
+        with:
+          path: /mnt/python/huggingfaceserver-cpu-venv
+          key: huggingface-cpu-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/huggingfaceserver/uv.lock') }}
+      
+      - name: Setup Python environment
+        run: |
+          sudo mkdir -p /mnt/python/huggingfaceserver-cpu-venv
+          sudo chown -R $USER /mnt/python/huggingfaceserver-cpu-venv
+          uv venv /mnt/python/huggingfaceserver-cpu-venv
+          echo "/mnt/python/huggingfaceserver-cpu-venv/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: |
+          export VIRTUAL_ENV=/mnt/python/huggingfaceserver-cpu-venv
+          cd python/huggingfaceserver
+          make install_cpu_dependencies
+
+      - name: Install huggingface cpu server
+        run: |
+          export VIRTUAL_ENV=/mnt/python/huggingfaceserver-cpu-venv
+          cd python/huggingfaceserver
+          make dev_install
+          
+      - name: Run tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libnuma-dev
+          cd python/huggingfaceserver
+          /mnt/python/huggingfaceserver-cpu-venv/bin/python -m ensurepip --upgrade
+          /mnt/python/huggingfaceserver-cpu-venv/bin/python -m pip install --upgrade pip
+
+          /mnt/python/huggingfaceserver-cpu-venv/bin/python -m pip install pytest pytest-cov
+          bash tests/setup_vllm.sh
+          source /mnt/python/huggingfaceserver-cpu-venv/bin/activate
+          /mnt/python/huggingfaceserver-cpu-venv/bin/python -m pytest --cov=huggingfaceserver -vv -k 'not test_vllm'
+          # TODO: The following tests need to be reworked since IPEX support is relatively new for both vLLM and KServe
+          # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_chat_with_reasoning.py
+          # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_chat_with_tools.py
+          # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_generative.py
+        env:
+          VLLM_ENGINE_ITERATION_TIMEOUT_S: 3600
+
+      - name: Free space after cpu tests
+        run: |
+          df -hT

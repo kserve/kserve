@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"k8s.io/utils/ptr"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -198,19 +199,19 @@ func TestTFMetaGraphTypical(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfMetaGraph := expectedTFMetaGraph()
 	expectedRequestSchema := &openapi3.Schema{
-		Type: "object",
+		Type: &openapi3.Types{openapi3.TypeObject},
 		Properties: map[string]*openapi3.SchemaRef{
 			"instances": {
 				Value: &openapi3.Schema{
-					Type: "array",
+					Type: &openapi3.Types{openapi3.TypeArray},
 					Items: &openapi3.SchemaRef{
 						Value: &openapi3.Schema{
-							Type:     "array",
+							Type:     &openapi3.Types{openapi3.TypeArray},
 							MaxItems: func(u uint64) *uint64 { return &u }(3),
 							MinItems: 3,
 							Items: &openapi3.SchemaRef{
 								Value: &openapi3.Schema{
-									Type: "number",
+									Type: &openapi3.Types{openapi3.TypeNumber},
 								},
 							},
 						},
@@ -218,23 +219,26 @@ func TestTFMetaGraphTypical(t *testing.T) {
 				},
 			},
 		},
-		Required:                    []string{"instances"},
-		AdditionalPropertiesAllowed: func(b bool) *bool { return &b }(false),
+		Required: []string{"instances"},
+		AdditionalProperties: openapi3.AdditionalProperties{
+			Has:    ptr.To(false),
+			Schema: nil,
+		},
 	}
 	expectedResponseSchema := &openapi3.Schema{
-		Type: "object",
+		Type: &openapi3.Types{openapi3.TypeObject},
 		Properties: map[string]*openapi3.SchemaRef{
 			"predictions": {
 				Value: &openapi3.Schema{
-					Type: "array",
+					Type: &openapi3.Types{openapi3.TypeArray},
 					Items: &openapi3.SchemaRef{
 						Value: &openapi3.Schema{
-							Type:     "array",
+							Type:     &openapi3.Types{openapi3.TypeArray},
 							MaxItems: func(u uint64) *uint64 { return &u }(3),
 							MinItems: 3,
 							Items: &openapi3.SchemaRef{
 								Value: &openapi3.Schema{
-									Type: "number",
+									Type: &openapi3.Types{openapi3.TypeNumber},
 								},
 							},
 						},
@@ -242,8 +246,11 @@ func TestTFMetaGraphTypical(t *testing.T) {
 				},
 			},
 		},
-		Required:                    []string{"predictions"},
-		AdditionalPropertiesAllowed: func(b bool) *bool { return &b }(false),
+		Required: []string{"predictions"},
+		AdditionalProperties: openapi3.AdditionalProperties{
+			Has:    ptr.To(false),
+			Schema: nil,
+		},
 	}
 	requestSchema, responseSchema, err := tfMetaGraph.Schema("sigDefKey")
 	g.Expect(requestSchema).Should(gomega.Equal(expectedRequestSchema))

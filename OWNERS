@@ -1,13 +1,27 @@
-approvers:
-  - njhill
+owners:
+  - terrytangyuan
   - yuzisun
-reviewers:
-  - adriangonz
-  - alexagriffith
-  - ckadner
-  - iamlovingit
+
+approvers:
+  - Jooho
+  - lizzzcai
   - rachitchauhan43
-  - sukumargaonkar
-  - theofpa
-  - njhill
+  - sivanantha321
+  - terrytangyuan
+  - yuzisun
+
+reviewers:
+  - andyi2it
+  - cmaddalozzo
+  - Datta0
+  - gavrissh
+  - greenmoon55
+  - israel-hdez
+  - johnugeorge
+  - Jooho
+  - lizzzcai
+  - rachitchauhan43
+  - sivanantha321
+  - spolti
+  - terrytangyuan
   - yuzisun

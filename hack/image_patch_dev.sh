@@ -2,6 +2,8 @@
 # Usage: image_patch_dev.sh [OVERLAY]
 set -u
 set -e
+set -o pipefail
+
 OVERLAY=$1
 IMG=$(ko resolve -f config/manager/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
 if [ -z ${IMG} ]; then exit; fi
@@ -17,6 +19,43 @@ spec:
       containers:
         - name: manager
           command:
+            - /ko-app/manager
+          image: ${IMG}
+EOF
+
+IMG=$(ko resolve -f config/localmodels/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
+if [ -z ${IMG} ]; then exit; fi
+cat > config/overlays/${OVERLAY}/localmodel_image_patch.yaml << EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kserve-localmodel-controller-manager
+  namespace: kserve
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          command:
+            - /ko-app/localmodel
+          image: ${IMG}
+EOF
+
+IMG=$(ko resolve -f config/localmodelnodes/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
+if [ -z ${IMG} ]; then exit; fi
+cat > config/overlays/${OVERLAY}/localmodelnode_image_patch.yaml << EOF
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kserve-localmodelnode-agent
+  namespace: kserve
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          command:
+            - /ko-app/localmodelnode
           image: ${IMG}
 EOF
 

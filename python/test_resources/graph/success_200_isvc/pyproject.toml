@@ -1,0 +1,20 @@
+[project]
+authors = [
+    {name = "The KServe Authors"},
+]
+license = {text = "Apache-2.0"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "kserve",
+]
+name = "success_200_isvc"
+version = "0.15.2"
+description = "Custom isvc that always returns 200 with a JSON SUCCESS message"
+
+[dependency-groups]
+dev = [
+    "black[colorama]~=24.3.0",
+]
+
+[tool.uv.sources]
+kserve = { path = "../../../kserve" }

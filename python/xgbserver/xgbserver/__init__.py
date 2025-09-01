@@ -12,5 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .model import XGBoostModel  # noqa # pylint: disable=unused-import
-from .xgboost_model_repository import XGBoostModelRepository  # noqa # pylint: disable=unused-import
+from .model import XGBoostModel
+from .xgboost_model_repository import XGBoostModelRepository
+
+__all__ = ["XGBoostModel", "XGBoostModelRepository"]

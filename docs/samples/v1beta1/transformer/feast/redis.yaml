@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-server
+  template:
+    metadata:
+      labels:
+        app: redis-server
+        name: redis-server
+    spec:
+      containers:
+        - name: redis-server
+          image: redis
+          args: [ "--appendonly", "yes" ]
+          ports:
+            - name: redis-server
+              containerPort: 6379
+          env:
+            - name: ALLOW_EMPTY_PASSWORD
+              value: "yes"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: redis-server
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379

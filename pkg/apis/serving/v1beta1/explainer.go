@@ -17,23 +17,20 @@ limitations under the License.
 package v1beta1
 
 import (
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/kserve/kserve/pkg/utils"
-	v1 "k8s.io/api/core/v1"
 )
 
 // ExplainerSpec defines the container spec for a model explanation server,
 // The following fields follow a "1-of" semantic. Users must specify exactly one spec.
 type ExplainerSpec struct {
-	// Spec for alibi explainer
-	Alibi *AlibiExplainerSpec `json:"alibi,omitempty"`
-	// Spec for AIX explainer
-	AIX *AIXExplainerSpec `json:"aix,omitempty"`
 	// Spec for ART explainer
 	ART *ARTExplainerSpec `json:"art,omitempty"`
 	// This spec is dual purpose.
 	// 1) Users may choose to provide a full PodSpec for their custom explainer.
-	// The field PodSpec.Containers is mutually exclusive with other explainers (i.e. Alibi).
-	// 2) Users may choose to provide a Explainer (i.e. Alibi) and specify PodSpec
+	// The field PodSpec.Containers is mutually exclusive with other explainers.
+	// 2) Users may choose to provide a Explainer and specify PodSpec
 	// overrides in the PodSpec. They must not provide PodSpec.Containers in this case.
 	PodSpec `json:",inline"`
 	// Component extension defines the deployment configurations for explainer
@@ -51,10 +48,10 @@ type ExplainerExtensionSpec struct {
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
 	// +optional
-	v1.Container `json:",inline"`
+	corev1.Container `json:",inline"`
 	// Storage Spec for model location
 	// +optional
-	Storage *StorageSpec `json:"storage,omitempty"`
+	Storage *ModelStorageSpec `json:"storage,omitempty"`
 }
 
 var _ Component = &ExplainerSpec{}
@@ -62,7 +59,6 @@ var _ Component = &ExplainerSpec{}
 // Validate returns an error if invalid
 func (e *ExplainerExtensionSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
-		validateStorageURI(e.GetStorageUri()),
 		validateStorageSpec(e.GetStorageSpec(), e.GetStorageUri()),
 	})
 }
@@ -76,15 +72,13 @@ func (e *ExplainerExtensionSpec) GetStorageUri() *string {
 }
 
 // GetStorageSpec returns the predictor storage spec object
-func (e *ExplainerExtensionSpec) GetStorageSpec() *StorageSpec {
+func (e *ExplainerExtensionSpec) GetStorageSpec() *ModelStorageSpec {
 	return e.Storage
 }
 
 // GetImplementations returns the implementations for the component
 func (s *ExplainerSpec) GetImplementations() []ComponentImplementation {
 	implementations := NonNilComponents([]ComponentImplementation{
-		s.Alibi,
-		s.AIX,
 		s.ART,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified

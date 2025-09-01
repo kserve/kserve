@@ -21,56 +21,78 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-echo "Github SHA ${GITHUB_SHA}"
 IFS=,
-types=($1)
 
+echo "Github SHA ${GITHUB_SHA}"
 # Predictor runtime server images
-SKLEARN_IMG=kserve/sklearnserver:${GITHUB_SHA}
-XGB_IMG=kserve/xgbserver:${GITHUB_SHA}
-LGB_IMG=kserve/lgbserver:${GITHUB_SHA}
-PMML_IMG=kserve/pmmlserver:${GITHUB_SHA}
-PADDLE_IMG=kserve/paddleserver:${GITHUB_SHA}
-CUSTOM_MODEL_GRPC=kserve/custom-model-grpc:${GITHUB_SHA}
-CUSTOM_TRANSFORMER_GRPC=kserve/custom-image-transformer-grpc:${GITHUB_SHA}
+SKLEARN_IMG_TAG=${DOCKER_REPO}/${SKLEARN_IMG}:${GITHUB_SHA}
+XGB_IMG_TAG=${DOCKER_REPO}/${XGB_IMG}:${GITHUB_SHA}
+LGB_IMG_TAG=${DOCKER_REPO}/${LGB_IMG}:${GITHUB_SHA}
+PMML_IMG_TAG=${DOCKER_REPO}/${PMML_IMG}:${GITHUB_SHA}
+PADDLE_IMG_TAG=${DOCKER_REPO}/${PADDLE_IMG}:${GITHUB_SHA}
+CUSTOM_MODEL_GRPC_IMG_TAG=${DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}:${GITHUB_SHA}
+CUSTOM_TRANSFORMER_GRPC_IMG_TAG=${DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}:${GITHUB_SHA}
+HUGGINGFACE_CPU_IMG_TAG=${DOCKER_REPO}/${HUGGINGFACE_IMG}:${GITHUB_SHA}
 # Explainer images
-ALIBI_IMG=kserve/alibi-explainer:${GITHUB_SHA}
-AIX_IMG=kserve/aix-explainer:${GITHUB_SHA}
-ART_IMG=kserve/art-explainer:${GITHUB_SHA}
+ART_IMG_TAG=${DOCKER_REPO}/${ART_IMG}:${GITHUB_SHA}
 # Transformer images
-IMAGE_TRANSFORMER_IMG=kserve/image-transformer:${GITHUB_SHA}
-
+IMAGE_TRANSFORMER_IMG_TAG=${DOCKER_REPO}/${IMAGE_TRANSFORMER_IMG}:${GITHUB_SHA}
+types=("$1")
 
 pushd python >/dev/null
   if [[ " ${types[*]} " =~ "predictor" ]]; then
     echo "Building Sklearn image"
-    docker build -t ${SKLEARN_IMG} -f sklearn.Dockerfile .
+    docker buildx build -t "${SKLEARN_IMG_TAG}" -f sklearn.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${SKLEARN_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building Sklearn image:"
+        df -hT
     echo "Building XGB image"
-    docker build -t ${XGB_IMG} -f xgb.Dockerfile .
+    docker buildx build -t "${XGB_IMG_TAG}" -f xgb.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${XGB_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building XGB image:"
+        df -hT
     echo "Building LGB image"
-    docker build -t ${LGB_IMG} -f lgb.Dockerfile .
+    docker buildx build -t "${LGB_IMG_TAG}" -f lgb.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LGB_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building LGB image:"
+        df -hT
     echo "Building PMML image"
-    docker build -t ${PMML_IMG} -f pmml.Dockerfile .
+    docker buildx build -t "${PMML_IMG_TAG}" -f pmml.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${PMML_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building PMML image:"
+        df -hT
     echo "Building Paddle image"
-    docker build -t ${PADDLE_IMG} -f paddle.Dockerfile .
+    docker buildx build -t "${PADDLE_IMG_TAG}" -f paddle.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${PADDLE_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building Paddle image:"
+        df -hT
     echo "Building Custom model gRPC image"
-    docker build -t ${CUSTOM_MODEL_GRPC} -f custom_model_grpc.Dockerfile .
+    docker buildx build -t "${CUSTOM_MODEL_GRPC_IMG_TAG}" -f custom_model_grpc.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CUSTOM_MODEL_GRPC_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building Custom model gRPC image:"
+        df -hT
     echo "Building image transformer gRPC image"
-    docker build -t ${CUSTOM_TRANSFORMER_GRPC} -f custom_transformer_grpc.Dockerfile .
+    docker buildx build -t "${CUSTOM_TRANSFORMER_GRPC_IMG_TAG}" -f custom_transformer_grpc.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CUSTOM_TRANSFORMER_GRPC_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building image transformer gRPC image:"
+        df -hT
+    echo "Building Huggingface CPU image"
+    docker buildx build -t "${HUGGINGFACE_CPU_IMG_TAG}" -f huggingface_server_cpu.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building Huggingface CPU image:"
+        df -hT
   fi
 
   if [[ " ${types[*]} " =~ "explainer" ]]; then
-    echo "Building Alibi image"
-    docker build -t ${ALIBI_IMG} -f alibiexplainer.Dockerfile .
-    echo "Building AIX image"
-    docker build -t ${AIX_IMG} -f aixexplainer.Dockerfile .
     echo "Building ART explainer image"
-    docker build -t ${ART_IMG} -f artexplainer.Dockerfile .
+    docker buildx build -t "${ART_IMG_TAG}" -f artexplainer.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${ART_IMG}-${GITHUB_SHA}",compression-level=0 .
   fi
 
   if [[ " ${types[*]} " =~ "transformer" ]]; then
     echo "Building Image transformer image"
-    docker build -t ${IMAGE_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
+    docker buildx build -t "${IMAGE_TRANSFORMER_IMG_TAG}" -f custom_transformer.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${IMAGE_TRANSFORMER_IMG}-${GITHUB_SHA}",compression-level=0 .
   fi
 
 popd

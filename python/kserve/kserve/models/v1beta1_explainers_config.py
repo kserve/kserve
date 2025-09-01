@@ -1,4 +1,4 @@
-# Copyright 2022 The KServe Authors.
+# Copyright 2023 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,76 +47,24 @@ class V1beta1ExplainersConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'aix': 'V1beta1ExplainerConfig',
-        'alibi': 'V1beta1ExplainerConfig',
         'art': 'V1beta1ExplainerConfig'
     }
 
     attribute_map = {
-        'aix': 'aix',
-        'alibi': 'alibi',
         'art': 'art'
     }
 
-    def __init__(self, aix=None, alibi=None, art=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, art=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExplainersConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._aix = None
-        self._alibi = None
         self._art = None
         self.discriminator = None
 
-        if aix is not None:
-            self.aix = aix
-        if alibi is not None:
-            self.alibi = alibi
         if art is not None:
             self.art = art
-
-    @property
-    def aix(self):
-        """Gets the aix of this V1beta1ExplainersConfig.  # noqa: E501
-
-
-        :return: The aix of this V1beta1ExplainersConfig.  # noqa: E501
-        :rtype: V1beta1ExplainerConfig
-        """
-        return self._aix
-
-    @aix.setter
-    def aix(self, aix):
-        """Sets the aix of this V1beta1ExplainersConfig.
-
-
-        :param aix: The aix of this V1beta1ExplainersConfig.  # noqa: E501
-        :type: V1beta1ExplainerConfig
-        """
-
-        self._aix = aix
-
-    @property
-    def alibi(self):
-        """Gets the alibi of this V1beta1ExplainersConfig.  # noqa: E501
-
-
-        :return: The alibi of this V1beta1ExplainersConfig.  # noqa: E501
-        :rtype: V1beta1ExplainerConfig
-        """
-        return self._alibi
-
-    @alibi.setter
-    def alibi(self, alibi):
-        """Sets the alibi of this V1beta1ExplainersConfig.
-
-
-        :param alibi: The alibi of this V1beta1ExplainersConfig.  # noqa: E501
-        :type: V1beta1ExplainerConfig
-        """
-
-        self._alibi = alibi
 
     @property
     def art(self):

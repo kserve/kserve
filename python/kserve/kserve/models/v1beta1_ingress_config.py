@@ -1,4 +1,4 @@
-# Copyright 2022 The KServe Authors.
+# Copyright 2023 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,64 +47,131 @@ class V1beta1IngressConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'additional_ingress_domains': 'list[str]',
+        'disable_ingress_creation': 'bool',
         'disable_istio_virtual_host': 'bool',
         'domain_template': 'str',
+        'enable_gateway_api': 'bool',
         'ingress_class_name': 'str',
         'ingress_domain': 'str',
         'ingress_gateway': 'str',
-        'ingress_service': 'str',
+        'knative_local_gateway_service': 'str',
+        'kserve_ingress_gateway': 'str',
         'local_gateway': 'str',
         'local_gateway_service': 'str',
+        'path_template': 'str',
         'url_scheme': 'str'
     }
 
     attribute_map = {
+        'additional_ingress_domains': 'additionalIngressDomains',
+        'disable_ingress_creation': 'disableIngressCreation',
         'disable_istio_virtual_host': 'disableIstioVirtualHost',
         'domain_template': 'domainTemplate',
+        'enable_gateway_api': 'enableGatewayApi',
         'ingress_class_name': 'ingressClassName',
         'ingress_domain': 'ingressDomain',
         'ingress_gateway': 'ingressGateway',
-        'ingress_service': 'ingressService',
+        'knative_local_gateway_service': 'knativeLocalGatewayService',
+        'kserve_ingress_gateway': 'kserveIngressGateway',
         'local_gateway': 'localGateway',
         'local_gateway_service': 'localGatewayService',
+        'path_template': 'pathTemplate',
         'url_scheme': 'urlScheme'
     }
 
-    def __init__(self, disable_istio_virtual_host=None, domain_template=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, ingress_service=None, local_gateway=None, local_gateway_service=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, additional_ingress_domains=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, enable_gateway_api=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, knative_local_gateway_service=None, kserve_ingress_gateway=None, local_gateway=None, local_gateway_service=None, path_template=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1IngressConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._additional_ingress_domains = None
+        self._disable_ingress_creation = None
         self._disable_istio_virtual_host = None
         self._domain_template = None
+        self._enable_gateway_api = None
         self._ingress_class_name = None
         self._ingress_domain = None
         self._ingress_gateway = None
-        self._ingress_service = None
+        self._knative_local_gateway_service = None
+        self._kserve_ingress_gateway = None
         self._local_gateway = None
         self._local_gateway_service = None
+        self._path_template = None
         self._url_scheme = None
         self.discriminator = None
 
+        if additional_ingress_domains is not None:
+            self.additional_ingress_domains = additional_ingress_domains
+        if disable_ingress_creation is not None:
+            self.disable_ingress_creation = disable_ingress_creation
         if disable_istio_virtual_host is not None:
             self.disable_istio_virtual_host = disable_istio_virtual_host
         if domain_template is not None:
             self.domain_template = domain_template
+        if enable_gateway_api is not None:
+            self.enable_gateway_api = enable_gateway_api
         if ingress_class_name is not None:
             self.ingress_class_name = ingress_class_name
         if ingress_domain is not None:
             self.ingress_domain = ingress_domain
         if ingress_gateway is not None:
             self.ingress_gateway = ingress_gateway
-        if ingress_service is not None:
-            self.ingress_service = ingress_service
+        if knative_local_gateway_service is not None:
+            self.knative_local_gateway_service = knative_local_gateway_service
+        if kserve_ingress_gateway is not None:
+            self.kserve_ingress_gateway = kserve_ingress_gateway
         if local_gateway is not None:
             self.local_gateway = local_gateway
         if local_gateway_service is not None:
             self.local_gateway_service = local_gateway_service
+        if path_template is not None:
+            self.path_template = path_template
         if url_scheme is not None:
             self.url_scheme = url_scheme
+
+    @property
+    def additional_ingress_domains(self):
+        """Gets the additional_ingress_domains of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The additional_ingress_domains of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._additional_ingress_domains
+
+    @additional_ingress_domains.setter
+    def additional_ingress_domains(self, additional_ingress_domains):
+        """Sets the additional_ingress_domains of this V1beta1IngressConfig.
+
+
+        :param additional_ingress_domains: The additional_ingress_domains of this V1beta1IngressConfig.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._additional_ingress_domains = additional_ingress_domains
+
+    @property
+    def disable_ingress_creation(self):
+        """Gets the disable_ingress_creation of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The disable_ingress_creation of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: bool
+        """
+        return self._disable_ingress_creation
+
+    @disable_ingress_creation.setter
+    def disable_ingress_creation(self, disable_ingress_creation):
+        """Sets the disable_ingress_creation of this V1beta1IngressConfig.
+
+
+        :param disable_ingress_creation: The disable_ingress_creation of this V1beta1IngressConfig.  # noqa: E501
+        :type: bool
+        """
+
+        self._disable_ingress_creation = disable_ingress_creation
 
     @property
     def disable_istio_virtual_host(self):
@@ -147,6 +214,27 @@ class V1beta1IngressConfig(object):
         """
 
         self._domain_template = domain_template
+
+    @property
+    def enable_gateway_api(self):
+        """Gets the enable_gateway_api of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The enable_gateway_api of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_gateway_api
+
+    @enable_gateway_api.setter
+    def enable_gateway_api(self, enable_gateway_api):
+        """Sets the enable_gateway_api of this V1beta1IngressConfig.
+
+
+        :param enable_gateway_api: The enable_gateway_api of this V1beta1IngressConfig.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_gateway_api = enable_gateway_api
 
     @property
     def ingress_class_name(self):
@@ -212,25 +300,46 @@ class V1beta1IngressConfig(object):
         self._ingress_gateway = ingress_gateway
 
     @property
-    def ingress_service(self):
-        """Gets the ingress_service of this V1beta1IngressConfig.  # noqa: E501
+    def knative_local_gateway_service(self):
+        """Gets the knative_local_gateway_service of this V1beta1IngressConfig.  # noqa: E501
 
 
-        :return: The ingress_service of this V1beta1IngressConfig.  # noqa: E501
+        :return: The knative_local_gateway_service of this V1beta1IngressConfig.  # noqa: E501
         :rtype: str
         """
-        return self._ingress_service
+        return self._knative_local_gateway_service
 
-    @ingress_service.setter
-    def ingress_service(self, ingress_service):
-        """Sets the ingress_service of this V1beta1IngressConfig.
+    @knative_local_gateway_service.setter
+    def knative_local_gateway_service(self, knative_local_gateway_service):
+        """Sets the knative_local_gateway_service of this V1beta1IngressConfig.
 
 
-        :param ingress_service: The ingress_service of this V1beta1IngressConfig.  # noqa: E501
+        :param knative_local_gateway_service: The knative_local_gateway_service of this V1beta1IngressConfig.  # noqa: E501
         :type: str
         """
 
-        self._ingress_service = ingress_service
+        self._knative_local_gateway_service = knative_local_gateway_service
+
+    @property
+    def kserve_ingress_gateway(self):
+        """Gets the kserve_ingress_gateway of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The kserve_ingress_gateway of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._kserve_ingress_gateway
+
+    @kserve_ingress_gateway.setter
+    def kserve_ingress_gateway(self, kserve_ingress_gateway):
+        """Sets the kserve_ingress_gateway of this V1beta1IngressConfig.
+
+
+        :param kserve_ingress_gateway: The kserve_ingress_gateway of this V1beta1IngressConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._kserve_ingress_gateway = kserve_ingress_gateway
 
     @property
     def local_gateway(self):
@@ -273,6 +382,27 @@ class V1beta1IngressConfig(object):
         """
 
         self._local_gateway_service = local_gateway_service
+
+    @property
+    def path_template(self):
+        """Gets the path_template of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The path_template of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._path_template
+
+    @path_template.setter
+    def path_template(self, path_template):
+        """Sets the path_template of this V1beta1IngressConfig.
+
+
+        :param path_template: The path_template of this V1beta1IngressConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._path_template = path_template
 
     @property
     def url_scheme(self):

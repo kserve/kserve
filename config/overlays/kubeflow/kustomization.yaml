@@ -3,22 +3,130 @@ kind: Kustomization
 
 # Adds namespace to all resources.
 namespace: kubeflow
-
-# Labels to add to all resources and selectors.
-commonLabels:
-  app: kserve
-  app.kubernetes.io/name: kserve
-
-bases:
+resources:
 - ../../default
 - cluster-role.yaml
 
-patchesStrategicMerge:
-- patches/statefulset.yaml
-- patches/namespace.yaml
+# Labels to add to all resources and selectors.
+labels:
+- includeSelectors: true
+  pairs:
+    app: kserve
+    app.kubernetes.io/name: kserve
 
 generatorOptions:
   disableNameSuffixHash: true
 
 configurations:
 - params.yaml
+
+replacements:
+# Replace the namespace with the namespace of the controller manager.
+  - source:
+      fieldPath: metadata.namespace
+      kind: Deployment
+      name: kserve-controller-manager
+      version: v1
+    targets:
+      - select:
+          kind: MutatingWebhookConfiguration
+          name: inferenceservice.serving.kserve.io
+        fieldPaths:
+          - webhooks.*.clientConfig.service.namespace
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: inferenceservice.serving.kserve.io
+        fieldPaths:
+          - webhooks.*.clientConfig.service.namespace
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: trainedmodel.serving.kserve.io
+        fieldPaths:
+          - webhooks.*.clientConfig.service.namespace
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: inferencegraph.serving.kserve.io
+        fieldPaths:
+          - webhooks.*.clientConfig.service.namespace
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: localmodelcache.serving.kserve.io 
+        fieldPaths:
+          - webhooks.*.clientConfig.service.namespace
+      - select:
+          kind: Certificate
+          name: serving-cert
+          namespace: kserve
+        fieldPaths:
+          - spec.commonName
+          - spec.dnsNames.0
+        options:
+          delimiter: '.'
+          index: 1
+      - select:
+          kind: CustomResourceDefinition
+          name: inferenceservices.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+      - select:
+          kind: MutatingWebhookConfiguration
+          name: inferenceservice.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: inferenceservice.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: trainedmodel.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: inferencegraph.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: clusterservingruntime.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: servingruntime.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: localmodelcache.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+patches:
+- path: patches/statefulset.yaml
+- path: patches/namespace.yaml

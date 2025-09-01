@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
@@ -27,11 +27,11 @@ type TrainedModelStatus struct {
 	// Conditions for trained model
 	duckv1.Status `json:",inline"`
 	// URL holds the url that will distribute traffic over the provided traffic targets.
-	// For v1: http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}/v1/models/<trainedmodel>:predict
-	// For v2: http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}/v2/models/<trainedmodel>/infer
+	// For v1: http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}/v1/models/&lt;trainedmodel&gt;:predict
+	// For v2: http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}/v2/models/&lt;trainedmodel&gt;/infer
 	URL *apis.URL `json:"url,omitempty"`
 	// Addressable endpoint for the deployed trained model
-	// http://<inferenceservice.metadata.name>/v1/models/<trainedmodel>.metadata.name
+	// http://&lt;inferenceservice.metadata.name&gt;/v1/models/&lt;trainedmodel&gt;.metadata.name
 	Address *duckv1.Addressable `json:"address,omitempty"`
 }
 
@@ -39,8 +39,6 @@ type TrainedModelStatus struct {
 const (
 	// InferenceServiceReady is set when inference service reported readiness
 	InferenceServiceReady apis.ConditionType = "InferenceServiceReady"
-	// FrameworkSupported is set when predictor reports framework check
-	FrameworkSupported apis.ConditionType = "FrameworkSupported"
 	// MemoryResourceAvailable is set when inference service reported resources availability
 	MemoryResourceAvailable apis.ConditionType = "MemoryResourceAvailable"
 	// IsMMSPredictor is set when inference service predictor is set to multi-model serving
@@ -51,7 +49,6 @@ const (
 // TODO: Similar to above, add the constants here
 var conditionSet = apis.NewLivingConditionSet(
 	InferenceServiceReady,
-	FrameworkSupported,
 	MemoryResourceAvailable,
 	IsMMSPredictor,
 )
@@ -74,17 +71,17 @@ func (ss *TrainedModelStatus) GetCondition(t apis.ConditionType) *apis.Condition
 
 // IsConditionReady returns the readiness for a given condition
 func (ss *TrainedModelStatus) IsConditionReady(t apis.ConditionType) bool {
-	return conditionSet.Manage(ss).GetCondition(t) != nil && conditionSet.Manage(ss).GetCondition(t).Status == v1.ConditionTrue
+	return conditionSet.Manage(ss).GetCondition(t) != nil && conditionSet.Manage(ss).GetCondition(t).Status == corev1.ConditionTrue
 }
 
 func (ss *TrainedModelStatus) SetCondition(conditionType apis.ConditionType, condition *apis.Condition) {
 	switch {
 	case condition == nil:
-	case condition.Status == v1.ConditionUnknown:
+	case condition.Status == corev1.ConditionUnknown:
 		conditionSet.Manage(ss).MarkUnknown(conditionType, condition.Reason, condition.Message)
-	case condition.Status == v1.ConditionTrue:
+	case condition.Status == corev1.ConditionTrue:
 		conditionSet.Manage(ss).MarkTrue(conditionType)
-	case condition.Status == v1.ConditionFalse:
+	case condition.Status == corev1.ConditionFalse:
 		conditionSet.Manage(ss).MarkFalse(conditionType, condition.Reason, condition.Message)
 	}
 }

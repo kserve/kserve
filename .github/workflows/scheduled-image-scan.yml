@@ -2,23 +2,33 @@ name: Twice a week image scan
 # Temporarily adding on push for testing
 on:
   schedule:
-    - cron: '0 0 * * 0,3'
+    - cron: "0 0 * * 0,3"
   workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   base-image-scan:
     name: scan images
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        image: [{ name: kserve-controller, file: Dockerfile},
-                { name: agent, file: agent.Dockerfile}, 
-                { name: storage-initializer, file: python/storage-initializer.Dockerfile},
-                { name: router, file: router.Dockerfile}]
-    
+        image:
+          [
+            { name: kserve-controller, file: Dockerfile },
+            { name: agent, file: agent.Dockerfile },
+            { name: storage-initializer, file: python/storage-initializer.Dockerfile },
+            { name: router, file: router.Dockerfile },
+            { name: kserve-localmodel-controller, file: localmodel.Dockerfile },
+            { name: kserve-localmodelnode-agent, file: localmodel-agent.Dockerfile },
+          ]
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Security scan on docker image
         uses: snyk/actions/docker@master
@@ -29,29 +39,45 @@ jobs:
         with:
           image: kserve/${{ matrix.image.name }}
           args: --severity-threshold=low
-                --file=${{ matrix.image.file }}
-                --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
+            --file=${{ matrix.image.file }}
+            --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
           sarif: false
+
+      # Replace any "undefined" or "null" security severity values with 0. The undefined value is used in the case
+      # of license-related findings, which do not indicate a security vulnerability.
+      # See https://github.com/github/codeql-action/issues/2187 for more context.
+      # This can be removed once https://github.com/snyk/cli/pull/5409 is merged.
+      - name: Replace security-severity undefined for license-related findings
+        run: |
+          sudo sed -i 's/"security-severity": "undefined"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
+          sudo sed -i 's/"security-severity": "null"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@v1
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
-  
+          category: ${{ matrix.image.name }}
+
   predictor-image-scan:
     name: scan predictor images
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        image: [{ name: sklearnserver, file: python/sklearn.Dockerfile},
-                { name: xgbserver, file: python/xgb.Dockerfile},
-                { name: pmmlserver, file: python/pmml.Dockerfile},
-                { name: paddleserver, file: python/paddle.Dockerfile}]
-    
+        image:
+          [
+            { name: sklearnserver, file: python/sklearn.Dockerfile },
+            { name: xgbserver, file: python/xgb.Dockerfile },
+            { name: pmmlserver, file: python/pmml.Dockerfile },
+            { name: paddleserver, file: python/paddle.Dockerfile },
+            { name: lgbserver, file: python/lgb.Dockerfile },
+            { name: huggingfaceserver, file: python/huggingface_server.Dockerfile },
+          ]
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Security scan on docker image
         uses: snyk/actions/docker@master
@@ -62,28 +88,37 @@ jobs:
         with:
           image: kserve/${{ matrix.image.name }}
           args: --severity-threshold=low
-                --file=${{ matrix.image.file }}
-                --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
+            --file=${{ matrix.image.file }}
+            --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
           sarif: false
+
+      # Replace any "undefined" or "null" security severity values with 0. The undefined value is used in the case
+      # of license-related findings, which do not indicate a security vulnerability.
+      # See https://github.com/github/codeql-action/issues/2187 for more context.
+      # This can be removed once https://github.com/snyk/cli/pull/5409 is merged.
+      - name: Replace security-severity undefined for license-related findings
+        run: |
+          sudo sed -i 's/"security-severity": "undefined"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
+          sudo sed -i 's/"security-severity": "null"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@v1
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
-  
+          category: ${{ matrix.image.name }}
+
   explainer-image-scan:
     name: scan explainer images
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        image: [{ name: aix-explainer, file: python/aixexplainer.Dockerfile},
-                { name: alibi-explainer, file: python/alibiexplainer.Dockerfile},
-                { name: art-explainer, file: python/artexplainer.Dockerfile}]
-    
+        image: [{ name: art-explainer, file: python/artexplainer.Dockerfile }]
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Security scan on docker image
         uses: snyk/actions/docker@master
@@ -94,12 +129,22 @@ jobs:
         with:
           image: kserve/${{ matrix.image.name }}
           args: --severity-threshold=low
-                --file=${{ matrix.image.file }}
-                --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
+            --file=${{ matrix.image.file }}
+            --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
           sarif: false
+
+      # Replace any "undefined" or "null" security severity values with 0. The undefined value is used in the case
+      # of license-related findings, which do not indicate a security vulnerability.
+      # See https://github.com/github/codeql-action/issues/2187 for more context.
+      # This can be removed once https://github.com/snyk/cli/pull/5409 is merged.
+      - name: Replace security-severity undefined for license-related findings
+        run: |
+          sudo sed -i 's/"security-severity": "undefined"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
+          sudo sed -i 's/"security-severity": "null"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@v1
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
+          category: ${{ matrix.image.name }}

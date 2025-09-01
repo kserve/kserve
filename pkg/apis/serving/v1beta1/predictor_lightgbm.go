@@ -17,9 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/kserve/kserve/pkg/constants"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 // LightGBMSpec defines arguments for configuring LightGBMSpec model serving.
@@ -28,21 +29,21 @@ type LightGBMSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &LightGBMSpec{}
-)
+var _ ComponentImplementation = &LightGBMSpec{}
 
 // Default sets defaults on the resource
 func (x *LightGBMSpec) Default(config *InferenceServicesConfig) {
 	x.Container.Name = constants.InferenceServiceContainerName
-	setResourceRequirementDefaults(&x.Resources)
-
+	setResourceRequirementDefaults(config, &x.Resources)
 }
 
-func (x *LightGBMSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (x *LightGBMSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *corev1.Container {
 	return &x.Container
 }
 
 func (x *LightGBMSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if x.ProtocolVersion != nil {
+		return *x.ProtocolVersion
+	}
 	return constants.ProtocolV1
 }

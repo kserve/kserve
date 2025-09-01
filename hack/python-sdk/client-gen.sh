@@ -14,15 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Note: Need to merge /python/kserve/README.md and some documents manually after the script execution.
-
 set -o errexit
 set -o nounset
 
-SWAGGER_JAR_URL="https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/4.3.1/openapi-generator-cli-4.3.1.jar"
-SWAGGER_CODEGEN_JAR="hack/python-sdk/openapi-generator-cli.jar"
+OPENAPI_GENERATOR_VERSION="4.3.1"
+SWAGGER_JAR_URL="https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/${OPENAPI_GENERATOR_VERSION}/openapi-generator-cli-${OPENAPI_GENERATOR_VERSION}.jar"
+SWAGGER_CODEGEN_JAR="hack/python-sdk/openapi-generator-cli-${OPENAPI_GENERATOR_VERSION}.jar"
 SWAGGER_CODEGEN_CONF="hack/python-sdk/swagger_config.json"
-SWAGGER_CODEGEN_FILE="pkg/apis/serving/v1beta1/swagger.json"
+SWAGGER_CODEGEN_FILE="pkg/openapi/swagger.json"
 SDK_OUTPUT_PATH="python/kserve"
 
 echo "Downloading the swagger-codegen JAR package ..."
@@ -34,14 +33,8 @@ fi
 echo "Generating Python SDK for KServe ..."
 java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_CODEGEN_FILE} -g python -o ${SDK_OUTPUT_PATH} -c ${SWAGGER_CODEGEN_CONF}
 
-# revert following files since they are diveraged from generated ones
-git checkout python/kserve/README.md
-git checkout python/kserve/kserve/__init__.py
-git checkout python/kserve/setup.py
-git checkout python/kserve/requirements.txt
-
 # Update kubernetes docs link.
-K8S_IMPORT_LIST=`cat hack/python-sdk/swagger_config.json|grep "V1" | awk -F"\"" '{print $2}'`
+K8S_IMPORT_LIST=$(cat hack/python-sdk/swagger_config.json|grep "V1" | awk -F"\"" '{print $2}')
 K8S_DOC_LINK="https://github.com/kubernetes-client/python/blob/master/kubernetes/docs"
 for item in $K8S_IMPORT_LIST; do
     sed -i'.bak' -e "s@($item.md)@($K8S_DOC_LINK/$item.md)@g" python/kserve/docs/*

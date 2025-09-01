@@ -13,163 +13,110 @@
 # limitations under the License.
 
 import inspect
-import logging
 import time
+from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, Union, List
+from typing import Any, AsyncIterator, Awaitable, Dict, List, Optional, Union
 
-import grpc
-
-import httpx
-from httpx import HTTPStatusError
-import orjson
 from cloudevents.http import CloudEvent
 
-from .protocol.infer_type import InferRequest, InferResponse
-from .metrics import PRE_HIST_TIME, POST_HIST_TIME, PREDICT_HIST_TIME, EXPLAIN_HIST_TIME, get_labels
-from .protocol.grpc import grpc_predict_v2_pb2_grpc
-from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
-
+from . import context as kserve_context
+from .predictor_config import PredictorConfig
+from .constants.constants import (
+    PredictorProtocol,
+    EXPLAINER_BASE_URL_FORMAT,
+)
 from .errors import InvalidInput
-from .utils.utils import is_structured_cloudevent
-
-PREDICTOR_URL_FORMAT = "http://{0}/v1/models/{1}:predict"
-EXPLAINER_URL_FORMAT = "http://{0}/v1/models/{1}:explain"
-PREDICTOR_V2_URL_FORMAT = "http://{0}/v2/models/{1}/infer"
-EXPLAINER_V2_URL_FORMAT = "http://{0}/v2/models/{1}/explain"
-
-
-class ModelType(Enum):
-    EXPLAINER = 1
-    PREDICTOR = 2
-
-
-class PredictorProtocol(Enum):
-    REST_V1 = "v1"
-    REST_V2 = "v2"
-    GRPC_V2 = "grpc-v2"
+from .inference_client import RESTConfig, InferenceRESTClient, InferenceGRPCClient
+from .logging import trace_logger
+from .metrics import (
+    EXPLAIN_HIST_TIME,
+    POST_HIST_TIME,
+    PRE_HIST_TIME,
+    PREDICT_HIST_TIME,
+    get_labels,
+)
+from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest
+from .protocol.infer_type import InferRequest, InferResponse
+from .utils.inference_client_factory import InferenceClientFactory
 
 
-def get_latency_ms(start: float, end: float) -> float:
-    return round((end - start) * 1000, 9)
+class BaseKServeModel(ABC):
+    """
+    A base class to inherit all of the kserve models from.
 
+    This class implements the expectations of model repository and model server.
+    """
 
-class Model:
     def __init__(self, name: str):
-        """KServe Model Public Interface
-
-        Model is intended to be subclassed by various components within KServe.
+        """
+        Adds the required attributes
 
         Args:
-            name (str): Name of the model.
+            name: The name of the model.
         """
         self.name = name
         self.ready = False
-        self.protocol = PredictorProtocol.REST_V1.value
-        self.predictor_host = None
-        self.explainer_host = None
-        # The timeout matches what is set in generated Istio resources.
-        # We generally don't want things to time out at the request level here,
-        # timeouts should be handled elsewhere in the system.
-        self.timeout = 600
-        self._http_client_instance = None
-        self._grpc_client_stub = None
-        self.enable_latency_logging = False
+        self.engine = False
 
-    async def __call__(self, body: Union[Dict, CloudEvent, InferRequest],
-                       model_type: ModelType = ModelType.PREDICTOR,
-                       headers: Dict[str, str] = None) -> Dict:
-        """Method to call predictor or explainer with the given input.
-
-        Args:
-            body (Dict|CloudEvent|InferRequest): Request payload body.
-            model_type (ModelType): Model type enum. Can be either predictor or explainer.
-            headers (Dict): Request headers.
+    async def healthy(self) -> bool:
+        """
+        Check the health of this model. By default returns `self.ready`.
 
         Returns:
-            Dict: Response output from preprocess -> predictor/explainer -> postprocess
+            True if healthy, false otherwise
         """
-        request_id = headers.get("x-request-id", "N.A.") if headers else "N.A."
-
-        # latency vars
-        preprocess_ms = 0
-        explain_ms = 0
-        predict_ms = 0
-        postprocess_ms = 0
-        prom_labels = get_labels(self.name)
-
-        with PRE_HIST_TIME.labels(**prom_labels).time():
-            start = time.time()
-            payload = await self.preprocess(body, headers) if inspect.iscoroutinefunction(self.preprocess) \
-                else self.preprocess(body, headers)
-            preprocess_ms = get_latency_ms(start, time.time())
-        payload = self.validate(payload)
-        if model_type == ModelType.EXPLAINER:
-            with EXPLAIN_HIST_TIME.labels(**prom_labels).time():
-                start = time.time()
-                response = (await self.explain(payload, headers)) if inspect.iscoroutinefunction(self.explain) \
-                    else self.explain(payload, headers)
-                explain_ms = get_latency_ms(start, time.time())
-        elif model_type == ModelType.PREDICTOR:
-            with PREDICT_HIST_TIME.labels(**prom_labels).time():
-                start = time.time()
-                response = (await self.predict(payload, headers)) if inspect.iscoroutinefunction(self.predict) \
-                    else self.predict(payload, headers)
-                predict_ms = get_latency_ms(start, time.time())
-        else:
-            raise NotImplementedError
-
-        with POST_HIST_TIME.labels(**prom_labels).time():
-            start = time.time()
-            response = self.postprocess(response, headers)
-            postprocess_ms = get_latency_ms(start, time.time())
-
-        if self.enable_latency_logging is True:
-            logging.info(f"requestId: {request_id}, preprocess_ms: {preprocess_ms}, "
-                         f"explain_ms: {explain_ms}, predict_ms: {predict_ms}, "
-                         f"postprocess_ms: {postprocess_ms}")
-
-        return response
-
-    @property
-    def _http_client(self):
-        if self._http_client_instance is None:
-            self._http_client_instance = httpx.AsyncClient()
-        return self._http_client_instance
-
-    @property
-    def _grpc_client(self):
-        if self._grpc_client_stub is None:
-            # requires appending ":80" to the predictor host for gRPC to work
-            if ":" not in self.predictor_host:
-                self.predictor_host = self.predictor_host + ":80"
-            _channel = grpc.aio.insecure_channel(self.predictor_host)
-            self._grpc_client_stub = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(_channel)
-        return self._grpc_client_stub
-
-    def validate(self, payload):
-        if isinstance(payload, ModelInferRequest):
-            return payload
-        if isinstance(payload, InferRequest):
-            return payload
-        # TODO: validate the request if self.get_input_types() defines the input types.
-        if self.protocol == PredictorProtocol.REST_V2.value:
-            if "inputs" in payload and not isinstance(payload["inputs"], list):
-                raise InvalidInput("Expected \"inputs\" to be a list")
-        elif self.protocol == PredictorProtocol.REST_V1.value:
-            if isinstance(payload, Dict) and "instances" in payload and not isinstance(payload["instances"], list):
-                raise InvalidInput("Expected \"instances\" to be a list")
-        return payload
+        return self.ready
 
     def load(self) -> bool:
-        """Load handler can be overridden to load the model from storage
-        ``self.ready`` flag is used for model health check
+        """Load handler can be overridden to load the model from storage.
+        The `self.ready` should be set to True after the model is loaded. The flag is used for model health check.
 
         Returns:
             bool: True if model is ready, False otherwise
         """
         self.ready = True
         return self.ready
+
+    def start(self):
+        """Start handler can be overridden to perform model setup"""
+        self.ready = True
+
+    async def start_engine(self):
+        """Certain models may require an engine to be started before they can be used"""
+        self.ready = True
+
+    def stop(self):
+        """Stop handler can be overridden to perform model teardown"""
+        self.ready = False
+
+    def stop_engine(self):
+        """Stop Engine handler can be overridden to perform the engine shutdown"""
+        self.ready = False
+
+
+class InferenceVerb(Enum):
+    EXPLAIN = 1
+    PREDICT = 2
+
+
+InferReturnValueTypes = Union[Dict, InferResponse, List[str]]
+InferReturnType = Union[InferReturnValueTypes, Awaitable[InferReturnValueTypes]]
+
+
+class InferenceModel(BaseKServeModel):
+    """
+    Abstract class representing a model that supports standard inference and prediction.
+    """
+
+    @abstractmethod
+    def __call__(
+        self,
+        body: Union[Dict, CloudEvent, InferRequest],
+        headers: Optional[Dict[str, str]] = None,
+        verb: InferenceVerb = InferenceVerb.PREDICT,
+    ) -> InferReturnType:
+        pass
 
     def get_input_types(self) -> List[Dict]:
         # Override this function to return appropriate input format expected by your model.
@@ -187,158 +134,335 @@ class Model:
         # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
         return []
 
-    async def preprocess(self, payload: Union[Dict, CloudEvent, InferRequest],
-                         headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
+
+def is_v2(protocol: PredictorProtocol) -> bool:
+    return protocol != PredictorProtocol.REST_V1
+
+
+def get_latency_ms(start: float, end: float) -> float:
+    return round((end - start) * 1000, 9)
+
+
+class Model(InferenceModel):
+    def __init__(
+        self,
+        name: str,
+        return_response_headers: bool = False,
+    ):
+        """KServe Model Public Interface
+
+        Model is intended to be subclassed to implement the model handlers.
+
+        Args:
+            name: The name of the model.
+        """
+        super().__init__(name)
+
+        self.explainer_host = None
+        self._http_client_instance = None
+        self._grpc_client_stub = None
+        self.enable_latency_logging = False
+        self.required_response_headers = return_response_headers
+
+    @property
+    def predictor_config(self) -> Optional[PredictorConfig]:
+        # Return predictor config from context, may be None
+        return kserve_context.get_predictor_config()
+
+    async def __call__(
+        self,
+        body: Union[Dict, CloudEvent, InferRequest],
+        headers: Optional[Dict[str, str]] = None,
+        verb: InferenceVerb = InferenceVerb.PREDICT,
+    ) -> InferReturnType:
+        """Method to call predictor or explainer with the given input.
+
+        Args:
+            body: Request body.
+            verb: The inference verb for predict/generate/explain
+            headers: Request headers.
+
+        Returns:
+            Response output from preprocess -> predict/generate/explain -> postprocess
+        """
+        request_id = headers.get("x-request-id", "N.A.") if headers else "N.A."
+
+        # latency vars
+        preprocess_ms = 0
+        explain_ms = 0
+        predict_ms = 0
+        postprocess_ms = 0
+        prom_labels = get_labels(self.name)
+        response_headers = {}
+
+        with PRE_HIST_TIME.labels(**prom_labels).time():
+            start = time.time()
+            payload = (
+                await self.preprocess(body, headers)
+                if inspect.iscoroutinefunction(self.preprocess)
+                else self.preprocess(body, headers)
+            )
+            preprocess_ms = get_latency_ms(start, time.time())
+        payload = self.validate(payload)
+        if verb == InferenceVerb.EXPLAIN:
+            with EXPLAIN_HIST_TIME.labels(**prom_labels).time():
+                start = time.time()
+                response = (
+                    (await self.explain(payload, headers))
+                    if inspect.iscoroutinefunction(self.explain)
+                    else self.explain(payload, headers)
+                )
+                explain_ms = get_latency_ms(start, time.time())
+        elif verb == InferenceVerb.PREDICT:
+            with PREDICT_HIST_TIME.labels(**prom_labels).time():
+                start = time.time()
+                if self.required_response_headers:
+                    response = (
+                        (await self.predict(payload, headers, response_headers))
+                        if inspect.iscoroutinefunction(self.predict)
+                        else self.predict(payload, headers, response_headers)
+                    )
+                else:
+                    response = (
+                        (await self.predict(payload, headers))
+                        if inspect.iscoroutinefunction(self.predict)
+                        else self.predict(payload, headers)
+                    )
+                predict_ms = get_latency_ms(start, time.time())
+        else:
+            raise NotImplementedError
+
+        with POST_HIST_TIME.labels(**prom_labels).time():
+            start = time.time()
+            if self.required_response_headers:
+                response = (
+                    await self.postprocess(response, headers, response_headers)
+                    if inspect.iscoroutinefunction(self.postprocess)
+                    else self.postprocess(response, headers, response_headers)
+                )
+            else:
+                response = (
+                    await self.postprocess(response, headers)
+                    if inspect.iscoroutinefunction(self.postprocess)
+                    else self.postprocess(response, headers)
+                )
+            postprocess_ms = get_latency_ms(start, time.time())
+
+        if self.enable_latency_logging is True:
+            trace_logger.info(
+                f"requestId: {request_id}, preprocess_ms: {preprocess_ms}, "
+                f"explain_ms: {explain_ms}, predict_ms: {predict_ms}, "
+                f"postprocess_ms: {postprocess_ms}"
+            )
+
+        return response, response_headers
+
+    @property
+    def _http_client(self) -> InferenceRESTClient:
+        predictor_config = self.predictor_config
+        if predictor_config is None:
+            raise RuntimeError(
+                "PredictorConfig is required to create HTTP client but is None."
+            )
+        if self._http_client_instance is None and self.predictor_config.predictor_host:
+            config = RESTConfig(
+                protocol=self.predictor_config.protocol,
+                timeout=self.predictor_config.timeout,
+                retries=self.predictor_config.retries,
+            )
+            self._http_client_instance = InferenceClientFactory().get_rest_client(
+                config=config
+            )
+        return self._http_client_instance
+
+    @property
+    def _grpc_client(self) -> InferenceGRPCClient:
+        predictor_config = self.predictor_config
+        if predictor_config is None:
+            raise RuntimeError(
+                "PredictorConfig is required to create GRPC client but is None."
+            )
+        if self._grpc_client_stub is None and self.predictor_config.predictor_host:
+            self._grpc_client_stub = InferenceClientFactory().get_grpc_client(
+                url=self.predictor_config.predictor_host,
+                use_ssl=self.predictor_config.use_ssl,
+                timeout=self.predictor_config.timeout,
+                retries=self.predictor_config.retries,
+            )
+        return self._grpc_client_stub
+
+    def validate(self, payload):
+        if isinstance(payload, ModelInferRequest):
+            return payload
+        if isinstance(payload, InferRequest):
+            return payload
+        # TODO: validate the request if self.get_input_types() defines the input types.
+        predictor_config = self.predictor_config
+        if predictor_config is not None:
+            if predictor_config.protocol == PredictorProtocol.REST_V2.value:
+                if "inputs" in payload and not isinstance(payload["inputs"], list):
+                    raise InvalidInput('Expected "inputs" to be a list')
+            elif predictor_config.protocol == PredictorProtocol.REST_V1.value:
+                if (
+                    isinstance(payload, Dict)
+                    and "instances" in payload
+                    and not isinstance(payload["instances"], list)
+                ):
+                    raise InvalidInput('Expected "instances" to be a list')
+        # If predictor_config is None, skip protocol-specific validation
+        return payload
+
+    def load(self) -> bool:
+        """Load handler can be overridden to load the model from storage.
+        The `self.ready` should be set to True after the model is loaded. The flag is used for model health check.
+
+        Returns:
+            bool: True if model is ready, False otherwise
+        """
+        self.ready = True
+        return self.ready
+
+    async def preprocess(
+        self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
+    ) -> Union[Dict, InferRequest]:
         """`preprocess` handler can be overridden for data or feature transformation.
-        The default implementation decodes to Dict if it is a binary CloudEvent
-        or gets the data field from a structured CloudEvent.
+        The model decodes the request body to `Dict` for v1 endpoints and `InferRequest` for v2 endpoints.
 
         Args:
-            payload (Dict|CloudEvent|InferRequest): Body of the request, v2 endpoints pass InferRequest.
-            headers (Dict): Request headers.
+            payload: Payload of the request.
+            headers: Request headers.
 
         Returns:
-            Dict|InferRequest: Transformed inputs to ``predict`` handler or return InferRequest for predictor call.
+            A Dict or InferRequest in KServe Model Transformer mode which is transmitted on the wire to predictor.
+            Tensors in KServe Predictor mode which is passed to predict handler for performing the inference.
         """
-        response = payload
 
-        if isinstance(payload, CloudEvent):
-            response = payload.data
-            # Try to decode and parse JSON UTF-8 if possible, otherwise
-            # just pass the CloudEvent data on to the predict function.
-            # This is for the cases that CloudEvent encoding is protobuf, avro etc.
-            try:
-                response = orjson.loads(response.decode('UTF-8'))
-            except (orjson.JSONDecodeError, UnicodeDecodeError) as e:
-                # If decoding or parsing failed, check if it was supposed to be JSON UTF-8
-                if "content-type" in payload._attributes and \
-                        (payload._attributes["content-type"] == "application/cloudevents+json" or
-                         payload._attributes["content-type"] == "application/json"):
-                    raise InvalidInput(f"Failed to decode or parse binary json cloudevent: {e}")
+        return payload
 
-        elif isinstance(payload, dict):
-            if is_structured_cloudevent(payload):
-                response = payload["data"]
-
-        return response
-
-    def postprocess(self, response: Union[Dict, InferResponse, ModelInferResponse], headers: Dict[str, str] = None) \
-            -> Union[Dict, ModelInferResponse]:
-        """The postprocess handler can be overridden for inference response transformation.
-        The default implementation converts the v2 infer response types to gRPC or REST.
-        For gRPC request it converts InferResponse to gRPC message or directly returns ModelInferResponse from
-        predictor call.
-        For REST request it converts ModelInferResponse to Dict or directly returns from predictor call.
+    async def postprocess(
+        self,
+        result: Union[Dict, InferResponse],
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
+    ) -> Union[Dict, InferResponse]:
+        """The `postprocess` handler can be overridden for inference result or response transformation.
+        The predictor sends back the inference result in `Dict` for v1 endpoints and `InferResponse` for v2 endpoints.
 
         Args:
-            response (Dict|InferResponse|ModelInferResponse): The response passed from ``predict`` handler.
-            headers (Dict): Request headers.
+            result: The inference result passed from `predict` handler or the HTTP response from predictor.
+            headers: Request headers.
 
         Returns:
-            Dict: post-processed response.
+            A Dict or InferResponse after post-process to return back to the client.
         """
-        if headers:
-            if "grpc" in headers.get("user-agent", ""):
-                if isinstance(response, ModelInferResponse):
-                    return response
-                elif isinstance(response, InferResponse):
-                    return response.to_grpc()
-            if "application/json" in headers.get("content-type", ""):
-                # If the original request is REST, convert the gRPC predict response to dict
-                if isinstance(response, ModelInferResponse):
-                    return InferResponse.from_grpc(response).to_rest()
-                elif isinstance(response, InferResponse):
-                    return response.to_rest()
-        return response
+        return result
 
-    async def _http_predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Dict:
-        predict_url = PREDICTOR_URL_FORMAT.format(self.predictor_host, self.name)
-        if self.protocol == PredictorProtocol.REST_V2.value:
-            predict_url = PREDICTOR_V2_URL_FORMAT.format(self.predictor_host, self.name)
-
+    async def _http_predict(
+        self,
+        payload: Union[Dict, InferRequest],
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
+    ) -> Union[Dict, InferResponse]:
         # Adjusting headers. Inject content type if not exist.
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
-        predict_headers = {'Content-Type': 'application/json'}
+        predict_headers = {"Content-Type": "application/json"}
         if headers is not None:
-            if 'x-request-id' in headers:
-                predict_headers['x-request-id'] = headers['x-request-id']
-            if 'x-b3-traceid' in headers:
-                predict_headers['x-b3-traceid'] = headers['x-b3-traceid']
-        if isinstance(payload, InferRequest):
-            payload = payload.to_rest()
-        data = orjson.dumps(payload)
-        response = await self._http_client.post(
-            predict_url,
-            timeout=self.timeout,
-            headers=predict_headers,
-            content=data
-        )
-        if not response.is_success:
-            message = (
-                "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
-            )
-            error_message = ""
-            if "content-type" in response.headers and response.headers["content-type"] == "application/json":
-                error_message = response.json()
-                if "error" in error_message:
-                    error_message = error_message["error"]
-            message = message.format(response, error_message=error_message)
-            raise HTTPStatusError(message, request=response.request, response=response)
-        return orjson.loads(response.content)
+            if "x-request-id" in headers:
+                predict_headers["x-request-id"] = headers["x-request-id"]
+            if "x-b3-traceid" in headers:
+                predict_headers["x-b3-traceid"] = headers["x-b3-traceid"]
 
-    async def _grpc_predict(self, payload: Union[ModelInferRequest, InferRequest], headers: Dict[str, str] = None) \
-            -> ModelInferResponse:
-        if isinstance(payload, InferRequest):
-            payload = payload.to_grpc()
-        async_result = await self._grpc_client.ModelInfer(
-            request=payload,
-            timeout=self.timeout,
-            metadata=(('request_type', 'grpc_v2'),
-                      ('response_type', 'grpc_v2'),
-                      ('x-request-id', headers.get('x-request-id', '')))
+        response = await self._http_client.infer(
+            self.predictor_config.predictor_base_url,
+            model_name=self.name,
+            data=payload,
+            headers=predict_headers,
+            response_headers=response_headers,
+        )
+
+        return response
+
+    async def _grpc_predict(
+        self,
+        payload: Union[ModelInferRequest, InferRequest],
+        headers: Dict[str, str] = None,
+    ) -> InferResponse:
+        if isinstance(payload, ModelInferRequest):
+            payload = InferRequest.from_grpc(payload)
+        async_result = await self._grpc_client.infer(
+            infer_request=payload,
+            headers=(
+                ("request_type", "grpc_v2"),
+                ("response_type", "grpc_v2"),
+                ("x-request-id", headers.get("x-request-id", "")),
+            ),
         )
         return async_result
 
-    async def predict(self, payload: Union[Dict, InferRequest, ModelInferRequest],
-                      headers: Dict[str, str] = None) -> Union[Dict, InferResponse, ModelInferResponse]:
-        """
+    async def predict(
+        self,
+        payload: Union[Dict, InferRequest, ModelInferRequest],
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
+    ) -> Union[Dict, InferResponse, AsyncIterator[Any]]:
+        """The `predict` handler can be overridden for performing the inference.
+            By default, the predict handler makes call to predictor for the inference step.
 
         Args:
-            payload (Dict|InferRequest|ModelInferRequest): Prediction inputs passed from ``preprocess`` handler.
-            headers (Dict): Request headers.
+            payload: Model inputs passed from `preprocess` handler.
+            headers: Request headers.
 
         Returns:
-            Dict|InferResponse|ModelInferResponse: Return InferResponse for serializing the prediction result or
-            return the response from the predictor call.
+            Inference result or a Response from the predictor.
+
+        Raises:
+            HTTPStatusError when getting back an error response from the predictor.
         """
-        if not self.predictor_host:
+        predictor_config = self.predictor_config
+        if predictor_config is None:
+            raise NotImplementedError("Could not find PredictorConfig.")
+        if not self.predictor_config.predictor_host:
             raise NotImplementedError("Could not find predictor_host.")
-        if self.protocol == PredictorProtocol.GRPC_V2.value:
+        if self.predictor_config.protocol == PredictorProtocol.GRPC_V2.value:
             return await self._grpc_predict(payload, headers)
         else:
-            return await self._http_predict(payload, headers)
+            return await self._http_predict(payload, headers, response_headers)
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.
-        The default implementation makes call to the explainer if ``explainer_host`` is specified
+        The default implementation makes call to the explainer if ``explainer_host`` is specified.
 
         Args:
-            payload (Dict): Dict passed from preprocess handler.
-            headers (Dict): Request headers.
+            payload: Explainer model inputs passed from preprocess handler.
+            headers: Request headers.
 
         Returns:
-            Dict: Response from the explainer.
+            An Explanation for the inference result.
+
+        Raises:
+            HTTPStatusError when getting back an error response from the explainer.
         """
         if self.explainer_host is None:
             raise NotImplementedError("Could not find explainer_host.")
-        explain_url = EXPLAINER_URL_FORMAT.format(self.explainer_host, self.name)
-        if self.protocol == PredictorProtocol.REST_V2.value:
-            explain_url = EXPLAINER_V2_URL_FORMAT.format(self.explainer_host, self.name)
-        response = await self._http_client.post(
-            url=explain_url,
-            timeout=self.timeout,
-            content=orjson.dumps(payload)
-        )
 
-        response.raise_for_status()
-        return orjson.loads(response.content)
+        explain_headers = {"content-type": "application/json"}
+        if headers is not None:
+            if "content-type" in headers:
+                explain_headers["content-type"] = headers["content-type"]
+            if "x-request-id" in headers:
+                explain_headers["x-request-id"] = headers["x-request-id"]
+            if "x-b3-traceid" in headers:
+                explain_headers["x-b3-traceid"] = headers["x-b3-traceid"]
+
+        protocol = "https" if self.use_ssl else "http"
+        # Currently explainer only supports the kserve v1 endpoints
+        explain_base_url = EXPLAINER_BASE_URL_FORMAT.format(
+            protocol, self.explainer_host
+        )
+        response = await self._http_client.explain(
+            explain_base_url,
+            model_name=self.name,
+            data=payload,
+            headers=explain_headers,
+        )
+        return response

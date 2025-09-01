@@ -20,17 +20,19 @@ from kserve import (
     V1beta1InferenceServiceSpec,
     V1beta1PredictorSpec,
     V1beta1SKLearnSpec,
-    V1beta1StorageSpec
+    V1beta1StorageSpec,
 )
 from kubernetes.client import V1ResourceRequirements
 import pytest
 
-from ..common.utils import predict
+from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
-@pytest.mark.fast
-def test_sklearn_s3_storagespec_kserve():
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_s3_storagespec_kserve(rest_v1_client):
     service_name = "isvc-sklearn-s3"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -38,7 +40,7 @@ def test_sklearn_s3_storagespec_kserve():
             storage=V1beta1StorageSpec(
                 key="localMinIO",
                 path="sklearn",
-                parameters={"bucket": "example-models"}
+                parameters={"bucket": "example-models"},
             ),
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
@@ -49,16 +51,18 @@ def test_sklearn_s3_storagespec_kserve():
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = predict(service_name, "./data/iris_input.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

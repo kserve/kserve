@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - serving.kserve.io_inferenceservices.yaml
+  - serving.kserve.io_trainedmodels.yaml
+  - serving.kserve.io_clusterservingruntimes.yaml
+  - serving.kserve.io_servingruntimes.yaml
+  - serving.kserve.io_inferencegraphs.yaml
+  - serving.kserve.io_clusterstoragecontainers.yaml
+  - serving.kserve.io_localmodelcaches.yaml
+  - serving.kserve.io_localmodelnodegroups.yaml
+  - serving.kserve.io_localmodelnodes.yaml

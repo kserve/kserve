@@ -13,11 +13,14 @@
 # limitations under the License.
 
 import time
+from typing import List
 from urllib.parse import urlparse
 
 import requests
 from kubernetes import client, config
 
+from ..models.v1alpha1_local_model_cache import V1alpha1LocalModelCache
+from ..models.v1alpha1_local_model_node_group import V1alpha1LocalModelNodeGroup
 from .creds_utils import set_gcs_credentials, set_s3_credentials, set_azure_credentials
 from .watch import isvc_watch
 from ..constants import constants
@@ -27,29 +30,52 @@ from ..utils import utils
 
 class KServeClient(object):
 
-    def __init__(self, config_file=None, context=None,  # pylint: disable=too-many-arguments
-                 client_configuration=None, persist_config=True):
+    def __init__(
+        self,
+        config_file=None,
+        config_dict=None,
+        context=None,  # pylint: disable=too-many-arguments
+        client_configuration=None,
+        persist_config=True,
+    ):
         """
         KServe client constructor
         :param config_file: kubeconfig file, defaults to ~/.kube/config
+        :param config_dict: Takes the config file as a dict.
         :param context: kubernetes context
         :param client_configuration: kubernetes configuration object
         :param persist_config:
         """
-        if config_file or not utils.is_running_in_k8s():
-            config.load_kube_config(
-                config_file=config_file,
-                context=context,
-                client_configuration=client_configuration,
-                persist_config=persist_config)
+        if config_file or config_dict or not utils.is_running_in_k8s():
+            if config_dict:
+                config.load_kube_config_from_dict(
+                    config_dict=config_dict,
+                    context=context,
+                    client_configuration=None,
+                    persist_config=persist_config,
+                )
+            else:
+                config.load_kube_config(
+                    config_file=config_file,
+                    context=context,
+                    client_configuration=client_configuration,
+                    persist_config=persist_config,
+                )
         else:
             config.load_incluster_config()
         self.core_api = client.CoreV1Api()
         self.app_api = client.AppsV1Api()
         self.api_instance = client.CustomObjectsApi()
+        self.hpa_v2_api = client.AutoscalingV2Api()
 
-    def set_credentials(self, storage_type, namespace=None, credentials_file=None,
-                        service_account=constants.DEFAULT_SA_NAME, **kwargs):
+    def set_credentials(
+        self,
+        storage_type,
+        namespace=None,
+        credentials_file=None,
+        service_account=constants.DEFAULT_SA_NAME,
+        **kwargs,
+    ):
         """
         Setup credentials for KServe.
 
@@ -64,31 +90,41 @@ class KServeClient(object):
         if namespace is None:
             namespace = utils.get_default_target_namespace()
 
-        if storage_type.lower() == 'gcs':
+        if storage_type.lower() == "gcs":
             if credentials_file is None:
                 credentials_file = constants.GCS_DEFAULT_CREDS_FILE
-            set_gcs_credentials(namespace=namespace,
-                                credentials_file=credentials_file,
-                                service_account=service_account)
-        elif storage_type.lower() == 's3':
+            set_gcs_credentials(
+                namespace=namespace,
+                credentials_file=credentials_file,
+                service_account=service_account,
+            )
+        elif storage_type.lower() == "s3":
             if credentials_file is None:
                 credentials_file = constants.S3_DEFAULT_CREDS_FILE
-            set_s3_credentials(namespace=namespace,
-                               credentials_file=credentials_file,
-                               service_account=service_account,
-                               **kwargs)
-        elif storage_type.lower() == 'azure':
+            set_s3_credentials(
+                namespace=namespace,
+                credentials_file=credentials_file,
+                service_account=service_account,
+                **kwargs,
+            )
+        elif storage_type.lower() == "azure":
             if credentials_file is None:
                 credentials_file = constants.AZ_DEFAULT_CREDS_FILE
-            set_azure_credentials(namespace=namespace,
-                                  credentials_file=credentials_file,
-                                  service_account=service_account)
+            set_azure_credentials(
+                namespace=namespace,
+                credentials_file=credentials_file,
+                service_account=service_account,
+            )
         else:
-            raise RuntimeError("Invalid storage_type: %s, only support GCS, S3 and Azure\
-                currently.\n" % storage_type)
+            raise RuntimeError(
+                "Invalid storage_type: %s, only support GCS, S3 and Azure\
+                currently.\n"
+                % storage_type
+            )
 
-    def create(self, inferenceservice, namespace=None, watch=False,
-               timeout_seconds=600):  # pylint:disable=inconsistent-return-statements
+    def create(
+        self, inferenceservice, namespace=None, watch=False, timeout_seconds=600
+    ):  # pylint:disable=inconsistent-return-statements
         """
         Create the inference service
         :param inferenceservice: inference service object
@@ -108,23 +144,33 @@ class KServeClient(object):
                 constants.KSERVE_GROUP,
                 version,
                 namespace,
-                constants.KSERVE_PLURAL,
-                inferenceservice)
+                constants.KSERVE_PLURAL_INFERENCESERVICE,
+                inferenceservice,
+            )
         except client.rest.ApiException as e:
             raise RuntimeError(
                 "Exception when calling CustomObjectsApi->create_namespaced_custom_object:\
-                 %s\n" % e)
+                 %s\n"
+                % e
+            )
 
         if watch:
             isvc_watch(
-                name=outputs['metadata']['name'],
+                name=outputs["metadata"]["name"],
                 namespace=namespace,
-                timeout_seconds=timeout_seconds)
+                timeout_seconds=timeout_seconds,
+            )
         else:
             return outputs
 
-    def get(self, name=None, namespace=None, watch=False, timeout_seconds=600,
-            version=constants.KSERVE_V1BETA1_VERSION):  # pylint:disable=inconsistent-return-statements
+    def get(
+        self,
+        name=None,
+        namespace=None,
+        watch=False,
+        timeout_seconds=600,
+        version=constants.KSERVE_V1BETA1_VERSION,
+    ):  # pylint:disable=inconsistent-return-statements
         """
         Get the inference service
         :param name: existing inference service name
@@ -141,40 +187,44 @@ class KServeClient(object):
         if name:
             if watch:
                 isvc_watch(
-                    name=name,
-                    namespace=namespace,
-                    timeout_seconds=timeout_seconds)
+                    name=name, namespace=namespace, timeout_seconds=timeout_seconds
+                )
             else:
                 try:
                     return self.api_instance.get_namespaced_custom_object(
                         constants.KSERVE_GROUP,
                         version,
                         namespace,
-                        constants.KSERVE_PLURAL,
-                        name)
+                        constants.KSERVE_PLURAL_INFERENCESERVICE,
+                        name,
+                    )
                 except client.rest.ApiException as e:
                     raise RuntimeError(
                         "Exception when calling CustomObjectsApi->get_namespaced_custom_object:\
-                        %s\n" % e)
+                        %s\n"
+                        % e
+                    )
         else:
             if watch:
-                isvc_watch(
-                    namespace=namespace,
-                    timeout_seconds=timeout_seconds)
+                isvc_watch(namespace=namespace, timeout_seconds=timeout_seconds)
             else:
                 try:
                     return self.api_instance.list_namespaced_custom_object(
                         constants.KSERVE_GROUP,
                         version,
                         namespace,
-                        constants.KSERVE_PLURAL)
+                        constants.KSERVE_PLURAL_INFERENCESERVICE,
+                    )
                 except client.rest.ApiException as e:
                     raise RuntimeError(
                         "Exception when calling CustomObjectsApi->list_namespaced_custom_object:\
-                        %s\n" % e)
+                        %s\n"
+                        % e
+                    )
 
-    def patch(self, name, inferenceservice, namespace=None, watch=False,
-              timeout_seconds=600):  # pylint:disable=too-many-arguments,inconsistent-return-statements
+    def patch(
+        self, name, inferenceservice, namespace=None, watch=False, timeout_seconds=600
+    ):  # pylint:disable=too-many-arguments,inconsistent-return-statements
         """
         Patch existing inference service
         :param name: existing inference service name
@@ -194,26 +244,31 @@ class KServeClient(object):
                 constants.KSERVE_GROUP,
                 version,
                 namespace,
-                constants.KSERVE_PLURAL,
+                constants.KSERVE_PLURAL_INFERENCESERVICE,
                 name,
-                inferenceservice)
+                inferenceservice,
+            )
         except client.rest.ApiException as e:
             raise RuntimeError(
                 "Exception when calling CustomObjectsApi->patch_namespaced_custom_object:\
-                 %s\n" % e)
+                 %s\n"
+                % e
+            )
 
         if watch:
             # Sleep 3 to avoid status still be True within a very short time.
             time.sleep(3)
             isvc_watch(
-                name=outputs['metadata']['name'],
+                name=outputs["metadata"]["name"],
                 namespace=namespace,
-                timeout_seconds=timeout_seconds)
+                timeout_seconds=timeout_seconds,
+            )
         else:
             return outputs
 
-    def replace(self, name, inferenceservice, namespace=None, watch=False,
-                timeout_seconds=600):  # pylint:disable=too-many-arguments,inconsistent-return-statements
+    def replace(
+        self, name, inferenceservice, namespace=None, watch=False, timeout_seconds=600
+    ):  # pylint:disable=too-many-arguments,inconsistent-return-statements
         """
         Replace the existing inference service
         :param name: existing inference service name
@@ -231,7 +286,7 @@ class KServeClient(object):
 
         if inferenceservice.metadata.resource_version is None:
             current_isvc = self.get(name, namespace=namespace)
-            current_resource_version = current_isvc['metadata']['resourceVersion']
+            current_resource_version = current_isvc["metadata"]["resourceVersion"]
             inferenceservice.metadata.resource_version = current_resource_version
 
         try:
@@ -239,20 +294,24 @@ class KServeClient(object):
                 constants.KSERVE_GROUP,
                 version,
                 namespace,
-                constants.KSERVE_PLURAL,
+                constants.KSERVE_PLURAL_INFERENCESERVICE,
                 name,
-                inferenceservice)
+                inferenceservice,
+            )
         except client.rest.ApiException as e:
             raise RuntimeError(
                 "Exception when calling CustomObjectsApi->replace_namespaced_custom_object:\
-                 %s\n" % e)
+                 %s\n"
+                % e
+            )
 
         if watch:
             isvc_watch(
-                name=outputs['metadata']['name'],
+                name=outputs["metadata"]["name"],
                 namespace=namespace,
                 timeout_seconds=timeout_seconds,
-                generation=outputs['metadata']['generation'])
+                generation=outputs["metadata"]["generation"],
+            )
         else:
             return outputs
 
@@ -272,15 +331,19 @@ class KServeClient(object):
                 constants.KSERVE_GROUP,
                 version,
                 namespace,
-                constants.KSERVE_PLURAL,
-                name)
+                constants.KSERVE_PLURAL_INFERENCESERVICE,
+                name,
+            )
         except client.rest.ApiException as e:
             raise RuntimeError(
                 "Exception when calling CustomObjectsApi->delete_namespaced_custom_object:\
-                 %s\n" % e)
+                 %s\n"
+                % e
+            )
 
-    def is_isvc_ready(self, name, namespace=None,
-                      version=constants.KSERVE_V1BETA1_VERSION):  # pylint:disable=inconsistent-return-statements
+    def is_isvc_ready(
+        self, name, namespace=None, version=constants.KSERVE_V1BETA1_VERSION
+    ):  # pylint:disable=inconsistent-return-statements
         """
         Check if the inference service is ready.
         :param version:
@@ -288,22 +351,25 @@ class KServeClient(object):
         :param namespace: defaults to current or default namespace
         :return:
         """
-        kfsvc_status = self.get(name, namespace=namespace,
-                                version=version)
-        if 'status' not in kfsvc_status:
+        kfsvc_status = self.get(name, namespace=namespace, version=version)
+        if "status" not in kfsvc_status:
             return False
-        status = 'Unknown'
-        for condition in kfsvc_status['status'].get('conditions', {}):
-            if condition.get('type', '') == 'Ready':
-                status = condition.get('status', 'Unknown')
+        status = "Unknown"
+        for condition in kfsvc_status["status"].get("conditions", {}):
+            if condition.get("type", "") == "Ready":
+                status = condition.get("status", "Unknown")
                 return status.lower() == "true"
         return False
 
-    def wait_isvc_ready(self, name, namespace=None,  # pylint:disable=too-many-arguments
-                        watch=False,
-                        timeout_seconds=600,
-                        polling_interval=10,
-                        version=constants.KSERVE_V1BETA1_VERSION):
+    def wait_isvc_ready(
+        self,
+        name,
+        namespace=None,  # pylint:disable=too-many-arguments
+        watch=False,
+        timeout_seconds=600,
+        polling_interval=10,
+        version=constants.KSERVE_V1BETA1_VERSION,
+    ):
         """
         Waiting for inference service ready, print out the inference service if timeout.
         :param name: inference service name
@@ -316,10 +382,7 @@ class KServeClient(object):
         :return:
         """
         if watch:
-            isvc_watch(
-                name=name,
-                namespace=namespace,
-                timeout_seconds=timeout_seconds)
+            isvc_watch(name=name, namespace=namespace, timeout_seconds=timeout_seconds)
         else:
             for _ in range(round(timeout_seconds / polling_interval)):
                 time.sleep(polling_interval)
@@ -327,8 +390,12 @@ class KServeClient(object):
                     return
 
             current_isvc = self.get(name, namespace=namespace, version=version)
-            raise RuntimeError("Timeout to start the InferenceService {}. \
-                               The InferenceService is as following: {}".format(name, current_isvc))
+            raise RuntimeError(
+                "Timeout to start the InferenceService {}. \
+                               The InferenceService is as following: {}".format(
+                    name, current_isvc
+                )
+            )
 
     def create_trained_model(self, trainedmodel, namespace):
         """
@@ -345,14 +412,17 @@ class KServeClient(object):
                 version,
                 namespace,
                 constants.KSERVE_PLURAL_TRAINEDMODEL,
-                trainedmodel)
+                trainedmodel,
+            )
         except client.rest.ApiException as e:
             raise RuntimeError(
                 "Exception when calling CustomObjectsApi->create_namespaced_custom_object:\
-                     %s\n" % e)
+                     %s\n"
+                % e
+            )
 
     def delete_trained_model(
-            self, name, namespace=None, version=constants.KSERVE_V1ALPHA1_VERSION
+        self, name, namespace=None, version=constants.KSERVE_V1ALPHA1_VERSION
     ):
         """
         Delete the trained model
@@ -379,12 +449,17 @@ class KServeClient(object):
                 % e
             )
 
-    def wait_model_ready(self, service_name, model_name, isvc_namespace=None,  # pylint:disable=too-many-arguments
-                         isvc_version=constants.KSERVE_V1BETA1_VERSION,
-                         cluster_ip=None,
-                         protocol_version="v1",
-                         timeout_seconds=600,
-                         polling_interval=10):
+    def wait_model_ready(
+        self,
+        service_name,
+        model_name,
+        isvc_namespace=None,  # pylint:disable=too-many-arguments
+        isvc_version=constants.KSERVE_V1BETA1_VERSION,
+        cluster_ip=None,
+        protocol_version="v1",
+        timeout_seconds=600,
+        polling_interval=10,
+    ):
         """
         Waiting for model to be ready to service, print out trained model if timeout.
         :param service_name: inference service name
@@ -411,14 +486,22 @@ class KServeClient(object):
             time.sleep(polling_interval)
             # Check model health API
             url = f"http://{cluster_ip}/{protocol_version}/models/{model_name}"
+            if protocol_version.lower() == "v2":
+                url = (
+                    f"http://{cluster_ip}/{protocol_version}/models/{model_name}/ready"
+                )
             response = requests.get(url, headers=headers).status_code
             if response == 200:
                 return
 
-        raise RuntimeError(f"InferenceService ({service_name}) has not loaded the \
-                            model ({model_name}) before the timeout.")
+        raise RuntimeError(
+            f"InferenceService ({service_name}) has not loaded the \
+                            model ({model_name}) before the timeout."
+        )
 
-    def create_inference_graph(self, inferencegraph: V1alpha1InferenceGraph, namespace: str = None) -> object:
+    def create_inference_graph(
+        self, inferencegraph: V1alpha1InferenceGraph, namespace: str = None
+    ) -> object:
         """
         create a inference graph
 
@@ -436,7 +519,7 @@ class KServeClient(object):
                 version,
                 namespace,
                 constants.KSERVE_PLURAL_INFERENCEGRAPH,
-                inferencegraph
+                inferencegraph,
             )
         except client.rest.ApiException as e:
             raise RuntimeError(
@@ -446,8 +529,12 @@ class KServeClient(object):
             )
         return outputs
 
-    def delete_inference_graph(self, name: str, namespace: str = None,
-                               version: str = constants.KSERVE_V1ALPHA1_VERSION):
+    def delete_inference_graph(
+        self,
+        name: str,
+        namespace: str = None,
+        version: str = constants.KSERVE_V1ALPHA1_VERSION,
+    ):
         """
         Delete the inference graph
 
@@ -473,8 +560,12 @@ class KServeClient(object):
                 % e
             )
 
-    def get_inference_graph(self, name: str, namespace: str = None,
-                            version: str = constants.KSERVE_V1ALPHA1_VERSION) -> object:
+    def get_inference_graph(
+        self,
+        name: str,
+        namespace: str = None,
+        version: str = constants.KSERVE_V1ALPHA1_VERSION,
+    ) -> object:
         """
         Get the inference graph
 
@@ -493,13 +584,21 @@ class KServeClient(object):
                 version,
                 namespace,
                 constants.KSERVE_PLURAL_INFERENCEGRAPH,
-                name)
+                name,
+            )
         except client.rest.ApiException as e:
             raise RuntimeError(
                 "Exception when calling CustomObjectsApi->get_namespaced_custom_object:\
-                 %s\n" % e)
+                 %s\n"
+                % e
+            )
 
-    def is_ig_ready(self, name: str, namespace: str = None, version: str = constants.KSERVE_V1ALPHA1_VERSION) -> bool:
+    def is_ig_ready(
+        self,
+        name: str,
+        namespace: str = None,
+        version: str = constants.KSERVE_V1ALPHA1_VERSION,
+    ) -> bool:
         """
         Check if the inference graph is ready.
 
@@ -512,15 +611,20 @@ class KServeClient(object):
             namespace = utils.get_default_target_namespace()
 
         ig: dict = self.get_inference_graph(name, namespace=namespace, version=version)
-        for condition in ig.get('status', {}).get('conditions', {}):
-            if condition.get('type', '') == 'Ready':
-                status = condition.get('status', 'Unknown')
+        for condition in ig.get("status", {}).get("conditions", {}):
+            if condition.get("type", "") == "Ready":
+                status = condition.get("status", "Unknown")
                 return status.lower() == "true"
         return False
 
-    def wait_ig_ready(self, name: str, namespace: str = None, version: str = constants.KSERVE_V1ALPHA1_VERSION,
-                      timeout_seconds: int = 600,
-                      polling_interval: int = 10):
+    def wait_ig_ready(
+        self,
+        name: str,
+        namespace: str = None,
+        version: str = constants.KSERVE_V1ALPHA1_VERSION,
+        timeout_seconds: int = 600,
+        polling_interval: int = 10,
+    ):
         """
         Wait for inference graph to be ready until timeout. Print out the inference graph if timeout.
 
@@ -536,6 +640,195 @@ class KServeClient(object):
             if self.is_ig_ready(name, namespace, version):
                 return
 
-        current_ig = self.get_inference_graph(name, namespace=namespace, version=version)
-        raise RuntimeError("Timeout to start the InferenceGraph {}. \
-                            The InferenceGraph is as following: {}".format(name, current_ig))
+        current_ig = self.get_inference_graph(
+            name, namespace=namespace, version=version
+        )
+        raise RuntimeError(
+            "Timeout to start the InferenceGraph {}. \
+                            The InferenceGraph is as following: {}".format(
+                name, current_ig
+            )
+        )
+
+    def create_local_model_node_group(
+        self, localmodelnodegroup: V1alpha1LocalModelNodeGroup
+    ):
+        """
+        Create a local model node group
+
+        :param localmodelnodegroup: local model node group object
+        :return: created local model node group object
+        """
+        version = localmodelnodegroup.api_version.split("/")[1]
+
+        try:
+            output = self.api_instance.create_cluster_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                constants.KSERVE_PLURAL_LOCALMODELNODEGROUP,
+                localmodelnodegroup,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                f"Exception when calling CustomObjectsApi->create_cluster_custom_object:{e}%s\n"
+            ) from e
+        return output
+
+    def get_local_model_node_group(
+        self, name: str, version: str = constants.KSERVE_V1ALPHA1_VERSION
+    ) -> object:
+        """
+        Get the local model node group
+
+        :param name: existing local model node group name
+        :param version: api group version. Default to v1alpha
+        :return: local model node group object
+        """
+        try:
+            return self.api_instance.get_cluster_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                constants.KSERVE_PLURAL_LOCALMODELNODEGROUP,
+                name,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                f"Exception when calling CustomObjectsApi->get_cluster_custom_object:{e}%s\n"
+            ) from e
+
+    def delete_local_model_node_group(
+        self, name: str, version: str = constants.KSERVE_V1ALPHA1_VERSION
+    ):
+        """
+        Delete the local model node group
+
+        :param name: local model node group name
+        :param version: api group version. Default to v1alpha
+        """
+        try:
+            self.api_instance.delete_cluster_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                constants.KSERVE_PLURAL_LOCALMODELNODEGROUP,
+                name,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                f"Exception when calling CustomObjectsApi->delete_cluster_custom_object:{e}%s\n"
+            ) from e
+
+    def create_local_model_cache(
+        self, localmodelcache: V1alpha1LocalModelCache
+    ) -> object:
+        """
+        Create a local model cache
+
+        :param localmodelcache: local model cache object
+        :return: created local model cache object
+        """
+        version = localmodelcache.api_version.split("/")[1]
+
+        try:
+            output = self.api_instance.create_cluster_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                constants.KSERVE_PLURAL_LOCALMODELCACHE,
+                localmodelcache,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                f"Exception when calling CustomObjectsApi->create_cluster_custom_object:{e}%s\n"
+            ) from e
+        return output
+
+    def get_local_model_cache(
+        self, name: str, version: str = constants.KSERVE_V1ALPHA1_VERSION
+    ) -> object:
+        """
+        Get the local model cache
+
+        :param name: existing local model cache name
+        :param version: api group version. Default to v1alpha1
+        :return: local model cache object
+        """
+        try:
+            return self.api_instance.get_cluster_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                constants.KSERVE_PLURAL_LOCALMODELCACHE,
+                name,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                f"Exception when calling CustomObjectsApi->get_cluster_custom_object:{e}%s\n"
+            ) from e
+
+    def delete_local_model_cache(
+        self, name: str, version: str = constants.KSERVE_V1ALPHA1_VERSION
+    ):
+        """
+        Delete the local model cache
+
+        :param name: local model cache name
+        :param version: api group version. Default to v1alpha1
+        """
+        try:
+            self.api_instance.delete_cluster_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                constants.KSERVE_PLURAL_LOCALMODELCACHE,
+                name,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                f"Exception when calling CustomObjectsApi->delete_cluster_custom_object:{e}%s\n"
+            ) from e
+
+    def is_local_model_cache_ready(
+        self,
+        name: str,
+        nodes: List[str],
+        version: str = constants.KSERVE_V1ALPHA1_VERSION,
+    ) -> bool:
+        """
+        Verify if the model is successfully cached on the specified node.
+
+        :param name: local model cache name
+        :param node_name: name of the node to check if the model is cached
+        :param version: api group version
+        :return: true if the model is successfully cached, else false.
+        """
+        local_model_cache = self.get_local_model_cache(name, version=version)
+        node_status = local_model_cache.get("status", {}).get("nodeStatus", {})
+        for node in nodes:
+            if node_status.get(node, "") != "NodeDownloaded":
+                return False
+        return True
+
+    def wait_local_model_cache_ready(
+        self,
+        name: str,
+        nodes: List[str],
+        version: str = constants.KSERVE_V1ALPHA1_VERSION,
+        timeout_seconds: int = 600,
+        polling_interval: int = 10,
+    ):
+        """
+        Wait for model to be cached locally for specified nodes until timeout.
+
+        :param name: local model cache name
+        :param nodes: list of node names to check if the model is cached
+        :param version: api group version
+        :param timeout_seconds: timeout seconds for waiting, default to 600s.
+        :param polling_interval: The time interval to poll status
+        :return:
+        """
+        for _ in range(round(timeout_seconds / polling_interval)):
+            time.sleep(polling_interval)
+            if self.is_local_model_cache_ready(name, nodes, version=version):
+                return
+
+        current_local_model_cache = self.get_local_model_cache(name, version=version)
+        raise RuntimeError(
+            f"Timeout while caching the model. The current state of LocalModelCache is: {current_local_model_cache}"
+        )

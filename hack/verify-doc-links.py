@@ -50,22 +50,24 @@ excluded_paths = [
 url_excludes = ["<", ">", "$", "{", "}"]
 
 # also exclude non-public or local URLs in a <host>:<port> style
-url_excludes.extend([
-    "0.0.0.0",
-    ":80",
-    ":90",
-    ":port",
-    ":predict",
-    ".default",
-    "blob.core.windows.net",
-    "customdomain.com",
-    "example.com",
-    "localhost",
-    "somecluster",
-    "sslip.io",
-    "svc.cluster.local",
-    "xip.io",
-])
+url_excludes.extend(
+    [
+        "0.0.0.0",
+        ":80",
+        ":90",
+        ":port",
+        ":predict",
+        ".default",
+        "blob.core.windows.net",
+        "customdomain.com",
+        "example.com",
+        "localhost",
+        "somecluster",
+        "sslip.io",
+        "svc.cluster.local",
+        "xip.io",
+    ]
+)
 
 # GitHub rate-limiting is 60 requests per minute, then we sleep a bit
 parallel_requests = 60  # use no more than 60 parallel requests
@@ -80,18 +82,23 @@ url_status_cache = dict()
 
 def find_md_files() -> [str]:
 
-    list_of_lists = [glob(project_root_dir + path_expr, recursive=True)
-                     for path_expr in md_file_path_expressions]
+    list_of_lists = [
+        glob(project_root_dir + path_expr, recursive=True)
+        for path_expr in md_file_path_expressions
+    ]
 
     flattened_list = list(itertools.chain(*list_of_lists))
 
-    filtered_list = [path for path in flattened_list
-                     if not any(s in path for s in excluded_paths)]
+    filtered_list = [
+        path for path in flattened_list if not any(s in path for s in excluded_paths)
+    ]
 
     return sorted(filtered_list)
 
 
-def get_links_from_md_file(md_file_path: str) -> [(int, str, str)]:  # -> [(line, link_text, URL)]
+def get_links_from_md_file(
+    md_file_path: str,
+) -> [(int, str, str)]:  # -> [(line, link_text, URL)]
 
     with open(md_file_path, "r") as f:
         try:
@@ -106,13 +113,15 @@ def get_links_from_md_file(md_file_path: str) -> [(int, str, str)]:  # -> [(line
     md_file_content = re.sub(
         r"\[([^]]+)\]\((?!http|#|/)([^)]+)\)",
         r"[\1]({}/{}/\2)".format(github_repo_master_path, folder).replace("/./", "/"),
-        md_file_content)
+        md_file_content,
+    )
 
     # replace links that are relative to the project root, i.e. [link text](/sdk/FEATURES.md)
     md_file_content = re.sub(
         r"\[([^]]+)\]\(/([^)]+)\)",
         r"[\1]({}/\2)".format(github_repo_master_path),
-        md_file_content)
+        md_file_content,
+    )
 
     # find all the links
     line_text_url = []
@@ -121,15 +130,18 @@ def get_links_from_md_file(md_file_path: str) -> [(int, str, str)]:  # -> [(line
         all_urls_in_this_line = set()
 
         # find markdown-styled links [text](url)
-        for (link_text, url) in re.findall(r"\[([^][]+)\]\((%s[^)]+)\)" % "http", line_text):
+        for link_text, url in re.findall(
+            r"\[([^][]+)\]\((%s[^)]+)\)" % "http", line_text
+        ):
             if not any(s in url for s in url_excludes):
                 line_text_url.append((line_number + 1, link_text, url))
                 all_urls_in_this_line.add(url)
 
         # find plain http(s)-style links
         for url in re.findall(r"https?://[a-zA-Z0-9./?=_&%${}<>:-]+", line_text):
-            if url not in all_urls_in_this_line\
-                    and not any(s in url for s in url_excludes):
+            if url not in all_urls_in_this_line and not any(
+                s in url for s in url_excludes
+            ):
                 try:
                     urlparse(url)
                     line_text_url.append((line_number + 1, "", url.strip(".")))
@@ -140,7 +152,9 @@ def get_links_from_md_file(md_file_path: str) -> [(int, str, str)]:  # -> [(line
     return line_text_url
 
 
-def test_url(file: str, line: int, text: str, url: str) -> (str, int, str, str, int):  # (file, line, text, url, status)
+def test_url(
+    file: str, line: int, text: str, url: str
+) -> (str, int, str, str, int):  # (file, line, text, url, status)
 
     short_url = url.split("#", maxsplit=1)[0]
     status = 0
@@ -159,19 +173,25 @@ def test_url(file: str, line: int, text: str, url: str) -> (str, int, str, str, 
 
         if status == 403:  # forbidden, try with web browser header
             headers = {
-                "User-Agent": "Mozilla/5.0",            # most pages want User-Agent
-                "Accept-Encoding": "gzip, deflate, br"  # GitHub wants Accept-Encoding
+                "User-Agent": "Mozilla/5.0",  # most pages want User-Agent
+                "Accept-Encoding": "gzip, deflate, br",  # GitHub wants Accept-Encoding
             }
             status = request_url(short_url, method="GET", headers=headers)
 
         if status == 405:  # method not allowed, use GET instead of HEAD
             status = request_url(short_url, method="GET")
 
-        if status in [429, 503]:  # GitHub rate-limiting or service unavailable, try again after 1 minute
+        if status in [
+            429,
+            503,
+        ]:  # GitHub rate-limiting or service unavailable, try again after 1 minute
             sleep(retry_wait + extra_wait)
             status = request_url(short_url, method="GET")
 
-        if status in [444, 555]:  # other URLError or Exception, retry with longer timeout
+        if status in [
+            444,
+            555,
+        ]:  # other URLError or Exception, retry with longer timeout
             status = request_url(short_url, method="GET", timeout=15)
 
         # if we keep getting the same error, mark it as 404 to be reported at the end
@@ -190,7 +210,6 @@ next_time_for_github_request = datetime.now()
 
 
 def wait_before_retry(url):
-    global next_time_for_github_request
     if "github.com" in url:
         if datetime.now() < next_time_for_github_request:
             sleep((next_time_for_github_request - datetime.now()).seconds + extra_wait)
@@ -199,7 +218,9 @@ def wait_before_retry(url):
 def set_retry_time(url, status):
     global next_time_for_github_request
     if "github.com" in url and status == 429:
-        next_time_for_github_request = datetime.now() + timedelta(seconds=retry_wait + extra_wait)
+        next_time_for_github_request = datetime.now() + timedelta(
+            seconds=retry_wait + extra_wait
+        )
 
 
 def request_url(url, method="HEAD", timeout=5, headers={}) -> int:
@@ -224,10 +245,14 @@ def request_url(url, method="HEAD", timeout=5, headers={}) -> int:
     return status
 
 
-def verify_urls_concurrently(file_line_text_url: [(str, int, str, str)]) -> [(str, int, str, str)]:
+def verify_urls_concurrently(
+    file_line_text_url: [(str, int, str, str)],
+) -> [(str, int, str, str)]:
     file_line_text_url_status = []
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=parallel_requests) as executor:
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=parallel_requests
+    ) as executor:
         check_urls = (
             executor.submit(test_url, file, line, text, url)
             for (file, line, text, url) in file_line_text_url
@@ -240,8 +265,12 @@ def verify_urls_concurrently(file_line_text_url: [(str, int, str, str)]) -> [(st
                 # set 555 status as a custom code used script-internally
                 file_line_text_url_status.append((file, line, text, url, 555))
             finally:
-                print("{}/{}".format(len(file_line_text_url_status),
-                                     len(file_line_text_url)), end="\r")
+                print(
+                    "{}/{}".format(
+                        len(file_line_text_url_status), len(file_line_text_url)
+                    ),
+                    end="\r",
+                )
 
     return file_line_text_url_status
 
@@ -262,28 +291,39 @@ def verify_doc_links() -> [(str, int, str, str)]:
     file_line_text_url_status = verify_urls_concurrently(file_line_text_url)
 
     # 4. filter for the invalid URLs (status 404: "Not Found") to be reported
-    file_line_text_url_404 = [(f, l, t, u, s)
-                              for (f, l, t, u, s) in file_line_text_url_status
-                              if s == 404]
+    file_line_text_url_404 = [
+        (f, l, t, u, s) for (f, l, t, u, s) in file_line_text_url_status if s == 404
+    ]
 
     # 5. print some stats for confidence
-    print("{} {} links ({} unique URLs) in {} Markdown files.\n".format(
-        "Checked" if file_line_text_url_404 else "Verified",
-        len(file_line_text_url_status),
-        len(url_status_cache),
-        len(md_file_paths)))
+    print(
+        "{} {} links ({} unique URLs) in {} Markdown files.\n".format(
+            "Checked" if file_line_text_url_404 else "Verified",
+            len(file_line_text_url_status),
+            len(url_status_cache),
+            len(md_file_paths),
+        )
+    )
 
     # 6. report invalid links, exit with error for CI/CD
     if file_line_text_url_404:
 
-        for (file, line, text, url, status) in sorted(file_line_text_url_404):
-            print("{}:{}: {} -> {}".format(
-                relpath(file, project_root_dir), line,
-                url.replace(github_repo_master_path, ""), status))
+        for file, line, text, url, status in sorted(file_line_text_url_404):
+            print(
+                "{}:{}: {} -> {}".format(
+                    relpath(file, project_root_dir),
+                    line,
+                    url.replace(github_repo_master_path, ""),
+                    status,
+                )
+            )
 
         # print a summary line for clear error discovery at the bottom of Travis job log
-        print("\nERROR: Found {} invalid Markdown links".format(
-            len(file_line_text_url_404)))
+        print(
+            "\nERROR: Found {} invalid Markdown links".format(
+                len(file_line_text_url_404)
+            )
+        )
 
         exit(1)
 
@@ -308,6 +348,6 @@ def apply_monkey_patch_to_force_ipv4_connections():
     socket.getaddrinfo = getaddrinfo_patched
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     apply_monkey_patch_to_force_ipv4_connections()
     verify_doc_links()

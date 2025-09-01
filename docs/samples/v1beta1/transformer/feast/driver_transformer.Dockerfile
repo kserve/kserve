@@ -1,9 +1,7 @@
-FROM python:3.8-slim
+FROM python:3.9-slim
 
-RUN apt-get update \
-&& apt-get install -y --no-install-recommends git
-
-COPY . .
-RUN pip install pip==20.2
+COPY driver_transformer driver_transformer
+WORKDIR driver_transformer
+RUN pip install --upgrade pip
 RUN pip install -e .
 ENTRYPOINT ["python", "-m", "driver_transformer"]

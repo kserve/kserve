@@ -5,4 +5,4 @@ metadata:
 spec:
   predictor:
     onnx:
-      storageUri: "gs://kfserving-examples/onnx/style"
+      storageUri: "gs://kfserving-examples/models/onnx"

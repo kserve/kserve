@@ -1,0 +1,32 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: llama-31-8b-instruct
+spec:
+  predictor:
+    annotations:
+      traffic.sidecar.istio.io/excludeOutboundPorts: "443"
+    minReplicas: 0
+    serviceAccountName: s3sa
+    nodeSelector:
+      node.kubernetes.io/instance-type: g5.8xlarge
+    model:
+      modelFormat:
+        name: huggingface
+      args:
+        - --gpu-memory-utilization=0.95
+        - --max-model-len=1024
+        - --tensor-parallel-size=1
+        - --enforce-eager
+        - --disable-log-stats
+        - --disable-log-requests
+      storageUri: s3://${bucket}/models/meta-llama--Meta-Llama-3.1-8B-Instruct
+      resources:
+        limits:
+          cpu: "24"
+          memory: 48Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "24"
+          memory: 48Gi
+          nvidia.com/gpu: "1"

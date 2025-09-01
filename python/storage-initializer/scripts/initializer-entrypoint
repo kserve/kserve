@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 import sys
-import kserve
-import logging
+
+from kserve_storage import Storage
+from kserve_storage.logging import configure_logging, logger
+
+configure_logging()
 
 if len(sys.argv) != 3:
     print("Usage: initializer-entrypoint src_uri dest_path")
@@ -10,5 +13,5 @@ if len(sys.argv) != 3:
 src_uri = sys.argv[1]
 dest_path = sys.argv[2]
 
-logging.info("Initializing, args: src_uri [%s] dest_path[ [%s]" % (src_uri, dest_path))
-kserve.Storage.download(src_uri, dest_path)
+logger.info("Initializing, args: src_uri [%s] dest_path[ [%s]" % (src_uri, dest_path))
+Storage.download(src_uri, dest_path)

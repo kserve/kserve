@@ -1,36 +1,39 @@
 name: 'Minikube setup action'
 description: 'Sets up minikube on the github runner'
 
+inputs:
+  nodes:
+    description: 'Number of nodes to start minikube with'
+    required: false
+    default: '1'
+  driver:
+    description: 'Driver to use for minikube'
+    required: false
+    default: 'none'
+  start-args:
+    description: 'Additional arguments to pass to minikube start'
+    required: false
+    default: ''
+
 runs:
   using: "composite"
   steps:
-    - name: Setup Minikube
-      uses: manusa/actions-setup-minikube@v2.7.2
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v4.0.0
       with:
-        minikube version: 'v1.28.0'
-        kubernetes version: 'v1.23.15'
-        driver: 'none'
-        start args: --wait-timeout=120s
-        github token: ${{ env.GITHUB_TOKEN }}
-    - name: Setup port-forward
-      shell: bash
-      run: sudo apt-get install -y conntrack socat
+        version: 'v1.30.7'
+
+    - name: Setup Minikube
+      uses: medyagh/setup-minikube@latest
+      with:
+        minikube-version: '1.35.0'
+        kubernetes-version: 'v1.30.7'
+        driver: ${{ inputs.driver }}
+        wait: 'all'
+        cpus: 'max'
+        memory: 'max'
+        start-args: --wait-timeout=6m0s --nodes=${{ inputs.nodes }} ${{ inputs.start-args }}
+
     - name: Check Kubernetes pods
       shell: bash
       run: kubectl get pods -n kube-system
-    - name: Setup KServe dependencies
-      shell: bash
-      run: |
-        ./test/scripts/gh-actions/setup-deps.sh
-
-        kubectl get pods -n istio-system
-        kubectl describe svc -n istio-system istio-ingressgateway
-        kubectl get pods -n knative-serving
-        kubectl get pods -n cert-manager
-    
-    - name: Update test overlays
-      shell: bash
-      run: |
-        ./test/scripts/gh-actions/update-test-overlays.sh
-        docker image ls
-        cat ./config/overlays/test/configmap/inferenceservice.yaml

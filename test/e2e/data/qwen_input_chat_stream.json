@@ -1,0 +1,16 @@
+{
+    "model": "hf-qwen-chat-stream",
+    "messages": [
+        {
+            "role": "system",
+            "content": "You are a helpful assistant."
+        },
+        {
+            "role": "user",
+            "content": "What is the result of 2 + 2?"
+        }
+    ],
+    "temperature": 0,
+    "max_tokens": 20,
+    "stream": true
+}

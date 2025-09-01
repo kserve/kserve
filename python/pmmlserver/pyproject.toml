@@ -1,0 +1,27 @@
+[project]
+authors = [
+    {name = "AnyISalIn", email = "anyisalin@gmail.com"},
+]
+license = {text = "Apache-2.0"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "kserve @ file:///${PROJECT_ROOT}/../kserve",
+    "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
+    "jpmml-evaluator~=0.10.3",
+    "setuptools<71.0.0,>=70.0.0",
+]
+name = "pmmlserver"
+version = "0.15.2"
+description = "Model Server implementation for PMML. Not intended for use outside KServe Frameworks Images."
+readme = "README.md"
+
+[dependency-groups]
+test = [
+    "pytest<8.0.0,>=7.4.4",
+    "pytest-cov<6.0.0,>=5.0.0",
+    "mypy<1.0,>=0.991",
+    "pytest-asyncio<1.0.0,>=0.23.4",
+]
+dev = [
+    "black[colorama]~=24.3.0",
+]

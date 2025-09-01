@@ -17,15 +17,19 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
 
-	"github.com/kserve/kserve/pkg/agent/storage"
-	"github.com/kserve/kserve/pkg/utils"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	"github.com/kserve/kserve/pkg/agent/storage"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // regular expressions for validation of isvc name
@@ -46,33 +50,61 @@ var (
 	StorageUriProtocols = strings.Join(storage.GetAllProtocol(), CommaSpaceSeparator)
 )
 
+// +kubebuilder:object:generate=false
+// +k8s:openapi-gen=false
+// TrainedModelValidator is responsible for setting default values on the TrainedModel resources
+// when created or updated.
+//
+// NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
+// as it is used only for temporary operations and does not need to be deeply copied.
+type TrainedModelValidator struct{}
+
 // +kubebuilder:webhook:verbs=create;update,path=/validate-trainedmodel,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=trainedmodels,versions=v1alpha1,name=trainedmodel.kserve-webhook-server.validator
 
-var _ webhook.Validator = &TrainedModel{}
+var _ webhook.CustomValidator = &TrainedModelValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (tm *TrainedModel) ValidateCreate() error {
+func (v *TrainedModelValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	tm, err := utils.Convert[*TrainedModel](obj)
+	if err != nil {
+		tmLogger.Error(err, "Unable to convert object to TrainedModel")
+		return nil, err
+	}
 	tmLogger.Info("validate create", "name", tm.Name)
-	return utils.FirstNonNilError([]error{
+	return nil, utils.FirstNonNilError([]error{
 		tm.validateTrainedModel(),
 	})
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (tm *TrainedModel) ValidateUpdate(old runtime.Object) error {
-	tmLogger.Info("validate update", "name", tm.Name)
-	oldTm := convertToTrainedModel(old)
+func (v *TrainedModelValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	newTm, err := utils.Convert[*TrainedModel](newObj)
+	if err != nil {
+		tmLogger.Error(err, "Unable to convert object to TrainedModel")
+		return nil, err
+	}
+	oldTm, err := utils.Convert[*TrainedModel](oldObj)
+	if err != nil {
+		tmLogger.Error(err, "Unable to convert object to TrainedModel")
+		return nil, err
+	}
+	tmLogger.Info("validate update", "name", newTm.Name)
 
-	return utils.FirstNonNilError([]error{
-		tm.validateTrainedModel(),
-		tm.validateMemorySpecNotModified(oldTm),
+	return nil, utils.FirstNonNilError([]error{
+		newTm.validateTrainedModel(),
+		newTm.validateMemorySpecNotModified(oldTm),
 	})
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (tm *TrainedModel) ValidateDelete() error {
+func (v *TrainedModelValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	tm, err := utils.Convert[*TrainedModel](obj)
+	if err != nil {
+		tmLogger.Error(err, "Unable to convert object to TrainedModel")
+		return nil, err
+	}
 	tmLogger.Info("validate delete", "name", tm.Name)
-	return nil
+	return nil, nil
 }
 
 // Validates ModelSpec memory is not modified from previous TrainedModel state
@@ -91,12 +123,6 @@ func (tm *TrainedModel) validateTrainedModel() error {
 		tm.validateTrainedModelName(),
 		tm.validateStorageURI(),
 	})
-}
-
-// Convert runtime.Object into TrainedModel
-func convertToTrainedModel(old runtime.Object) *TrainedModel {
-	tm := old.(*TrainedModel)
-	return tm
 }
 
 // Validates format for TrainedModel's name

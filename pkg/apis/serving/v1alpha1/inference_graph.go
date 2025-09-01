@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -25,7 +25,6 @@ import (
 
 // InferenceGraph is the Schema for the InferenceGraph API for multiple models
 // +k8s:openapi-gen=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
@@ -64,7 +63,48 @@ type InferenceGraphSpec struct {
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	// +optional
 	Affinity *corev1.Affinity `json:"affinity,omitempty" protobuf:"bytes,18,opt,name=affinity"`
+	// TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.
+	// +optional
+	TimeoutSeconds *int64 `json:"timeout,omitempty"`
+	// +optional
+	RouterTimeouts *InfereceGraphRouterTimeouts `json:"routerTimeouts,omitempty"`
+	// Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.
+	// +optional
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
+	// Maximum number of replicas for autoscaling.
+	// +optional
+	MaxReplicas int32 `json:"maxReplicas,omitempty"`
+	// ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for.
+	// concurrency and rps targets are supported by Knative Pod Autoscaler
+	// (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
+	// +optional
+	ScaleTarget *int32 `json:"scaleTarget,omitempty"`
+	// ScaleMetric defines the scaling metric type watched by autoscaler
+	// possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via
+	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).
+	// +optional
+	ScaleMetric *ScaleMetric `json:"scaleMetric,omitempty"`
+	// Toleration specifies the toleration for the InferenceGraph.
+	// https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+	// +optional
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+	// NodeSelector specifies the node selector for the InferenceGraph.
+	// https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// NodeName specifies the node name for the InferenceGraph.
+	// https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+	// +optional
+	NodeName string `json:"nodeName,omitempty"`
+	// ServiceAccountName specifies the service account name for the InferenceGraph.
+	// https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
+
+// ScaleMetric enum
+// +kubebuilder:validation:Enum=cpu;memory;concurrency;rps
+type ScaleMetric string
 
 // InferenceRouterType constant for inference routing types
 // +k8s:openapi-gen=true
@@ -90,6 +130,22 @@ const (
 	// GraphRootNodeName is the root node name.
 	GraphRootNodeName string = "root"
 )
+
+// +k8s:openapi-gen=true
+type InfereceGraphRouterTimeouts struct {
+	// ServerRead specifies the number of seconds to wait before timing out a request read by the server.
+	// +optional
+	ServerRead *int64 `json:"serverRead,omitempty"`
+	// ServerWrite specifies the maximum duration in seconds before timing out writes of the response.
+	// +optional
+	ServerWrite *int64 `json:"serverWrite,omitempty"`
+	// ServerIdle specifies the maximum amount of time in seconds to wait for the next request when keep-alives are enabled.
+	// +optional
+	ServerIdle *int64 `json:"serverIdle,omitempty"`
+	// ServiceClient specifies a time limit in seconds for requests made to the graph components by HTTP client.
+	// +optional
+	ServiceClient *int64 `json:"serviceClient,omitempty"`
+}
 
 // +k8s:openapi-gen=true
 // InferenceRouter defines the router for each InferenceGraph node with one or multiple steps
@@ -244,6 +300,20 @@ type InferenceTarget struct {
 	ServiceURL string `json:"serviceUrl,omitempty"`
 }
 
+// InferenceStepDependencyType constant for inference step dependency
+// +k8s:openapi-gen=true
+// +kubebuilder:validation:Enum=Soft;Hard
+type InferenceStepDependencyType string
+
+// StepDependency Enum
+const (
+	// Soft
+	Soft InferenceStepDependencyType = "Soft"
+
+	// Hard
+	Hard InferenceStepDependencyType = "Hard"
+)
+
 // InferenceStep defines the inference target of the current step with condition, weights and data.
 // +k8s:openapi-gen=true
 type InferenceStep struct {
@@ -268,6 +338,10 @@ type InferenceStep struct {
 	// routing based on the condition
 	// +optional
 	Condition string `json:"condition,omitempty"`
+
+	// to decide whether a step is a hard or a soft dependency in the Inference Graph
+	// +optional
+	Dependency InferenceStepDependencyType `json:"dependency,omitempty"`
 }
 
 // InferenceGraphStatus defines the InferenceGraph conditions and status
@@ -278,6 +352,8 @@ type InferenceGraphStatus struct {
 	// Url for the InferenceGraph
 	// +optional
 	URL *apis.URL `json:"url,omitempty"`
+	// InferenceGraph DeploymentMode
+	DeploymentMode string `json:"deploymentMode,omitempty"`
 }
 
 // InferenceGraphList contains a list of InferenceGraph

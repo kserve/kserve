@@ -19,16 +19,15 @@ package ingress
 import (
 	"bytes"
 	"fmt"
-	"text/template"
-
 	"net/url"
+	"text/template"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 type PathTemplateValues struct {
-	Name          string
-	Namespace     string
+	Name      string
+	Namespace string
 }
 
 // GenerateUrlPath generates the path using the pathTemplate configured in IngressConfig
@@ -38,8 +37,8 @@ func GenerateUrlPath(name string, namespace string, ingressConfig *v1beta1.Ingre
 	}
 
 	values := PathTemplateValues{
-		Name:          name,
-		Namespace:     namespace,
+		Name:      name,
+		Namespace: namespace,
 	}
 	tpl, err := template.New("url-template").Parse(ingressConfig.PathTemplate)
 	if err != nil {

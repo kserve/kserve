@@ -11,21 +11,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import kserve
 from typing import Dict, Union
-import logging
+
 import boto3
 import cv2
-from cloudevents.http import CloudEvent
 
+import kserve
 from kserve import InferRequest, InferResponse
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
-
-logging.basicConfig(level=kserve.constants.KSERVE_LOGLEVEL)
+from kserve.logging import logger
 
 session = boto3.Session()
-client = session.client('s3', endpoint_url='http://minio-service:9000', aws_access_key_id='minio',
-                        aws_secret_access_key='minio123')
+client = session.client(
+    "s3",
+    endpoint_url="http://minio-service:9000",
+    aws_access_key_id="minio",
+    aws_secret_access_key="minio123",
+)
+digits_bucket = "digits"
 
 
 def image_transform(image):
@@ -41,21 +44,28 @@ class ImageTransformer(kserve.Model):
         self.predictor_host = predictor_host
         self._key = None
 
-    def preprocess(self, inputs: Union[Dict, CloudEvent, InferRequest],
-                   headers: Dict[str, str] = None) -> Union[Dict, InferRequest]:
-        if inputs['EventName'] == 's3:ObjectCreated:Put':
-            bucket = inputs['Records'][0]['s3']['bucket']['name']
-            key = inputs['Records'][0]['s3']['object']['key']
+    async def preprocess(
+        self, inputs: Union[Dict, InferRequest], headers: Dict[str, str] = None
+    ) -> Union[Dict, InferRequest]:
+        logger.info("Received inputs %s", inputs)
+        if inputs["data"]["EventName"] == "s3:ObjectCreated:Put":
+            bucket = inputs["data"]["Records"][0]["s3"]["bucket"]["name"]
+            key = inputs["data"]["Records"][0]["s3"]["object"]["key"]
             self._key = key
-            client.download_file(bucket, key, '/tmp/' + key)
-            request = image_transform('/tmp/' + key)
+            client.download_file(bucket, key, "/tmp/" + key)
+            request = image_transform("/tmp/" + key)
             return {"instances": [request]}
         raise Exception("unknown event")
 
-    def postprocess(self, response: Union[Dict, InferResponse, ModelInferResponse], headers: Dict[str, str] = None) \
-            -> Union[Dict, ModelInferResponse]:
-        logging.info(response)
+    async def postprocess(
+        self,
+        response: Union[Dict, InferResponse, ModelInferResponse],
+        headers: Dict[str, str] = None,
+    ) -> Union[Dict, ModelInferResponse]:
+        logger.info("response: %s", response)
         index = response["predictions"][0]["classes"]
-        logging.info("digit:" + str(index))
-        client.upload_file('/tmp/' + self._key, 'digit-' + str(index), self._key)
+        logger.info("digit:" + str(index))
+        upload_path = f"digit-{index}/{self._key}"
+        client.upload_file("/tmp/" + self._key, digits_bucket, upload_path)
+        logger.info(f"Image {self._key} successfully uploaded to {upload_path}")
         return response

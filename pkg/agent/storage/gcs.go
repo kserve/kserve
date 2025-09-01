@@ -17,16 +17,18 @@ limitations under the License.
 package storage
 
 import (
-	gstorage "cloud.google.com/go/storage"
 	"context"
+	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/googleapis/google-cloud-go-testing/storage/stiface"
-	"google.golang.org/api/iterator"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	gstorage "cloud.google.com/go/storage"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/googleapis/google-cloud-go-testing/storage/stiface"
+	"google.golang.org/api/iterator"
 )
 
 type GCSProvider struct {
@@ -43,25 +45,27 @@ func (p *GCSProvider) DownloadModel(modelDir string, modelName string, storageUr
 	}
 	ctx := context.Background()
 	gcsObjectDownloader := &GCSObjectDownloader{
-		Context:    ctx,
 		StorageUri: storageUri,
 		ModelDir:   modelDir,
 		ModelName:  modelName,
 		Bucket:     tokens[0],
 		Item:       prefix,
 	}
-	it, err := gcsObjectDownloader.GetObjectIterator(p.Client)
+	it, err := gcsObjectDownloader.GetObjectIterator(ctx, p.Client)
 	if err != nil {
-		return fmt.Errorf("unable to get object iterator because: %v", err)
+		return fmt.Errorf("unable to get object iterator because: %w", err)
 	}
-	if err := gcsObjectDownloader.Download(p.Client, it); err != nil {
-		return fmt.Errorf("unable to download object/s because: %v", err)
+	if err := gcsObjectDownloader.Download(ctx, p.Client, it); err != nil {
+		return fmt.Errorf("unable to download object/s because: %w", err)
 	}
 	return nil
 }
 
+func (p *GCSProvider) UploadObject(bucket string, key string, object []byte) error {
+	return errors.New("GCS upload not implemented")
+}
+
 type GCSObjectDownloader struct {
-	Context    context.Context
 	StorageUri string
 	ModelDir   string
 	ModelName  string
@@ -69,39 +73,39 @@ type GCSObjectDownloader struct {
 	Item       string
 }
 
-func (g *GCSObjectDownloader) GetObjectIterator(client stiface.Client) (stiface.ObjectIterator, error) {
+func (g *GCSObjectDownloader) GetObjectIterator(ctx context.Context, client stiface.Client) (stiface.ObjectIterator, error) {
 	query := &gstorage.Query{Prefix: g.Item}
-	return client.Bucket(g.Bucket).Objects(g.Context, query), nil
+	return client.Bucket(g.Bucket).Objects(ctx, query), nil
 }
 
-func (g *GCSObjectDownloader) Download(client stiface.Client, it stiface.ObjectIterator) error {
+func (g *GCSObjectDownloader) Download(ctx context.Context, client stiface.Client, it stiface.ObjectIterator) error {
 	var errs []error
 	// flag to help determine if query prefix returned an empty iterator
-	var foundObject = false
+	foundObject := false
 
 	for {
 		attrs, err := it.Next()
-		if err == iterator.Done {
+		if errors.Is(err, iterator.Done) {
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("an error occurred while iterating: %v", err)
+			return fmt.Errorf("an error occurred while iterating: %w", err)
 		}
 		objectValue := strings.TrimPrefix(attrs.Name, g.Item)
 		fileName := filepath.Join(g.ModelDir, g.ModelName, objectValue)
 
 		foundObject = true
 		if FileExists(fileName) {
-			log.Info("Deleting", fileName)
+			log.Info("Deleting file", "name", fileName)
 			if err := os.Remove(fileName); err != nil {
-				return fmt.Errorf("file is unable to be deleted: %v", err)
+				return fmt.Errorf("file is unable to be deleted: %w", err)
 			}
 		}
 		file, err := Create(fileName)
 		if err != nil {
-			return fmt.Errorf("file is already created: %v", err)
+			return fmt.Errorf("file is already created: %w", err)
 		}
-		if err := g.DownloadFile(client, attrs, file); err != nil {
+		if err := g.DownloadFile(ctx, client, attrs, file); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -114,33 +118,24 @@ func (g *GCSObjectDownloader) Download(client stiface.Client, it stiface.ObjectI
 	return nil
 }
 
-func (g *GCSObjectDownloader) DownloadFile(client stiface.Client, attrs *gstorage.ObjectAttrs, file *os.File) error {
-	reader, err := client.Bucket(attrs.Bucket).Object(attrs.Name).NewReader(g.Context)
+func (g *GCSObjectDownloader) DownloadFile(ctx context.Context, client stiface.Client, attrs *gstorage.ObjectAttrs, file *os.File) error {
+	reader, err := client.Bucket(attrs.Bucket).Object(attrs.Name).NewReader(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to create reader for object(%s) in bucket(%s): %v",
+		return fmt.Errorf("failed to create reader for object(%s) in bucket(%s): %w",
 			attrs.Name,
 			attrs.Bucket,
 			err,
 		)
 	}
-	defer reader.Close()
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return fmt.Errorf("failed to read object(%s) in bucket(%s): %v",
-			attrs.Name,
-			attrs.Bucket,
-			err,
-		)
-	}
-	return g.WriteToFile(data, attrs, file)
-}
-
-func (g *GCSObjectDownloader) WriteToFile(data []byte, attrs *gstorage.ObjectAttrs, file *os.File) error {
-	_, err := file.Write(data)
-	defer file.Close()
-	if err != nil {
-		return fmt.Errorf("failed to write data to file(%s): from object(%s) in bucket(%s): %v",
-			file.Name(),
+	defer func(reader stiface.Reader) {
+		closeErr := reader.Close()
+		if closeErr != nil {
+			log.Error(closeErr, "failed to close reader")
+		}
+	}(reader)
+	if _, err := io.Copy(file, reader); err != nil {
+		return fmt.Errorf(
+			"failed to copy object(%s) from bucket(%s) to file: %w",
 			attrs.Name,
 			attrs.Bucket,
 			err,

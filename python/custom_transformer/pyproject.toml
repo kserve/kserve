@@ -1,0 +1,29 @@
+[project]
+authors = [
+    {name = "Dan Sun", email = "dsun20@bloomberg.net"},
+]
+license = {text = "Apache-2.0"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "kserve @ file:///${PROJECT_ROOT}/../kserve",
+    "torchvision==0.21.0+cpu",
+    "torch==2.6.0+cpu", 
+    "pillow<11.0.0,>=10.3.0",
+]
+name = "custom_transformer"
+version = "0.15.2"
+description = "Custom Transformer Examples. Not intended for use outside KServe Frameworks Images."
+
+[dependency-groups]
+test = [
+    "pytest<8.0.0,>=7.4.4",
+    "mypy<1.0,>=0.991",
+]
+dev = [
+    "black[colorama]~=24.3.0",
+]
+
+[tool.uv.sources]
+# For PyTorch CPU on Linux x86_64 with Python 3.11
+torch = { url = "https://download.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp311-cp311-linux_x86_64.whl" }
+torchvision = { url = "https://download.pytorch.org/whl/cpu/torchvision-0.21.0%2Bcpu-cp311-cp311-linux_x86_64.whl" }

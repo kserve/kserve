@@ -20,15 +20,14 @@ import (
 	"fmt"
 	"path"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var (
-	ONNXFileExt = ".onnx"
-)
+var ONNXFileExt = ".onnx"
 
 // ONNXRuntimeSpec defines arguments for configuring ONNX model serving.
 type ONNXRuntimeSpec struct {
@@ -36,20 +35,17 @@ type ONNXRuntimeSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &ONNXRuntimeSpec{}
-)
+var _ ComponentImplementation = &ONNXRuntimeSpec{}
 
 // Validate returns an error if invalid
 func (o *ONNXRuntimeSpec) Validate() error {
 	if o.GetStorageUri() != nil {
 		if ext := path.Ext(*o.GetStorageUri()); ext != ONNXFileExt && ext != "" {
-			return fmt.Errorf("Expected storageUri file extension: '%s' but got '%s'", ONNXFileExt, ext)
+			return fmt.Errorf("expected storageUri file extension: '%s' but got '%s'", ONNXFileExt, ext)
 		}
 	}
 
 	return utils.FirstNonNilError([]error{
-		validateStorageURI(o.GetStorageUri()),
 		validateStorageSpec(o.GetStorageSpec(), o.GetStorageUri()),
 	})
 }
@@ -57,14 +53,17 @@ func (o *ONNXRuntimeSpec) Validate() error {
 // Default sets defaults on the resource
 func (o *ONNXRuntimeSpec) Default(config *InferenceServicesConfig) {
 	o.Container.Name = constants.InferenceServiceContainerName
-	setResourceRequirementDefaults(&o.Resources)
+	setResourceRequirementDefaults(config, &o.Resources)
 }
 
 // GetContainers transforms the resource into a container spec
-func (o *ONNXRuntimeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (o *ONNXRuntimeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *corev1.Container {
 	return &o.Container
 }
 
 func (o *ONNXRuntimeSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if o.ProtocolVersion != nil {
+		return *o.ProtocolVersion
+	}
 	return constants.ProtocolV1
 }

@@ -1,3 +1,4 @@
+# Copyright 2022 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +29,7 @@ from kserve import (
     V1beta1XGBoostSpec,
 )
 
-from ..common.utils import predict, get_cluster_ip
+from ..common.utils import predict_isvc, get_cluster_ip
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
@@ -46,7 +47,11 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
     ],
 )
 @pytest.mark.mms
-def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
+@pytest.mark.asyncio(scope="session")
+async def test_mms_sklearn_kserve(
+    protocol_version: str, storage_uri: str, rest_v1_client, rest_v2_client
+):
+    service_name = f"isvc-sklearn-mms-{protocol_version}"
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -59,10 +64,9 @@ def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
         ),
     )
 
-    service_name = f"isvc-sklearn-mms-{protocol_version}"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -70,7 +74,9 @@ def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
     )
 
     # Create an instance of inference service with isvc
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
@@ -111,26 +117,30 @@ def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
             cluster_ip=cluster_ip,
         )
 
-    input_json = "./data/iris_input.json"
-    if protocol_version == "v2":
-        input_json = "./data/iris_input_v2.json"
-
-    responses = [
-        predict(
-            service_name,
-            input_json,
-            model_name=model_name,
-            protocol_version=protocol_version,
-        )
-        for model_name in model_names
-    ]
-
     if protocol_version == "v1":
+        responses = [
+            await predict_isvc(
+                rest_v1_client,
+                service_name,
+                "./data/iris_input.json",
+                model_name=model_name,
+            )
+            for model_name in model_names
+        ]
         assert responses[0]["predictions"] == [1, 1]
         assert responses[1]["predictions"] == [1, 1]
     elif protocol_version == "v2":
-        assert responses[0]["outputs"][0]["data"] == [1, 1]
-        assert responses[1]["outputs"][0]["data"] == [1, 1]
+        responses = [
+            await predict_isvc(
+                rest_v2_client,
+                service_name,
+                "./data/iris_input_v2.json",
+                model_name=model_name,
+            )
+            for model_name in model_names
+        ]
+        assert responses[0].outputs[0].data == [1, 1]
+        assert responses[1].outputs[0].data == [1, 1]
 
     # Clean up inference service and trained models
     for model_name in model_names:
@@ -152,7 +162,11 @@ def test_mms_sklearn_kserve(protocol_version: str, storage_uri: str):
     ],
 )
 @pytest.mark.mms
-def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
+@pytest.mark.asyncio(scope="session")
+async def test_mms_xgboost_kserve(
+    protocol_version: str, storage_uri: str, rest_v1_client, rest_v2_client
+):
+    service_name = f"isvc-xgboost-mms-{protocol_version}"
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -166,10 +180,9 @@ def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
         ),
     )
 
-    service_name = f"isvc-xgboost-mms-{protocol_version}"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -177,7 +190,9 @@ def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
     )
 
     # Create an instance of inference service with isvc
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
@@ -218,26 +233,30 @@ def test_mms_xgboost_kserve(protocol_version: str, storage_uri: str):
             cluster_ip=cluster_ip,
         )
 
-    input_json = "./data/iris_input.json"
-    if protocol_version == "v2":
-        input_json = "./data/iris_input_v2.json"
-
-    responses = [
-        predict(
-            service_name,
-            input_json,
-            model_name=model_name,
-            protocol_version=protocol_version,
-        )
-        for model_name in model_names
-    ]
-
     if protocol_version == "v1":
+        responses = [
+            await predict_isvc(
+                rest_v1_client,
+                service_name,
+                "./data/iris_input.json",
+                model_name=model_name,
+            )
+            for model_name in model_names
+        ]
         assert responses[0]["predictions"] == [1, 1]
         assert responses[1]["predictions"] == [1, 1]
     elif protocol_version == "v2":
-        assert responses[0]["outputs"][0]["data"] == [1.0, 1.0]
-        assert responses[1]["outputs"][0]["data"] == [1.0, 1.0]
+        responses = [
+            await predict_isvc(
+                rest_v2_client,
+                service_name,
+                "./data/iris_input_v2.json",
+                model_name=model_name,
+            )
+            for model_name in model_names
+        ]
+        assert responses[0].outputs[0].data == [1.0, 1.0]
+        assert responses[1].outputs[0].data == [1.0, 1.0]
 
     # Clean up inference service and trained models
     for model_name in model_names:

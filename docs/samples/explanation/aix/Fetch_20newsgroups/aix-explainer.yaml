@@ -13,9 +13,23 @@ spec:
         - name: PREDICT_PROBA
           value: "true"
   explainer:
-    aix:
-      type: LimeTexts
-      config:
-        top_labels: "10"
+    containers:
+    - name: explainer
+      image: kserve/aix-explainer:v0.10.1
+      args:
+      - --model_name
+      - aix-explainer
+      - --explainer_type
+      - LimeTexts
+      - --top_labels
+      - "10"
+      imagePullPolicy: Always
+      resources:
+        limits:
+          cpu: "1"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 2Gi
 
 

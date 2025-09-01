@@ -1,5 +1,8 @@
 dev_install:
-	pip install -e .[test]
+	uv sync --active --group test
+
+install_dependencies:
+	uv sync --active --group test
 
 test:
 	pytest

@@ -1,0 +1,17 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: InferenceGraph
+metadata:
+  name: {{ graph_name }}
+spec:
+  nodes:
+    root:
+      routerType: Switch
+      steps:
+      - name: "rootStep1"
+        serviceName: {{ error_404_isvc_id }}
+        condition: "[@this].#(decision_picker==ERROR)"
+        dependency: Soft
+      - name: "rootStep2"
+        serviceName: {{ success_200_isvc_id }}
+        condition: "[@this].#(decision_picker==SUCCESS)"
+        dependency: Soft

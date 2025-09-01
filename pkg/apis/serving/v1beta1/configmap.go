@@ -19,28 +19,50 @@ package v1beta1
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"text/template"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/kserve/kserve/pkg/constants"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"github.com/kserve/kserve/pkg/types"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // ConfigMap Keys
 const (
-	ExplainerConfigKeyName = "explainers"
+	ExplainerConfigKeyName             = "explainers"
+	InferenceServiceConfigKeyName      = "inferenceService"
+	IngressConfigKeyName               = "ingress"
+	DeployConfigName                   = "deploy"
+	LocalModelConfigName               = "localModel"
+	SecurityConfigName                 = "security"
+	ServiceConfigName                  = "service"
+	ResourceConfigName                 = "resource"
+	MultiNodeConfigKeyName             = "multiNode"
+	OtelCollectorConfigName            = "opentelemetryCollector"
+	StorageInitializerConfigMapKeyName = "storageInitializer"
+	AutoscalerConfigName               = "autoscaler"
 )
 
 const (
-	IngressConfigKeyName = "ingress"
-	DeployConfigName     = "deploy"
-
 	DefaultDomainTemplate = "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
 	DefaultIngressDomain  = "example.com"
+	DefaultUrlScheme      = "http"
+)
 
-	DefaultUrlScheme = "http"
+// Error messages
+const (
+	ErrKserveIngressGatewayRequired         = "invalid ingress config - kserveIngressGateway is required"
+	ErrInvalidKserveIngressGatewayFormat    = "invalid ingress config - kserveIngressGateway should be in the format <namespace>/<name>"
+	ErrInvalidKserveIngressGatewayName      = "invalid ingress config - kserveIngressGateway gateway name is invalid"
+	ErrInvalidKserveIngressGatewayNamespace = "invalid ingress config - kserveIngressGateway gateway namespace is invalid"
 )
 
 // +kubebuilder:object:generate=false
@@ -53,29 +75,56 @@ type ExplainerConfig struct {
 
 // +kubebuilder:object:generate=false
 type ExplainersConfig struct {
-	AlibiExplainer ExplainerConfig `json:"alibi,omitempty"`
-	AIXExplainer   ExplainerConfig `json:"aix,omitempty"`
-	ARTExplainer   ExplainerConfig `json:"art,omitempty"`
+	ARTExplainer ExplainerConfig `json:"art,omitempty"`
+}
+
+type OtelCollectorConfig struct {
+	ScrapeInterval         string         `json:"scrapeInterval,omitempty"`
+	MetricReceiverEndpoint string         `json:"metricReceiverEndpoint,omitempty"`
+	MetricScalerEndpoint   string         `json:"metricScalerEndpoint,omitempty"`
+	Resource               ResourceConfig `json:"resource,omitempty"` // Resource configuration for otel collector
+}
+
+type AutoscalerConfig struct {
+	ScaleUpStabilizationWindowSeconds   string `json:"scaleUpStabilizationWindowSeconds,omitempty"`
+	ScaleDownStabilizationWindowSeconds string `json:"scaleDownStabilizationWindowSeconds,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
 type InferenceServicesConfig struct {
 	// Explainer configurations
 	Explainers ExplainersConfig `json:"explainers"`
+	// ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative
+	// revisions
+	ServiceAnnotationDisallowedList []string `json:"serviceAnnotationDisallowedList,omitempty"`
+	// ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions
+	ServiceLabelDisallowedList []string `json:"serviceLabelDisallowedList,omitempty"`
+	// Resource configurations
+	Resource ResourceConfig `json:"resource,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type MultiNodeConfig struct {
+	// CustomGPUResourceTypeList is a list of custom GPU resource types that are allowed to be used in the ServingRuntime and inferenceService
+	CustomGPUResourceTypeList []string `json:"customGPUResourceTypeList,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
 type IngressConfig struct {
-	IngressGateway          string  `json:"ingressGateway,omitempty"`
-	IngressServiceName      string  `json:"ingressService,omitempty"`
-	LocalGateway            string  `json:"localGateway,omitempty"`
-	LocalGatewayServiceName string  `json:"localGatewayService,omitempty"`
-	IngressDomain           string  `json:"ingressDomain,omitempty"`
-	IngressClassName        *string `json:"ingressClassName,omitempty"`
-	DomainTemplate          string  `json:"domainTemplate,omitempty"`
-	UrlScheme               string  `json:"urlScheme,omitempty"`
-	DisableIstioVirtualHost bool    `json:"disableIstioVirtualHost,omitempty"`
-	PathTemplate            string  `json:"pathTemplate,omitempty"`
+	EnableGatewayAPI           bool      `json:"enableGatewayApi,omitempty"`
+	KserveIngressGateway       string    `json:"kserveIngressGateway,omitempty"`
+	IngressGateway             string    `json:"ingressGateway,omitempty"`
+	KnativeLocalGatewayService string    `json:"knativeLocalGatewayService,omitempty"`
+	LocalGateway               string    `json:"localGateway,omitempty"`
+	LocalGatewayServiceName    string    `json:"localGatewayService,omitempty"`
+	IngressDomain              string    `json:"ingressDomain,omitempty"`
+	IngressClassName           *string   `json:"ingressClassName,omitempty"`
+	AdditionalIngressDomains   *[]string `json:"additionalIngressDomains,omitempty"`
+	DomainTemplate             string    `json:"domainTemplate,omitempty"`
+	UrlScheme                  string    `json:"urlScheme,omitempty"`
+	DisableIstioVirtualHost    bool      `json:"disableIstioVirtualHost,omitempty"`
+	PathTemplate               string    `json:"pathTemplate,omitempty"`
+	DisableIngressCreation     bool      `json:"disableIngressCreation,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -83,38 +132,157 @@ type DeployConfig struct {
 	DefaultDeploymentMode string `json:"defaultDeploymentMode,omitempty"`
 }
 
-func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, error) {
-	configMap := &v1.ConfigMap{}
-	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
-	if err != nil {
+// +kubebuilder:object:generate=false
+type LocalModelConfig struct {
+	Enabled                      bool   `json:"enabled"`
+	JobNamespace                 string `json:"jobNamespace"`
+	DefaultJobImage              string `json:"defaultJobImage,omitempty"`
+	FSGroup                      *int64 `json:"fsGroup,omitempty"`
+	JobTTLSecondsAfterFinished   *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
+	ReconcilationFrequencyInSecs *int64 `json:"reconcilationFrequencyInSecs,omitempty"`
+	DisableVolumeManagement      bool   `json:"disableVolumeManagement,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type ResourceConfig struct {
+	CPULimit      string `json:"cpuLimit,omitempty"`
+	MemoryLimit   string `json:"memoryLimit,omitempty"`
+	CPURequest    string `json:"cpuRequest,omitempty"`
+	MemoryRequest string `json:"memoryRequest,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type SecurityConfig struct {
+	AutoMountServiceAccountToken bool `json:"autoMountServiceAccountToken"`
+}
+
+// +kubebuilder:object:generate=false
+type ServiceConfig struct {
+	// ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None.
+	// If the DeploymentMode is Raw, the default value for ServiceClusterIPNone is false when the value is absent.
+	ServiceClusterIPNone bool `json:"serviceClusterIPNone,omitempty"`
+}
+
+func GetInferenceServiceConfigMap(ctx context.Context, clientset kubernetes.Interface) (*corev1.ConfigMap, error) {
+	if configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(
+		ctx, constants.InferenceServiceConfigMapName, metav1.GetOptions{}); err != nil {
 		return nil, err
+	} else {
+		return configMap, nil
 	}
+}
+
+func NewOtelCollectorConfig(isvcConfigMap *corev1.ConfigMap) (*OtelCollectorConfig, error) {
+	otelConfig := &OtelCollectorConfig{}
+	if otel, ok := isvcConfigMap.Data[OtelCollectorConfigName]; ok {
+		err := json.Unmarshal([]byte(otel), otelConfig)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse otel config json: %w", err)
+		}
+	}
+	return otelConfig, nil
+}
+
+func NewAutoscalerConfig(isvcConfigMap *corev1.ConfigMap) (*AutoscalerConfig, error) {
+	autoscalerConfig := &AutoscalerConfig{}
+	if autoscaler, ok := isvcConfigMap.Data[AutoscalerConfigName]; ok {
+		err := json.Unmarshal([]byte(autoscaler), autoscalerConfig)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse autoscaler config json: %w", err)
+		}
+	}
+	return autoscalerConfig, nil
+}
+
+func NewInferenceServicesConfig(isvcConfigMap *corev1.ConfigMap) (*InferenceServicesConfig, error) {
 	icfg := &InferenceServicesConfig{}
 	for _, err := range []error{
-		getComponentConfig(ExplainerConfigKeyName, configMap, &icfg.Explainers),
+		getComponentConfig(ExplainerConfigKeyName, isvcConfigMap, &icfg.Explainers),
+		getComponentConfig(InferenceServiceConfigKeyName, isvcConfigMap, &icfg),
 	} {
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	if isvc, ok := isvcConfigMap.Data[InferenceServiceConfigKeyName]; ok {
+		errisvc := json.Unmarshal([]byte(isvc), &icfg)
+		if errisvc != nil {
+			return nil, fmt.Errorf("unable to parse isvc config json: %w", errisvc)
+		}
+		if icfg.ServiceAnnotationDisallowedList == nil {
+			icfg.ServiceAnnotationDisallowedList = constants.ServiceAnnotationDisallowedList
+		} else {
+			icfg.ServiceAnnotationDisallowedList = append(
+				constants.ServiceAnnotationDisallowedList,
+				icfg.ServiceAnnotationDisallowedList...)
+		}
+		if icfg.ServiceLabelDisallowedList == nil {
+			icfg.ServiceLabelDisallowedList = constants.RevisionTemplateLabelDisallowedList
+		} else {
+			icfg.ServiceLabelDisallowedList = append(
+				constants.RevisionTemplateLabelDisallowedList,
+				icfg.ServiceLabelDisallowedList...)
+		}
+	}
 	return icfg, nil
 }
 
-func NewIngressConfig(cli client.Client) (*IngressConfig, error) {
-	configMap := &v1.ConfigMap{}
-	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
-	if err != nil {
-		return nil, err
+func NewMultiNodeConfig(isvcConfigMap *corev1.ConfigMap) (*MultiNodeConfig, error) {
+	mncfg := &MultiNodeConfig{}
+	for _, err := range []error{
+		getComponentConfig(MultiNodeConfigKeyName, isvcConfigMap, &mncfg),
+	} {
+		if err != nil {
+			return nil, err
+		}
 	}
+
+	if mncfg.CustomGPUResourceTypeList == nil {
+		mncfg.CustomGPUResourceTypeList = []string{}
+	}
+
+	// update global GPU resource type list
+	utils.UpdateGlobalGPUResourceTypeList(append(mncfg.CustomGPUResourceTypeList, constants.DefaultGPUResourceTypeList...))
+	return mncfg, nil
+}
+
+func validateIngressGateway(ingressConfig *IngressConfig) error {
+	if ingressConfig.KserveIngressGateway == "" {
+		return errors.New(ErrKserveIngressGatewayRequired)
+	}
+	splits := strings.Split(ingressConfig.KserveIngressGateway, "/")
+	if len(splits) != 2 {
+		return errors.New(ErrInvalidKserveIngressGatewayFormat)
+	}
+	errs := validation.IsDNS1123Label(splits[0])
+	if len(errs) != 0 {
+		return errors.New(ErrInvalidKserveIngressGatewayNamespace)
+	}
+	errs = validation.IsDNS1123Label(splits[1])
+	if len(errs) != 0 {
+		return errors.New(ErrInvalidKserveIngressGatewayName)
+	}
+	return nil
+}
+
+func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 	ingressConfig := &IngressConfig{}
-	if ingress, ok := configMap.Data[IngressConfigKeyName]; ok {
+	if ingress, ok := isvcConfigMap.Data[IngressConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(ingress), &ingressConfig)
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse ingress config json: %v", err)
+			return nil, fmt.Errorf("unable to parse ingress config json: %w", err)
 		}
-
-		if ingressConfig.IngressGateway == "" || ingressConfig.IngressServiceName == "" {
-			return nil, fmt.Errorf("invalid ingress config - ingressGateway and ingressService are required")
+		if ingressConfig.EnableGatewayAPI {
+			if ingressConfig.KserveIngressGateway == "" {
+				return nil, errors.New("invalid ingress config - kserveIngressGateway is required")
+			}
+			if err := validateIngressGateway(ingressConfig); err != nil {
+				return nil, err
+			}
+		}
+		if ingressConfig.IngressGateway == "" {
+			return nil, errors.New("invalid ingress config - ingressGateway is required")
 		}
 		if ingressConfig.PathTemplate != "" {
 			// TODO: ensure that the generated path is valid, that is:
@@ -123,11 +291,15 @@ func NewIngressConfig(cli client.Client) (*IngressConfig, error) {
 			// For now simply check that this is a valid template.
 			_, err := template.New("path-template").Parse(ingressConfig.PathTemplate)
 			if err != nil {
-				return nil, fmt.Errorf("Invalid ingress config, unable to parse pathTemplate: %v", err)
+				return nil, fmt.Errorf("invalid ingress config, unable to parse pathTemplate: %w", err)
 			}
 			if ingressConfig.IngressDomain == "" {
-				return nil, fmt.Errorf("Invalid ingress config - igressDomain is required if pathTemplate is given")
+				return nil, errors.New("invalid ingress config - ingressDomain is required if pathTemplate is given")
 			}
+		}
+
+		if len(ingressConfig.KnativeLocalGatewayService) == 0 {
+			ingressConfig.KnativeLocalGatewayService = ingressConfig.LocalGatewayServiceName
 		}
 	}
 
@@ -146,39 +318,115 @@ func NewIngressConfig(cli client.Client) (*IngressConfig, error) {
 	return ingressConfig, nil
 }
 
-func getComponentConfig(key string, configMap *v1.ConfigMap, componentConfig interface{}) error {
+func getComponentConfig(key string, configMap *corev1.ConfigMap, componentConfig interface{}) error {
 	if data, ok := configMap.Data[key]; ok {
 		err := json.Unmarshal([]byte(data), componentConfig)
 		if err != nil {
-			return fmt.Errorf("Unable to unmarshall %v json string due to %v ", key, err)
+			return fmt.Errorf("unable to unmarshall %v json string due to %w ", key, err)
 		}
 	}
 	return nil
 }
 
-func NewDeployConfig(cli client.Client) (*DeployConfig, error) {
-	configMap := &v1.ConfigMap{}
-	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
-	if err != nil {
-		return nil, err
-	}
+func NewDeployConfig(isvcConfigMap *corev1.ConfigMap) (*DeployConfig, error) {
 	deployConfig := &DeployConfig{}
-	if deploy, ok := configMap.Data[DeployConfigName]; ok {
+	if deploy, ok := isvcConfigMap.Data[DeployConfigName]; ok {
 		err := json.Unmarshal([]byte(deploy), &deployConfig)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to parse deploy config json: %v", err)
+			return nil, fmt.Errorf("unable to parse deploy config json: %w", err)
 		}
 
 		if deployConfig.DefaultDeploymentMode == "" {
-			return nil, fmt.Errorf("Invalid deploy config, defaultDeploymentMode is required.")
+			return nil, errors.New("invalid deploy config, defaultDeploymentMode is required")
 		}
 
-		if deployConfig.DefaultDeploymentMode != string(constants.Serverless) &&
-			deployConfig.DefaultDeploymentMode != string(constants.RawDeployment) &&
+		if deployConfig.DefaultDeploymentMode == string(constants.LegacyServerless) {
+			// LegacyServerless is deprecated, so we convert it to Knative
+			deployConfig.DefaultDeploymentMode = string(constants.Knative)
+		}
+		if deployConfig.DefaultDeploymentMode == string(constants.LegacyRawDeployment) {
+			// LegacyRawDeployment is deprecated, so we convert it to Standard
+			deployConfig.DefaultDeploymentMode = string(constants.Standard)
+		}
+
+		if deployConfig.DefaultDeploymentMode != string(constants.Knative) &&
+			deployConfig.DefaultDeploymentMode != string(constants.Standard) &&
 			deployConfig.DefaultDeploymentMode != string(constants.ModelMeshDeployment) {
-			return nil, fmt.Errorf("Invalid deployment mode. Supported modes are Serverless," +
-				" RawDeployment and ModelMesh")
+			return nil, errors.New("invalid deployment mode. Supported modes are Knative," +
+				" Standard and ModelMesh")
 		}
 	}
 	return deployConfig, nil
+}
+
+func NewLocalModelConfig(isvcConfigMap *corev1.ConfigMap) (*LocalModelConfig, error) {
+	localModelConfig := &LocalModelConfig{}
+	if localModel, ok := isvcConfigMap.Data[LocalModelConfigName]; ok {
+		err := json.Unmarshal([]byte(localModel), &localModelConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return localModelConfig, nil
+}
+
+func NewSecurityConfig(isvcConfigMap *corev1.ConfigMap) (*SecurityConfig, error) {
+	securityConfig := &SecurityConfig{}
+	if security, ok := isvcConfigMap.Data[SecurityConfigName]; ok {
+		err := json.Unmarshal([]byte(security), &securityConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return securityConfig, nil
+}
+
+func NewServiceConfig(isvcConfigMap *corev1.ConfigMap) (*ServiceConfig, error) {
+	serviceConfig := &ServiceConfig{}
+	if service, ok := isvcConfigMap.Data[ServiceConfigName]; ok {
+		err := json.Unmarshal([]byte(service), &serviceConfig)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse service config json: %w", err)
+		}
+	}
+	return serviceConfig, nil
+}
+
+// GetStorageInitializerConfigs parses the StorageInitializer configuration from the provided ConfigMap.
+// It unmarshalls JSON configuration under the "storageInitializer" key into a StorageInitializerConfig struct.
+// The fields related to CPU and memory resource values are validated to contain valid Kubernetes resource quantities.
+//
+// Parameters:
+//
+//	configMap: The Kubernetes ConfigMap containing the storage initializer configuration.
+//
+// Returns:
+//
+//	*types.StorageInitializerConfig: The parsed storage initializer configuration.
+//	error: An error if the configuration is missing, invalid, or resource values cannot be parsed.
+func GetStorageInitializerConfigs(configMap *corev1.ConfigMap) (*types.StorageInitializerConfig, error) {
+	storageInitializerConfig := &types.StorageInitializerConfig{}
+	if initializerConfig, ok := configMap.Data[StorageInitializerConfigMapKeyName]; ok {
+		err := json.Unmarshal([]byte(initializerConfig), &storageInitializerConfig)
+		if err != nil {
+			panic(fmt.Errorf("Unable to unmarshall %v json string due to %w ", StorageInitializerConfigMapKeyName, err))
+		}
+	}
+	// Ensure that we set proper values for CPU/Memory Limit/Request
+	resourceDefaults := map[string]string{
+		"memoryRequest":  storageInitializerConfig.MemoryRequest,
+		"memoryLimit":    storageInitializerConfig.MemoryLimit,
+		"cpuRequest":     storageInitializerConfig.CpuRequest,
+		"cpuLimit":       storageInitializerConfig.CpuLimit,
+		"cpuModelcar":    storageInitializerConfig.CpuModelcar,
+		"memoryModelcar": storageInitializerConfig.MemoryModelcar,
+	}
+	for key, value := range resourceDefaults {
+		_, err := resource.ParseQuantity(value)
+		if err != nil {
+			return storageInitializerConfig, fmt.Errorf("failed to parse resource configuration for %q.%q: %w", StorageInitializerConfigMapKeyName, key, err)
+		}
+	}
+
+	return storageInitializerConfig, nil
 }

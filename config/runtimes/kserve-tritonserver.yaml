@@ -10,20 +10,25 @@ spec:
     - name: tensorrt
       version: "8"
       autoSelect: true
+      priority: 1
     - name: tensorflow
       version: "1"
       autoSelect: true
+      priority: 1
     - name: tensorflow
       version: "2"
       autoSelect: true
+      priority: 1
     - name: onnx
       version: "1"
       autoSelect: true
+      priority: 1
     - name: pytorch
       version: "1"
     - name: triton
       version: "2"
       autoSelect: true
+      priority: 1
   protocolVersions:
     - v2
     - grpc-v2
@@ -37,6 +42,14 @@ spec:
         - --http-port=8080
         - --allow-grpc=true
         - --allow-http=true
+      securityContext:
+        runAsUser: 1000    # https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/customization_guide/deploy.html#run-as-a-non-root-user
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
       resources:
         requests:
           cpu: "1"

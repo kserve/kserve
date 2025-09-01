@@ -20,80 +20,29 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
-	"github.com/onsi/gomega/types"
-	v1 "k8s.io/api/core/v1"
+	"google.golang.org/protobuf/proto"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
-
-func TestCustomExplainerValidation(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	config := InferenceServicesConfig{
-		Explainers: ExplainersConfig{},
-	}
-	scenarios := map[string]struct {
-		spec    ExplainerSpec
-		matcher types.GomegaMatcher
-	}{
-		"ValidStorageUri": {
-			spec: ExplainerSpec{
-				PodSpec: PodSpec{
-					Containers: []v1.Container{
-						{
-							Env: []v1.EnvVar{
-								{
-									Name:  "STORAGE_URI",
-									Value: "s3://modelzoo",
-								},
-							},
-						},
-					},
-				},
-			},
-			matcher: gomega.BeNil(),
-		},
-		"InvalidStorageUri": {
-			spec: ExplainerSpec{
-				PodSpec: PodSpec{
-					Containers: []v1.Container{
-						{
-							Env: []v1.EnvVar{
-								{
-									Name:  "STORAGE_URI",
-									Value: "invaliduri://modelzoo",
-								},
-							},
-						},
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
-		},
-	}
-
-	for name, scenario := range scenarios {
-		t.Run(name, func(t *testing.T) {
-			explainer := CustomExplainer{PodSpec: v1.PodSpec(scenario.spec.PodSpec)}
-			explainer.Default(&config)
-			res := explainer.Validate()
-			if !g.Expect(res).To(scenario.matcher) {
-				t.Errorf("got %q, want %q", res, scenario.matcher)
-			}
-		})
-	}
-}
 
 func TestCustomExplainerDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
 		Explainers: ExplainersConfig{},
+		Resource: ResourceConfig{
+			CPULimit:      "1",
+			MemoryLimit:   "2Gi",
+			CPURequest:    "1",
+			MemoryRequest: "2Gi",
+		},
 	}
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
+	defaultResource := corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse("1"),
+		corev1.ResourceMemory: resource.MustParse("2Gi"),
 	}
 	scenarios := map[string]struct {
 		spec     ExplainerSpec
@@ -102,9 +51,9 @@ func TestCustomExplainerDefaulter(t *testing.T) {
 		"DefaultResources": {
 			spec: ExplainerSpec{
 				PodSpec: PodSpec{
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "hdfs://modelzoo",
@@ -116,16 +65,16 @@ func TestCustomExplainerDefaulter(t *testing.T) {
 			},
 			expected: ExplainerSpec{
 				PodSpec: PodSpec{
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "hdfs://modelzoo",
 								},
 							},
-							Resources: v1.ResourceRequirements{
+							Resources: corev1.ResourceRequirements{
 								Requests: defaultResource,
 								Limits:   defaultResource,
 							},
@@ -138,7 +87,7 @@ func TestCustomExplainerDefaulter(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			explainer := CustomExplainer{PodSpec: v1.PodSpec(scenario.spec.PodSpec)}
+			explainer := CustomExplainer{PodSpec: corev1.PodSpec(scenario.spec.PodSpec)}
 			explainer.Default(&config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
@@ -148,26 +97,25 @@ func TestCustomExplainerDefaulter(t *testing.T) {
 }
 
 func TestCreateCustomExplainerContainer(t *testing.T) {
-
-	var requestedResource = v1.ResourceRequirements{
-		Limits: v1.ResourceList{
+	requestedResource := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "100",
 			},
 			"memory": resource.MustParse("1Gi"),
 		},
-		Requests: v1.ResourceList{
+		Requests: corev1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "90",
 			},
 			"memory": resource.MustParse("1Gi"),
 		},
 	}
-	var config = InferenceServicesConfig{}
+	config := InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
-		expectedContainerSpec *v1.Container
+		expectedContainerSpec *corev1.Container
 	}{
 		"ContainerSpecWithCustomImage": {
 			isvc: InferenceService{
@@ -179,7 +127,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 						SKLearn: &SKLearnSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: proto.String("gs://someUri"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
 								},
@@ -188,10 +136,10 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 					},
 					Explainer: &ExplainerSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Image: "explainer:0.1.0",
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  "STORAGE_URI",
 											Value: "hdfs://modelzoo",
@@ -204,7 +152,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &v1.Container{
+			expectedContainerSpec: &corev1.Container{
 				Image:     "explainer:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
@@ -212,11 +160,11 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
+					fmt.Sprintf("%s.%s", constants.PredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{
 						Name:  "STORAGE_URI",
 						Value: "hdfs://modelzoo",
@@ -237,7 +185,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 						SKLearn: &SKLearnSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: proto.String("gs://someUri"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Resources: requestedResource,
 								},
 							},
@@ -248,10 +196,10 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 							ContainerConcurrency: proto.Int64(2),
 						},
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Image: "explainer:0.1.0",
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  "STORAGE_URI",
 											Value: "hdfs://modelzoo",
@@ -264,7 +212,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &v1.Container{
+			expectedContainerSpec: &corev1.Container{
 				Image:     "explainer:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
@@ -272,13 +220,13 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
+					fmt.Sprintf("%s.%s", constants.PredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 					"--workers",
 					"2",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{
 						Name:  "STORAGE_URI",
 						Value: "hdfs://modelzoo",
@@ -291,7 +239,8 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			explainer := scenario.isvc.Spec.Explainer.GetImplementation()
 			explainer.Default(&config)
-			res := explainer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Explainer.ComponentExtensionSpec, &config)
+			res := explainer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Explainer.ComponentExtensionSpec,
+				&config, constants.PredictorServiceName("someName"))
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}
@@ -304,10 +253,6 @@ func TestCustomExplainerIsMMS(t *testing.T) {
 	config := InferenceServicesConfig{
 		Explainers: ExplainersConfig{},
 	}
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
-	}
 	mmsCase := false
 	scenarios := map[string]struct {
 		spec     ExplainerSpec
@@ -316,9 +261,9 @@ func TestCustomExplainerIsMMS(t *testing.T) {
 		"DefaultResources": {
 			spec: ExplainerSpec{
 				PodSpec: PodSpec{
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "hdfs://modelzoo",
@@ -334,10 +279,132 @@ func TestCustomExplainerIsMMS(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			explainer := CustomExplainer{PodSpec: v1.PodSpec(scenario.spec.PodSpec)}
+			explainer := CustomExplainer{PodSpec: corev1.PodSpec(scenario.spec.PodSpec)}
 			res := explainer.IsMMS(&config)
 			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %t, want %t", res, scenario.expected)
+			}
+		})
+	}
+}
+
+func TestCustomExplainerValidate(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		explainer CustomExplainer
+		expected  error
+	}{
+		"ValidCustomExplainer": {
+			explainer: CustomExplainer{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "custom-explainer",
+							Image: "explainer:latest",
+						},
+					},
+				},
+			},
+			expected: nil,
+		},
+		"EmptyPodSpec": {
+			explainer: CustomExplainer{
+				PodSpec: corev1.PodSpec{},
+			},
+			expected: nil,
+		},
+		"NoContainers": {
+			explainer: CustomExplainer{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{},
+				},
+			},
+			expected: nil,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := scenario.explainer.Validate()
+			if scenario.expected == nil {
+				g.Expect(res).ToNot(gomega.HaveOccurred())
+			} else {
+				g.Expect(res.Error()).To(gomega.Equal(scenario.expected.Error()))
+			}
+		})
+	}
+}
+
+func TestCustomExplainerGetStorageUri(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		explainer      CustomExplainer
+		expectedResult *string
+	}{
+		"WithStorageUriEnvVar": {
+			explainer: CustomExplainer{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Env: []corev1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageUriEnvVarKey,
+									Value: "gs://my-model-storage",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResult: proto.String("gs://my-model-storage"),
+		},
+		"WithoutStorageUriEnvVar": {
+			explainer: CustomExplainer{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Env: []corev1.EnvVar{
+								{
+									Name:  "OTHER_ENV_VAR",
+									Value: "some-value",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedResult: nil,
+		},
+		"WithEmptyEnvVars": {
+			explainer: CustomExplainer{
+				PodSpec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Env: []corev1.EnvVar{},
+						},
+					},
+				},
+			},
+			expectedResult: nil,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			// Skip the test if there are no containers to avoid index out of range error
+			if len(scenario.explainer.Containers) == 0 {
+				result := scenario.explainer.GetStorageUri()
+				g.Expect(result).To(gomega.BeNil())
+				return
+			}
+
+			result := scenario.explainer.GetStorageUri()
+			if scenario.expectedResult == nil {
+				g.Expect(result).To(gomega.BeNil())
+			} else {
+				g.Expect(result).NotTo(gomega.BeNil())
+				g.Expect(*result).To(gomega.Equal(*scenario.expectedResult))
 			}
 		})
 	}

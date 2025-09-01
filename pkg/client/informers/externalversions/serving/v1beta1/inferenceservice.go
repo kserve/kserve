@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KServe Authors.
+Copyright 2023 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@ limitations under the License.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	servingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	apisservingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	versioned "github.com/kserve/kserve/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kserve/kserve/pkg/client/informers/externalversions/internalinterfaces"
-	v1beta1 "github.com/kserve/kserve/pkg/client/listers/serving/v1beta1"
+	servingv1beta1 "github.com/kserve/kserve/pkg/client/listers/serving/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // InferenceServices.
 type InferenceServiceInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1beta1.InferenceServiceLister
+	Lister() servingv1beta1.InferenceServiceLister
 }
 
 type inferenceServiceInformer struct {
@@ -62,16 +62,28 @@ func NewFilteredInferenceServiceInformer(client versioned.Interface, namespace s
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ServingV1beta1().InferenceServices(namespace).List(context.TODO(), options)
+				return client.ServingV1beta1().InferenceServices(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ServingV1beta1().InferenceServices(namespace).Watch(context.TODO(), options)
+				return client.ServingV1beta1().InferenceServices(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ServingV1beta1().InferenceServices(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ServingV1beta1().InferenceServices(namespace).Watch(ctx, options)
 			},
 		},
-		&servingv1beta1.InferenceService{},
+		&apisservingv1beta1.InferenceService{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +94,9 @@ func (f *inferenceServiceInformer) defaultInformer(client versioned.Interface, r
 }
 
 func (f *inferenceServiceInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&servingv1beta1.InferenceService{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisservingv1beta1.InferenceService{}, f.defaultInformer)
 }
 
-func (f *inferenceServiceInformer) Lister() v1beta1.InferenceServiceLister {
-	return v1beta1.NewInferenceServiceLister(f.Informer().GetIndexer())
+func (f *inferenceServiceInformer) Lister() servingv1beta1.InferenceServiceLister {
+	return servingv1beta1.NewInferenceServiceLister(f.Informer().GetIndexer())
 }

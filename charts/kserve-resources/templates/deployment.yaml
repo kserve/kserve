@@ -5,10 +5,17 @@ metadata:
   name: kserve-controller-manager
   namespace: {{ .Release.Namespace }}
   labels:
+    app.kubernetes.io/name: kserve-controller-manager
     control-plane: kserve-controller-manager
     controller-tools.k8s.io: "1.0"
+    {{- if .Values.kserve.controller.labels }}
+    {{- toYaml .Values.kserve.controller.labels | nindent 4 }}
+    {{- end }}
   annotations:
     prometheus.io/scrape: 'true'
+    {{- if .Values.kserve.controller.annotations }}
+    {{- toYaml .Values.kserve.controller.annotations | nindent 4 }}
+    {{- end }}
 spec:
   selector:
     matchLabels:
@@ -17,15 +24,42 @@ spec:
   template:
     metadata:
       labels:
+        app.kubernetes.io/name: kserve-controller-manager
         control-plane: kserve-controller-manager
         controller-tools.k8s.io: "1.0"
+        {{- if .Values.kserve.controller.podLabels }}
+        {{- toYaml .Values.kserve.controller.podLabels | nindent 8 }}
+        {{- end }}
       annotations:
         kubectl.kubernetes.io/default-container: manager
+        {{- if .Values.kserve.controller.podAnnotations }}
+        {{- toYaml .Values.kserve.controller.podAnnotations | nindent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: kserve-controller-manager
+      {{- with .Values.kserve.controller.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.kserve.controller.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.kserve.controller.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.kserve.controller.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.kserve.controller.securityContext}}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: kube-rbac-proxy
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+        image: "{{ .Values.kserve.controller.rbacProxyImage }}"
         args:
         - "--secure-listen-address=0.0.0.0:8443"
         - "--upstream=http://127.0.0.1:8080/"
@@ -34,13 +68,25 @@ spec:
         ports:
         - containerPort: 8443
           name: https
+        securityContext:
+          {{- with .Values.kserve.controller.rbacProxy.securityContext}}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+        resources:
+          {{- with .Values.kserve.controller.rbacProxy.resources }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
       - command:
         - /manager
         image: "{{ .Values.kserve.controller.image }}:{{ .Values.kserve.controller.tag }}"
         imagePullPolicy: IfNotPresent
         name: manager
+        securityContext:
+          {{- with .Values.kserve.controller.containerSecurityContext}}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
         args:
-        - "--metrics-addr=127.0.0.1:8080"
+        - "--metrics-addr={{ .Values.kserve.controller.metricsBindAddress }}:{{ .Values.kserve.controller.metricsBindPort }}"
         - "--leader-elect"
         env:
           - name: POD_NAMESPACE
@@ -49,6 +95,21 @@ spec:
                 fieldPath: metadata.namespace
           - name: SECRET_NAME
             value: kserve-webhook-server-cert
+        livenessProbe:
+          failureThreshold: 5
+          initialDelaySeconds: 30
+          httpGet:
+            path: /healthz
+            port: 8081
+          timeoutSeconds: 5
+        readinessProbe:
+          initialDelaySeconds: 30
+          failureThreshold: 5
+          periodSeconds: 5
+          httpGet:
+            path: /readyz
+            port: 8081
+          timeoutSeconds: 5
         resources:
 {{- if .Values.kserve.controller.resources }}
 {{ toYaml .Values.kserve.controller.resources | trim | indent 12 }}
@@ -70,97 +131,3 @@ spec:
         secret:
           defaultMode: 420
           secretName: kserve-webhook-server-cert
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app.kubernetes.io/instance: modelmesh-controller
-    app.kubernetes.io/managed-by: modelmesh-controller
-    app.kubernetes.io/name: modelmesh-controller
-    control-plane: modelmesh-controller
-  name: modelmesh-controller
-  namespace: {{ .Release.Namespace }}
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      control-plane: modelmesh-controller
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/instance: modelmesh-controller
-        app.kubernetes.io/managed-by: modelmesh-controller
-        app.kubernetes.io/name: modelmesh-controller
-        control-plane: modelmesh-controller
-    spec:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: kubernetes.io/arch
-                operator: In
-                values:
-                - amd64
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchExpressions:
-                    - key: control-plane
-                      operator: In
-                      values:
-                        - modelmesh-controller
-                topologyKey: topology.kubernetes.io/zone
-      containers:
-      - args:
-        - --enable-leader-election
-        command:
-        - /manager
-        env:
-        - name: NAMESPACE_SCOPE
-          value: "false"
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: ETCD_SECRET_NAME
-          value: model-serving-etcd
-        image: {{ .Values.kserve.modelmesh.controller.image }}:{{ .Values.kserve.modelmesh.controller.tag }}
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8081
-          initialDelaySeconds: 15
-          periodSeconds: 10
-        name: manager
-        readinessProbe:
-          httpGet:
-            path: /readyz
-            port: 8081
-          initialDelaySeconds: 10
-          periodSeconds: 5
-        resources:
-          limits:
-            cpu: "1"
-            memory: 512Mi
-          requests:
-            cpu: 50m
-            memory: 96Mi
-        securityContext:
-          capabilities:
-            drop:
-            - ALL
-        volumeMounts:
-        - mountPath: /etc/model-serving/config/default
-          name: config-defaults
-          readOnly: true
-      serviceAccountName: modelmesh-controller
-      terminationGracePeriodSeconds: 10
-      volumes:
-      - configMap:
-          defaultMode: 420
-          name: model-serving-config-defaults
-        name: config-defaults

@@ -6,14 +6,6 @@ metadata:
 data:
   explainers: |-
     {
-        "alibi": {
-            "image" : "kserve/alibi-explainer",
-            "defaultImageVersion": "latest"
-        },
-        "aix": {
-            "image" : "kserve/aix-explainer",
-            "defaultImageVersion": "latest"
-        },
         "art": {
             "image" : "kserve/art-explainer",
             "defaultImageVersion": "latest"
@@ -25,7 +17,12 @@ data:
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
-        "cpuLimit": "1"
+        "cpuLimit": "1",
+        "enableDirectPvcVolumeMount": true,
+        "cpuModelcar": "10m",
+        "memoryModelcar": "15Mi",
+        "enableModelcar": true,
+        "uidModelcar": 1010
     }
   credentials: |-
     {
@@ -39,8 +36,9 @@ data:
     }
   ingress: |-
     {
+        "enableGatewayApi": false,
+        "kserveIngressGateway": "kserve/kserve-ingress-gateway",
         "ingressGateway" : "knative-serving/knative-ingress-gateway",
-        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
         "localGateway": "knative-serving/knative-local-gateway",
         "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
         "ingressClassName" : "istio",
@@ -75,4 +73,16 @@ data:
     {
       "enableMetricAggregation": "false",
       "enablePrometheusScraping" : "false"
+    }
+  router: |-
+    {
+        "image" : "kserve/router:latest",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "500Mi",
+        "cpuRequest": "100m",
+        "cpuLimit": "100m"
+    }
+  service: |-
+    {
+        "serviceClusterIPNone": false
     }

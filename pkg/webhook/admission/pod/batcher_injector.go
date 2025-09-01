@@ -21,9 +21,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kserve/kserve/pkg/constants"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 const (
@@ -32,7 +33,6 @@ const (
 	BatcherEnableFlag           = "--enable-batcher"
 	BatcherArgumentMaxBatchSize = "--max-batchsize"
 	BatcherArgumentMaxLatency   = "--max-latency"
-	BatcherArgumentTimeout      = "--timeout"
 )
 
 type BatcherConfig struct {
@@ -41,27 +41,30 @@ type BatcherConfig struct {
 	CpuLimit      string `json:"cpuLimit"`
 	MemoryRequest string `json:"memoryRequest"`
 	MemoryLimit   string `json:"memoryLimit"`
+	MaxBatchSize  string `json:"maxBatchSize"`
+	MaxLatency    string `json:"maxLatency"`
 }
 
 type BatcherInjector struct {
 	config *BatcherConfig
 }
 
-func getBatcherConfigs(configMap *v1.ConfigMap) (*BatcherConfig, error) {
-
+func getBatcherConfigs(configMap *corev1.ConfigMap) (*BatcherConfig, error) {
 	batcherConfig := &BatcherConfig{}
 	if batcherConfigValue, ok := configMap.Data[BatcherConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(batcherConfigValue), &batcherConfig)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall batcher json string due to %v ", err))
+			panic(fmt.Errorf("Unable to unmarshall batcher json string due to %w ", err))
 		}
 	}
 
-	//Ensure that we set proper values for CPU/Memory Limit/Request
-	resourceDefaults := []string{batcherConfig.MemoryRequest,
+	// Ensure that we set proper values for CPU/Memory Limit/Request
+	resourceDefaults := []string{
+		batcherConfig.MemoryRequest,
 		batcherConfig.MemoryLimit,
 		batcherConfig.CpuRequest,
-		batcherConfig.CpuLimit}
+		batcherConfig.CpuLimit,
+	}
 	for _, key := range resourceDefaults {
 		_, err := resource.ParseQuantity(key)
 		if err != nil {
@@ -73,7 +76,7 @@ func getBatcherConfigs(configMap *v1.ConfigMap) (*BatcherConfig, error) {
 	return batcherConfig, nil
 }
 
-func (il *BatcherInjector) InjectBatcher(pod *v1.Pod) error {
+func (il *BatcherInjector) InjectBatcher(pod *corev1.Pod) error {
 	// Only inject if the required annotations are set
 	_, ok := pod.ObjectMeta.Annotations[constants.BatcherInternalAnnotationKey]
 	if !ok {
@@ -83,22 +86,22 @@ func (il *BatcherInjector) InjectBatcher(pod *v1.Pod) error {
 	var args []string
 
 	maxBatchSize, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxBatchSizeInternalAnnotationKey]
-	if ok {
-		args = append(args, BatcherArgumentMaxBatchSize)
-		args = append(args, maxBatchSize)
+	if !ok {
+		if il.config.MaxBatchSize != "" && il.config.MaxBatchSize != "0" {
+			maxBatchSize = il.config.MaxBatchSize
+		}
 	}
+	args = append(args, BatcherArgumentMaxBatchSize)
+	args = append(args, maxBatchSize)
 
 	maxLatency, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxLatencyInternalAnnotationKey]
-	if ok {
-		args = append(args, BatcherArgumentMaxLatency)
-		args = append(args, maxLatency)
+	if !ok {
+		if il.config.MaxLatency != "" && il.config.MaxLatency != "0" {
+			maxLatency = il.config.MaxLatency
+		}
 	}
-
-	timeout, ok := pod.ObjectMeta.Annotations[constants.BatcherTimeoutInternalAnnotationKey]
-	if ok {
-		args = append(args, BatcherArgumentTimeout)
-		args = append(args, timeout)
-	}
+	args = append(args, BatcherArgumentMaxLatency)
+	args = append(args, maxLatency)
 
 	// Don't inject if Container already injected
 	for _, container := range pod.Spec.Containers {
@@ -110,18 +113,18 @@ func (il *BatcherInjector) InjectBatcher(pod *v1.Pod) error {
 	// Make sure securityContext is initialized and valid
 	securityContext := pod.Spec.Containers[0].SecurityContext.DeepCopy()
 
-	batcherContainer := &v1.Container{
+	batcherContainer := &corev1.Container{
 		Name:  BatcherContainerName,
 		Image: il.config.Image,
 		Args:  args,
-		Resources: v1.ResourceRequirements{
-			Limits: map[v1.ResourceName]resource.Quantity{
-				v1.ResourceCPU:    resource.MustParse(il.config.CpuLimit),
-				v1.ResourceMemory: resource.MustParse(il.config.MemoryLimit),
+		Resources: corev1.ResourceRequirements{
+			Limits: map[corev1.ResourceName]resource.Quantity{
+				corev1.ResourceCPU:    resource.MustParse(il.config.CpuLimit),
+				corev1.ResourceMemory: resource.MustParse(il.config.MemoryLimit),
 			},
-			Requests: map[v1.ResourceName]resource.Quantity{
-				v1.ResourceCPU:    resource.MustParse(il.config.CpuRequest),
-				v1.ResourceMemory: resource.MustParse(il.config.MemoryRequest),
+			Requests: map[corev1.ResourceName]resource.Quantity{
+				corev1.ResourceCPU:    resource.MustParse(il.config.CpuRequest),
+				corev1.ResourceMemory: resource.MustParse(il.config.MemoryRequest),
 			},
 		},
 		SecurityContext: securityContext,

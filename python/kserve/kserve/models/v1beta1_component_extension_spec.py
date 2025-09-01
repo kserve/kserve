@@ -1,4 +1,4 @@
-# Copyright 2022 The KServe Authors.
+# Copyright 2023 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,52 +47,75 @@ class V1beta1ComponentExtensionSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'annotations': 'dict(str, str)',
+        'auto_scaling': 'V1beta1AutoScalingSpec',
         'batcher': 'V1beta1Batcher',
         'canary_traffic_percent': 'int',
         'container_concurrency': 'int',
+        'deployment_strategy': 'K8sIoApiAppsV1DeploymentStrategy',
+        'labels': 'dict(str, str)',
         'logger': 'V1beta1LoggerSpec',
         'max_replicas': 'int',
         'min_replicas': 'int',
         'scale_metric': 'str',
+        'scale_metric_type': 'str',
         'scale_target': 'int',
         'timeout': 'int'
     }
 
     attribute_map = {
+        'annotations': 'annotations',
+        'auto_scaling': 'autoScaling',
         'batcher': 'batcher',
         'canary_traffic_percent': 'canaryTrafficPercent',
         'container_concurrency': 'containerConcurrency',
+        'deployment_strategy': 'deploymentStrategy',
+        'labels': 'labels',
         'logger': 'logger',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
         'scale_metric': 'scaleMetric',
+        'scale_metric_type': 'scaleMetricType',
         'scale_target': 'scaleTarget',
         'timeout': 'timeout'
     }
 
-    def __init__(self, batcher=None, canary_traffic_percent=None, container_concurrency=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, annotations=None, auto_scaling=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_metric_type=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ComponentExtensionSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._annotations = None
+        self._auto_scaling = None
         self._batcher = None
         self._canary_traffic_percent = None
         self._container_concurrency = None
+        self._deployment_strategy = None
+        self._labels = None
         self._logger = None
         self._max_replicas = None
         self._min_replicas = None
         self._scale_metric = None
+        self._scale_metric_type = None
         self._scale_target = None
         self._timeout = None
         self.discriminator = None
 
+        if annotations is not None:
+            self.annotations = annotations
+        if auto_scaling is not None:
+            self.auto_scaling = auto_scaling
         if batcher is not None:
             self.batcher = batcher
         if canary_traffic_percent is not None:
             self.canary_traffic_percent = canary_traffic_percent
         if container_concurrency is not None:
             self.container_concurrency = container_concurrency
+        if deployment_strategy is not None:
+            self.deployment_strategy = deployment_strategy
+        if labels is not None:
+            self.labels = labels
         if logger is not None:
             self.logger = logger
         if max_replicas is not None:
@@ -101,10 +124,56 @@ class V1beta1ComponentExtensionSpec(object):
             self.min_replicas = min_replicas
         if scale_metric is not None:
             self.scale_metric = scale_metric
+        if scale_metric_type is not None:
+            self.scale_metric_type = scale_metric_type
         if scale_target is not None:
             self.scale_target = scale_target
         if timeout is not None:
             self.timeout = timeout
+
+    @property
+    def annotations(self):
+        """Gets the annotations of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+        Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/  # noqa: E501
+
+        :return: The annotations of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._annotations
+
+    @annotations.setter
+    def annotations(self, annotations):
+        """Sets the annotations of this V1beta1ComponentExtensionSpec.
+
+        Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/  # noqa: E501
+
+        :param annotations: The annotations of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._annotations = annotations
+
+    @property
+    def auto_scaling(self):
+        """Gets the auto_scaling of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+
+        :return: The auto_scaling of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: V1beta1AutoScalingSpec
+        """
+        return self._auto_scaling
+
+    @auto_scaling.setter
+    def auto_scaling(self, auto_scaling):
+        """Sets the auto_scaling of this V1beta1ComponentExtensionSpec.
+
+
+        :param auto_scaling: The auto_scaling of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: V1beta1AutoScalingSpec
+        """
+
+        self._auto_scaling = auto_scaling
 
     @property
     def batcher(self):
@@ -172,6 +241,50 @@ class V1beta1ComponentExtensionSpec(object):
         """
 
         self._container_concurrency = container_concurrency
+
+    @property
+    def deployment_strategy(self):
+        """Gets the deployment_strategy of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+
+        :return: The deployment_strategy of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: K8sIoApiAppsV1DeploymentStrategy
+        """
+        return self._deployment_strategy
+
+    @deployment_strategy.setter
+    def deployment_strategy(self, deployment_strategy):
+        """Sets the deployment_strategy of this V1beta1ComponentExtensionSpec.
+
+
+        :param deployment_strategy: The deployment_strategy of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: K8sIoApiAppsV1DeploymentStrategy
+        """
+
+        self._deployment_strategy = deployment_strategy
+
+    @property
+    def labels(self):
+        """Gets the labels of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+        Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/  # noqa: E501
+
+        :return: The labels of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._labels
+
+    @labels.setter
+    def labels(self, labels):
+        """Sets the labels of this V1beta1ComponentExtensionSpec.
+
+        Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/  # noqa: E501
+
+        :param labels: The labels of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._labels = labels
 
     @property
     def logger(self):
@@ -244,7 +357,7 @@ class V1beta1ComponentExtensionSpec(object):
     def scale_metric(self):
         """Gets the scale_metric of this V1beta1ComponentExtensionSpec.  # noqa: E501
 
-        ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).  # noqa: E501
+        ScaleMetric defines the scaling metric type watched by autoscaler. possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).  # noqa: E501
 
         :return: The scale_metric of this V1beta1ComponentExtensionSpec.  # noqa: E501
         :rtype: str
@@ -255,13 +368,36 @@ class V1beta1ComponentExtensionSpec(object):
     def scale_metric(self, scale_metric):
         """Sets the scale_metric of this V1beta1ComponentExtensionSpec.
 
-        ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).  # noqa: E501
+        ScaleMetric defines the scaling metric type watched by autoscaler. possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).  # noqa: E501
 
         :param scale_metric: The scale_metric of this V1beta1ComponentExtensionSpec.  # noqa: E501
         :type: str
         """
 
         self._scale_metric = scale_metric
+
+    @property
+    def scale_metric_type(self):
+        """Gets the scale_metric_type of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+        Type of metric to use. Options are Utilization, or AverageValue.  # noqa: E501
+
+        :return: The scale_metric_type of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._scale_metric_type
+
+    @scale_metric_type.setter
+    def scale_metric_type(self, scale_metric_type):
+        """Sets the scale_metric_type of this V1beta1ComponentExtensionSpec.
+
+        Type of metric to use. Options are Utilization, or AverageValue.  # noqa: E501
+
+        :param scale_metric_type: The scale_metric_type of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._scale_metric_type = scale_metric_type
 
     @property
     def scale_target(self):

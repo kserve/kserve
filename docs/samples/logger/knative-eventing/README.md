@@ -1,9 +1,19 @@
 # Knative Eventing Inference Logger Demo
 
 This demo assumes you have a cluster running with [Knative Eventing installed](https://knative.dev/docs/eventing/getting-started/),
-along with KFServing.
+along with KServe.
 
-Note: this was tested using Knative Eventing v0.17.
+Following components of Knative Eventing must be installed:
+- Knative Eventing CRDs
+- Knative Eventing Core components
+- A broker implementation
+
+For simplicity, we will use the MT-Channel-based broker implementation with the In Memory Channel (IMC).
+Instructions for installing these and setting the MT-Channel-based broker as default can be found in the 
+[Knative Eventing documentation](https://knative.dev/docs/eventing/getting-started/).
+
+
+Note: this was tested using Knative Eventing v1.9.
 
 First let us create a message dumper Knative service which will print out the CloudEvents it receives.
 We will use the following resource YAML:
@@ -109,7 +119,7 @@ to learn how to determine the INGRESS_HOST and INGRESS_PORT used in curling the 
 MODEL_NAME=sklearn-iris
 INPUT_PATH=@./iris-input.json
 SERVICE_HOSTNAME=$(kubectl get inferenceservice sklearn-iris -o jsonpath='{.status.url}' | cut -d "/" -f 3)
-curl -v -H "Host: ${SERVICE_HOSTNAME}" http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict -d $INPUT_PATH
+curl -v -H "Host: ${SERVICE_HOSTNAME}" "http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME:predict" -d $INPUT_PATH
 ```
 
 Expected response:

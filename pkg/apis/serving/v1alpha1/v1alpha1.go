@@ -16,18 +16,17 @@ limitations under the License.
 
 // NOTE: Boilerplate only.  Ignore this file.
 
-// Package v1alpha1 contains API Schema definitions for the serving v1alpha1 API group
 // +k8s:openapi-gen=true
-// +k8s:deepcopy-gen=package,register
-// +k8s:conversion-gen=kserve/pkg/apis/serving
+// +kubebuilder:object:generate=true
 // +k8s:defaulter-gen=TypeMeta
 // +groupName=serving.kserve.io
 package v1alpha1
 
 import (
-	"github.com/kserve/kserve/pkg/constants"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 var (
@@ -39,6 +38,10 @@ var (
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
+
+	LLMInferenceServiceGVK = SchemeGroupVersion.WithKind("LLMInferenceService")
+
+	LLMInferenceServiceConfigGVK = SchemeGroupVersion.WithKind("LLMInferenceServiceConfig")
 
 	// AddToScheme is required by pkg/client/...
 	AddToScheme = SchemeBuilder.AddToScheme
@@ -52,4 +55,6 @@ func Resource(resource string) schema.GroupResource {
 func init() {
 	SchemeBuilder.Register(&TrainedModel{}, &TrainedModelList{})
 	SchemeBuilder.Register(&InferenceGraph{}, &InferenceGraphList{})
+	SchemeBuilder.Register(&LLMInferenceService{}, &LLMInferenceServiceList{})
+	SchemeBuilder.Register(&LLMInferenceServiceConfig{}, &LLMInferenceServiceConfigList{})
 }

@@ -1,0 +1,12 @@
+apiVersion: data.fluid.io/v1alpha1
+kind: DataLoad
+metadata:
+  name: s3-dataload
+spec:
+  dataset:
+    name: s3-data
+    namespace: kserve-fluid-demo
+  target:
+    # # please update it accordingly
+    - path: /llama-31-8b-instruct
+      replicas: 3

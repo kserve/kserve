@@ -1,0 +1,30 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: llama-31-8b-instruct
+spec:
+  predictor:
+    minReplicas: 0
+    nodeSelector:
+      node.kubernetes.io/instance-type: g5.8xlarge
+    model:
+      runtime: custom-kserve-huggingfaceserver
+      modelFormat:
+        name: huggingface
+      storageUri: pvc://s3-data/llama-31-8b-instruct
+      args:
+        - --gpu-memory-utilization=0.95
+        - --max-model-len=1024
+        - --tensor-parallel-size=1
+        - --enforce-eager
+        - --disable-log-stats
+        - --disable-log-requests
+      resources:
+        limits:
+          cpu: "24"
+          memory: 48Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "24"
+          memory: 48Gi
+          nvidia.com/gpu: "1"

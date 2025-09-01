@@ -17,37 +17,52 @@ limitations under the License.
 package autoscaler
 
 import (
-	"github.com/pkg/errors"
+	"context"
+	"fmt"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	hpa "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/hpa"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/keda"
 )
 
-var log = logf.Log.WithName("AutoscalerReconciler")
+// Autoscaler Interface implemented by all autoscalers
+type Autoscaler interface {
+	Reconcile(ctx context.Context) error
+	SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error
+}
 
-type Autoscaler struct {
-	AutoscalerClass constants.AutoscalerClassType
-	HPA             *hpa.HPAReconciler
+// NoOpAutoscaler Autoscaler that does nothing. Can be used to disable creation of autoscaler resources.
+type NoOpAutoscaler struct{}
+
+func (*NoOpAutoscaler) Reconcile(ctx context.Context) error {
+	return nil
+}
+
+func (a *NoOpAutoscaler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
+	return nil
 }
 
 // AutoscalerReconciler is the struct of Raw K8S Object
 type AutoscalerReconciler struct {
 	client       client.Client
 	scheme       *runtime.Scheme
-	Autoscaler   *Autoscaler
+	Autoscaler   Autoscaler
 	componentExt *v1beta1.ComponentExtensionSpec
 }
 
 func NewAutoscalerReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec) (*AutoscalerReconciler, error) {
-	as, err := createAutoscaler(client, scheme, componentMeta, componentExt)
+	componentExt *v1beta1.ComponentExtensionSpec,
+	configMap *corev1.ConfigMap,
+) (*AutoscalerReconciler, error) {
+	as, err := createAutoscaler(client, scheme, componentMeta, componentExt, configMap)
 	if err != nil {
 		return nil, err
 	}
@@ -70,27 +85,26 @@ func getAutoscalerClass(metadata metav1.ObjectMeta) constants.AutoscalerClassTyp
 
 func createAutoscaler(client client.Client,
 	scheme *runtime.Scheme, componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec) (*Autoscaler, error) {
-	as := &Autoscaler{}
+	componentExt *v1beta1.ComponentExtensionSpec,
+	configMap *corev1.ConfigMap,
+) (Autoscaler, error) {
 	ac := getAutoscalerClass(componentMeta)
-	as.AutoscalerClass = ac
 	switch ac {
-	case constants.AutoscalerClassHPA:
-		as.HPA = hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt)
+	case constants.AutoscalerClassHPA, constants.AutoscalerClassExternal, constants.AutoscalerClassNone:
+		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt)
+	case constants.AutoscalerClassKeda:
+		return keda.NewKedaReconciler(client, scheme, componentMeta, componentExt, configMap)
 	default:
-		return nil, errors.New("unknown autoscaler class type.")
+		return nil, fmt.Errorf("unknown autoscaler class type: %v", ac)
 	}
-	return as, nil
 }
 
-// Reconcile ...
-func (r *AutoscalerReconciler) Reconcile() (*Autoscaler, error) {
-	//reconcile Autoscaler
-	if r.Autoscaler.AutoscalerClass == constants.AutoscalerClassHPA {
-		_, err := r.Autoscaler.HPA.Reconcile()
-		if err != nil {
-			return nil, err
-		}
+// Reconcile autoscaling resources for HPA, KEDA ScaledObject.
+func (r *AutoscalerReconciler) Reconcile(ctx context.Context) error {
+	// reconcile Autoscaling resources
+	err := r.Autoscaler.Reconcile(ctx)
+	if err != nil {
+		return err
 	}
-	return r.Autoscaler, nil
+	return nil
 }

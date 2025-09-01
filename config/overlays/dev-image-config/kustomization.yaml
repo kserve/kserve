@@ -1,5 +1,8 @@
-bases:
-  - ../../default
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../../default
 
 patches:
-  - inferenceservice_patch.yaml
+- path: inferenceservice_patch.yaml

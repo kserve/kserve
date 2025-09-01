@@ -21,11 +21,12 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type ARTExplainerType string
@@ -44,20 +45,21 @@ type ARTExplainerSpec struct {
 
 var _ ComponentImplementation = &ARTExplainerSpec{}
 
-func (s *ARTExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
+func (s *ARTExplainerSpec) GetResourceRequirements() *corev1.ResourceRequirements {
 	// return the ResourceRequirements value if set on the spec
 	return &s.Resources
 }
 
-func (s *ARTExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
-	var args = []string{
+func (s *ARTExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
+	predictorHost ...string,
+) *corev1.Container {
+	args := []string{
 		constants.ArgumentModelName, metadata.Name,
 		constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort,
 	}
 	if !utils.IncludesArg(s.Container.Args, constants.ArgumentPredictorHost) {
 		args = append(args, constants.ArgumentPredictorHost,
-			fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName(metadata.Name), metadata.Namespace))
-
+			fmt.Sprintf("%s.%s", predictorHost[0], metadata.Namespace))
 	}
 	if !utils.IncludesArg(s.Container.Args, constants.ArgumentWorkers) {
 		if extensions.ContainerConcurrency != nil {
@@ -71,8 +73,8 @@ func (s *ARTExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *
 	args = append(args, "--adversary_type", string(s.Type))
 
 	// Order explainer config map keys
-	var keys []string
-	for k, _ := range s.Config {
+	keys := make([]string, 0, len(s.Config))
+	for k := range s.Config {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
@@ -95,7 +97,7 @@ func (s *ARTExplainerSpec) Default(config *InferenceServicesConfig) {
 	if s.RuntimeVersion == nil {
 		s.RuntimeVersion = proto.String(config.Explainers.ARTExplainer.DefaultImageVersion)
 	}
-	setResourceRequirementDefaults(&s.Resources)
+	setResourceRequirementDefaults(config, &s.Resources)
 }
 
 func (s *ARTExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {

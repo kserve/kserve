@@ -1,4 +1,4 @@
-# Copyright 2022 The KServe Authors.
+# Copyright 2023 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,13 +59,15 @@ class V1beta1PaddleServerSpec(object):
         'ports': 'list[V1ContainerPort]',
         'protocol_version': 'str',
         'readiness_probe': 'V1Probe',
+        'resize_policy': 'list[V1ContainerResizePolicy]',
         'resources': 'V1ResourceRequirements',
+        'restart_policy': 'str',
         'runtime_version': 'str',
         'security_context': 'V1SecurityContext',
         'startup_probe': 'V1Probe',
         'stdin': 'bool',
         'stdin_once': 'bool',
-        'storage': 'V1beta1StorageSpec',
+        'storage': 'V1beta1ModelStorageSpec',
         'storage_uri': 'str',
         'termination_message_path': 'str',
         'termination_message_policy': 'str',
@@ -88,7 +90,9 @@ class V1beta1PaddleServerSpec(object):
         'ports': 'ports',
         'protocol_version': 'protocolVersion',
         'readiness_probe': 'readinessProbe',
+        'resize_policy': 'resizePolicy',
         'resources': 'resources',
+        'restart_policy': 'restartPolicy',
         'runtime_version': 'runtimeVersion',
         'security_context': 'securityContext',
         'startup_probe': 'startupProbe',
@@ -104,7 +108,7 @@ class V1beta1PaddleServerSpec(object):
         'working_dir': 'workingDir'
     }
 
-    def __init__(self, args=None, command=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, name='', ports=None, protocol_version=None, readiness_probe=None, resources=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, args=None, command=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, name='', ports=None, protocol_version=None, readiness_probe=None, resize_policy=None, resources=None, restart_policy=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PaddleServerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -122,7 +126,9 @@ class V1beta1PaddleServerSpec(object):
         self._ports = None
         self._protocol_version = None
         self._readiness_probe = None
+        self._resize_policy = None
         self._resources = None
+        self._restart_policy = None
         self._runtime_version = None
         self._security_context = None
         self._startup_probe = None
@@ -162,8 +168,12 @@ class V1beta1PaddleServerSpec(object):
             self.protocol_version = protocol_version
         if readiness_probe is not None:
             self.readiness_probe = readiness_probe
+        if resize_policy is not None:
+            self.resize_policy = resize_policy
         if resources is not None:
             self.resources = resources
+        if restart_policy is not None:
+            self.restart_policy = restart_policy
         if runtime_version is not None:
             self.runtime_version = runtime_version
         if security_context is not None:
@@ -195,7 +205,7 @@ class V1beta1PaddleServerSpec(object):
     def args(self):
         """Gets the args of this V1beta1PaddleServerSpec.  # noqa: E501
 
-        Arguments to the entrypoint. The docker image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell  # noqa: E501
+        Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell  # noqa: E501
 
         :return: The args of this V1beta1PaddleServerSpec.  # noqa: E501
         :rtype: list[str]
@@ -206,7 +216,7 @@ class V1beta1PaddleServerSpec(object):
     def args(self, args):
         """Sets the args of this V1beta1PaddleServerSpec.
 
-        Arguments to the entrypoint. The docker image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell  # noqa: E501
+        Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell  # noqa: E501
 
         :param args: The args of this V1beta1PaddleServerSpec.  # noqa: E501
         :type: list[str]
@@ -218,7 +228,7 @@ class V1beta1PaddleServerSpec(object):
     def command(self):
         """Gets the command of this V1beta1PaddleServerSpec.  # noqa: E501
 
-        Entrypoint array. Not executed within a shell. The docker image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell  # noqa: E501
+        Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell  # noqa: E501
 
         :return: The command of this V1beta1PaddleServerSpec.  # noqa: E501
         :rtype: list[str]
@@ -229,7 +239,7 @@ class V1beta1PaddleServerSpec(object):
     def command(self, command):
         """Sets the command of this V1beta1PaddleServerSpec.
 
-        Entrypoint array. Not executed within a shell. The docker image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell  # noqa: E501
+        Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell  # noqa: E501
 
         :param command: The command of this V1beta1PaddleServerSpec.  # noqa: E501
         :type: list[str]
@@ -287,7 +297,7 @@ class V1beta1PaddleServerSpec(object):
     def image(self):
         """Gets the image of this V1beta1PaddleServerSpec.  # noqa: E501
 
-        Docker image name. More info: https://kubernetes.io/docs/concepts/containers/images This field is optional to allow higher level config management to default or override container images in workload controllers like Deployments and StatefulSets.  # noqa: E501
+        Container image name. More info: https://kubernetes.io/docs/concepts/containers/images This field is optional to allow higher level config management to default or override container images in workload controllers like Deployments and StatefulSets.  # noqa: E501
 
         :return: The image of this V1beta1PaddleServerSpec.  # noqa: E501
         :rtype: str
@@ -298,7 +308,7 @@ class V1beta1PaddleServerSpec(object):
     def image(self, image):
         """Sets the image of this V1beta1PaddleServerSpec.
 
-        Docker image name. More info: https://kubernetes.io/docs/concepts/containers/images This field is optional to allow higher level config management to default or override container images in workload controllers like Deployments and StatefulSets.  # noqa: E501
+        Container image name. More info: https://kubernetes.io/docs/concepts/containers/images This field is optional to allow higher level config management to default or override container images in workload controllers like Deployments and StatefulSets.  # noqa: E501
 
         :param image: The image of this V1beta1PaddleServerSpec.  # noqa: E501
         :type: str
@@ -398,7 +408,7 @@ class V1beta1PaddleServerSpec(object):
     def ports(self):
         """Gets the ports of this V1beta1PaddleServerSpec.  # noqa: E501
 
-        List of ports to expose from the container. Exposing a port here gives the system additional information about the network connections a container uses, but is primarily informational. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Cannot be updated.  # noqa: E501
+        List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.  # noqa: E501
 
         :return: The ports of this V1beta1PaddleServerSpec.  # noqa: E501
         :rtype: list[V1ContainerPort]
@@ -409,7 +419,7 @@ class V1beta1PaddleServerSpec(object):
     def ports(self, ports):
         """Sets the ports of this V1beta1PaddleServerSpec.
 
-        List of ports to expose from the container. Exposing a port here gives the system additional information about the network connections a container uses, but is primarily informational. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Cannot be updated.  # noqa: E501
+        List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.  # noqa: E501
 
         :param ports: The ports of this V1beta1PaddleServerSpec.  # noqa: E501
         :type: list[V1ContainerPort]
@@ -462,6 +472,29 @@ class V1beta1PaddleServerSpec(object):
         self._readiness_probe = readiness_probe
 
     @property
+    def resize_policy(self):
+        """Gets the resize_policy of this V1beta1PaddleServerSpec.  # noqa: E501
+
+        Resources resize policy for the container.  # noqa: E501
+
+        :return: The resize_policy of this V1beta1PaddleServerSpec.  # noqa: E501
+        :rtype: list[V1ContainerResizePolicy]
+        """
+        return self._resize_policy
+
+    @resize_policy.setter
+    def resize_policy(self, resize_policy):
+        """Sets the resize_policy of this V1beta1PaddleServerSpec.
+
+        Resources resize policy for the container.  # noqa: E501
+
+        :param resize_policy: The resize_policy of this V1beta1PaddleServerSpec.  # noqa: E501
+        :type: list[V1ContainerResizePolicy]
+        """
+
+        self._resize_policy = resize_policy
+
+    @property
     def resources(self):
         """Gets the resources of this V1beta1PaddleServerSpec.  # noqa: E501
 
@@ -481,6 +514,29 @@ class V1beta1PaddleServerSpec(object):
         """
 
         self._resources = resources
+
+    @property
+    def restart_policy(self):
+        """Gets the restart_policy of this V1beta1PaddleServerSpec.  # noqa: E501
+
+        RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.  # noqa: E501
+
+        :return: The restart_policy of this V1beta1PaddleServerSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._restart_policy
+
+    @restart_policy.setter
+    def restart_policy(self, restart_policy):
+        """Sets the restart_policy of this V1beta1PaddleServerSpec.
+
+        RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.  # noqa: E501
+
+        :param restart_policy: The restart_policy of this V1beta1PaddleServerSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._restart_policy = restart_policy
 
     @property
     def runtime_version(self):
@@ -599,7 +655,7 @@ class V1beta1PaddleServerSpec(object):
 
 
         :return: The storage of this V1beta1PaddleServerSpec.  # noqa: E501
-        :rtype: V1beta1StorageSpec
+        :rtype: V1beta1ModelStorageSpec
         """
         return self._storage
 
@@ -609,7 +665,7 @@ class V1beta1PaddleServerSpec(object):
 
 
         :param storage: The storage of this V1beta1PaddleServerSpec.  # noqa: E501
-        :type: V1beta1StorageSpec
+        :type: V1beta1ModelStorageSpec
         """
 
         self._storage = storage

@@ -22,35 +22,44 @@ import (
 	"regexp"
 	"strings"
 
-	"knative.dev/serving/pkg/apis/autoscaling"
-
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/network"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/serving/pkg/apis/autoscaling"
 )
 
 // KServe Constants
+const (
+	KServeName                       = "kserve"
+	KServeAPIGroupName               = "serving.kserve.io"
+	KnativeAutoscalingAPIGroupName   = "autoscaling.knative.dev"
+	KnativeServingAPIGroupNamePrefix = "serving.knative"
+	KnativeServingAPIGroupName       = KnativeServingAPIGroupNamePrefix + ".dev"
+)
+
 var (
-	KServeName                     = "kserve"
-	KServeAPIGroupName             = "serving.kserve.io"
-	KnativeAutoscalingAPIGroupName = "autoscaling.knative.dev"
-	KnativeServingAPIGroupName     = "serving.knative.dev"
-	KServeNamespace                = getEnvOrDefault("POD_NAMESPACE", "kserve")
-	KServeDefaultVersion           = "v0.5.0"
+	KServeNamespace              = GetEnvOrDefault("POD_NAMESPACE", "kserve")
+	AutoscalerConfigmapNamespace = GetEnvOrDefault("KNATIVE_CONFIG_AUTOSCALER_NAMESPACE", DefaultKnServingNamespace)
 )
 
 // InferenceService Constants
 var (
-	InferenceServiceName          = "inferenceservice"
-	InferenceServiceAPIName       = "inferenceservices"
-	InferenceServicePodLabelKey   = KServeAPIGroupName + "/" + InferenceServiceName
-	InferenceServiceConfigMapName = "inferenceservice-config"
+	InferenceServiceName                  = "inferenceservice"
+	InferenceServiceAPIName               = "inferenceservices"
+	InferenceServicePodLabelKey           = KServeAPIGroupName + "/" + InferenceServiceName
+	InferenceServiceGenerationPodLabelKey = "isvc.generation"
+	InferenceServiceConfigMapName         = "inferenceservice-config"
 )
 
 // InferenceGraph Constants
 const (
 	RouterHeadersPropagateEnvVar = "PROPAGATE_HEADERS"
 	InferenceGraphLabel          = "serving.kserve.io/inferencegraph"
+	RouterReadinessEndpoint      = "/readyz"
+	RouterPort                   = 8080
+	RouterTimeoutsServerRead     = 60
+	RouterTimeoutServerWrite     = 60
+	RouterTimeoutServerIdle      = 180
 )
 
 // TrainedModel Constants
@@ -63,13 +72,29 @@ var (
 	ModelConfigFileName = "models.json"
 )
 
+// Remote Storage URI
+const (
+	RemoteStorageEnvVarName = "REMOTE_STORAGE_URI"
+)
+
 // Model agent Constants
 const (
-	AgentContainerName    = "agent"
-	AgentConfigMapKeyName = "agent"
-	AgentEnableFlag       = "--enable-puller"
-	AgentConfigDirArgName = "--config-dir"
-	AgentModelDirArgName  = "--model-dir"
+	AgentContainerName        = "agent"
+	AgentConfigMapKeyName     = "agent"
+	AgentEnableFlag           = "--enable-puller"
+	AgentConfigDirArgName     = "--config-dir"
+	AgentModelDirArgName      = "--model-dir"
+	AgentComponentPortArgName = "--component-port"
+)
+
+// InferenceLogger Constants
+const (
+	LoggerCaBundleVolume            = "agent-ca-bundle"
+	LoggerCaCertMountPath           = "/etc/tls/logger"
+	LoggerDefaultFormat             = "json"
+	LoggerFormatKey                 = "format"
+	LoggerDefaultStorageKey         = "credentials"
+	LoggerDefaultServiceAccountName = "logger-sa"
 )
 
 // InferenceService Annotations
@@ -77,21 +102,28 @@ var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KServeAPIGroupName + "/gke-accelerator"
 	DeploymentMode                              = KServeAPIGroupName + "/deploymentMode"
 	EnableRoutingTagAnnotationKey               = KServeAPIGroupName + "/enable-tag-routing"
+	DisableLocalModelKey                        = KServeAPIGroupName + "/disable-localmodel"
 	AutoscalerClass                             = KServeAPIGroupName + "/autoscalerClass"
 	AutoscalerMetrics                           = KServeAPIGroupName + "/metrics"
 	TargetUtilizationPercentage                 = KServeAPIGroupName + "/targetUtilizationPercentage"
-	MinScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/min-scale"
-	MaxScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/max-scale"
+	StopAnnotationKey                           = KServeAPIGroupName + "/stop"
 	RollOutDurationAnnotationKey                = KnativeServingAPIGroupName + "/rollout-duration"
+	KnativeOpenshiftEnablePassthroughKey        = "serving.knative.openshift.io/enablePassthrough"
 	EnableMetricAggregation                     = KServeAPIGroupName + "/enable-metric-aggregation"
 	SetPrometheusAnnotation                     = KServeAPIGroupName + "/enable-prometheus-scraping"
 	KserveContainerPrometheusPortKey            = "prometheus.kserve.io/port"
 	KServeContainerPrometheusPathKey            = "prometheus.kserve.io/path"
 	PrometheusPortAnnotationKey                 = "prometheus.io/port"
 	PrometheusPathAnnotationKey                 = "prometheus.io/path"
+	StorageReadonlyAnnotationKey                = "storage.kserve.io/readonly"
 	DefaultPrometheusPath                       = "/metrics"
 	QueueProxyAggregatePrometheusMetricsPort    = "9088"
-	DefaultPodPrometheusPort                    = "9090"
+	DefaultPodPrometheusPort                    = "9091"
+	NodeGroupAnnotationKey                      = KServeAPIGroupName + "/nodegroup"
+	LoggerSecretNameKey                         = KServeAPIGroupName + "/logger-secret-name"
+	LoggerCredentialPathKey                     = KServeAPIGroupName + "/logger-secret-path"
+	LoggerCredentialFileKey                     = KServeAPIGroupName + "/logger-secret-file"
+	DisableAutoUpdateAnnotationKey              = KServeAPIGroupName + "/disable-auto-update"
 )
 
 // InferenceService Internal Annotations
@@ -104,90 +136,160 @@ var (
 	LoggerInternalAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/logger"
 	LoggerSinkUrlInternalAnnotationKey               = InferenceServiceInternalAnnotationsPrefix + "/logger-sink-url"
 	LoggerModeInternalAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/logger-mode"
+	LoggerMetadataHeadersInternalAnnotationKey       = InferenceServiceInternalAnnotationsPrefix + "/logger-metadata-headers"
+	LoggerMetadataAnnotationsInternalAnnotationKey   = InferenceServiceInternalAnnotationsPrefix + "/logger-metadata-annotations"
 	BatcherInternalAnnotationKey                     = InferenceServiceInternalAnnotationsPrefix + "/batcher"
 	BatcherMaxBatchSizeInternalAnnotationKey         = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-batchsize"
 	BatcherMaxLatencyInternalAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-latency"
-	BatcherTimeoutInternalAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/batcher-timeout"
 	AgentShouldInjectAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/agent"
 	AgentModelConfigVolumeNameAnnotationKey          = InferenceServiceInternalAnnotationsPrefix + "/configVolumeName"
 	AgentModelConfigMountPathAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/configMountPath"
 	AgentModelDirAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/modelDir"
 	PredictorHostAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/predictor-host"
 	PredictorProtocolAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/predictor-protocol"
+	LocalModelLabel                                  = InferenceServiceInternalAnnotationsPrefix + "/localmodel"
+	LocalModelSourceUriAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/localmodel-sourceuri"
+	LocalModelPVCNameAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/localmodel-pvc-name"
+)
+
+// kserve networking constants
+const (
+	NetworkVisibility      = "networking.kserve.io/visibility"
+	ClusterLocalVisibility = "cluster-local"
+	ClusterLocalDomain     = "svc.cluster.local"
+	IsvcNameHeader         = "KServe-Isvc-Name"
+	IsvcNamespaceHeader    = "KServe-Isvc-Namespace"
+	HostHeader             = "Host"
+	GatewayName            = "kserve-ingress-gateway"
 )
 
 // StorageSpec Constants
 var (
 	DefaultStorageSpecSecret     = "storage-config"
-	DefaultStorageSpecSecretPath = "/mnt/storage-secret"
+	DefaultStorageSpecSecretPath = "/mnt/storage-secret" // #nosec G101
+)
+
+const (
+	HfURIPrefix  = "hf://"
+	OciURIPrefix = "oci://"
+	PvcURIPrefix = "pvc://"
+	S3URIPrefix  = "s3://"
+
+	PvcSourceMountName           = "kserve-pvc-source"
+	StorageInitializerVolumeName = "kserve-provision-location"
+
+	StorageInitializerContainerImage        = "kserve/storage-initializer"
+	StorageInitializerContainerImageVersion = "latest"
+
+	CpuModelcarDefault    = "10m"
+	MemoryModelcarDefault = "15Mi"
 )
 
 // Controller Constants
 var (
-	ControllerLabelName = KServeName + "-controller-manager"
-	DefaultMinReplicas  = 1
+	ControllerLabelName                   = KServeName + "-controller-manager"
+	DefaultIstioSidecarUID                = int64(1337)
+	DefaultMinReplicas              int32 = 1
+	IstioInitContainerName                = "istio-init"
+	IstioInterceptModeRedirect            = "REDIRECT"
+	IstioInterceptionModeAnnotation       = "sidecar.istio.io/interceptionMode"
+	IstioSidecarUIDAnnotationKey          = KServeAPIGroupName + "/storage-initializer-uid"
+	IstioSidecarStatusAnnotation          = "sidecar.istio.io/status"
 )
 
-type AutoscalerClassType string
-type AutoscalerMetricsType string
-type AutoScalerKPAMetricsType string
+var OTelBackend = "opentelemetry"
 
+type (
+	AutoscalerClassType                string
+	AutoscalerHPAMetricsType           string
+	AutoScalerKPAMetricsType           string
+	AutoscalerKedaMetricsType          string
+	AutoScalerMetricsSourceType        string
+	AutoScalerMetricsSourceBackendType string
+	AutoScalerType                     string
+)
+
+// DefaultAutoscalerClass Autoscaler Default Class
+const (
+	DefaultAutoscalerClass = AutoscalerClassHPA
+)
+
+// Supported Autoscaler Class
+const (
+	AutoscalerClassHPA      AutoscalerClassType = "hpa"
+	AutoscalerClassKPA      AutoscalerClassType = "kpa"
+	AutoscalerClassExternal AutoscalerClassType = "external"
+	AutoscalerClassKeda     AutoscalerClassType = "keda"
+	AutoscalerClassNone     AutoscalerClassType = "none"
+)
+
+// HPA Metrics Types
 var (
+	AutoScalerMetricsCPU    AutoscalerHPAMetricsType = "cpu"
+	AutoScalerMetricsMemory AutoscalerHPAMetricsType = "memory"
+)
+
+// KPA Metrics Types
+const (
 	AutoScalerKPAMetricsRPS         AutoScalerKPAMetricsType = "rps"
 	AutoScalerKPAMetricsConcurrency AutoScalerKPAMetricsType = "concurrency"
 )
 
-// Autoscaler Default Class
-var (
-	DefaultAutoscalerClass = AutoscalerClassHPA
+// KEDA metrics source type
+const (
+	AutoScalerMetricsSourcePrometheus    AutoScalerMetricsSourceBackendType = "prometheus"
+	AutoScalerMetricsSourceGraphite      AutoScalerMetricsSourceBackendType = "graphite"
+	AutoScalerMetricsSourceOpenTelemetry AutoScalerMetricsSourceBackendType = "opentelemetry"
 )
 
-// Autoscaler Class
-var (
-	AutoscalerClassHPA AutoscalerClassType = "hpa"
-)
-
-// Autoscaler Metrics
-var (
-	AutoScalerMetricsCPU AutoscalerMetricsType = "cpu"
-)
-
-// Autoscaler Memory metrics
-var (
-	AutoScalerMetricsMemory AutoscalerMetricsType = "memory"
-)
-
-// Autoscaler Class Allowed List
+// AutoscalerAllowedClassList Autoscaler Class types
 var AutoscalerAllowedClassList = []AutoscalerClassType{
 	AutoscalerClassHPA,
+	AutoscalerClassExternal,
+	AutoscalerClassKeda,
+	AutoscalerClassNone,
 }
 
-// Autoscaler Metrics Allowed List
-var AutoscalerAllowedMetricsList = []AutoscalerMetricsType{
+// AutoscalerAllowedHPAMetricsList allowed resource metrics List.
+var AutoscalerAllowedHPAMetricsList = []AutoscalerHPAMetricsType{
 	AutoScalerMetricsCPU,
 	AutoScalerMetricsMemory,
 }
 
-// Autoscaler KPA Metrics Allowed List
-var AutoScalerKPAMetricsAllowedList = []AutoScalerKPAMetricsType{
+// AutoscalerAllowedKPAMetricsList allowed KPA metrics list.
+var AutoscalerAllowedKPAMetricsList = []AutoScalerKPAMetricsType{
 	AutoScalerKPAMetricsConcurrency,
 	AutoScalerKPAMetricsRPS,
 }
 
-// Autoscaler Default Metrics Value
+// DefaultCPUUtilization Autoscaler Default Metrics Value
 var (
 	DefaultCPUUtilization int32 = 80
 )
 
 // Webhook Constants
 var (
-	PodMutatorWebhookName = KServeName + "-pod-mutator-webhook"
+	PodMutatorWebhookName              = KServeName + "-pod-mutator-webhook"
+	ServingRuntimeValidatorWebhookName = KServeName + "-servingRuntime-validator-webhook"
 )
 
 // GPU Constants
 const (
-	NvidiaGPUResourceType = "nvidia.com/gpu"
+	NvidiaGPUResourceType          = "nvidia.com/gpu"
+	NvidiaMigGPUResourceTypePrefix = "nvidia.com/mig"
+	AmdGPUResourceType             = "amd.com/gpu"
+	IntelGPUResourceType           = "intel.com/gpu"
+	GaudiGPUResourceType           = "habana.ai/gaudi"
 )
+
+var CustomGPUResourceTypesAnnotationKey = KServeAPIGroupName + "/gpu-resource-types"
+
+var DefaultGPUResourceTypeList = []string{
+	NvidiaGPUResourceType,
+	AmdGPUResourceType,
+	IntelGPUResourceType,
+	GaudiGPUResourceType,
+}
 
 // InferenceService Environment Variables
 const (
@@ -196,6 +298,7 @@ const (
 	CustomSpecMultiModelServerEnvVarKey               = "MULTI_MODEL_SERVER"
 	KServeContainerPrometheusMetricsPortEnvVarKey     = "KSERVE_CONTAINER_PROMETHEUS_METRICS_PORT"
 	KServeContainerPrometheusMetricsPathEnvVarKey     = "KSERVE_CONTAINER_PROMETHEUS_METRICS_PATH"
+	ModelInitModeEnvVarKey                            = "MODEL_INIT_MODE"
 	QueueProxyAggregatePrometheusMetricsPortEnvVarKey = "AGGREGATE_PROMETHEUS_METRICS_PORT"
 )
 
@@ -207,14 +310,20 @@ type InferenceServiceProtocol string
 
 // Knative constants
 const (
-	KnativeLocalGateway   = "knative-serving/knative-local-gateway"
-	KnativeIngressGateway = "knative-serving/knative-ingress-gateway"
-	VisibilityLabel       = "networking.knative.dev/visibility"
+	AutoscalerConfigmapName     = "config-autoscaler"
+	AutoscalerAllowZeroScaleKey = "allow-zero-initial-scale"
+	DefaultKnServingNamespace   = "knative-serving"
+	KnativeLocalGateway         = "knative-serving/knative-local-gateway"
+	KnativeIngressGateway       = "knative-serving/knative-ingress-gateway"
+	VisibilityLabel             = "networking.knative.dev/visibility"
 )
 
 var (
 	LocalGatewayHost = "knative-local-gateway.istio-system.svc." + network.GetClusterDomainName()
+	IstioMeshGateway = "mesh"
 )
+
+const WorkerNodeSuffix = "worker"
 
 // InferenceService Component enums
 const (
@@ -231,11 +340,12 @@ const (
 
 // InferenceService protocol enums
 const (
-	ProtocolV1      InferenceServiceProtocol = "v1"
-	ProtocolV2      InferenceServiceProtocol = "v2"
-	ProtocolGRPCV1  InferenceServiceProtocol = "grpc-v1"
-	ProtocolGRPCV2  InferenceServiceProtocol = "grpc-v2"
-	ProtocolUnknown InferenceServiceProtocol = ""
+	ProtocolV1         InferenceServiceProtocol = "v1"
+	ProtocolV2         InferenceServiceProtocol = "v2"
+	ProtocolGRPCV1     InferenceServiceProtocol = "grpc-v1"
+	ProtocolGRPCV2     InferenceServiceProtocol = "grpc-v2"
+	ProtocolUnknown    InferenceServiceProtocol = ""
+	ProtocolVersionENV                          = "PROTOCOL_VERSION"
 )
 
 // InferenceService Endpoint Ports
@@ -244,6 +354,7 @@ const (
 	InferenceServiceDefaultAgentPortStr = "9081"
 	InferenceServiceDefaultAgentPort    = 9081
 	CommonDefaultHttpPort               = 80
+	AggregateMetricsPortName            = "aggr-metric"
 )
 
 // Labels to put on kservice
@@ -251,6 +362,7 @@ const (
 	KServiceComponentLabel = "component"
 	KServiceModelLabel     = "model"
 	KServiceEndpointLabel  = "endpoint"
+	KServeWorkloadKind     = KServeAPIGroupName + "/kind"
 )
 
 // Labels for TrainedModel
@@ -259,10 +371,9 @@ const (
 	InferenceServiceLabel       = "serving.kserve.io/inferenceservice"
 )
 
-// InferenceService default/canary constants
+// InferenceService canary constants
 const (
-	InferenceServiceDefault = "default"
-	InferenceServiceCanary  = "canary"
+	InferenceServiceCanary = "canary"
 )
 
 // InferenceService model server args
@@ -275,14 +386,39 @@ const (
 	ArgumentWorkers        = "--workers"
 )
 
-// InferenceService container name
+// InferenceService container names
 const (
 	InferenceServiceContainerName   = "kserve-container"
 	StorageInitializerContainerName = "storage-initializer"
+
+	// TransformerContainerName transformer container name in collocation
+	TransformerContainerName = "transformer-container"
+
+	// WorkerContainerName is for worker node container
+	WorkerContainerName     = "worker-container"
+	QueueProxyContainerName = "queue-proxy"
+
+	ModelcarContainerName     = "modelcar"
+	ModelcarInitContainerName = "modelcar-init"
 )
 
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
 const DefaultModelLocalMountPath = "/mnt/models"
+
+// DefaultCaBundleVolumeMountPath Default path to mount CA bundle configmap volume
+const DefaultCaBundleVolumeMountPath = "/etc/ssl/custom-certs"
+
+// DefaultCaBundleFileName Default name for CA bundle file
+const DefaultCaBundleFileName = "cabundle.crt"
+
+// DefaultGlobalCaBundleConfigMapName Default CA bundle configmap name that will be created in the user namespace.
+const DefaultGlobalCaBundleConfigMapName = "global-ca-bundle"
+
+// Custom CA bundle configmap Environment Variables
+const (
+	CaBundleConfigMapNameEnvVarKey   = "CA_BUNDLE_CONFIGMAP_NAME"
+	CaBundleVolumeMountPathEnvVarKey = "CA_BUNDLE_VOLUME_MOUNT_POINT"
+)
 
 // Multi-model InferenceService
 const (
@@ -313,27 +449,37 @@ const (
 	CheckResultUpdate  CheckResultType = 1
 	CheckResultExisted CheckResultType = 2
 	CheckResultUnknown CheckResultType = 3
+	CheckResultDelete  CheckResultType = 4
+	CheckResultSkipped CheckResultType = 5
 )
 
 type DeploymentModeType string
 
 const (
-	Serverless          DeploymentModeType = "Serverless"
-	RawDeployment       DeploymentModeType = "RawDeployment"
+	LegacyServerless    DeploymentModeType = "Serverless" // deprecated: use Knative
+	Knative             DeploymentModeType = "Knative"
+	LegacyRawDeployment DeploymentModeType = "RawDeployment" // deprecated: use Standard
+	Standard            DeploymentModeType = "Standard"
+	DefaultDeployment   DeploymentModeType = Standard
 	ModelMeshDeployment DeploymentModeType = "ModelMesh"
+)
+
+const (
+	DefaultNSKnativeServing = "knative-serving"
 )
 
 // built-in runtime servers
 const (
-	SKLearnServer = "kserve-sklearnserver"
-	MLServer      = "kserve-mlserver"
-	TFServing     = "kserve-tensorflow-serving"
-	XGBServer     = "kserve-xgbserver"
-	TorchServe    = "kserve-torchserve"
-	TritonServer  = "kserve-tritonserver"
-	PMMLServer    = "kserve-pmmlserver"
-	LGBServer     = "kserve-lgbserver"
-	PaddleServer  = "kserve-paddleserver"
+	SKLearnServer     = "kserve-sklearnserver"
+	MLServer          = "kserve-mlserver"
+	TFServing         = "kserve-tensorflow-serving"
+	XGBServer         = "kserve-xgbserver"
+	TorchServe        = "kserve-torchserve"
+	TritonServer      = "kserve-tritonserver"
+	PMMLServer        = "kserve-pmmlserver"
+	LGBServer         = "kserve-lgbserver"
+	PaddleServer      = "kserve-paddleserver"
+	HuggingFaceServer = "kserve-huggingfaceserver"
 )
 
 const (
@@ -357,16 +503,17 @@ const (
 
 // supported model type
 const (
-	SupportedModelSKLearn    = "sklearn"
-	SupportedModelTensorflow = "tensorflow"
-	SupportedModelXGBoost    = "xgboost"
-	SupportedModelPyTorch    = "pytorch"
-	SupportedModelONNX       = "onnx"
-	SupportedModelPMML       = "pmml"
-	SupportedModelLightGBM   = "lightgbm"
-	SupportedModelPaddle     = "paddle"
-	SupportedModelTriton     = "triton"
-	SupportedModelMLFlow     = "mlflow"
+	SupportedModelSKLearn     = "sklearn"
+	SupportedModelTensorflow  = "tensorflow"
+	SupportedModelXGBoost     = "xgboost"
+	SupportedModelPyTorch     = "pytorch"
+	SupportedModelONNX        = "onnx"
+	SupportedModelHuggingFace = "huggingface"
+	SupportedModelPMML        = "pmml"
+	SupportedModelLightGBM    = "lightgbm"
+	SupportedModelPaddle      = "paddle"
+	SupportedModelTriton      = "triton"
+	SupportedModelMLFlow      = "mlflow"
 )
 
 type ProtocolVersion int
@@ -394,9 +541,51 @@ const (
 	StateReasonCrashLoopBackOff = "CrashLoopBackOff"
 )
 
+// CRD Kinds
+const (
+	IstioVirtualServiceKind = "VirtualService"
+	KnativeServiceKind      = "Service"
+	HTTPRouteKind           = "HTTPRoute"
+	GatewayKind             = "Gateway"
+	ServiceKind             = "Service"
+	KedaScaledObjectKind    = "ScaledObject"
+	OpenTelemetryCollector  = "OpenTelemetryCollector"
+)
+
+// MultiNode environment variables
+const (
+	TensorParallelSizeEnvName   = "TENSOR_PARALLEL_SIZE"
+	PipelineParallelSizeEnvName = "PIPELINE_PARALLEL_SIZE"
+	RayNodeCountEnvName         = "RAY_NODE_COUNT"
+	RequestGPUCountEnvName      = "REQUEST_GPU_COUNT"
+)
+
+// MultiNode default values
+const (
+	DefaultTensorParallelSize   = 1
+	DefaultPipelineParallelSize = 1
+)
+
+// Multi Node Labels
+var (
+	MultiNodeRoleLabelKey = "multinode/role"
+	MultiNodeHead         = "head"
+)
+
 // GetRawServiceLabel generate native service label
 func GetRawServiceLabel(service string) string {
 	return "isvc." + service
+}
+
+// GetRawWorkerServiceLabel generate native service label for worker
+func GetRawWorkerServiceLabel(service string) string {
+	return "isvc." + service + "-" + WorkerNodeSuffix
+}
+
+// GetHeadServiceName generate head service name
+func GetHeadServiceName(service string, isvcGeneration string) string {
+	isvcName := strings.TrimSuffix(service, "-predictor")
+	return isvcName + "-" + MultiNodeHead + "-" + isvcGeneration
 }
 
 func (e InferenceServiceComponent) String() string {
@@ -407,15 +596,11 @@ func (v InferenceServiceVerb) String() string {
 	return string(v)
 }
 
-func getEnvOrDefault(key string, fallback string) string {
+func GetEnvOrDefault(key string, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
 	}
 	return fallback
-}
-
-func isEnvVarMatched(envVar, matchtedValue string) bool {
-	return getEnvOrDefault(envVar, "") == matchtedValue
 }
 
 func InferenceServiceURL(scheme, name, namespace, domain string) string {
@@ -426,32 +611,32 @@ func InferenceServiceHostName(name string, namespace string, domain string) stri
 	return fmt.Sprintf("%s.%s.%s", name, namespace, domain)
 }
 
-func DefaultPredictorServiceName(name string) string {
-	return name + "-" + string(Predictor) + "-" + InferenceServiceDefault
+func PredictorServiceName(name string) string {
+	return name + "-" + string(Predictor)
+}
+
+func PredictorWorkerServiceName(name string) string {
+	return name + "-" + string(Predictor) + "-" + WorkerNodeSuffix
 }
 
 func CanaryPredictorServiceName(name string) string {
 	return name + "-" + string(Predictor) + "-" + InferenceServiceCanary
 }
 
-func DefaultExplainerServiceName(name string) string {
-	return name + "-" + string(Explainer) + "-" + InferenceServiceDefault
+func ExplainerServiceName(name string) string {
+	return name + "-" + string(Explainer)
 }
 
 func CanaryExplainerServiceName(name string) string {
 	return name + "-" + string(Explainer) + "-" + InferenceServiceCanary
 }
 
-func DefaultTransformerServiceName(name string) string {
-	return name + "-" + string(Transformer) + "-" + InferenceServiceDefault
+func TransformerServiceName(name string) string {
+	return name + "-" + string(Transformer)
 }
 
 func CanaryTransformerServiceName(name string) string {
 	return name + "-" + string(Transformer) + "-" + InferenceServiceCanary
-}
-
-func DefaultServiceName(name string, component InferenceServiceComponent) string {
-	return name + "-" + component.String() + "-" + InferenceServiceDefault
 }
 
 func CanaryServiceName(name string, component InferenceServiceComponent) string {
@@ -463,7 +648,7 @@ func ModelConfigName(inferenceserviceName string, shardId int) string {
 }
 
 func InferenceServicePrefix(name string) string {
-	return fmt.Sprintf("/v1/models/%s", name)
+	return "/v1/models/" + name
 }
 
 func PredictPath(name string, protocol InferenceServiceProtocol) string {
@@ -481,32 +666,25 @@ func ExplainPath(name string) string {
 }
 
 func PredictPrefix() string {
-	return fmt.Sprintf("^/v1/models/[\\w-]+(:predict)?")
+	return "^/v1/models/[\\w-]+(:predict)?"
 }
 
 func ExplainPrefix() string {
-	return fmt.Sprintf("^/v1/models/[\\w-]+:explain$")
+	return "^/v1/models/[\\w-]+:explain$"
+}
+
+// FallbackPrefix returns the regex pattern to match any path
+func FallbackPrefix() string {
+	return "^/.*$"
+}
+
+func PathBasedExplainPrefix() string {
+	return "(/v1/models/[\\w-]+:explain)$"
 }
 
 func VirtualServiceHostname(name string, predictorHostName string) string {
 	index := strings.Index(predictorHostName, ".")
 	return name + predictorHostName[index:]
-}
-
-func PredictorURL(metadata metav1.ObjectMeta, isCanary bool) string {
-	serviceName := DefaultPredictorServiceName(metadata.Name)
-	if isCanary {
-		serviceName = CanaryPredictorServiceName(metadata.Name)
-	}
-	return fmt.Sprintf("%s.%s", serviceName, metadata.Namespace)
-}
-
-func TransformerURL(metadata metav1.ObjectMeta, isCanary bool) string {
-	serviceName := DefaultTransformerServiceName(metadata.Name)
-	if isCanary {
-		serviceName = CanaryTransformerServiceName(metadata.Name)
-	}
-	return fmt.Sprintf("%s.%s", serviceName, metadata.Namespace)
 }
 
 // Should only match 1..65535, but for simplicity it matches 0-99999.
@@ -515,13 +693,13 @@ const portMatch = `(?::\d{1,5})?`
 // HostRegExp returns an ECMAScript regular expression to match either host or host:<any port>
 // for clusterLocalHost, we will also match the prefixes.
 func HostRegExp(host string) string {
-	localDomainSuffix := ".svc." + network.GetClusterDomainName()
+	localDomainSuffix := "(?i).svc." + network.GetClusterDomainName()
 	if !strings.HasSuffix(host, localDomainSuffix) {
 		return exact(regexp.QuoteMeta(host) + portMatch)
 	}
 	prefix := regexp.QuoteMeta(strings.TrimSuffix(host, localDomainSuffix))
-	clusterSuffix := regexp.QuoteMeta("." + network.GetClusterDomainName())
-	svcSuffix := regexp.QuoteMeta(".svc")
+	clusterSuffix := regexp.QuoteMeta("(?i)." + network.GetClusterDomainName())
+	svcSuffix := regexp.QuoteMeta("(?i).svc")
 	return exact(prefix + optional(svcSuffix+optional(clusterSuffix)) + portMatch)
 }
 
@@ -561,4 +739,25 @@ func GetProtocolVersionString(protocol ProtocolVersion) InferenceServiceProtocol
 	default:
 		return ProtocolUnknown
 	}
+}
+
+func GetRouterReadinessProbe() *corev1.Probe {
+	probe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: RouterReadinessEndpoint,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: RouterPort,
+				},
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		InitialDelaySeconds: 5,
+		TimeoutSeconds:      2,
+		PeriodSeconds:       5,
+		SuccessThreshold:    1,
+		FailureThreshold:    3,
+	}
+	return probe
 }

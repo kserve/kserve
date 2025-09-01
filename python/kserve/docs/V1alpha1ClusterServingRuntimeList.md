@@ -1,6 +1,6 @@
 # V1alpha1ClusterServingRuntimeList
 
-ServingRuntimeList contains a list of ServingRuntime
+ClusterServingRuntimeList contains a list of ServingRuntime
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

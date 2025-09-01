@@ -17,9 +17,14 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/kserve/kserve/pkg/constants"
+	"errors"
+
+	"gopkg.in/go-playground/validator.v9"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 // +k8s:openapi-gen=true
@@ -36,6 +41,16 @@ type SupportedModelFormat struct {
 	// this model format is specified with no explicit runtime.
 	// +optional
 	AutoSelect *bool `json:"autoSelect,omitempty"`
+
+	// +kubebuilder:validation:Minimum=1
+
+	// Priority of this serving runtime for auto selection.
+	// This is used to select the serving runtime if more than one serving runtime supports the same model format.
+	// The value should be greater than zero.  The higher the value, the higher the priority.
+	// Priority is not considered if AutoSelect is either false or not specified.
+	// Priority can be overridden by specifying the runtime in the InferenceService.
+	// +optional
+	Priority *int32 `json:"priority,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -92,6 +107,11 @@ type ServingRuntimePodSpec struct {
 	// +patchMergeKey=name
 	// +patchStrategy=merge
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
+	// Use the host's ipc namespace.
+	// Optional: Default to false.
+	// +k8s:conversion-gen=false
+	// +optional
+	HostIPC bool `json:"hostIPC,omitempty" protobuf:"varint,13,opt,name=hostIPC"`
 
 	// Possibly other things here
 }
@@ -115,6 +135,10 @@ type ServingRuntimeSpec struct {
 	// Supported protocol versions (i.e. v1 or v2 or grpc-v1 or grpc-v2)
 	// +optional
 	ProtocolVersions []constants.InferenceServiceProtocol `json:"protocolVersions,omitempty"`
+
+	// Set WorkerSpec to enable multi-node/multi-gpu
+	// +optional
+	WorkerSpec *WorkerSpec `json:"workerSpec,omitempty"`
 
 	ServingRuntimePodSpec `json:",inline"`
 
@@ -151,8 +175,7 @@ type ServingRuntimeSpec struct {
 
 // ServingRuntimeStatus defines the observed state of ServingRuntime
 // +k8s:openapi-gen=true
-type ServingRuntimeStatus struct {
-}
+type ServingRuntimeStatus struct{}
 
 // ServerType constant for specifying the runtime name
 // +k8s:openapi-gen=true
@@ -185,7 +208,6 @@ type BuiltInAdapter struct {
 
 // ServingRuntime is the Schema for the servingruntimes API
 // +k8s:openapi-gen=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Disabled",type="boolean",JSONPath=".spec.disabled"
@@ -211,7 +233,6 @@ type ServingRuntimeList struct {
 
 // ClusterServingRuntime is the Schema for the servingruntimes API
 // +k8s:openapi-gen=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope="Cluster"
@@ -227,7 +248,7 @@ type ClusterServingRuntime struct {
 	Status ServingRuntimeStatus `json:"status,omitempty"`
 }
 
-// ServingRuntimeList contains a list of ServingRuntime
+// ClusterServingRuntimeList contains a list of ServingRuntime
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 type ClusterServingRuntimeList struct {
@@ -240,6 +261,22 @@ type ClusterServingRuntimeList struct {
 type SupportedRuntime struct {
 	Name string
 	Spec ServingRuntimeSpec
+}
+
+// WorkerSpec is the schema for multi-node/multi-GPU feature
+type WorkerSpec struct {
+	ServingRuntimePodSpec `json:",inline"`
+
+	// PipelineParallelSize defines the number of parallel workers.
+	// It specifies the number of model partitions across multiple devices, allowing large models to be split and processed concurrently across these partitions
+	// It also represents the number of replicas in the worker set, where each worker set serves as a scaling unit.
+	// +optional
+	PipelineParallelSize *int `json:"pipelineParallelSize,omitempty"`
+
+	// TensorParallelSize specifies the number of GPUs to be used per node.
+	// It indicates the degree of parallelism for tensor computations across the available GPUs.
+	// +optional
+	TensorParallelSize *int `json:"tensorParallelSize,omitempty"`
 }
 
 func init() {
@@ -255,6 +292,10 @@ func (srSpec *ServingRuntimeSpec) IsMultiModelRuntime() bool {
 	return srSpec.MultiModel != nil && *srSpec.MultiModel
 }
 
+func (srSpec *ServingRuntimeSpec) IsMultiNodeRuntime() bool {
+	return srSpec.WorkerSpec != nil
+}
+
 func (srSpec *ServingRuntimeSpec) IsProtocolVersionSupported(modelProtocolVersion constants.InferenceServiceProtocol) bool {
 	if len(modelProtocolVersion) == 0 || srSpec.ProtocolVersions == nil || len(srSpec.ProtocolVersions) == 0 {
 		return true
@@ -265,4 +306,56 @@ func (srSpec *ServingRuntimeSpec) IsProtocolVersionSupported(modelProtocolVersio
 		}
 	}
 	return false
+}
+
+// GetPriority returns the priority of the specified model. It returns nil if priority is not set or the model is not found.
+func (srSpec *ServingRuntimeSpec) GetPriority(modelName string) *int32 {
+	for _, model := range srSpec.SupportedModelFormats {
+		if model.Name == modelName {
+			return model.Priority
+		}
+	}
+	return nil
+}
+
+func (m *SupportedModelFormat) IsAutoSelectEnabled() bool {
+	return m.AutoSelect != nil && *m.AutoSelect
+}
+
+func (srSpec *ServingRuntimeSpec) IsValid() bool {
+	if err := srSpec.validatePodSpecAndWorkerSpec(); err != nil {
+		return false
+	}
+	return true
+}
+
+// common validation logic
+func (srSpec *ServingRuntimeSpec) validatePodSpecAndWorkerSpec() error {
+	// Respect for ServingRuntimePodSpec validate fields
+	if err := validate.Struct(srSpec.ServingRuntimePodSpec); err != nil {
+		return err
+	}
+
+	// Additional validation for WorkerSpec
+	if srSpec.WorkerSpec != nil {
+		if len(srSpec.WorkerSpec.Containers) == 0 {
+			return errors.New("spec.workerSpec.containers: Required value")
+		}
+	}
+
+	return nil
+}
+
+var validate = validator.New()
+
+func (srSpec *ServingRuntimeSpec) ValidateCreate() error {
+	return srSpec.validatePodSpecAndWorkerSpec()
+}
+
+func (srSpec *ServingRuntimeSpec) ValidateUpdate(old runtime.Object) error {
+	return srSpec.validatePodSpecAndWorkerSpec()
+}
+
+func (srSpec *ServingRuntimeSpec) ValidateDelete() error {
+	return nil
 }

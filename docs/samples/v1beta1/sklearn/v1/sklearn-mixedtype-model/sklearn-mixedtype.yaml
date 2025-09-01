@@ -5,4 +5,4 @@ metadata:
 spec:
   predictor:
     sklearn:
-      storageUri: "gs://kfserving-examples/models/sklearn/1.0/mixedtype"
+      storageUri: "gs://kfserving-examples/models/sklearn/1.3/mixedtype"

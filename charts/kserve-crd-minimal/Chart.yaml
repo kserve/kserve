@@ -1,0 +1,9 @@
+apiVersion: v1
+name: kserve-crd-minimal
+version: v0.15.2
+description: Helm chart for deploying minimal kserve crds without validation
+keywords:
+  - kserve
+  - modelmesh
+sources:
+  - http://github.com/kserve/kserve

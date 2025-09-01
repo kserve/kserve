@@ -29,7 +29,7 @@ def to_np_dtype(dtype):
         "FP16": np.float16,
         "FP32": np.float32,
         "FP64": np.float64,
-        "BYTES": np.object_
+        "BYTES": np.object_,
     }
     return dtype_map.get(dtype, None)
 
@@ -59,6 +59,10 @@ def from_np_dtype(np_dtype):
         return "FP32"
     elif np_dtype == np.float64:
         return "FP64"
-    elif np_dtype == np.object_ or np_dtype.type == np.bytes_:
+    elif (
+        np_dtype == np.object_
+        or np_dtype.type == np.bytes_
+        or np.issubdtype(np_dtype, np.datetime64)
+    ):
         return "BYTES"
     return None

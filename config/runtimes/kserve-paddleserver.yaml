@@ -10,8 +10,10 @@ spec:
     - name: paddle
       version: "2"
       autoSelect: true
+      priority: 1
   protocolVersions:
     - v1
+    - v2
   containers:
     - name: kserve-container
       image: kserve-paddleserver:replace
@@ -19,6 +21,13 @@ spec:
         - --model_name={{.Name}}
         - --model_dir=/mnt/models
         - --http_port=8080
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
       resources:
         requests:
           cpu: "1"

@@ -50,7 +50,7 @@ python query_explain.py http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/${MODEL
 
 ## Build a Development AIX Model Explainer Docker Image
 
-If you would like to build a development image for the AIX Model Explainer then follow [these instructions](/python/aixexplainer#build-a-development-aix-model-explainer-docker-image)
+If you would like to build a development image for the AIX Model Explainer then follow [these instructions](https://github.com/kserve/kserve/tree/release-0.10/python/aixexplainer#build-a-development-aix-model-explainer-docker-image)
 
 ## Troubleshooting
 

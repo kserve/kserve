@@ -13,8 +13,10 @@
 # limitations under the License.
 
 import os
-from kserve.model_repository import ModelRepository, MODEL_MOUNT_DIRS
-from lgbserver import LightGBMModel
+
+from kserve.model_repository import MODEL_MOUNT_DIRS, ModelRepository
+
+from .model import LightGBMModel
 
 
 class LightGBMModelRepository(ModelRepository):

@@ -7,17 +7,35 @@
 # files that kustomize reads, modifies and emits as a
 # YAML string, with resources separated by document
 # markers ("---").
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
 resources:
-- serving.kserve.io_inferenceservices.yaml
-- serving.kserve.io_trainedmodels.yaml
-- serving.kserve.io_clusterservingruntimes.yaml
-- serving.kserve.io_servingruntimes.yaml
-- serving.kserve.io_inferencegraphs.yaml
-patchesJson6902:
-  # Fix for https://github.com/kubernetes/kubernetes/issues/91395
-  - target:
-      group: apiextensions.k8s.io
-      version: v1beta1
-      kind: CustomResourceDefinition
+- full/serving.kserve.io_inferenceservices.yaml
+- full/serving.kserve.io_trainedmodels.yaml
+- full/serving.kserve.io_clusterservingruntimes.yaml
+- full/serving.kserve.io_servingruntimes.yaml
+- full/serving.kserve.io_inferencegraphs.yaml
+- full/serving.kserve.io_clusterstoragecontainers.yaml
+- full/serving.kserve.io_localmodelcaches.yaml
+- full/serving.kserve.io_localmodelnodegroups.yaml
+- full/serving.kserve.io_localmodelnodes.yaml
+- full/serving.kserve.io_llminferenceservices.yaml
+- full/serving.kserve.io_llminferenceserviceconfigs.yaml
+
+patches:
+# Fix for https://github.com/kubernetes/kubernetes/issues/91395
+- path: patches/protocol.yaml
+  target:
+    group: apiextensions.k8s.io
+    version: v1beta1
+    kind: CustomResourceDefinition
+    name: inferenceservices.serving.kserve.io
+
+# Work around for https://github.com/kubernetes-sigs/kustomize/issues/5031. Can be removed once the issue is fixed.
+- patch: |-
+    apiVersion: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    metadata:
+      creationTimestamp: null
       name: inferenceservices.serving.kserve.io
-    path: patches/protocol.yaml

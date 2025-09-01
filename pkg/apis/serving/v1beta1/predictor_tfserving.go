@@ -17,23 +17,23 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"errors"
 	"strings"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
 var (
-	TensorflowEntrypointCommand          = "/usr/bin/tensorflow_model_server"
-	TensorflowServingGRPCPort            = "9000"
-	TensorflowServingRestPort            = "8080"
-	TensorflowServingGPUSuffix           = "-gpu"
-	InvalidTensorflowRuntimeVersionError = "Tensorflow RuntimeVersion must be one of %s"
-	InvalidTensorflowRuntimeIncludesGPU  = "Tensorflow RuntimeVersion is not GPU enabled but GPU resources are requested. " + InvalidTensorflowRuntimeVersionError
-	InvalidTensorflowRuntimeExcludesGPU  = "Tensorflow RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidTensorflowRuntimeVersionError
+	TensorflowEntrypointCommand         = "/usr/bin/tensorflow_model_server"
+	TensorflowServingGRPCPort           = "9000"
+	TensorflowServingRestPort           = "8080"
+	TensorflowServingGPUSuffix          = "-gpu"
+	InvalidTensorflowRuntimeIncludesGPU = "Tensorflow RuntimeVersion is not GPU enabled but GPU resources are requested"
+	InvalidTensorflowRuntimeExcludesGPU = "Tensorflow RuntimeVersion is GPU enabled but GPU resources are not requested"
 )
 
 // TFServingSpec defines arguments for configuring Tensorflow model serving.
@@ -42,14 +42,11 @@ type TFServingSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &TFServingSpec{}
-)
+var _ ComponentImplementation = &TFServingSpec{}
 
 // Validate returns an error if invalid
 func (t *TFServingSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
-		validateStorageURI(t.GetStorageUri()),
 		t.validateGPU(),
 		validateStorageSpec(t.GetStorageSpec(), t.GetStorageUri()),
 	})
@@ -60,11 +57,11 @@ func (t *TFServingSpec) validateGPU() error {
 		return nil
 	}
 	if utils.IsGPUEnabled(t.Resources) && !strings.Contains(*t.RuntimeVersion, TensorflowServingGPUSuffix) {
-		return fmt.Errorf(InvalidTensorflowRuntimeIncludesGPU)
+		return errors.New(InvalidTensorflowRuntimeIncludesGPU)
 	}
 
 	if !utils.IsGPUEnabled(t.Resources) && strings.Contains(*t.RuntimeVersion, TensorflowServingGPUSuffix) {
-		return fmt.Errorf(InvalidTensorflowRuntimeExcludesGPU)
+		return errors.New(InvalidTensorflowRuntimeExcludesGPU)
 	}
 	return nil
 }
@@ -72,13 +69,16 @@ func (t *TFServingSpec) validateGPU() error {
 // Default sets defaults on the resource
 func (t *TFServingSpec) Default(config *InferenceServicesConfig) {
 	t.Container.Name = constants.InferenceServiceContainerName
-	setResourceRequirementDefaults(&t.Resources)
+	setResourceRequirementDefaults(config, &t.Resources)
 }
 
-func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *corev1.Container {
 	return &t.Container
 }
 
 func (t *TFServingSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if t.ProtocolVersion != nil {
+		return *t.ProtocolVersion
+	}
 	return constants.ProtocolV1
 }

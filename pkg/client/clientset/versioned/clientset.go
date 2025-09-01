@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KServe Authors.
+Copyright 2023 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,9 +19,10 @@ limitations under the License.
 package versioned
 
 import (
-	"fmt"
-	"net/http"
+	fmt "fmt"
+	http "net/http"
 
+	servingv1alpha1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	servingv1beta1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1beta1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
@@ -30,14 +31,20 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
+	ServingV1alpha1() servingv1alpha1.ServingV1alpha1Interface
 	ServingV1beta1() servingv1beta1.ServingV1beta1Interface
 }
 
-// Clientset contains the clients for groups. Each group has exactly one
-// version included in a Clientset.
+// Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	servingV1beta1 *servingv1beta1.ServingV1beta1Client
+	servingV1alpha1 *servingv1alpha1.ServingV1alpha1Client
+	servingV1beta1  *servingv1beta1.ServingV1beta1Client
+}
+
+// ServingV1alpha1 retrieves the ServingV1alpha1Client
+func (c *Clientset) ServingV1alpha1() servingv1alpha1.ServingV1alpha1Interface {
+	return c.servingV1alpha1
 }
 
 // ServingV1beta1 retrieves the ServingV1beta1Client
@@ -89,6 +96,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 
 	var cs Clientset
 	var err error
+	cs.servingV1alpha1, err = servingv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.servingV1beta1, err = servingv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -114,6 +125,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
+	cs.servingV1alpha1 = servingv1alpha1.New(c)
 	cs.servingV1beta1 = servingv1beta1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)

@@ -1,0 +1,27 @@
+[project]
+authors = [
+    {name = "The KServe Authors", email = "dsun20@bloomberg.net"},
+    {name = "The KServe Authors", email = "fspolti@redhat.com"},
+]
+license = {text = "https://github.com/kserve/kserve/blob/master/LICENSE"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "requests<3.0.0,>=2.32.2",
+    "google-cloud-storage<3.0.0,>=2.14.0",
+    "azure-storage-blob<13.0.0,>=12.20.0",
+    "azure-storage-file-share<13.0.0,>=12.16.0",
+    "azure-identity<2.0.0,>=1.15.0",
+    "boto3<2.0.0,>=1.29.0",
+    "huggingface-hub[hf-transfer]>=0.32.0",
+]
+name = "kserve-storage"
+version = "0.15.2"
+readme = "README.md"
+description = "KServe Storage Handler. This module is responsible to download the models from the provided source"
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+

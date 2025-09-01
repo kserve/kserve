@@ -21,8 +21,14 @@
 # agent and storage-initializer.
 sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice.yaml
 
-# Update runtimes
-sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/runtimes/kustomization.yaml
+# Update cluster resources
+sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/clusterresources/kustomization.yaml
 
 # Update controller image tag
 sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/manager_image_patch.yaml
+
+# Update localmodel controller image tag
+sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/localmodel_manager_image_patch.yaml
+
+# Update localmodel agent image tag
+sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/localmodelnode_agent_image_patch.yaml

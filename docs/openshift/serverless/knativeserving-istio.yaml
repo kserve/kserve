@@ -1,0 +1,20 @@
+apiVersion: operator.knative.dev/v1beta1
+kind: KnativeServing
+metadata:
+  name: knative-serving
+  namespace: knative-serving
+  annotations:
+    serverless.openshift.io/default-enable-http2: "true"
+spec:
+  deployments:
+    - annotations:
+        sidecar.istio.io/inject: "true"
+        sidecar.istio.io/rewriteAppHTTPProbers: "true"
+      name: activator
+    - annotations:
+        sidecar.istio.io/inject: "true"
+        sidecar.istio.io/rewriteAppHTTPProbers: "true"
+      name: autoscaler
+  ingress:
+    istio:
+      enabled: true

@@ -1,3 +1,19 @@
+/*
+Copyright 2023 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package main
 
 import (
@@ -9,18 +25,16 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/go-logr/zapr"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/kserve/kserve/pkg/agent"
-	"github.com/kserve/kserve/pkg/agent/storage"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/batcher"
-	kfslogger "github.com/kserve/kserve/pkg/logger"
 	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
-	network "knative.dev/networking/pkg"
+	"knative.dev/networking/pkg/http/header"
+	proxy "knative.dev/networking/pkg/http/proxy"
 	pkglogging "knative.dev/pkg/logging"
 	pkgnet "knative.dev/pkg/network"
 	pkghandler "knative.dev/pkg/network/handlers"
@@ -28,37 +42,50 @@ import (
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
 	"knative.dev/serving/pkg/queue/readiness"
+	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/kserve/kserve/pkg/agent"
+	"github.com/kserve/kserve/pkg/agent/storage"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/batcher"
+	kfslogger "github.com/kserve/kserve/pkg/logger"
 )
 
 var (
 	port          = flag.String("port", "9081", "Agent port")
-	componentPort = flag.String("component-port", "8080", "Component port")
+	componentPort = flag.Int("component-port", 8080, "Component port")
 	// model puller flags
 	enablePuller = flag.Bool("enable-puller", false, "Enable model puller")
 	configDir    = flag.String("config-dir", "/mnt/configs", "directory for model config files")
 	modelDir     = flag.String("model-dir", "/mnt/models", "directory for model files")
 	// logger flags
-	logUrl           = flag.String("log-url", "", "The URL to send request/response logs to")
-	workers          = flag.Int("workers", 5, "Number of workers")
-	sourceUri        = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
-	logMode          = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
-	inferenceService = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
-	namespace        = flag.String("namespace", "", "The namespace to add as header to log events")
-	endpoint         = flag.String("endpoint", "", "The endpoint name to add as header to log events")
-	component        = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
+	logUrl              = flag.String("log-url", "", "The URL to send request/response logs to")
+	workers             = flag.Int("workers", 5, "Number of workers")
+	sourceUri           = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
+	logMode             = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
+	logStorePath        = flag.String("log-store-path", "", "The path to the log output")
+	logStoreFormat      = flag.String("log-store-format", "json", "Format for log output, 'json' or 'yaml'")
+	inferenceService    = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
+	namespace           = flag.String("namespace", "", "The namespace to add as header to log events")
+	endpoint            = flag.String("endpoint", "", "The endpoint name to add as header to log events")
+	component           = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
+	metadataHeaders     = flag.StringSlice("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
+	metadataAnnotations = flag.StringSlice("metadata-annotations", nil, "Allow list of metadata annotation to be passed with payload logging")
 	// batcher flags
 	enableBatcher = flag.Bool("enable-batcher", false, "Enable request batcher")
 	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
 	maxLatency    = flag.String("max-latency", "5000", "Max Latency in milliseconds")
 	// probing flags
-	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout")
+	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout") //nolint: unused
 	// This creates an abstract socket instead of an actual file.
 	unixSocketPath = "@/kserve/agent.sock"
+	CaCertFile     = flag.String("logger-ca-cert-file", "service-ca.crt", "The logger CA certificate file")
+	TlsSkipVerify  = flag.Bool("logger-tls-skip-verify", false, "Skip verification of TLS certificate")
 )
 
 const (
 	// reportingPeriod is the interval of time between reporting stats by queue proxy.
-	reportingPeriod = 1 * time.Second
+	reportingPeriod = 1 * time.Second //nolint: unused
 
 	// Duration the /wait-for-drain handler should wait before returning.
 	// This is to give networking a little bit more time to remove the pod
@@ -67,12 +94,15 @@ const (
 )
 
 type config struct {
-	//Making the below fields optional since raw deployment wont have them
+	// Making the below fields optional since raw deployment won't have them
 	ContainerConcurrency   int    `split_words:"true"`
 	QueueServingPort       int    `split_words:"true"`
 	UserPort               int    `split_words:"true"`
 	RevisionTimeoutSeconds int    `split_words:"true"`
 	ServingReadinessProbe  string `split_words:"true" required:"true"`
+	// See https://github.com/knative/serving/issues/12387
+	EnableHTTP2AutoDetection   bool `envconfig:"ENABLE_HTTP2_AUTO_DETECTION"` // optional
+	EnableMultiContainerProbes bool `split_words:"true"`
 	// Logging configuration
 	ServingLoggingConfig         string `split_words:"true"`
 	ServingLoggingLevel          string `split_words:"true"`
@@ -89,6 +119,10 @@ type loggerArgs struct {
 	namespace        string
 	endpoint         string
 	component        string
+	metadataHeaders  []string
+	annotations      map[string]string
+	certName         string
+	tlsSkipVerify    bool
 }
 
 type batcherArgs struct {
@@ -106,10 +140,11 @@ func main() {
 	}
 
 	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
+	ctrl.SetLogger(zapr.NewLogger(logger.Desugar()))
 	// Setup probe to run for checking user container healthiness.
 	probe := func() bool { return true }
 	if env.ServingReadinessProbe != "" {
-		probe = buildProbe(logger, env.ServingReadinessProbe).ProbeContainer
+		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection, env.EnableMultiContainerProbes).ProbeContainer
 	}
 
 	if *enablePuller {
@@ -120,7 +155,7 @@ func main() {
 	var loggerArgs *loggerArgs
 	if *logUrl != "" {
 		logger.Info("Starting logger")
-		loggerArgs = startLogger(*workers, logger)
+		loggerArgs = startLogger(*workers, logStorePath, logStoreFormat, logger)
 	}
 
 	var batcherArgs *batcherArgs
@@ -130,7 +165,7 @@ func main() {
 	}
 	logger.Info("Starting agent http server...")
 	ctx := signals.NewContext()
-	mainServer, drain := buildServer(ctx, *port, *componentPort, loggerArgs, batcherArgs, probe, logger)
+	mainServer, drain := buildServer(*port, *componentPort, loggerArgs, batcherArgs, probe, logger)
 	servers := map[string]*http.Server{
 		"main": mainServer,
 	}
@@ -170,7 +205,16 @@ func main() {
 			errCh <- fmt.Errorf("failed to listen to unix socket: %w", err)
 			return
 		}
-		if err := http.Serve(l, mainServer.Handler); err != nil {
+		// Create an http.Server instance with timeouts
+		// https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
+		ServerInstance := &http.Server{
+			Handler:           mainServer.Handler, // specify your HTTP handler
+			ReadHeaderTimeout: time.Minute,        // set the maximum duration for reading the entire request, including the body
+			WriteTimeout:      time.Minute,        // set the maximum duration before timing out writes of the response
+			IdleTimeout:       3 * time.Minute,    // set the maximum amount of time to wait for the next request when keep-alives are enabled
+		}
+
+		if err := ServerInstance.Serve(l); err != nil {
 			errCh <- fmt.Errorf("serving failed on unix socket: %w", err)
 		}
 	}()
@@ -182,7 +226,9 @@ func main() {
 	case err := <-errCh:
 		logger.Errorw("Failed to bring up agent, shutting down.", zap.Error(err))
 		// This extra flush is needed because defers are not handled via os.Exit calls.
-		logger.Sync()
+		if err := logger.Sync(); err != nil {
+			logger.Errorf("Error syncing logger: %v", err)
+		}
 		os.Stdout.Sync()
 		os.Stderr.Sync()
 		os.Exit(1)
@@ -220,18 +266,18 @@ func startBatcher(logger *zap.SugaredLogger) *batcherArgs {
 	}
 }
 
-func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
+func startLogger(workers int, logStorePath *string, logStoreFormat *string, log *zap.SugaredLogger) *loggerArgs {
 	loggingMode := v1beta1.LoggerType(*logMode)
 	switch loggingMode {
 	case v1beta1.LogAll, v1beta1.LogRequest, v1beta1.LogResponse:
 	default:
-		logger.Errorf("Malformed log-mode %s", *logMode)
+		log.Errorf("Malformed log-mode %s", *logMode)
 		os.Exit(-1)
 	}
 
 	logUrlParsed, err := url.Parse(*logUrl)
 	if err != nil {
-		logger.Errorf("Malformed log-url %s", *logUrl)
+		log.Errorf("Malformed log-url %s", *logUrl)
 		os.Exit(-1)
 	}
 
@@ -241,11 +287,35 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 
 	sourceUriParsed, err := url.Parse(*sourceUri)
 	if err != nil {
-		logger.Errorf("Malformed source_uri %s", *sourceUri)
+		log.Errorf("Malformed source_uri %s", *sourceUri)
 		os.Exit(-1)
 	}
-	logger.Info("Starting the log dispatcher")
-	kfslogger.StartDispatcher(workers, logger)
+
+	annotationKVPair := map[string]string{}
+	for _, annotations := range *metadataAnnotations {
+		k, v, found := strings.Cut(annotations, "=")
+		if found {
+			annotationKVPair[k] = v
+		} else {
+			log.Errorf("annotation does not adhere to desired format got key: %s value: %s", k, v)
+			os.Exit(-1)
+		}
+	}
+
+	var store kfslogger.Store
+	if kfslogger.GetStorageStrategy(*logUrl) != kfslogger.HttpStorage {
+		if logStoreFormat != nil && *logStoreFormat != "" && logStorePath != nil && *logStorePath != "" {
+			log.Infow("Logger storage is enabled", "path", logStorePath, "logStoreFormat", logStoreFormat)
+			store, err = kfslogger.NewStoreForScheme(logUrlParsed.Scheme, *logStorePath, *logStoreFormat, log)
+			if err != nil {
+				log.Errorw("Error creating logger store", zap.Error(err))
+				os.Exit(-1)
+			}
+		}
+	}
+
+	log.Info("Starting the log dispatcher")
+	kfslogger.StartDispatcher(workers, store, log)
 	return &loggerArgs{
 		loggerType:       loggingMode,
 		logUrl:           logUrlParsed,
@@ -254,6 +324,10 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		endpoint:         *endpoint,
 		namespace:        *namespace,
 		component:        *component,
+		metadataHeaders:  *metadataHeaders,
+		annotations:      annotationKVPair,
+		certName:         *CaCertFile,
+		tlsSkipVerify:    *TlsSkipVerify,
 	}
 }
 
@@ -269,26 +343,31 @@ func startModelPuller(logger *zap.SugaredLogger) {
 	go watcher.Start()
 }
 
-func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
-	coreProbe, err := readiness.DecodeProbe(probeJSON)
+func buildProbe(logger *zap.SugaredLogger, probeJSON string, autodetectHTTP2 bool, multiContainerProbes bool) *readiness.Probe {
+	coreProbes, err := readiness.DecodeProbes(probeJSON, multiContainerProbes)
 	if err != nil {
 		logger.Fatalw("Agent failed to parse readiness probe", zap.Error(err))
 		panic("Agent failed to parse readiness probe")
 	}
-	newProbe := readiness.NewProbe(coreProbe)
-	if newProbe.InitialDelaySeconds == 0 {
-		newProbe.InitialDelaySeconds = 10
+	for _, probe := range coreProbes {
+		if probe.InitialDelaySeconds == 0 {
+			probe.InitialDelaySeconds = 10
+		}
 	}
+	if autodetectHTTP2 {
+		return readiness.NewProbeWithHTTP2AutoDetection(coreProbes)
+	}
+	newProbe := readiness.NewProbe(coreProbes)
 	return newProbe
 }
 
-func buildServer(ctx context.Context, port string, userPort string, loggerArgs *loggerArgs, batcherArgs *batcherArgs,
-	probeContainer func() bool, logging *zap.SugaredLogger) (server *http.Server, drain func()) {
-
-	logging.Infof("Building server user port %s port %s", userPort, port)
+func buildServer(port string, userPort int, loggerArgs *loggerArgs, batcherArgs *batcherArgs,
+	probeContainer func() bool, logging *zap.SugaredLogger,
+) (server *http.Server, drain func()) {
+	logging.Infof("Building server user port %d port %s", userPort, port)
 	target := &url.URL{
 		Scheme: "http",
-		Host:   net.JoinHostPort("127.0.0.1", userPort),
+		Host:   net.JoinHostPort("127.0.0.1", strconv.Itoa(userPort)),
 	}
 
 	maxIdleConns := 1000 // TODO: somewhat arbitrary value for CC=0, needs experimental validation.
@@ -296,8 +375,8 @@ func buildServer(ctx context.Context, port string, userPort string, loggerArgs *
 	httpProxy := httputil.NewSingleHostReverseProxy(target)
 	httpProxy.Transport = pkgnet.NewAutoTransport(maxIdleConns /* max-idle */, maxIdleConns /* max-idle-per-host */)
 	httpProxy.ErrorHandler = pkghandler.Error(logging)
-	httpProxy.BufferPool = network.NewBufferPool()
-	httpProxy.FlushInterval = network.FlushInterval
+	httpProxy.BufferPool = proxy.NewBufferPool()
+	httpProxy.FlushInterval = proxy.FlushInterval
 
 	// Create handler chain.
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
@@ -308,7 +387,8 @@ func buildServer(ctx context.Context, port string, userPort string, loggerArgs *
 	}
 	if loggerArgs != nil {
 		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
-			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler)
+			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler,
+			loggerArgs.metadataHeaders, loggerArgs.certName, loggerArgs.annotations, loggerArgs.tlsSkipVerify)
 	}
 
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
@@ -316,7 +396,7 @@ func buildServer(ctx context.Context, port string, userPort string, loggerArgs *
 	drainer := &pkghandler.Drainer{
 		QuietPeriod: drainSleepDuration,
 		// Add Activator probe header to the drainer so it can handle probes directly from activator
-		HealthCheckUAPrefixes: []string{network.ActivatorUserAgent},
+		HealthCheckUAPrefixes: []string{header.ActivatorUserAgent},
 		Inner:                 composedHandler,
 		HealthCheck:           health.ProbeHandler(probeContainer, false),
 	}

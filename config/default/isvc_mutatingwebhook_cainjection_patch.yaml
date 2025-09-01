@@ -1,0 +1,8 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: inferenceservice.serving.kserve.io
+  annotations:
+    cert-manager.io/inject-ca-from: $(kserveNamespace)/serving-cert
+webhooks:
+  - name: inferenceservice.kserve-webhook-server.defaulter

@@ -11,6 +11,10 @@
   value: protocol
 
 - op: add
+  path: /spec/validation/openAPIV3Schema/properties/spec/properties/predictor/properties/huggingface/properties/ports/items/required/1
+  value: protocol
+
+- op: add
   path: /spec/validation/openAPIV3Schema/properties/spec/properties/predictor/properties/sklearn/properties/ports/items/required/1
   value: protocol
 
@@ -47,13 +51,5 @@
   value: protocol
 
 - op: add
-  path: /spec/validation/openAPIV3Schema/properties/spec/properties/explainer/properties/aix/properties/ports/items/required/1
-  value: protocol
-
-- op: add
   path: /spec/validation/openAPIV3Schema/properties/spec/properties/explainer/properties/art/properties/ports/items/required/1
-  value: protocol
-
-- op: add
-  path: /spec/validation/openAPIV3Schema/properties/spec/properties/explainer/properties/alibi/properties/ports/items/required/1
   value: protocol

@@ -1,4 +1,5 @@
 /*
+Copyright 2023 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,10 +22,11 @@ import (
 	"os"
 	"strings"
 
-	kserve "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/common"
 	spec "k8s.io/kube-openapi/pkg/validation/spec"
+
+	kserve "github.com/kserve/kserve/pkg/openapi"
 )
 
 // Generate OpenAPI spec definitions for InferenceService Resource
@@ -65,13 +67,13 @@ func main() {
 }
 
 func swaggify(name string) string {
-	name = strings.Replace(name, "github.com/kserve/kserve/pkg/apis/serving/", "", -1)
-	name = strings.Replace(name, "./pkg/apis/serving/", "", -1)
-	name = strings.Replace(name, "knative.dev/pkg/apis/duck/v1.", "knative/", -1)
-	name = strings.Replace(name, "knative.dev/pkg/apis.", "knative/", -1)
-	name = strings.Replace(name, "k8s.io/api/core/", "", -1)
-	name = strings.Replace(name, "k8s.io/apimachinery/pkg/apis/meta/", "", -1)
-	name = strings.Replace(name, "k8s.io/apimachinery/pkg/api/", "", -1)
-	name = strings.Replace(name, "/", ".", -1)
+	name = strings.ReplaceAll(name, "github.com/kserve/kserve/pkg/apis/serving/", "")
+	name = strings.ReplaceAll(name, "./pkg/apis/serving/", "")
+	name = strings.ReplaceAll(name, "knative.dev/pkg/apis/duck/v1.", "knative/")
+	name = strings.ReplaceAll(name, "knative.dev/pkg/apis.", "knative/")
+	name = strings.ReplaceAll(name, "k8s.io/api/core/", "")
+	name = strings.ReplaceAll(name, "k8s.io/apimachinery/pkg/apis/meta/", "")
+	name = strings.ReplaceAll(name, "k8s.io/apimachinery/pkg/api/", "")
+	name = strings.ReplaceAll(name, "/", ".")
 	return name
 }

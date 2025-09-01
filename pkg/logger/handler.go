@@ -17,19 +17,60 @@ limitations under the License.
 package logger
 
 import (
+	"bufio"
 	"bytes"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
+	"slices"
 
 	"github.com/go-logr/logr"
 	guuid "github.com/google/uuid"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"knative.dev/pkg/network"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
+
+// loggingResponseWriter is a wrapper around an http.ResponseWriter that logs the response body
+// It implements the http.ResponseWriter and http.Flusher interfaces
+type loggingResponseWriter struct {
+	http.ResponseWriter // the original http.ResponseWriter
+	http.Flusher
+	statusCode     int
+	responseBuffer *bytes.Buffer // buffer to store the response body for logging
+	log            logr.Logger
+}
+
+func (w *loggingResponseWriter) Write(b []byte) (int, error) {
+	n, err := w.responseBuffer.Write(b)
+	if err != nil {
+		w.log.Error(err, "Failed to write response buffer")
+		return n, err
+	}
+	n, err = w.ResponseWriter.Write(b)
+	if err != nil {
+		w.log.Error(err, "Failed to write response")
+		return n, err
+	}
+	return n, nil
+}
+
+func (w *loggingResponseWriter) WriteHeader(statusCode int) {
+	w.statusCode = statusCode
+	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+func (w *loggingResponseWriter) Header() http.Header {
+	return w.ResponseWriter.Header()
+}
+
+func (w *loggingResponseWriter) Flush() {
+	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
 
 type LoggerHandler struct {
 	log              logr.Logger
@@ -41,10 +82,16 @@ type LoggerHandler struct {
 	component        string
 	endpoint         string
 	next             http.Handler
+	metadataHeaders  []string
+	annotations      map[string]string
+	certName         string
+	tlsSkipVerify    bool
 }
 
 func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
-	inferenceService string, namespace string, endpoint string, component string, next http.Handler) http.Handler {
+	inferenceService string, namespace string, endpoint string, component string, next http.Handler, metadataHeaders []string,
+	certName string, annotations map[string]string, tlsSkipVerify bool,
+) http.Handler {
 	logf.SetLogger(zap.New())
 	return &LoggerHandler{
 		log:              logf.Log.WithName("Logger"),
@@ -56,15 +103,11 @@ func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
 		component:        component,
 		endpoint:         endpoint,
 		next:             next,
+		annotations:      annotations,
+		metadataHeaders:  metadataHeaders,
+		certName:         certName,
+		tlsSkipVerify:    tlsSkipVerify,
 	}
-}
-
-func getOrCreateID(r *http.Request) string {
-	id := r.Header.Get(CloudEventsIdHeader)
-	if id == "" {
-		id = guuid.New().String()
-	}
-	return id
 }
 
 // call svc and add send request/responses to logUrl
@@ -75,11 +118,22 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	// Read Payload
+	// Read request payload
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "can't read body", http.StatusBadRequest)
 		return
+	}
+
+	metadata := map[string][]string{}
+	if eh.metadataHeaders != nil {
+		// Loop over header names
+		for name, values := range r.Header {
+			// Loop over all values for the name.
+			if slices.Contains(eh.metadataHeaders, name) {
+				metadata[name] = values
+			}
+		}
 	}
 
 	// Get or Create an ID
@@ -91,13 +145,17 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Url:              eh.logUrl,
 			Bytes:            &body,
 			ContentType:      contentType,
-			ReqType:          InferenceRequest,
+			ReqType:          CEInferenceRequest,
 			Id:               id,
 			SourceUri:        eh.sourceUri,
 			InferenceService: eh.inferenceService,
 			Namespace:        eh.namespace,
 			Endpoint:         eh.endpoint,
 			Component:        eh.component,
+			Annotations:      eh.annotations,
+			Metadata:         metadata,
+			CertName:         eh.certName,
+			TlsSkipVerify:    eh.tlsSkipVerify,
 		}); err != nil {
 			eh.log.Error(err, "Failed to log request")
 		}
@@ -105,43 +163,46 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Proxy Request
 	r.Body = io.NopCloser(bytes.NewBuffer(body))
-	rr := httptest.NewRecorder()
-	eh.next.ServeHTTP(rr, r)
-	responseBody := rr.Body.Bytes()
-	contentType = rr.Header().Get("Content-Type")
-	if contentType != "" {
-		w.Header().Set("Content-Type", contentType)
+	// TODO: Set a reasonable initial buffer size
+	var responseBuf bytes.Buffer
+	lrw := &loggingResponseWriter{ResponseWriter: w, responseBuffer: &responseBuf, log: eh.log}
+	eh.next.ServeHTTP(lrw, r)
+	// Read the response body from the buffer
+	reader := bufio.NewReader(lrw.responseBuffer)
+	responseBody, err := io.ReadAll(reader)
+	if err != nil {
+		eh.log.Error(err, "Failed to read response body")
 	}
-	// log response if OK
-	if rr.Code == http.StatusOK {
+	// log Response
+	if lrw.statusCode == http.StatusOK {
 		if eh.logMode == v1beta1.LogAll || eh.logMode == v1beta1.LogResponse {
 			if err := QueueLogRequest(LogRequest{
 				Url:              eh.logUrl,
 				Bytes:            &responseBody,
 				ContentType:      contentType,
-				ReqType:          InferenceResponse,
+				ReqType:          CEInferenceResponse,
 				Id:               id,
 				SourceUri:        eh.sourceUri,
 				InferenceService: eh.inferenceService,
 				Namespace:        eh.namespace,
 				Endpoint:         eh.endpoint,
+				Annotations:      eh.annotations,
 				Component:        eh.component,
+				CertName:         eh.certName,
+				TlsSkipVerify:    eh.tlsSkipVerify,
 			}); err != nil {
 				eh.log.Error(err, "Failed to log response")
 			}
 		}
 	} else {
-		eh.log.Info("Failed to proxy request", "status code", rr.Code)
+		eh.log.Info("Failed to proxy request", "status code", lrw.statusCode)
 	}
+}
 
-	header := w.Header()
-	for k, v := range rr.Header() {
-		header[k] = v
+func getOrCreateID(r *http.Request) string {
+	id := r.Header.Get(CloudEventsIdHeader)
+	if id == "" {
+		id = guuid.New().String()
 	}
-	w.WriteHeader(rr.Code)
-	_, err = w.Write(rr.Body.Bytes())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	return id
 }

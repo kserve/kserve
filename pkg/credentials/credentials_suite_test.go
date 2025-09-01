@@ -18,19 +18,28 @@ package credentials
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
-	pkgtest "github.com/kserve/kserve/pkg/testing"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 )
 
-var cfg *rest.Config
-var c client.Client
+var (
+	cfg       *rest.Config
+	c         client.Client
+	clientset kubernetes.Interface
+)
 
 func TestMain(m *testing.M) {
-	t := pkgtest.SetupEnvTest()
+	crdDirectoryPaths := []string{
+		filepath.Join(pkgtest.ProjectRoot(), "test", "crds"),
+	}
+	t := pkgtest.SetupEnvTest(crdDirectoryPaths)
 	var err error
 	if cfg, err = t.Start(); err != nil {
 		log.Error(err, "Failed to start testing panel")
@@ -39,6 +48,10 @@ func TestMain(m *testing.M) {
 	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
 		log.Error(err, "Failed to start client")
 	}
+	if clientset, err = kubernetes.NewForConfig(cfg); err != nil {
+		log.Error(err, "Failed to create clientset")
+	}
+
 	code := m.Run()
 	t.Stop()
 	os.Exit(code)

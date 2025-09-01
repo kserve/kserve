@@ -17,8 +17,9 @@ limitations under the License.
 package s3
 
 import (
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/kserve/kserve/pkg/constants"
-	v1 "k8s.io/api/core/v1"
 )
 
 /*
@@ -28,7 +29,7 @@ Boto: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuratio
 */
 const (
 	AWSAccessKeyId         = "AWS_ACCESS_KEY_ID"
-	AWSSecretAccessKey     = "AWS_SECRET_ACCESS_KEY"
+	AWSSecretAccessKey     = "AWS_SECRET_ACCESS_KEY" // #nosec G101
 	AWSAccessKeyIdName     = "awsAccessKeyID"
 	AWSSecretAccessKeyName = "awsSecretAccessKey"
 	AWSEndpointUrl         = "AWS_ENDPOINT_URL"
@@ -37,8 +38,10 @@ const (
 	S3UseHttps             = "S3_USE_HTTPS"
 	S3VerifySSL            = "S3_VERIFY_SSL"
 	S3UseVirtualBucket     = "S3_USER_VIRTUAL_BUCKET"
+	S3UseAccelerate        = "S3_USE_ACCELERATE"
 	AWSAnonymousCredential = "awsAnonymousCredential"
 	AWSCABundle            = "AWS_CA_BUNDLE"
+	AWSCABundleConfigMap   = "AWS_CA_BUNDLE_CONFIGMAP"
 )
 
 type S3Config struct {
@@ -49,21 +52,25 @@ type S3Config struct {
 	S3Region                 string `json:"s3Region,omitempty"`
 	S3VerifySSL              string `json:"s3VerifySSL,omitempty"`
 	S3UseVirtualBucket       string `json:"s3UseVirtualBucket,omitempty"`
+	S3UseAccelerate          string `json:"s3UseAccelerate,omitempty"`
 	S3UseAnonymousCredential string `json:"s3UseAnonymousCredential,omitempty"`
+	S3CABundleConfigMap      string `json:"s3CABundleConfigMap,omitempty"`
 	S3CABundle               string `json:"s3CABundle,omitempty"`
 }
 
 var (
-	InferenceServiceS3SecretEndpointAnnotation   = constants.KServeAPIGroupName + "/" + "s3-endpoint"
-	InferenceServiceS3SecretRegionAnnotation     = constants.KServeAPIGroupName + "/" + "s3-region"
-	InferenceServiceS3SecretSSLAnnotation        = constants.KServeAPIGroupName + "/" + "s3-verifyssl"
-	InferenceServiceS3SecretHttpsAnnotation      = constants.KServeAPIGroupName + "/" + "s3-usehttps"
-	InferenceServiceS3UseVirtualBucketAnnotation = constants.KServeAPIGroupName + "/" + "s3-usevirtualbucket"
-	InferenceServiceS3UseAnonymousCredential     = constants.KServeAPIGroupName + "/" + "s3-useanoncredential"
-	InferenceServiceS3CABundleAnnotation         = constants.KServeAPIGroupName + "/" + "s3-cabundle"
+	InferenceServiceS3SecretEndpointAnnotation    = constants.KServeAPIGroupName + "/" + "s3-endpoint"
+	InferenceServiceS3SecretRegionAnnotation      = constants.KServeAPIGroupName + "/" + "s3-region"
+	InferenceServiceS3SecretSSLAnnotation         = constants.KServeAPIGroupName + "/" + "s3-verifyssl"
+	InferenceServiceS3SecretHttpsAnnotation       = constants.KServeAPIGroupName + "/" + "s3-usehttps"
+	InferenceServiceS3UseVirtualBucketAnnotation  = constants.KServeAPIGroupName + "/" + "s3-usevirtualbucket"
+	InferenceServiceS3UseAccelerateAnnotation     = constants.KServeAPIGroupName + "/" + "s3-useaccelerate"
+	InferenceServiceS3UseAnonymousCredential      = constants.KServeAPIGroupName + "/" + "s3-useanoncredential"
+	InferenceServiceS3CABundleConfigMapAnnotation = constants.KServeAPIGroupName + "/" + "s3-cabundle-configmap"
+	InferenceServiceS3CABundleAnnotation          = constants.KServeAPIGroupName + "/" + "s3-cabundle"
 )
 
-func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
+func BuildSecretEnvs(secret *corev1.Secret, s3Config *S3Config) []corev1.EnvVar {
 	s3SecretAccessKeyName := AWSSecretAccessKeyName
 	s3AccessKeyIdName := AWSAccessKeyIdName
 	if s3Config.S3AccessKeyIDName != "" {
@@ -73,12 +80,12 @@ func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
 	if s3Config.S3SecretAccessKeyName != "" {
 		s3SecretAccessKeyName = s3Config.S3SecretAccessKeyName
 	}
-	envs := []v1.EnvVar{
+	envs := []corev1.EnvVar{
 		{
 			Name: AWSAccessKeyId,
-			ValueFrom: &v1.EnvVarSource{
-				SecretKeyRef: &v1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
 						Name: secret.Name,
 					},
 					Key: s3AccessKeyIdName,
@@ -87,9 +94,9 @@ func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
 		},
 		{
 			Name: AWSSecretAccessKey,
-			ValueFrom: &v1.EnvVarSource{
-				SecretKeyRef: &v1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
 						Name: secret.Name,
 					},
 					Key: s3SecretAccessKeyName,

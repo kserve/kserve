@@ -12,15 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict
+
 import os
 import numpy as np
 from paddle import inference
-import kserve
+from kserve import Model
+from kserve.errors import InferenceError
+from kserve_storage import Storage
+from typing import Dict, Union
+
+from kserve.protocol.infer_type import InferRequest, InferResponse
+from kserve.utils.utils import get_predict_input, get_predict_response
 
 
-class PaddleModel(kserve.Model):
-
+class PaddleModel(Model):
     def __init__(self, name: str, model_dir: str):
         super().__init__(name)
         self.name = name
@@ -31,19 +36,33 @@ class PaddleModel(kserve.Model):
         self.output_tensor = None
 
     def load(self) -> bool:
-        def get_model_files(ext: str) -> str:
-            file_list = []
-            for filename in os.listdir(model_path):
-                if filename.endswith(ext):
-                    file_list.append(filename)
-            if len(file_list) == 0:
-                raise Exception("Missing {} model file".format(ext))
-            if len(file_list) > 1:
-                raise Exception("More than one {} model file".format(ext))
-            return os.path.join(model_path, file_list[0])
+        def get_model_file(primary_ext: str, fallback_ext: str = None) -> str:
+            def find_file_with_ext(ext):
+                matches = [f for f in os.listdir(model_path) if f.endswith(ext)]
+                if len(matches) == 1:
+                    return os.path.join(model_path, matches[0])
+                elif len(matches) > 1:
+                    raise Exception(f"More than one {ext} model file found.")
+                return None
 
-        model_path = kserve.Storage.download(self.model_dir)
-        config = inference.Config(get_model_files('.pdmodel'), get_model_files('.pdiparams'))
+            file_path = find_file_with_ext(primary_ext)
+            if file_path:
+                return file_path
+
+            if fallback_ext:
+                file_path = find_file_with_ext(fallback_ext)
+                if file_path:
+                    return file_path
+
+            raise Exception(
+                f"Missing model file with extension '{primary_ext}'"
+                + (f" or '{fallback_ext}'" if fallback_ext else "")
+            )
+
+        model_path = Storage.download(self.model_dir)
+        config = inference.Config(
+            get_model_file(".pdmodel", ".json"), get_model_file(".pdiparams")
+        )
         # TODO: add GPU support
         config.disable_gpu()
 
@@ -58,17 +77,15 @@ class PaddleModel(kserve.Model):
         self.ready = True
         return self.ready
 
-    def predict(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
-        instances = payload["instances"]
+    def predict(
+        self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
+    ) -> Union[Dict, InferResponse]:
         try:
-            inputs = np.array(instances, dtype='float32')
-        except Exception as e:
-            raise Exception("Failed to initialize NumPy array from inputs:%s, %s"
-                            % (e, instances)) from e
-
-        try:
-            self.input_tensor.copy_from_cpu(inputs)
+            instances = get_predict_input(payload)
+            np_array_input = np.array(instances, dtype="float32")
+            self.input_tensor.copy_from_cpu(np_array_input)
             self.predictor.run()
-            return {"predictions": self.output_tensor.copy_to_cpu().tolist()}
+            result = self.output_tensor.copy_to_cpu()
+            return get_predict_response(payload, result, self.name)
         except Exception as e:
-            raise Exception("Failed to predict %s" % e) from e
+            raise InferenceError(str(e))

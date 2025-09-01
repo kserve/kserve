@@ -13,8 +13,8 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers/legacy"
-	"github.com/golang/protobuf/proto"
 	"github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/kserve/kserve/tools/tf2openapi/generated/framework"
 	pb "github.com/kserve/kserve/tools/tf2openapi/generated/protobuf"
@@ -212,7 +212,7 @@ func expectJsonEquality(actual *openapi3.Schema, expected *openapi3.Schema, g *g
 	g.Expect(actual.Required).To(gomega.ConsistOf(expected.Required))
 	g.Expect(actual.Properties).Should(gomega.Not(gomega.BeNil()))
 	g.Expect(actual.Properties).Should(gomega.Equal(expected.Properties))
-	g.Expect(actual.AdditionalPropertiesAllowed).Should(gomega.Equal(expected.AdditionalPropertiesAllowed))
+	g.Expect(actual.AdditionalProperties).Should(gomega.Equal(expected.AdditionalProperties))
 }
 
 func TestGenerateOpenAPIForVariousFmtsStrictly(t *testing.T) {

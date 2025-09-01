@@ -17,39 +17,39 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"strconv"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CustomExplainer defines arguments for configuring a custom explainer.
 type CustomExplainer struct {
-	v1.PodSpec `json:",inline"`
+	corev1.PodSpec `json:",inline"`
 }
 
 var _ ComponentImplementation = &CustomExplainer{}
 
 func NewCustomExplainer(podSpec *PodSpec) *CustomExplainer {
-	return &CustomExplainer{PodSpec: v1.PodSpec(*podSpec)}
+	return &CustomExplainer{PodSpec: corev1.PodSpec(*podSpec)}
 }
 
 // Validate the spec
 func (s *CustomExplainer) Validate() error {
-	return utils.FirstNonNilError([]error{
-		validateStorageURI(s.GetStorageUri()),
-	})
+	return utils.FirstNonNilError([]error{})
 }
 
 // Default sets defaults on the resource
 func (c *CustomExplainer) Default(config *InferenceServicesConfig) {
 	if len(c.Containers) == 0 {
-		c.Containers = append(c.Containers, v1.Container{})
+		c.Containers = append(c.Containers, corev1.Container{})
 	}
 	c.Containers[0].Name = constants.InferenceServiceContainerName
-	setResourceRequirementDefaults(&c.Containers[0].Resources)
+	setResourceRequirementDefaults(config, &c.Containers[0].Resources)
 }
 
 func (c *CustomExplainer) GetStorageUri() *string {
@@ -62,12 +62,14 @@ func (c *CustomExplainer) GetStorageUri() *string {
 	return nil
 }
 
-func (c *CustomExplainer) GetStorageSpec() *StorageSpec {
+func (c *CustomExplainer) GetStorageSpec() *ModelStorageSpec {
 	return nil
 }
 
 // GetContainer transforms the resource into a container spec
-func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig) *v1.Container {
+func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
+	predictorHost ...string,
+) *corev1.Container {
 	container := &c.Containers[0]
 	if !utils.IncludesArg(container.Args, constants.ArgumentModelName) {
 		container.Args = append(container.Args, []string{
@@ -78,7 +80,7 @@ func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, extensions *C
 	if !utils.IncludesArg(container.Args, constants.ArgumentPredictorHost) {
 		container.Args = append(container.Args, []string{
 			constants.ArgumentPredictorHost,
-			constants.PredictorURL(metadata, false),
+			fmt.Sprintf("%s.%s", predictorHost[0], metadata.Namespace),
 		}...)
 	}
 	container.Args = append(container.Args, []string{

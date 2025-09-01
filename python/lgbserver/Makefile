@@ -1,8 +1,10 @@
 
 dev_install:
-	pip install -e .
-	pip install -e .[test]
+	uv sync --group test
 
+install_dependencies:
+	uv sync --group test
+	
 test: type_check
 	pytest -W ignore
 

@@ -23,7 +23,6 @@ import (
 
 // TrainedModel is the Schema for the TrainedModel API
 // +k8s:openapi-gen=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
@@ -64,7 +63,7 @@ type TrainedModelSpec struct {
 type ModelSpec struct {
 	// Storage URI for the model repository
 	StorageURI string `json:"storageUri"`
-	// Machine Learning <framework name>
+	// Machine Learning &lt;framework name&gt;
 	// The values could be: "tensorflow","pytorch","sklearn","onnx","xgboost", "myawesomeinternalframework" etc.
 	Framework string `json:"framework"`
 	// Maximum memory this model will consume, this field is used to decide if a model server has enough memory to load this model.

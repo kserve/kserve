@@ -25,29 +25,23 @@ After the script execution, the Python SDK is generated in the `python/kserve` d
 
 Navigate to `python/kserve` directory from the root folder.
 
-1. Install `twine`:
+1. Install `UV`:
 
    ```bash
-   pip install twine
+   pip install uv
    ```
 
-2. Update the Python SDK version in the [setup.py](../../python/kserve/setup.py).
+2. Update the Python SDK version in the [pyproject.toml](../../python/kserve/pyproject.toml).
 
 3. Create some distributions in the normal way:
 
     ```bash
-    python setup.py sdist bdist_wheel
+    uv build
     ```
-
-4. Upload with twine to [Test PyPI](https://packaging.python.org/guides/using-testpypi/) and verify things look right. `Twine` will automatically prompt for your username and password:
+4. Publish with uv to [Test PyPI](https://packaging.python.org/guides/using-testpypi/) and verify things look right:
     ```bash
-    twine upload --repository-url https://test.pypi.org/legacy/ dist/*
-    username: ...
-    password:
-    ...
-    ```
-
-5. Upload to [PyPI](https://pypi.org/search/?q=kserve):
-    ```bash
-    twine upload dist/*
+    uv publish \
+      --publish-url https://test.pypi.org/legacy/ \
+      --token your_testpypi_api_token_here \
+      dist/*
     ```

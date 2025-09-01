@@ -219,7 +219,10 @@ func scrape(url string, header http.Header, logger *zap.Logger) (io.ReadCloser, 
 		return nil, cancel, "", fmt.Errorf("error scraping %s: %v", url, err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			cancel()
+			return nil, nil, "", err
+		}
 		return nil, cancel, "", fmt.Errorf("error scraping %s, status code: %v", url, resp.StatusCode)
 	}
 	format := resp.Header.Get("Content-Type")
@@ -308,7 +311,8 @@ func (sc *ScrapeConfigurations) handleStats(w http.ResponseWriter, r *http.Reque
 func main() {
 	zapLogger := logger.InitializeLogger()
 	mux := http.NewServeMux()
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	aggregateMetricsPort := os.Getenv(QueueProxyAggregatePrometheusMetricsPortEnvVarKey)
 	sc := NewScrapeConfigs(
 		zapLogger,
 		QueueProxyMetricsPort,
@@ -316,31 +320,42 @@ func main() {
 		os.Getenv(KServeContainerPrometheusMetricsPathEnvVarKey),
 	)
 	mux.HandleFunc(`/metrics`, sc.handleStats)
-	l, err := net.Listen("tcp", fmt.Sprintf(":%v", os.Getenv(QueueProxyAggregatePrometheusMetricsPortEnvVarKey)))
+	l, err := net.Listen("tcp", fmt.Sprintf(":%v", aggregateMetricsPort))
 	if err != nil {
 		zapLogger.Error("error listening on status port", zap.Error(err))
 		return
 	}
 
-	defer l.Close()
-
+	errCh := make(chan error)
 	go func() {
+		zapLogger.Info(fmt.Sprintf("Starting stats server on port %v", aggregateMetricsPort))
 		if err = http.Serve(l, mux); err != nil {
-			zapLogger.Error("error serving aggregate metrics", zap.Error(err))
-			fmt.Println(err)
-			select {
-			case <-ctx.Done():
-				// We are shutting down already, don't trigger SIGTERM
-				return
-			default:
-			}
+			errCh <- fmt.Errorf("stats server failed to serve: %w", err)
 		}
 	}()
-	zapLogger.Info("Stats server has successfully started")
-	if sharedmain.Main() != nil {
+
+	go func() {
+		if err := sharedmain.Main(); err != nil {
+			errCh <- err
+		}
+		// sharedMain exited without error which means graceful shutdown due to SIGTERM / SIGINT signal
+		// Attempt a graceful shutdown of stats server
+		cancel()
+	}()
+
+	// Blocks until sharedMain or server exits unexpectedly or SIGTERM / SIGINT signal is received.
+	select {
+	case err := <-errCh:
+		zapLogger.Error("error serving aggregate metrics", zap.Error(err))
 		os.Exit(1)
+
+	case <-ctx.Done():
+		zapLogger.Info("Attempting graceful shutdown of stats server")
+		err := l.Close()
+		if err != nil {
+			zapLogger.Error("failed to shutdown stats server", zap.Error(err))
+			os.Exit(1)
+		}
 	}
-	// Wait for the agent to be shut down.
-	<-ctx.Done()
 	zapLogger.Info("Stats server has successfully terminated")
 }

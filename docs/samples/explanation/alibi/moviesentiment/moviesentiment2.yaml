@@ -1,22 +1,20 @@
-apiVersion: "serving.kserve.io/v1alpha2"
+apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
   name: "moviesentiment"
 spec:
-  default:
-    predictor:
-      sklearn:
-        storageUri: "gs://seldon-models/sklearn/moviesentiment"
-        resources:
-          requests:
-            cpu: 0.1
-    explainer:
-      alibi:
-        type: AnchorText
-        config:
-          use_unk: "false"
-          sample_proba: "0.5"
-        resources:
-          requests:
-            cpu: 0.1
-        
+  predictor:
+    sklearn:
+      storageUri: "gs://seldon-models/v1.16.0/sklearn/moviesentiment"
+      resources:
+        requests:
+          cpu: 0.1
+  explainer:
+    alibi:
+      type: AnchorText
+      config:
+        use_unk: "false"
+        sample_proba: "0.5"
+      resources:
+        requests:
+          cpu: 0.1

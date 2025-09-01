@@ -8,9 +8,9 @@ outputs. It is the internal model representation for the SignatureDef defined in
 import (
 	"errors"
 	"fmt"
+	ptr "k8s.io/utils/ptr"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/kserve/kserve/pkg/utils"
 	pb "github.com/kserve/kserve/tools/tf2openapi/generated/protobuf"
 )
 
@@ -29,7 +29,7 @@ const (
 	Regress
 )
 
-//Known error messages
+// Known error messages
 const (
 	UnsupportedSignatureMethodError    = "signature (%s) contains unsupported method (%s)"
 	UnsupportedAPISchemaError          = "schemas for classify/regress APIs currently not supported"
@@ -116,38 +116,50 @@ func canHaveRowSchema(t []TFTensor) bool {
 func (t *TFSignatureDef) rowFormatWrapper() (*openapi3.Schema, *openapi3.Schema) {
 	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_row_format
 	return &openapi3.Schema{
-			Type: "object",
+			Type: &openapi3.Types{openapi3.TypeObject},
 			Properties: map[string]*openapi3.SchemaRef{
 				"instances": rowSchema(t.Inputs).NewRef(),
 			},
-			Required:                    []string{"instances"},
-			AdditionalPropertiesAllowed: utils.Bool(false),
+			Required: []string{"instances"},
+			AdditionalProperties: openapi3.AdditionalProperties{
+				Has:    ptr.To(false),
+				Schema: nil,
+			},
 		}, &openapi3.Schema{
-			Type: "object",
+			Type: &openapi3.Types{openapi3.TypeObject},
 			Properties: map[string]*openapi3.SchemaRef{
 				"predictions": rowSchema(t.Outputs).NewRef(),
 			},
-			Required:                    []string{"predictions"},
-			AdditionalPropertiesAllowed: utils.Bool(false),
+			Required: []string{"predictions"},
+			AdditionalProperties: openapi3.AdditionalProperties{
+				Has:    ptr.To(false),
+				Schema: nil,
+			},
 		}
 }
 
 func (t *TFSignatureDef) colFormatWrapper() (*openapi3.Schema, *openapi3.Schema) {
 	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_column_format
 	return &openapi3.Schema{
-			Type: "object",
+			Type: &openapi3.Types{openapi3.TypeObject},
 			Properties: map[string]*openapi3.SchemaRef{
 				"inputs": colSchema(t.Inputs).NewRef(),
 			},
-			Required:                    []string{"inputs"},
-			AdditionalPropertiesAllowed: utils.Bool(false),
+			Required: []string{"inputs"},
+			AdditionalProperties: openapi3.AdditionalProperties{
+				Has:    ptr.To(false),
+				Schema: nil,
+			},
 		}, &openapi3.Schema{
-			Type: "object",
+			Type: &openapi3.Types{openapi3.TypeObject},
 			Properties: map[string]*openapi3.SchemaRef{
 				"outputs": colSchema(t.Outputs).NewRef(),
 			},
-			Required:                    []string{"outputs"},
-			AdditionalPropertiesAllowed: utils.Bool(false),
+			Required: []string{"outputs"},
+			AdditionalProperties: openapi3.AdditionalProperties{
+				Has:    ptr.To(false),
+				Schema: nil,
+			},
 		}
 }
 
@@ -164,7 +176,10 @@ func rowSchema(t []TFTensor) *openapi3.Schema {
 		schema.Items.Value.Properties[i.Name] = i.RowSchema().NewRef()
 		schema.Items.Value.Required = append(schema.Items.Value.Required, i.Name)
 	}
-	schema.Items.Value.AdditionalPropertiesAllowed = utils.Bool(false)
+	schema.AdditionalProperties = openapi3.AdditionalProperties{
+		Has:    ptr.To(false),
+		Schema: nil,
+	}
 	return schema
 }
 
@@ -179,6 +194,9 @@ func colSchema(t []TFTensor) *openapi3.Schema {
 		schema.Properties[i.Name] = i.ColSchema().NewRef()
 		schema.Required = append(schema.Required, i.Name)
 	}
-	schema.AdditionalPropertiesAllowed = utils.Bool(false)
+	schema.AdditionalProperties = openapi3.AdditionalProperties{
+		Has:    ptr.To(false),
+		Schema: nil,
+	}
 	return schema
 }

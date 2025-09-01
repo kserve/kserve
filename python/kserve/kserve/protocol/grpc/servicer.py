@@ -12,15 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from grpc import ServicerContext
 
 from . import grpc_predict_v2_pb2 as pb
 from . import grpc_predict_v2_pb2_grpc
-from kserve.protocol.infer_type import InferRequest
-from kserve.protocol.dataplane import DataPlane
-from kserve.protocol.model_repository_extension import ModelRepositoryExtension
-from kserve.utils.utils import to_headers
-
-from grpc import ServicerContext
+from ..infer_type import InferRequest, InferResponse
+from ..dataplane import DataPlane
+from ..model_repository_extension import ModelRepositoryExtension
+from ...errors import InvalidInput
+from ...utils.utils import to_headers
 
 
 class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
@@ -28,20 +28,33 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
     def __init__(
         self,
         data_plane: DataPlane,
-        model_repository_extension: ModelRepositoryExtension
+        model_repository_extension: ModelRepositoryExtension,
     ):
         super().__init__()
         self._data_plane = data_plane
         self._mode_repository_extension = model_repository_extension
 
-    async def ServerMetadata(
-        self, request: pb.ServerMetadataRequest, context
-    ):
+    @classmethod
+    def validate_grpc_request(cls, request: pb.ModelInferRequest):
+        raw_inputs_length = len(request.raw_input_contents)
+        if raw_inputs_length != 0 and len(request.inputs) != raw_inputs_length:
+            raise InvalidInput(
+                f"the number of inputs ({len(request.inputs)}) does not match the expected number of "
+                f"raw input contents ({raw_inputs_length}) for model '{request.model_name}'."
+            )
+        if raw_inputs_length != 0:
+            for input_ in request.inputs:
+                if input_.HasField("contents"):
+                    raise InvalidInput(
+                        f"contents field must not be specified when using raw_input_contents for input '{input_.name}' for model '{request.model_name}'"
+                    )
+
+    async def ServerMetadata(self, request: pb.ServerMetadataRequest, context):
         metadata = self._data_plane.metadata()
         return pb.ServerMetadataResponse(
             name=metadata["name"],
             version=metadata["version"],
-            extensions=metadata["extensions"]
+            extensions=metadata["extensions"],
         )
 
     async def ServerLive(
@@ -60,7 +73,7 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
     async def ModelReady(
         self, request: pb.ModelReadyRequest, context
     ) -> pb.ModelReadyResponse:
-        is_ready = self._data_plane.model_ready(model_name=request.name)
+        is_ready = await self._data_plane.model_ready(model_name=request.name)
         return pb.ModelReadyResponse(ready=is_ready)
 
     async def ModelMetadata(
@@ -71,30 +84,45 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
             name=metadata["name"],
             platform=metadata["platform"],
             inputs=metadata["inputs"],
-            outputs=metadata["outputs"]
+            outputs=metadata["outputs"],
         )
 
     async def RepositoryModelLoad(
         self, request: pb.RepositoryModelLoadRequest, context
     ) -> pb.RepositoryModelLoadResponse:
-        response = await self._mode_repository_extension.load(model_name=request.model_name)
-        return pb.RepositoryModelLoadResponse(model_name=response["name"], isLoaded=response["load"])
+        response = await self._mode_repository_extension.load(
+            model_name=request.model_name
+        )
+        return pb.RepositoryModelLoadResponse(
+            model_name=response["name"], isLoaded=response["load"]
+        )
 
     async def RepositoryModelUnload(
         self, request: pb.RepositoryModelUnloadRequest, context
     ) -> pb.RepositoryModelUnloadResponse:
-        response = await self._mode_repository_extension.unload(model_name=request.model_name)
-        return pb.RepositoryModelUnloadResponse(model_name=response["name"], isUnloaded=response["unload"])
+        response = await self._mode_repository_extension.unload(
+            model_name=request.model_name
+        )
+        return pb.RepositoryModelUnloadResponse(
+            model_name=response["name"], isUnloaded=response["unload"]
+        )
 
     async def ModelInfer(
         self, request: pb.ModelInferRequest, context: ServicerContext
     ) -> pb.ModelInferResponse:
         headers = to_headers(context)
+        self.validate_grpc_request(request)
         infer_request = InferRequest.from_grpc(request)
-        response_body, _ = await self._data_plane.infer(body=infer_request, headers=headers,
-                                                        model_name=request.model_name)
+        response_body, _ = await self._data_plane.infer(
+            request=infer_request, headers=headers, model_name=request.model_name
+        )
         if isinstance(response_body, pb.ModelInferResponse):
             return response_body
-        return pb.ModelInferResponse(id=response_body["id"],
-                                     model_name=response_body["model_name"],
-                                     outputs=response_body["outputs"])
+        elif isinstance(response_body, InferResponse):
+            return response_body.to_grpc()
+        else:
+            return pb.ModelInferResponse(
+                id=response_body["id"],
+                model_name=response_body["model_name"],
+                outputs=response_body["outputs"],
+            )

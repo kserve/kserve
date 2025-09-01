@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KServe Authors.
+Copyright 2023 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ type FakeServingV1beta1 struct {
 }
 
 func (c *FakeServingV1beta1) InferenceServices(namespace string) v1beta1.InferenceServiceInterface {
-	return &FakeInferenceServices{c, namespace}
+	return newFakeInferenceServices(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

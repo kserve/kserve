@@ -11,25 +11,34 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Dict
 
+from typing import Dict
 import asyncio
-import kserve
+
+import nest_asyncio
 import numpy as np
 import pandas as pd
 from aif360.metrics import BinaryLabelDatasetMetric
 from aif360.datasets import BinaryLabelDataset
 
-import nest_asyncio
+import kserve
+
 nest_asyncio.apply()
 
 
 class AIFModel(kserve.Model):
-    def __init__(self, name: str, predictor_host: str, feature_names: list, label_names: list, favorable_label: float,
-                 unfavorable_label: float, privileged_groups: list, unprivileged_groups: list):
+    def __init__(
+        self,
+        name: str,
+        feature_names: list,
+        label_names: list,
+        favorable_label: float,
+        unfavorable_label: float,
+        privileged_groups: list,
+        unprivileged_groups: list,
+    ):
         super().__init__(name)
         self.name = name
-        self.predictor_host = predictor_host
         self.ready = False
         self.feature_names = feature_names
         self.label_names = label_names
@@ -42,7 +51,7 @@ class AIFModel(kserve.Model):
         self.ready = True
 
     def _predict(self, inputs):
-        scoring_data = {'instances': inputs}
+        scoring_data = {"instances": inputs}
 
         loop = asyncio.get_running_loop()
         resp = loop.run_until_complete(self.predict(scoring_data))
@@ -55,15 +64,19 @@ class AIFModel(kserve.Model):
         dataframe_predicted = pd.DataFrame(inputs, columns=self.feature_names)
         dataframe_predicted[self.label_names[0]] = predictions
 
-        dataset_predicted = BinaryLabelDataset(favorable_label=self.favorable_label,
-                                               unfavorable_label=self.unfavorable_label,
-                                               df=dataframe_predicted,
-                                               label_names=self.label_names,
-                                               protected_attribute_names=['age'])
+        dataset_predicted = BinaryLabelDataset(
+            favorable_label=self.favorable_label,
+            unfavorable_label=self.unfavorable_label,
+            df=dataframe_predicted,
+            label_names=self.label_names,
+            protected_attribute_names=["age"],
+        )
 
-        metrics = BinaryLabelDatasetMetric(dataset_predicted,
-                                           unprivileged_groups=self.unprivileged_groups,
-                                           privileged_groups=self.privileged_groups)
+        metrics = BinaryLabelDatasetMetric(
+            dataset_predicted,
+            unprivileged_groups=self.unprivileged_groups,
+            privileged_groups=self.privileged_groups,
+        )
 
         return {
             "predictions": predictions.tolist(),
@@ -75,5 +88,5 @@ class AIFModel(kserve.Model):
                 "num_negatives": metrics.num_negatives(),
                 "num_positives": metrics.num_positives(),
                 "statistical_parity_difference": metrics.statistical_parity_difference(),
-            }
+            },
         }

@@ -1,4 +1,4 @@
-# Copyright 2022 The KServe Authors.
+# Copyright 2023 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,6 +54,7 @@ class V1alpha1ServingRuntimeSpec(object):
         'disabled': 'bool',
         'grpc_data_endpoint': 'str',
         'grpc_endpoint': 'str',
+        'host_ipc': 'bool',
         'http_data_endpoint': 'str',
         'image_pull_secrets': 'list[V1LocalObjectReference]',
         'labels': 'dict(str, str)',
@@ -64,7 +65,8 @@ class V1alpha1ServingRuntimeSpec(object):
         'storage_helper': 'V1alpha1StorageHelper',
         'supported_model_formats': 'list[V1alpha1SupportedModelFormat]',
         'tolerations': 'list[V1Toleration]',
-        'volumes': 'list[V1Volume]'
+        'volumes': 'list[V1Volume]',
+        'worker_spec': 'V1alpha1WorkerSpec'
     }
 
     attribute_map = {
@@ -75,6 +77,7 @@ class V1alpha1ServingRuntimeSpec(object):
         'disabled': 'disabled',
         'grpc_data_endpoint': 'grpcDataEndpoint',
         'grpc_endpoint': 'grpcEndpoint',
+        'host_ipc': 'hostIPC',
         'http_data_endpoint': 'httpDataEndpoint',
         'image_pull_secrets': 'imagePullSecrets',
         'labels': 'labels',
@@ -85,10 +88,11 @@ class V1alpha1ServingRuntimeSpec(object):
         'storage_helper': 'storageHelper',
         'supported_model_formats': 'supportedModelFormats',
         'tolerations': 'tolerations',
-        'volumes': 'volumes'
+        'volumes': 'volumes',
+        'worker_spec': 'workerSpec'
     }
 
-    def __init__(self, affinity=None, annotations=None, built_in_adapter=None, containers=None, disabled=None, grpc_data_endpoint=None, grpc_endpoint=None, http_data_endpoint=None, image_pull_secrets=None, labels=None, multi_model=None, node_selector=None, protocol_versions=None, replicas=None, storage_helper=None, supported_model_formats=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, annotations=None, built_in_adapter=None, containers=None, disabled=None, grpc_data_endpoint=None, grpc_endpoint=None, host_ipc=None, http_data_endpoint=None, image_pull_secrets=None, labels=None, multi_model=None, node_selector=None, protocol_versions=None, replicas=None, storage_helper=None, supported_model_formats=None, tolerations=None, volumes=None, worker_spec=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1ServingRuntimeSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -101,6 +105,7 @@ class V1alpha1ServingRuntimeSpec(object):
         self._disabled = None
         self._grpc_data_endpoint = None
         self._grpc_endpoint = None
+        self._host_ipc = None
         self._http_data_endpoint = None
         self._image_pull_secrets = None
         self._labels = None
@@ -112,6 +117,7 @@ class V1alpha1ServingRuntimeSpec(object):
         self._supported_model_formats = None
         self._tolerations = None
         self._volumes = None
+        self._worker_spec = None
         self.discriminator = None
 
         if affinity is not None:
@@ -127,6 +133,8 @@ class V1alpha1ServingRuntimeSpec(object):
             self.grpc_data_endpoint = grpc_data_endpoint
         if grpc_endpoint is not None:
             self.grpc_endpoint = grpc_endpoint
+        if host_ipc is not None:
+            self.host_ipc = host_ipc
         if http_data_endpoint is not None:
             self.http_data_endpoint = http_data_endpoint
         if image_pull_secrets is not None:
@@ -149,6 +157,8 @@ class V1alpha1ServingRuntimeSpec(object):
             self.tolerations = tolerations
         if volumes is not None:
             self.volumes = volumes
+        if worker_spec is not None:
+            self.worker_spec = worker_spec
 
     @property
     def affinity(self):
@@ -308,6 +318,29 @@ class V1alpha1ServingRuntimeSpec(object):
         """
 
         self._grpc_endpoint = grpc_endpoint
+
+    @property
+    def host_ipc(self):
+        """Gets the host_ipc of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+
+        Use the host's ipc namespace. Optional: Default to false.  # noqa: E501
+
+        :return: The host_ipc of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._host_ipc
+
+    @host_ipc.setter
+    def host_ipc(self, host_ipc):
+        """Sets the host_ipc of this V1alpha1ServingRuntimeSpec.
+
+        Use the host's ipc namespace. Optional: Default to false.  # noqa: E501
+
+        :param host_ipc: The host_ipc of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._host_ipc = host_ipc
 
     @property
     def http_data_endpoint(self):
@@ -559,6 +592,27 @@ class V1alpha1ServingRuntimeSpec(object):
         """
 
         self._volumes = volumes
+
+    @property
+    def worker_spec(self):
+        """Gets the worker_spec of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+
+
+        :return: The worker_spec of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+        :rtype: V1alpha1WorkerSpec
+        """
+        return self._worker_spec
+
+    @worker_spec.setter
+    def worker_spec(self, worker_spec):
+        """Sets the worker_spec of this V1alpha1ServingRuntimeSpec.
+
+
+        :param worker_spec: The worker_spec of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+        :type: V1alpha1WorkerSpec
+        """
+
+        self._worker_spec = worker_spec
 
     def to_dict(self):
         """Returns the model properties as a dict"""

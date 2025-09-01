@@ -119,9 +119,6 @@ status:
   conditions:
   - lastTransitionTime: "2021-05-22T20:56:12Z"
     status: "True"
-    type: FrameworkSupported
-  - lastTransitionTime: "2021-05-22T20:56:12Z"
-    status: "True"
     type: InferenceServiceReady
   - lastTransitionTime: "2021-05-22T20:56:12Z"
     status: "True"
@@ -184,9 +181,6 @@ status:
   address:
     url: http://triton-mms.default.svc.cluster.local/v2/models/simple-string/infer
   conditions:
-  - lastTransitionTime: "2021-05-23T00:02:42Z"
-    status: "True"
-    type: FrameworkSupported
   - lastTransitionTime: "2021-05-23T00:02:42Z"
     status: "True"
     type: InferenceServiceReady

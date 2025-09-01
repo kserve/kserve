@@ -17,25 +17,27 @@ limitations under the License.
 package components
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
+
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/credentials"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // Component can be reconciled to create underlying resources for an InferenceService
 type Component interface {
-	Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, error)
+	Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error)
 }
 
-func addStorageSpecAnnotations(storageSpec *v1beta1.StorageSpec, annotations map[string]string) bool {
+func addStorageSpecAnnotations(storageSpec *v1beta1.ModelStorageSpec, annotations map[string]string) bool {
 	if storageSpec == nil {
 		return false
 	}
@@ -49,26 +51,30 @@ func addStorageSpecAnnotations(storageSpec *v1beta1.StorageSpec, annotations map
 		annotations[constants.StorageSpecKeyAnnotationKey] = *storageSpec.StorageKey
 	}
 	if storageSpec.Path != nil {
-		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] =
-			fmt.Sprintf("%s://%s", credentials.UriSchemePlaceholder,
-				strings.TrimPrefix(*storageSpec.Path, "/"))
+		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = fmt.Sprintf("%s://%s", credentials.UriSchemePlaceholder,
+			strings.TrimPrefix(*storageSpec.Path, "/"))
 	}
 	return true
 }
 
-func addLoggerAnnotations(logger *v1beta1.LoggerSpec, annotations map[string]string) bool {
+func addLoggerAnnotations(logger *v1beta1.LoggerSpec, annotations map[string]string) {
 	if logger != nil {
 		annotations[constants.LoggerInternalAnnotationKey] = "true"
 		if logger.URL != nil {
 			annotations[constants.LoggerSinkUrlInternalAnnotationKey] = *logger.URL
 		}
 		annotations[constants.LoggerModeInternalAnnotationKey] = string(logger.Mode)
-		return true
+
+		if logger.MetadataHeaders != nil {
+			annotations[constants.LoggerMetadataHeadersInternalAnnotationKey] = strings.Join(logger.MetadataHeaders, ",")
+		}
+		if logger.MetadataAnnotations != nil {
+			annotations[constants.LoggerMetadataAnnotationsInternalAnnotationKey] = strings.Join(logger.MetadataAnnotations, ",")
+		}
 	}
-	return false
 }
 
-func addBatcherAnnotations(batcher *v1beta1.Batcher, annotations map[string]string) bool {
+func addBatcherAnnotations(batcher *v1beta1.Batcher, annotations map[string]string) {
 	if batcher != nil {
 		annotations[constants.BatcherInternalAnnotationKey] = "true"
 
@@ -80,13 +86,7 @@ func addBatcherAnnotations(batcher *v1beta1.Batcher, annotations map[string]stri
 			s := strconv.Itoa(*batcher.MaxLatency)
 			annotations[constants.BatcherMaxLatencyInternalAnnotationKey] = s
 		}
-		if batcher.Timeout != nil {
-			s := strconv.Itoa(*batcher.Timeout)
-			annotations[constants.BatcherTimeoutInternalAnnotationKey] = s
-		}
-		return true
 	}
-	return false
 }
 
 func addAgentAnnotations(isvc *v1beta1.InferenceService, annotations map[string]string) bool {

@@ -17,11 +17,12 @@ limitations under the License.
 package testing
 
 import (
-	"fmt"
+	"errors"
+	"reflect"
+
 	"github.com/onsi/gomega/format"
 	"github.com/onsi/gomega/types"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"reflect"
 )
 
 // Gomega does not support semantic equal so adding this here in testing util
@@ -38,7 +39,7 @@ type BeSematicEqualMatcher struct {
 
 func (matcher *BeSematicEqualMatcher) Match(actual interface{}) (success bool, err error) {
 	if actual == nil && matcher.Expected == nil {
-		return false, fmt.Errorf("Both actual and expected must not be nil.")
+		return false, errors.New("Both actual and expected must not be nil.")
 	}
 
 	convertedActual := actual

@@ -2,7 +2,8 @@ package generator
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/kserve/kserve/tools/tf2openapi/types"
@@ -21,9 +22,9 @@ func (g *Generator) tfServingOpenAPI(model types.TFSavedModel) (*openapi3.T, err
 	if err != nil {
 		return &openapi3.T{}, err
 	}
-	return &openapi3.T{
+	api := &openapi3.T{
 		OpenAPI: "3.0.0",
-		Components: openapi3.Components{
+		Components: &openapi3.Components{
 			Responses: map[string]*openapi3.ResponseRef{
 				responseName: {
 					Value: &openapi3.Response{
@@ -40,24 +41,23 @@ func (g *Generator) tfServingOpenAPI(model types.TFSavedModel) (*openapi3.T, err
 				},
 			},
 		},
-		Paths: openapi3.Paths{
-			fmt.Sprintf(pathTemplate, g.name, g.version): &openapi3.PathItem{
-				Post: &openapi3.Operation{
-					RequestBody: &openapi3.RequestBodyRef{
-						Ref: fmt.Sprintf(requestRefTemplate, requestName),
-					},
-
-					Responses: openapi3.Responses{
-						"200": &openapi3.ResponseRef{
-							Ref: fmt.Sprintf(responseRefTemplate, responseName),
-						},
-					},
-				},
-			},
-		},
+		Paths: &openapi3.Paths{},
 		Info: &openapi3.Info{
 			Title:   "TFServing Predict Request API",
 			Version: "1.0",
 		},
-	}, nil
+	}
+	responses := openapi3.Responses{}
+	responses.Set("200", &openapi3.ResponseRef{
+		Ref: fmt.Sprintf(responseRefTemplate, responseName),
+	})
+	api.Paths.Set(fmt.Sprintf(pathTemplate, g.name, g.version), &openapi3.PathItem{
+		Post: &openapi3.Operation{
+			RequestBody: &openapi3.RequestBodyRef{
+				Ref: fmt.Sprintf(requestRefTemplate, requestName),
+			},
+			Responses: &responses,
+		},
+	})
+	return api, nil
 }
