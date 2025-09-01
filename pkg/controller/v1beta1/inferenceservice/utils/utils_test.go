@@ -802,7 +802,7 @@ func TestMergeRuntimeContainers(t *testing.T) {
 		},
 	}
 
-	// Creating "argCheckMergeWtihArgs" scenario
+	// Creating "argCheckMergeWithArgs" scenario
 	argCheckWithArgs := struct {
 		containerBase     *corev1.Container
 		containerOverride *corev1.Container
@@ -815,9 +815,9 @@ func TestMergeRuntimeContainers(t *testing.T) {
 	argCheckWithArgs.containerBase.Args = argsWithModelName["containerBaseArgs"]
 	argCheckWithArgs.containerOverride.Args = argsWithModelName["containerOverrideArgs"]
 	argCheckWithArgs.expected.Args = argsWithModelName["expectedArgs"]
-	scenarios["argCheckMergeWtihArgs"] = argCheckWithArgs
+	scenarios["argCheckMergeWithArgs"] = argCheckWithArgs
 
-	// Creating "argCheckMergeWtihoutArgs" scenario
+	// Creating "argCheckMergeWithoutArgs" scenario
 	argCheckWithoutArgs := struct {
 		containerBase     *corev1.Container
 		containerOverride *corev1.Container
@@ -830,7 +830,7 @@ func TestMergeRuntimeContainers(t *testing.T) {
 	argCheckWithoutArgs.containerBase.Args = argsWithoutModelName["containerBaseArgs"]
 	argCheckWithoutArgs.containerOverride.Args = argsWithoutModelName["containerOverrideArgs"]
 	argCheckWithoutArgs.expected.Args = argsWithoutModelName["expectedArgs"]
-	scenarios["argCheckMergeWtihoutArgs"] = argCheckWithoutArgs
+	scenarios["argCheckMergeWithoutArgs"] = argCheckWithoutArgs
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
