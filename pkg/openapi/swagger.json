@@ -2407,8 +2407,18 @@
         "defaultDeploymentMode": {
           "type": "string"
         },
-        "rawDeploymentRolloutStrategy": {
-          "$ref": "#/definitions/v1beta1.RawDeploymentRolloutStrategy"
+        "deploymentRolloutStrategy": {
+          "$ref": "#/definitions/v1beta1.DeploymentRolloutStrategy"
+        }
+      }
+    },
+    "v1beta1.DeploymentRolloutStrategy": {
+      "description": "DeploymentRolloutStrategy defines the rollout strategy configuration for deployments",
+      "type": "object",
+      "properties": {
+        "defaultRollout": {
+          "description": "DefaultRollout specifies the default rollout configuration",
+          "$ref": "#/definitions/v1beta1.RolloutSpec"
         }
       }
     },
@@ -5494,16 +5504,6 @@
         "xgboost": {
           "description": "Spec for XGBoost model server",
           "$ref": "#/definitions/v1beta1.XGBoostSpec"
-        }
-      }
-    },
-    "v1beta1.RawDeploymentRolloutStrategy": {
-      "description": "RawDeploymentRolloutStrategy defines the rollout strategy configuration for raw deployments",
-      "type": "object",
-      "properties": {
-        "defaultRollout": {
-          "description": "DefaultRollout specifies the default rollout configuration",
-          "$ref": "#/definitions/v1beta1.RolloutSpec"
         }
       }
     },

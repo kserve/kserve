@@ -365,11 +365,11 @@ func applyRolloutStrategyFromConfigmap(spec *appsv1.DeploymentSpec, deployConfig
 	}
 
 	// If no rollout strategy configured, don't apply rollout strategy
-	if deployConfig.RawDeploymentRolloutStrategy == nil || deployConfig.RawDeploymentRolloutStrategy.DefaultRollout == nil {
+	if deployConfig.DeploymentRolloutStrategy == nil || deployConfig.DeploymentRolloutStrategy.DefaultRollout == nil {
 		return
 	}
 
-	rollout := deployConfig.RawDeploymentRolloutStrategy.DefaultRollout
+	rollout := deployConfig.DeploymentRolloutStrategy.DefaultRollout
 
 	// Ensure we have a rolling update strategy
 	if spec.Strategy.Type != appsv1.RollingUpdateDeploymentStrategyType {

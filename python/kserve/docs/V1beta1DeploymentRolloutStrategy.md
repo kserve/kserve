@@ -1,6 +1,6 @@
-# V1beta1RawDeploymentRolloutStrategy
+# V1beta1DeploymentRolloutStrategy
 
-RawDeploymentRolloutStrategy defines the rollout strategy configuration for raw deployments
+DeploymentRolloutStrategy defines the rollout strategy configuration for deployments
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

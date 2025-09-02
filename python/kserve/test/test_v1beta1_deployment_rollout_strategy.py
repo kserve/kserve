@@ -30,14 +30,14 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.v1beta1_raw_deployment_rollout_strategy import (
-    V1beta1RawDeploymentRolloutStrategy,
+from kserve.models.v1beta1_deployment_rollout_strategy import (
+    V1beta1DeploymentRolloutStrategy,
 )  # noqa: E501
 from kserve.rest import ApiException
 
 
-class TestV1beta1RawDeploymentRolloutStrategy(unittest.TestCase):
-    """V1beta1RawDeploymentRolloutStrategy unit test stubs"""
+class TestV1beta1DeploymentRolloutStrategy(unittest.TestCase):
+    """V1beta1DeploymentRolloutStrategy unit test stubs"""
 
     def setUp(self):
         pass
@@ -46,25 +46,25 @@ class TestV1beta1RawDeploymentRolloutStrategy(unittest.TestCase):
         pass
 
     def make_instance(self, include_optional):
-        """Test V1beta1RawDeploymentRolloutStrategy
+        """Test V1beta1DeploymentRolloutStrategy
         include_option is a boolean, when False only required
         params are included, when True both required and
         optional params are included"""
-        # model = kserve.models.v1beta1_raw_deployment_rollout_strategy.V1beta1RawDeploymentRolloutStrategy()  # noqa: E501
+        # model = kserve.models.v1beta1_deployment_rollout_strategy.V1beta1DeploymentRolloutStrategy()  # noqa: E501
         if include_optional:
             from kserve.models.v1beta1_rollout_spec import V1beta1RolloutSpec
 
-            return V1beta1RawDeploymentRolloutStrategy(
+            return V1beta1DeploymentRolloutStrategy(
                 default_rollout=V1beta1RolloutSpec(
                     max_surge="1",
                     max_unavailable="1",
                 )
             )
         else:
-            return V1beta1RawDeploymentRolloutStrategy()
+            return V1beta1DeploymentRolloutStrategy()
 
-    def testV1beta1RawDeploymentRolloutStrategy(self):
-        """Test V1beta1RawDeploymentRolloutStrategy"""
+    def testV1beta1DeploymentRolloutStrategy(self):
+        """Test V1beta1DeploymentRolloutStrategy"""
         inst_req_only = self.make_instance(include_optional=False)
         inst_req_and_optional = self.make_instance(include_optional=True)
 

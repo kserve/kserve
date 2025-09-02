@@ -78,6 +78,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomPredictor":                schema_pkg_apis_serving_v1beta1_CustomPredictor(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomTransformer":              schema_pkg_apis_serving_v1beta1_CustomTransformer(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.DeployConfig":                   schema_pkg_apis_serving_v1beta1_DeployConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.DeploymentRolloutStrategy":      schema_pkg_apis_serving_v1beta1_DeploymentRolloutStrategy(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerConfig":                schema_pkg_apis_serving_v1beta1_ExplainerConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerExtensionSpec":         schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec":                  schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref),
@@ -117,7 +118,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodSpec":                        schema_pkg_apis_serving_v1beta1_PodSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorExtensionSpec":         schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec":                  schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.RawDeploymentRolloutStrategy":   schema_pkg_apis_serving_v1beta1_RawDeploymentRolloutStrategy(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig":                 schema_pkg_apis_serving_v1beta1_ResourceConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource":           schema_pkg_apis_serving_v1beta1_ResourceMetricSource(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.RolloutSpec":                    schema_pkg_apis_serving_v1beta1_RolloutSpec(ref),
@@ -4380,16 +4380,37 @@ func schema_pkg_apis_serving_v1beta1_DeployConfig(ref common.ReferenceCallback) 
 							Format: "",
 						},
 					},
-					"rawDeploymentRolloutStrategy": {
+					"deploymentRolloutStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.RawDeploymentRolloutStrategy"),
+							Ref: ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.DeploymentRolloutStrategy"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.RawDeploymentRolloutStrategy"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.DeploymentRolloutStrategy"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_DeploymentRolloutStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeploymentRolloutStrategy defines the rollout strategy configuration for deployments",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"defaultRollout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DefaultRollout specifies the default rollout configuration",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.RolloutSpec"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.RolloutSpec"},
 	}
 }
 
@@ -9907,27 +9928,6 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 		},
 		Dependencies: []string{
 			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.HuggingFaceRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.WorkerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.XGBoostSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
-	}
-}
-
-func schema_pkg_apis_serving_v1beta1_RawDeploymentRolloutStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "RawDeploymentRolloutStrategy defines the rollout strategy configuration for raw deployments",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"defaultRollout": {
-						SchemaProps: spec.SchemaProps{
-							Description: "DefaultRollout specifies the default rollout configuration",
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.RolloutSpec"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.RolloutSpec"},
 	}
 }
 

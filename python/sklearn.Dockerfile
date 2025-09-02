@@ -9,8 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3-dev cur
     rm -rf /var/lib/apt/lists/*
 
 # Install uv
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    ln -s /root/.local/bin/uv /usr/local/bin/uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
 
 # Create virtual environment
 ARG VENV_PATH

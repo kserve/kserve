@@ -77,6 +77,7 @@ from kserve.models.v1beta1_custom_explainer import V1beta1CustomExplainer
 from kserve.models.v1beta1_custom_predictor import V1beta1CustomPredictor
 from kserve.models.v1beta1_custom_transformer import V1beta1CustomTransformer
 from kserve.models.v1beta1_deploy_config import V1beta1DeployConfig
+from kserve.models.v1beta1_deployment_rollout_strategy import V1beta1DeploymentRolloutStrategy
 from kserve.models.v1beta1_explainer_config import V1beta1ExplainerConfig
 from kserve.models.v1beta1_explainer_extension_spec import V1beta1ExplainerExtensionSpec
 from kserve.models.v1beta1_explainer_spec import V1beta1ExplainerSpec
@@ -114,7 +115,6 @@ from kserve.models.v1beta1_pod_metrics import V1beta1PodMetrics
 from kserve.models.v1beta1_pod_spec import V1beta1PodSpec
 from kserve.models.v1beta1_predictor_extension_spec import V1beta1PredictorExtensionSpec
 from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
-from kserve.models.v1beta1_raw_deployment_rollout_strategy import V1beta1RawDeploymentRolloutStrategy
 from kserve.models.v1beta1_resource_config import V1beta1ResourceConfig
 from kserve.models.v1beta1_resource_metric_source import V1beta1ResourceMetricSource
 from kserve.models.v1beta1_rollout_spec import V1beta1RolloutSpec

@@ -68,7 +68,7 @@ data:
   deploy: |-
     {
       "defaultDeploymentMode": "Standard",
-      "rawDeploymentRolloutStrategy": {
+      "deploymentRolloutStrategy": {
         "defaultRollout": {
           "mode": "Availability",
           "maxSurge": "1",
@@ -227,7 +227,7 @@ spec:
     # when defaultDeploymentMode is "Standard"
 ```
 
-**Behavior**: Uses the global `rawDeploymentRolloutStrategy` configuration from the KServe ConfigMap, allowing administrators to set organization-wide rollout policies.
+**Behavior**: Uses the global `deploymentRolloutStrategy` configuration from the KServe ConfigMap, allowing administrators to set organization-wide rollout policies.
 
 ### Example 4: No Rollout Strategy (Uses KServe Defaults)
 
@@ -293,7 +293,7 @@ data:
   deploy: |-
     {
       "defaultDeploymentMode": "Standard",
-      "rawDeploymentRolloutStrategy": {
+      "deploymentRolloutStrategy": {
         "defaultRollout": {
           "mode": "Availability",
           "maxSurge": "25%",
@@ -341,7 +341,7 @@ To see what rollout strategy configuration is being applied:
 
 ```bash
 # Check ConfigMap rollout defaults
-kubectl get configmap inferenceservice-config -n kserve -o jsonpath='{.data.deploy}' | jq '.rawDeploymentRolloutStrategy'
+kubectl get configmap inferenceservice-config -n kserve -o jsonpath='{.data.deploy}' | jq '.deploymentRolloutStrategy'
 
 # Check the actual deployment strategy being used
 kubectl get deployment <deployment-name> -o jsonpath='{.spec.strategy.rollingUpdate}'

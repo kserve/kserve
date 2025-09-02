@@ -33,7 +33,7 @@ FROM base AS builder
 
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-ln -s /root/.local/bin/uv /usr/local/bin/uv
+ENV PATH="/root/.local/bin:$PATH"
 
 # Install build dependencies
 RUN --mount=type=cache,target=/var/cache/apt \

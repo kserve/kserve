@@ -48,11 +48,11 @@ The `DeployConfig` includes configuration for default rollout strategies.
 
 | Field | Type | Description | Required |
 |-------|------|-------------|----------|
-| `rawDeploymentRolloutStrategy` | `RawDeploymentRolloutStrategy` | Default rollout strategy for raw deployments | No |
+| `deploymentRolloutStrategy` | `DeploymentRolloutStrategy` | Default rollout strategy for deployments | No |
 
-## RawDeploymentRolloutStrategy
+## DeploymentRolloutStrategy
 
-Defines the default rollout strategy configuration for raw deployments.
+Defines the default rollout strategy configuration for deployments.
 
 ### Fields
 
@@ -72,7 +72,7 @@ data:
   deploy: |-
     {
       "defaultDeploymentMode": "Standard",
-      "rawDeploymentRolloutStrategy": {
+      "deploymentRolloutStrategy": {
         "defaultRollout": {
           "maxSurge": "1",        # For Availability mode: set maxUnavailable: "0" 
           "maxUnavailable": "1"   # For ResourceAware mode: set maxSurge: "0"

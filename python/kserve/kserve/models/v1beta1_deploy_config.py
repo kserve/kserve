@@ -48,28 +48,28 @@ class V1beta1DeployConfig(object):
     """
     openapi_types = {
         'default_deployment_mode': 'str',
-        'raw_deployment_rollout_strategy': 'V1beta1RawDeploymentRolloutStrategy'
+        'deployment_rollout_strategy': 'V1beta1DeploymentRolloutStrategy'
     }
 
     attribute_map = {
         'default_deployment_mode': 'defaultDeploymentMode',
-        'raw_deployment_rollout_strategy': 'rawDeploymentRolloutStrategy'
+        'deployment_rollout_strategy': 'deploymentRolloutStrategy'
     }
 
-    def __init__(self, default_deployment_mode=None, raw_deployment_rollout_strategy=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, default_deployment_mode=None, deployment_rollout_strategy=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1DeployConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._default_deployment_mode = None
-        self._raw_deployment_rollout_strategy = None
+        self._deployment_rollout_strategy = None
         self.discriminator = None
 
         if default_deployment_mode is not None:
             self.default_deployment_mode = default_deployment_mode
-        if raw_deployment_rollout_strategy is not None:
-            self.raw_deployment_rollout_strategy = raw_deployment_rollout_strategy
+        if deployment_rollout_strategy is not None:
+            self.deployment_rollout_strategy = deployment_rollout_strategy
 
     @property
     def default_deployment_mode(self):
@@ -93,25 +93,25 @@ class V1beta1DeployConfig(object):
         self._default_deployment_mode = default_deployment_mode
 
     @property
-    def raw_deployment_rollout_strategy(self):
-        """Gets the raw_deployment_rollout_strategy of this V1beta1DeployConfig.  # noqa: E501
+    def deployment_rollout_strategy(self):
+        """Gets the deployment_rollout_strategy of this V1beta1DeployConfig.  # noqa: E501
 
 
-        :return: The raw_deployment_rollout_strategy of this V1beta1DeployConfig.  # noqa: E501
-        :rtype: V1beta1RawDeploymentRolloutStrategy
+        :return: The deployment_rollout_strategy of this V1beta1DeployConfig.  # noqa: E501
+        :rtype: V1beta1DeploymentRolloutStrategy
         """
-        return self._raw_deployment_rollout_strategy
+        return self._deployment_rollout_strategy
 
-    @raw_deployment_rollout_strategy.setter
-    def raw_deployment_rollout_strategy(self, raw_deployment_rollout_strategy):
-        """Sets the raw_deployment_rollout_strategy of this V1beta1DeployConfig.
+    @deployment_rollout_strategy.setter
+    def deployment_rollout_strategy(self, deployment_rollout_strategy):
+        """Sets the deployment_rollout_strategy of this V1beta1DeployConfig.
 
 
-        :param raw_deployment_rollout_strategy: The raw_deployment_rollout_strategy of this V1beta1DeployConfig.  # noqa: E501
-        :type: V1beta1RawDeploymentRolloutStrategy
+        :param deployment_rollout_strategy: The deployment_rollout_strategy of this V1beta1DeployConfig.  # noqa: E501
+        :type: V1beta1DeploymentRolloutStrategy
         """
 
-        self._raw_deployment_rollout_strategy = raw_deployment_rollout_strategy
+        self._deployment_rollout_strategy = deployment_rollout_strategy
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -1285,7 +1285,7 @@ func TestApplyRolloutStrategyFromConfigmap(t *testing.T) {
 			name: "Apply rollout strategy with RawDeployment mode",
 			deployConfig: &v1beta1.DeployConfig{
 				DefaultDeploymentMode: "Standard",
-				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+				DeploymentRolloutStrategy: &v1beta1.DeploymentRolloutStrategy{
 					DefaultRollout: &v1beta1.RolloutSpec{
 						MaxSurge:       "1",
 						MaxUnavailable: "1",
@@ -1299,7 +1299,7 @@ func TestApplyRolloutStrategyFromConfigmap(t *testing.T) {
 			name: "No rollout strategy applied for Serverless mode",
 			deployConfig: &v1beta1.DeployConfig{
 				DefaultDeploymentMode: "Serverless",
-				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+				DeploymentRolloutStrategy: &v1beta1.DeploymentRolloutStrategy{
 					DefaultRollout: &v1beta1.RolloutSpec{
 						MaxSurge:       "50%",
 						MaxUnavailable: "25%",
@@ -1360,7 +1360,7 @@ func TestCreateRawDeploymentWithPrecedence(t *testing.T) {
 			},
 			deployConfig: &v1beta1.DeployConfig{
 				DefaultDeploymentMode: "Standard",
-				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+				DeploymentRolloutStrategy: &v1beta1.DeploymentRolloutStrategy{
 					DefaultRollout: &v1beta1.RolloutSpec{
 						MaxSurge:       "1",
 						MaxUnavailable: "1",
@@ -1377,7 +1377,7 @@ func TestCreateRawDeploymentWithPrecedence(t *testing.T) {
 			deploymentStrategy: nil,
 			deployConfig: &v1beta1.DeployConfig{
 				DefaultDeploymentMode: "Standard",
-				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+				DeploymentRolloutStrategy: &v1beta1.DeploymentRolloutStrategy{
 					DefaultRollout: &v1beta1.RolloutSpec{
 						MaxSurge:       "2",
 						MaxUnavailable: "1",
@@ -1394,7 +1394,7 @@ func TestCreateRawDeploymentWithPrecedence(t *testing.T) {
 			deploymentStrategy: nil,
 			deployConfig: &v1beta1.DeployConfig{
 				DefaultDeploymentMode: "Serverless",
-				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
+				DeploymentRolloutStrategy: &v1beta1.DeploymentRolloutStrategy{
 					DefaultRollout: &v1beta1.RolloutSpec{
 						MaxSurge:       "1",
 						MaxUnavailable: "1",
