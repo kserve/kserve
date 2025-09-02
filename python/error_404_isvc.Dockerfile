@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y gcc python3-dev curl && apt-get clean &
 
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-ENV PATH="/root/.local/bin:$PATH"
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
 # Activate virtual env
 ARG VENV_PATH

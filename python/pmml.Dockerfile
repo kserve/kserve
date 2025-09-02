@@ -20,7 +20,7 @@ RUN apt-get update && \
 
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-ENV PATH="/root/.local/bin:$PATH"
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
 # Setup virtual environment
 ARG VENV_PATH
