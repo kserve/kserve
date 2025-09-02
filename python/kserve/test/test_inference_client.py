@@ -325,7 +325,7 @@ class TestInferenceRESTClient:
         request_id = "2ja0ls9j1309"
         model_name = "TestModel"
         httpx_mock.add_response(
-            url="http://test-server-v1", json={"predictions": [1, 2]}, repeat=True
+            url="http://test-server-v1", json={"predictions": [1, 2]}, is_reusable=True
         )
         httpx_mock.add_response(
             url="http://test-server-v2",
@@ -341,6 +341,7 @@ class TestInferenceRESTClient:
                     }
                 ],
             },
+            is_reusable=True,
         )
 
         async with httpx.AsyncClient() as client:
@@ -417,7 +418,7 @@ class TestInferenceRESTClient:
                 httpx_mock.add_response(
                     url=re.compile(r"http://test-server/serving/test/test-isvc/v1/*"),
                     json={"predictions": [1, 2]},
-                    repeat=True,
+                    is_reusable=True,
                 )
                 input_data = {"instances": [1, 2]}
                 res = await rest_client.infer(
@@ -443,7 +444,7 @@ class TestInferenceRESTClient:
                             }
                         ],
                     },
-                    repeat=True,
+                    is_reusable=True,
                 )
                 input_data = {
                     "id": request_id,
