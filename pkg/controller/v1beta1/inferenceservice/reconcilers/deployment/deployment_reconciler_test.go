@@ -1284,7 +1284,7 @@ func TestApplyRolloutStrategyFromConfigmap(t *testing.T) {
 		{
 			name: "Apply rollout strategy with RawDeployment mode",
 			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode: "RawDeployment",
+				DefaultDeploymentMode: "Standard",
 				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
 					DefaultRollout: &v1beta1.RolloutSpec{
 						MaxSurge:       "1",
@@ -1359,7 +1359,7 @@ func TestCreateRawDeploymentWithPrecedence(t *testing.T) {
 				},
 			},
 			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode: "RawDeployment",
+				DefaultDeploymentMode: "Standard",
 				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
 					DefaultRollout: &v1beta1.RolloutSpec{
 						MaxSurge:       "1",
@@ -1376,7 +1376,7 @@ func TestCreateRawDeploymentWithPrecedence(t *testing.T) {
 			name:               "Configmap strategy when no user strategy",
 			deploymentStrategy: nil,
 			deployConfig: &v1beta1.DeployConfig{
-				DefaultDeploymentMode: "RawDeployment",
+				DefaultDeploymentMode: "Standard",
 				RawDeploymentRolloutStrategy: &v1beta1.RawDeploymentRolloutStrategy{
 					DefaultRollout: &v1beta1.RolloutSpec{
 						MaxSurge:       "2",

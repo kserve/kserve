@@ -13,7 +13,7 @@ The rollout strategy is applied with the following precedence:
 
 ## ConfigMap Configuration
 
-When using ConfigMap configuration, you can specify `maxSurge` and `maxUnavailable` values directly. These values are applied to the Kubernetes deployment strategy when `defaultDeploymentMode` is set to `"RawDeployment"`.
+When using ConfigMap configuration, you can specify `maxSurge` and `maxUnavailable` values directly. These values are applied to the Kubernetes deployment strategy when `defaultDeploymentMode` is set to `"Standard"`.
 
 ## Configuration
 
@@ -28,7 +28,7 @@ metadata:
   name: deployment-strategy-example
   namespace: default
   annotations:
-    serving.kserve.io/deploymentMode: "RawDeployment"
+    serving.kserve.io/deploymentMode: "Standard"
 spec:
   predictor:
     model:
@@ -56,7 +56,7 @@ spec:
 
 ### Method 2: ConfigMap Default Configuration
 
-Configure defaults in the KServe ConfigMap that apply when no user-defined deployment strategy is specified and `defaultDeploymentMode` is set to `"RawDeployment"`:
+Configure defaults in the KServe ConfigMap that apply when no user-defined deployment strategy is specified and `defaultDeploymentMode` is set to `"Standard"`:
 
 ```yaml
 apiVersion: v1
@@ -67,7 +67,7 @@ metadata:
 data:
   deploy: |-
     {
-      "defaultDeploymentMode": "RawDeployment",
+      "defaultDeploymentMode": "Standard",
       "rawDeploymentRolloutStrategy": {
         "defaultRollout": {
           "mode": "Availability",
@@ -100,7 +100,7 @@ For both direct `deploymentStrategy` and ConfigMap configuration:
 - **maxSurge**: Maximum number of pods that can be created above the desired replica count (e.g., `"1"`, `"25%"`)
 - **maxUnavailable**: Maximum number of pods that can be unavailable during update (e.g., `"1"`, `"25%"`)
 
-KServe can configure default `maxSurge` and `maxUnavailable` values globally for all InferenceServices via ConfigMap. When users do not specify anything in the `deploymentStrategy` section of their InferenceService, the service will pick up these default values from the ConfigMap when `defaultDeploymentMode` is `"RawDeployment"`.
+KServe can configure default `maxSurge` and `maxUnavailable` values globally for all InferenceServices via ConfigMap. When users do not specify anything in the `deploymentStrategy` section of their InferenceService, the service will pick up these default values from the ConfigMap when `defaultDeploymentMode` is `"Standard"`.
 
 For direct DeploymentStrategy configuration:
 - **type**: Should be `"RollingUpdate"`
@@ -134,12 +134,12 @@ The final rollout strategy values are determined by this priority order:
 
 1. **Multinode deployment override** (HIGHEST priority) - automatic for Ray workloads with `RAY_NODE_COUNT` environment variable
 2. **User-defined DeploymentStrategy** (high priority) - specified in component extension spec
-3. **ConfigMap rollout strategy** (fallback) - only applies when `defaultDeploymentMode` is `"RawDeployment"`
+3. **ConfigMap rollout strategy** (fallback) - only applies when `defaultDeploymentMode` is `"Standard"`
 4. **KServe default values** (if no configuration is provided)
 
 **Important**: The ConfigMap rollout strategy only applies when:
 - No user-defined `deploymentStrategy` is specified in the component spec
-- The `defaultDeploymentMode` in the ConfigMap is set to `"RawDeployment"`
+- The `defaultDeploymentMode` in the ConfigMap is set to `"Standard"`
 
 ### Default Values Summary
 
@@ -162,7 +162,7 @@ kind: InferenceService
 metadata:
   name: availability-mode-model
   annotations:
-    serving.kserve.io/deploymentMode: "RawDeployment"
+    serving.kserve.io/deploymentMode: "Standard"
 spec:
   predictor:
     model:
@@ -189,7 +189,7 @@ kind: InferenceService
 metadata:
   name: resource-aware-model
   annotations:
-    serving.kserve.io/deploymentMode: "RawDeployment"
+    serving.kserve.io/deploymentMode: "Standard"
 spec:
   predictor:
     model:
@@ -216,7 +216,7 @@ kind: InferenceService
 metadata:
   name: configmap-defaults-model
   annotations:
-    serving.kserve.io/deploymentMode: "RawDeployment"
+    serving.kserve.io/deploymentMode: "Standard"
 spec:
   predictor:
     model:
@@ -224,7 +224,7 @@ spec:
         name: sklearn
       storageUri: "s3://my-bucket/model"
     # No deploymentStrategy specified - will use ConfigMap defaults
-    # when defaultDeploymentMode is "RawDeployment"
+    # when defaultDeploymentMode is "Standard"
 ```
 
 **Behavior**: Uses the global `rawDeploymentRolloutStrategy` configuration from the KServe ConfigMap, allowing administrators to set organization-wide rollout policies.
@@ -237,7 +237,7 @@ kind: InferenceService
 metadata:
   name: default-rollout-model
   annotations:
-    serving.kserve.io/deploymentMode: "RawDeployment"
+    serving.kserve.io/deploymentMode: "Standard"
 spec:
   predictor:
     model:
@@ -292,7 +292,7 @@ Configure defaults in the ConfigMap instead of per-InferenceService configuratio
 data:
   deploy: |-
     {
-      "defaultDeploymentMode": "RawDeployment",
+      "defaultDeploymentMode": "Standard",
       "rawDeploymentRolloutStrategy": {
         "defaultRollout": {
           "mode": "Availability",
@@ -314,10 +314,10 @@ spec:
 
 ### Common Issues
 
-1. **ConfigMap not applied**: Ensure the ConfigMap rollout strategy only applies when `defaultDeploymentMode` is `"RawDeployment"`
+1. **ConfigMap not applied**: Ensure the ConfigMap rollout strategy only applies when `defaultDeploymentMode` is `"Standard"`
 2. **Invalid Mode**: For ConfigMap configuration, ensure mode is exactly `"Availability"` or `"ResourceAware"` (case-sensitive)
 3. **Invalid maxSurge/maxUnavailable**: Ensure values are valid numbers or percentages (e.g., `"1"`, `"25%"`)
-4. **Missing Annotation**: Ensure `serving.kserve.io/deploymentMode: "RawDeployment"` is set for raw deployments
+4. **Missing Annotation**: Ensure `serving.kserve.io/deploymentMode: "Standard"` is set for raw deployments
 5. **User strategy not taking precedence**: Remember that user-defined `deploymentStrategy` always takes precedence over ConfigMap settings
 
 ### Verification

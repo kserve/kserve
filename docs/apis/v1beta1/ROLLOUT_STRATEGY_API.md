@@ -17,7 +17,7 @@ The `ComponentExtensionSpec` supports two approaches for rollout strategy config
 ### Configuration Priority
 
 1. **deploymentStrategy** - User-defined Kubernetes deployment strategy (highest priority)
-2. **ConfigMap rollout strategy** - Fallback when `defaultDeploymentMode` is `"RawDeployment"`
+2. **ConfigMap rollout strategy** - Fallback when `defaultDeploymentMode` is `"Standard"`
 
 ## RolloutSpec (ConfigMap Configuration)
 
@@ -71,7 +71,7 @@ metadata:
 data:
   deploy: |-
     {
-      "defaultDeploymentMode": "RawDeployment",
+      "defaultDeploymentMode": "Standard",
       "rawDeploymentRolloutStrategy": {
         "defaultRollout": {
           "maxSurge": "1",        # For Availability mode: set maxUnavailable: "0" 
@@ -90,7 +90,7 @@ kind: InferenceService
 metadata:
   name: availability-mode-example
   annotations:
-    serving.kserve.io/deploymentMode: "RawDeployment"
+    serving.kserve.io/deploymentMode: "Standard"
 spec:
   predictor:
     model:
@@ -112,7 +112,7 @@ kind: InferenceService
 metadata:
   name: resource-aware-example
   annotations:
-    serving.kserve.io/deploymentMode: "RawDeployment"
+    serving.kserve.io/deploymentMode: "Standard"
 spec:
   predictor:
     model:
@@ -135,7 +135,7 @@ kind: InferenceService
 metadata:
   name: example-configmap-defaults
   annotations:
-    serving.kserve.io/deploymentMode: "RawDeployment"
+    serving.kserve.io/deploymentMode: "Standard"
 spec:
   predictor:
     model:
@@ -164,12 +164,12 @@ When configuring rollout strategies, the following priority order applies:
 
 1. **Multinode deployment override** (HIGHEST priority) - automatic for Ray workloads with `RAY_NODE_COUNT` environment variable
 2. **User-defined deploymentStrategy** (high priority) - specified in component extension spec
-3. **ConfigMap rollout strategy** (fallback) - only applies when `defaultDeploymentMode` is `"RawDeployment"`
+3. **ConfigMap rollout strategy** (fallback) - only applies when `defaultDeploymentMode` is `"Standard"`
 4. **KServe default values** (if no configuration is provided)
 
 **Important**: The ConfigMap rollout strategy only applies when:
 - No user-defined `deploymentStrategy` is specified in the component spec
-- The `defaultDeploymentMode` in the ConfigMap is set to `"RawDeployment"`
+- The `defaultDeploymentMode` in the ConfigMap is set to `"Standard"`
 
 ## Default Values
 

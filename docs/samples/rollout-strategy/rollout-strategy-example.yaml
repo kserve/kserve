@@ -4,7 +4,7 @@ metadata:
   name: rollout-strategy-example
   namespace: default
   annotations:
-    serving.kserve.io/deploymentMode: "RawDeployment"
+    serving.kserve.io/deploymentMode: "Standard"
 spec:
   predictor:
     model:
@@ -44,7 +44,7 @@ metadata:
   name: configmap-defaults-example
   namespace: default
   annotations:
-    serving.kserve.io/deploymentMode: "RawDeployment"
+    serving.kserve.io/deploymentMode: "Standard"
 spec:
   predictor:
     model:
@@ -52,7 +52,7 @@ spec:
         name: sklearn
       storageUri: "s3://my-bucket/model"
     # No deploymentStrategy specified - will use ConfigMap global defaults  
-    # when defaultDeploymentMode is "RawDeployment"
+    # when defaultDeploymentMode is "Standard"
     # Allows administrators to set organization-wide rollout policies
 
 ---
@@ -65,7 +65,7 @@ metadata:
   name: multinode-example
   namespace: default
   annotations:
-    serving.kserve.io/deploymentMode: "RawDeployment"
+    serving.kserve.io/deploymentMode: "Standard"
 spec:
   predictor:
     model:

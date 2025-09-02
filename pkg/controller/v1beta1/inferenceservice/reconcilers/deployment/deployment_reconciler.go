@@ -359,8 +359,8 @@ func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
 
 // applyRolloutStrategyFromConfigmap applies the rollout strategy configuration from configmap to the deployment spec
 func applyRolloutStrategyFromConfigmap(spec *appsv1.DeploymentSpec, deployConfig *v1beta1.DeployConfig) {
-	// Only apply rollout strategy when DefaultDeploymentMode is RawDeployment
-	if deployConfig == nil || deployConfig.DefaultDeploymentMode != "RawDeployment" {
+	// Only apply rollout strategy when DefaultDeploymentMode is Standard
+	if deployConfig == nil || deployConfig.DefaultDeploymentMode != "Standard" {
 		return
 	}
 

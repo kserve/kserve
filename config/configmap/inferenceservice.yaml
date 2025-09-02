@@ -541,8 +541,8 @@ data:
     # Example
     deploy: |-
       {
-        "defaultDeploymentMode": "RawDeployment",
-        "rawDeploymentRolloutStrategy": {
+        "defaultDeploymentMode": "Standard",
+        "deploymentRolloutStrategy": {
           "defaultRollout": {
             "maxSurge": "1",
             "maxUnavailable": "1"
@@ -553,14 +553,11 @@ data:
     deploy: |-
       {
         # defaultDeploymentMode specifies the default deployment mode of the kserve. The supported values are
-        # Serverless, RawDeployment and ModelMesh. Users can override the deployment mode at service level
-        # by adding the annotation serving.kserve.io/deploymentMode.For more info on deployment mode visit
-        # Serverless https://kserve.github.io/website/master/admin/serverless/serverless/
-        # RawDeployment https://kserve.github.io/website/master/admin/kubernetes_deployment/
-        # ModelMesh https://kserve.github.io/website/master/admin/modelmesh/
-        # "defaultDeploymentMode": "RawDeployment",
-        # rawDeploymentRolloutStrategy specifies the default rollout strategy for raw deployments
-        # "rawDeploymentRolloutStrategy": {
+        # Standard and Knative. Users can override the deployment mode at service level
+        # by adding the annotation serving.kserve.io/deploymentMode.
+        # "defaultDeploymentMode": "Standard",
+        # deploymentRolloutStrategy specifies the default rollout strategy for the Standard deployment mode
+        # "deploymentRolloutStrategy": {
           # defaultRollout specifies the default rollout configuration using Kubernetes deployment strategy
           # "defaultRollout": {
             # maxSurge specifies the maximum number of pods that can be created above the desired replica count
