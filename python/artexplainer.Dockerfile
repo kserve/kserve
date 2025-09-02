@@ -3,11 +3,15 @@ ARG BASE_IMAGE=python:${PYTHON_VERSION}-slim-bookworm
 ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
-
+ARG GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=0
 # Required for building packages for arm64 arch
-RUN apt-get update && apt-get install -y --no-install-recommends curl python3-dev build-essential && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
+RUN if [ "$(uname -m)" = "ppc64le" ]; then \
+    apt-get update && apt-get install -y --no-install-recommends curl python3-dev build-essential gcc gfortran cmake pkg-config libssl-dev libopenblas-dev libjpeg-dev libhdf5-dev && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*; \
+    else \
+    apt-get update && apt-get install -y --no-install-recommends curl python3-dev build-essential && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*; \
+    fi
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
     ln -s /root/.local/bin/uv /usr/local/bin/uv
@@ -17,7 +21,7 @@ ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-
+ENV GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=${GRPC_PYTHON_BUILD_SYSTEM_OPENSSL}
 # ------------------ kserve deps ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN cd kserve && uv sync --active --no-cache
