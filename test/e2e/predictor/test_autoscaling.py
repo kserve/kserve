@@ -472,81 +472,81 @@ async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer)
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
-# TODO: commented out for testing purpose
-# @pytest.mark.raw
-# @pytest.mark.asyncio(scope="session")
-# async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_layer):
-#     """
-#     Test KEDA autoscaling with new InferenceService (auto_scaling) spec
-#     """
-#     service_name = "isvc-sklearn-keda-scale-new-spec-2"
-#     predictor = V1beta1PredictorSpec(
-#         min_replicas=1,
-#         max_replicas=5,
-#         auto_scaling=V1beta1AutoScalingSpec(
-#             metrics=[
-#                 V1beta1MetricsSpec(
-#                     type="External",
-#                     external=V1beta1ExternalMetricSource(
-#                         metric=V1beta1ExternalMetrics(
-#                             backend="prometheus",
-#                             server_address="http://localhost:9090",
-#                             query="http_requests_per_second",
-#                         ),
-#                         target=V1beta1MetricTarget(type="Value", value=50),
-#                     ),
-#                 )
-#             ]
-#         ),
-#         sklearn=V1beta1SKLearnSpec(
-#             storage_uri=MODEL,
-#             resources=V1ResourceRequirements(
-#                 requests={"cpu": "50m", "memory": "128Mi"},
-#                 limits={"cpu": "100m", "memory": "256Mi"},
-#             ),
-#         ),
-#     )
 
-#     annotations = {
-#         "serving.kserve.io/deploymentMode": "Standard",
-#         "serving.kserve.io/autoscalerClass": "keda",
-#     }
+@pytest.mark.raw
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_layer):
+    """
+    Test KEDA autoscaling with new InferenceService (auto_scaling) spec
+    """
+    service_name = "isvc-sklearn-keda-scale-new-spec-2"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        max_replicas=5,
+        auto_scaling=V1beta1AutoScalingSpec(
+            metrics=[
+                V1beta1MetricsSpec(
+                    type="External",
+                    external=V1beta1ExternalMetricSource(
+                        metric=V1beta1ExternalMetrics(
+                            backend="prometheus",
+                            server_address="http://localhost:9090",
+                            query="http_requests_per_second",
+                        ),
+                        target=V1beta1MetricTarget(type="Value", value=50),
+                    ),
+                )
+            ]
+        ),
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri=MODEL,
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
 
-#     isvc = V1beta1InferenceService(
-#         api_version=constants.KSERVE_V1BETA1,
-#         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-#         metadata=client.V1ObjectMeta(
-#             name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
-#         ),
-#         spec=V1beta1InferenceServiceSpec(predictor=predictor),
-#     )
+    annotations = {
+        "serving.kserve.io/deploymentMode": "Standard",
+        "serving.kserve.io/autoscalerClass": "keda",
+    }
 
-#     kserve_client = KServeClient(
-#         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
-#     )
-#     kserve_client.create(isvc)
-#     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-#     api_instance = kserve_client.api_instance
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
 
-#     scaledobject_resp = api_instance.list_namespaced_custom_object(
-#         group="keda.sh",
-#         version="v1alpha1",
-#         namespace=KSERVE_TEST_NAMESPACE,
-#         label_selector=f"serving.kserve.io/inferenceservice={service_name}",
-#         plural="scaledobjects",
-#     )
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    api_instance = kserve_client.api_instance
 
-#     trigger_metadata = scaledobject_resp["items"][0]["spec"]["triggers"][0]["metadata"]
-#     trigger_type = scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"]
-#     assert trigger_type == "prometheus"
-#     assert trigger_metadata["query"] == "http_requests_per_second"
-#     assert trigger_metadata["serverAddress"] == "http://localhost:9090"
-#     assert trigger_metadata["threshold"] == "50.000000"
-#     res = await predict_isvc(
-#         rest_v1_client, service_name, INPUT, network_layer=network_layer
-#     )
-#     assert res["predictions"] == [1, 1]
-#     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    scaledobject_resp = api_instance.list_namespaced_custom_object(
+        group="keda.sh",
+        version="v1alpha1",
+        namespace=KSERVE_TEST_NAMESPACE,
+        label_selector=f"serving.kserve.io/inferenceservice={service_name}",
+        plural="scaledobjects",
+    )
+
+    trigger_metadata = scaledobject_resp["items"][0]["spec"]["triggers"][0]["metadata"]
+    trigger_type = scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"]
+    assert trigger_type == "prometheus"
+    assert trigger_metadata["query"] == "http_requests_per_second"
+    assert trigger_metadata["serverAddress"] == "http://localhost:9090"
+    assert trigger_metadata["threshold"] == "50.000000"
+    res = await predict_isvc(
+        rest_v1_client, service_name, INPUT, network_layer=network_layer
+    )
+    assert res["predictions"] == [1, 1]
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.raw
@@ -579,8 +579,7 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "10m", "memory": "64Mi"},
-                limits={"cpu": "20m", "memory": "128Mi"},
+                requests={"cpu": "100m", "memory": "64Mi"},
             ),
         ),
     )
@@ -654,7 +653,9 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
             KSERVE_TEST_NAMESPACE,
             label_selector=f"serving.kserve.io/inferenceservice={service_name}",
         )
-        running_pods = [p for p in pods.items if p.status.phase in ["Running", "Pending"]]
+        running_pods = [
+            p for p in pods.items if p.status.phase in ["Running", "Pending"]
+        ]
         return len(running_pods)
 
     # Wait for pod count to reach expected value, with timeout
