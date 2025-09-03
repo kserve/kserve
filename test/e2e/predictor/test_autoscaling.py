@@ -472,7 +472,7 @@ async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer)
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
-
+# TODO: commented out for testing purpose
 # @pytest.mark.raw
 # @pytest.mark.asyncio(scope="session")
 # async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_layer):
@@ -579,8 +579,8 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "10m", "memory": "64Mi"},
+                limits={"cpu": "20m", "memory": "128Mi"},
             ),
         ),
     )
