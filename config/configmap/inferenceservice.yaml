@@ -541,7 +541,7 @@ data:
     # Example
     deploy: |-
       {
-        "defaultDeploymentMode": "Standard",
+        "defaultDeploymentMode": "Serverless",
         "deploymentRolloutStrategy": {
           "defaultRollout": {
             "maxSurge": "1",
