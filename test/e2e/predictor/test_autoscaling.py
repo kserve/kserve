@@ -407,7 +407,7 @@ async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer)
     service_name = "isvc-sklearn-keda-scale-new-spec"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
-        max_replicas=5,
+        max_replicas=3,
         auto_scaling=V1beta1AutoScalingSpec(
             metrics=[
                 V1beta1MetricsSpec(
@@ -482,7 +482,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     service_name = "isvc-sklearn-keda-scale-new-spec-2"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
-        max_replicas=5,
+        max_replicas=3,
         auto_scaling=V1beta1AutoScalingSpec(
             metrics=[
                 V1beta1MetricsSpec(
@@ -560,7 +560,7 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
     service_name = "isvc-sklearn-keda-otel-add-on"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
-        max_replicas=5,
+        max_replicas=3,
         auto_scaling=V1beta1AutoScalingSpec(
             metrics=[
                 V1beta1MetricsSpec(
