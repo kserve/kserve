@@ -59,8 +59,8 @@ async def test_sklearn_kserve_concurrency(rest_v1_client):
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -103,8 +103,8 @@ async def test_sklearn_kserve_rps(rest_v1_client):
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -148,8 +148,8 @@ async def test_sklearn_kserve_cpu(rest_v1_client):
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -196,8 +196,8 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -248,8 +248,8 @@ async def test_sklearn_rolling_update():
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -330,8 +330,8 @@ async def test_sklearn_env_update():
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
             env=envs,
         ),
@@ -424,8 +424,7 @@ async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer)
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
             ),
         ),
     )
@@ -501,8 +500,8 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -579,7 +578,7 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "64Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
             ),
         ),
     )
