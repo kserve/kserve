@@ -154,7 +154,7 @@ func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, cl
 	objectMeta, componentExtSpec := constructForRawDeployment(graph)
 
 	// create the reconciler
-	reconciler, err := raw.NewRawKubeReconciler(ctx, cl, clientset, scheme, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil)
+	reconciler, err := raw.NewRawKubeReconciler(ctx, cl, clientset, scheme, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil, nil, nil)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
 	}

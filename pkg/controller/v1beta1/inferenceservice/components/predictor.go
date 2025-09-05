@@ -116,10 +116,28 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 
 	predictor := isvc.Spec.Predictor.GetImplementation()
 
+	sourceURI := predictor.GetStorageUri()
+	storageURIs := isvc.Spec.Predictor.StorageUris
+
+	if sourceURI != nil && storageURIs != nil {
+		return ctrl.Result{}, fmt.Errorf("Setting both StorageURI and StorageURIs is not supported.")
+	}
+
 	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
 	if err := p.addStorageInitializerAnnotations(ctx, predictor, annotations); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if storageURIs != nil {
+		isvcutils.ValidateStorageUrisSpec(storageURIs)
+
+		for _, storageURI := range storageURIs {
+			err := isvcutils.ValidateStorageURI(ctx, &storageURI.Uri, p.client)
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
+			}
+		}
 	}
 
 	// If Model is specified, prioritize using that. Otherwise, we will assume a framework object was specified.
@@ -670,8 +688,18 @@ func computeRayNodeAndGPUs(mergedWorkerPodSpec *corev1.PodSpec, totalRequestGPUC
 }
 
 func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta, workerObjectMeta metav1.ObjectMeta, podSpec, workerPodSpec *corev1.PodSpec) error {
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, p.clientset)
+    if err != nil {
+        return  errors.Wrapf(err, "failed to get InferenceService ConfigMap")
+    }
+
+    storageConfig, err := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
+    if err != nil {
+        return  errors.Wrapf(err, "failed to get StorageInitializer config")
+    }
+
 	r, err := raw.NewRawKubeReconciler(ctx, p.client, p.clientset, p.scheme, objectMeta, workerObjectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
-		podSpec, workerPodSpec)
+		podSpec, workerPodSpec, &isvc.Spec.Predictor.StorageUris, storageConfig)
 	if err != nil {
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for predictor")
 	}
@@ -712,8 +740,18 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 }
 
 func (p *Predictor) reconcileKnativeDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta *metav1.ObjectMeta, podSpec *corev1.PodSpec) (*knservingv1.ServiceStatus, error) {
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, p.clientset)
+    if err != nil {
+        return nil, errors.Wrapf(err, "failed to get InferenceService ConfigMap")
+    }
+
+    storageConfig, err := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
+    if err != nil {
+        return nil, errors.Wrapf(err, "failed to get StorageInitializer config")
+    }
+
 	r := knative.NewKsvcReconciler(p.client, p.scheme, *objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
-		podSpec, isvc.Status.Components[v1beta1.PredictorComponent], p.inferenceServiceConfig.ServiceLabelDisallowedList)
+		podSpec, isvc.Status.Components[v1beta1.PredictorComponent], p.inferenceServiceConfig.ServiceLabelDisallowedList, &isvc.Spec.Predictor.StorageUris, storageConfig)
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 		return nil, errors.Wrapf(err, "fails to set owner reference for predictor")

@@ -37,6 +37,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	. "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	kserveTypes "github.com/kserve/kserve/pkg/types"
 )
 
 func TestIsMMSPredictor(t *testing.T) {
@@ -2399,4 +2400,367 @@ func TestMergeServingRuntimeAndInferenceServiceSpecs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateStorageUriSpec(t *testing.T) {
+    g := gomega.NewGomegaWithT(t)
+
+    scenarios := map[string]struct {
+        storageUri  *StorageUrisSpec
+        expected    gomega.OmegaMatcher
+    }{
+        "ValidStorageUriSpec": {
+            storageUri: &StorageUrisSpec{
+                Uri:  "gs://bucket/model",
+                Path: "/mnt/models",
+            },
+            expected: gomega.BeNil(),
+        },
+        "ValidStorageUriSpecWithRootPath": {
+            storageUri: &StorageUrisSpec{
+                Uri:  "s3://bucket/model",
+                Path: "/",
+            },
+            expected: gomega.MatchError("storage path cannot be empty"),
+        },
+        "EmptyUri": {
+            storageUri: &StorageUrisSpec{
+                Uri:  "",
+                Path: "/mnt/models",
+            },
+            expected: gomega.MatchError("storage URI cannot be empty"),
+        },
+        "RelativePath": {
+            storageUri: &StorageUrisSpec{
+                Uri:  "gs://bucket/model",
+                Path: "mnt/models",
+            },
+            expected: gomega.MatchError("storage path must be absolute: mnt/models"),
+        },
+    }
+
+    for name, scenario := range scenarios {
+        t.Run(name, func(t *testing.T) {
+            err := ValidateStorageUriSpec(scenario.storageUri)
+            g.Expect(err).To(scenario.expected)
+        })
+    }
+}
+
+func TestValidateStorageUrisSpec(t *testing.T) {
+    g := gomega.NewGomegaWithT(t)
+
+    scenarios := map[string]struct {
+        storageUris []StorageUrisSpec
+        expected    gomega.OmegaMatcher
+    }{
+        "EmptyList": {
+            storageUris: []StorageUrisSpec{},
+            expected:    gomega.BeNil(),
+        },
+        "SingleValidStorageUri": {
+            storageUris: []StorageUrisSpec{
+                {
+                    Uri:  "gs://bucket/model1",
+                    Path: "/mnt/models",
+                },
+            },
+            expected: gomega.BeNil(),
+        },
+        "MultipleValidStorageUrisWithCommonParent": {
+            storageUris: []StorageUrisSpec{
+                {
+                    Uri:  "gs://bucket/model1",
+                    Path: "/mnt/models/model1",
+                },
+                {
+                    Uri:  "s3://bucket/model2",
+                    Path: "/mnt/models/model2",
+                },
+            },
+            expected: gomega.BeNil(),
+        },
+        "MultipleStorageUrisWithoutCommonParent": {
+            storageUris: []StorageUrisSpec{
+                {
+                    Uri:  "gs://bucket/model1",
+                    Path: "/mnt/models",
+                },
+                {
+                    Uri:  "s3://bucket/model2",
+                    Path: "/opt/models",
+                },
+            },
+            expected: gomega.MatchError("storage paths must have a common parent directory"),
+        },
+        "InvalidStorageUriInList": {
+            storageUris: []StorageUrisSpec{
+                {
+                    Uri:  "gs://bucket/model1",
+                    Path: "/mnt/models",
+                },
+                {
+                    Uri:  "",
+                    Path: "/mnt/models/model2",
+                },
+            },
+            expected: gomega.MatchError("storage URI cannot be empty"),
+        },
+        "RelativePathInList": {
+            storageUris: []StorageUrisSpec{
+                {
+                    Uri:  "gs://bucket/model1",
+                    Path: "/mnt/models",
+                },
+                {
+                    Uri:  "s3://bucket/model2",
+                    Path: "mnt/models/model2",
+                },
+            },
+            expected: gomega.MatchError("storage path must be absolute: mnt/models/model2"),
+        },
+    }
+
+    for name, scenario := range scenarios {
+        t.Run(name, func(t *testing.T) {
+            err := ValidateStorageUrisSpec(scenario.storageUris)
+            g.Expect(err).To(scenario.expected)
+        })
+    }
+}
+
+func TestFindCommonParentPath(t *testing.T) {
+    g := gomega.NewGomegaWithT(t)
+
+    scenarios := map[string]struct {
+        paths    []string
+        expected string
+    }{
+        "EmptyPaths": {
+            paths:    []string{},
+            expected: "",
+        },
+        "SinglePath": {
+            paths:    []string{"/mnt/models"},
+            expected: "/mnt/models",
+        },
+        "CommonParent": {
+            paths: []string{
+                "/mnt/models/model1",
+                "/mnt/models/model2",
+            },
+            expected: "/mnt/models",
+        },
+        "DifferentRoots": {
+            paths: []string{
+                "/mnt/models",
+                "/opt/models",
+            },
+            expected: "/",
+        },
+        "NestedCommonParent": {
+            paths: []string{
+                "/mnt/models/pytorch/model1",
+                "/mnt/models/pytorch/model2",
+                "/mnt/models/pytorch/",
+            },
+            expected: "/mnt/models/pytorch",
+        },
+        "NoCommonParent": {
+            paths: []string{
+                "/mnt/models",
+                "/opt/data",
+                "/var/cache",
+            },
+            expected: "/",
+        },
+    }
+
+    for name, scenario := range scenarios {
+        t.Run(name, func(t *testing.T) {
+            result := FindCommonParentPath(scenario.paths)
+            g.Expect(result).To(gomega.Equal(scenario.expected))
+        })
+    }
+}
+
+func TestSetupStorageInitialization(t *testing.T) {
+    g := gomega.NewGomegaWithT(t)
+
+    scenarios := map[string]struct {
+        storageUrisSpec   *[]StorageUrisSpec
+        storageConfig     *kserveTypes.StorageInitializerConfig
+        expectedVolumes   int
+        expectedInitArgs  int
+        expectedErr       gomega.OmegaMatcher
+    }{
+        "NilStorageUrisSpec": {
+            storageUrisSpec: nil,
+            storageConfig: &kserveTypes.StorageInitializerConfig{
+                Image: "kserve/storage-initializer:latest",
+            },
+            expectedVolumes:  0,
+            expectedInitArgs: 0,
+            expectedErr:      gomega.BeNil(),
+        },
+        "EmptyStorageUrisSpec": {
+            storageUrisSpec: &[]StorageUrisSpec{},
+            storageConfig: &kserveTypes.StorageInitializerConfig{
+                Image: "kserve/storage-initializer:latest",
+            },
+            expectedVolumes:  0,
+            expectedInitArgs: 0,
+            expectedErr:      gomega.BeNil(),
+        },
+        "SingleStorageUri": {
+            storageUrisSpec: &[]StorageUrisSpec{
+                {
+                    Uri:  "gs://bucket/model1",
+                    Path: "/mnt/models",
+                },
+            },
+            storageConfig: &kserveTypes.StorageInitializerConfig{
+                Image: "kserve/storage-initializer:latest",
+            },
+            expectedVolumes:  1,
+            expectedInitArgs: 2, // uri + path
+            expectedErr:      gomega.BeNil(),
+        },
+        "MultipleStorageUris": {
+            storageUrisSpec: &[]StorageUrisSpec{
+                {
+                    Uri:  "gs://bucket/model1",
+                    Path: "/mnt/models/model1",
+                },
+                {
+                    Uri:  "s3://bucket/model2",
+                    Path: "/mnt/models/model2",
+                },
+            },
+            storageConfig: &kserveTypes.StorageInitializerConfig{
+                Image: "kserve/storage-initializer:latest",
+            },
+            expectedVolumes:  1, // One shared volume for common parent
+            expectedInitArgs: 4, // 2 uri + path pairs
+            expectedErr:      gomega.BeNil(),
+        },
+    }
+
+    for name, scenario := range scenarios {
+        t.Run(name, func(t *testing.T) {
+            podSpec := &corev1.PodSpec{
+                Containers: []corev1.Container{
+                    {
+                        Name:  "test-container",
+                        Image: "test-image",
+                    },
+                },
+            }
+            workerPodSpec := &corev1.PodSpec{
+                Containers: []corev1.Container{
+                    {
+                        Name:  "worker-container",
+                        Image: "worker-image",
+                    },
+                },
+            }
+
+            // Store original counts
+            originalVolumes := len(podSpec.Volumes)
+            originalInitContainers := len(podSpec.InitContainers)
+            originalWorkerVolumes := len(workerPodSpec.Volumes)
+            originalWorkerInitContainers := len(workerPodSpec.InitContainers)
+
+            err := SetupStorageInitialization(
+                scenario.storageUrisSpec,
+                podSpec,
+                workerPodSpec,
+                scenario.storageConfig,
+            )
+
+            g.Expect(err).To(scenario.expectedErr)
+
+            if scenario.expectedErr == gomega.BeNil() {
+                // Check main pod spec
+                g.Expect(len(podSpec.Volumes)).To(gomega.Equal(originalVolumes + scenario.expectedVolumes))
+
+                if scenario.expectedVolumes > 0 {
+                    g.Expect(len(podSpec.InitContainers)).To(gomega.Equal(originalInitContainers + 1))
+                    // Verify init container has expected number of args
+                    if len(podSpec.InitContainers) > 0 {
+                        initContainer := podSpec.InitContainers[len(podSpec.InitContainers)-1]
+                        g.Expect(len(initContainer.Args)).To(gomega.Equal(scenario.expectedInitArgs))
+                    }
+
+                    // Verify main containers have read-only volume mounts
+                    for _, container := range podSpec.Containers {
+                        found := false
+                        for _, volumeMount := range container.VolumeMounts {
+                            if volumeMount.ReadOnly {
+                                found = true
+                                break
+                            }
+                        }
+                        if scenario.expectedVolumes > 0 {
+                            g.Expect(found).To(gomega.BeTrue(), "Container should have read-only volume mount")
+                        }
+                    }
+                }
+
+                // Check worker pod spec
+				g.Expect(len(workerPodSpec.Volumes)).To(gomega.Equal(originalWorkerVolumes + scenario.expectedVolumes))
+
+				if scenario.expectedVolumes > 0 {
+					g.Expect(len(workerPodSpec.InitContainers)).To(gomega.Equal(originalWorkerInitContainers + 1))
+
+					// Verify worker containers have read-only volume mounts
+					for _, container := range workerPodSpec.Containers {
+						found := false
+						for _, volumeMount := range container.VolumeMounts {
+							if volumeMount.ReadOnly {
+								found = true
+								break
+							}
+						}
+						if scenario.expectedVolumes > 0 {
+							g.Expect(found).To(gomega.BeTrue(), "Worker container should have read-only volume mount")
+						}
+					}
+				}
+            }
+        })
+    }
+}
+
+func TestGetVolumeNameFromPath(t *testing.T) {
+    g := gomega.NewGomegaWithT(t)
+
+    scenarios := map[string]struct {
+        path     string
+        expected string
+    }{
+        "RootPath": {
+            path:     "/",
+            expected: "",
+        },
+        "SimplePath": {
+            path:     "/mnt/models",
+            expected: "mnt-models",
+        },
+        "NestedPath": {
+            path:     "/mnt/models/subdir",
+            expected: "mnt-models-subdir",
+        },
+        "PathWithTrailingSlash": {
+            path:     "/mnt/models/",
+            expected: "mnt-models",
+        },
+    }
+
+    for name, scenario := range scenarios {
+        t.Run(name, func(t *testing.T) {
+            result := GetVolumeNameFromPath(scenario.path)
+            g.Expect(result).To(gomega.Equal(scenario.expected))
+        })
+    }
 }

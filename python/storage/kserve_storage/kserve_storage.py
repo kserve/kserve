@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import base64
+from concurrent.futures import ThreadPoolExecutor
 import glob
 import gzip
 import json
@@ -25,7 +26,7 @@ import tempfile
 import time
 import zipfile
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Iterator
 from urllib.parse import urlparse
 import requests
 
@@ -58,7 +59,13 @@ _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
 
 class Storage(object):
     @staticmethod
-    def download(uri: str, out_dir: str = None) -> str:
+    def download(source_uris: list[str], out_dirs: list[str]) -> Iterator[str]:
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            model_dirs = executor.map(Storage._download, source_uris, out_dirs)
+        return model_dirs
+
+    @staticmethod
+    def _download(uri: str, out_dir: str | None = None) -> str:
         start = time.monotonic()
         Storage._update_with_storage_spec()
         logger.info("Copying contents of %s to local", uri)
