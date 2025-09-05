@@ -11,6 +11,7 @@ AGENT_IMG ?= agent:latest
 ROUTER_IMG ?= router:latest
 SKLEARN_IMG ?= sklearnserver
 XGB_IMG ?= xgbserver
+CATBOOST_IMG ?= catboostserver
 LGB_IMG ?= lgbserver
 PMML_IMG ?= pmmlserver
 PADDLE_IMG ?= paddleserver
@@ -251,6 +252,9 @@ deploy-dev-sklearn: docker-push-sklearn
 deploy-dev-xgb: docker-push-xgb
 	./hack/serving_runtime_image_patch.sh "kserve-xgbserver.yaml" "${KO_DOCKER_REPO}/${XGB_IMG}"
 
+deploy-dev-catboost: docker-push-catboost
+	./hack/serving_runtime_image_patch.sh "kserve-catboostserver.yaml" "${KO_DOCKER_REPO}/${CATBOOST_IMG}"
+
 deploy-dev-lgb: docker-push-lgb
 	./hack/serving_runtime_image_patch.sh "kserve-lgbserver.yaml" "${KO_DOCKER_REPO}/${LGB_IMG}"
 
@@ -328,6 +332,12 @@ docker-build-xgb:
 
 docker-push-xgb: docker-build-xgb
 	${ENGINE} push ${KO_DOCKER_REPO}/${XGB_IMG}
+
+docker-build-catboost:
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${CATBOOST_IMG} -f catboost.Dockerfile .
+
+docker-push-catboost: docker-build-catboost
+	${ENGINE} push ${KO_DOCKER_REPO}/${CATBOOST_IMG}
 
 docker-build-lgb:
 	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${LGB_IMG} -f lgb.Dockerfile .
