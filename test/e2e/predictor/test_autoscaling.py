@@ -507,14 +507,15 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
                     external=V1beta1ExternalMetricSource(
                         metric=V1beta1ExternalMetrics(
                             backend="prometheus",
-                            server_address="http://prometheus:9090",
+                            server_address="https://thanos-querier.openshift-monitoring.svc.cluster.local:9092",
                             query="http_requests_per_second",
+                            namespace=KSERVE_TEST_NAMESPACE,
                         ),
                         target=V1beta1MetricTarget(type="Value", value=50),
                         authentication_ref=V1beta1ExtMetricAuthentication(
-                            auth_modes="basic",
+                            auth_modes="bearer",
                             authentication_ref=V1beta1AuthenticationRef(
-                                name="prometheus-auth",
+                                name="inference-prometheus-auth",
                             ),
                         ),
                     ),
@@ -573,10 +574,10 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     trigger_type = scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"]
     assert trigger_type == "prometheus"
     assert trigger_metadata["query"] == "http_requests_per_second"
-    assert trigger_metadata["serverAddress"] == "http://prometheus:9090"
+    assert trigger_metadata["serverAddress"] == "https://thanos-querier.openshift-monitoring.svc.cluster.local:9092"
     assert trigger_metadata["threshold"] == "50.000000"
-    assert trigger_metadata["authModes"] == "basic"
-    assert authentication_ref["name"] == "prometheus-auth"
+    assert trigger_metadata["authModes"] == "bearer"
+    assert authentication_ref["name"] == "inference-prometheus-auth"
     res = await predict_isvc(
         rest_v1_client, service_name, INPUT, network_layer=network_layer
     )
@@ -584,6 +585,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.skip(reason="ODH doesn't use OTEL for keda autoscaling")
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
 async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_layer):
