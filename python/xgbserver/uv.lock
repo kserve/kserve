@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.9, <3.13"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -2249,7 +2249,7 @@ test = [
 requires-dist = [
     { name = "kserve", directory = "../kserve" },
     { name = "kserve-storage", directory = "../storage" },
-    { name = "xgboost", specifier = "~=2.1.1" },
+    { name = "xgboost", specifier = ">=2.1.1" },
 ]
 
 [package.metadata.requires-dev]
