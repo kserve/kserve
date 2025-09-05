@@ -72,8 +72,9 @@ func NewDeploymentReconciler(ctx context.Context,
 	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+	deployConfig *v1beta1.DeployConfig,
 ) (*DeploymentReconciler, error) {
-	deploymentList, err := createRawDeploymentODH(ctx, client, clientset, resourceType, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
+	deploymentList, err := createRawDeploymentODH(ctx, client, clientset, resourceType, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec, deployConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -94,8 +95,9 @@ func createRawDeploymentODH(ctx context.Context,
 	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+	deployConfig *v1beta1.DeployConfig,
 ) ([]*appsv1.Deployment, error) {
-	deploymentList, err := createRawDeployment(componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
+	deploymentList, err := createRawDeployment(componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec, deployConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create raw deployment: %w", err)
 	}
@@ -130,6 +132,7 @@ func createRawDeploymentODH(ctx context.Context,
 func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+	deployConfig *v1beta1.DeployConfig,
 ) ([]*appsv1.Deployment, error) {
 	var deploymentList []*appsv1.Deployment
 	var workerNodeReplicas int32
@@ -137,7 +140,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 	var workerNodeGpuCount string
 	multiNodeEnabled := false
 
-	defaultDeployment := createRawDefaultDeployment(componentMeta, componentExt, podSpec)
+	defaultDeployment := createRawDefaultDeployment(componentMeta, componentExt, podSpec, deployConfig)
 	if workerPodSpec != nil {
 		multiNodeEnabled = true
 
@@ -178,7 +181,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 
 	// workerNode deployment
 	if multiNodeEnabled {
-		workerDeployment := createRawWorkerDeployment(workerComponentMeta, componentExt, workerPodSpec, componentMeta.Name, workerNodeReplicas)
+		workerDeployment := createRawWorkerDeployment(workerComponentMeta, componentExt, workerPodSpec, componentMeta.Name, workerNodeReplicas, deployConfig)
 
 		// Update GPU resource of workerPodSpec
 		if err := addGPUResourceToDeployment(workerDeployment, constants.WorkerContainerName, workerNodeGpuCount); err != nil {
@@ -193,6 +196,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
+	deployConfig *v1beta1.DeployConfig,
 ) *appsv1.Deployment {
 	podMetadata := componentMeta
 	podMetadata.Labels["app"] = constants.GetRawServiceLabel(componentMeta.Name)
@@ -213,9 +217,13 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 		},
 	}
 	if componentExt.DeploymentStrategy != nil {
+		// User-specified deployment strategy takes precedence
 		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
+	} else {
+		// Use configmap rollout strategy as fallback
+		setDefaultDeploymentSpec(&deployment.Spec)
+		applyRolloutStrategyFromConfigmap(&deployment.Spec, deployConfig)
 	}
-	setDefaultDeploymentSpec(&deployment.Spec)
 	if componentExt.MinReplicas != nil && deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassNone) {
 		deployment.Spec.Replicas = ptr.To(*componentExt.MinReplicas)
 	}
@@ -311,6 +319,7 @@ func addOauthContainerToDeployment(ctx context.Context,
 func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, predictorName string, replicas int32,
+	deployConfig *v1beta1.DeployConfig,
 ) *appsv1.Deployment {
 	podMetadata := componentMeta
 	workerPredictorName := constants.GetRawWorkerServiceLabel(predictorName)
@@ -331,11 +340,16 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 		},
 	}
 	if componentExt.DeploymentStrategy != nil {
+		// User-specified deployment strategy takes precedence
 		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
+	} else {
+		// Use configmap rollout strategy as fallback
+		setDefaultDeploymentSpec(&deployment.Spec)
+		applyRolloutStrategyFromConfigmap(&deployment.Spec, deployConfig)
 	}
-	setDefaultDeploymentSpec(&deployment.Spec)
 
 	// For multinode, it needs to keep original pods until new pods are ready with rollingUpdate strategy
+	// This overrides any rollout strategy for multinode deployments
 	if deployment.Spec.Strategy.Type == appsv1.RollingUpdateDeploymentStrategyType {
 		deployment.Spec.Strategy.RollingUpdate = &appsv1.RollingUpdateDeployment{
 			MaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "0%"},
@@ -697,6 +711,39 @@ func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
 	if spec.ProgressDeadlineSeconds == nil {
 		progressDeadlineSeconds := int32(600)
 		spec.ProgressDeadlineSeconds = &progressDeadlineSeconds
+	}
+}
+
+// applyRolloutStrategyFromConfigmap applies the rollout strategy configuration from configmap to the deployment spec
+func applyRolloutStrategyFromConfigmap(spec *appsv1.DeploymentSpec, deployConfig *v1beta1.DeployConfig) {
+	// Only apply rollout strategy when DefaultDeploymentMode is Standard
+	if deployConfig == nil || deployConfig.DefaultDeploymentMode != "Standard" {
+		return
+	}
+
+	// If no rollout strategy configured, don't apply rollout strategy
+	if deployConfig.DeploymentRolloutStrategy == nil || deployConfig.DeploymentRolloutStrategy.DefaultRollout == nil {
+		return
+	}
+
+	rollout := deployConfig.DeploymentRolloutStrategy.DefaultRollout
+
+	// Ensure we have a rolling update strategy
+	if spec.Strategy.Type != appsv1.RollingUpdateDeploymentStrategyType {
+		spec.Strategy.Type = appsv1.RollingUpdateDeploymentStrategyType
+	}
+
+	// Initialize RollingUpdate if nil
+	if spec.Strategy.RollingUpdate == nil {
+		spec.Strategy.RollingUpdate = &appsv1.RollingUpdateDeployment{}
+	}
+
+	// Apply rollout strategy directly from configmap values
+	if rollout.MaxSurge != "" {
+		spec.Strategy.RollingUpdate.MaxSurge = &intstr.IntOrString{Type: intstr.String, StrVal: rollout.MaxSurge}
+	}
+	if rollout.MaxUnavailable != "" {
+		spec.Strategy.RollingUpdate.MaxUnavailable = &intstr.IntOrString{Type: intstr.String, StrVal: rollout.MaxUnavailable}
 	}
 }
 
