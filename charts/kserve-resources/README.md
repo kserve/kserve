@@ -94,6 +94,14 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.servingruntime.art.defaultVersion | string | `"v0.15.2"` |  |
 | kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
 | kserve.servingruntime.art.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.catboostserver.disabled | bool | `false` |  |
+| kserve.servingruntime.catboostserver.image | string | `"kserve/catboostserver"` |  |
+| kserve.servingruntime.catboostserver.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.catboostserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
+| kserve.servingruntime.catboostserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
+| kserve.servingruntime.catboostserver.securityContext.privileged | bool | `false` |  |
+| kserve.servingruntime.catboostserver.securityContext.runAsNonRoot | bool | `true` |  |
+| kserve.servingruntime.catboostserver.tag | string | `"v0.15.2"` |  |
 | kserve.servingruntime.huggingfaceserver.devShm.enabled | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver.devShm.sizeLimit | string | `""` |  |
 | kserve.servingruntime.huggingfaceserver.disabled | bool | `false` |  |

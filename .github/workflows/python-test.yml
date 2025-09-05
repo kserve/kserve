@@ -235,6 +235,30 @@ jobs:
           source paddleserver/.venv/bin/activate
           pytest --cov=paddleserver ./paddleserver
 
+      # ----------------------------------------CatBoost Server Unit Tests------------------------------------------------
+      # load cached catboost venv if cache exists
+      - name: Load cached catboost venv
+        id: cached-catboost-dependencies
+        uses: actions/cache@v4
+        with:
+          path: python/catboostserver/.venv
+          key: catboost-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/catboostserver/uv.lock') }}
+      # install catboost server dependencies if cache does not exist
+      - name: Install catboost dependencies
+        if: steps.cached-catboost-dependencies.outputs.cache-hit != 'true'
+        run: |
+          cd python/catboostserver
+          make install_dependencies
+      - name: Install catboostserver
+        run: |
+          cd python/catboostserver
+          make dev_install
+      - name: Test catboostserver
+        run: |
+          cd python
+          source catboostserver/.venv/bin/activate
+          pytest --cov=catboostserver ./catboostserver
+
       # ----------------------------------------Huggingface CPU Server Unit Tests------------------------------------------------
       # load cached huggingface cpu venv if cache exists
       - name: Load cached huggingface cpu venv
