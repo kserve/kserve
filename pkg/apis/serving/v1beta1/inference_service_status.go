@@ -350,13 +350,56 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 	if !ok {
 		ss.Components[component] = ComponentStatusSpec{}
 	}
-
-	condition := getDeploymentCondition(deploymentList, appsv1.DeploymentAvailable)
-	if condition != nil && condition.Status == corev1.ConditionTrue {
-		statusSpec.URL = url
-	}
 	readyCondition := readyConditionsMap[component]
-	ss.SetCondition(readyCondition, condition)
+	componentReadyCondition := &apis.Condition{
+		Type:   apis.ConditionType(readyCondition),
+		Status: corev1.ConditionFalse,
+		Reason: "",
+	}
+	availableCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentAvailable)
+	if availableCondition != nil && availableCondition.Status == corev1.ConditionTrue {
+		statusSpec.URL = url
+		componentReadyCondition = &apis.Condition{
+			Type:    apis.ConditionType(readyCondition),
+			Status:  corev1.ConditionTrue,
+			Reason:  availableCondition.Reason,
+			Message: availableCondition.Message,
+		}
+	}
+
+	progressingCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentProgressing)
+	if progressingCondition != nil {
+		if progressingCondition.Status == corev1.ConditionFalse {
+			if len(progressingCondition.Message) > 0 {
+				// If there is a message, we assume there was a problem
+				componentReadyCondition = &apis.Condition{
+					Type:    apis.ConditionType(readyCondition),
+					Status:  corev1.ConditionFalse,
+					Reason:  progressingCondition.Reason,
+					Message: progressingCondition.Message,
+				}
+			} else {
+				// If there is no message, we assume the deployment has finished successfully
+				componentReadyCondition = &apis.Condition{
+					Type:    apis.ConditionType(readyCondition),
+					Status:  corev1.ConditionTrue,
+					Reason:  progressingCondition.Reason,
+					Message: progressingCondition.Message,
+				}
+			}
+		} else {
+			// Deployment is progressing
+			componentReadyCondition = &apis.Condition{
+				Type:    apis.ConditionType(readyCondition),
+				Status:  corev1.ConditionUnknown,
+				Reason:  progressingCondition.Reason,
+				Message: progressingCondition.Message,
+			}
+
+		}
+	}
+	ss.SetCondition(readyCondition, componentReadyCondition)
+
 	ss.Components[component] = statusSpec
 	ss.ObservedGeneration = deploymentList[0].Status.ObservedGeneration
 }
