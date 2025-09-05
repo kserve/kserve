@@ -7,6 +7,7 @@ resources:
 - kserve-predictiveserver.yaml
 - kserve-mlserver.yaml
 - kserve-xgbserver.yaml
+- kserve-catboostserver.yaml
 - kserve-tritonserver.yaml
 - kserve-pmmlserver.yaml
 - kserve-paddleserver.yaml
@@ -33,6 +34,10 @@ images:
 
 - name: kserve-xgbserver
   newName: kserve/xgbserver
+  newTag: latest
+
+- name: kserve-catboostserver
+  newName: kserve/catboostserver
   newTag: latest
 
 - name: kserve-tritonserver
