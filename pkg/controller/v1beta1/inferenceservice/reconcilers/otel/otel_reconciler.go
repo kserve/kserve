@@ -23,8 +23,10 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/utils"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,7 +37,54 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const ModeSidecar = "sidecar"
+const (
+	ProcessorResourcedetectionEnv = "resourcedetection/env"
+	ProcessorTransform            = "transform"
+	ProcessorFilterMetrics        = "filter/metrics"
+	JobNameOtelCollector          = "otel-collector"
+	PrometheusReceiver            = "prometheus"
+	OtlpExporter                  = "otlp"
+	ModeSidecar                   = "sidecar"
+
+	AnnotationPrometheusPort = "prometheus.kserve.io/port"
+	DefaultPrometheusPort    = "8080"
+
+	ResourcedetectionDetectorEnv = "env"
+	ResourcedetectionTimeout     = "2s"
+	ResourcedetectionOverride    = false
+	TransformContextDatapoint    = "datapoint"
+	StatementSetNamespace        = "set(attributes[\"namespace\"], resource.attributes[\"k8s.namespace.name\"])"
+	StatementSetDeployment       = "set(attributes[\"deployment\"], resource.attributes[\"k8s.deployment.name\"])"
+	StatementSetPod              = "set(attributes[\"pod\"], resource.attributes[\"k8s.pod.name\"])"
+
+	MatchTypeStrict = "strict"
+	PipelineMetrics = "metrics"
+	CompressionNone = "none"
+	TlsKey          = "tls"
+	TlsInsecureKey  = "insecure"
+	EndpointKey     = "endpoint"
+
+	KeyDetectors        = "detectors"
+	KeyTimeout          = "timeout"
+	KeyOverride         = "override"
+	KeyMetricStatements = "metric_statements"
+	KeyContext          = "context"
+	KeyStatements       = "statements"
+	KeyMetrics          = "metrics"
+	KeyInclude          = "include"
+	KeyMatchType        = "match_type"
+	KeyMetricNames      = "metric_names"
+	KeyConfig           = "config"
+	KeyScrapeConfigs    = "scrape_configs"
+	KeyJobName          = "job_name"
+	KeyScrapeInterval   = "scrape_interval"
+	KeyStaticConfigs    = "static_configs"
+	KeyTargets          = "targets"
+	KeyCompression      = "compression"
+	KeyTls              = "tls"
+	KeyInsecure         = "insecure"
+	KeyEndpoint         = "endpoint"
+)
 
 var log = logf.Log.WithName("OTelReconciler")
 
@@ -43,32 +92,92 @@ type OtelReconciler struct {
 	client        client.Client
 	scheme        *runtime.Scheme
 	OTelCollector *otelv1beta1.OpenTelemetryCollector
-	metric        v1beta1.MetricsSpec
 }
 
 func NewOtelReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
-	metric v1beta1.MetricsSpec,
+	metricNames []string,
 	otelConfig v1beta1.OtelCollectorConfig,
 ) (*OtelReconciler, error) {
 	return &OtelReconciler{
 		client:        client,
 		scheme:        scheme,
-		OTelCollector: createOtelCollector(componentMeta, metric, otelConfig),
-		metric:        metric,
+		OTelCollector: createOtelCollector(componentMeta, metricNames, otelConfig),
 	}, nil
 }
 
+func createResourceRequirements(resourceConfig v1beta1.ResourceConfig) corev1.ResourceRequirements {
+	resourceRequirements := corev1.ResourceRequirements{}
+
+	// Set resource requests if provided
+	if resourceConfig.CPURequest != "" || resourceConfig.MemoryRequest != "" {
+		resourceRequirements.Requests = corev1.ResourceList{}
+		if resourceConfig.CPURequest != "" {
+			resourceRequirements.Requests[corev1.ResourceCPU] = resource.MustParse(resourceConfig.CPURequest)
+		}
+		if resourceConfig.MemoryRequest != "" {
+			resourceRequirements.Requests[corev1.ResourceMemory] = resource.MustParse(resourceConfig.MemoryRequest)
+		}
+	}
+
+	// Set resource limits if provided
+	if resourceConfig.CPULimit != "" || resourceConfig.MemoryLimit != "" {
+		resourceRequirements.Limits = corev1.ResourceList{}
+		if resourceConfig.CPULimit != "" {
+			resourceRequirements.Limits[corev1.ResourceCPU] = resource.MustParse(resourceConfig.CPULimit)
+		}
+		if resourceConfig.MemoryLimit != "" {
+			resourceRequirements.Limits[corev1.ResourceMemory] = resource.MustParse(resourceConfig.MemoryLimit)
+		}
+	}
+
+	return resourceRequirements
+}
+
 func createOtelCollector(componentMeta metav1.ObjectMeta,
-	metric v1beta1.MetricsSpec,
+	metricNames []string,
 	otelConfig v1beta1.OtelCollectorConfig,
 ) *otelv1beta1.OpenTelemetryCollector {
-	metricNames := metric.PodMetric.Metric.MetricNames
-	port, ok := componentMeta.Annotations["prometheus.kserve.io/port"]
+	port, ok := componentMeta.Annotations[AnnotationPrometheusPort]
 	if !ok {
-		log.Info("Annotation prometheus.kserve.io/port is missing, using default value 8080 to configure OTel Collector")
-		port = "8080"
+		log.Info(fmt.Sprintf("Annotation %s is missing, using default value %s to configure OTel Collector", AnnotationPrometheusPort, DefaultPrometheusPort))
+		port = DefaultPrometheusPort
+	}
+
+	processors := map[string]interface{}{
+		ProcessorResourcedetectionEnv: map[string]interface{}{
+			KeyDetectors: []interface{}{ResourcedetectionDetectorEnv},
+			KeyTimeout:   ResourcedetectionTimeout,
+			KeyOverride:  ResourcedetectionOverride,
+		},
+		ProcessorTransform: map[string]interface{}{
+			KeyMetricStatements: []interface{}{
+				map[string]interface{}{
+					KeyContext: TransformContextDatapoint,
+					KeyStatements: []interface{}{
+						StatementSetNamespace,
+						StatementSetDeployment,
+						StatementSetPod,
+					},
+				},
+			},
+		},
+	}
+
+	pipelineProcessors := []string{ProcessorResourcedetectionEnv, ProcessorTransform}
+
+	// Add filter processor to include all specified metrics
+	if len(metricNames) > 0 {
+		processors[ProcessorFilterMetrics] = map[string]interface{}{
+			KeyMetrics: map[string]interface{}{
+				KeyInclude: map[string]interface{}{
+					KeyMatchType:   MatchTypeStrict,
+					KeyMetricNames: metricNames,
+				},
+			},
+		}
+		pipelineProcessors = append(pipelineProcessors, ProcessorFilterMetrics)
 	}
 
 	otelCollector := &otelv1beta1.OpenTelemetryCollector{
@@ -78,18 +187,18 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 			Annotations: componentMeta.Annotations,
 		},
 		Spec: otelv1beta1.OpenTelemetryCollectorSpec{
-			Mode: otelv1beta1.ModeSidecar,
+			Mode: ModeSidecar,
 			Config: otelv1beta1.Config{
 				Receivers: otelv1beta1.AnyConfig{Object: map[string]interface{}{
-					"prometheus": map[string]interface{}{
-						"config": map[string]interface{}{
-							"scrape_configs": []interface{}{
+					PrometheusReceiver: map[string]interface{}{
+						KeyConfig: map[string]interface{}{
+							KeyScrapeConfigs: []interface{}{
 								map[string]interface{}{
-									"job_name":        "otel-collector",
-									"scrape_interval": otelConfig.ScrapeInterval,
-									"static_configs": []interface{}{
+									KeyJobName:        JobNameOtelCollector,
+									KeyScrapeInterval: otelConfig.ScrapeInterval,
+									KeyStaticConfigs: []interface{}{
 										map[string]interface{}{
-											"targets": []interface{}{"localhost:" + port},
+											KeyTargets: []interface{}{"localhost:" + port},
 										},
 									},
 								},
@@ -97,45 +206,30 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 						},
 					},
 				}},
-				Processors: &otelv1beta1.AnyConfig{Object: map[string]interface{}{}},
 				Exporters: otelv1beta1.AnyConfig{Object: map[string]interface{}{
-					"otlp": map[string]interface{}{
-						"endpoint":    otelConfig.MetricReceiverEndpoint,
-						"compression": "none",
-						"tls": map[string]interface{}{
-							"insecure": true,
+					OtlpExporter: map[string]interface{}{
+						KeyEndpoint:    otelConfig.MetricReceiverEndpoint,
+						KeyCompression: CompressionNone,
+						KeyTls: map[string]interface{}{
+							KeyInsecure: true,
 						},
 					},
 				}},
+				Processors: &otelv1beta1.AnyConfig{Object: processors},
 				Service: otelv1beta1.Service{
 					Pipelines: map[string]*otelv1beta1.Pipeline{
-						"metrics": {
-							Receivers:  []string{"prometheus"},
-							Processors: []string{},
-							Exporters:  []string{"otlp"},
+						PipelineMetrics: {
+							Receivers:  []string{PrometheusReceiver},
+							Processors: pipelineProcessors,
+							Exporters:  []string{OtlpExporter},
 						},
 					},
 				},
 			},
-		},
-	}
-
-	// Add filter processor to exclude the metric that is used for scaling if it is specified.
-	// otherwise, all metrics will be sent to the OTel backend.
-	if len(metricNames) > 0 {
-		metricFilters := []interface{}{}
-		for _, name := range metricNames {
-			metricFilters = append(metricFilters, fmt.Sprintf(`name != "%s"`, name))
-		}
-		otelCollector.Spec.Config.Processors = &otelv1beta1.AnyConfig{Object: map[string]interface{}{
-			"filter/ottl": map[string]interface{}{
-				"error_mode": "ignore",
-				"metrics": map[string]interface{}{
-					"metric": metricFilters,
-				},
+			OpenTelemetryCommonFields: otelv1beta1.OpenTelemetryCommonFields{
+				Resources: createResourceRequirements(otelConfig.Resource),
 			},
-		}}
-		otelCollector.Spec.Config.Service.Pipelines["metrics"].Processors = []string{"filter/ottl"}
+		},
 	}
 
 	return otelCollector

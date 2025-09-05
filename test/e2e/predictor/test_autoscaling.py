@@ -29,11 +29,13 @@ from kserve import (
     V1beta1AutoScalingSpec,
     V1beta1ResourceMetricSource,
     V1beta1MetricTarget,
+    V1beta1ExtMetricAuthentication,
     V1beta1ExternalMetricSource,
     V1beta1ExternalMetrics,
     V1beta1MetricsSpec,
     V1beta1PodMetricSource,
     V1beta1PodMetrics,
+    V1beta1AuthenticationRef,
 )
 
 
@@ -200,7 +202,7 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
         ),
     )
 
-    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
+    annotations = {"serving.kserve.io/deploymentMode": "Standard"}
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -252,7 +254,7 @@ async def test_sklearn_rolling_update():
         ),
     )
 
-    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
+    annotations = {"serving.kserve.io/deploymentMode": "Standard"}
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -267,7 +269,7 @@ async def test_sklearn_rolling_update():
     )
 
     updated_annotations = {
-        "serving.kserve.io/deploymentMode": "RawDeployment",
+        "serving.kserve.io/deploymentMode": "Standard",
         "serving.kserve.io/customAnnotation": "TestAnnotation",
     }
 
@@ -335,7 +337,7 @@ async def test_sklearn_env_update():
         ),
     )
 
-    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
+    annotations = {"serving.kserve.io/deploymentMode": "Standard"}
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -429,7 +431,7 @@ async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer)
     )
 
     annotations = {
-        "serving.kserve.io/deploymentMode": "RawDeployment",
+        "serving.kserve.io/deploymentMode": "Standard",
         "serving.kserve.io/autoscalerClass": "keda",
     }
 
@@ -492,6 +494,12 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
                             query="http_requests_per_second",
                         ),
                         target=V1beta1MetricTarget(type="Value", value=50),
+                        authentication_ref=V1beta1ExtMetricAuthentication(
+                            auth_modes="basic",
+                            authentication_ref=V1beta1AuthenticationRef(
+                                name="prometheus-auth",
+                            ),
+                        ),
                     ),
                 )
             ]
@@ -506,7 +514,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     )
 
     annotations = {
-        "serving.kserve.io/deploymentMode": "RawDeployment",
+        "serving.kserve.io/deploymentMode": "Standard",
         "serving.kserve.io/autoscalerClass": "keda",
     }
 
@@ -535,11 +543,16 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     )
 
     trigger_metadata = scaledobject_resp["items"][0]["spec"]["triggers"][0]["metadata"]
+    authentication_ref = scaledobject_resp["items"][0]["spec"]["triggers"][0][
+        "authenticationRef"
+    ]
     trigger_type = scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"]
     assert trigger_type == "prometheus"
     assert trigger_metadata["query"] == "http_requests_per_second"
     assert trigger_metadata["serverAddress"] == "http://prometheus:9090"
     assert trigger_metadata["threshold"] == "50.000000"
+    assert trigger_metadata["authModes"] == "basic"
+    assert authentication_ref["name"] == "prometheus-auth"
     res = await predict_isvc(
         rest_v1_client, service_name, INPUT, network_layer=network_layer
     )
@@ -582,7 +595,7 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
     )
 
     annotations = {
-        "serving.kserve.io/deploymentMode": "RawDeployment",
+        "serving.kserve.io/deploymentMode": "Standard",
         "serving.kserve.io/autoscalerClass": "keda",
         "sidecar.opentelemetry.io/inject": f"{service_name}-predictor",
     }
@@ -636,7 +649,7 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
     trigger_metadata = scaledobject_resp["items"][0]["spec"]["triggers"][0]["metadata"]
     trigger_type = scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"]
     assert trigger_type == "external"
-    assert trigger_metadata["metricQuery"] == "http_requests_per_second"
+    assert trigger_metadata["metricQuery"] == 'sum(http_requests_per_second{namespace="kserve-ci-e2e-test", deployment="isvc-sklearn-keda-otel-add-on-predictor"})'
     assert trigger_metadata["scalerAddress"] == "keda-otel-scaler.keda.svc:4318"
     assert trigger_metadata["targetValue"] == "50.000000"
     res = await predict_isvc(

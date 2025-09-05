@@ -1,40 +1,28 @@
-[tool.poetry]
+[project]
+authors = [
+    {name = "singhan", email = "singhan@us.ibm.com"},
+]
+license = {text = "Apache-2.0"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "kserve @ file:///${PROJECT_ROOT}/../kserve",
+    "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
+    "scikit-learn~=1.5.1",
+    "joblib<2.0.0,>=1.4.0",
+    "pandas<3.0.0,>=2.2.0",
+]
 name = "sklearnserver"
 version = "0.15.2"
 description = "Model Server implementation for scikit-learn. Not intended for use outside KServe Frameworks Images."
-authors = ["singhan <singhan@us.ibm.com>"]
-license = "Apache-2.0"
 readme = "README.md"
-packages = [
-    { include = "sklearnserver" },
+
+[dependency-groups]
+test = [
+    "pytest<8.0.0,>=7.2.0",
+    "pytest-cov<5.0.0,>=4.0.0",
+    "mypy<1.0,>=0.991",
+    "pytest-asyncio<1.0.0,>=0.23.4",
 ]
-
-[tool.poetry.dependencies]
-python = ">=3.9,<3.13"
-kserve = { path = "../kserve", extras = ["storage"], develop = true }
-scikit-learn = "~1.5.1"
-joblib = "^1.4.0"
-pandas = "^2.2.0"
-
-[tool.poetry.group.test]
-optional = true
-
-[tool.poetry.group.test.dependencies]
-pytest = "^7.2.0"
-pytest-cov = "^4.0.0"
-mypy = "^0.991"
-pytest-asyncio = ">=0.23.4, <1.0.0"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-black = { version = "~24.3.0", extras = ["colorama"] }
-
-[tool.poetry-version-plugin]
-source = "file"
-file_path = "../VERSION"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+dev = [
+    "black[colorama]~=24.3.0",
+]

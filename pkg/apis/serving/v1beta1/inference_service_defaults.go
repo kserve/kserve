@@ -96,7 +96,7 @@ func setResourceRequirementDefaults(config *InferenceServicesConfig, requirement
 }
 
 func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	isvc, err := convertToInferenceService(obj)
+	isvc, err := utils.Convert[*InferenceService](obj)
 	if err != nil {
 		validatorLogger.Error(err, "Unable to convert object to InferenceService")
 		return err
@@ -159,7 +159,7 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 
 	if !ok && deployConfig != nil {
 		if deployConfig.DefaultDeploymentMode == string(constants.ModelMeshDeployment) ||
-			deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
+			deployConfig.DefaultDeploymentMode == string(constants.Standard) {
 			if isvc.ObjectMeta.Annotations == nil {
 				isvc.ObjectMeta.Annotations = map[string]string{}
 			}

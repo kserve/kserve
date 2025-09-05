@@ -30,8 +30,10 @@ ERROR_404_ISVC_IMG ?= error-404-isvc
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
 
+ENVTEST ?= $(LOCALBIN)/setup-envtest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.29
+ENVTEST_VERSION ?= $(shell go list -m -f "{{ .Version }}" sigs.k8s.io/controller-runtime | awk -F'[v.]' '{printf "release-%d.%d", $$2, $$3}')
+ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ .Version }}" k8s.io/api | awk -F'[v.]' '{printf "1.%d", $$3}')
 
 ENGINE ?= docker
 # Empty string for local build when using podman, it allows to build different architectures
@@ -48,12 +50,20 @@ export GOFLAGS=-mod=mod
 
 all: test manager agent router
 
+.PHONY: setup-envtest
+setup-envtest: envtest
+	@echo "Setting up envtest binaries for Kubernetes version $(ENVTEST_K8S_VERSION)..."
+	@$(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path || { \
+		echo "Error: Failed to set up envtest binaries for version $(ENVTEST_K8S_VERSION)."; \
+		exit 1; \
+		}
+
 # Run go fmt against code
 fmt:
 	go fmt ./pkg/... ./cmd/... && cd qpext && go fmt ./...
 
 py-fmt: $(BLACK_FMT)
-	$(BLACK_FMT) --config python/pyproject.toml .
+	$(BLACK_FMT) --config python/pyproject.toml ./python ./docs
 
 # Run go vet against code
 vet:
@@ -86,9 +96,17 @@ manifests: controller-gen yq
 	echo '{{- if .Values.kserve.localmodel.enabled }}'> charts/kserve-resources/templates/localmodelnode/role.yaml
 	cat config/rbac/localmodelnode/role.yaml >> charts/kserve-resources/templates/localmodelnode/role.yaml
 	echo '{{- end }}' >> charts/kserve-resources/templates/localmodelnode/role.yaml
+	# Copy the llmisvc templates 
+	cp config/llmisvc/* charts/llmisvc-resources/templates/ 
+	rm charts/llmisvc-resources/templates/kustomization.yaml
 	
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
+
+	# Remove validation for the LLMInferenceServiceConfig API so that we can use Go templates to inject values at runtime.
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.matches.items.properties.path.x-kubernetes-validations)' -i config/crd/full/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.filters.items.properties.urlRewrite.properties.path.x-kubernetes-validations)' -i config/crd/full/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.parentRefs.items.properties.namespace.pattern)' -i config/crd/full/serving.kserve.io_llminferenceserviceconfigs.yaml
 
 	#remove the required property on framework as name field needs to be optional
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
@@ -116,6 +134,14 @@ manifests: controller-gen yq
 	# Copy the minimal crd to the helm chart
 	cp config/crd/minimal/* charts/kserve-crd-minimal/templates/
 	rm charts/kserve-crd-minimal/templates/kustomization.yaml
+    
+	# Generate llmisvc rbac
+	@$(CONTROLLER_GEN) rbac:roleName=llmisvc-manager-role paths={./pkg/controller/v1alpha1/llmisvc} output:rbac:artifacts:config=config/rbac/llmisvc
+	# Copy the cluster role to the helm chart
+	cat config/rbac/llmisvc/role.yaml > charts/llmisvc-resources/templates/clusterrole.yaml
+	# Copy llmisvc crd
+	cp config/crd/full/serving.kserve.io_llminferenceservices.yaml charts/llmisvc-crd/templates/
+	cp config/crd/full/serving.kserve.io_llminferenceserviceconfigs.yaml charts/llmisvc-crd/templates/
 
 # Generate code
 generate: controller-gen helm-docs
@@ -124,11 +150,11 @@ generate: controller-gen helm-docs
 	hack/python-sdk/client-gen.sh
 	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md
 
-# Update poetry.lock files
-poetry-lock: $(POETRY)
+# Update uv.lock files
+uv-lock: $(UV)
 # Update the kserve package first as other packages depends on it.
 	cd ./python && \
-	cd kserve && $(POETRY) lock --no-update && cd .. && \
+	cd kserve && $(UV) lock && cd .. && \
 	for file in $$(find . -type f -name "pyproject.toml" -not -path "./pyproject.toml" -not -path "*.venv/*"); do \
 		folder=$$(dirname "$$file"); \
 		echo "moving into folder $$folder"; \
@@ -136,12 +162,13 @@ poetry-lock: $(POETRY)
 			*plugin*|plugin|kserve) \
 				echo -e "\033[33mSkipping folder $$folder\033[0m" ;; \
 			*) \
-				cd "$$folder" && $(POETRY) lock --no-update && cd - > /dev/null ;; \
+				cd "$$folder" && $(UV) lock && cd - > /dev/null ;; \
 		esac; \
 	done
 
+
 # This runs all necessary steps to prepare for a commit.
-precommit: vet tidy go-lint py-fmt py-lint generate manifests poetry-lock
+precommit: vet tidy go-lint py-fmt py-lint generate manifests uv-lock
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit
@@ -184,6 +211,11 @@ run: generate fmt vet go-lint
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
+	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
+	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
+	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
+	kubectl apply --server-side=true --force-conflicts -k config/crd
+	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	echo > ../certmanager/certificate.yaml; \
@@ -196,6 +228,11 @@ deploy: manifests
 
 
 deploy-dev: manifests
+	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
+	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
+	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
+	kubectl apply --server-side=true --force-conflicts -k config/crd
+	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
 	./hack/image_patch_dev.sh development
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
@@ -231,6 +268,11 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 	kubectl apply --server-side=true -k config/overlays/dev-image-config
 
 deploy-ci: manifests
+	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
+	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
+	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
+	kubectl apply --server-side=true --force-conflicts -k config/crd
+	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
 	kubectl apply --server-side=true -k config/overlays/test
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
@@ -388,5 +430,3 @@ apidocs:
 check-doc-links:
 	@python3 hack/verify-doc-links.py && echo "$@: OK"
 
-poetry-update-lockfiles:
-	bash -ec 'for value in $$(find . -name poetry.lock -exec dirname {} \;); do (cd "$${value}" && echo "Updating $${value}/poetry.lock" && poetry update --lock); done'

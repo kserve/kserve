@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -135,6 +136,9 @@ type ComponentExtensionSpec struct {
 type AutoScalingSpec struct {
 	// metrics is a list of metrics spec to be used for autoscaling
 	Metrics []MetricsSpec `json:"metrics,omitempty"`
+	// Behavior contains the scaling behavior configuration for the Horizontal Pod Autoscaler.
+	// +optional
+	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
 
 // MetricsSpec specifies how to scale based on a single metric
@@ -202,6 +206,11 @@ type ExternalMetricSource struct {
 	// metric identifies the target metric by name and selector
 	Metric ExternalMetrics `json:"metric"`
 
+	// authenticationRef is a reference to the authentication information
+	// for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters
+	// +optional
+	Authentication *ExtMetricAuthentication `json:"authenticationRef,omitempty"`
+
 	// target specifies the target value for the given metric
 	Target MetricTarget `json:"target"`
 }
@@ -216,6 +225,22 @@ type PodMetricSource struct {
 
 	// target specifies the target value for the given metric
 	Target MetricTarget `json:"target"`
+}
+
+type AuthenticationRef struct {
+	// name is the name of the authentication secret
+	Name string `json:"name"`
+}
+
+type ExtMetricAuthentication struct {
+	// authenticationRef is a reference to the authentication information
+	// for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters
+	AuthenticationRef AuthenticationRef `json:"authenticationRef"`
+	// authModes defines the authentication modes for the metrics backend
+	// possible values are bearer, basic, tls.
+	// for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters
+	// +optional
+	AuthModes string `json:"authModes,omitempty"`
 }
 
 // MetricTarget defines the target value, average value, or average utilization of a specific metric

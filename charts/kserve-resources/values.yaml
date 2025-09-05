@@ -15,7 +15,13 @@ kserve:
   storage:
     image: kserve/storage-initializer
     tag: *defaultVersion
-
+    resources:
+      requests:
+        memory: 100Mi
+        cpu: 100m
+      limits:
+        memory: 1Gi
+        cpu: "1"
     # security context for the default storage container
     containerSecurityContext:
       allowPrivilegeEscalation: false
@@ -85,8 +91,8 @@ kserve:
     # the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port.
     enablePrometheusScraping: "false"
   controller:
-    # -- KServe deployment mode: "Serverless", "RawDeployment".
-    deploymentMode: "Serverless"
+    # -- KServe deployment mode: "Standard", "Knative".
+    deploymentMode: "Knative"
 
     # -- KServe controller manager rbac proxy contrainer image
     rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.18.0

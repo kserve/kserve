@@ -21,7 +21,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.controller.affinity | object | `{}` | A Kubernetes Affinity, if required. For more information, see [Affinity v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#affinity-v1-core).  For example:   affinity:     nodeAffinity:      requiredDuringSchedulingIgnoredDuringExecution:        nodeSelectorTerms:        - matchExpressions:          - key: foo.bar.com/role            operator: In            values:            - master |
 | kserve.controller.annotations | object | `{}` | Optional additional annotations to add to the controller deployment. |
 | kserve.controller.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true}` | Container Security Context to be set on the controller component container. For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/). |
-| kserve.controller.deploymentMode | string | `"Serverless"` | KServe deployment mode: "Serverless", "RawDeployment". |
+| kserve.controller.deploymentMode | string | `"Knative"` | KServe deployment mode: "Standard", "Knative". |
 | kserve.controller.gateway.additionalIngressDomains | list | `[]` | Optional additional domains for ingress routing. |
 | kserve.controller.gateway.disableIngressCreation | bool | `false` | Whether to disable ingress creation for RawDeployment mode. |
 | kserve.controller.gateway.disableIstioVirtualHost | bool | `false` | DisableIstioVirtualHost controls whether to use istio as network layer for top level component routing or path based routing. This configuration is only applicable for Serverless mode, when disabled Istio is no longer required. |
@@ -202,6 +202,10 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.storage.enableModelcar | bool | `true` | Flag for enabling model sidecar feature. |
 | kserve.storage.image | string | `"kserve/storage-initializer"` |  |
 | kserve.storage.memoryModelcar | string | `"15Mi"` | Model sidecar memory requirement. |
+| kserve.storage.resources.limits.cpu | string | `"1"` |  |
+| kserve.storage.resources.limits.memory | string | `"1Gi"` |  |
+| kserve.storage.resources.requests.cpu | string | `"100m"` |  |
+| kserve.storage.resources.requests.memory | string | `"100Mi"` |  |
 | kserve.storage.s3 | object | `{"CABundle":"","accessKeyIdName":"AWS_ACCESS_KEY_ID","endpoint":"","region":"","secretAccessKeyName":"AWS_SECRET_ACCESS_KEY","useAnonymousCredential":"","useHttps":"","useVirtualBucket":"","verifySSL":""}` | Configurations for S3 storage |
 | kserve.storage.s3.CABundle | string | `""` | The path to the certificate bundle to use for HTTPS certificate validation. |
 | kserve.storage.s3.accessKeyIdName | string | `"AWS_ACCESS_KEY_ID"` | AWS S3 static access key id. |

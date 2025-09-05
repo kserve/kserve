@@ -1,56 +1,194 @@
-name: Go
+name: Go Test
 
 on:
-  push:
-    branches: [master, release*]
-  pull_request:
-    branches: []
-  workflow_dispatch:
+    push:
+        branches: [master, release*]
+        paths-ignore:
+            - "**.md"
+    pull_request:
+        branches: []
+        paths-ignore:
+            - "**.md"
+    workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: write
+    pull-requests: write
 
 jobs:
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v4
+    test:
+        name: Test
+        runs-on: ubuntu-latest
+        steps:
 
-      - name: Set up Go 1.x
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-        id: go
+            - name: Check out code into the Go module directory
+              uses: actions/checkout@v4
 
-      - name: Get dependencies
-        run: |
-          go get -v -t -d ./...
+            - name: Set up Go 1.x
+              uses: actions/setup-go@v5
+              with:
+               go-version-file: go.mod
+              id: go
 
-      - name: Test
-        id: test
-        run: |
-          export GOPATH=/home/runner/go
-          export PATH=$PATH:/usr/local/kubebuilder/bin:/home/runner/go/bin
-          wget -O $GOPATH/bin/yq https://github.com/mikefarah/yq/releases/download/v4.28.1/yq_linux_amd64
-          chmod +x $GOPATH/bin/yq
-          make test
-          ./coverage.sh
-          echo ::set-output name=coverage::$(./coverage.sh | tr -s '\t' | cut -d$'\t' -f 3)
+            - name: Get dependencies
+              run: |
+                go get -v -t -d ./...
 
-      - name: Print coverage
-        run: |
-          echo "Coverage output is ${{ steps.test.outputs.coverage }}"
+            - name: Test
+              id: test
+              run: |
+                export GOPATH=/home/runner/go
+                export PATH=$PATH:/usr/local/kubebuilder/bin:/home/runner/go/bin
+                wget -O $GOPATH/bin/yq https://github.com/mikefarah/yq/releases/download/v4.28.1/yq_linux_amd64
+                chmod +x $GOPATH/bin/yq
+                make test
+                ./coverage.sh
+                echo ::set-output name=coverage::$(./coverage.sh | tr -s '\t' | cut -d$'\t' -f 3)
+            
+            - name: Print coverage
+              run: |
+                echo "Coverage output is ${{ steps.test.outputs.coverage }}"
 
-      - name: Update coverage badge
-        if: github.ref == 'refs/heads/master'
-        uses: schneegans/dynamic-badges-action@v1.7.0
-        with:
-          auth: ${{ secrets.GIST_SECRET }}
-          gistID: 5174bd748ac63a6e4803afea902e9810
-          filename: coverage.json
-          label: coverage
-          message: ${{ steps.test.outputs.coverage }}
-          color: green
+            - name: upload cover profile artifact
+              uses: actions/upload-artifact@v4
+              with:
+                name: coverage.out
+                path: coverage.out
+                if-no-files-found: error
+
+    check-coverage:
+        needs: test
+        runs-on: ubuntu-latest
+        name: Check Coverage
+        steps:
+            - name: checkout
+              uses: actions/checkout@v4
+
+            - name: Download cover profile artifact
+              id: download-coverage
+              uses: actions/download-artifact@v4
+              with:
+                name: coverage.out
+
+            - name: Extract coverage percentage
+              id: current-coverage
+              run: |
+                if [ -f coverage.out ]; then
+                  COVERAGE=$(go tool cover -func=coverage.out | grep total: | awk '{print $3}' | sed 's/%//')
+                  echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+                else
+                  echo "coverage=0" >> $GITHUB_OUTPUT
+                fi
+            
+            - name: download artifact (master.breakdown)
+              id: download-master-breakdown
+              uses: dawidd6/action-download-artifact@v9
+              with:
+                branch: master
+                workflow_conclusion: success
+                name: master.breakdown
+                if_no_artifact_found: warn
+
+            - name: download artifact (master-coverage.out)
+              id: download-master-coverage
+              uses: dawidd6/action-download-artifact@v9
+              with:
+                branch: master
+                workflow_conclusion: success
+                name: master-coverage.out
+                if_no_artifact_found: warn
+
+            - name: Extract master coverage percentage
+              id: master-coverage
+              run: |
+                if [ -f master-coverage.out ]; then
+                  MASTER_COVERAGE=$(go tool cover -func=master-coverage.out | grep total: | awk '{print $3}' | sed 's/%//')
+                  echo "coverage=$MASTER_COVERAGE" >> $GITHUB_OUTPUT
+                else
+                  echo "coverage=0" >> $GITHUB_OUTPUT
+                fi
+
+            - name: Generate full coverage breakdown
+              id: full_coverage_report
+              run: |
+                if [ -f coverage.out ]; then
+                  REPORT_CONTENT=$(go tool cover -func=coverage.out) # This command outputs function-level coverage [5]
+                  echo "report<<EOF" >> $GITHUB_OUTPUT # Start HERE-doc for multi-line output [3]
+                  echo "$REPORT_CONTENT" >> $GITHUB_OUTPUT
+                  echo "EOF" >> $GITHUB_OUTPUT # End HERE-doc
+                else
+                  echo "report=No coverage report found." >> $GITHUB_OUTPUT
+                fi
+
+            - name: check test coverage
+              id: coverage
+              uses: vladopajic/go-test-coverage@v2
+              continue-on-error: true
+              with:
+                config: ./.github/.testcoverage.yml
+                breakdown-file-name: ${{ github.ref_name == 'master' && 'master.breakdown' || '' }}
+                diff-base-breakdown-file-name: ${{ steps.download-master-breakdown.outputs.found_artifact == 'true' && 'master.breakdown' || '' }}
+            
+            - name: upload artifact (master.breakdown)
+              uses: actions/upload-artifact@v4
+              if: github.ref_name == 'master'
+              with:
+                name: master.breakdown
+                path: master.breakdown
+                if-no-files-found: error
+                
+            - name: Previous coverage
+              run: |
+                echo "Previous Coverage ${{ steps.master-coverage.outputs.coverage }}"
+
+            - name: Current coverage
+              run: |
+                echo "Current Coverage ${{ steps.current-coverage.outputs.coverage }}"
+
+            - name: post coverage report
+              # this has evalated permission to post back the coverage, only restricted to this step.
+              if: github.event_name == 'pull_request_target'
+              uses: thollander/actions-comment-pull-request@v3
+              with:
+                github-token: ${{ secrets.GITHUB_TOKEN }}
+                comment-tag: coverage-report
+                pr-number: ${{ github.event.pull_request.number }}
+                message: |
+                  ## 📊 Go Test Coverage Report
+
+                  ${{ 
+                    steps.current-coverage.outputs.coverage > steps.master-coverage.outputs.coverage 
+                    && '✅ **Overall code coverage increased.**' 
+                    || steps.current-coverage.outputs.coverage < steps.master-coverage.outputs.coverage 
+                    && '❌ **Overall code coverage decreased.**' 
+                    || 'ℹ️ **Overall code coverage unchanged.**' 
+                  }}
+
+                  **🔍 Coverage Summary**
+                  - **Pull Request Coverage:** `${{ steps.current-coverage.outputs.coverage }}%`
+                  - **Main Branch Coverage:** `${{ steps.master-coverage.outputs.coverage }}%`
+
+                  <details>
+                  <summary>📄 Click to expand full coverage breakdown</summary>
+
+                  ```
+                  ${{ steps.full_coverage_report.outputs.report }}
+                  ```
+
+                  </details>
+
+            - name: Rename and upload master coverage
+              if: github.ref_name == 'master'
+              run: mv coverage.out master-coverage.out
+
+            - name: Upload master coverage artifact
+              if: github.ref_name == 'master'
+              uses: actions/upload-artifact@v4
+              with:
+                name: master-coverage.out
+                path: master-coverage.out
+                if-no-files-found: error

@@ -66,7 +66,7 @@ var _ webhook.CustomValidator = &InferenceServiceValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *InferenceServiceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	isvc, err := convertToInferenceService(obj)
+	isvc, err := utils.Convert[*InferenceService](obj)
 	if err != nil {
 		validatorLogger.Error(err, "Unable to convert object to InferenceService")
 		return nil, err
@@ -77,12 +77,12 @@ func (v *InferenceServiceValidator) ValidateCreate(ctx context.Context, obj runt
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	isvc, err := convertToInferenceService(newObj)
+	isvc, err := utils.Convert[*InferenceService](newObj)
 	if err != nil {
 		validatorLogger.Error(err, "Unable to convert object to InferenceService")
 		return nil, err
 	}
-	oldIsvc, err := convertToInferenceService(oldObj)
+	oldIsvc, err := utils.Convert[*InferenceService](oldObj)
 	if err != nil {
 		validatorLogger.Error(err, "Unable to convert object to InferenceService")
 	}
@@ -96,7 +96,7 @@ func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, 
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	isvc, err := convertToInferenceService(obj)
+	isvc, err := utils.Convert[*InferenceService](obj)
 	if err != nil {
 		validatorLogger.Error(err, "Unable to convert object to InferenceService")
 		return nil, err
@@ -125,6 +125,10 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		return allWarnings, err
 	}
 
+	if err := validatePredictor(isvc); err != nil {
+		return allWarnings, err
+	}
+
 	for _, component := range []Component{
 		&isvc.Spec.Predictor,
 		isvc.Spec.Transformer,
@@ -144,6 +148,40 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		}
 	}
 	return allWarnings, nil
+}
+
+func validatePredictor(isvc *InferenceService) error {
+	predictor := isvc.Spec.Predictor
+
+	// log predictor
+	validatorLogger.Info("Incoming predictor struct", "predictor", predictor)
+
+	// in most of the case, standard predictors will all be packed into `predictor.model`, and decide the backend process through `modelFormat.name``
+	switch {
+	case predictor.SKLearn != nil && predictor.SKLearn.Name != "":
+		return errors.New("the 'name' field is not allowed in standard predictor")
+	case predictor.XGBoost != nil && predictor.XGBoost.Name != "":
+		return errors.New("the 'name' field is not allowed in standard predictor")
+	case predictor.Tensorflow != nil && predictor.Tensorflow.Name != "":
+		return errors.New("the 'name' field is not allowed in standard predictor")
+	case predictor.PyTorch != nil && predictor.PyTorch.Name != "":
+		return errors.New("the 'name' field is not allowed in standard predictor")
+	case predictor.Triton != nil && predictor.Triton.Name != "":
+		return errors.New("the 'name' field is not allowed in standard predictor")
+	case predictor.ONNX != nil && predictor.ONNX.Name != "":
+		return errors.New("the 'name' field is not allowed in standard predictor")
+	case predictor.HuggingFace != nil && predictor.HuggingFace.Name != "":
+		return errors.New("the 'name' field is not allowed in standard predictor")
+	case predictor.PMML != nil && predictor.PMML.Name != "":
+		return errors.New("the 'name' field is not allowed in standard predictor")
+	case predictor.LightGBM != nil && predictor.LightGBM.Name != "":
+		return errors.New("the 'name' field is not allowed in standard predictor")
+	case predictor.Paddle != nil && predictor.Paddle.Name != "":
+		return errors.New("the 'name' field is not allowed in standard predictor")
+	case predictor.Model != nil && predictor.Model.Name != "":
+		return errors.New("the 'name' field is not allowed in standard predictor")
+	}
+	return nil
 }
 
 // validateMultiNodeVariables validates when there is workerSpec set in isvc
@@ -213,7 +251,7 @@ func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec
 	autoscalerClass := annotations[constants.AutoscalerClass]
 
 	switch deploymentMode {
-	case string(constants.RawDeployment):
+	case string(constants.Standard):
 		switch autoscalerClass {
 		case string(constants.AutoscalerClassHPA):
 			return validateScalingHPACompExtension(compExtSpec)
@@ -454,13 +492,4 @@ func validateDeploymentMode(newIsvc *InferenceService, oldIsvc *InferenceService
 		}
 	}
 	return nil
-}
-
-// Convert runtime.Object into InferenceService
-func convertToInferenceService(obj runtime.Object) (*InferenceService, error) {
-	isvc, ok := obj.(*InferenceService)
-	if !ok {
-		return nil, fmt.Errorf("expected an InferenceService object but got %T", obj)
-	}
-	return isvc, nil
 }

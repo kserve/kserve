@@ -756,7 +756,7 @@
       ],
       "properties": {
         "framework": {
-          "description": "Machine Learning \u003cframework name\u003e The values could be: \"tensorflow\",\"pytorch\",\"sklearn\",\"onnx\",\"xgboost\", \"myawesomeinternalframework\" etc.",
+          "description": "Machine Learning \u0026lt;framework name\u0026gt; The values could be: \"tensorflow\",\"pytorch\",\"sklearn\",\"onnx\",\"xgboost\", \"myawesomeinternalframework\" etc.",
           "type": "string",
           "default": ""
         },
@@ -1377,9 +1377,23 @@
         }
       }
     },
+    "v1beta1.AuthenticationRef": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "name is the name of the authentication secret",
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
     "v1beta1.AutoScalingSpec": {
       "type": "object",
       "properties": {
+        "behavior": {
+          "description": "Behavior contains the scaling behavior configuration for the Horizontal Pod Autoscaler.",
+          "$ref": "#/definitions/k8s.io.api.autoscaling.v2.HorizontalPodAutoscalerBehavior"
+        },
         "metrics": {
           "description": "metrics is a list of metrics spec to be used for autoscaling",
           "type": "array",
@@ -1387,6 +1401,17 @@
             "default": {},
             "$ref": "#/definitions/v1beta1.MetricsSpec"
           }
+        }
+      }
+    },
+    "v1beta1.AutoscalerConfig": {
+      "type": "object",
+      "properties": {
+        "scaleDownStabilizationWindowSeconds": {
+          "type": "string"
+        },
+        "scaleUpStabilizationWindowSeconds": {
+          "type": "string"
         }
       }
     },
@@ -2866,7 +2891,7 @@
           "type": "boolean"
         },
         "subdomain": {
-          "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
+          "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
         },
         "terminationGracePeriodSeconds": {
@@ -2923,6 +2948,23 @@
         }
       }
     },
+    "v1beta1.ExtMetricAuthentication": {
+      "type": "object",
+      "required": [
+        "authenticationRef"
+      ],
+      "properties": {
+        "authModes": {
+          "description": "authModes defines the authentication modes for the metrics backend possible values are bearer, basic, tls. for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+          "type": "string"
+        },
+        "authenticationRef": {
+          "description": "authenticationRef is a reference to the authentication information for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.AuthenticationRef"
+        }
+      }
+    },
     "v1beta1.ExternalMetricSource": {
       "type": "object",
       "required": [
@@ -2930,6 +2972,10 @@
         "target"
       ],
       "properties": {
+        "authenticationRef": {
+          "description": "authenticationRef is a reference to the authentication information for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+          "$ref": "#/definitions/v1beta1.ExtMetricAuthentication"
+        },
         "metric": {
           "description": "metric identifies the target metric by name and selector",
           "default": {},
@@ -4225,6 +4271,10 @@
         "metricScalerEndpoint": {
           "type": "string"
         },
+        "resource": {
+          "default": {},
+          "$ref": "#/definitions/v1beta1.ResourceConfig"
+        },
         "scrapeInterval": {
           "type": "string"
         }
@@ -4850,7 +4900,7 @@
           "type": "boolean"
         },
         "subdomain": {
-          "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
+          "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
         },
         "terminationGracePeriodSeconds": {
@@ -5380,7 +5430,7 @@
           "$ref": "#/definitions/v1beta1.SKLearnSpec"
         },
         "subdomain": {
-          "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
+          "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
         },
         "tensorflow": {
@@ -6340,7 +6390,7 @@
           "type": "boolean"
         },
         "subdomain": {
-          "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
+          "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
         },
         "terminationGracePeriodSeconds": {
@@ -6782,7 +6832,7 @@
           "type": "boolean"
         },
         "subdomain": {
-          "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
+          "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
         },
         "tensorParallelSize": {

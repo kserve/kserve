@@ -37,62 +37,50 @@ func TestCreateOtelCollector(t *testing.T) {
 	testCases := []struct {
 		name           string
 		componentMeta  metav1.ObjectMeta
-		metric         v1beta1.MetricsSpec
+		metricNames    []string
 		otelConfig     v1beta1.OtelCollectorConfig
 		expectedConfig map[string]interface{}
 	}{
 		{
-			name: "test with port annotation",
+			name: "test with port annotation and single metric",
 			componentMeta: metav1.ObjectMeta{
 				Name:      "test-service",
 				Namespace: "default",
 				Annotations: map[string]string{
-					"prometheus.kserve.io/port": "9090",
+					AnnotationPrometheusPort: "9090",
 				},
 			},
-			metric: v1beta1.MetricsSpec{
-				PodMetric: &v1beta1.PodMetricSource{
-					Metric: v1beta1.PodMetrics{
-						MetricNames: []string{"request-count"},
-					},
-				},
-			},
+			metricNames: []string{"request-count"},
 			otelConfig: v1beta1.OtelCollectorConfig{
 				ScrapeInterval:         "15s",
 				MetricReceiverEndpoint: "otel-collector:4317",
 			},
 			expectedConfig: map[string]interface{}{
-				"job_name":        "otel-collector",
-				"scrape_interval": "15s",
-				"static_configs": []interface{}{
+				KeyJobName:        JobNameOtelCollector,
+				KeyScrapeInterval: "15s",
+				KeyStaticConfigs: []interface{}{
 					map[string]interface{}{
-						"targets": []interface{}{"localhost:9090"},
+						KeyTargets: []interface{}{"localhost:9090"},
 					},
 				},
 			},
 		},
 		{
-			name: "test without port annotation",
+			name: "test without port annotation and multiple metrics",
 			componentMeta: metav1.ObjectMeta{
 				Name:      "test-service",
 				Namespace: "default",
 			},
-			metric: v1beta1.MetricsSpec{
-				PodMetric: &v1beta1.PodMetricSource{
-					Metric: v1beta1.PodMetrics{
-						MetricNames: []string{"request-count"},
-					},
-				},
-			},
+			metricNames: []string{"metric1", "metric2"},
 			otelConfig: v1beta1.OtelCollectorConfig{
 				ScrapeInterval: "30s",
 			},
 			expectedConfig: map[string]interface{}{
-				"job_name":        "otel-collector",
-				"scrape_interval": "30s",
-				"static_configs": []interface{}{
+				KeyJobName:        JobNameOtelCollector,
+				KeyScrapeInterval: "30s",
+				KeyStaticConfigs: []interface{}{
 					map[string]interface{}{
-						"targets": []interface{}{"localhost:8080"},
+						KeyTargets: []interface{}{"localhost:8080"},
 					},
 				},
 			},
@@ -101,7 +89,7 @@ func TestCreateOtelCollector(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			collector := createOtelCollector(tc.componentMeta, tc.metric, tc.otelConfig)
+			collector := createOtelCollector(tc.componentMeta, tc.metricNames, tc.otelConfig)
 
 			assert.Equal(t, tc.componentMeta.Name, collector.Name)
 			assert.Equal(t, tc.componentMeta.Namespace, collector.Namespace)
@@ -109,32 +97,47 @@ func TestCreateOtelCollector(t *testing.T) {
 
 			// Assert config details
 			receivers := collector.Spec.Config.Receivers.Object
-			prometheusConfig := receivers["prometheus"].(map[string]interface{})
-			config := prometheusConfig["config"].(map[string]interface{})
-			scrapeConfigs := config["scrape_configs"].([]interface{})
+			prometheusConfig := receivers[PrometheusReceiver].(map[string]interface{})
+			config := prometheusConfig[KeyConfig].(map[string]interface{})
+			scrapeConfigs := config[KeyScrapeConfigs].([]interface{})
 			scrapeConfig := scrapeConfigs[0].(map[string]interface{})
 
-			assert.Equal(t, tc.expectedConfig["job_name"], scrapeConfig["job_name"])
-			assert.Equal(t, tc.expectedConfig["scrape_interval"], scrapeConfig["scrape_interval"])
+			assert.Equal(t, tc.expectedConfig[KeyJobName], scrapeConfig[KeyJobName])
+			assert.Equal(t, tc.expectedConfig[KeyScrapeInterval], scrapeConfig[KeyScrapeInterval])
 
-			staticConfigs := scrapeConfig["static_configs"].([]interface{})
+			staticConfigs := scrapeConfig[KeyStaticConfigs].([]interface{})
 			staticConfig := staticConfigs[0].(map[string]interface{})
-			targets := staticConfig["targets"].([]interface{})
+			targets := staticConfig[KeyTargets].([]interface{})
 
-			assert.Equal(t, tc.expectedConfig["static_configs"].([]interface{})[0].(map[string]interface{})["targets"], targets)
+			assert.Equal(t, tc.expectedConfig[KeyStaticConfigs].([]interface{})[0].(map[string]interface{})[KeyTargets], targets)
 
 			// Verify filter processor if metric names exist
-			if len(tc.metric.PodMetric.Metric.MetricNames) > 0 {
+			if len(tc.metricNames) > 0 {
 				processors := collector.Spec.Config.Processors.Object
-				filterOttl := processors["filter/ottl"].(map[string]interface{})
-				metrics := filterOttl["metrics"].(map[string]interface{})
-				metricFilters := metrics["metric"].([]interface{})
+				filterMetrics := processors[ProcessorFilterMetrics].(map[string]interface{})
+				metrics := filterMetrics[KeyMetrics].(map[string]interface{})
+				include := metrics[KeyInclude].(map[string]interface{})
+				metricNames := include[KeyMetricNames].([]string)
+				assert.ElementsMatch(t, tc.metricNames, metricNames)
+			}
 
-				assert.Len(t, metricFilters, len(tc.metric.PodMetric.Metric.MetricNames))
-				// Verify processors in pipeline
-				assert.Equal(t, []string{"filter/ottl"}, collector.Spec.Config.Service.Pipelines["metrics"].Processors)
+			// Verify processors always include resourcedetection/env and transform
+			processors := collector.Spec.Config.Processors.Object
+			assert.Contains(t, processors, ProcessorResourcedetectionEnv)
+			assert.Contains(t, processors, ProcessorTransform)
+
+			// Verify pipeline processors
+			pipeline := collector.Spec.Config.Service.Pipelines[PipelineMetrics].Processors
+			if len(tc.metricNames) > 0 {
+				assert.Equal(t, []string{ProcessorResourcedetectionEnv, ProcessorTransform, ProcessorFilterMetrics}, pipeline)
+				// Verify filter processor config
+				filterMetrics := processors[ProcessorFilterMetrics].(map[string]interface{})
+				metrics := filterMetrics[KeyMetrics].(map[string]interface{})
+				include := metrics[KeyInclude].(map[string]interface{})
+				metricNames := include[KeyMetricNames].([]string)
+				assert.ElementsMatch(t, tc.metricNames, metricNames)
 			} else {
-				assert.Empty(t, collector.Spec.Config.Service.Pipelines["metrics"].Processors)
+				assert.Equal(t, []string{ProcessorResourcedetectionEnv, ProcessorTransform}, pipeline)
 			}
 		})
 	}
@@ -149,12 +152,6 @@ func TestReconcileCreate(t *testing.T) {
 		Namespace: "default",
 	}
 
-	metric := v1beta1.MetricsSpec{
-		PodMetric: &v1beta1.PodMetricSource{
-			Metric: v1beta1.PodMetrics{},
-		},
-	}
-
 	otelConfig := v1beta1.OtelCollectorConfig{
 		ScrapeInterval:         "15s",
 		MetricReceiverEndpoint: "otel-collector:4317",
@@ -167,7 +164,7 @@ func TestReconcileCreate(t *testing.T) {
 	// Create fake client
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
 	// Create reconciler
-	reconciler, err := NewOtelReconciler(client, scheme, componentMeta, metric, otelConfig)
+	reconciler, err := NewOtelReconciler(client, scheme, componentMeta, []string{}, otelConfig)
 	require.NoError(t, err)
 
 	// Test reconcile - should create a new resource
@@ -192,12 +189,6 @@ func TestReconcileUpdate(t *testing.T) {
 		Namespace: "default",
 	}
 
-	metric := v1beta1.MetricsSpec{
-		PodMetric: &v1beta1.PodMetricSource{
-			Metric: v1beta1.PodMetrics{},
-		},
-	}
-
 	otelConfig := v1beta1.OtelCollectorConfig{
 		ScrapeInterval:         "15s",
 		MetricReceiverEndpoint: "otel-collector:4317",
@@ -217,15 +208,15 @@ func TestReconcileUpdate(t *testing.T) {
 			Mode: otelv1beta1.ModeSidecar,
 			Config: otelv1beta1.Config{
 				Receivers: otelv1beta1.AnyConfig{Object: map[string]interface{}{
-					"prometheus": map[string]interface{}{
-						"config": map[string]interface{}{
-							"scrape_configs": []interface{}{
+					PrometheusReceiver: map[string]interface{}{
+						KeyConfig: map[string]interface{}{
+							KeyScrapeConfigs: []interface{}{
 								map[string]interface{}{
-									"job_name":        "old-collector",
-									"scrape_interval": "30s",
-									"static_configs": []interface{}{
+									KeyJobName:        "old-collector",
+									KeyScrapeInterval: "30s",
+									KeyStaticConfigs: []interface{}{
 										map[string]interface{}{
-											"targets": []interface{}{"localhost:8080"},
+											KeyTargets: []interface{}{"localhost:8080"},
 										},
 									},
 								},
@@ -235,8 +226,8 @@ func TestReconcileUpdate(t *testing.T) {
 				}},
 				Service: otelv1beta1.Service{
 					Pipelines: map[string]*otelv1beta1.Pipeline{
-						"metrics": {
-							Receivers:  []string{"prometheus"},
+						PipelineMetrics: {
+							Receivers:  []string{PrometheusReceiver},
 							Processors: []string{},
 							Exporters:  []string{"otlp"},
 						},
@@ -249,7 +240,7 @@ func TestReconcileUpdate(t *testing.T) {
 	// Create fake client with existing collector
 	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existingCollector).Build()
 	// Create reconciler
-	reconciler, err := NewOtelReconciler(client, scheme, componentMeta, metric, otelConfig)
+	reconciler, err := NewOtelReconciler(client, scheme, componentMeta, []string{}, otelConfig)
 	require.NoError(t, err)
 
 	// Test reconcile - should update existing resource
@@ -264,13 +255,13 @@ func TestReconcileUpdate(t *testing.T) {
 
 	// Verify updated config
 	receivers := updatedCollector.Spec.Config.Receivers.Object
-	prometheusConfig := receivers["prometheus"].(map[string]interface{})
-	config := prometheusConfig["config"].(map[string]interface{})
-	scrapeConfigs := config["scrape_configs"].([]interface{})
+	prometheusConfig := receivers[PrometheusReceiver].(map[string]interface{})
+	config := prometheusConfig[KeyConfig].(map[string]interface{})
+	scrapeConfigs := config[KeyScrapeConfigs].([]interface{})
 	scrapeConfig := scrapeConfigs[0].(map[string]interface{})
 
-	assert.Equal(t, "otel-collector", scrapeConfig["job_name"])
-	assert.Equal(t, "15s", scrapeConfig["scrape_interval"])
+	assert.Equal(t, JobNameOtelCollector, scrapeConfig[KeyJobName])
+	assert.Equal(t, "15s", scrapeConfig[KeyScrapeInterval])
 }
 
 func TestSetControllerReferences(t *testing.T) {
@@ -291,12 +282,6 @@ func TestSetControllerReferences(t *testing.T) {
 		},
 	}
 
-	metric := v1beta1.MetricsSpec{
-		PodMetric: &v1beta1.PodMetricSource{
-			Metric: v1beta1.PodMetrics{},
-		},
-	}
-
 	otelConfig := v1beta1.OtelCollectorConfig{
 		ScrapeInterval:         "15s",
 		MetricReceiverEndpoint: "otel-collector:4317",
@@ -310,7 +295,7 @@ func TestSetControllerReferences(t *testing.T) {
 	// Create fake client
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
 	// Create reconciler
-	reconciler, err := NewOtelReconciler(client, scheme, componentMeta, metric, otelConfig)
+	reconciler, err := NewOtelReconciler(client, scheme, componentMeta, []string{}, otelConfig)
 	require.NoError(t, err)
 
 	// Test set controller reference
@@ -323,4 +308,95 @@ func TestSetControllerReferences(t *testing.T) {
 	assert.Len(t, ownerRefs, 1)
 	assert.Equal(t, owner.Name, ownerRefs[0].Name)
 	assert.Equal(t, owner.UID, ownerRefs[0].UID)
+}
+
+func TestCreateOtelCollectorWithResources(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-service",
+		Namespace: "default",
+	}
+
+	otelConfig := v1beta1.OtelCollectorConfig{
+		ScrapeInterval:         "30s",
+		MetricReceiverEndpoint: "otel-receiver:4317",
+		Resource: v1beta1.ResourceConfig{
+			CPULimit:      "500m",
+			MemoryLimit:   "1Gi",
+			CPURequest:    "100m",
+			MemoryRequest: "256Mi",
+		},
+	}
+
+	collector := createOtelCollector(componentMeta, []string{}, otelConfig)
+
+	// Verify resource requirements are set correctly
+	resources := collector.Spec.OpenTelemetryCommonFields.Resources
+
+	// Check CPU limits and requests
+	cpuLimit := resources.Limits["cpu"]
+	assert.Equal(t, "500m", cpuLimit.String())
+	cpuRequest := resources.Requests["cpu"]
+	assert.Equal(t, "100m", cpuRequest.String())
+
+	// Check memory limits and requests
+	memoryLimit := resources.Limits["memory"]
+	assert.Equal(t, "1Gi", memoryLimit.String())
+	memoryRequest := resources.Requests["memory"]
+	assert.Equal(t, "256Mi", memoryRequest.String())
+}
+
+func TestCreateOtelCollectorWithPartialResources(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-service",
+		Namespace: "default",
+	}
+
+	otelConfig := v1beta1.OtelCollectorConfig{
+		ScrapeInterval:         "30s",
+		MetricReceiverEndpoint: "otel-receiver:4317",
+		Resource: v1beta1.ResourceConfig{
+			CPULimit:   "500m",
+			CPURequest: "100m",
+			// Memory limits and requests are not set
+		},
+	}
+
+	collector := createOtelCollector(componentMeta, []string{}, otelConfig)
+
+	// Verify only CPU resource requirements are set
+	resources := collector.Spec.OpenTelemetryCommonFields.Resources
+
+	// Check CPU limits and requests are set
+	cpuLimit := resources.Limits["cpu"]
+	assert.Equal(t, "500m", cpuLimit.String())
+	cpuRequest := resources.Requests["cpu"]
+	assert.Equal(t, "100m", cpuRequest.String())
+
+	// Check memory limits and requests are not set
+	_, hasMemoryLimit := resources.Limits["memory"]
+	assert.False(t, hasMemoryLimit)
+	_, hasMemoryRequest := resources.Requests["memory"]
+	assert.False(t, hasMemoryRequest)
+}
+
+func TestCreateOtelCollectorWithNoResources(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-service",
+		Namespace: "default",
+	}
+
+	otelConfig := v1beta1.OtelCollectorConfig{
+		ScrapeInterval:         "30s",
+		MetricReceiverEndpoint: "otel-receiver:4317",
+		Resource:               v1beta1.ResourceConfig{}, // Empty resource config
+	}
+
+	collector := createOtelCollector(componentMeta, []string{}, otelConfig)
+
+	// Verify no resource requirements are set
+	resources := collector.Spec.OpenTelemetryCommonFields.Resources
+
+	// Check that limits and requests maps are either nil or empty
+	assert.Empty(t, resources.Limits)
+	assert.Empty(t, resources.Requests)
 }

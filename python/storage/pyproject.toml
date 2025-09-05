@@ -1,13 +1,23 @@
-[tool.poetry]
+[project]
+authors = [
+    {name = "The KServe Authors", email = "dsun20@bloomberg.net"},
+    {name = "The KServe Authors", email = "fspolti@redhat.com"},
+]
+license = {text = "https://github.com/kserve/kserve/blob/master/LICENSE"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "requests<3.0.0,>=2.32.2",
+    "google-cloud-storage<3.0.0,>=2.14.0",
+    "azure-storage-blob<13.0.0,>=12.20.0",
+    "azure-storage-file-share<13.0.0,>=12.16.0",
+    "azure-identity<2.0.0,>=1.15.0",
+    "boto3<2.0.0,>=1.29.0",
+    "huggingface-hub[hf-transfer]>=0.32.0",
+]
 name = "kserve-storage"
-version = "00001"
+version = "0.15.2"
 readme = "README.md"
 description = "KServe Storage Handler. This module is responsible to download the models from the provided source"
-authors = [
-    "The KServe Authors <dsun20@bloomberg.net>",
-    "The KServe Authors <fspolti@redhat.com>",
-]
-license = "https://github.com/kserve/kserve/blob/master/LICENSE"
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
@@ -15,26 +25,3 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-packages = [
-    { include = "kserve_storage"},
-]
-
-[tool.poetry.dependencies]
-python = ">=3.9,<3.13"
-requests = { version = "^2.32.2"}
-google-cloud-storage = { version = "^2.14.0"}
-azure-storage-blob = { version = "^12.20.0"}
-azure-storage-file-share = { version = "^12.16.0"}
-azure-identity = { version = "^1.15.0"}
-boto3 = { version = "^1.29.0"}
-huggingface-hub = { version = "^0.30.0", extras = ["hf-transfer"]}
-
-
-#[tool.poetry-version-plugin]
-#source = "file"
-#file_path = "../VERSION"
-
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"

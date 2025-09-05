@@ -68,7 +68,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelList":              schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelSpec":              schema_pkg_apis_serving_v1alpha1_TrainedModelSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec":               schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AuthenticationRef":              schema_pkg_apis_serving_v1beta1_AuthenticationRef(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec":                schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoscalerConfig":               schema_pkg_apis_serving_v1beta1_AutoscalerConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher":                        schema_pkg_apis_serving_v1beta1_Batcher(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentExtensionSpec":         schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentStatusSpec":            schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref),
@@ -80,6 +82,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerExtensionSpec":         schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec":                  schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainersConfig":               schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExtMetricAuthentication":        schema_pkg_apis_serving_v1beta1_ExtMetricAuthentication(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource":           schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetrics":                schema_pkg_apis_serving_v1beta1_ExternalMetrics(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.FailureInfo":                    schema_pkg_apis_serving_v1beta1_FailureInfo(ref),
@@ -1451,7 +1454,7 @@ func schema_pkg_apis_serving_v1alpha1_ModelSpec(ref common.ReferenceCallback) co
 					},
 					"framework": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Machine Learning <framework name> The values could be: \"tensorflow\",\"pytorch\",\"sklearn\",\"onnx\",\"xgboost\", \"myawesomeinternalframework\" etc.",
+							Description: "Machine Learning &lt;framework name&gt; The values could be: \"tensorflow\",\"pytorch\",\"sklearn\",\"onnx\",\"xgboost\", \"myawesomeinternalframework\" etc.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -2572,6 +2575,27 @@ func schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref common.ReferenceCallba
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_AuthenticationRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is the name of the authentication secret",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2592,11 +2616,41 @@ func schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref common.ReferenceCallbac
 							},
 						},
 					},
+					"behavior": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Behavior contains the scaling behavior configuration for the Horizontal Pod Autoscaler.",
+							Ref:         ref("k8s.io/api/autoscaling/v2.HorizontalPodAutoscalerBehavior"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricsSpec"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricsSpec", "k8s.io/api/autoscaling/v2.HorizontalPodAutoscalerBehavior"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_AutoscalerConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"scaleUpStabilizationWindowSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"scaleDownStabilizationWindowSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -4927,7 +4981,7 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 					},
 					"subdomain": {
 						SchemaProps: spec.SchemaProps{
-							Description: "If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.",
+							Description: "If specified, the fully qualified Pod hostname will be \"&lt;hostname&gt;.&lt;subdomain&gt;.&lt;pod namespace&gt;.svc.&lt;cluster domain&gt;\". If not specified, the pod will not have a domainname at all.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -5287,6 +5341,35 @@ func schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref common.ReferenceCallba
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_ExtMetricAuthentication(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"authenticationRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "authenticationRef is a reference to the authentication information for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AuthenticationRef"),
+						},
+					},
+					"authModes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "authModes defines the authentication modes for the metrics backend possible values are bearer, basic, tls. for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"authenticationRef"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AuthenticationRef"},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -5298,6 +5381,12 @@ func schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref common.ReferenceCa
 							Description: "metric identifies the target metric by name and selector",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetrics"),
+						},
+					},
+					"authenticationRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "authenticationRef is a reference to the authentication information for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExtMetricAuthentication"),
 						},
 					},
 					"target": {
@@ -5312,7 +5401,7 @@ func schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetrics", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExtMetricAuthentication", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetrics", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"},
 	}
 }
 
@@ -7641,9 +7730,17 @@ func schema_pkg_apis_serving_v1beta1_OtelCollectorConfig(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig"},
 	}
 }
 
@@ -8611,7 +8708,7 @@ func schema_pkg_apis_serving_v1beta1_PodSpec(ref common.ReferenceCallback) commo
 					},
 					"subdomain": {
 						SchemaProps: spec.SchemaProps{
-							Description: "If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.",
+							Description: "If specified, the fully qualified Pod hostname will be \"&lt;hostname&gt;.&lt;subdomain&gt;.&lt;pod namespace&gt;.svc.&lt;cluster domain&gt;\". If not specified, the pod will not have a domainname at all.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -9464,7 +9561,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 					},
 					"subdomain": {
 						SchemaProps: spec.SchemaProps{
-							Description: "If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.",
+							Description: "If specified, the fully qualified Pod hostname will be \"&lt;hostname&gt;.&lt;subdomain&gt;.&lt;pod namespace&gt;.svc.&lt;cluster domain&gt;\". If not specified, the pod will not have a domainname at all.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -11157,7 +11254,7 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 					},
 					"subdomain": {
 						SchemaProps: spec.SchemaProps{
-							Description: "If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.",
+							Description: "If specified, the fully qualified Pod hostname will be \"&lt;hostname&gt;.&lt;subdomain&gt;.&lt;pod namespace&gt;.svc.&lt;cluster domain&gt;\". If not specified, the pod will not have a domainname at all.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -12049,7 +12146,7 @@ func schema_pkg_apis_serving_v1beta1_WorkerSpec(ref common.ReferenceCallback) co
 					},
 					"subdomain": {
 						SchemaProps: spec.SchemaProps{
-							Description: "If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.",
+							Description: "If specified, the fully qualified Pod hostname will be \"&lt;hostname&gt;.&lt;subdomain&gt;.&lt;pod namespace&gt;.svc.&lt;cluster domain&gt;\". If not specified, the pod will not have a domainname at all.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
