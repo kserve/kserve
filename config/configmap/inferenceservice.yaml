@@ -25,7 +25,7 @@ data:
     explainers: |-
       {
           "art": {
-              "image" : "kserve/art-explainer",
+              "image" : "ghcr.io/kserve/art-explainer",
               "defaultImageVersion": "latest"
           }
       }
@@ -35,7 +35,7 @@ data:
            # Art explainer runtime configuration
            "art": {
                # image contains the default Art explainer serving runtime image uri.
-               "image" : "kserve/art-explainer",
+               "image" : "ghcr.io/kserve/art-explainer",
        
                # defautltImageVersion contains the Art explainer serving runtime default image version.
                "defaultImageVersion": "latest"
@@ -148,7 +148,7 @@ data:
      # Example
      storageInitializer: |-
        {
-           "image" : "kserve/storage-initializer:latest",
+           "image" : "ghcr.io/kserve/storage-initializer:latest",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -163,7 +163,7 @@ data:
      storageInitializer: |-
        {
            # image contains the default storage initializer image uri.
-           "image" : "kserve/storage-initializer:latest",
+           "image" : "ghcr.io/kserve/storage-initializer:latest",
            
            # memoryRequest is the requests.memory to set for the storage initializer init container.
            "memoryRequest": "100Mi",
@@ -403,7 +403,7 @@ data:
      logger: |-
        {
            # image contains the default logger image uri.
-           "image" : "kserve/agent:latest",
+           "image" : "ghcr.io/kserve/agent:latest",
        
            # memoryRequest is the requests.memory to set for the logger container.
            "memoryRequest": "100Mi",
@@ -425,7 +425,7 @@ data:
      # Example
      batcher: |-
        {
-           "image" : "kserve/agent:latest",
+           "image" : "ghcr.io/kserve/agent:latest",
            "memoryRequest": "1Gi",
            "memoryLimit": "1Gi",
            "cpuRequest": "1",
@@ -436,7 +436,7 @@ data:
      batcher: |-
        {
            # image contains the default batcher image uri.
-           "image" : "kserve/agent:latest",
+           "image" : "ghcr.io/kserve/agent:latest",
            
            # memoryRequest is the requests.memory to set for the batcher container.
            "memoryRequest": "1Gi",
@@ -461,7 +461,7 @@ data:
      # Example
      agent: |-
        {
-           "image" : "kserve/agent:latest",
+           "image" : "ghcr.io/kserve/agent:latest",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -470,7 +470,7 @@ data:
      agent: |-
        {
            # image contains the default agent image uri.
-           "image" : "kserve/agent:latest",
+           "image" : "ghcr.io/kserve/agent:latest",
        
            # memoryRequest is the requests.memory to set for the agent container.
            "memoryRequest": "100Mi",
@@ -489,7 +489,7 @@ data:
      # Example
      router: |-
        {
-           "image" : "kserve/router:latest",
+           "image" : "ghcr.io/kserve/router:latest",
            "memoryRequest": "100Mi",
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
@@ -504,7 +504,7 @@ data:
      router: |-
        {
            # image contains the default router image uri.
-           "image" : "kserve/router:latest",
+           "image" : "ghcr.io/kserve/router:latest",
            
            # memoryRequest is the requests.memory to set for the router container.
            "memoryRequest": "100Mi",
@@ -627,14 +627,14 @@ data:
   explainers: |-
     {
         "art": {
-            "image" : "kserve/art-explainer",
+            "image" : "ghcr.io/kserve/art-explainer",
             "defaultImageVersion": "latest"
         }
     }
 
   storageInitializer: |-
     {
-        "image" : "kserve/storage-initializer:latest",
+        "image" : "ghcr.io/kserve/storage-initializer:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -686,7 +686,7 @@ data:
 
   logger: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "ghcr.io/kserve/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -696,7 +696,7 @@ data:
 
   batcher: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "ghcr.io/kserve/agent:latest",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
@@ -707,7 +707,7 @@ data:
 
   agent: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "ghcr.io/kserve/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -739,7 +739,7 @@ data:
     {
       "enabled": false,
       "jobNamespace": "kserve-localmodel-jobs",
-      "defaultJobImage" : "kserve/storage-initializer:latest",
+      "defaultJobImage" : "ghcr.io/kserves/storage-initializer:latest",
       "fsGroup": 1000
     }
 
