@@ -1506,6 +1506,35 @@ func TestInferenceServiceStatus_UpdateModelRevisionStates(t *testing.T) {
 	}
 }
 
+func TestUpdateModelRevisionStates_ModelCopiesSetForAllStates(t *testing.T) {
+	testCases := []struct {
+		name       string
+		state      ModelState
+		wantStatus TransitionStatus
+	}{
+		{"Pending", Pending, InProgress},
+		{"Loading", Loading, InProgress},
+		{"Loaded", Loaded, UpToDate},
+		{"FailedToLoad", FailedToLoad, BlockedByFailedLoad},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			status := &InferenceServiceStatus{ModelStatus: ModelStatus{}}
+			totalCopies := 5
+			status.UpdateModelRevisionStates(tc.state, totalCopies, nil)
+			if status.ModelStatus.ModelCopies == nil {
+				t.Errorf("ModelCopies not set for state %s", tc.name)
+			} else if status.ModelStatus.ModelCopies.TotalCopies != totalCopies {
+				t.Errorf("ModelCopies.TotalCopies incorrect for state %s: got %d, want %d", tc.name, status.ModelStatus.ModelCopies.TotalCopies, totalCopies)
+			}
+			if status.ModelStatus.TransitionStatus != tc.wantStatus {
+				t.Errorf("TransitionStatus incorrect for state %s: got %s, want %s", tc.name, status.ModelStatus.TransitionStatus, tc.wantStatus)
+			}
+		})
+	}
+}
+
 func TestGetDeploymentCondition_SingleDeployment(t *testing.T) {
 	now := metav1.Now()
 	deployment := &appsv1.Deployment{
