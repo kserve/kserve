@@ -2406,6 +2406,19 @@
       "properties": {
         "defaultDeploymentMode": {
           "type": "string"
+        },
+        "deploymentRolloutStrategy": {
+          "$ref": "#/definitions/v1beta1.DeploymentRolloutStrategy"
+        }
+      }
+    },
+    "v1beta1.DeploymentRolloutStrategy": {
+      "description": "DeploymentRolloutStrategy defines the rollout strategy configuration for deployments",
+      "type": "object",
+      "properties": {
+        "defaultRollout": {
+          "description": "DefaultRollout specifies the default rollout configuration",
+          "$ref": "#/definitions/v1beta1.RolloutSpec"
         }
       }
     },
@@ -5527,6 +5540,26 @@
           "description": "target specifies the target value for the given metric",
           "default": {},
           "$ref": "#/definitions/v1beta1.MetricTarget"
+        }
+      }
+    },
+    "v1beta1.RolloutSpec": {
+      "description": "RolloutSpec defines the rollout strategy configuration using Kubernetes deployment strategy",
+      "type": "object",
+      "required": [
+        "maxSurge",
+        "maxUnavailable"
+      ],
+      "properties": {
+        "maxSurge": {
+          "description": "MaxSurge specifies the maximum number of pods that can be created above the desired replica count. Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).",
+          "type": "string",
+          "default": ""
+        },
+        "maxUnavailable": {
+          "description": "MaxUnavailable specifies the maximum number of pods that can be unavailable during the update. Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).",
+          "type": "string",
+          "default": ""
         }
       }
     },
