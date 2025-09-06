@@ -48,6 +48,7 @@ API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ModelStatus,ModelRevisionStates
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,DeprecatedServiceAccount
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PredictorExtensionSpec,StorageURI
+API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PredictorSpec,CatBoost
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PredictorSpec,HuggingFace
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PredictorSpec,LightGBM
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PredictorSpec,PyTorch

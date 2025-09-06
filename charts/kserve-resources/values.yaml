@@ -407,6 +407,18 @@ kserve:
         capabilities:
           drop:
             - ALL
+    catboostserver:
+      disabled: false
+      image: kserve/catboostserver
+      tag: *defaultVersion
+      imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     torchserve:
       disabled: false
       image: pytorch/torchserve-kfs
