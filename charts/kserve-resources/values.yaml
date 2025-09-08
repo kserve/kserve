@@ -1,5 +1,5 @@
 kserve:
-  version: &defaultVersion v0.15.2
+  version: &defaultVersion v0.16.0-rc0
   agent:
     image: kserve/agent
     tag: *defaultVersion

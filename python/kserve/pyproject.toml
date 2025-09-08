@@ -29,7 +29,7 @@ dependencies = [
     "pyyaml<7.0.0,>=6.0.0",
 ]
 name = "kserve"
-version = "0.15.2"
+version = "0.16.0rc0"
 description = "KServe Python SDK"
 readme = "README.md"
 classifiers = [
