@@ -424,7 +424,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := createRawDeployment(tt.args.objectMeta, tt.args.workerObjectMeta, tt.args.componentExt, tt.args.podSpec, tt.args.workerPodSpec)
+			got, err := createRawDeployment(tt.args.objectMeta, tt.args.workerObjectMeta, tt.args.componentExt, tt.args.podSpec, tt.args.workerPodSpec, nil)
 			assert.Equal(t, tt.expectedErr, err)
 			for i, deploy := range got {
 				if diff := cmp.Diff(tt.expected[i], deploy, cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.SecurityContext"),
@@ -505,7 +505,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			ttExpected := getDefaultExpectedDeployment()
 
 			// update objectMeta using modify func
-			got, err := createRawDeployment(ttArgs.objectMeta, ttArgs.workerObjectMeta, ttArgs.componentExt, tt.modifyArgs(ttArgs).podSpec, tt.modifyArgs(ttArgs).workerPodSpec)
+			got, err := createRawDeployment(ttArgs.objectMeta, ttArgs.workerObjectMeta, ttArgs.componentExt, tt.modifyArgs(ttArgs).podSpec, tt.modifyArgs(ttArgs).workerPodSpec, nil)
 			assert.Equal(t, tt.expectedErr, err)
 
 			// update expected value using modifyExpected func
@@ -834,7 +834,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			ttExpected := getDefaultExpectedDeployment()
 
 			// update objectMeta using modify func
-			got, err := createRawDeployment(tt.modifyObjectMetaArgs(ttArgs).objectMeta, tt.modifyWorkerObjectMetaArgs(ttArgs).workerObjectMeta, ttArgs.componentExt, tt.modifyPodSpecArgs(ttArgs).podSpec, tt.modifyWorkerPodSpecArgs(ttArgs).workerPodSpec)
+			got, err := createRawDeployment(tt.modifyObjectMetaArgs(ttArgs).objectMeta, tt.modifyWorkerObjectMetaArgs(ttArgs).workerObjectMeta, ttArgs.componentExt, tt.modifyPodSpecArgs(ttArgs).podSpec, tt.modifyWorkerPodSpecArgs(ttArgs).workerPodSpec, nil)
 			assert.Equal(t, tt.expectedErr, err)
 			// update expected value using modifyExpected func
 			expected := tt.modifyExpected(ttExpected)
@@ -1117,6 +1117,7 @@ func TestNewDeploymentReconciler(t *testing.T) {
 				tt.fields.componentExt,
 				tt.fields.podSpec,
 				tt.fields.workerPod,
+				nil, // deployConfig
 			)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewDeploymentReconciler() error = %v, wantErr %v", err, tt.wantErr)
@@ -1132,6 +1133,67 @@ func TestNewDeploymentReconciler(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetDefaultDeploymentSpec(t *testing.T) {
+	tests := []struct {
+		name                   string
+		inputSpec              *appsv1.DeploymentSpec
+		expectedMaxSurge       *intstr.IntOrString
+		expectedMaxUnavailable *intstr.IntOrString
+		description            string
+	}{
+		{
+			name:                   "Empty spec should get KServe defaults",
+			inputSpec:              &appsv1.DeploymentSpec{},
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+			description:            "Empty spec should be populated with KServe default deployment strategy",
+		},
+		{
+			name: "Spec with RollingUpdate type but nil RollingUpdate should get KServe defaults",
+			inputSpec: &appsv1.DeploymentSpec{
+				Strategy: appsv1.DeploymentStrategy{
+					Type: appsv1.RollingUpdateDeploymentStrategyType,
+				},
+			},
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+			description:            "Spec with RollingUpdate type but nil RollingUpdate should get KServe defaults",
+		},
+		{
+			name: "Spec with existing RollingUpdate should not be modified",
+			inputSpec: &appsv1.DeploymentSpec{
+				Strategy: appsv1.DeploymentStrategy{
+					Type: appsv1.RollingUpdateDeploymentStrategyType,
+					RollingUpdate: &appsv1.RollingUpdateDeployment{
+						MaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "50%"},
+						MaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "10%"},
+					},
+				},
+			},
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "50%"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "10%"},
+			description:            "Existing RollingUpdate values should not be modified",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setDefaultDeploymentSpec(tt.inputSpec)
+
+			assert.Equal(t, appsv1.RollingUpdateDeploymentStrategyType, tt.inputSpec.Strategy.Type)
+			assert.NotNil(t, tt.inputSpec.Strategy.RollingUpdate)
+			assert.Equal(t, tt.expectedMaxSurge, tt.inputSpec.Strategy.RollingUpdate.MaxSurge,
+				"Test: %s - %s", tt.name, tt.description)
+			assert.Equal(t, tt.expectedMaxUnavailable, tt.inputSpec.Strategy.RollingUpdate.MaxUnavailable,
+				"Test: %s - %s", tt.name, tt.description)
+		})
+	}
+}
+
+func stringPtr(s string) *string {
+	return &s
 }
 
 // mockClientForCheckDeploymentExist is a minimal mock for kclient.Client for checkDeploymentExist
@@ -1210,4 +1272,171 @@ func deepCopyDeploymentList(src []*appsv1.Deployment) []*appsv1.Deployment {
 		}
 	}
 	return copied
+}
+
+func TestApplyRolloutStrategyFromConfigmap(t *testing.T) {
+	tests := []struct {
+		name                   string
+		deployConfig           *v1beta1.DeployConfig
+		expectedMaxSurge       *intstr.IntOrString
+		expectedMaxUnavailable *intstr.IntOrString
+	}{
+		{
+			name: "Apply rollout strategy with RawDeployment mode",
+			deployConfig: &v1beta1.DeployConfig{
+				DefaultDeploymentMode: "Standard",
+				DeploymentRolloutStrategy: &v1beta1.DeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						MaxSurge:       "1",
+						MaxUnavailable: "1",
+					},
+				},
+			},
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "1"},
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "1"},
+		},
+		{
+			name: "No rollout strategy applied for Serverless mode",
+			deployConfig: &v1beta1.DeployConfig{
+				DefaultDeploymentMode: "Serverless",
+				DeploymentRolloutStrategy: &v1beta1.DeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						MaxSurge:       "50%",
+						MaxUnavailable: "25%",
+					},
+				},
+			},
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "25%"}, // Default value
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "25%"}, // Default value
+		},
+		{
+			name:                   "No rollout strategy configured",
+			deployConfig:           nil,
+			expectedMaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "25%"}, // Default value
+			expectedMaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "25%"}, // Default value
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			deployment := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{},
+			}
+
+			// Set default deployment spec first
+			setDefaultDeploymentSpec(&deployment.Spec)
+
+			// Apply rollout strategy from configmap
+			applyRolloutStrategyFromConfigmap(&deployment.Spec, tt.deployConfig)
+
+			// Verify the deployment strategy type is RollingUpdate
+			assert.Equal(t, appsv1.RollingUpdateDeploymentStrategyType, deployment.Spec.Strategy.Type)
+
+			// Verify maxSurge and maxUnavailable values
+			assert.Equal(t, tt.expectedMaxSurge, deployment.Spec.Strategy.RollingUpdate.MaxSurge, tt.name+" - MaxSurge")
+			assert.Equal(t, tt.expectedMaxUnavailable, deployment.Spec.Strategy.RollingUpdate.MaxUnavailable, tt.name+" - MaxUnavailable")
+		})
+	}
+}
+
+func TestCreateRawDeploymentWithPrecedence(t *testing.T) {
+	tests := []struct {
+		name                     string
+		deploymentStrategy       *appsv1.DeploymentStrategy
+		deployConfig             *v1beta1.DeployConfig
+		expectedMaxSurge         *intstr.IntOrString
+		expectedMaxUnavailable   *intstr.IntOrString
+		expectedFromUserStrategy bool
+		description              string
+	}{
+		{
+			name: "User strategy takes precedence over configmap",
+			deploymentStrategy: &appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
+					MaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "50%"},
+					MaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "50%"},
+				},
+			},
+			deployConfig: &v1beta1.DeployConfig{
+				DefaultDeploymentMode: "Standard",
+				DeploymentRolloutStrategy: &v1beta1.DeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						MaxSurge:       "1",
+						MaxUnavailable: "1",
+					},
+				},
+			},
+			expectedMaxSurge:         &intstr.IntOrString{Type: intstr.String, StrVal: "50%"},
+			expectedMaxUnavailable:   &intstr.IntOrString{Type: intstr.String, StrVal: "50%"},
+			expectedFromUserStrategy: true,
+			description:              "User-specified strategy should take precedence over configmap",
+		},
+		{
+			name:               "Configmap strategy when no user strategy",
+			deploymentStrategy: nil,
+			deployConfig: &v1beta1.DeployConfig{
+				DefaultDeploymentMode: "Standard",
+				DeploymentRolloutStrategy: &v1beta1.DeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						MaxSurge:       "2",
+						MaxUnavailable: "1",
+					},
+				},
+			},
+			expectedMaxSurge:         &intstr.IntOrString{Type: intstr.String, StrVal: "2"},
+			expectedMaxUnavailable:   &intstr.IntOrString{Type: intstr.String, StrVal: "1"},
+			expectedFromUserStrategy: false,
+			description:              "Configmap strategy should be applied when no user strategy",
+		},
+		{
+			name:               "No strategy applied for Serverless mode",
+			deploymentStrategy: nil,
+			deployConfig: &v1beta1.DeployConfig{
+				DefaultDeploymentMode: "Serverless",
+				DeploymentRolloutStrategy: &v1beta1.DeploymentRolloutStrategy{
+					DefaultRollout: &v1beta1.RolloutSpec{
+						MaxSurge:       "1",
+						MaxUnavailable: "1",
+					},
+				},
+			},
+			expectedMaxSurge:         &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+			expectedMaxUnavailable:   &intstr.IntOrString{Type: intstr.String, StrVal: "25%"},
+			expectedFromUserStrategy: false,
+			description:              "Default strategy should be used for non-RawDeployment modes",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create test data
+			componentExt := &v1beta1.ComponentExtensionSpec{
+				DeploymentStrategy: tt.deploymentStrategy,
+			}
+
+			objectMeta := metav1.ObjectMeta{
+				Name:      "test-deployment",
+				Namespace: "test-namespace",
+				Labels:    make(map[string]string),
+			}
+
+			podSpec := &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "test-container",
+						Image: "test-image",
+					},
+				},
+			}
+
+			// Create deployment
+			deployment := createRawDefaultDeployment(objectMeta, componentExt, podSpec, tt.deployConfig)
+
+			// Verify strategy
+			assert.NotNil(t, deployment.Spec.Strategy.RollingUpdate, tt.description)
+			assert.Equal(t, tt.expectedMaxSurge, deployment.Spec.Strategy.RollingUpdate.MaxSurge, tt.description+" - MaxSurge")
+			assert.Equal(t, tt.expectedMaxUnavailable, deployment.Spec.Strategy.RollingUpdate.MaxUnavailable, tt.description+" - MaxUnavailable")
+		})
+	}
 }
