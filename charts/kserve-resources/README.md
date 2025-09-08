@@ -219,4 +219,4 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0-rc0
 | kserve.storage.storageSecretNameAnnotation | string | `"serving.kserve.io/secretName"` | Storage secret name reference for storage initializer. |
 | kserve.storage.storageSpecSecretName | string | `"storage-config"` | Storage spec secret name. |
 | kserve.storage.tag | string | `"v0.16.0-rc0"` |  |
-| kserve.version | string | `"v0.1.0-rc0"` |  |
+| kserve.version | string | `"v0.16.0-rc0"` |  |
