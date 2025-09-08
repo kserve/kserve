@@ -128,7 +128,9 @@ if [ $installKeda = true ]; then
    helm install keda kedacore/keda --version ${KEDA_VERSION} --namespace keda --create-namespace --wait
    echo "😀 Successfully installed KEDA"
 
-   kubectl apply -f https://github.com/open-telemetry/opentelemetry-operator/releases/latest/download/opentelemetry-operator.yaml
+   helm install my-opentelemetry-operator open-telemetry/opentelemetry-operator -n opentelemetry-operator --create-namespace\
+  --set "manager.collectorImage.repository=otel/opentelemetry-collector-contrib"
+
    
    helm upgrade -i kedify-otel oci://ghcr.io/kedify/charts/otel-add-on --version=v0.0.6 --namespace keda --wait --set validatingAdmissionPolicy.enabled=false
    echo "😀 Successfully installed KEDA"
