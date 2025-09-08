@@ -537,22 +537,38 @@ data:
            "imagePullSecrets": ["docker-secret"]
        }
      
-     # ====================================== DEPLOYMENT CONFIGURATION ======================================
-     # Example
-     deploy: |-
-       {
-         "defaultDeploymentMode": "Serverless"
-       }
-     deploy: |-
-       {
-         # defaultDeploymentMode specifies the default deployment mode of the kserve. The supported values are
-         # Serverless, RawDeployment and ModelMesh. Users can override the deployment mode at service level
-         # by adding the annotation serving.kserve.io/deploymentMode.For more info on deployment mode visit
-         # Serverless https://kserve.github.io/website/master/admin/serverless/serverless/
-         # RawDeployment https://kserve.github.io/website/master/admin/kubernetes_deployment/
-         # ModelMesh https://kserve.github.io/website/master/admin/modelmesh/
-         "defaultDeploymentMode": "Serverless"
-       }
+    # ====================================== DEPLOYMENT CONFIGURATION ======================================
+    # Example
+    deploy: |-
+      {
+        "defaultDeploymentMode": "Serverless",
+        "deploymentRolloutStrategy": {
+          "defaultRollout": {
+            "maxSurge": "1",
+            "maxUnavailable": "1"
+          }
+        }
+      }
+
+    deploy: |-
+      {
+        # defaultDeploymentMode specifies the default deployment mode of the kserve. The supported values are
+        # Standard and Knative. Users can override the deployment mode at service level
+        # by adding the annotation serving.kserve.io/deploymentMode.
+        # "defaultDeploymentMode": "Standard",
+        # deploymentRolloutStrategy specifies the default rollout strategy for the Standard deployment mode
+        # "deploymentRolloutStrategy": {
+          # defaultRollout specifies the default rollout configuration using Kubernetes deployment strategy
+          # "defaultRollout": {
+            # maxSurge specifies the maximum number of pods that can be created above the desired replica count
+            # Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%)
+            # "maxSurge": "1",
+            # maxUnavailable specifies the maximum number of pods that can be unavailable during the update
+            # Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%)
+            # "maxUnavailable": "1"
+          # }
+        # }
+      }
 
      # ====================================== SERVICE CONFIGURATION ======================================
      # Example
