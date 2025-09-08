@@ -15,6 +15,7 @@
 from .config import maybe_register_time_series_endpoints
 from .dataplane import TimeSeriesDataPlane
 from .endpoints import register_time_series_endpoints
+from .time_series_model import HuggingFaceTimeSeriesModel, TimeSeriesModel
 from .types import (
     ForecastRequest,
     ForecastResponse,
@@ -34,6 +35,8 @@ __all__ = [
     "maybe_register_time_series_endpoints",
     "TimeSeriesDataPlane",
     "register_time_series_endpoints",
+    "HuggingFaceTimeSeriesModel",
+    "TimeSeriesModel",
     "ForecastRequest",
     "ForecastResponse",
     "TimeSeriesType",

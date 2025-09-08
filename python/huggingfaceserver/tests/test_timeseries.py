@@ -19,7 +19,7 @@ from transformers import AutoConfig
 
 from huggingfaceserver.task import infer_task_from_model_architecture
 from huggingfaceserver.task import MLTask
-from kserve.protocol.rest.timeseries.time_series_model import HuggingFaceTimeSeriesModel
+from kserve.protocol.rest.timeseries import HuggingFaceTimeSeriesModel
 from kserve.protocol.rest.timeseries.types import (
     ForecastRequest,
     ForecastResponse,
