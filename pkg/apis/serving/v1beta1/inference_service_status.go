@@ -369,7 +369,7 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 				status = corev1.ConditionTrue
 			}
 		} else {
-			// Deployment is progressing
+			// Deployment is still progressing
 			status = corev1.ConditionUnknown
 		}
 		componentReadyCondition = &apis.Condition{
@@ -379,6 +379,9 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 			Message: progressingCondition.Message,
 		}
 	}
+	// If available condition is true, override component as ready.
+	// This is because progressing condition doesn't get set to false when deployment is complete.
+	// See https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#complete-deployment
 	availableCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentAvailable)
 	if availableCondition != nil && availableCondition.Status == corev1.ConditionTrue {
 		statusSpec.URL = url
