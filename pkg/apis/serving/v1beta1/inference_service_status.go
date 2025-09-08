@@ -356,16 +356,6 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 		Status: corev1.ConditionFalse,
 		Reason: "",
 	}
-	availableCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentAvailable)
-	if availableCondition != nil && availableCondition.Status == corev1.ConditionTrue {
-		statusSpec.URL = url
-		componentReadyCondition = &apis.Condition{
-			Type:    readyCondition,
-			Status:  corev1.ConditionTrue,
-			Reason:  availableCondition.Reason,
-			Message: availableCondition.Message,
-		}
-	}
 
 	progressingCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentProgressing)
 	if progressingCondition != nil {
@@ -389,7 +379,16 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 			Message: progressingCondition.Message,
 		}
 	}
-
+	availableCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentAvailable)
+	if availableCondition != nil && availableCondition.Status == corev1.ConditionTrue {
+		statusSpec.URL = url
+		componentReadyCondition = &apis.Condition{
+			Type:    readyCondition,
+			Status:  corev1.ConditionTrue,
+			Reason:  availableCondition.Reason,
+			Message: availableCondition.Message,
+		}
+	}
 	replicaFailureCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentReplicaFailure)
 	if replicaFailureCondition != nil && replicaFailureCondition.Status == corev1.ConditionTrue {
 		componentReadyCondition = &apis.Condition{
@@ -405,7 +404,6 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 	ss.ObservedGeneration = deploymentList[0].Status.ObservedGeneration
 }
 
-//nolint:unparam
 func getDeploymentCondition(deploymentList []*appsv1.Deployment, conditionType appsv1.DeploymentConditionType) *apis.Condition {
 	condition := apis.Condition{}
 	var messages, reasons []string
