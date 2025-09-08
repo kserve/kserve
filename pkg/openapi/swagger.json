@@ -3790,7 +3790,7 @@
           "default": 0
         },
         "totalCopies": {
-          "description": "Total number copies of this predictor's models that are currently loaded",
+          "description": "Total number of copies of this predictor's models across all states (Pending, Loading, Loaded, FailedToLoad).",
           "type": "integer",
           "format": "int32"
         }

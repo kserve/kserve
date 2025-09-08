@@ -162,7 +162,7 @@ type ModelCopies struct {
 	// How many copies of this predictor's models failed to load recently
 	// +kubebuilder:default=0
 	FailedCopies int `json:"failedCopies"`
-	// Total number copies of this predictor's models that are currently loaded
+	// Total number of copies of this predictor's models across all states (Pending, Loading, Loaded, FailedToLoad).
 	// +optional
 	TotalCopies int `json:"totalCopies,omitempty"`
 }
