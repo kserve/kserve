@@ -352,7 +352,7 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 	}
 	readyCondition := readyConditionsMap[component]
 	componentReadyCondition := &apis.Condition{
-		Type:   apis.ConditionType(readyCondition),
+		Type:   readyCondition,
 		Status: corev1.ConditionFalse,
 		Reason: "",
 	}
@@ -360,7 +360,7 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 	if availableCondition != nil && availableCondition.Status == corev1.ConditionTrue {
 		statusSpec.URL = url
 		componentReadyCondition = &apis.Condition{
-			Type:    apis.ConditionType(readyCondition),
+			Type:    readyCondition,
 			Status:  corev1.ConditionTrue,
 			Reason:  availableCondition.Reason,
 			Message: availableCondition.Message,
@@ -369,37 +369,38 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 
 	progressingCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentProgressing)
 	if progressingCondition != nil {
+		var status corev1.ConditionStatus
 		if progressingCondition.Status == corev1.ConditionFalse {
 			if len(progressingCondition.Message) > 0 {
 				// If there is a message, we assume there was a problem
-				componentReadyCondition = &apis.Condition{
-					Type:    apis.ConditionType(readyCondition),
-					Status:  corev1.ConditionFalse,
-					Reason:  progressingCondition.Reason,
-					Message: progressingCondition.Message,
-				}
+				status = corev1.ConditionFalse
 			} else {
 				// If there is no message, we assume the deployment has finished successfully
-				componentReadyCondition = &apis.Condition{
-					Type:    apis.ConditionType(readyCondition),
-					Status:  corev1.ConditionTrue,
-					Reason:  progressingCondition.Reason,
-					Message: progressingCondition.Message,
-				}
+				status = corev1.ConditionTrue
 			}
 		} else {
 			// Deployment is progressing
-			componentReadyCondition = &apis.Condition{
-				Type:    apis.ConditionType(readyCondition),
-				Status:  corev1.ConditionUnknown,
-				Reason:  progressingCondition.Reason,
-				Message: progressingCondition.Message,
-			}
-
+			status = corev1.ConditionUnknown
+		}
+		componentReadyCondition = &apis.Condition{
+			Type:    readyCondition,
+			Status:  status,
+			Reason:  progressingCondition.Reason,
+			Message: progressingCondition.Message,
 		}
 	}
-	ss.SetCondition(readyCondition, componentReadyCondition)
 
+	replicaFailureCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentReplicaFailure)
+	if replicaFailureCondition != nil && replicaFailureCondition.Status == corev1.ConditionTrue {
+		componentReadyCondition = &apis.Condition{
+			Type:    readyCondition,
+			Status:  corev1.ConditionFalse,
+			Reason:  replicaFailureCondition.Reason,
+			Message: replicaFailureCondition.Message,
+		}
+	}
+
+	ss.SetCondition(readyCondition, componentReadyCondition)
 	ss.Components[component] = statusSpec
 	ss.ObservedGeneration = deploymentList[0].Status.ObservedGeneration
 }
