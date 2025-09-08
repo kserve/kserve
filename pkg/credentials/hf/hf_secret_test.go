@@ -21,10 +21,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestBuildSecretEnvs_WithToken(t *testing.T) {
 	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "hf-secret",
+		},
 		Data: map[string][]byte{
 			HFTokenKey: []byte("my-secret-token"),
 		},
@@ -34,13 +38,17 @@ func TestBuildSecretEnvs_WithToken(t *testing.T) {
 
 	assert.Len(t, envs, 2)
 	assert.Equal(t, HFTokenKey, envs[0].Name)
-	assert.Equal(t, "my-secret-token", envs[0].Value)
+	assert.Equal(t, HFTokenKey, envs[0].ValueFrom.SecretKeyRef.Key)
+	assert.Equal(t, secret.Name, envs[0].ValueFrom.SecretKeyRef.LocalObjectReference.Name)
 	assert.Equal(t, HFTransfer, envs[1].Name)
 	assert.Equal(t, "1", envs[1].Value)
 }
 
 func TestBuildSecretEnvs_WithoutToken(t *testing.T) {
 	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "hf-secret",
+		},
 		Data: map[string][]byte{},
 	}
 
@@ -51,6 +59,9 @@ func TestBuildSecretEnvs_WithoutToken(t *testing.T) {
 
 func TestBuildSecretEnvs_NilSecret(t *testing.T) {
 	var secret *corev1.Secret = &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "hf-secret",
+		},
 		Data: nil,
 	}
 
