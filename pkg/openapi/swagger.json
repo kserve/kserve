@@ -756,7 +756,7 @@
       ],
       "properties": {
         "framework": {
-          "description": "Machine Learning \u003cframework name\u003e The values could be: \"tensorflow\",\"pytorch\",\"sklearn\",\"onnx\",\"xgboost\", \"myawesomeinternalframework\" etc.",
+          "description": "Machine Learning \u0026lt;framework name\u0026gt; The values could be: \"tensorflow\",\"pytorch\",\"sklearn\",\"onnx\",\"xgboost\", \"myawesomeinternalframework\" etc.",
           "type": "string",
           "default": ""
         },
@@ -2406,6 +2406,19 @@
       "properties": {
         "defaultDeploymentMode": {
           "type": "string"
+        },
+        "deploymentRolloutStrategy": {
+          "$ref": "#/definitions/v1beta1.DeploymentRolloutStrategy"
+        }
+      }
+    },
+    "v1beta1.DeploymentRolloutStrategy": {
+      "description": "DeploymentRolloutStrategy defines the rollout strategy configuration for deployments",
+      "type": "object",
+      "properties": {
+        "defaultRollout": {
+          "description": "DefaultRollout specifies the default rollout configuration",
+          "$ref": "#/definitions/v1beta1.RolloutSpec"
         }
       }
     },
@@ -2891,7 +2904,7 @@
           "type": "boolean"
         },
         "subdomain": {
-          "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
+          "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
         },
         "terminationGracePeriodSeconds": {
@@ -4900,7 +4913,7 @@
           "type": "boolean"
         },
         "subdomain": {
-          "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
+          "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
         },
         "terminationGracePeriodSeconds": {
@@ -5430,7 +5443,7 @@
           "$ref": "#/definitions/v1beta1.SKLearnSpec"
         },
         "subdomain": {
-          "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
+          "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
         },
         "tensorflow": {
@@ -5527,6 +5540,26 @@
           "description": "target specifies the target value for the given metric",
           "default": {},
           "$ref": "#/definitions/v1beta1.MetricTarget"
+        }
+      }
+    },
+    "v1beta1.RolloutSpec": {
+      "description": "RolloutSpec defines the rollout strategy configuration using Kubernetes deployment strategy",
+      "type": "object",
+      "required": [
+        "maxSurge",
+        "maxUnavailable"
+      ],
+      "properties": {
+        "maxSurge": {
+          "description": "MaxSurge specifies the maximum number of pods that can be created above the desired replica count. Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).",
+          "type": "string",
+          "default": ""
+        },
+        "maxUnavailable": {
+          "description": "MaxUnavailable specifies the maximum number of pods that can be unavailable during the update. Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).",
+          "type": "string",
+          "default": ""
         }
       }
     },
@@ -6390,7 +6423,7 @@
           "type": "boolean"
         },
         "subdomain": {
-          "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
+          "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
         },
         "terminationGracePeriodSeconds": {
@@ -6832,7 +6865,7 @@
           "type": "boolean"
         },
         "subdomain": {
-          "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
+          "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
         },
         "tensorParallelSize": {

@@ -73,6 +73,11 @@ RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no
 COPY kserve kserve  
 RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
 
+COPY storage/pyproject.toml storage/uv.lock storage/
+RUN --mount=type=cache,target=/root/.cache/uv cd storage && uv sync --active --no-cache
+COPY storage storage
+RUN --mount=type=cache,target=/root/.cache/uv cd storage && uv pip install . --no-cache
+
 COPY huggingfaceserver/pyproject.toml huggingfaceserver/uv.lock huggingfaceserver/health_check.py huggingfaceserver/
 RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv sync --active --no-cache
 COPY huggingfaceserver huggingfaceserver
@@ -147,6 +152,7 @@ RUN useradd kserve -m -u 1000 -d /home/kserve
 COPY --from=build --chown=kserve:kserve ${WORKSPACE_DIR}/third_party third_party
 COPY --from=build --chown=kserve:kserve ${WORKSPACE_DIR}/$VENV_PATH $VENV_PATH
 COPY --from=build ${WORKSPACE_DIR}/kserve kserve
+COPY --from=build ${WORKSPACE_DIR}/storage storage
 COPY --from=build ${WORKSPACE_DIR}/huggingfaceserver huggingfaceserver
 
 # Set a writable Hugging Face home folder to avoid permission issue. See https://github.com/kserve/kserve/issues/3562

@@ -5,7 +5,8 @@ authors = [
 license = {text = "Apache-2.0"}
 requires-python = "<3.13,>=3.9"
 dependencies = [
-    "kserve[llm,storage] @ file:///${PROJECT_ROOT}/../kserve",
+    "kserve[llm] @ file:///${PROJECT_ROOT}/../kserve",
+    "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
     "transformers>=4.53.2",
     "accelerate<2.0.0,>=1.6.0",
     "torch>=2.7.0",
