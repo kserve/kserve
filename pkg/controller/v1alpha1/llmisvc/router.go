@@ -110,7 +110,9 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 
 	// If using custom routes via refs, delete our own
 	if route.HTTP.HasRefs() {
-		return Delete(ctx, r, llmSvc, expectedHTTPRoute)
+		if err := Delete(ctx, r, llmSvc, expectedHTTPRoute); err != nil {
+			return err
+		}
 	}
 
 	if route.HTTP.HasSpec() {
