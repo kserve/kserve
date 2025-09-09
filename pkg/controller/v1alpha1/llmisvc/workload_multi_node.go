@@ -38,7 +38,7 @@ import (
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 )
 
-func (r *LLMInferenceServiceReconciler) reconcileMultiNodeWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+func (r *LLMISVCReconciler) reconcileMultiNodeWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	log.FromContext(ctx).Info("Reconciling multi-node workload")
 
 	if err := r.reconcileMultiNodeMainServiceAccount(ctx, llmSvc, storageConfig, credentialConfig); err != nil {
@@ -46,9 +46,6 @@ func (r *LLMInferenceServiceReconciler) reconcileMultiNodeWorkload(ctx context.C
 	}
 	if err := r.reconcileMultiNodePrefillServiceAccount(ctx, llmSvc); err != nil {
 		return fmt.Errorf("failed to reconcile multi-node service account: %w", err)
-	}
-	if err := r.reconcileMultiNodeOCPRoleBinding(ctx, llmSvc); err != nil {
-		return fmt.Errorf("failed to reconcile multi-node role binding: %w", err)
 	}
 	if err := r.reconcileMultiNodeMainWorkload(ctx, llmSvc, storageConfig, credentialConfig); err != nil {
 		return fmt.Errorf("failed to reconcile multi-node main workload: %w", err)
@@ -59,7 +56,7 @@ func (r *LLMInferenceServiceReconciler) reconcileMultiNodeWorkload(ctx context.C
 	return nil
 }
 
-func (r *LLMInferenceServiceReconciler) reconcileMultiNodeMainWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+func (r *LLMISVCReconciler) reconcileMultiNodeMainWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	expected, err := r.expectedMainMultiNodeLWS(ctx, llmSvc, storageConfig, credentialConfig)
 	if err != nil {
 		return fmt.Errorf("failed to build the expected main LWS: %w", err)
@@ -77,7 +74,7 @@ func (r *LLMInferenceServiceReconciler) reconcileMultiNodeMainWorkload(ctx conte
 	return r.propagateLeaderWorkerSetStatus(ctx, expected, llmSvc.MarkMainWorkloadReady, llmSvc.MarkMainWorkloadNotReady)
 }
 
-func (r *LLMInferenceServiceReconciler) reconcileMultiNodePrefillWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+func (r *LLMISVCReconciler) reconcileMultiNodePrefillWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	expected, err := r.expectedPrefillMultiNodeLWS(ctx, llmSvc, storageConfig, credentialConfig)
 	if err != nil {
 		return fmt.Errorf("failed to build the expected prefill LWS: %w", err)
@@ -94,7 +91,7 @@ func (r *LLMInferenceServiceReconciler) reconcileMultiNodePrefillWorkload(ctx co
 	return r.propagateLeaderWorkerSetStatus(ctx, expected, llmSvc.MarkPrefillWorkloadReady, llmSvc.MarkPrefillWorkloadNotReady)
 }
 
-func (r *LLMInferenceServiceReconciler) propagateLeaderWorkerSetStatus(ctx context.Context, expected *lwsapi.LeaderWorkerSet, ready func(), notReady func(reason string, messageFormat string, messageA ...interface{})) error {
+func (r *LLMISVCReconciler) propagateLeaderWorkerSetStatus(ctx context.Context, expected *lwsapi.LeaderWorkerSet, ready func(), notReady func(reason string, messageFormat string, messageA ...interface{})) error {
 	logger := log.FromContext(ctx)
 
 	curr := &lwsapi.LeaderWorkerSet{}
@@ -119,7 +116,7 @@ func (r *LLMInferenceServiceReconciler) propagateLeaderWorkerSetStatus(ctx conte
 	return nil
 }
 
-func (r *LLMInferenceServiceReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) (*lwsapi.LeaderWorkerSet, error) {
+func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) (*lwsapi.LeaderWorkerSet, error) {
 	workerLabels := map[string]string{
 		"app.kubernetes.io/component": "llminferenceservice-workload-worker",
 		"app.kubernetes.io/name":      llmSvc.GetName(),
@@ -232,7 +229,7 @@ func (r *LLMInferenceServiceReconciler) expectedMainMultiNodeLWS(ctx context.Con
 	return expected, nil
 }
 
-func (r *LLMInferenceServiceReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) (*lwsapi.LeaderWorkerSet, error) {
+func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) (*lwsapi.LeaderWorkerSet, error) {
 	workerLabels := map[string]string{
 		"app.kubernetes.io/component": "llminferenceservice-workload-worker-prefill",
 		"app.kubernetes.io/name":      llmSvc.GetName(),
@@ -321,7 +318,7 @@ func (r *LLMInferenceServiceReconciler) expectedPrefillMultiNodeLWS(ctx context.
 	return expected, nil
 }
 
-func (r *LLMInferenceServiceReconciler) reconcileMultiNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+func (r *LLMISVCReconciler) reconcileMultiNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	serviceAccount, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
 	if err != nil {
 		return fmt.Errorf("failed to create expected multi node service account: %w", err)
@@ -341,7 +338,7 @@ func (r *LLMInferenceServiceReconciler) reconcileMultiNodeMainServiceAccount(ctx
 	return r.reconcileMultiNodeMainRoleBinding(ctx, llmSvc, serviceAccount, storageConfig, credentialConfig)
 }
 
-func (r *LLMInferenceServiceReconciler) reconcileMultiNodePrefillServiceAccount(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
+func (r *LLMISVCReconciler) reconcileMultiNodePrefillServiceAccount(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	serviceAccount, err := r.expectedMultiNodePrefillServiceAccount(ctx, llmSvc)
 	if err != nil {
 		return fmt.Errorf("failed to create expected multi node service account: %w", err)
@@ -357,7 +354,7 @@ func (r *LLMInferenceServiceReconciler) reconcileMultiNodePrefillServiceAccount(
 	return nil
 }
 
-func (r *LLMInferenceServiceReconciler) reconcileMultiNodeMainRole(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+func (r *LLMISVCReconciler) reconcileMultiNodeMainRole(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	lws, err := r.expectedMainMultiNodeLWS(ctx, llmSvc, storageConfig, credentialConfig)
 	if err != nil {
 		return fmt.Errorf("failed to build the expected main LWS for building the Role: %w", err)
@@ -375,7 +372,7 @@ func (r *LLMInferenceServiceReconciler) reconcileMultiNodeMainRole(ctx context.C
 	return nil
 }
 
-func (r *LLMInferenceServiceReconciler) reconcileMultiNodeMainRoleBinding(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+func (r *LLMISVCReconciler) reconcileMultiNodeMainRoleBinding(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	lws, err := r.expectedMainMultiNodeLWS(ctx, llmSvc, storageConfig, credentialConfig)
 	if err != nil {
 		return fmt.Errorf("failed to build the expected main LWS for building the RoleBinding: %w", err)
@@ -393,7 +390,7 @@ func (r *LLMInferenceServiceReconciler) reconcileMultiNodeMainRoleBinding(ctx co
 	return nil
 }
 
-func (r *LLMInferenceServiceReconciler) expectedMultiNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) (*corev1.ServiceAccount, error) {
+func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) (*corev1.ServiceAccount, error) {
 	expectedServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-mn"),
@@ -436,7 +433,7 @@ func (r *LLMInferenceServiceReconciler) expectedMultiNodeMainServiceAccount(ctx 
 	return expectedServiceAccount, nil
 }
 
-func (r *LLMInferenceServiceReconciler) expectedMultiNodePrefillServiceAccount(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) (*corev1.ServiceAccount, error) {
+func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) (*corev1.ServiceAccount, error) {
 	expectedServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-mn-prefill"),
@@ -479,7 +476,7 @@ func (r *LLMInferenceServiceReconciler) expectedMultiNodePrefillServiceAccount(c
 	return expectedServiceAccount, nil
 }
 
-func (r *LLMInferenceServiceReconciler) expectedMultiNodeMainRole(llmSvc *v1alpha1.LLMInferenceService) *rbacv1.Role {
+func (r *LLMISVCReconciler) expectedMultiNodeMainRole(llmSvc *v1alpha1.LLMInferenceService) *rbacv1.Role {
 	ro := &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-mn-role"),
@@ -497,7 +494,7 @@ func (r *LLMInferenceServiceReconciler) expectedMultiNodeMainRole(llmSvc *v1alph
 	return ro
 }
 
-func (r *LLMInferenceServiceReconciler) expectedMultiNodeRoleBinding(llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount) *rbacv1.RoleBinding {
+func (r *LLMISVCReconciler) expectedMultiNodeRoleBinding(llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-mn-rb"),
@@ -523,7 +520,7 @@ func (r *LLMInferenceServiceReconciler) expectedMultiNodeRoleBinding(llmSvc *v1a
 	}
 }
 
-func (r *LLMInferenceServiceReconciler) propagateLeaderWorkerSetMetadata(llmSvc *v1alpha1.LLMInferenceService, expected *lwsapi.LeaderWorkerSet) {
+func (r *LLMISVCReconciler) propagateLeaderWorkerSetMetadata(llmSvc *v1alpha1.LLMInferenceService, expected *lwsapi.LeaderWorkerSet) {
 	ann := make(map[string]string, len(expected.Annotations))
 	for k, v := range llmSvc.GetAnnotations() {
 		if strings.HasPrefix(k, "leaderworkerset.sigs.k8s.io") ||

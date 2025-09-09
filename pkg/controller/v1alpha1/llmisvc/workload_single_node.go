@@ -39,7 +39,7 @@ import (
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 )
 
-func (r *LLMInferenceServiceReconciler) reconcileSingleNodeWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	log.FromContext(ctx).Info("Reconciling single-node workload")
 
 	if err := r.reconcileSingleNodeMainServiceAccount(ctx, llmSvc, storageConfig, credentialConfig); err != nil {
@@ -56,7 +56,7 @@ func (r *LLMInferenceServiceReconciler) reconcileSingleNodeWorkload(ctx context.
 	return nil
 }
 
-func (r *LLMInferenceServiceReconciler) reconcileSingleNodeMainWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	expected, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, storageConfig, credentialConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get expected main deployment: %w", err)
@@ -70,7 +70,7 @@ func (r *LLMInferenceServiceReconciler) reconcileSingleNodeMainWorkload(ctx cont
 	return r.propagateDeploymentStatus(ctx, expected, llmSvc.MarkMainWorkloadReady, llmSvc.MarkMainWorkloadNotReady)
 }
 
-func (r *LLMInferenceServiceReconciler) expectedSingleNodeMainDeployment(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) (*appsv1.Deployment, error) {
+func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) (*appsv1.Deployment, error) {
 	role := "decode"
 	if llmSvc.Spec.Prefill == nil {
 		role = "both"
@@ -134,7 +134,7 @@ func (r *LLMInferenceServiceReconciler) expectedSingleNodeMainDeployment(ctx con
 	return d, nil
 }
 
-func (r *LLMInferenceServiceReconciler) reconcileSingleNodePrefill(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	prefill, err := r.expectedPrefillMainDeployment(ctx, llmSvc, storageConfig, credentialConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get expected prefill deployment: %w", err)
@@ -151,7 +151,7 @@ func (r *LLMInferenceServiceReconciler) reconcileSingleNodePrefill(ctx context.C
 	return r.propagateDeploymentStatus(ctx, prefill, llmSvc.MarkPrefillWorkloadReady, llmSvc.MarkPrefillWorkloadNotReady)
 }
 
-func (r *LLMInferenceServiceReconciler) expectedPrefillMainDeployment(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) (*appsv1.Deployment, error) {
+func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) (*appsv1.Deployment, error) {
 	labels := map[string]string{
 		"app.kubernetes.io/component": "llminferenceservice-workload-prefill",
 		"app.kubernetes.io/name":      llmSvc.GetName(),
@@ -200,7 +200,7 @@ func (r *LLMInferenceServiceReconciler) expectedPrefillMainDeployment(ctx contex
 	return d, nil
 }
 
-func (r *LLMInferenceServiceReconciler) propagateDeploymentMetadata(llmSvc *v1alpha1.LLMInferenceService, expected *appsv1.Deployment) {
+func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha1.LLMInferenceService, expected *appsv1.Deployment) {
 	ann := make(map[string]string, len(expected.Annotations))
 	for k, v := range llmSvc.GetAnnotations() {
 		if strings.HasPrefix(k, "k8s.v1.cni.cncf.io") {
@@ -221,7 +221,7 @@ func (r *LLMInferenceServiceReconciler) propagateDeploymentMetadata(llmSvc *v1al
 	}
 }
 
-func (r *LLMInferenceServiceReconciler) propagateDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
+func (r *LLMISVCReconciler) propagateDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
 	logger := log.FromContext(ctx)
 
 	curr := &appsv1.Deployment{}
@@ -255,7 +255,7 @@ func semanticDeploymentIsEqual(expected *appsv1.Deployment, curr *appsv1.Deploym
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }
 
-func (r *LLMInferenceServiceReconciler) reconcileSingleNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+func (r *LLMISVCReconciler) reconcileSingleNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	expectedDeployment, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, storageConfig, credentialConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get expected main deployment: %w", err)
@@ -280,7 +280,7 @@ func (r *LLMInferenceServiceReconciler) reconcileSingleNodeMainServiceAccount(ct
 	return r.reconcileSingleNodeMainRoleBinding(ctx, llmSvc, serviceAccount, storageConfig, credentialConfig)
 }
 
-func (r *LLMInferenceServiceReconciler) reconcileSingleNodeMainRole(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+func (r *LLMISVCReconciler) reconcileSingleNodeMainRole(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	expectedDeployment, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, storageConfig, credentialConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get expected main deployment: %w", err)
@@ -298,7 +298,7 @@ func (r *LLMInferenceServiceReconciler) reconcileSingleNodeMainRole(ctx context.
 	return nil
 }
 
-func (r *LLMInferenceServiceReconciler) reconcileSingleNodeMainRoleBinding(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+func (r *LLMISVCReconciler) reconcileSingleNodeMainRoleBinding(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	expectedDeployment, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, storageConfig, credentialConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get expected main deployment: %w", err)
@@ -316,7 +316,7 @@ func (r *LLMInferenceServiceReconciler) reconcileSingleNodeMainRoleBinding(ctx c
 	return nil
 }
 
-func (r *LLMInferenceServiceReconciler) expectedSingleNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) (*corev1.ServiceAccount, error) {
+func (r *LLMISVCReconciler) expectedSingleNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) (*corev1.ServiceAccount, error) {
 	expectedServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve"),
@@ -348,7 +348,7 @@ func (r *LLMInferenceServiceReconciler) expectedSingleNodeMainServiceAccount(ctx
 	return expectedServiceAccount, nil
 }
 
-func (r *LLMInferenceServiceReconciler) expectedSingleNodeRole(llmSvc *v1alpha1.LLMInferenceService) *rbacv1.Role {
+func (r *LLMISVCReconciler) expectedSingleNodeRole(llmSvc *v1alpha1.LLMInferenceService) *rbacv1.Role {
 	ro := &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-role"),
@@ -363,7 +363,7 @@ func (r *LLMInferenceServiceReconciler) expectedSingleNodeRole(llmSvc *v1alpha1.
 	return ro
 }
 
-func (r *LLMInferenceServiceReconciler) expectedSingleNodeRoleBinding(llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount) *rbacv1.RoleBinding {
+func (r *LLMISVCReconciler) expectedSingleNodeRoleBinding(llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-rb"),
@@ -386,7 +386,7 @@ func (r *LLMInferenceServiceReconciler) expectedSingleNodeRoleBinding(llmSvc *v1
 	}
 }
 
-func (r *LLMInferenceServiceReconciler) singleNodeLabels(llmSvc *v1alpha1.LLMInferenceService) map[string]string {
+func (r *LLMISVCReconciler) singleNodeLabels(llmSvc *v1alpha1.LLMInferenceService) map[string]string {
 	return map[string]string{
 		"app.kubernetes.io/component": "llminferenceservice-workload",
 		"app.kubernetes.io/name":      llmSvc.GetName(),
