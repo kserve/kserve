@@ -27,11 +27,11 @@ type TrainedModelStatus struct {
 	// Conditions for trained model
 	duckv1.Status `json:",inline"`
 	// URL holds the url that will distribute traffic over the provided traffic targets.
-	// For v1: http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}/v1/models/<trainedmodel>:predict
-	// For v2: http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}/v2/models/<trainedmodel>/infer
+	// For v1: http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}/v1/models/&lt;trainedmodel&gt;:predict
+	// For v2: http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}/v2/models/&lt;trainedmodel&gt;/infer
 	URL *apis.URL `json:"url,omitempty"`
 	// Addressable endpoint for the deployed trained model
-	// http://<inferenceservice.metadata.name>/v1/models/<trainedmodel>.metadata.name
+	// http://&lt;inferenceservice.metadata.name&gt;/v1/models/&lt;trainedmodel&gt;.metadata.name
 	Address *duckv1.Addressable `json:"address,omitempty"`
 }
 

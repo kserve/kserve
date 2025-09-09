@@ -142,7 +142,10 @@ type LoRASpec struct {
 	// Adapters is the static specification for one or more LoRA adapters.
 	// Each adapter is defined by its own ModelSpec.
 	// +optional
-	Adapters []ModelSpec `json:"adapters,omitempty"`
+	// This type is recursive https://github.com/kubernetes-sigs/controller-tools/issues/585
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	Adapters []LLMModelSpec `json:"adapters,omitempty"`
 }
 
 // RouterSpec defines the routing configuration for exposing the service.
@@ -215,8 +218,8 @@ type IngressSpec struct {
 //
 // The Scheduler is only effective when having multiple inference pod replicas.
 //
-// Step 1: Gateway (Envoy) <-- ExtProc --> EPP (select the optimal replica to handle the request)
-// Step 2: Gateway (Envoy) <-- forward request --> Inference Pod X
+// Step 1: Gateway (Envoy) &lt;-- ExtProc --&gt; EPP (select the optimal replica to handle the request)
+// Step 2: Gateway (Envoy) &lt;-- forward request --&gt; Inference Pod X
 type SchedulerSpec struct {
 	// Pool configuration for the InferencePool, which is part of the Inference Gateway extension.
 	// +optional
