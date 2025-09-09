@@ -244,7 +244,6 @@ func TestPropagateRawStatus(t *testing.T) {
 			g.Expect(res).To(gomega.Equal(scenario.expectedReadyStatus))
 		})
 	}
-
 }
 
 func TestPropagateRawStatusWithMessages(t *testing.T) {
