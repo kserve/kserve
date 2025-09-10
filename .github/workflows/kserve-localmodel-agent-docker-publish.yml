@@ -68,12 +68,23 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: export version variable
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Export version variables
         run: |
-          IMAGE_ID=kserve/$IMAGE_NAME
+          # DockerHub image ID
+          DOCKERHUB_IMAGE_ID=kserve/$IMAGE_NAME
+          # GHCR image ID
+          GHCR_IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
 
           # Change all uppercase to lowercase
-          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          DOCKERHUB_IMAGE_ID=$(echo $DOCKERHUB_IMAGE_ID | tr '[A-Z]' '[a-z]')
+          GHCR_IMAGE_ID=$(echo $GHCR_IMAGE_ID | tr '[A-Z]' '[a-z]')
 
           # Strip git ref prefix from version
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
@@ -85,7 +96,8 @@ jobs:
           [ "$VERSION" == "master" ] && VERSION=latest
 
           echo VERSION=$VERSION >> $GITHUB_ENV
-          echo IMAGE_ID=$IMAGE_ID >> $GITHUB_ENV
+          echo DOCKERHUB_IMAGE_ID=$DOCKERHUB_IMAGE_ID >> $GITHUB_ENV
+          echo GHCR_IMAGE_ID=$GHCR_IMAGE_ID >> $GITHUB_ENV
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -94,7 +106,9 @@ jobs:
           context: .
           file: localmodel-agent.Dockerfile
           push: true
-          tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
+          tags: |
+            ${{ env.DOCKERHUB_IMAGE_ID }}:${{ env.VERSION }}
+            ${{ env.GHCR_IMAGE_ID }}:${{ env.VERSION }}
           # https://github.com/docker/buildx/issues/1533
           provenance: false
           sbom: true
