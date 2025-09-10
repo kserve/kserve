@@ -29,8 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/credentials"
-	kserveTypes "github.com/kserve/kserve/pkg/types"
 )
 
 const (
@@ -48,7 +46,7 @@ var sidecarSSRFProtectionRules = []rbacv1.PolicyRule{
 
 // reconcileWorkload manages the Deployments and Services for the LLM.
 // It handles standard, multi-node, and disaggregated (prefill/decode) deployment patterns.
-func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, config *Config) error {
 	logger := log.FromContext(ctx).WithName("reconcileWorkload")
 	ctx = log.IntoContext(ctx, logger)
 
@@ -67,13 +65,13 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	// finalizing superfluous workloads).
 
 	// Handle multi-node deployments using LeaderWorkerSets
-	if err := r.reconcileMultiNodeWorkload(ctx, llmSvc, storageConfig, credentialConfig); err != nil {
+	if err := r.reconcileMultiNodeWorkload(ctx, llmSvc, config); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileMultiNodeWorkloadError", err.Error())
 		return fmt.Errorf("failed to reconcile multi node workload: %w", err)
 	}
 
 	// Handle single-node deployments using standard Deployments
-	if err := r.reconcileSingleNodeWorkload(ctx, llmSvc, storageConfig, credentialConfig); err != nil {
+	if err := r.reconcileSingleNodeWorkload(ctx, llmSvc, config); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileSingleNodeWorkloadError", err.Error())
 		return fmt.Errorf("failed to reconcile single node workload: %w", err)
 	}

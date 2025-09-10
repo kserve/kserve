@@ -35,7 +35,7 @@ import (
 // The storage backend (PVC, OCI, Hugging Face, or S3) is determined from the URI schema and the appropriate helper function
 // is called to configure the PodSpec. This function will adjust volumes, container arguments, container volume mounts,
 // add containers, and do other changes to the PodSpec to ensure the model is fetched properly from storage.
-func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, podSpec *corev1.PodSpec, storageConfig *types.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, podSpec *corev1.PodSpec, config *Config) error {
 	modelUri := llmSvc.Spec.Model.URI.String()
 	schema, _, sepFound := strings.Cut(modelUri, "://")
 
@@ -49,17 +49,17 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, llmSvc *v1
 
 	case constants.OciURIPrefix:
 		// Check of OCI is enabled
-		if !storageConfig.EnableOciImageSource {
+		if !config.StorageConfig.EnableOciImageSource {
 			return errors.New("OCI modelcars is not enabled")
 		}
 
-		return r.attachOciModelArtifact(modelUri, podSpec, storageConfig)
+		return r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig)
 
 	case constants.HfURIPrefix:
-		return r.attachHfModelArtifact(ctx, llmSvc.Namespace, llmSvc.Annotations, modelUri, podSpec, storageConfig, credentialConfig)
+		return r.attachHfModelArtifact(ctx, llmSvc.Namespace, llmSvc.Annotations, modelUri, podSpec, config.StorageConfig, config.CredentialConfig)
 
 	case constants.S3URIPrefix:
-		return r.attachS3ModelArtifact(ctx, llmSvc.Namespace, llmSvc.Annotations, modelUri, podSpec, storageConfig, credentialConfig)
+		return r.attachS3ModelArtifact(ctx, llmSvc.Namespace, llmSvc.Annotations, modelUri, podSpec, config.StorageConfig, config.CredentialConfig)
 	}
 
 	return fmt.Errorf("unsupported schema in model URI: %s", modelUri)
