@@ -54,146 +54,15 @@ func TestInferenceServiceDuckType(t *testing.T) {
 	}
 }
 
-func TestInferenceServiceIsReady(t *testing.T) {
-	cases := []struct {
-		name          string
-		ServiceStatus knservingv1.ServiceStatus
-		routeStatus   knservingv1.RouteStatus
-		isReady       bool
-	}{{
-		name:          "empty status should not be ready",
-		ServiceStatus: knservingv1.ServiceStatus{},
-		isReady:       false,
-	}, {
-		name: "Different condition type should not be ready",
-		ServiceStatus: knservingv1.ServiceStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   "Foo",
-					Status: corev1.ConditionTrue,
-				}},
-			},
-		},
-		isReady: false,
-	}, {
-		name: "False condition status should not be ready",
-		ServiceStatus: knservingv1.ServiceStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   knservingv1.ServiceConditionReady,
-					Status: corev1.ConditionFalse,
-				}},
-			},
-		},
-		isReady: false,
-	}, {
-		name: "Unknown condition status should not be ready",
-		ServiceStatus: knservingv1.ServiceStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   knservingv1.ServiceConditionReady,
-					Status: corev1.ConditionUnknown,
-				}},
-			},
-		},
-		isReady: false,
-	}, {
-		name: "Missing condition status should not be ready",
-		ServiceStatus: knservingv1.ServiceStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type: knservingv1.ConfigurationConditionReady,
-				}},
-			},
-		},
-		isReady: false,
-	}, {
-		name: "True condition status should be ready",
-		ServiceStatus: knservingv1.ServiceStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{
-					{
-						Type:   "ConfigurationsReady",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   "RoutesReady",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   knservingv1.ServiceConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-		},
-		isReady: true,
-	}, {
-		name: "Conditions with ready status should be ready",
-		ServiceStatus: knservingv1.ServiceStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{
-					{
-						Type:   "Foo",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   "RoutesReady",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   "ConfigurationsReady",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   knservingv1.ServiceConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-		},
-		isReady: true,
-	}, {
-		name: "Multiple conditions with ready status false should not be ready",
-		ServiceStatus: knservingv1.ServiceStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{
-					{
-						Type:   "Foo",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   knservingv1.ConfigurationConditionReady,
-						Status: corev1.ConditionFalse,
-					},
-				},
-			},
-		},
-		isReady: false,
-	}}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			status := InferenceServiceStatus{}
-			status.PropagateStatus(PredictorComponent, &tc.ServiceStatus)
-			if e, a := tc.isReady, status.IsConditionReady(PredictorReady); e != a {
-				t.Errorf("%q expected: %v got: %v conditions: %v", tc.name, e, a, status.Conditions)
-			}
-		})
-	}
-}
-
 func TestPropagateRawStatus(t *testing.T) {
-	deployment := &appsv1.Deployment{
-		TypeMeta: metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				"deployment.kubernetes.io/revision": "1",
-			},
-		},
-		Spec: appsv1.DeploymentSpec{},
-		Status: appsv1.DeploymentStatus{
-			Conditions: []appsv1.DeploymentCondition{
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		deploymentConditions []appsv1.DeploymentCondition
+		expectedReadyStatus  bool
+	}{
+		"Available true": {
+			deploymentConditions: []appsv1.DeploymentCondition{
 				{
 					Type:    appsv1.DeploymentAvailable,
 					Status:  corev1.ConditionTrue,
@@ -204,20 +73,176 @@ func TestPropagateRawStatus(t *testing.T) {
 					},
 				},
 			},
+			expectedReadyStatus: true,
+		},
+		"Available true, Progressing succeeded": {
+			deploymentConditions: []appsv1.DeploymentCondition{
+				{
+					Type:    appsv1.DeploymentAvailable,
+					Status:  corev1.ConditionTrue,
+					Reason:  "MinimumReplicasAvailable",
+					Message: "Deployment has minimum availability.",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+				{
+					Type:    appsv1.DeploymentProgressing,
+					Status:  corev1.ConditionTrue,
+					Reason:  "NewReplicaSetAvailable",
+					Message: "ReplicaSet has successfully progressed.",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			expectedReadyStatus: true,
+		},
+		"Available true, Progressing failed": {
+			deploymentConditions: []appsv1.DeploymentCondition{
+				{
+					Type:    appsv1.DeploymentAvailable,
+					Status:  corev1.ConditionTrue,
+					Reason:  "MinimumReplicasAvailable",
+					Message: "Deployment has minimum availability.",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+				{
+					Type:    appsv1.DeploymentProgressing,
+					Status:  corev1.ConditionFalse,
+					Reason:  "",
+					Message: "ProgressDeadlineExceeded",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			expectedReadyStatus: false,
+		},
+		"Available false, Progressing failed": {
+			deploymentConditions: []appsv1.DeploymentCondition{
+				{
+					Type:    appsv1.DeploymentAvailable,
+					Status:  corev1.ConditionFalse,
+					Reason:  "MinimumReplicasUnavailable",
+					Message: "Deployment does not have minimum availability.",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+				{
+					Type:    appsv1.DeploymentProgressing,
+					Status:  corev1.ConditionFalse,
+					Reason:  "",
+					Message: "Some error happened", // Deployment is deemed failed when Progressing is false with a message
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			expectedReadyStatus: false,
+		},
+		"Available false, Progressing completed": {
+			deploymentConditions: []appsv1.DeploymentCondition{
+				{
+					Type:    appsv1.DeploymentAvailable,
+					Status:  corev1.ConditionFalse,
+					Reason:  "MinimumReplicasUnavailable",
+					Message: "Deployment does not have minimum availability.",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+				{
+					Type:    appsv1.DeploymentProgressing,
+					Status:  corev1.ConditionTrue,
+					Reason:  "NewReplicaSetAvailable",
+					Message: "",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			expectedReadyStatus: false,
+		},
+		"Available false, Progressing ongoing": {
+			deploymentConditions: []appsv1.DeploymentCondition{
+				{
+					Type:    appsv1.DeploymentAvailable,
+					Status:  corev1.ConditionFalse,
+					Reason:  "MinimumReplicasUnavailable",
+					Message: "Deployment does not have minimum availability.",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+				{
+					Type:    appsv1.DeploymentProgressing,
+					Status:  corev1.ConditionTrue,
+					Reason:  "NewReplicaSetCreated",
+					Message: "",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			expectedReadyStatus: false,
+		},
+		"Available true, ReplicaFailure true": {
+			deploymentConditions: []appsv1.DeploymentCondition{
+				{
+					Type:    appsv1.DeploymentAvailable,
+					Status:  corev1.ConditionTrue,
+					Reason:  "MinimumReplicasAvailable",
+					Message: "Deployment has minimum availability.",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+				{
+					Type:    appsv1.DeploymentReplicaFailure,
+					Status:  corev1.ConditionTrue,
+					Reason:  "replica failure",
+					Message: "replica failure",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			expectedReadyStatus: false,
 		},
 	}
-	status := &InferenceServiceStatus{
-		Status:      duckv1.Status{},
-		Address:     &duckv1.Addressable{},
-		URL:         &apis.URL{},
-		ModelStatus: ModelStatus{},
-	}
-	parsedUrl, _ := url.Parse("http://test-predictor-default.default.example.com")
-	url := (*apis.URL)(parsedUrl)
-	deploymentList := []*appsv1.Deployment{deployment}
-	status.PropagateRawStatus(PredictorComponent, deploymentList, url)
-	if res := status.IsConditionReady(PredictorReady); !res {
-		t.Errorf("expected: %v got: %v conditions: %v", true, res, status.Conditions)
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			deployment := &appsv1.Deployment{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"deployment.kubernetes.io/revision": "1",
+					},
+				},
+				Spec: appsv1.DeploymentSpec{},
+				Status: appsv1.DeploymentStatus{
+					Conditions: scenario.deploymentConditions,
+				},
+			}
+			status := &InferenceServiceStatus{
+				Status:      duckv1.Status{},
+				Address:     &duckv1.Addressable{},
+				URL:         &apis.URL{},
+				ModelStatus: ModelStatus{},
+			}
+			parsedUrl, _ := url.Parse("http://test-predictor-default.default.example.com")
+			url := (*apis.URL)(parsedUrl)
+			deploymentList := []*appsv1.Deployment{deployment}
+			status.PropagateRawStatus(PredictorComponent, deploymentList, url)
+			res := status.IsConditionReady(PredictorReady)
+
+			g.Expect(res).To(gomega.Equal(scenario.expectedReadyStatus))
+		})
 	}
 }
 
