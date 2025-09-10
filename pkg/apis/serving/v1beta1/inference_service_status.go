@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -357,34 +358,8 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 		Reason: "",
 	}
 
-	progressingCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentProgressing)
-	if progressingCondition != nil {
-		var status corev1.ConditionStatus
-		if progressingCondition.Status == corev1.ConditionFalse {
-			if len(progressingCondition.Message) > 0 {
-				// If there is a message, we assume there was a problem
-				status = corev1.ConditionFalse
-			} else {
-				// If there is no message, we assume the deployment has finished successfully
-				status = corev1.ConditionTrue
-			}
-		} else {
-			// Deployment is still progressing
-			status = corev1.ConditionUnknown
-		}
-		componentReadyCondition = &apis.Condition{
-			Type:    readyCondition,
-			Status:  status,
-			Reason:  progressingCondition.Reason,
-			Message: progressingCondition.Message,
-		}
-	}
-	// If available condition is true, override component as ready.
-	// This is because progressing condition doesn't get set to false when deployment is complete.
-	// See https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#complete-deployment
 	availableCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentAvailable)
 	if availableCondition != nil && availableCondition.Status == corev1.ConditionTrue {
-		statusSpec.URL = url
 		componentReadyCondition = &apis.Condition{
 			Type:    readyCondition,
 			Status:  corev1.ConditionTrue,
@@ -392,6 +367,55 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 			Message: availableCondition.Message,
 		}
 	}
+	fmt.Printf("availableCondition %v\n", componentReadyCondition)
+
+	progressingCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentProgressing)
+	if progressingCondition != nil {
+		if progressingCondition.IsFalse() {
+			if len(progressingCondition.Message) > 0 {
+				// If there is a message, we assume there was a problem, often the time ProgressDeadlineExceeded
+				componentReadyCondition = &apis.Condition{
+					Type:    readyCondition,
+					Status:  corev1.ConditionFalse,
+					Reason:  progressingCondition.Reason,
+					Message: progressingCondition.Message,
+				}
+			}
+		} else {
+
+			// If progressing condition is True, and the reason is set to NewReplicaSetAvailable, override component as ready.
+			// This is because progressing condition doesn't get set to false when deployment is complete.
+			// See https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#complete-deployment
+			if progressingCondition.IsTrue() {
+				if progressingCondition.Reason == "NewReplicaSetAvailable" {
+					componentReadyCondition = &apis.Condition{
+						Type:    readyCondition,
+						Status:  corev1.ConditionTrue,
+						Reason:  progressingCondition.Reason,
+						Message: progressingCondition.Message,
+					}
+				} else {
+					componentReadyCondition = &apis.Condition{
+						Type:    readyCondition,
+						Status:  corev1.ConditionUnknown,
+						Reason:  progressingCondition.Reason,
+						Message: progressingCondition.Message,
+					}
+				}
+			}
+		}
+	}
+
+	// The availableCondition being false is a critical signal that your application is not running as expected.
+	if availableCondition != nil && availableCondition.Status == corev1.ConditionFalse {
+		componentReadyCondition = &apis.Condition{
+			Type:    readyCondition,
+			Status:  corev1.ConditionFalse,
+			Reason:  availableCondition.Reason,
+			Message: availableCondition.Message,
+		}
+	}
+
 	replicaFailureCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentReplicaFailure)
 	if replicaFailureCondition != nil && replicaFailureCondition.Status == corev1.ConditionTrue {
 		componentReadyCondition = &apis.Condition{
@@ -401,6 +425,10 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 			Message: replicaFailureCondition.Message,
 		}
 	}
+	if componentReadyCondition != nil && componentReadyCondition.Status == corev1.ConditionTrue {
+		statusSpec.URL = url
+	}
+	fmt.Printf("availableCondition2 %v", componentReadyCondition)
 
 	ss.SetCondition(readyCondition, componentReadyCondition)
 	ss.Components[component] = statusSpec

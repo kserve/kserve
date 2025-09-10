@@ -113,13 +113,13 @@ func TestPropagateRawStatus(t *testing.T) {
 					Type:    appsv1.DeploymentProgressing,
 					Status:  corev1.ConditionFalse,
 					Reason:  "",
-					Message: "Some error happened",
+					Message: "ProgressDeadlineExceeded",
 					LastTransitionTime: metav1.Time{
 						Time: time.Now(),
 					},
 				},
 			},
-			expectedReadyStatus: true,
+			expectedReadyStatus: false,
 		},
 		"Available false, Progressing failed": {
 			deploymentConditions: []appsv1.DeploymentCondition{
@@ -157,15 +157,15 @@ func TestPropagateRawStatus(t *testing.T) {
 				},
 				{
 					Type:    appsv1.DeploymentProgressing,
-					Status:  corev1.ConditionFalse,
-					Reason:  "complete",
+					Status:  corev1.ConditionTrue,
+					Reason:  "NewReplicaSetAvailable",
 					Message: "",
 					LastTransitionTime: metav1.Time{
 						Time: time.Now(),
 					},
 				},
 			},
-			expectedReadyStatus: true,
+			expectedReadyStatus: false,
 		},
 		"Available false, Progressing ongoing": {
 			deploymentConditions: []appsv1.DeploymentCondition{
@@ -181,7 +181,7 @@ func TestPropagateRawStatus(t *testing.T) {
 				{
 					Type:    appsv1.DeploymentProgressing,
 					Status:  corev1.ConditionTrue,
-					Reason:  "FoundNewReplicaSet",
+					Reason:  "NewReplicaSetCreated",
 					Message: "",
 					LastTransitionTime: metav1.Time{
 						Time: time.Now(),
