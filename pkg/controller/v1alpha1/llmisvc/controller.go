@@ -94,7 +94,8 @@ type LLMISVCReconciler struct {
 // It fetches the LLMInferenceService and delegates the reconciliation of its constituent parts.
 // The reconciler follows the standard Kubernetes controller pattern with finalizers for cleanup.
 func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx).WithName("LLMInferenceService")
+	logger := log.FromContext(ctx).WithName("LLMInferenceService").
+		WithValues("Namespace", req.Namespace, "Name", req.Name)
 	ctx = log.IntoContext(ctx, logger)
 
 	logger.Info("Starting reconciliation")
