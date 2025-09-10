@@ -382,7 +382,6 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 				}
 			}
 		} else {
-
 			// If progressing condition is True, and the reason is set to NewReplicaSetAvailable, override component as ready.
 			// This is because progressing condition doesn't get set to false when deployment is complete.
 			// See https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#complete-deployment
