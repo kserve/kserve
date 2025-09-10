@@ -60,7 +60,7 @@ async def test_sklearn_kserve_concurrency(rest_v1_client):
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
                 requests={"cpu": "25m", "memory": "128Mi"},
-                limits={"cpu": "50m", "memory": "256Mi"},
+                # limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -104,7 +104,7 @@ async def test_sklearn_kserve_rps(rest_v1_client):
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
                 requests={"cpu": "25m", "memory": "128Mi"},
-                limits={"cpu": "50m", "memory": "256Mi"},
+                # limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -149,7 +149,7 @@ async def test_sklearn_kserve_cpu(rest_v1_client):
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
                 requests={"cpu": "25m", "memory": "128Mi"},
-                limits={"cpu": "50m", "memory": "256Mi"},
+                # limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -197,7 +197,7 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
                 requests={"cpu": "25m", "memory": "128Mi"},
-                limits={"cpu": "50m", "memory": "256Mi"},
+                # limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -249,7 +249,7 @@ async def test_sklearn_rolling_update():
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
                 requests={"cpu": "25m", "memory": "128Mi"},
-                limits={"cpu": "50m", "memory": "256Mi"},
+                # limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -331,7 +331,7 @@ async def test_sklearn_env_update():
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
                 requests={"cpu": "25m", "memory": "128Mi"},
-                limits={"cpu": "50m", "memory": "256Mi"},
+                # limits={"cpu": "50m", "memory": "256Mi"},
             ),
             env=envs,
         ),
@@ -501,7 +501,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
                 requests={"cpu": "25m", "memory": "128Mi"},
-                limits={"cpu": "50m", "memory": "256Mi"},
+                # limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
