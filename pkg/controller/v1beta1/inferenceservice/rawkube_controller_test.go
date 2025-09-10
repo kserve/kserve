@@ -371,8 +371,55 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.Background(), actualTopLevelHttpRoute)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
-			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-default.example.com",
-				"raw-foo-predictor-default.example.com", "")
+			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.IngressReady,
+							Status: "True",
+						},
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: "True",
+						},
+						{
+							Type:   apis.ConditionReady,
+							Status: "True",
+						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
+						},
+					},
+				},
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   "raw-foo-default.example.com",
+				},
+				Address: &duckv1.Addressable{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "raw-foo-predictor-default.example.com",
+						},
+					},
+				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
+				},
+				DeploymentMode:     string(constants.Standard),
+				ServingRuntimeName: "tf-serving-raw",
+			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
@@ -804,8 +851,60 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.Background(), actualToplevelHttpRoute)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
+<<<<<<< HEAD
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-customized-default.example.com",
 				"raw-foo-customized-predictor-default.example.com", "")
+=======
+			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.IngressReady,
+							Status: "True",
+						},
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: "True",
+						},
+						{
+							Type:   apis.ConditionReady,
+							Status: "True",
+						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
+						},
+					},
+				},
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   "raw-foo-customized-default.example.com",
+				},
+				Address: &duckv1.Addressable{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "raw-foo-customized-predictor-default.example.com",
+						},
+					},
+				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
+				},
+				DeploymentMode:     string(constants.Standard),
+				ServingRuntimeName: "tf-serving-raw",
+			}
+>>>>>>> 9be919c04 (Fix: Update ModelCopies.TotalCopies for all model states  (#4676))
 			// Check that the ISVC was updated
 			actualIsvc := &v1beta1.InferenceService{}
 			Eventually(func() bool {
@@ -1246,8 +1345,59 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.Background(), actualToplevelHttpRoute)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
+<<<<<<< HEAD
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-2-default.example.com",
 				"raw-foo-2-predictor-default.example.com", "")
+=======
+			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.IngressReady,
+							Status: "True",
+						},
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: "True",
+						},
+						{
+							Type:   apis.ConditionReady,
+							Status: "True",
+						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
+						},
+					},
+				},
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   "raw-foo-2-default.example.com",
+				},
+				Address: &duckv1.Addressable{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "raw-foo-2-predictor-default.example.com",
+						},
+					},
+				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
+				},
+				ServingRuntimeName: "tf-serving-raw",
+			}
+>>>>>>> 9be919c04 (Fix: Update ModelCopies.TotalCopies for all model states  (#4676))
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
@@ -3944,9 +4094,61 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			expectResourceDoesNotExist(ctx, &gwapiv1.HTTPRoute{}, predictorServiceKey)
 
 			// verify if InferenceService status is updated
+<<<<<<< HEAD
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-no-ingress-class-predictor.default.svc.cluster.local",
 				"raw-foo-no-ingress-class-predictor-default.example.com", "")
 
+=======
+			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.IngressReady,
+							Status: "True",
+						},
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: "True",
+						},
+						{
+							Type:   apis.ConditionReady,
+							Status: "True",
+						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
+						},
+					},
+				},
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   serviceName + "-default.example.com",
+				},
+				Address: &duckv1.Addressable{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   serviceName + "-predictor-default.example.com",
+						},
+					},
+				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
+				},
+				DeploymentMode:     string(constants.Standard),
+				ServingRuntimeName: "tf-serving-raw",
+			}
+>>>>>>> 9be919c04 (Fix: Update ModelCopies.TotalCopies for all model states  (#4676))
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
@@ -4323,8 +4525,60 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.Background(), actualToplevelHttpRoute)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
+<<<<<<< HEAD
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "model.default.example.com",
 				"model-predictor.default.example.com", "")
+=======
+			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.IngressReady,
+							Status: "True",
+						},
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: "True",
+						},
+						{
+							Type:   apis.ConditionReady,
+							Status: "True",
+						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
+						},
+					},
+				},
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   fmt.Sprintf("%s.%s.%s", serviceName, serviceKey.Namespace, domain),
+				},
+				Address: &duckv1.Addressable{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   fmt.Sprintf("%s-predictor.%s.%s", serviceName, serviceKey.Namespace, domain),
+						},
+					},
+				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
+				},
+				DeploymentMode:     string(constants.Standard),
+				ServingRuntimeName: "tf-serving-raw",
+			}
+>>>>>>> 9be919c04 (Fix: Update ModelCopies.TotalCopies for all model states  (#4676))
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
@@ -5047,6 +5301,42 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					//	Host:   "raw-foo-trans-transformer-default.example.com",
 					// },
 				},
+<<<<<<< HEAD
+=======
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   fmt.Sprintf("%s-%s.example.com", serviceKey.Name, serviceKey.Namespace),
+				},
+				Address: &duckv1.Addressable{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   fmt.Sprintf("%s.%s.svc.cluster.local", transformerServiceKey.Name, serviceKey.Namespace),
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   fmt.Sprintf("%s-%s.example.com", predictorServiceKey.Name, serviceKey.Namespace),
+						},
+					},
+					v1beta1.TransformerComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   fmt.Sprintf("%s-%s.example.com", transformerServiceKey.Name, serviceKey.Namespace),
+						},
+					},
+				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
+				},
+				DeploymentMode:     string(constants.Standard),
+				ServingRuntimeName: "tf-serving-raw",
+>>>>>>> 9be919c04 (Fix: Update ModelCopies.TotalCopies for all model states  (#4676))
 			}
 			expectedIsvcStatus.Components[v1beta1.TransformerComponent] = transformer[v1beta1.TransformerComponent]
 			Eventually(func() string {
@@ -5812,6 +6102,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					//	Host:   "raw-foo-exp-explainer-default.example.com",
 					// },
 				},
+<<<<<<< HEAD
+=======
+				Address: &duckv1.Addressable{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   fmt.Sprintf("%s.%s.svc.cluster.local", predictorServiceKey.Name, serviceKey.Namespace),
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   fmt.Sprintf("%s-%s.example.com", predictorServiceKey.Name, serviceKey.Namespace),
+						},
+					},
+					v1beta1.ExplainerComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   fmt.Sprintf("%s-%s.example.com", explainerServiceKey.Name, serviceKey.Namespace),
+						},
+					},
+				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
+				},
+				DeploymentMode:     string(constants.Standard),
+				ServingRuntimeName: "tf-serving-raw",
+>>>>>>> 9be919c04 (Fix: Update ModelCopies.TotalCopies for all model states  (#4676))
 			}
 			expectedIsvcStatus.Components[v1beta1.ExplainerComponent] = explainer[v1beta1.ExplainerComponent]
 
@@ -6308,8 +6630,60 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.Background(), actualToplevelHttpRoute)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
+<<<<<<< HEAD
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-path-default.example.com",
 				"raw-foo-path-predictor-default.example.com", "")
+=======
+			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.IngressReady,
+							Status: "True",
+						},
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: "True",
+						},
+						{
+							Type:   apis.ConditionReady,
+							Status: "True",
+						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
+						},
+					},
+				},
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   fmt.Sprintf("%s-%s.example.com", serviceKey.Name, serviceKey.Namespace),
+				},
+				Address: &duckv1.Addressable{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   fmt.Sprintf("%s-%s.example.com", predictorServiceKey.Name, serviceKey.Namespace),
+						},
+					},
+				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
+				},
+				DeploymentMode:     string(constants.Standard),
+				ServingRuntimeName: "tf-serving-raw",
+			}
+>>>>>>> 9be919c04 (Fix: Update ModelCopies.TotalCopies for all model states  (#4676))
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
@@ -7083,6 +7457,42 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					//	Host:   "raw-foo-trans-path-transformer-default.example.com",
 					// },
 				},
+<<<<<<< HEAD
+=======
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   fmt.Sprintf("%s-%s.example.com", serviceKey.Name, serviceKey.Namespace),
+				},
+				Address: &duckv1.Addressable{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   fmt.Sprintf("%s.%s.svc.cluster.local", transformerServiceKey.Name, serviceKey.Namespace),
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   fmt.Sprintf("%s-%s.example.com", predictorServiceKey.Name, serviceKey.Namespace),
+						},
+					},
+					v1beta1.TransformerComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   fmt.Sprintf("%s-%s.example.com", transformerServiceKey.Name, serviceKey.Namespace),
+						},
+					},
+				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
+				},
+				DeploymentMode:     string(constants.Standard),
+				ServingRuntimeName: "tf-serving-raw",
+>>>>>>> 9be919c04 (Fix: Update ModelCopies.TotalCopies for all model states  (#4676))
 			}
 			expectedIsvcStatus.Components[v1beta1.TransformerComponent] = transformer[v1beta1.TransformerComponent]
 			Eventually(func() string {
@@ -7939,6 +8349,38 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					//	Host:   "raw-foo-exp-explainer-default.example.com",
 					// },
 				},
+<<<<<<< HEAD
+=======
+				Address: &duckv1.Addressable{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   fmt.Sprintf("%s.%s.svc.cluster.local", predictorServiceKey.Name, serviceKey.Namespace),
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   fmt.Sprintf("%s-%s.example.com", predictorServiceKey.Name, serviceKey.Namespace),
+						},
+					},
+					v1beta1.ExplainerComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   fmt.Sprintf("%s-%s.example.com", explainerServiceKey.Name, serviceKey.Namespace),
+						},
+					},
+				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
+				},
+				DeploymentMode:     string(constants.Standard),
+				ServingRuntimeName: "tf-serving-raw",
+>>>>>>> 9be919c04 (Fix: Update ModelCopies.TotalCopies for all model states  (#4676))
 			}
 			expectedIsvcStatus.Components[v1beta1.ExplainerComponent] = explainer[v1beta1.ExplainerComponent]
 			Eventually(func() string {
@@ -8545,8 +8987,60 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualIngress.Spec).To(Equal(expectedIngress.Spec))
 			// verify if InferenceService status is updated
+<<<<<<< HEAD
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-predictor.default.svc.cluster.local",
 				"raw-foo-predictor-default.example.com", "")
+=======
+			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.IngressReady,
+							Status: "True",
+						},
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: "True",
+						},
+						{
+							Type:   apis.ConditionReady,
+							Status: "True",
+						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
+						},
+					},
+				},
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   "raw-foo-default.example.com",
+				},
+				Address: &duckv1.Addressable{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "raw-foo-predictor-default.example.com",
+						},
+					},
+				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
+				},
+				DeploymentMode:     string(constants.Standard),
+				ServingRuntimeName: "tf-serving-raw",
+			}
+>>>>>>> 9be919c04 (Fix: Update ModelCopies.TotalCopies for all model states  (#4676))
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {

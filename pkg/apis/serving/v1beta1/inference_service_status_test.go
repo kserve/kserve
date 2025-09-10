@@ -1413,6 +1413,97 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 	}
 }
 
+func TestPropagateModelStatus_ReadyPodsCountingOnly(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Test case that specifically verifies PropagateModelStatus only counts ready pods
+	// regardless of model state transitions or other conditions
+	scenarios := map[string]struct {
+		name                    string
+		initialModelState       ModelState
+		initialTransitionStatus TransitionStatus
+		podList                 *corev1.PodList
+		rawDeployment           bool
+		serviceStatus           *knservingv1.ServiceStatus
+		statusSpec              ComponentStatusSpec
+		expectedReadyCount      int
+	}{
+		"ready pods count independent of Loading state": {
+			initialModelState:       Loading,
+			initialTransitionStatus: InProgress,
+			podList: &corev1.PodList{Items: []corev1.Pod{
+				{Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}}},  // Ready
+				{Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}}},  // Ready
+				{Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionFalse}}}}, // Unready
+			}},
+			rawDeployment:      true,
+			serviceStatus:      &knservingv1.ServiceStatus{},
+			statusSpec:         ComponentStatusSpec{LatestReadyRevision: "test", LatestCreatedRevision: "test"},
+			expectedReadyCount: 2,
+		},
+		"ready pods count independent of FailedToLoad state": {
+			initialModelState:       FailedToLoad,
+			initialTransitionStatus: BlockedByFailedLoad,
+			podList: &corev1.PodList{Items: []corev1.Pod{
+				{Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}}},  // Ready
+				{Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionFalse}}}}, // Unready
+			}},
+			rawDeployment:      true,
+			serviceStatus:      &knservingv1.ServiceStatus{},
+			statusSpec:         ComponentStatusSpec{LatestReadyRevision: "test", LatestCreatedRevision: "test"},
+			expectedReadyCount: 1,
+		},
+		"ready pods count independent of Pending state": {
+			initialModelState:       Pending,
+			initialTransitionStatus: InProgress,
+			podList: &corev1.PodList{Items: []corev1.Pod{
+				{Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}}}, // Ready
+				{Status: corev1.PodStatus{Phase: corev1.PodPending, Conditions: []corev1.PodCondition{}}},                                                      // Unready (pending)
+			}},
+			rawDeployment:      true,
+			serviceStatus:      &knservingv1.ServiceStatus{},
+			statusSpec:         ComponentStatusSpec{LatestReadyRevision: "test", LatestCreatedRevision: "test"},
+			expectedReadyCount: 1,
+		},
+		"no ready pods in any state": {
+			initialModelState:       Loaded,
+			initialTransitionStatus: UpToDate,
+			podList: &corev1.PodList{Items: []corev1.Pod{
+				{Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionFalse}}}}, // Unready
+				{Status: corev1.PodStatus{Phase: corev1.PodPending, Conditions: []corev1.PodCondition{}}},                                                       // Unready (pending)
+			}},
+			rawDeployment:      true,
+			serviceStatus:      &knservingv1.ServiceStatus{},
+			statusSpec:         ComponentStatusSpec{LatestReadyRevision: "test", LatestCreatedRevision: "test"},
+			expectedReadyCount: 0,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			isvcStatus := &InferenceServiceStatus{
+				ModelStatus: ModelStatus{
+					TransitionStatus: scenario.initialTransitionStatus,
+					ModelRevisionStates: &ModelRevisionStates{
+						ActiveModelState: scenario.initialModelState,
+						TargetModelState: scenario.initialModelState,
+					},
+				},
+			}
+
+			returnValue := isvcStatus.PropagateModelStatus(scenario.statusSpec, scenario.podList, scenario.rawDeployment, scenario.serviceStatus)
+
+			g.Expect(returnValue).To(gomega.BeTrue())
+			g.Expect(isvcStatus.ModelStatus.ModelCopies).ToNot(gomega.BeNil())
+			g.Expect(isvcStatus.ModelStatus.ModelCopies.TotalCopies).To(gomega.Equal(scenario.expectedReadyCount))
+
+			// Verify consistency with countReadyPods
+			directCount := countReadyPods(scenario.podList)
+			g.Expect(isvcStatus.ModelStatus.ModelCopies.TotalCopies).To(gomega.Equal(directCount))
+		})
+	}
+}
+
 func TestInferenceServiceStatus_UpdateModelRevisionStates(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
