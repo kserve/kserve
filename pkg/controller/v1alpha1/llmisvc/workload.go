@@ -100,6 +100,14 @@ func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc
 			},
 		},
 		Spec: corev1.ServiceSpec{
+			// The rationale for not supporting changing the vLLM port is because it requires a lot of changes beyond
+			// this service (presets, routing sidecar flags, routing sidecar container spec , etc) or selecting the
+			// exact port is not trivial, for example, when there is P/D, the request goes through the routing sidecar,
+			// so here we would need to use the routing sidecar container ports.
+			//
+			// The presets we bundle assume 8000 for the "main receiver" (being it vllm or P/D routing sidecar) and,
+			// for now, I'd discourage that use case unless we have a use case that requires not assuming
+			// "main receiver" port.
 			Ports: []corev1.ServicePort{
 				{
 					Name:        "https",
