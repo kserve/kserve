@@ -18,6 +18,7 @@ import uuid
 import pytest
 from kubernetes import client
 from kubernetes.client import V1ResourceRequirements
+from kubernetes.client.rest import ApiException
 
 from kserve import (
     constants,
@@ -41,11 +42,45 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict_isvc
 import time
 import asyncio
+import logging
 
 TARGET = "autoscaling.knative.dev/target"
 METRIC = "autoscaling.knative.dev/metric"
 MODEL = "gs://kfserving-examples/models/sklearn/1.0/model"
 INPUT = "./data/iris_input.json"
+
+
+def report_pod_resources(core_api, api_instance, namespace, label_selector=None):
+    """
+    Report/log current running pods and their resource consumption (CPU, memory).
+    Args:
+        core_api: Kubernetes CoreV1Api instance
+        metrics_api: Kubernetes CustomObjectsApi instance (for metrics)
+        namespace: Namespace to query
+        label_selector: Optional label selector for pods
+    """
+    pods = core_api.list_namespaced_pod(namespace, label_selector=label_selector)
+    pod_names = [pod.metadata.name for pod in pods.items if pod.status.phase == "Running"]
+    logging.info(f"Found {len(pod_names)} running pods in namespace '{namespace}': {pod_names}")
+    try:
+        metrics = api_instance.list_namespaced_custom_object(
+            group="metrics.k8s.io",
+            version="v1beta1",
+            namespace=namespace,
+            plural="pods",
+        )
+        for item in metrics.get("items", []):
+            pod_name = item["metadata"]["name"]
+            if pod_name in pod_names:
+                containers = item["containers"]
+                for c in containers:
+                    cpu = c["usage"].get("cpu", "N/A")
+                    mem = c["usage"].get("memory", "N/A")
+                    logging.info(f"Pod: {pod_name}, Container: {c['name']}, CPU: {cpu}, Memory: {mem}")
+    except ApiException as e:
+        logging.warning(f"Could not fetch pod metrics: {e}")
+    except Exception as e:
+        logging.error(f"Unexpected error fetching pod metrics: {e}")
 
 
 @pytest.mark.predictor
@@ -60,7 +95,7 @@ async def test_sklearn_kserve_concurrency(rest_v1_client):
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
                 requests={"cpu": "25m", "memory": "128Mi"},
-                # limits={"cpu": "50m", "memory": "256Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -76,6 +111,7 @@ async def test_sklearn_kserve_concurrency(rest_v1_client):
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
+    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     pods = kserve_client.core_api.list_namespaced_pod(
@@ -104,7 +140,7 @@ async def test_sklearn_kserve_rps(rest_v1_client):
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
                 requests={"cpu": "25m", "memory": "128Mi"},
-                # limits={"cpu": "50m", "memory": "256Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -121,6 +157,7 @@ async def test_sklearn_kserve_rps(rest_v1_client):
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
+    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     pods = kserve_client.core_api.list_namespaced_pod(
@@ -149,7 +186,7 @@ async def test_sklearn_kserve_cpu(rest_v1_client):
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
                 requests={"cpu": "25m", "memory": "128Mi"},
-                # limits={"cpu": "50m", "memory": "256Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -168,6 +205,7 @@ async def test_sklearn_kserve_cpu(rest_v1_client):
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
+    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     pods = kserve_client.core_api.list_namespaced_pod(
@@ -197,7 +235,7 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
                 requests={"cpu": "25m", "memory": "128Mi"},
-                # limits={"cpu": "50m", "memory": "256Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -216,6 +254,7 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
+    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     api_instance = kserve_client.api_instance
@@ -249,7 +288,7 @@ async def test_sklearn_rolling_update():
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
                 requests={"cpu": "25m", "memory": "128Mi"},
-                # limits={"cpu": "50m", "memory": "256Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -288,6 +327,7 @@ async def test_sklearn_rolling_update():
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
+    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
@@ -331,7 +371,7 @@ async def test_sklearn_env_update():
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
                 requests={"cpu": "25m", "memory": "128Mi"},
-                # limits={"cpu": "50m", "memory": "256Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
             env=envs,
         ),
@@ -377,6 +417,7 @@ async def test_sklearn_env_update():
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
+    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
@@ -446,6 +487,7 @@ async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer)
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
+    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     api_instance = kserve_client.api_instance
@@ -501,7 +543,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
                 requests={"cpu": "25m", "memory": "128Mi"},
-                # limits={"cpu": "50m", "memory": "256Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -523,6 +565,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
+    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     api_instance = kserve_client.api_instance
@@ -601,6 +644,7 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
+    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     api_instance = kserve_client.api_instance
