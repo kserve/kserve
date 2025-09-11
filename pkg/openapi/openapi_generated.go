@@ -6887,7 +6887,7 @@ func schema_pkg_apis_serving_v1beta1_ModelCopies(ref common.ReferenceCallback) c
 					},
 					"totalCopies": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Total number copies of this predictor's models that are currently loaded",
+							Description: "Total number of copies of this predictor's models across all states (Pending, Loading, Loaded, FailedToLoad).",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
