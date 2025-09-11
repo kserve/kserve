@@ -14,6 +14,7 @@
 
 import os
 import uuid
+import subprocess
 
 import pytest
 from kubernetes import client
@@ -50,37 +51,20 @@ MODEL = "gs://kfserving-examples/models/sklearn/1.0/model"
 INPUT = "./data/iris_input.json"
 
 
-def report_pod_resources(core_api, api_instance, namespace, label_selector=None):
+def report_node_descriptions():
     """
-    Report/log current running pods and their resource consumption (CPU, memory).
-    Args:
-        core_api: Kubernetes CoreV1Api instance
-        metrics_api: Kubernetes CustomObjectsApi instance (for metrics)
-        namespace: Namespace to query
-        label_selector: Optional label selector for pods
+    Log the output of 'kubectl describe node' for all nodes in the cluster.
     """
-    pods = core_api.list_namespaced_pod(namespace, label_selector=label_selector)
-    pod_names = [pod.metadata.name for pod in pods.items if pod.status.phase == "Running"]
-    logging.info(f"Found {len(pod_names)} running pods in namespace '{namespace}': {pod_names}")
     try:
-        metrics = api_instance.list_namespaced_custom_object(
-            group="metrics.k8s.io",
-            version="v1beta1",
-            namespace=namespace,
-            plural="pods",
+        result = subprocess.run(
+            ["kubectl", "describe", "node"],
+            capture_output=True,
+            text=True,
+            check=True,
         )
-        for item in metrics.get("items", []):
-            pod_name = item["metadata"]["name"]
-            if pod_name in pod_names:
-                containers = item["containers"]
-                for c in containers:
-                    cpu = c["usage"].get("cpu", "N/A")
-                    mem = c["usage"].get("memory", "N/A")
-                    logging.info(f"Pod: {pod_name}, Container: {c['name']}, CPU: {cpu}, Memory: {mem}")
-    except ApiException as e:
-        logging.warning(f"Could not fetch pod metrics: {e}")
+        logging.info("kubectl describe node output:\n" + result.stdout)
     except Exception as e:
-        logging.error(f"Unexpected error fetching pod metrics: {e}")
+        logging.error(f"Failed to run 'kubectl describe node': {e}")
 
 
 @pytest.mark.predictor
@@ -111,7 +95,7 @@ async def test_sklearn_kserve_concurrency(rest_v1_client):
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
+    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     pods = kserve_client.core_api.list_namespaced_pod(
@@ -157,7 +141,7 @@ async def test_sklearn_kserve_rps(rest_v1_client):
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
+    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     pods = kserve_client.core_api.list_namespaced_pod(
@@ -205,7 +189,7 @@ async def test_sklearn_kserve_cpu(rest_v1_client):
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
+    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     pods = kserve_client.core_api.list_namespaced_pod(
@@ -254,7 +238,7 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
+    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     api_instance = kserve_client.api_instance
@@ -279,7 +263,7 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
 async def test_sklearn_rolling_update():
     suffix = str(uuid.uuid4())[1:6]
     service_name = "isvc-sklearn-rolling-update-" + suffix
-    min_replicas = 2
+    min_replicas = 4
     predictor = V1beta1PredictorSpec(
         min_replicas=min_replicas,
         scale_metric="cpu",
@@ -327,7 +311,7 @@ async def test_sklearn_rolling_update():
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
+    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
@@ -348,7 +332,7 @@ async def test_sklearn_rolling_update():
 async def test_sklearn_env_update():
     suffix = str(uuid.uuid4())[1:6]
     service_name = "isvc-sklearn-env-update-" + suffix
-    min_replicas = 2
+    min_replicas = 4
     envs = [
         {
             "name": "TEST_ENV",
@@ -417,7 +401,7 @@ async def test_sklearn_env_update():
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
+    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
@@ -487,7 +471,7 @@ async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer)
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
+    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     api_instance = kserve_client.api_instance
@@ -565,7 +549,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
+    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     api_instance = kserve_client.api_instance
@@ -644,7 +628,7 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_pod_resources(kserve_client.core_api, kserve_client.api_instance, KSERVE_TEST_NAMESPACE)
+    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     api_instance = kserve_client.api_instance
