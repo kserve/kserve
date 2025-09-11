@@ -38,19 +38,26 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
+// Configuration template names for different LLM deployment patterns
+// These configs are automatically applied based on the service configuration
 const (
-	configPrefix                            = "kserve-"
-	configTemplateName                      = configPrefix + "config-llm-template"
-	configDecodeTemplateName                = configPrefix + "config-llm-decode-template"
+	configPrefix = "kserve-"
+	// Single node deployment template
+	configTemplateName = configPrefix + "config-llm-template"
+	// Disaggregated prefill/decode templates
+	configDecodeTemplateName  = configPrefix + "config-llm-decode-template"
+	configPrefillTemplateName = configPrefix + "config-llm-prefill-template"
+	// Pipeline parallel worker configurations
 	configDecodeWorkerPipelineParallelName  = configPrefix + "config-llm-decode-worker-pipeline-parallel"
 	configWorkerPipelineParallelName        = configPrefix + "config-llm-worker-pipeline-parallel"
-	configWorkerDataParallelName            = configPrefix + "config-llm-worker-data-parallel"
-	configDecodeWorkerDataParallelName      = configPrefix + "config-llm-decode-worker-data-parallel"
-	configPrefillTemplateName               = configPrefix + "config-llm-prefill-template"
 	configPrefillWorkerPipelineParallelName = configPrefix + "config-llm-prefill-worker-pipeline-parallel"
-	configPrefillWorkerDataParallelName     = configPrefix + "config-llm-prefill-worker-data-parallel"
-	configRouterSchedulerName               = configPrefix + "config-llm-scheduler"
-	configRouterRouteName                   = configPrefix + "config-llm-router-route"
+	// Data parallel worker configurations
+	configWorkerDataParallelName        = configPrefix + "config-llm-worker-data-parallel"
+	configDecodeWorkerDataParallelName  = configPrefix + "config-llm-decode-worker-data-parallel"
+	configPrefillWorkerDataParallelName = configPrefix + "config-llm-prefill-worker-data-parallel"
+	// Router and scheduler configurations
+	configRouterSchedulerName = configPrefix + "config-llm-scheduler"
+	configRouterRouteName     = configPrefix + "config-llm-router-route"
 )
 
 // FIXME move those presets to well-known when they're finally known :)
@@ -60,6 +67,8 @@ var _ = sets.New[string](
 	configWorkerPipelineParallelName,
 )
 
+// WellKnownDefaultConfigs contains the set of default configuration templates
+// that are automatically applied based on the LLM service deployment pattern
 var WellKnownDefaultConfigs = sets.New[string](
 	configTemplateName,
 	configDecodeTemplateName,
@@ -74,6 +83,7 @@ var WellKnownDefaultConfigs = sets.New[string](
 // combineBaseRefsConfig applies well-known config overlays to inject default values for various components, when some components are
 // enabled. These LLMInferenceServiceConfig resources must exist in either resource namespace (prioritized) or
 // SystemNamespace (e.g. `kserve`).
+// It determines which deployment pattern is being used (single node, multi-node, disaggregated) and applies appropriate defaults.
 func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, reconcilerConfig *Config) (*v1alpha1.LLMInferenceServiceConfig, error) {
 	logger := log.FromContext(ctx).WithName("combineBaseRefsConfig")
 
@@ -175,7 +185,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		llmSvcCfg.Spec.Router.Scheduler.Pool != nil &&
 		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec != nil &&
 		len(llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.Selector) == 0 {
-		selector := getInferencePoolWorkloadLabelSelector(llmSvc.ObjectMeta, &llmSvcCfg.Spec)
+		selector := GetWorkloadLabelSelector(llmSvc.ObjectMeta, &llmSvcCfg.Spec)
 
 		gieSelector := make(map[igwapi.LabelKey]igwapi.LabelValue, len(selector))
 		for k, v := range selector {
@@ -231,6 +241,8 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	return llmSvcCfg, nil
 }
 
+// ReplaceVariables processes the configuration as a Go template to substitute
+// variables with values from the LLM service and global configuration
 func ReplaceVariables(llmSvc *v1alpha1.LLMInferenceService, llmSvcCfg *v1alpha1.LLMInferenceServiceConfig, reconcilerConfig *Config) (*v1alpha1.LLMInferenceServiceConfig, error) {
 	templateBytes, _ := json.Marshal(llmSvcCfg)
 	buf := bytes.NewBuffer(nil)
@@ -263,6 +275,7 @@ func ReplaceVariables(llmSvc *v1alpha1.LLMInferenceService, llmSvcCfg *v1alpha1.
 
 // getConfig retrieves kserveapis.LLMInferenceServiceConfig with the given name from either the kserveapis.LLMInferenceService
 // namespace or from the SystemNamespace (e.g. 'kserve'), prioritizing the former.
+// This allows for both global default configs and service-specific overrides.
 func (r *LLMISVCReconciler) getConfig(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, name string) (*v1alpha1.LLMInferenceServiceConfig, error) {
 	cfg := &v1alpha1.LLMInferenceServiceConfig{}
 	if err := r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: llmSvc.Namespace}, cfg); err != nil {
@@ -315,6 +328,8 @@ func mergeSpecs(ctx context.Context, base, override v1alpha1.LLMInferenceService
 		return v1alpha1.LLMInferenceServiceSpec{}, fmt.Errorf("could not marshal zero spec: %w", err)
 	}
 
+	// This ensures that only explicitly set fields in the override are applied, preventing
+	// zero-valued fields from overwriting meaningful base values.
 	override.SetDefaults(ctx)
 
 	overrideJSON, err := json.Marshal(override)
