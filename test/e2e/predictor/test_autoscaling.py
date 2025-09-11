@@ -347,7 +347,7 @@ async def test_sklearn_rolling_update():
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_env_update():
     suffix = str(uuid.uuid4())[1:6]
-    service_name = "isvc-sklearn-rolling-update-" + suffix
+    service_name = "isvc-sklearn-env-update-" + suffix
     min_replicas = 4
     envs = [
         {
