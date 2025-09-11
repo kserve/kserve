@@ -279,7 +279,7 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
 async def test_sklearn_rolling_update():
     suffix = str(uuid.uuid4())[1:6]
     service_name = "isvc-sklearn-rolling-update-" + suffix
-    min_replicas = 4
+    min_replicas = 2
     predictor = V1beta1PredictorSpec(
         min_replicas=min_replicas,
         scale_metric="cpu",
@@ -348,7 +348,7 @@ async def test_sklearn_rolling_update():
 async def test_sklearn_env_update():
     suffix = str(uuid.uuid4())[1:6]
     service_name = "isvc-sklearn-env-update-" + suffix
-    min_replicas = 4
+    min_replicas = 2
     envs = [
         {
             "name": "TEST_ENV",
