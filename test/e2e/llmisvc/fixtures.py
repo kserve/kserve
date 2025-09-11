@@ -17,7 +17,6 @@ import os
 import pytest
 from kserve import KServeClient, constants, V1alpha1LLMInferenceService
 from kubernetes import client, config
-from kubernetes.client.rest import ApiException
 from typing import List
 
 from .logging import logger

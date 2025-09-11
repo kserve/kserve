@@ -16,7 +16,6 @@ import itertools
 from datetime import datetime
 from kubernetes import client, config, dynamic
 from kubernetes.client import api_client
-from kserve import KServeClient, V1alpha1LLMInferenceService, constants
 
 
 def print_all_events_table(namespace: str, max_events: int = 50):
