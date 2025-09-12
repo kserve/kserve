@@ -342,10 +342,6 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
-      - name: Cleanup Minikube
-        if: always()
-        run: minikube delete
-
   test-transformer-explainer-mms:
     runs-on: ubuntu-22.04
     needs:
@@ -431,10 +427,6 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
-      - name: Cleanup Minikube
-        if: always()
-        run: minikube delete
-
   test-graph:
     runs-on: ubuntu-22.04
     needs:
@@ -510,10 +502,6 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
-
-      - name: Cleanup Minikube
-        if: always()
-        run: minikube delete
 
   test-path-based-routing:
     runs-on: ubuntu-22.04
@@ -610,10 +598,6 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
-      - name: Cleanup Minikube
-        if: always()
-        run: minikube delete
-
   test-qpext:
     runs-on: ubuntu-22.04
     needs: [kserve-image-build, predictor-runtime-build]
@@ -680,10 +664,6 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
-      - name: Cleanup Minikube
-        if: always()
-        run: minikube delete
-
   test-with-helm:
     runs-on: ubuntu-22.04
     needs: [kserve-image-build]
@@ -732,10 +712,6 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
-
-      - name: Cleanup Minikube
-        if: always()
-        run: minikube delete
 
   test-raw:
     runs-on: ubuntu-22.04
@@ -838,7 +814,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 30
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "3" ${{ matrix.network-layer }}
+          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "4" ${{ matrix.network-layer }}
 
       - name: Patch inferenceservice config for path based routing
         if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
@@ -866,10 +842,6 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
-
-      - name: Cleanup Minikube
-        if: always()
-        run: minikube delete
 
   test-kourier:
     runs-on: ubuntu-22.04
@@ -956,10 +928,6 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh "kourier"
 
-      - name: Cleanup Minikube
-        if: always()
-        run: minikube delete
-
   test-llm:
     runs-on: ubuntu-22.04
     needs: [kserve-image-build, predictor-runtime-build]
@@ -1019,10 +987,6 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
-      - name: Cleanup Minikube
-        if: always()
-        run: minikube delete
-
   test-huggingface-server-vllm:
     runs-on: ubuntu-22.04
     needs: [kserve-image-build, predictor-runtime-build]
@@ -1081,10 +1045,6 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
-
-      - name: Cleanup Minikube
-        if: always()
-        run: minikube delete
 
   test-modelcache:
     runs-on: ubuntu-22.04
@@ -1209,7 +1169,3 @@ jobs:
           cat minikube-tunnel.log
           echo "::endgroup::"
           ./test/scripts/gh-actions/status-check.sh
-
-      - name: Cleanup Minikube
-        if: always()
-        run: minikube delete

@@ -19,7 +19,6 @@ import subprocess
 import pytest
 from kubernetes import client
 from kubernetes.client import V1ResourceRequirements
-from kubernetes.client.rest import ApiException
 
 from kserve import (
     constants,
