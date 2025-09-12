@@ -127,6 +127,8 @@ func TestCreateKnativeService(t *testing.T) {
 				podSpec,
 				tt.componentStatus,
 				disallowedLabelList,
+				nil,
+				nil,
 			)
 			require.NotNil(t, ksvc, "createKnativeService should not return nil ksvc")
 
@@ -361,6 +363,8 @@ func TestKsvcReconciler_Reconcile(t *testing.T) {
 				podSpec,
 				componentStatus,
 				disallowedLabelList,
+				nil,
+				nil,
 			)
 
 			// Call Reconcile
