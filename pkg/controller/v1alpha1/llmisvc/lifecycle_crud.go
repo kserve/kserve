@@ -32,11 +32,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// clientWithRecorder combines the client and event recorder interfaces
+// This allows CRUD operations to both modify resources and emit events
 type clientWithRecorder interface {
 	client.Client
 	record.EventRecorder
 }
 
+// Create creates a new Kubernetes resource and emits an event on the owner
+// This provides a standardized way to create owned resources with proper event logging
 func Create[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, expected T) error {
 	if err := c.Create(ctx, expected); err != nil {
 		return fmt.Errorf("failed to create %s %s/%s: %w", logLineForObject(expected), expected.GetNamespace(), expected.GetName(), err)
@@ -49,6 +53,8 @@ func Create[O client.Object, T client.Object](ctx context.Context, c clientWithR
 	return nil
 }
 
+// Delete safely deletes a Kubernetes resource with ownership validation
+// It ensures only the owner can delete the resource and handles garbage collection properly
 func Delete[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, expected T) error {
 	typeLogLine := logLineForObject(expected)
 	isOwnerNil := reflect.ValueOf(owner).IsNil()
@@ -94,19 +100,26 @@ func Delete[O client.Object, T client.Object](ctx context.Context, c clientWithR
 	return nil
 }
 
+// Reconcile ensures a resource exists and matches the expected state
+// It creates the resource if it doesn't exist, or updates it if it differs from expected state
 func Reconcile[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, empty, expected T, isEqual SemanticEqual[T]) error {
 	typeLogLine := logLineForObject(expected)
 
+	// Try to fetch the current state of the resource
 	curr := empty.DeepCopyObject().(T)
 	if err := c.Get(ctx, client.ObjectKeyFromObject(expected), curr); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			return fmt.Errorf("failed to get %s %s/%s: %w", typeLogLine, expected.GetNamespace(), expected.GetName(), err)
 		}
+		// Resource doesn't exist, create it
 		return Create(ctx, c, owner, expected)
 	}
+	// Resource exists, update it if necessary
 	return Update(ctx, c, owner, curr, expected, isEqual)
 }
 
+// Update modifies an existing Kubernetes resource to match the expected state
+// It validates ownership and only updates if the resource has actually changed
 func Update[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, curr, expected T, isEqual SemanticEqual[T]) error {
 	typeLogLine := logLineForObject(expected)
 	isOwnerNil := reflect.ValueOf(owner).IsNil()
@@ -154,9 +167,13 @@ func Update[O client.Object, T client.Object](ctx context.Context, c clientWithR
 	return nil
 }
 
+// logLineForObject returns a human-readable type name for logging
+// We use reflection since GetObjectKind() is often empty in practice
 func logLineForObject(obj client.Object) string {
 	// Note: don't use `obj.GetObjectKind()` as it's always empty.
 	return strings.Replace(reflect.TypeOf(obj).String(), "*", "", 1)
 }
 
+// SemanticEqual is a function type for comparing two objects to determine if they are equivalent
+// This allows custom comparison logic beyond simple equality checks
 type SemanticEqual[T client.Object] func(expected T, curr T) bool
