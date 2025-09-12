@@ -342,6 +342,10 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+      - name: Cleanup Minikube
+        if: always()
+        run: minikube delete
+
   test-transformer-explainer-mms:
     runs-on: ubuntu-22.04
     needs:
@@ -427,6 +431,10 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+      - name: Cleanup Minikube
+        if: always()
+        run: minikube delete
+
   test-graph:
     runs-on: ubuntu-22.04
     needs:
@@ -502,6 +510,10 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+      - name: Cleanup Minikube
+        if: always()
+        run: minikube delete
 
   test-path-based-routing:
     runs-on: ubuntu-22.04
@@ -598,6 +610,10 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+      - name: Cleanup Minikube
+        if: always()
+        run: minikube delete
+
   test-qpext:
     runs-on: ubuntu-22.04
     needs: [kserve-image-build, predictor-runtime-build]
@@ -664,6 +680,10 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+      - name: Cleanup Minikube
+        if: always()
+        run: minikube delete
+
   test-with-helm:
     runs-on: ubuntu-22.04
     needs: [kserve-image-build]
@@ -712,6 +732,10 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+      - name: Cleanup Minikube
+        if: always()
+        run: minikube delete
 
   test-raw:
     runs-on: ubuntu-22.04
@@ -843,6 +867,10 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+      - name: Cleanup Minikube
+        if: always()
+        run: minikube delete
+
   test-kourier:
     runs-on: ubuntu-22.04
     needs:
@@ -928,6 +956,10 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh "kourier"
 
+      - name: Cleanup Minikube
+        if: always()
+        run: minikube delete
+
   test-llm:
     runs-on: ubuntu-22.04
     needs: [kserve-image-build, predictor-runtime-build]
@@ -987,6 +1019,10 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+      - name: Cleanup Minikube
+        if: always()
+        run: minikube delete
+
   test-huggingface-server-vllm:
     runs-on: ubuntu-22.04
     needs: [kserve-image-build, predictor-runtime-build]
@@ -1045,6 +1081,10 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+      - name: Cleanup Minikube
+        if: always()
+        run: minikube delete
 
   test-modelcache:
     runs-on: ubuntu-22.04
@@ -1169,3 +1209,7 @@ jobs:
           cat minikube-tunnel.log
           echo "::endgroup::"
           ./test/scripts/gh-actions/status-check.sh
+
+      - name: Cleanup Minikube
+        if: always()
+        run: minikube delete
