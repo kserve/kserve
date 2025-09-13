@@ -134,7 +134,7 @@ class VLLMModel(
                     supported_tasks = []
             else:
                 supported_tasks = getattr(self.model_config, "supported_tasks", [])
-            
+
             resolved_chat_template = load_chat_template(self.args.chat_template)
 
             self.openai_serving_models = OpenAIServingModels(
