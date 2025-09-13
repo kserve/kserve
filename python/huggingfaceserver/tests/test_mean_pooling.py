@@ -25,16 +25,10 @@ if "kserve.logging" not in sys.modules:
     sys.modules["kserve"] = kserve_pkg
     sys.modules["kserve.logging"] = kserve_logging
 
-UTILS_PATH = (
-    pathlib.Path(__file__).resolve().parents[1] / "huggingfaceserver" / "utils.py"
-)
-spec = importlib.util.spec_from_file_location("hf_utils", UTILS_PATH)
-hf_utils = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(hf_utils)
-_mean_pooling = hf_utils._mean_pooling
+from huggingfaceserver import utils
 
 
 def test_mean_pooling_none_mask_cpu():
     x = torch.ones(1, 3, 4)  # [B,S,H]
-    out = _mean_pooling((x,), None)
+    out = utils._mean_pooling((x,), None)
     assert torch.allclose(out, torch.ones(1, 4))
