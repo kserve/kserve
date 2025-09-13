@@ -99,7 +99,7 @@ class V1beta1ModelCopies(object):
     def total_copies(self):
         """Gets the total_copies of this V1beta1ModelCopies.  # noqa: E501
 
-        Total number copies of this predictor's models that are currently loaded  # noqa: E501
+        Total number of copies of this predictor's models across all states (Pending, Loading, Loaded, FailedToLoad).  # noqa: E501
 
         :return: The total_copies of this V1beta1ModelCopies.  # noqa: E501
         :rtype: int
@@ -110,7 +110,7 @@ class V1beta1ModelCopies(object):
     def total_copies(self, total_copies):
         """Sets the total_copies of this V1beta1ModelCopies.
 
-        Total number copies of this predictor's models that are currently loaded  # noqa: E501
+        Total number of copies of this predictor's models across all states (Pending, Loading, Loaded, FailedToLoad).  # noqa: E501
 
         :param total_copies: The total_copies of this V1beta1ModelCopies.  # noqa: E501
         :type: int

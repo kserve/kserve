@@ -903,7 +903,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.15.2"
+version = "0.16.0rc0"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "cloudevents" },
@@ -976,7 +976,7 @@ test = [
 
 [[package]]
 name = "kserve-storage"
-version = "0.15.2"
+version = "0.16.0rc0"
 source = { directory = "../storage" }
 dependencies = [
     { name = "azure-identity" },
@@ -2225,7 +2225,7 @@ wheels = [
 
 [[package]]
 name = "xgbserver"
-version = "0.15.2"
+version = "0.16.0rc0"
 source = { virtual = "." }
 dependencies = [
     { name = "kserve" },
