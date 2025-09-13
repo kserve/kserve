@@ -126,6 +126,15 @@ class VLLMModel(
             self.log_stats = not self.args.disable_log_stats
             self.model_config = await self.engine_client.get_model_config()
 
+            # Determine supported tasks similar to vLLM api_server
+            if envs.VLLM_USE_V1:
+                try:
+                    supported_tasks = await self.engine_client.get_supported_tasks()  # type: ignore[attr-defined]
+                except Exception:
+                    supported_tasks = []
+            else:
+                supported_tasks = getattr(self.model_config, "supported_tasks", [])
+            
             resolved_chat_template = load_chat_template(self.args.chat_template)
 
             self.openai_serving_models = OpenAIServingModels(
@@ -150,8 +159,10 @@ class VLLMModel(
                     tool_parser=self.args.tool_call_parser,
                     reasoning_parser=self.args.reasoning_parser,
                     enable_prompt_tokens_details=self.args.enable_prompt_tokens_details,
+                    exclude_tools_when_tool_choice_none=self.args.exclude_tools_when_tool_choice_none,
+                    enable_force_include_usage=self.args.enable_force_include_usage,
                 )
-                if self.model_config.runner_type == "generate"
+                if "generate" in supported_tasks
                 else None
             )
 
@@ -162,8 +173,10 @@ class VLLMModel(
                     self.openai_serving_models,
                     request_logger=self.request_logger,
                     return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
+                    enable_prompt_tokens_details=self.args.enable_prompt_tokens_details,
+                    enable_force_include_usage=self.args.enable_force_include_usage,
                 )
-                if self.model_config.runner_type == "generate"
+                if "generate" in supported_tasks
                 else None
             )
 
@@ -176,10 +189,14 @@ class VLLMModel(
                     chat_template=resolved_chat_template,
                     chat_template_content_format=self.args.chat_template_content_format,
                 )
-                if self.model_config.task == "embed"
+                if "embed" in supported_tasks
                 else None
             )
 
+            enable_serving_reranking = (
+                "classify" in supported_tasks
+                and getattr(self.model_config.hf_config, "num_labels", 0) == 1
+            )
             self.serving_reranking = (
                 ServingScores(
                     self.engine_client,
@@ -187,7 +204,7 @@ class VLLMModel(
                     self.openai_serving_models,
                     request_logger=self.request_logger,
                 )
-                if self.model_config.task == "classify"
+                if ("embed" in supported_tasks or enable_serving_reranking)
                 else None
             )
 
