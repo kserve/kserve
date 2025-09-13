@@ -98,7 +98,7 @@ class VLLMModel(
 
         valid_reasoning_parses = ReasoningParserManager.reasoning_parsers.keys()
         if (
-            self.args.enable_reasoning
+            self.args.reasoning_parser
             and self.args.reasoning_parser not in valid_reasoning_parses
         ):
             raise KeyError(
