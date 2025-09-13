@@ -235,10 +235,10 @@ class VLLMModel(
 
         if isinstance(response, engineError):
             return create_error_response(
-                message=response.message,
-                err_type=response.type,
-                param=response.param,
-                status_code=HTTPStatus(response.code),
+                message=response.error.message,
+                err_type=response.error.type,
+                param=response.error.param,
+                status_code=HTTPStatus(response.error.code),
             )
 
         return response
@@ -260,10 +260,10 @@ class VLLMModel(
 
         if isinstance(response, engineError):
             return create_error_response(
-                message=response.message,
-                err_type=response.type,
-                param=response.param,
-                status_code=HTTPStatus(response.code),
+                message=response.error.message,
+                err_type=response.error.type,
+                param=response.error.param,
+                status_code=HTTPStatus(response.error.code),
             )
 
         return response
@@ -285,10 +285,10 @@ class VLLMModel(
 
         if isinstance(response, engineError):
             return create_error_response(
-                message=response.message,
-                err_type=response.type,
-                param=response.param,
-                status_code=HTTPStatus(response.code),
+                message=response.error.message,
+                err_type=response.error.type,
+                param=response.error.param,
+                status_code=HTTPStatus(response.error.code),
             )
 
         return response
@@ -308,10 +308,10 @@ class VLLMModel(
 
         if isinstance(response, engineError):
             return create_error_response(
-                message=response.message,
-                err_type=response.type,
-                param=response.param,
-                status_code=HTTPStatus(response.code),
+                message=response.error.message,
+                err_type=response.error.type,
+                param=response.error.param,
+                status_code=HTTPStatus(response.error.code),
             )
 
         return response
