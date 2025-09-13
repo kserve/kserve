@@ -133,7 +133,6 @@ class VLLMModel(
                 model_config=self.model_config,
                 base_model_paths=self.base_model_paths,
                 lora_modules=self.args.lora_modules,
-                prompt_adapters=self.args.prompt_adapters,
             )
             await self.openai_serving_models.init_static_loras()
 
