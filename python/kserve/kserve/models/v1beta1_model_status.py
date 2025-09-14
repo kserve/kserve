@@ -47,20 +47,27 @@ class V1beta1ModelStatus(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'copies': 'V1beta1ModelCopies',
-        'last_failure_info': 'V1beta1FailureInfo',
-        'states': 'V1beta1ModelRevisionStates',
-        'transition_status': 'str'
+        "copies": "V1beta1ModelCopies",
+        "last_failure_info": "V1beta1FailureInfo",
+        "states": "V1beta1ModelRevisionStates",
+        "transition_status": "str",
     }
 
     attribute_map = {
-        'copies': 'copies',
-        'last_failure_info': 'lastFailureInfo',
-        'states': 'states',
-        'transition_status': 'transitionStatus'
+        "copies": "copies",
+        "last_failure_info": "lastFailureInfo",
+        "states": "states",
+        "transition_status": "transitionStatus",
     }
 
-    def __init__(self, copies=None, last_failure_info=None, states=None, transition_status='', local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        copies=None,
+        last_failure_info=None,
+        states=None,
+        transition_status="",
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1ModelStatus - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -163,8 +170,13 @@ class V1beta1ModelStatus(object):
         :param transition_status: The transition_status of this V1beta1ModelStatus.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and transition_status is None:  # noqa: E501
-            raise ValueError("Invalid value for `transition_status`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation
+            and transition_status is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `transition_status`, must not be `None`"
+            )  # noqa: E501
 
         self._transition_status = transition_status
 
@@ -175,18 +187,22 @@ class V1beta1ModelStatus(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

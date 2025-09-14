@@ -47,52 +47,75 @@ class V1alpha1ServingRuntimeSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'affinity': 'V1Affinity',
-        'annotations': 'dict(str, str)',
-        'built_in_adapter': 'V1alpha1BuiltInAdapter',
-        'containers': 'list[V1Container]',
-        'disabled': 'bool',
-        'grpc_data_endpoint': 'str',
-        'grpc_endpoint': 'str',
-        'host_ipc': 'bool',
-        'http_data_endpoint': 'str',
-        'image_pull_secrets': 'list[V1LocalObjectReference]',
-        'labels': 'dict(str, str)',
-        'multi_model': 'bool',
-        'node_selector': 'dict(str, str)',
-        'protocol_versions': 'list[str]',
-        'replicas': 'int',
-        'storage_helper': 'V1alpha1StorageHelper',
-        'supported_model_formats': 'list[V1alpha1SupportedModelFormat]',
-        'tolerations': 'list[V1Toleration]',
-        'volumes': 'list[V1Volume]',
-        'worker_spec': 'V1alpha1WorkerSpec'
+        "affinity": "V1Affinity",
+        "annotations": "dict(str, str)",
+        "built_in_adapter": "V1alpha1BuiltInAdapter",
+        "containers": "list[V1Container]",
+        "disabled": "bool",
+        "grpc_data_endpoint": "str",
+        "grpc_endpoint": "str",
+        "host_ipc": "bool",
+        "http_data_endpoint": "str",
+        "image_pull_secrets": "list[V1LocalObjectReference]",
+        "labels": "dict(str, str)",
+        "multi_model": "bool",
+        "node_selector": "dict(str, str)",
+        "protocol_versions": "list[str]",
+        "replicas": "int",
+        "storage_helper": "V1alpha1StorageHelper",
+        "supported_model_formats": "list[V1alpha1SupportedModelFormat]",
+        "tolerations": "list[V1Toleration]",
+        "volumes": "list[V1Volume]",
+        "worker_spec": "V1alpha1WorkerSpec",
     }
 
     attribute_map = {
-        'affinity': 'affinity',
-        'annotations': 'annotations',
-        'built_in_adapter': 'builtInAdapter',
-        'containers': 'containers',
-        'disabled': 'disabled',
-        'grpc_data_endpoint': 'grpcDataEndpoint',
-        'grpc_endpoint': 'grpcEndpoint',
-        'host_ipc': 'hostIPC',
-        'http_data_endpoint': 'httpDataEndpoint',
-        'image_pull_secrets': 'imagePullSecrets',
-        'labels': 'labels',
-        'multi_model': 'multiModel',
-        'node_selector': 'nodeSelector',
-        'protocol_versions': 'protocolVersions',
-        'replicas': 'replicas',
-        'storage_helper': 'storageHelper',
-        'supported_model_formats': 'supportedModelFormats',
-        'tolerations': 'tolerations',
-        'volumes': 'volumes',
-        'worker_spec': 'workerSpec'
+        "affinity": "affinity",
+        "annotations": "annotations",
+        "built_in_adapter": "builtInAdapter",
+        "containers": "containers",
+        "disabled": "disabled",
+        "grpc_data_endpoint": "grpcDataEndpoint",
+        "grpc_endpoint": "grpcEndpoint",
+        "host_ipc": "hostIPC",
+        "http_data_endpoint": "httpDataEndpoint",
+        "image_pull_secrets": "imagePullSecrets",
+        "labels": "labels",
+        "multi_model": "multiModel",
+        "node_selector": "nodeSelector",
+        "protocol_versions": "protocolVersions",
+        "replicas": "replicas",
+        "storage_helper": "storageHelper",
+        "supported_model_formats": "supportedModelFormats",
+        "tolerations": "tolerations",
+        "volumes": "volumes",
+        "worker_spec": "workerSpec",
     }
 
-    def __init__(self, affinity=None, annotations=None, built_in_adapter=None, containers=None, disabled=None, grpc_data_endpoint=None, grpc_endpoint=None, host_ipc=None, http_data_endpoint=None, image_pull_secrets=None, labels=None, multi_model=None, node_selector=None, protocol_versions=None, replicas=None, storage_helper=None, supported_model_formats=None, tolerations=None, volumes=None, worker_spec=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        affinity=None,
+        annotations=None,
+        built_in_adapter=None,
+        containers=None,
+        disabled=None,
+        grpc_data_endpoint=None,
+        grpc_endpoint=None,
+        host_ipc=None,
+        http_data_endpoint=None,
+        image_pull_secrets=None,
+        labels=None,
+        multi_model=None,
+        node_selector=None,
+        protocol_versions=None,
+        replicas=None,
+        storage_helper=None,
+        supported_model_formats=None,
+        tolerations=None,
+        volumes=None,
+        worker_spec=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1alpha1ServingRuntimeSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -245,8 +268,12 @@ class V1alpha1ServingRuntimeSpec(object):
         :param containers: The containers of this V1alpha1ServingRuntimeSpec.  # noqa: E501
         :type: list[V1Container]
         """
-        if self.local_vars_configuration.client_side_validation and containers is None:  # noqa: E501
-            raise ValueError("Invalid value for `containers`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and containers is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `containers`, must not be `None`"
+            )  # noqa: E501
 
         self._containers = containers
 
@@ -621,18 +648,22 @@ class V1alpha1ServingRuntimeSpec(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

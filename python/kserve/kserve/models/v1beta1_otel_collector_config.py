@@ -47,20 +47,27 @@ class V1beta1OtelCollectorConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'metric_receiver_endpoint': 'str',
-        'metric_scaler_endpoint': 'str',
-        'resource': 'V1beta1ResourceConfig',
-        'scrape_interval': 'str'
+        "metric_receiver_endpoint": "str",
+        "metric_scaler_endpoint": "str",
+        "resource": "V1beta1ResourceConfig",
+        "scrape_interval": "str",
     }
 
     attribute_map = {
-        'metric_receiver_endpoint': 'metricReceiverEndpoint',
-        'metric_scaler_endpoint': 'metricScalerEndpoint',
-        'resource': 'resource',
-        'scrape_interval': 'scrapeInterval'
+        "metric_receiver_endpoint": "metricReceiverEndpoint",
+        "metric_scaler_endpoint": "metricScalerEndpoint",
+        "resource": "resource",
+        "scrape_interval": "scrapeInterval",
     }
 
-    def __init__(self, metric_receiver_endpoint=None, metric_scaler_endpoint=None, resource=None, scrape_interval=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        metric_receiver_endpoint=None,
+        metric_scaler_endpoint=None,
+        resource=None,
+        scrape_interval=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1OtelCollectorConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -172,18 +179,22 @@ class V1beta1OtelCollectorConfig(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

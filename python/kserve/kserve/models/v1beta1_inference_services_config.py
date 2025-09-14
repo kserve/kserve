@@ -47,20 +47,27 @@ class V1beta1InferenceServicesConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'explainers': 'V1beta1ExplainersConfig',
-        'resource': 'V1beta1ResourceConfig',
-        'service_annotation_disallowed_list': 'list[str]',
-        'service_label_disallowed_list': 'list[str]'
+        "explainers": "V1beta1ExplainersConfig",
+        "resource": "V1beta1ResourceConfig",
+        "service_annotation_disallowed_list": "list[str]",
+        "service_label_disallowed_list": "list[str]",
     }
 
     attribute_map = {
-        'explainers': 'explainers',
-        'resource': 'resource',
-        'service_annotation_disallowed_list': 'serviceAnnotationDisallowedList',
-        'service_label_disallowed_list': 'serviceLabelDisallowedList'
+        "explainers": "explainers",
+        "resource": "resource",
+        "service_annotation_disallowed_list": "serviceAnnotationDisallowedList",
+        "service_label_disallowed_list": "serviceLabelDisallowedList",
     }
 
-    def __init__(self, explainers=None, resource=None, service_annotation_disallowed_list=None, service_label_disallowed_list=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        explainers=None,
+        resource=None,
+        service_annotation_disallowed_list=None,
+        service_label_disallowed_list=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1InferenceServicesConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -98,8 +105,12 @@ class V1beta1InferenceServicesConfig(object):
         :param explainers: The explainers of this V1beta1InferenceServicesConfig.  # noqa: E501
         :type: V1beta1ExplainersConfig
         """
-        if self.local_vars_configuration.client_side_validation and explainers is None:  # noqa: E501
-            raise ValueError("Invalid value for `explainers`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and explainers is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `explainers`, must not be `None`"
+            )  # noqa: E501
 
         self._explainers = explainers
 
@@ -177,18 +188,22 @@ class V1beta1InferenceServicesConfig(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

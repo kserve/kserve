@@ -46,19 +46,21 @@ class V1beta1Batcher(object):
       attribute_map (dict): The key is attribute name
                             and the value is json key in definition.
     """
-    openapi_types = {
-        'max_batch_size': 'int',
-        'max_latency': 'int',
-        'timeout': 'int'
-    }
+    openapi_types = {"max_batch_size": "int", "max_latency": "int", "timeout": "int"}
 
     attribute_map = {
-        'max_batch_size': 'maxBatchSize',
-        'max_latency': 'maxLatency',
-        'timeout': 'timeout'
+        "max_batch_size": "maxBatchSize",
+        "max_latency": "maxLatency",
+        "timeout": "timeout",
     }
 
-    def __init__(self, max_batch_size=None, max_latency=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        max_batch_size=None,
+        max_latency=None,
+        timeout=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1Batcher - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -152,18 +154,22 @@ class V1beta1Batcher(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

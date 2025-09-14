@@ -47,18 +47,24 @@ class V1alpha1LocalModelNodeGroupSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'persistent_volume_claim_spec': 'V1PersistentVolumeClaimSpec',
-        'persistent_volume_spec': 'V1PersistentVolumeSpec',
-        'storage_limit': 'ResourceQuantity'
+        "persistent_volume_claim_spec": "V1PersistentVolumeClaimSpec",
+        "persistent_volume_spec": "V1PersistentVolumeSpec",
+        "storage_limit": "ResourceQuantity",
     }
 
     attribute_map = {
-        'persistent_volume_claim_spec': 'persistentVolumeClaimSpec',
-        'persistent_volume_spec': 'persistentVolumeSpec',
-        'storage_limit': 'storageLimit'
+        "persistent_volume_claim_spec": "persistentVolumeClaimSpec",
+        "persistent_volume_spec": "persistentVolumeSpec",
+        "storage_limit": "storageLimit",
     }
 
-    def __init__(self, persistent_volume_claim_spec=None, persistent_volume_spec=None, storage_limit=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        persistent_volume_claim_spec=None,
+        persistent_volume_spec=None,
+        storage_limit=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1alpha1LocalModelNodeGroupSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -91,8 +97,13 @@ class V1alpha1LocalModelNodeGroupSpec(object):
         :param persistent_volume_claim_spec: The persistent_volume_claim_spec of this V1alpha1LocalModelNodeGroupSpec.  # noqa: E501
         :type: V1PersistentVolumeClaimSpec
         """
-        if self.local_vars_configuration.client_side_validation and persistent_volume_claim_spec is None:  # noqa: E501
-            raise ValueError("Invalid value for `persistent_volume_claim_spec`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation
+            and persistent_volume_claim_spec is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `persistent_volume_claim_spec`, must not be `None`"
+            )  # noqa: E501
 
         self._persistent_volume_claim_spec = persistent_volume_claim_spec
 
@@ -114,8 +125,13 @@ class V1alpha1LocalModelNodeGroupSpec(object):
         :param persistent_volume_spec: The persistent_volume_spec of this V1alpha1LocalModelNodeGroupSpec.  # noqa: E501
         :type: V1PersistentVolumeSpec
         """
-        if self.local_vars_configuration.client_side_validation and persistent_volume_spec is None:  # noqa: E501
-            raise ValueError("Invalid value for `persistent_volume_spec`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation
+            and persistent_volume_spec is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `persistent_volume_spec`, must not be `None`"
+            )  # noqa: E501
 
         self._persistent_volume_spec = persistent_volume_spec
 
@@ -137,8 +153,13 @@ class V1alpha1LocalModelNodeGroupSpec(object):
         :param storage_limit: The storage_limit of this V1alpha1LocalModelNodeGroupSpec.  # noqa: E501
         :type: ResourceQuantity
         """
-        if self.local_vars_configuration.client_side_validation and storage_limit is None:  # noqa: E501
-            raise ValueError("Invalid value for `storage_limit`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation
+            and storage_limit is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `storage_limit`, must not be `None`"
+            )  # noqa: E501
 
         self._storage_limit = storage_limit
 
@@ -149,18 +170,22 @@ class V1alpha1LocalModelNodeGroupSpec(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

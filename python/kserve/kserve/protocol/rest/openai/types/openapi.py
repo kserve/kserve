@@ -2711,12 +2711,15 @@ class CreateChatCompletionRequest(BaseModel):
             "A Jinja template to use for this conversion. "
             "As of transformers v4.44, default chat template is no longer "
             "allowed, so you must provide a chat template if the tokenizer "
-            "does not define one."),
+            "does not define one."
+        ),
     )
     chat_template_kwargs: Optional[Dict[str, Any]] = Field(
         default=None,
-        description=("Additional kwargs to pass to the template renderer. "
-                     "Will be accessible by the chat template."),
+        description=(
+            "Additional kwargs to pass to the template renderer. "
+            "Will be accessible by the chat template."
+        ),
     )
 
 

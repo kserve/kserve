@@ -46,17 +46,13 @@ class V1beta1RolloutSpec(object):
       attribute_map (dict): The key is attribute name
                             and the value is json key in definition.
     """
-    openapi_types = {
-        'max_surge': 'str',
-        'max_unavailable': 'str'
-    }
+    openapi_types = {"max_surge": "str", "max_unavailable": "str"}
 
-    attribute_map = {
-        'max_surge': 'maxSurge',
-        'max_unavailable': 'maxUnavailable'
-    }
+    attribute_map = {"max_surge": "maxSurge", "max_unavailable": "maxUnavailable"}
 
-    def __init__(self, max_surge='', max_unavailable='', local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self, max_surge="", max_unavailable="", local_vars_configuration=None
+    ):  # noqa: E501
         """V1beta1RolloutSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -89,8 +85,12 @@ class V1beta1RolloutSpec(object):
         :param max_surge: The max_surge of this V1beta1RolloutSpec.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and max_surge is None:  # noqa: E501
-            raise ValueError("Invalid value for `max_surge`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and max_surge is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `max_surge`, must not be `None`"
+            )  # noqa: E501
 
         self._max_surge = max_surge
 
@@ -114,8 +114,13 @@ class V1beta1RolloutSpec(object):
         :param max_unavailable: The max_unavailable of this V1beta1RolloutSpec.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and max_unavailable is None:  # noqa: E501
-            raise ValueError("Invalid value for `max_unavailable`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation
+            and max_unavailable is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `max_unavailable`, must not be `None`"
+            )  # noqa: E501
 
         self._max_unavailable = max_unavailable
 
@@ -126,18 +131,22 @@ class V1beta1RolloutSpec(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

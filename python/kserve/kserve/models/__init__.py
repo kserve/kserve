@@ -30,10 +30,18 @@ from __future__ import absolute_import
 # import models into model package
 from kserve.models.v1alpha1_built_in_adapter import V1alpha1BuiltInAdapter
 from kserve.models.v1alpha1_cluster_serving_runtime import V1alpha1ClusterServingRuntime
-from kserve.models.v1alpha1_cluster_serving_runtime_list import V1alpha1ClusterServingRuntimeList
-from kserve.models.v1alpha1_cluster_storage_container import V1alpha1ClusterStorageContainer
-from kserve.models.v1alpha1_cluster_storage_container_list import V1alpha1ClusterStorageContainerList
-from kserve.models.v1alpha1_inferece_graph_router_timeouts import V1alpha1InfereceGraphRouterTimeouts
+from kserve.models.v1alpha1_cluster_serving_runtime_list import (
+    V1alpha1ClusterServingRuntimeList,
+)
+from kserve.models.v1alpha1_cluster_storage_container import (
+    V1alpha1ClusterStorageContainer,
+)
+from kserve.models.v1alpha1_cluster_storage_container_list import (
+    V1alpha1ClusterStorageContainerList,
+)
+from kserve.models.v1alpha1_inferece_graph_router_timeouts import (
+    V1alpha1InfereceGraphRouterTimeouts,
+)
 from kserve.models.v1alpha1_inference_graph import V1alpha1InferenceGraph
 from kserve.models.v1alpha1_inference_graph_list import V1alpha1InferenceGraphList
 from kserve.models.v1alpha1_inference_graph_spec import V1alpha1InferenceGraphSpec
@@ -42,22 +50,34 @@ from kserve.models.v1alpha1_inference_router import V1alpha1InferenceRouter
 from kserve.models.v1alpha1_inference_step import V1alpha1InferenceStep
 from kserve.models.v1alpha1_inference_target import V1alpha1InferenceTarget
 from kserve.models.v1alpha1_llm_inference_service import V1alpha1LLMInferenceService
-from kserve.models.v1alpha1_llm_inference_service_config import V1alpha1LLMInferenceServiceConfig
-from kserve.models.v1alpha1_llm_inference_service_config_list import V1alpha1LLMInferenceServiceConfigList
-from kserve.models.v1alpha1_llm_inference_service_list import V1alpha1LLMInferenceServiceList
+from kserve.models.v1alpha1_llm_inference_service_config import (
+    V1alpha1LLMInferenceServiceConfig,
+)
+from kserve.models.v1alpha1_llm_inference_service_config_list import (
+    V1alpha1LLMInferenceServiceConfigList,
+)
+from kserve.models.v1alpha1_llm_inference_service_list import (
+    V1alpha1LLMInferenceServiceList,
+)
 from kserve.models.v1alpha1_local_model_cache import V1alpha1LocalModelCache
 from kserve.models.v1alpha1_local_model_cache_list import V1alpha1LocalModelCacheList
 from kserve.models.v1alpha1_local_model_cache_spec import V1alpha1LocalModelCacheSpec
 from kserve.models.v1alpha1_local_model_node import V1alpha1LocalModelNode
 from kserve.models.v1alpha1_local_model_node_group import V1alpha1LocalModelNodeGroup
-from kserve.models.v1alpha1_local_model_node_group_list import V1alpha1LocalModelNodeGroupList
-from kserve.models.v1alpha1_local_model_node_group_spec import V1alpha1LocalModelNodeGroupSpec
+from kserve.models.v1alpha1_local_model_node_group_list import (
+    V1alpha1LocalModelNodeGroupList,
+)
+from kserve.models.v1alpha1_local_model_node_group_spec import (
+    V1alpha1LocalModelNodeGroupSpec,
+)
 from kserve.models.v1alpha1_local_model_node_list import V1alpha1LocalModelNodeList
 from kserve.models.v1alpha1_local_model_node_spec import V1alpha1LocalModelNodeSpec
 from kserve.models.v1alpha1_model_spec import V1alpha1ModelSpec
 from kserve.models.v1alpha1_serving_runtime import V1alpha1ServingRuntime
 from kserve.models.v1alpha1_serving_runtime_list import V1alpha1ServingRuntimeList
-from kserve.models.v1alpha1_serving_runtime_pod_spec import V1alpha1ServingRuntimePodSpec
+from kserve.models.v1alpha1_serving_runtime_pod_spec import (
+    V1alpha1ServingRuntimePodSpec,
+)
 from kserve.models.v1alpha1_serving_runtime_spec import V1alpha1ServingRuntimeSpec
 from kserve.models.v1alpha1_storage_container_spec import V1alpha1StorageContainerSpec
 from kserve.models.v1alpha1_storage_helper import V1alpha1StorageHelper
@@ -77,21 +97,29 @@ from kserve.models.v1beta1_custom_explainer import V1beta1CustomExplainer
 from kserve.models.v1beta1_custom_predictor import V1beta1CustomPredictor
 from kserve.models.v1beta1_custom_transformer import V1beta1CustomTransformer
 from kserve.models.v1beta1_deploy_config import V1beta1DeployConfig
-from kserve.models.v1beta1_deployment_rollout_strategy import V1beta1DeploymentRolloutStrategy
+from kserve.models.v1beta1_deployment_rollout_strategy import (
+    V1beta1DeploymentRolloutStrategy,
+)
 from kserve.models.v1beta1_explainer_config import V1beta1ExplainerConfig
 from kserve.models.v1beta1_explainer_extension_spec import V1beta1ExplainerExtensionSpec
 from kserve.models.v1beta1_explainer_spec import V1beta1ExplainerSpec
 from kserve.models.v1beta1_explainers_config import V1beta1ExplainersConfig
-from kserve.models.v1beta1_ext_metric_authentication import V1beta1ExtMetricAuthentication
+from kserve.models.v1beta1_ext_metric_authentication import (
+    V1beta1ExtMetricAuthentication,
+)
 from kserve.models.v1beta1_external_metric_source import V1beta1ExternalMetricSource
 from kserve.models.v1beta1_external_metrics import V1beta1ExternalMetrics
 from kserve.models.v1beta1_failure_info import V1beta1FailureInfo
-from kserve.models.v1beta1_hugging_face_runtime_spec import V1beta1HuggingFaceRuntimeSpec
+from kserve.models.v1beta1_hugging_face_runtime_spec import (
+    V1beta1HuggingFaceRuntimeSpec,
+)
 from kserve.models.v1beta1_inference_service import V1beta1InferenceService
 from kserve.models.v1beta1_inference_service_list import V1beta1InferenceServiceList
 from kserve.models.v1beta1_inference_service_spec import V1beta1InferenceServiceSpec
 from kserve.models.v1beta1_inference_service_status import V1beta1InferenceServiceStatus
-from kserve.models.v1beta1_inference_services_config import V1beta1InferenceServicesConfig
+from kserve.models.v1beta1_inference_services_config import (
+    V1beta1InferenceServicesConfig,
+)
 from kserve.models.v1beta1_ingress_config import V1beta1IngressConfig
 from kserve.models.v1beta1_light_gbm_spec import V1beta1LightGBMSpec
 from kserve.models.v1beta1_local_model_config import V1beta1LocalModelConfig
