@@ -12,7 +12,7 @@ dependencies = [
     "pandas<3.0.0,>=2.2.0",
 ]
 name = "sklearnserver"
-version = "0.15.2"
+version = "0.16.0rc0"
 description = "Model Server implementation for scikit-learn. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 
