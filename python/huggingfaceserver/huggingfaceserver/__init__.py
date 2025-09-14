@@ -13,8 +13,25 @@
 # limitations under the License.
 
 from enum import Enum, auto as auto_value
-from .encoder_model import HuggingfaceEncoderModel
-from .generative_model import HuggingfaceGenerativeModel
+from . import utils as utils
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .encoder_model import HuggingfaceEncoderModel
+    from .generative_model import HuggingfaceGenerativeModel
+
+
+def __getattr__(name: str):
+    if name == "HuggingfaceEncoderModel":
+        from .encoder_model import HuggingfaceEncoderModel
+
+        return HuggingfaceEncoderModel
+    if name == "HuggingfaceGenerativeModel":
+        from .generative_model import HuggingfaceGenerativeModel
+
+        return HuggingfaceGenerativeModel
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class Backend(str, Enum):
@@ -28,6 +45,8 @@ class Backend(str, Enum):
 
 
 __all__ = [
-    "HuggingfaceGenerativeModel",
+    "Backend",
+    "utils",
     "HuggingfaceEncoderModel",
+    "HuggingfaceGenerativeModel",
 ]

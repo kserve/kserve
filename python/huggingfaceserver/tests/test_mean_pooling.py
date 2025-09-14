@@ -1,8 +1,7 @@
 import sys
 import types
-import pathlib
-import importlib.util
 import pytest
+from huggingfaceserver import utils
 
 torch = pytest.importorskip("torch", reason="torch not installed")
 
@@ -24,8 +23,6 @@ if "kserve.logging" not in sys.modules:
     kserve_logging.logger = _DummyLogger()
     sys.modules["kserve"] = kserve_pkg
     sys.modules["kserve.logging"] = kserve_logging
-
-from huggingfaceserver import utils
 
 
 def test_mean_pooling_none_mask_cpu():
