@@ -168,10 +168,15 @@ def get_min_sliding_window(sliding_window: Union[int, List[Optional[int]]]) -> i
 
 
 def _mean_pooling(outputs, attention_mask: "torch.Tensor|None") -> "torch.Tensor":
-    # Get last_hidden_state: [batch, seq_len, hidden]
-    token_embeddings = (
-        outputs[0] if isinstance(outputs, (tuple, list)) else outputs.last_hidden_state
-    )
+    # Get token embeddings: [batch, seq_len, hidden]
+    if isinstance(outputs, torch.Tensor):
+        token_embeddings = outputs
+    elif hasattr(outputs, "last_hidden_state"):
+        token_embeddings = outputs.last_hidden_state
+    elif isinstance(outputs, (tuple, list)):
+        token_embeddings = outputs[0]
+    else:
+        raise TypeError(f"Unsupported outputs type for mean pooling: {type(outputs)}")
 
     # If no attention_mask is provided, default to all ones (same device & dtype)
     if attention_mask is None:
