@@ -4,6 +4,10 @@ kind: ClusterRole
 metadata:
   name: llmisvc-manager-role
 rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
 - apiGroups:
   - ""
   resources:
@@ -84,18 +88,6 @@ rules:
   - leaderworkerset.x-k8s.io
   resources:
   - leaderworkersets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - networking.istio.io
-  resources:
-  - destinationrules
   verbs:
   - create
   - delete

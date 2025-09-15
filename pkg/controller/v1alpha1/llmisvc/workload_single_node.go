@@ -18,8 +18,9 @@ package llmisvc
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"maps"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -27,34 +28,34 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/types"
 )
 
-func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *types.StorageInitializerConfig) error {
+func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, config *Config) error {
 	log.FromContext(ctx).Info("Reconciling single-node workload")
 
-	if err := r.reconcileSingleNodeMainServiceAccount(ctx, llmSvc, storageConfig); err != nil {
+	if err := r.reconcileSingleNodeMainServiceAccount(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile service account: %w", err)
 	}
 
-	if err := r.reconcileSingleNodeMainWorkload(ctx, llmSvc, storageConfig); err != nil {
+	if err := r.reconcileSingleNodeMainWorkload(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile main workload: %w", err)
 	}
 
-	if err := r.reconcileSingleNodePrefill(ctx, llmSvc); err != nil {
+	if err := r.reconcileSingleNodePrefill(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile prefill workload: %w", err)
 	}
 	return nil
 }
 
-func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *types.StorageInitializerConfig) error {
-	expected, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, storageConfig)
+func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, config *Config) error {
+	expected, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, config)
 	if err != nil {
 		return fmt.Errorf("failed to get expected main deployment: %w", err)
 	}
@@ -67,11 +68,7 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context,
 	return r.propagateDeploymentStatus(ctx, expected, llmSvc.MarkMainWorkloadReady, llmSvc.MarkMainWorkloadNotReady)
 }
 
-func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *types.StorageInitializerConfig) (*appsv1.Deployment, error) {
-	if llmSvc.Spec.Template == nil {
-		return nil, errors.New("llmSvc.Spec.Template must not be nil")
-	}
-
+func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
 	role := "decode"
 	if llmSvc.Spec.Prefill == nil {
 		role = "both"
@@ -103,34 +100,44 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		},
 	}
 
-	d.Spec.Template.Spec = *llmSvc.Spec.Template.DeepCopy()
-	if hasRoutingSidecar(d.Spec.Template.Spec) {
-		log.FromContext(ctx).Info("Main container has a routing sidecar")
+	if llmSvc.Spec.Template != nil {
+		d.Spec.Template.Spec = *llmSvc.Spec.Template.DeepCopy()
+		if hasRoutingSidecar(d.Spec.Template.Spec) {
+			log.FromContext(ctx).Info("Main container has a routing sidecar")
 
-		serviceAccount := r.expectedSingleNodeMainServiceAccount(llmSvc)
-		d.Spec.Template.Spec.ServiceAccountName = serviceAccount.GetName()
-		s := routingSidecar(&d.Spec.Template.Spec)
-		if llmSvc.Spec.Router != nil {
-			s.Env = append(s.Env, corev1.EnvVar{
-				Name:      "INFERENCE_POOL_NAME",
-				Value:     llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc),
-				ValueFrom: nil,
-			})
+			serviceAccount, err := r.expectedSingleNodeMainServiceAccount(ctx, llmSvc)
+			if err != nil {
+				return nil, fmt.Errorf("failed to created expected single node service account: %w", err)
+			}
+			d.Spec.Template.Spec.ServiceAccountName = serviceAccount.GetName()
+			s := routingSidecar(&d.Spec.Template.Spec)
+			if llmSvc.Spec.Router != nil {
+				s.Env = append(s.Env, corev1.EnvVar{
+					Name:      "INFERENCE_POOL_NAME",
+					Value:     llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc),
+					ValueFrom: nil,
+				})
+			}
+		}
+
+		if err := r.attachModelArtifacts(ctx, llmSvc, &d.Spec.Template.Spec, config); err != nil {
+			return nil, fmt.Errorf("failed to attach model artifacts to main deployment: %w", err)
 		}
 	}
 
-	if err := r.attachModelArtifacts(llmSvc, &d.Spec.Template.Spec, storageConfig); err != nil {
-		return nil, fmt.Errorf("failed to attach model artifacts to main deployment: %w", err)
-	}
+	r.propagateDeploymentMetadata(llmSvc, d)
 
 	log.FromContext(ctx).V(2).Info("Expected main deployment", "deployment", d)
 
 	return d, nil
 }
 
-func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
-	prefill := r.expectedPrefillMainDeployment(ctx, llmSvc)
-	if llmSvc.Spec.Prefill == nil {
+func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, config *Config) error {
+	prefill, err := r.expectedPrefillMainDeployment(ctx, llmSvc, config)
+	if err != nil {
+		return fmt.Errorf("failed to get expected prefill deployment: %w", err)
+	}
+	if llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker != nil {
 		if err := Delete(ctx, r, llmSvc, prefill); err != nil {
 			return fmt.Errorf("failed to delete prefill main deployment: %w", err)
 		}
@@ -142,7 +149,7 @@ func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmS
 	return r.propagateDeploymentStatus(ctx, prefill, llmSvc.MarkPrefillWorkloadReady, llmSvc.MarkPrefillWorkloadNotReady)
 }
 
-func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *appsv1.Deployment {
+func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
 	labels := map[string]string{
 		"app.kubernetes.io/component": "llminferenceservice-workload-prefill",
 		"app.kubernetes.io/name":      llmSvc.GetName(),
@@ -174,15 +181,42 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 				},
 			},
 		}
+	}
 
-		if llmSvc.Spec.Prefill.Template != nil {
-			d.Spec.Template.Spec = *llmSvc.Spec.Prefill.Template.DeepCopy()
+	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil {
+		d.Spec.Template.Spec = *llmSvc.Spec.Prefill.Template.DeepCopy()
+
+		if err := r.attachModelArtifacts(ctx, llmSvc, &d.Spec.Template.Spec, config); err != nil {
+			return nil, fmt.Errorf("failed to attach model artifacts to prefill deployment: %w", err)
 		}
 	}
 
+	r.propagateDeploymentMetadata(llmSvc, d)
+
 	log.FromContext(ctx).V(2).Info("Expected prefill deployment", "deployment", d)
 
-	return d
+	return d, nil
+}
+
+func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha1.LLMInferenceService, expected *appsv1.Deployment) {
+	ann := make(map[string]string, len(expected.Annotations))
+	for k, v := range llmSvc.GetAnnotations() {
+		if strings.HasPrefix(k, "k8s.v1.cni.cncf.io") {
+			ann[k] = v
+			if expected.Annotations == nil {
+				expected.Annotations = make(map[string]string, 1)
+			}
+			expected.Annotations[k] = v
+		}
+	}
+
+	if expected.Spec.Template.Annotations == nil {
+		expected.Spec.Template.Annotations = ann
+	} else {
+		for k, v := range ann {
+			expected.Spec.Template.Annotations[k] = v
+		}
+	}
 }
 
 func (r *LLMISVCReconciler) propagateDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
@@ -203,24 +237,29 @@ func (r *LLMISVCReconciler) propagateDeploymentStatus(ctx context.Context, expec
 			return nil
 		}
 	}
-
 	notReady(string(appsv1.DeploymentProgressing), "")
 	return nil
 }
 
 func semanticDeploymentIsEqual(expected *appsv1.Deployment, curr *appsv1.Deployment) bool {
-	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
+	// Use DeepEqual for the Pod Spec so that when fields are removed (like resource requirements, we push them down to the
+	// child resource)
+	return equality.Semantic.DeepEqual(expected.Spec.Template.Spec, curr.Spec.Template.Spec) &&
+		equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }
 
-func (r *LLMISVCReconciler) reconcileSingleNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *types.StorageInitializerConfig) error {
-	expectedDeployment, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, storageConfig)
+func (r *LLMISVCReconciler) reconcileSingleNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, config *Config) error {
+	expectedDeployment, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, config)
 	if err != nil {
 		return fmt.Errorf("failed to get expected main deployment: %w", err)
 	}
 
-	serviceAccount := r.expectedSingleNodeMainServiceAccount(llmSvc)
+	serviceAccount, err := r.expectedSingleNodeMainServiceAccount(ctx, llmSvc)
+	if err != nil {
+		return fmt.Errorf("failed to created expected single node service account: %w", err)
+	}
 	if !hasRoutingSidecar(expectedDeployment.Spec.Template.Spec) {
 		return Delete(ctx, r, llmSvc, serviceAccount)
 	}
@@ -229,15 +268,15 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainServiceAccount(ctx context.Co
 		return fmt.Errorf("failed to reconcile single node service account %s/%s: %w", serviceAccount.GetNamespace(), serviceAccount.GetName(), err)
 	}
 
-	if err := r.reconcileSingleNodeMainRole(ctx, llmSvc, storageConfig); err != nil {
+	if err := r.reconcileSingleNodeMainRole(ctx, llmSvc, config); err != nil {
 		return err
 	}
 
-	return r.reconcileSingleNodeMainRoleBinding(ctx, llmSvc, serviceAccount, storageConfig)
+	return r.reconcileSingleNodeMainRoleBinding(ctx, llmSvc, serviceAccount, config)
 }
 
-func (r *LLMISVCReconciler) reconcileSingleNodeMainRole(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, storageConfig *types.StorageInitializerConfig) error {
-	expectedDeployment, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, storageConfig)
+func (r *LLMISVCReconciler) reconcileSingleNodeMainRole(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, config *Config) error {
+	expectedDeployment, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, config)
 	if err != nil {
 		return fmt.Errorf("failed to get expected main deployment: %w", err)
 	}
@@ -254,8 +293,8 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainRole(ctx context.Context, llm
 	return nil
 }
 
-func (r *LLMISVCReconciler) reconcileSingleNodeMainRoleBinding(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount, storageConfig *types.StorageInitializerConfig) error {
-	expectedDeployment, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, storageConfig)
+func (r *LLMISVCReconciler) reconcileSingleNodeMainRoleBinding(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, sa *corev1.ServiceAccount, config *Config) error {
+	expectedDeployment, err := r.expectedSingleNodeMainDeployment(ctx, llmSvc, config)
 	if err != nil {
 		return fmt.Errorf("failed to get expected main deployment: %w", err)
 	}
@@ -272,17 +311,36 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainRoleBinding(ctx context.Conte
 	return nil
 }
 
-func (r *LLMISVCReconciler) expectedSingleNodeMainServiceAccount(llmSvc *v1alpha1.LLMInferenceService) *corev1.ServiceAccount {
-	return &corev1.ServiceAccount{
+func (r *LLMISVCReconciler) expectedSingleNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) (*corev1.ServiceAccount, error) {
+	expectedServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve"),
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha1.LLMInferenceServiceGVK),
 			},
-			Labels: r.singleNodeLabels(llmSvc),
 		},
 	}
+
+	if llmSvc.Spec.Template != nil && llmSvc.Spec.Template.ServiceAccountName != "" {
+		existingServiceAccount := &corev1.ServiceAccount{}
+		err := r.Client.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch existing single node service account %s/%s: %w", llmSvc.Spec.Template.ServiceAccountName, llmSvc.Namespace, err)
+		}
+		expectedServiceAccount.Annotations = existingServiceAccount.Annotations
+		expectedServiceAccount.Labels = existingServiceAccount.Labels
+		expectedServiceAccount.Secrets = existingServiceAccount.Secrets
+		expectedServiceAccount.ImagePullSecrets = existingServiceAccount.ImagePullSecrets
+		expectedServiceAccount.AutomountServiceAccountToken = existingServiceAccount.AutomountServiceAccountToken
+	}
+
+	if expectedServiceAccount.Labels == nil {
+		expectedServiceAccount.Labels = make(map[string]string)
+	}
+	maps.Copy(expectedServiceAccount.Labels, r.singleNodeLabels(llmSvc))
+
+	return expectedServiceAccount, nil
 }
 
 func (r *LLMISVCReconciler) expectedSingleNodeRole(llmSvc *v1alpha1.LLMInferenceService) *rbacv1.Role {
