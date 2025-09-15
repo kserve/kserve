@@ -150,9 +150,39 @@ func WithPrefillParallelism(parallelism *v1alpha1.ParallelismSpec) LLMInferenceS
 	}
 }
 
+func WithReplicas(replicas int32) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha1.LLMInferenceService) {
+		llmSvc.Spec.Replicas = &replicas
+	}
+}
+
+func WithPrefillReplicas(replicas int32) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha1.LLMInferenceService) {
+		if llmSvc.Spec.Prefill == nil {
+			llmSvc.Spec.Prefill = &v1alpha1.WorkloadSpec{}
+		}
+		llmSvc.Spec.Prefill.Replicas = &replicas
+	}
+}
+
+func WithTemplate(podSpec *corev1.PodSpec) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha1.LLMInferenceService) {
+		llmSvc.Spec.Template = podSpec
+	}
+}
+
 func WithWorker(worker *corev1.PodSpec) LLMInferenceServiceOption {
 	return func(llmSvc *v1alpha1.LLMInferenceService) {
 		llmSvc.Spec.Worker = worker
+	}
+}
+
+func WithPrefill(pod *corev1.PodSpec) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha1.LLMInferenceService) {
+		if llmSvc.Spec.Prefill == nil {
+			llmSvc.Spec.Prefill = &v1alpha1.WorkloadSpec{}
+		}
+		llmSvc.Spec.Prefill.Template = pod
 	}
 }
 
@@ -173,6 +203,12 @@ func ParallelismSpec(opts ...func(*v1alpha1.ParallelismSpec)) *v1alpha1.Parallel
 	return p
 }
 
+func WithTensorParallelism(tensor int32) func(*v1alpha1.ParallelismSpec) {
+	return func(p *v1alpha1.ParallelismSpec) {
+		p.Tensor = &tensor
+	}
+}
+
 func WithPipelineParallelism(pipeline int32) func(*v1alpha1.ParallelismSpec) {
 	return func(p *v1alpha1.ParallelismSpec) {
 		p.Pipeline = &pipeline
@@ -191,11 +227,42 @@ func WithDataLocalParallelism(dataLocal int32) func(*v1alpha1.ParallelismSpec) {
 	}
 }
 
+func WithDataRPCPort(rpcPort int32) func(*v1alpha1.ParallelismSpec) {
+	return func(p *v1alpha1.ParallelismSpec) {
+		p.DataRPCPort = &rpcPort
+	}
+}
+
+func WithManagedScheduler() LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha1.LLMInferenceService) {
+		if llmSvc.Spec.Router == nil {
+			llmSvc.Spec.Router = &v1alpha1.RouterSpec{}
+		}
+		llmSvc.Spec.Router.Scheduler = &v1alpha1.SchedulerSpec{}
+	}
+}
+
+func WithInferencePoolRef(poolName string) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha1.LLMInferenceService) {
+		if llmSvc.Spec.Router == nil {
+			llmSvc.Spec.Router = &v1alpha1.RouterSpec{}
+		}
+		if llmSvc.Spec.Router.Scheduler == nil {
+			llmSvc.Spec.Router.Scheduler = &v1alpha1.SchedulerSpec{}
+		}
+		llmSvc.Spec.Router.Scheduler.Pool = &v1alpha1.InferencePoolSpec{
+			Ref: &corev1.LocalObjectReference{
+				Name: poolName,
+			},
+		}
+	}
+}
+
 func SimpleWorkerPodSpec() *corev1.PodSpec {
 	return &corev1.PodSpec{
 		Containers: []corev1.Container{
 			{
-				Name:  "worker",
+				Name:  "main",
 				Image: "test-worker:latest",
 			},
 		},

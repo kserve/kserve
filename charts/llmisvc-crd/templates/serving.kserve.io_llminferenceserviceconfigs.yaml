@@ -76,20 +76,26 @@ spec:
                   properties:
                     data:
                       format: int32
+                      minimum: 1
                       type: integer
                     dataLocal:
                       format: int32
+                      minimum: 1
                       type: integer
                     dataRPCPort:
                       format: int32
+                      maximum: 65535
+                      minimum: 1
                       type: integer
                     expert:
                       type: boolean
                     pipeline:
                       format: int32
+                      minimum: 1
                       type: integer
                     tensor:
                       format: int32
+                      minimum: 1
                       type: integer
                   type: object
                 prefill:
@@ -98,24 +104,31 @@ spec:
                       properties:
                         data:
                           format: int32
+                          minimum: 1
                           type: integer
                         dataLocal:
                           format: int32
+                          minimum: 1
                           type: integer
                         dataRPCPort:
                           format: int32
+                          maximum: 65535
+                          minimum: 1
                           type: integer
                         expert:
                           type: boolean
                         pipeline:
                           format: int32
+                          minimum: 1
                           type: integer
                         tensor:
                           format: int32
+                          minimum: 1
                           type: integer
                       type: object
                     replicas:
                       format: int32
+                      minimum: 0
                       type: integer
                     template:
                       properties:
@@ -3743,8 +3756,6 @@ spec:
                           x-kubernetes-list-map-keys:
                             - name
                           x-kubernetes-list-type: map
-                      required:
-                        - containers
                       type: object
                     worker:
                       properties:
@@ -7372,12 +7383,11 @@ spec:
                           x-kubernetes-list-map-keys:
                             - name
                           x-kubernetes-list-type: map
-                      required:
-                        - containers
                       type: object
                   type: object
                 replicas:
                   format: int32
+                  minimum: 0
                   type: integer
                 router:
                   properties:
@@ -12014,8 +12024,6 @@ spec:
                               x-kubernetes-list-map-keys:
                                 - name
                               x-kubernetes-list-type: map
-                          required:
-                            - containers
                           type: object
                       type: object
                   type: object
@@ -15645,8 +15653,6 @@ spec:
                       x-kubernetes-list-map-keys:
                         - name
                       x-kubernetes-list-type: map
-                  required:
-                    - containers
                   type: object
                 worker:
                   properties:
@@ -19274,8 +19280,6 @@ spec:
                       x-kubernetes-list-map-keys:
                         - name
                       x-kubernetes-list-type: map
-                  required:
-                    - containers
                   type: object
               type: object
           type: object
