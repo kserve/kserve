@@ -337,8 +337,15 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			// validate the storage initializer credentials are properly set
 			expectedEnvVars := []corev1.EnvVar{
 				{
-					Name:  hf.HFTokenKey,
-					Value: hfTokenValue,
+					Name: hf.HFTokenKey,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: secretName,
+							},
+							Key: "HF_TOKEN",
+						},
+					},
 				},
 			}
 			validateStorageInitializerCredentials(expectedMainDeployment, expectedEnvVars)
@@ -601,6 +608,13 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				},
 			}
 			Expect(envTest.Client.Create(ctx, serviceAccount)).To(Succeed())
+			expectedServiceAccount := &corev1.ServiceAccount{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      serviceAccountName,
+					Namespace: nsName,
+				}, expectedServiceAccount)
+			}).WithContext(ctx).Should(Succeed())
 
 			modelURL, err := apis.ParseURL("s3://bucket/model")
 			Expect(err).ToNot(HaveOccurred())
@@ -684,15 +698,6 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			}
 			validateStorageInitializerCredentials(expectedMainDeployment, expectedEnvVars)
 			validateStorageInitializerCredentials(expectedPrefillDeployment, expectedEnvVars)
-
-			// retrieve the created service account
-			expectedServiceAccount := &corev1.ServiceAccount{}
-			Eventually(func(g Gomega, ctx context.Context) error {
-				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve",
-					Namespace: nsName,
-				}, expectedServiceAccount)
-			}).WithContext(ctx).Should(Succeed())
 
 			// validate the role-arn annotation was properly propagated to the created service account
 			Expect(expectedServiceAccount.Annotations[credentials.AwsIrsaAnnotationKey]).To(BeEquivalentTo(s3IamRole))
@@ -935,7 +940,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			validateStorageInitializerIsConfiguredForLWS(expectedPrefillLWS, "hf://user-id/repo-id:tag")
 		})
 
-		It("should use storage-initializer and set proper env variables when uri starts with hf:// and credentials are configured", func(ctx SpecContext) {
+		It("multi node should use storage-initializer and set proper env variables when uri starts with hf:// and credentials are configured", func(ctx SpecContext) {
 			// setup test dependencies
 			svcName := "test-llm-storage-hf-mn-with-credentials"
 			nsName := kmeta.ChildName(svcName, "-test")
@@ -977,6 +982,13 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				},
 			}
 			Expect(envTest.Client.Create(ctx, serviceAccount)).To(Succeed())
+			expectedServiceAccount := &corev1.ServiceAccount{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      serviceAccountName,
+					Namespace: nsName,
+				}, expectedServiceAccount)
+			}).WithContext(ctx).Should(Succeed())
 
 			modelURL, err := apis.ParseURL("hf://user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
@@ -1056,8 +1068,15 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			// validate the storage initializer credentials in the leader worker sets
 			expectedEnvVars := []corev1.EnvVar{
 				{
-					Name:  hf.HFTokenKey,
-					Value: hfTokenValue,
+					Name: hf.HFTokenKey,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: secretName,
+							},
+							Key: "HF_TOKEN",
+						},
+					},
 				},
 			}
 			validateStorageInitializerCredentialsForLWS(expectedMainLWS, expectedEnvVars)
@@ -1195,6 +1214,13 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				},
 			}
 			Expect(envTest.Client.Create(ctx, serviceAccount)).To(Succeed())
+			expectedServiceAccount := &corev1.ServiceAccount{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      serviceAccountName,
+					Namespace: nsName,
+				}, expectedServiceAccount)
+			}).WithContext(ctx).Should(Succeed())
 
 			modelURL, err := apis.ParseURL("s3://bucket/model")
 			Expect(err).ToNot(HaveOccurred())
@@ -1355,6 +1381,13 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				},
 			}
 			Expect(envTest.Client.Create(ctx, serviceAccount)).To(Succeed())
+			expectedServiceAccount := &corev1.ServiceAccount{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      serviceAccountName,
+					Namespace: nsName,
+				}, expectedServiceAccount)
+			}).WithContext(ctx).Should(Succeed())
 
 			modelURL, err := apis.ParseURL("s3://bucket/model")
 			Expect(err).ToNot(HaveOccurred())
