@@ -53,8 +53,8 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 ARG TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
 ARG IPEX_EXTRA_INDEX_URL="https://pytorch-extension.intel.com/release-whl/stable/cpu/us/"
-ARG TORCH_VERSION=2.7.0
-ARG INTEL_EXTENSION_FOR_PYTORCH_VERSION=2.7.0
+ARG TORCH_VERSION=2.8.0
+ARG INTEL_EXTENSION_FOR_PYTORCH_VERSION=2.8.0
 ARG TORCHVISION_VERSION=0.22.0
 
 # Install kserve using UV
