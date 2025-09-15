@@ -277,6 +277,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 	} else {
 		// Inject service account credentials if storage spec doesn't exist
 		if err := mi.credentialBuilder.CreateSecretVolumeAndEnv(
+			context.TODO(),
 			pod.Namespace,
 			pod.Annotations,
 			pod.Spec.ServiceAccountName,
