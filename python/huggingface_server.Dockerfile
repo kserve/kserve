@@ -107,7 +107,7 @@ RUN --mount=type=cache,target=/root/.cache/pip bash - <<'BASH'
           # Install with no-build-isolation since we already built AOT kernels
           TORCH_CUDA_ARCH_LIST="${FLASHINFER_CUDA_ARCH_LIST}" \
               pip install --system --no-build-isolation . \
-              --extra-index-url ${PYTORCH_CUDA_INDEX_BASE_URL}/cu$(echo $CUDA_VERSION | cut -d. -f1,2 | tr -d '.')
+              --extra-index-url https://download.pytorch.org/whl/cu$(echo $CUDA_VERSION | cut -d. -f1,2 | tr -d '.')
           # Download pre-compiled cubins
           TORCH_CUDA_ARCH_LIST="${FLASHINFER_CUDA_ARCH_LIST}" \
               python3 -m flashinfer --download-cubin || echo "WARNING: Failed to download flashinfer cubins."
