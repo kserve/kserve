@@ -52,11 +52,11 @@ WORKDIR ${WORKSPACE_DIR}
 FROM base AS build
 
 ARG WORKSPACE_DIR
-ARG VLLM_VERSION=0.9.2
-ARG LMCACHE_VERSION=0.3.0
-ARG FLASHINFER_VERSION=0.2.6.post1
-# Need a separate CUDA arch list for flashinfer because '7.0' is not supported by flashinfer
-ARG FLASHINFER_CUDA_ARCH_LIST="7.5 8.0 8.6 8.9 9.0+PTX"
+ARG VLLM_VERSION=0.10.1.1
+ARG LMCACHE_VERSION=0.3.5
+ARG FLASHINFER_VERSION=0.3.0
+ARG FLASHINFER_CUDA_ARCH_LIST="7.5 8.0 8.9 9.0a 10.0a 12.0"
+ARG FLASHINFER_AOT_COMPILE=false
 
 WORKDIR ${WORKSPACE_DIR}
 
@@ -96,18 +96,29 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install lmcache==${LMCACHE_VE
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install flashinfer
-RUN --mount=type=cache,target=/root/.cache/pip \
-  # FlashInfer already has a wheel for PyTorch 2.7.0 and CUDA 12.8.
-  if [[ "$CUDA_VERSION" == 12.8* ]]; then \
-    pip install https://download.pytorch.org/whl/cu128/flashinfer/flashinfer_python-${FLASHINFER_VERSION}%2Bcu128torch2.7-cp39-abi3-linux_x86_64.whl; \
-  else \
-    export TORCH_CUDA_ARCH_LIST="${FLASHINFER_CUDA_ARCH_LIST}" && \
-    git clone --branch v${FLASHINFER_VERSION} --recursive https://github.com/flashinfer-ai/flashinfer.git && \
-    cd flashinfer && \
-    python3 -m flashinfer.aot && \
-    pip install --no-build-isolation . && \
-    cd .. && rm -rf flashinfer; \
-  fi
+RUN --mount=type=cache,target=/root/.cache/pip bash - <<'BASH'
+  set -euo pipefail
+  git clone --depth 1 --recursive --shallow-submodules \
+      --branch v${FLASHINFER_VERSION} \
+      https://github.com/flashinfer-ai/flashinfer.git flashinfer
+  pushd flashinfer
+      if [ "${FLASHINFER_AOT_COMPILE}" = "true" ]; then
+          TORCH_CUDA_ARCH_LIST="${FLASHINFER_CUDA_ARCH_LIST}" python3 -m flashinfer.aot
+          # Install with no-build-isolation since we already built AOT kernels
+          TORCH_CUDA_ARCH_LIST="${FLASHINFER_CUDA_ARCH_LIST}" \
+              pip install --system --no-build-isolation . \
+              --extra-index-url ${PYTORCH_CUDA_INDEX_BASE_URL}/cu$(echo $CUDA_VERSION | cut -d. -f1,2 | tr -d '.')
+          # Download pre-compiled cubins
+          TORCH_CUDA_ARCH_LIST="${FLASHINFER_CUDA_ARCH_LIST}" \
+              python3 -m flashinfer --download-cubin || echo "WARNING: Failed to download flashinfer cubins."
+      else
+          echo "Installing FlashInfer without AOT compilation in JIT mode"
+          pip install . \
+              --extra-index-url https://download.pytorch.org/whl/cu$(echo $CUDA_VERSION | cut -d. -f1,2 | tr -d '.')
+      fi
+  popd
+  rm -rf flashinfer
+BASH
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
