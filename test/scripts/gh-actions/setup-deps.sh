@@ -93,7 +93,8 @@ if [[ $DEPLOYMENT_MODE == "serverless" ]]; then
   echo "Installing Knative serving ..."
   kubectl apply -f ./test/overlays/knative/knative-serving-istio.yaml
   echo "Waiting for Knative to be ready ..."
-  kubectl wait --for=condition=Ready -n knative-serving KnativeServing knative-serving --timeout=500s
+  kubectl wait --for=condition=Ready -n knative-serving KnativeServing knative-serving --timeout=300s
+  kubectl describe KnativeServing knative-serving -n knative-serving
   # echo "Add knative hpa..."
   # kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-hpa.yaml
 fi
