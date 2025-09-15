@@ -116,6 +116,7 @@ data:
            "cpuLimit": "1",
            "enableDirectPvcVolumeMount": true,
            "enableModelcar": false,
+           "uidModelcar": 10,
            "cpuModelcar": "10m",
            "memoryModelcar": "15Mi"
        }
@@ -659,6 +660,7 @@ data:
         "caBundleConfigMapName": "{{ .Values.kserve.storage.caBundleConfigMapName }}",
         "caBundleVolumeMountPath": "{{ .Values.kserve.storage.caBundleVolumeMountPath }}",
         "enableModelcar": {{ .Values.kserve.storage.enableModelcar }},
+        "uidModelcar": {{ .Values.kserve.storage.uidModelcar }},
         "cpuModelcar": "{{ .Values.kserve.storage.cpuModelcar }}",
         "memoryModelcar": "{{ .Values.kserve.storage.memoryModelcar }}"
     }
