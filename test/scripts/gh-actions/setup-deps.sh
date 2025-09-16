@@ -58,6 +58,9 @@ if [[ $NETWORK_LAYER == "istio-ingress" || $NETWORK_LAYER == "istio-gatewayapi" 
 
   echo "Waiting for Istio to be ready ..."
   kubectl wait --for=condition=Ready pods --all --timeout=240s -n istio-system
+  
+  echo "Waiting for Istio Gateway CRD to be available ..."
+  kubectl wait --for=condition=Established crd/gateways.networking.istio.io --timeout=120s
 elif [[ $NETWORK_LAYER == "envoy-gatewayapi" ]]; then
   echo "Installing Envoy Gateway ..."
   helm install eg oci://docker.io/envoyproxy/gateway-helm --version ${ENVOY_GATEWAY_VERSION} -n envoy-gateway-system --create-namespace --wait
