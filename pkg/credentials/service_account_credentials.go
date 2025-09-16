@@ -169,16 +169,18 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 	}
 
 	if strings.HasPrefix(container.Args[0], UriSchemePlaceholder+"://") {
-		path := container.Args[0][len(UriSchemePlaceholder+"://"):]
+		for i := 0; i < len(container.Args); i += 2 {
+			path := container.Args[i][len(UriSchemePlaceholder+"://"):]
 
-		if utils.Includes(StorageBucketTypes, stype) {
-			if bucket == "" {
-				return fmt.Errorf(MissingBucket, stype)
+			if utils.Includes(StorageBucketTypes, stype) {
+				if bucket == "" {
+					return fmt.Errorf(MissingBucket, stype)
+				}
+
+				container.Args[i] = fmt.Sprintf("%s://%s/%s", stype, bucket, path)
+			} else {
+				container.Args[i] = fmt.Sprintf("%s://%s", stype, path)
 			}
-
-			container.Args[0] = fmt.Sprintf("%s://%s/%s", stype, bucket, path)
-		} else {
-			container.Args[0] = fmt.Sprintf("%s://%s", stype, path)
 		}
 	}
 

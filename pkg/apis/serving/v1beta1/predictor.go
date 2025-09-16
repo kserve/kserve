@@ -55,7 +55,7 @@ type PredictorSpec struct {
 	Model *ModelSpec `json:"model,omitempty"`
 
 	// Spec for multiple storage uris.
-	StorageUris []StorageUrisSpec `json:"storageUris,omitempty"`
+	StorageUris []StorageUri `json:"storageUris,omitempty"`
 
 	// WorkerSpec for enabling multi-node/multi-gpu
 	WorkerSpec *WorkerSpec `json:"workerSpec,omitempty"`
@@ -71,13 +71,16 @@ type PredictorSpec struct {
 	ComponentExtensionSpec `json:",inline"`
 }
 
-type StorageUrisSpec struct {
-    // +optional
-	Uri  string `json:"uri"`
+type StorageUri struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Uri string `json:"uri"`
 
 	// +kubebuilder:default="/mnt/models"
+	// +kubebuilder:validation:Pattern="^/.*"
+	// +kubebuilder:validation:MaxLength=255
 	// +optional
-    Path string `json:"path"`
+	Path string `json:"path"`
 }
 
 type WorkerSpec struct {

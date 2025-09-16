@@ -35,12 +35,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
-	"github.com/kserve/kserve/pkg/utils"
-	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/credentials"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
+	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
 
 var log = logf.Log.WithName("KsvcReconciler")
@@ -67,26 +69,33 @@ func NewKsvcReconciler(
 	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec,
 	disallowedLabelList []string,
-	storageUrisSpec *[]v1beta1.StorageUrisSpec,
-	storageConfig *kserveTypes.StorageInitializerConfig,
+	storageUrisSpec *[]v1beta1.StorageUri,
+	storageInitializerConfig *kserveTypes.StorageInitializerConfig,
+	storageSpec *v1beta1.StorageSpec,
+	credentialBuilder *credentials.CredentialBuilder,
+	storageContainerSpec *v1alpha1.StorageContainerSpec,
 ) *KsvcReconciler {
 	return &KsvcReconciler{
 		client:          client,
 		scheme:          scheme,
-		Service:         createKnativeService(componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList, storageUrisSpec, storageConfig),
+		Service:         createKnativeService(client, componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList, storageUrisSpec, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec),
 		componentExt:    componentExt,
 		componentStatus: componentStatus,
 	}
 }
 
 func createKnativeService(
+	client client.Client,
 	componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec,
 	disallowedLabelList []string,
-	storageUrisSpec *[]v1beta1.StorageUrisSpec,
-	storageConfig *kserveTypes.StorageInitializerConfig,
+	storageUris *[]v1beta1.StorageUri,
+	storageInitializerConfig *kserveTypes.StorageInitializerConfig,
+	storageSpec *v1beta1.StorageSpec,
+	credentialBuilder *credentials.CredentialBuilder,
+	storageContainerSpec *v1alpha1.StorageContainerSpec,
 ) *knservingv1.Service {
 	annotations := componentMeta.GetAnnotations()
 
@@ -98,10 +107,6 @@ func createKnativeService(
 		componentExtension.MaxReplicas,
 		log,
 	)
-
-	if storageUrisSpec != nil && len(*storageUrisSpec) > 0 {
-		isvcutils.SetupStorageInitialization(storageUrisSpec, podSpec, nil, storageConfig)
-	}
 
 	// ksvc metadata.annotations
 	// rollout-duration must be put under metadata.annotations
@@ -159,6 +164,34 @@ func createKnativeService(
 	labels := utils.Filter(componentMeta.Labels, func(key string) bool {
 		return !utils.Includes(disallowedLabelList, key)
 	})
+
+	if storageUris != nil && len(*storageUris) > 0 {
+		var isvcReadonlyStringFlag = true
+		isvcReadonlyString, ok := annotations[constants.StorageReadonlyAnnotationKey]
+		if ok {
+			if isvcReadonlyString == "false" {
+				isvcReadonlyStringFlag = false
+			}
+		}
+
+		storageInitializerParams := &pod.StorageInitializerParams{
+			Namespace:            componentMeta.Namespace,
+			StorageURIs:          *storageUris,
+			IsReadOnly:           isvcReadonlyStringFlag,
+			PodSpec:              podSpec,
+			CredentialBuilder:    credentialBuilder,
+			Client:               client,
+			Config:               storageInitializerConfig,
+			IsvcAnnotations:      annotations,
+			StorageSpec:          storageSpec,
+			StorageContainerSpec: storageContainerSpec,
+		}
+
+		err := pod.CommonStorageInitialization(storageInitializerParams)
+		if err != nil {
+			log.Error(err, "Failed to initialize storage init container")
+		}
+	}
 
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
@@ -27,9 +28,9 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/otel"
 	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
-	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
-    kserveTypes "github.com/kserve/kserve/pkg/types"
-	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/credentials"
+	kserveTypes "github.com/kserve/kserve/pkg/types"
+	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -64,13 +65,12 @@ func NewRawKubeReconciler(ctx context.Context,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
 	workerPodSpec *corev1.PodSpec,
-	storageUrisSpec *[]v1beta1.StorageUrisSpec,
-    storageConfig *kserveTypes.StorageInitializerConfig,
+	storageUris *[]v1beta1.StorageUri,
+	storageInitializerConfig *kserveTypes.StorageInitializerConfig,
+	storageSpec *v1beta1.StorageSpec,
+	credentialBuilder *credentials.CredentialBuilder,
+	storageContainerSpec *v1alpha1.StorageContainerSpec,
 ) (*RawKubeReconciler, error) {
-    if storageUrisSpec != nil && len(*storageUrisSpec) > 0 {
-		isvcutils.SetupStorageInitialization(storageUrisSpec, podSpec, workerPodSpec, storageConfig)
-        // TODO: Update Docker to take multiple args and download in parallel
-    }
 
 	var otelCollector *otel.OtelReconciler
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
@@ -123,6 +123,47 @@ func NewRawKubeReconciler(ctx context.Context,
 	serviceConfig, err1 := v1beta1.NewServiceConfig(isvcConfigMap)
 	if err1 != nil {
 		log.Error(err1, "failed to get service config")
+	}
+
+	if storageUris != nil && len(*storageUris) > 0 {
+		var isvcReadonlyStringFlag = true
+		isvcReadonlyString, ok := componentMeta.Annotations[constants.StorageReadonlyAnnotationKey]
+		if ok {
+			if isvcReadonlyString == "false" {
+				isvcReadonlyStringFlag = false
+			}
+		}
+
+		storageInitializerParams := &pod.StorageInitializerParams{
+			Namespace:            componentMeta.Namespace,
+			StorageURIs:          *storageUris,
+			IsReadOnly:           isvcReadonlyStringFlag,
+			PodSpec:              podSpec,
+			CredentialBuilder:    credentialBuilder,
+			Client:               client,
+			Config:               storageInitializerConfig,
+			IsvcAnnotations:      componentMeta.Annotations,
+			StorageSpec:          storageSpec,
+			StorageContainerSpec: storageContainerSpec,
+		}
+
+		pod.CommonStorageInitialization(storageInitializerParams)
+		
+		if workerPodSpec != nil {
+			workerStorageInitializerParams := &pod.StorageInitializerParams{
+				Namespace:            workerComponentMeta.Namespace,
+				StorageURIs:          *storageUris,
+				IsReadOnly:           isvcReadonlyStringFlag,
+				PodSpec:              workerPodSpec,
+				CredentialBuilder:    credentialBuilder,
+				Client:               client,
+				Config:               storageInitializerConfig,
+				IsvcAnnotations:      workerComponentMeta.Annotations,
+				StorageSpec:          storageSpec,
+				StorageContainerSpec: storageContainerSpec,
+			}
+			pod.CommonStorageInitialization(workerStorageInitializerParams)
+		}
 	}
 
 	deployment, err := deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)

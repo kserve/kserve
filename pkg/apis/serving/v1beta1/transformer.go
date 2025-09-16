@@ -28,7 +28,7 @@ type TransformerSpec struct {
 	ComponentExtensionSpec `json:",inline"`
 
 	// Spec for multiple storage uris.
-	StorageUris []StorageUrisSpec `json:"storageUris,omitempty"`
+	StorageUris []StorageUri `json:"storageUris,omitempty"`
 }
 
 // GetImplementations returns the implementations for the component

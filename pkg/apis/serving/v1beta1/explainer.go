@@ -37,7 +37,7 @@ type ExplainerSpec struct {
 	ComponentExtensionSpec `json:",inline"`
 
 	// Spec for multiple storage uris.
-	StorageUris []StorageUrisSpec `json:"storageUris,omitempty"`
+	StorageUris []StorageUri `json:"storageUris,omitempty"`
 }
 
 // ExplainerExtensionSpec defines configuration shared across all explainer frameworks
