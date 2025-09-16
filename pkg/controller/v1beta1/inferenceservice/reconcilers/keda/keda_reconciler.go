@@ -148,7 +148,7 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 
 				triggerType := string(metric.PodMetric.Metric.Backend)
 				query := metric.PodMetric.Metric.Query
-				targetValue := metric.PodMetric.Target.Value.String()
+				targetValue := fmt.Sprintf("%g", metric.PodMetric.Target.Value.AsApproximateFloat64())
 
 				trigger := kedav1alpha1.ScaleTriggers{
 					Metadata: map[string]string{},

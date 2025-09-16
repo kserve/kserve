@@ -655,6 +655,108 @@ func TestGetKedaMetrics_PodMetricSourceType_Success(t *testing.T) {
 	assert.Equal(t, "sum", trigger.Metadata["operationOverTime"])
 }
 
+func TestGetKedaMetrics_PodMetricSourceType_QuantityFormatConversion(t *testing.T) {
+	testCases := []struct {
+		name           string
+		inputValue     string
+		expectedOutput string
+		description    string
+	}{
+		{
+			name:           "Decimal format 0.9",
+			inputValue:     "0.9",
+			expectedOutput: "0.9",
+			description:    "Direct decimal input should preserve decimal format",
+		},
+		{
+			name:           "Decimal format 0.90",
+			inputValue:     "0.90",
+			expectedOutput: "0.9",
+			description:    "Decimal with trailing zero should normalize to 0.9",
+		},
+		{
+			name:           "Milli format 900m",
+			inputValue:     "900m",
+			expectedOutput: "0.9",
+			description:    "Milli format should convert to decimal equivalent",
+		},
+		{
+			name:           "Integer format 1",
+			inputValue:     "1",
+			expectedOutput: "1",
+			description:    "Integer should remain as integer string",
+		},
+		{
+			name:           "Integer milli format 1000m",
+			inputValue:     "1000m",
+			expectedOutput: "1",
+			description:    "1000m should convert to 1",
+		},
+		{
+			name:           "Half value 0.5",
+			inputValue:     "0.5",
+			expectedOutput: "0.5",
+			description:    "Half value should preserve decimal format",
+		},
+		{
+			name:           "Half value 500m",
+			inputValue:     "500m",
+			expectedOutput: "0.5",
+			description:    "500m should convert to 0.5",
+		},
+		{
+			name:           "Large integer 200",
+			inputValue:     "200",
+			expectedOutput: "200",
+			description:    "Large integer should remain unchanged",
+		},
+		{
+			name:           "Scientific notation 9e-1",
+			inputValue:     "9e-1",
+			expectedOutput: "0.9",
+			description:    "Scientific notation should convert to decimal",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			componentMeta := metav1.ObjectMeta{
+				Name:      "test-component",
+				Namespace: "test-namespace",
+			}
+			componentExt := &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Metrics: []v1beta1.MetricsSpec{
+						{
+							Type: v1beta1.PodMetricSourceType,
+							PodMetric: &v1beta1.PodMetricSource{
+								Metric: v1beta1.PodMetrics{
+									Backend: v1beta1.OpenTelemetryBackend,
+									Query:   "test_metric",
+								},
+								Target: v1beta1.MetricTarget{
+									Value: ptr.To(resource.MustParse(tc.inputValue)),
+								},
+							},
+						},
+					},
+				},
+			}
+
+			configMap := &corev1.ConfigMap{}
+			triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
+			require.NoError(t, err)
+			require.Len(t, triggers, 1)
+
+			trigger := triggers[0]
+			assert.Equal(t, "external", trigger.Type)
+			assert.Equal(t, tc.expectedOutput, trigger.Metadata["targetValue"],
+				"Input %s should produce targetValue %s: %s", tc.inputValue, tc.expectedOutput, tc.description)
+			assert.Equal(t, "sum(test_metric{namespace=\"test-namespace\", deployment=\"test-component\"})", trigger.Metadata["metricQuery"])
+		})
+	}
+}
+
 func TestCreateKedaScaledObject_SetsBasicFields(t *testing.T) {
 	componentMeta := metav1.ObjectMeta{
 		Name:        "basic-component",
