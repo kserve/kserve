@@ -11,7 +11,7 @@ dependencies = [
     "setuptools<71.0.0,>=70.0.0",
 ]
 name = "paddleserver"
-version = "0.15.2"
+version = "0.16.0rc0"
 description = "Model Server implementation for Paddle. Not intended for use outside KServe Frameworks Images"
 readme = "README.md"
 
