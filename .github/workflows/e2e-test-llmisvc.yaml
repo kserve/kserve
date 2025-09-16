@@ -87,7 +87,7 @@ jobs:
         uses: ./.github/actions/base-download
 
       - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
+        run: ./test/scripts/gh-actions/setup-uv.sh
 
       - name: Install KServe
         run: |
