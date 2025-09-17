@@ -24,6 +24,10 @@ spec:
       version: "2"
       autoSelect: true
       priority: 2
+    - name: catboost
+      version: "1"
+      autoSelect: true
+      priority: 2
     - name: lightgbm
       version: "3"
       autoSelect: true

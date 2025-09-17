@@ -43,6 +43,47 @@ spec:
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
+  name: kserve-catboostserver
+spec:
+  disabled: {{ .Values.kserve.servingruntime.catboostserver.disabled }}
+  annotations:
+    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: catboost
+      version: "1"
+      autoSelect: true
+      priority: 1
+  protocolVersions:
+    - v1
+    - v2
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.catboostserver.image }}:{{ .Values.kserve.servingruntime.catboostserver.tag }}"
+      args:
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
+        - --model_dir=/mnt/models
+        - --http_port=8080
+      securityContext:
+          {{- with .Values.kserve.servingruntime.catboostserver.securityContext}}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+  {{- with .Values.kserve.servingruntime.catboostserver.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
   name: kserve-mlserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.mlserver.disabled }}
