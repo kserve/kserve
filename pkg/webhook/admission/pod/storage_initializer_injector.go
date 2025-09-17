@@ -165,73 +165,32 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 		}
 	}
 
-	podVolumes := []corev1.Volume{}
-	storageInitializerMounts := []corev1.VolumeMount{}
-
 	// For PVC source URIs we need to mount the source to be able to access it
 	// See design and discussion here: https://github.com/kserve/kserve/issues/148
 	if strings.HasPrefix(srcURI, constants.PvcURIPrefix) {
-		// check if using direct volume mount to mount the pvc
-		// if yes, mount the pvc to model local mount path and return
-		if mi.config.EnableDirectPvcVolumeMount {
-			// add a corresponding pvc volume mount to the userContainer and transformerContainer.
-			// Pvc will be mount to /mnt/models rather than /mnt/pvc.
-			// PvcPath will be injected via SubPath, pvcPath must be a root or Dir.
-			// It is user responsibility to ensure it is a root or Dir
-			if mountErr := utils.AddModelPvcMount(srcURI, userContainer.Name, isvcReadonlyStringFlag, &pod.Spec); mountErr != nil {
+		// add a corresponding pvc volume mount to the userContainer and transformerContainer.
+		// Pvc will be mount to /mnt/models rather than /mnt/pvc.
+		// PvcPath will be injected via SubPath, pvcPath must be a root or Dir.
+		// It is user responsibility to ensure it is a root or Dir
+		if mountErr := utils.AddModelPvcMount(srcURI, userContainer.Name, isvcReadonlyStringFlag, &pod.Spec); mountErr != nil {
+			return mountErr
+		}
+		if transformerContainer != nil {
+			if mountErr := utils.AddModelPvcMount(srcURI, transformerContainer.Name, isvcReadonlyStringFlag, &pod.Spec); mountErr != nil {
 				return mountErr
 			}
-			if transformerContainer != nil {
-				if mountErr := utils.AddModelPvcMount(srcURI, transformerContainer.Name, isvcReadonlyStringFlag, &pod.Spec); mountErr != nil {
-					return mountErr
-				}
+		}
+
+		// change the CustomSpecStorageUri env variable value
+		// to the default model path if present
+		for index, envVar := range userContainer.Env {
+			if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
+				userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
 			}
-
-			// change the CustomSpecStorageUri env variable value
-			// to the default model path if present
-			for index, envVar := range userContainer.Env {
-				if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
-					userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
-				}
-			}
-
-			// not inject the storage initializer
-			return nil
 		}
 
-		// It follows logic for PVC as model storage, using storage-initializer
-		pvcName, pvcPath, err := utils.ParsePvcURI(srcURI)
-		if err != nil {
-			return err
-		}
-
-		// add the PVC volume on the pod
-		pvcSourceVolume := corev1.Volume{
-			Name: constants.PvcSourceMountName,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: pvcName,
-				},
-			},
-		}
-		podVolumes = append(podVolumes, pvcSourceVolume)
-
-		// below use storage initializer to handle the pvc
-		// add a corresponding PVC volume mount to the INIT container
-		pvcSourceVolumeMount := corev1.VolumeMount{
-			Name:      constants.PvcSourceMountName,
-			MountPath: PvcSourceMountPath,
-			ReadOnly:  isvcReadonlyStringFlag,
-		}
-		storageInitializerMounts = append(storageInitializerMounts, pvcSourceVolumeMount)
-
-		// Since the model path is linked from source pvc, userContainer also need to mount the pvc.
-		userContainer.VolumeMounts = append(userContainer.VolumeMounts, pvcSourceVolumeMount)
-		if transformerContainer != nil {
-			transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, pvcSourceVolumeMount)
-		}
-		// modify the sourceURI to point to the PVC path
-		srcURI = PvcSourceMountPath + "/" + pvcPath
+		// not inject the storage initializer
+		return nil
 	}
 
 	initContainer := utils.AddStorageInitializerContainer(&pod.Spec, userContainer.Name, srcURI, isvcReadonlyStringFlag, mi.config)
@@ -239,17 +198,12 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 		initContainer = utils.AddStorageInitializerContainer(&pod.Spec, transformerContainer.Name, srcURI, isvcReadonlyStringFlag, mi.config)
 	}
 
-	initContainer.VolumeMounts = append(initContainer.VolumeMounts, storageInitializerMounts...)
-
 	// Change the CustomSpecStorageUri env variable value to the default model path if present
 	for index, envVar := range userContainer.Env {
 		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
 			userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
 		}
 	}
-
-	// Add volumes to the PodSpec
-	pod.Spec.Volumes = append(pod.Spec.Volumes, podVolumes...)
 
 	// Inject credentials
 	hasStorageSpec := pod.ObjectMeta.Annotations[constants.StorageSpecAnnotationKey]

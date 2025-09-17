@@ -42,24 +42,22 @@ import (
 )
 
 const (
-	StorageInitializerDefaultCPURequest                 = "100m"
-	StorageInitializerDefaultCPULimit                   = "1"
-	StorageInitializerDefaultMemoryRequest              = "200Mi"
-	StorageInitializerDefaultMemoryLimit                = "1Gi"
-	StorageInitializerDefaultCaBundleConfigMapName      = ""
-	StorageInitializerDefaultCaBundleVolumeMountPath    = "/etc/ssl/custom-certs"
-	StorageInitializerDefaultEnableDirectPvcVolumeMount = false
+	StorageInitializerDefaultCPURequest              = "100m"
+	StorageInitializerDefaultCPULimit                = "1"
+	StorageInitializerDefaultMemoryRequest           = "200Mi"
+	StorageInitializerDefaultMemoryLimit             = "1Gi"
+	StorageInitializerDefaultCaBundleConfigMapName   = ""
+	StorageInitializerDefaultCaBundleVolumeMountPath = "/etc/ssl/custom-certs"
 )
 
 var (
 	storageInitializerConfig = &kserveTypes.StorageInitializerConfig{
-		CpuRequest:                 StorageInitializerDefaultCPURequest,
-		CpuLimit:                   StorageInitializerDefaultCPULimit,
-		MemoryRequest:              StorageInitializerDefaultMemoryRequest,
-		MemoryLimit:                StorageInitializerDefaultMemoryLimit,
-		CaBundleConfigMapName:      StorageInitializerDefaultCaBundleConfigMapName,
-		CaBundleVolumeMountPath:    StorageInitializerDefaultCaBundleVolumeMountPath,
-		EnableDirectPvcVolumeMount: StorageInitializerDefaultEnableDirectPvcVolumeMount,
+		CpuRequest:              StorageInitializerDefaultCPURequest,
+		CpuLimit:                StorageInitializerDefaultCPULimit,
+		MemoryRequest:           StorageInitializerDefaultMemoryRequest,
+		MemoryLimit:             StorageInitializerDefaultMemoryLimit,
+		CaBundleConfigMapName:   StorageInitializerDefaultCaBundleConfigMapName,
+		CaBundleVolumeMountPath: StorageInitializerDefaultCaBundleVolumeMountPath,
 	}
 
 	resourceRequirement = corev1.ResourceRequirements{
@@ -419,44 +417,14 @@ func TestStorageInitializerInjector(t *testing.T) {
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
-									MountPath: "/mnt/pvc",
-									ReadOnly:  true,
-								},
-								{
-									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
-									ReadOnly:  true,
-								},
-							},
-						},
-					},
-					InitContainers: []corev1.Container{
-						{
-							Name:                     "storage-initializer",
-							Image:                    constants.StorageInitializerContainerImage + ":" + constants.StorageInitializerContainerImageVersion,
-							Args:                     []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
-							Resources:                resourceRequirement,
-							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
-								},
-								{
-									Name:      "kserve-pvc-source",
-									MountPath: "/mnt/pvc",
+									MountPath: "/mnt/models",
+									SubPath:   "some/path/on/pvc",
 									ReadOnly:  true,
 								},
 							},
 						},
 					},
 					Volumes: []corev1.Volume{
-						{
-							Name: "kserve-provision-location",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
 						{
 							Name: "kserve-pvc-source",
 							VolumeSource: corev1.VolumeSource{
@@ -2301,9 +2269,7 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 				Data: map[string]string{},
 			}),
-			config: &kserveTypes.StorageInitializerConfig{
-				EnableDirectPvcVolumeMount: true, // enable direct volume mount for PVC
-			},
+			config: &kserveTypes.StorageInitializerConfig{},
 			client: c,
 		}
 		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
@@ -2364,12 +2330,8 @@ func TestTransformerCollocation(t *testing.T) {
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
-									MountPath: "/mnt/pvc",
-									ReadOnly:  true,
-								},
-								{
-									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: "/mnt/models",
+									SubPath:   "some/path/on/pvc",
 									ReadOnly:  true,
 								},
 							},
@@ -2380,44 +2342,14 @@ func TestTransformerCollocation(t *testing.T) {
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
-									MountPath: "/mnt/pvc",
-									ReadOnly:  true,
-								},
-								{
-									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
-									ReadOnly:  true,
-								},
-							},
-						},
-					},
-					InitContainers: []corev1.Container{
-						{
-							Name:                     "storage-initializer",
-							Image:                    constants.StorageInitializerContainerImage + ":" + constants.StorageInitializerContainerImageVersion,
-							Args:                     []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
-							Resources:                resourceRequirement,
-							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
-								},
-								{
-									Name:      "kserve-pvc-source",
-									MountPath: "/mnt/pvc",
+									MountPath: "/mnt/models",
+									SubPath:   "some/path/on/pvc",
 									ReadOnly:  true,
 								},
 							},
 						},
 					},
 					Volumes: []corev1.Volume{
-						{
-							Name: "kserve-provision-location",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
 						{
 							Name: "kserve-pvc-source",
 							VolumeSource: corev1.VolumeSource{
@@ -2432,9 +2364,7 @@ func TestTransformerCollocation(t *testing.T) {
 			},
 		},
 		"Transformer collocation with pvc direct mount": {
-			storageConfig: &kserveTypes.StorageInitializerConfig{
-				EnableDirectPvcVolumeMount: true, // enable direct volume mount for PVC
-			},
+			storageConfig: &kserveTypes.StorageInitializerConfig{},
 			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -2548,44 +2478,14 @@ func TestTransformerCollocation(t *testing.T) {
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
-									MountPath: "/mnt/pvc",
-									ReadOnly:  true,
-								},
-								{
-									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
-									ReadOnly:  true,
-								},
-							},
-						},
-					},
-					InitContainers: []corev1.Container{
-						{
-							Name:                     "storage-initializer",
-							Image:                    constants.StorageInitializerContainerImage + ":" + constants.StorageInitializerContainerImageVersion,
-							Args:                     []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
-							Resources:                resourceRequirement,
-							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
-								},
-								{
-									Name:      "kserve-pvc-source",
-									MountPath: "/mnt/pvc",
+									MountPath: "/mnt/models",
+									SubPath:   "some/path/on/pvc",
 									ReadOnly:  true,
 								},
 							},
 						},
 					},
 					Volumes: []corev1.Volume{
-						{
-							Name: "kserve-provision-location",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
 						{
 							Name: "kserve-pvc-source",
 							VolumeSource: corev1.VolumeSource{
@@ -4003,9 +3903,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 }
 
 func TestLocalModelPVC(t *testing.T) {
-	storageConfig := &kserveTypes.StorageInitializerConfig{
-		EnableDirectPvcVolumeMount: true, // enable direct volume mount for PVC
-	}
+	storageConfig := &kserveTypes.StorageInitializerConfig{}
 	scenarios := map[string]struct {
 		storageUri               string
 		localModelLabel          string

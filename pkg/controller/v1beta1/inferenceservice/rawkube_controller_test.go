@@ -95,8 +95,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
 			}`,
 	}
 	Context("When creating inference service with raw kube predictor", func() {
@@ -1941,8 +1940,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
 			}`,
 		}
 
@@ -3803,8 +3801,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
 			}`,
 		}
 		ctx := context.Background()
@@ -5507,8 +5504,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
 			}`,
 		}
 
@@ -6410,8 +6406,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
 			}`,
 		}
 
@@ -7364,8 +7359,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
 			}`,
 		}
 
@@ -7996,8 +7990,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
 			}`,
 		}
 
@@ -8949,8 +8942,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
 			}`,
 		}
 
@@ -9989,8 +9981,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
 			}`,
 			"opentelemetryCollector": `{
 				"scrapeInterval": "5s",
@@ -10844,8 +10835,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
             		"cpuRequest": "100m",
             		"cpuLimit": "1",
             		"CaBundleConfigMapName": "",
-            		"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-            		"enableDirectPvcVolumeMount": false
+            		"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
         		}`,
 			}
 			configMap := &corev1.ConfigMap{

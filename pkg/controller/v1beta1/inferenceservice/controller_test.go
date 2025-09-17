@@ -89,8 +89,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
 			}`,
 		}
 	)
@@ -4830,8 +4829,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"cpuRequest": "100m",
 							"cpuLimit": "1",
 							"CaBundleConfigMapName": "not-exist-configmap",
-							"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-							"enableDirectPvcVolumeMount": false						
+							"caBundleVolumeMountPath": "/etc/ssl/custom-certs"						
 					}`
 				} else {
 					copiedConfigs[key] = value
@@ -4905,8 +4903,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"cpuRequest": "100m",
 							"cpuLimit": "1",
 							"CaBundleConfigMapName": "test-cabundle-with-wrong-file-name",
-							"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-							"enableDirectPvcVolumeMount": false						
+							"caBundleVolumeMountPath": "/etc/ssl/custom-certs"						
 					}`
 				} else {
 					copiedConfigs[key] = value
@@ -4994,8 +4991,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					"cpuRequest": "100m",
 					"cpuLimit": "1",
 					"CaBundleConfigMapName": "test-cabundle-with-right-file-name",
-					"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-					"enableDirectPvcVolumeMount": false						
+					"caBundleVolumeMountPath": "/etc/ssl/custom-certs"						
 			}`
 				} else {
 					copiedConfigs[key] = value
