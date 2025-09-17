@@ -107,22 +107,31 @@ trace_logger = logging.getLogger(KSERVE_TRACE_LOGGER_NAME)
 
 def configure_logging(log_config: Optional[Union[Dict, str]] = None):
     """
-    Configures Kserve and Uvicorn loggers.
+    Configures KServe and Uvicorn loggers.
     This function should be called before loading the model / starting the model
     server for consistent logging format.
 
-    :param log_config: (Optional) File path or dict containing log config. If not provided default configuration
-                       will be used. If explicitly set to None, the logger will not be configured.
-                       - If a dictionary is provided, it will be used directly for configuring the logger.
-                       - If a string is provided:
-                           - If it ends with '.json', it will be treated as a path to a JSON file containing log
-                             configuration.
-                           - If it ends with '.yaml' or '.yml', it will be treated as a path to a YAML file containing
-                             log configuration.
-                           - Otherwise, it will be treated as a path to a configuration file in the format specified in
-                             the Python logging module documentation. # See the note about fileConfig() here:
-                             # https://docs.python.org/3/library/logging.config.html#configuration-file-format
+    Behavior notes (to avoid overriding user logging):
+    - If ``log_config`` is None and any handlers are already configured on the
+      ``kserve`` logger (or its ancestors), this function will not reconfigure
+      logging. This preserves user-defined logging configuration (fixes #3919).
+    - If ``log_config`` is provided (dict, json, yaml, or INI file path), it is
+      treated as an explicit instruction to configure logging and will be applied.
+
+    :param log_config: (Optional) File path or dict containing log config.
+      If not provided, the default configuration will be used unless logging is already configured.
+      - If a dictionary is provided, it will be used directly for configuring the logger.
+      - If a string is provided:
+        - If it ends with '.json', it will be treated as a path to a JSON file containing log configuration.
+        - If it ends with '.yaml' or '.yml', it will be treated as a path to a YAML file containing log configuration.
+        - Otherwise, it will be treated as a path to a configuration file in the format specified in
+          the Python logging module documentation. See the note about fileConfig() here:
+          https://docs.python.org/3/library/logging.config.html#configuration-file-format
     """
+    # Skip auto-configuration when logging is already configured by the user
+    # (directly on the kserve logger or inherited from the root logger).
+    if log_config is None and logger.hasHandlers():
+        return
     if log_config is None:
         logging.config.dictConfig(KSERVE_LOG_CONFIG)
     elif isinstance(log_config, dict):
