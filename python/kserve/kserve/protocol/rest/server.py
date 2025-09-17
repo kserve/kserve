@@ -46,6 +46,7 @@ from kserve.errors import (
 )
 from kserve.logging import trace_logger, logger
 from kserve.protocol.dataplane import DataPlane
+from kserve.protocol.rest.timeseries.config import maybe_register_time_series_endpoints
 
 from .v1_endpoints import register_v1_endpoints
 from .v2_endpoints import register_v2_endpoints
@@ -108,6 +109,14 @@ class RESTServer:
             logger.info("OpenAI endpoints registered")
         except ImportError:
             logger.info("OpenAI endpoints not registered")
+
+        ts_registered = maybe_register_time_series_endpoints(
+            app, self.dataplane.model_registry
+        )
+        if ts_registered:
+            logger.info("Time series endpoints registered")
+        else:
+            logger.info("Time series endpoints not registered")
 
     def _add_exception_handlers(self, app: fastapi.FastAPI):
         app.add_exception_handler(InvalidInput, invalid_input_handler)
