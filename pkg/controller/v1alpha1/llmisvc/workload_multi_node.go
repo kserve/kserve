@@ -178,7 +178,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		}
 		expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-		if err := r.attachModelArtifacts(ctx, llmSvc, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config); err != nil {
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to leader template: %w", err)
 		}
 
@@ -203,7 +203,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		}
 		expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-		if err := r.attachModelArtifacts(ctx, llmSvc, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config); err != nil {
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to worker template: %w", err)
 		}
 
@@ -289,7 +289,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 			}
 			expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-			if err := r.attachModelArtifacts(ctx, llmSvc, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config); err != nil {
+			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config); err != nil {
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill leader template: %w", err)
 			}
 		}
@@ -297,7 +297,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec = *llmSvc.Spec.Prefill.Worker.DeepCopy()
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-			if err := r.attachModelArtifacts(ctx, llmSvc, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config); err != nil {
+			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config); err != nil {
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill worker template: %w", err)
 			}
 		}
@@ -412,7 +412,7 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Cont
 		existingServiceAccount := &corev1.ServiceAccount{}
 		err := r.Client.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch existing multi node service account %s/%s: %w", existingServiceAccountName, llmSvc.Namespace, err)
+			return nil, fmt.Errorf("failed to fetch existing multi node main service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
 		}
 		expectedServiceAccount.Annotations = existingServiceAccount.Annotations
 		expectedServiceAccount.Labels = existingServiceAccount.Labels
@@ -455,7 +455,7 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.C
 		existingServiceAccount := &corev1.ServiceAccount{}
 		err := r.Client.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch existing multi node service account %s/%s: %w", existingServiceAccountName, llmSvc.Namespace, err)
+			return nil, fmt.Errorf("failed to fetch existing multi node prefill service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
 		}
 		expectedServiceAccount.Annotations = existingServiceAccount.Annotations
 		expectedServiceAccount.Labels = existingServiceAccount.Labels
