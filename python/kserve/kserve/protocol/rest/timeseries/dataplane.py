@@ -19,11 +19,8 @@ from typing import Union, List
 from fastapi import Request, Response
 from starlette.datastructures import Headers
 from kserve.protocol.dataplane import DataPlane
-from .time_series_model import (
-    HuggingFaceTimeSeriesModel,
-    TimeSeriesModel,
-)
 
+from ....model import Model
 from .types import (
     ForecastRequest,
     ForecastResponse,
@@ -54,7 +51,7 @@ class TimeSeriesDataPlane(DataPlane):
         """
         model_name = request_body.model
         model = await self.get_model(model_name)
-        if not isinstance(model, HuggingFaceTimeSeriesModel):
+        if not getattr(model, "__class__", None).__name__ == "HuggingFaceTimeSeriesModel":
             return create_error_response(
                 message=f"Model {model_name} does not support Time Series API",
                 status_code=HTTPStatus.NOT_IMPLEMENTED,
@@ -64,7 +61,7 @@ class TimeSeriesDataPlane(DataPlane):
         context = {"headers": dict(headers), "response": response}
         return await model.forecast(request=request_body, context=context)
 
-    async def models(self) -> List[TimeSeriesModel]:
+    async def models(self) -> List[Model]:
         """Retrieve a list of models
 
         Returns:
@@ -73,5 +70,5 @@ class TimeSeriesDataPlane(DataPlane):
         return [
             model
             for model in self.model_registry.get_models().values()
-            if isinstance(model, TimeSeriesModel)
+            if getattr(model, "__class__", None).__name__ == "TimeSeriesModel"
         ]

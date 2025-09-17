@@ -18,7 +18,6 @@ from ....model import Model
 from ....model_repository import ModelRepository
 from .dataplane import TimeSeriesDataPlane
 from .endpoints import register_time_series_endpoints
-from .time_series_model import HuggingFaceTimeSeriesModel
 
 
 def get_time_series_models(repository: ModelRepository) -> dict[str, Model]:
@@ -27,7 +26,7 @@ def get_time_series_models(repository: ModelRepository) -> dict[str, Model]:
     return {
         name: model
         for name, model in repository.get_models().items()
-        if isinstance(model, HuggingFaceTimeSeriesModel)
+        if getattr(model, "__class__", None).__name__ == "HuggingFaceTimeSeriesModel"
     }
 
 

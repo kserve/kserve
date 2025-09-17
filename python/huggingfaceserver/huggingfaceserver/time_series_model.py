@@ -1,4 +1,4 @@
-# Copyright 2025 The KServe Authors.
+# Copyright 2023 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,6 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+"""
+Hugging Face time series model implementation relocated here so it can access torch
+and related runtime within the huggingfaceserver package.
+"""
 
 from abc import abstractmethod
 from fastapi import Request
@@ -275,3 +280,6 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
                     message="Only TimesFM models are supported at this time.",
                 )
             )
+
+
+__all__ = ["TimeSeriesModel", "HuggingFaceTimeSeriesModel"]
