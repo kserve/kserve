@@ -78,8 +78,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			"cpuRequest": "100m",
 			"cpuLimit": "1",
 			"CaBundleConfigMapName": "",
-			"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-			"enableDirectPvcVolumeMount": false
+			"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
 		}`,
 	}
 
