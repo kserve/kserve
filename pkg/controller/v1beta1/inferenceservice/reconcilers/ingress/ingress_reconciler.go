@@ -657,7 +657,7 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 				},
 			},
 		})
-		// Include ingressDomain to the domains (both internal and external) derived by KNative
+		// Include ingressDomain to the domains (both internal and external) derived by Knative
 		hosts = append(hosts, url.Host)
 	}
 

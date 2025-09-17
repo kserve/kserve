@@ -27320,24 +27320,7 @@ spec:
                   lora:
                     properties:
                       adapters:
-                        items:
-                          properties:
-                            framework:
-                              type: string
-                            memory:
-                              anyOf:
-                              - type: integer
-                              - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                              x-kubernetes-int-or-string: true
-                            storageUri:
-                              type: string
-                          required:
-                          - framework
-                          - memory
-                          - storageUri
-                          type: object
-                        type: array
+                        x-kubernetes-preserve-unknown-fields: true
                     type: object
                   name:
                     type: string
@@ -27350,20 +27333,26 @@ spec:
                 properties:
                   data:
                     format: int32
+                    minimum: 1
                     type: integer
                   dataLocal:
                     format: int32
+                    minimum: 1
                     type: integer
                   dataRPCPort:
                     format: int32
+                    maximum: 65535
+                    minimum: 1
                     type: integer
                   expert:
                     type: boolean
                   pipeline:
                     format: int32
+                    minimum: 1
                     type: integer
                   tensor:
                     format: int32
+                    minimum: 1
                     type: integer
                 type: object
               prefill:
@@ -27372,24 +27361,31 @@ spec:
                     properties:
                       data:
                         format: int32
+                        minimum: 1
                         type: integer
                       dataLocal:
                         format: int32
+                        minimum: 1
                         type: integer
                       dataRPCPort:
                         format: int32
+                        maximum: 65535
+                        minimum: 1
                         type: integer
                       expert:
                         type: boolean
                       pipeline:
                         format: int32
+                        minimum: 1
                         type: integer
                       tensor:
                         format: int32
+                        minimum: 1
                         type: integer
                     type: object
                   replicas:
                     format: int32
+                    minimum: 0
                     type: integer
                   template:
                     properties:
@@ -31017,8 +31013,6 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
-                    required:
-                    - containers
                     type: object
                   worker:
                     properties:
@@ -34646,12 +34640,11 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
-                    required:
-                    - containers
                     type: object
                 type: object
               replicas:
                 format: int32
+                minimum: 0
                 type: integer
               router:
                 properties:
@@ -39483,8 +39476,6 @@ spec:
                             x-kubernetes-list-map-keys:
                             - name
                             x-kubernetes-list-type: map
-                        required:
-                        - containers
                         type: object
                     type: object
                 type: object
@@ -43114,8 +43105,6 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
-                required:
-                - containers
                 type: object
               worker:
                 properties:
@@ -46743,8 +46732,6 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
-                required:
-                - containers
                 type: object
             type: object
         type: object
@@ -46817,24 +46804,7 @@ spec:
                   lora:
                     properties:
                       adapters:
-                        items:
-                          properties:
-                            framework:
-                              type: string
-                            memory:
-                              anyOf:
-                              - type: integer
-                              - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                              x-kubernetes-int-or-string: true
-                            storageUri:
-                              type: string
-                          required:
-                          - framework
-                          - memory
-                          - storageUri
-                          type: object
-                        type: array
+                        x-kubernetes-preserve-unknown-fields: true
                     type: object
                   name:
                     type: string
@@ -46847,20 +46817,26 @@ spec:
                 properties:
                   data:
                     format: int32
+                    minimum: 1
                     type: integer
                   dataLocal:
                     format: int32
+                    minimum: 1
                     type: integer
                   dataRPCPort:
                     format: int32
+                    maximum: 65535
+                    minimum: 1
                     type: integer
                   expert:
                     type: boolean
                   pipeline:
                     format: int32
+                    minimum: 1
                     type: integer
                   tensor:
                     format: int32
+                    minimum: 1
                     type: integer
                 type: object
               prefill:
@@ -46869,24 +46845,31 @@ spec:
                     properties:
                       data:
                         format: int32
+                        minimum: 1
                         type: integer
                       dataLocal:
                         format: int32
+                        minimum: 1
                         type: integer
                       dataRPCPort:
                         format: int32
+                        maximum: 65535
+                        minimum: 1
                         type: integer
                       expert:
                         type: boolean
                       pipeline:
                         format: int32
+                        minimum: 1
                         type: integer
                       tensor:
                         format: int32
+                        minimum: 1
                         type: integer
                     type: object
                   replicas:
                     format: int32
+                    minimum: 0
                     type: integer
                   template:
                     properties:
@@ -50514,8 +50497,6 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
-                    required:
-                    - containers
                     type: object
                   worker:
                     properties:
@@ -54143,12 +54124,11 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
-                    required:
-                    - containers
                     type: object
                 type: object
               replicas:
                 format: int32
+                minimum: 0
                 type: integer
               router:
                 properties:
@@ -59057,8 +59037,6 @@ spec:
                             x-kubernetes-list-map-keys:
                             - name
                             x-kubernetes-list-type: map
-                        required:
-                        - containers
                         type: object
                     type: object
                 type: object
@@ -62688,8 +62666,6 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
-                required:
-                - containers
                 type: object
               worker:
                 properties:
@@ -66317,8 +66293,6 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
-                required:
-                - containers
                 type: object
             type: object
           status:

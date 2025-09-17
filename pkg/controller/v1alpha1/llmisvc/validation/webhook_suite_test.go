@@ -14,19 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package llmisvc
+package validation_test
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"testing"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc/fixture"
+
+	pkgtest "github.com/kserve/kserve/pkg/testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func getInferencePoolWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha1.LLMInferenceServiceSpec) map[string]string {
-	s := map[string]string{
-		"app.kubernetes.io/part-of": "llminferenceservice",
-		"app.kubernetes.io/name":    meta.GetName(),
-		"kserve.io/component":       "workload",
-	}
-	return s
+func TestWebhooks(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "LLMInferenceService Controller Suite")
 }
+
+var envTest *pkgtest.Client
+
+var _ = SynchronizedBeforeSuite(func() {
+	envTest = fixture.SetupTestEnv()
+}, func() {})

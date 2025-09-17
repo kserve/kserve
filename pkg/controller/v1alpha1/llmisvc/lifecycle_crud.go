@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,27 +32,41 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// clientWithRecorder combines the client and event recorder interfaces
+// This allows CRUD operations to both modify resources and emit events
 type clientWithRecorder interface {
 	client.Client
 	record.EventRecorder
 }
 
+// Create creates a new Kubernetes resource and emits an event on the owner
+// This provides a standardized way to create owned resources with proper event logging
 func Create[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, expected T) error {
 	if err := c.Create(ctx, expected); err != nil {
 		return fmt.Errorf("failed to create %s %s/%s: %w", logLineForObject(expected), expected.GetNamespace(), expected.GetName(), err)
 	}
 
-	c.Eventf(owner, corev1.EventTypeNormal, "Created", "Created %s %s/%s", logLineForObject(expected), expected.GetNamespace(), expected.GetName())
+	if !reflect.ValueOf(owner).IsNil() {
+		c.Eventf(owner, corev1.EventTypeNormal, "Created", "Created %s %s/%s", logLineForObject(expected), expected.GetNamespace(), expected.GetName())
+	}
+
 	return nil
 }
 
+// Delete safely deletes a Kubernetes resource with ownership validation
+// It ensures only the owner can delete the resource and handles garbage collection properly
 func Delete[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, expected T) error {
 	typeLogLine := logLineForObject(expected)
-	ownerLogLine := logLineForObject(owner)
+	isOwnerNil := reflect.ValueOf(owner).IsNil()
 
-	if isNamespaced, err := apiutil.IsObjectNamespaced(expected, c.Scheme(), c.RESTMapper()); err != nil {
+	ownerLogLine := ""
+	if !isOwnerNil {
+		ownerLogLine = logLineForObject(owner)
+	}
+
+	if isNamespaced, err := apiutil.IsObjectNamespaced(expected, c.Scheme(), c.RESTMapper()); err != nil && !meta.IsNoMatchError(err) {
 		return fmt.Errorf("failed to resolve if resource is namespaced %s: %w", typeLogLine, err)
-	} else if isNamespaced {
+	} else if isNamespaced && !isOwnerNil {
 		if !metav1.IsControlledBy(expected, owner) {
 			return fmt.Errorf("failed to delete %s %s/%s: it is not controlled by %s %s/%s",
 				typeLogLine,
@@ -78,30 +93,45 @@ func Delete[O client.Object, T client.Object](ctx context.Context, c clientWithR
 		return nil
 	}
 
-	c.Eventf(owner, corev1.EventTypeNormal, "Deleted", "Deleted %s %s/%s", typeLogLine, expected.GetNamespace(), expected.GetName())
+	if !isOwnerNil {
+		c.Eventf(owner, corev1.EventTypeNormal, "Deleted", "Deleted %s %s/%s", typeLogLine, expected.GetNamespace(), expected.GetName())
+	}
+
 	return nil
 }
 
+// Reconcile ensures a resource exists and matches the expected state
+// It creates the resource if it doesn't exist, or updates it if it differs from expected state
 func Reconcile[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, empty, expected T, isEqual SemanticEqual[T]) error {
 	typeLogLine := logLineForObject(expected)
 
+	// Try to fetch the current state of the resource
 	curr := empty.DeepCopyObject().(T)
 	if err := c.Get(ctx, client.ObjectKeyFromObject(expected), curr); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			return fmt.Errorf("failed to get %s %s/%s: %w", typeLogLine, expected.GetNamespace(), expected.GetName(), err)
 		}
+		// Resource doesn't exist, create it
 		return Create(ctx, c, owner, expected)
 	}
+	// Resource exists, update it if necessary
 	return Update(ctx, c, owner, curr, expected, isEqual)
 }
 
+// Update modifies an existing Kubernetes resource to match the expected state
+// It validates ownership and only updates if the resource has actually changed
 func Update[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, curr, expected T, isEqual SemanticEqual[T]) error {
 	typeLogLine := logLineForObject(expected)
-	ownerLogLine := logLineForObject(owner)
+	isOwnerNil := reflect.ValueOf(owner).IsNil()
+
+	ownerLogLine := ""
+	if !isOwnerNil {
+		ownerLogLine = logLineForObject(owner)
+	}
 
 	if isNamespaced, err := apiutil.IsObjectNamespaced(expected, c.Scheme(), c.RESTMapper()); err != nil {
 		return fmt.Errorf("failed to resolve if resource is namespaced %s: %w", typeLogLine, err)
-	} else if isNamespaced {
+	} else if isNamespaced && !isOwnerNil {
 		if !metav1.IsControlledBy(curr, owner) {
 			return fmt.Errorf("failed to update %s %s/%s: it is not controlled by %s %s/%s",
 				typeLogLine,
@@ -129,14 +159,21 @@ func Update[O client.Object, T client.Object](ctx context.Context, c clientWithR
 	if err := c.Update(ctx, expected); err != nil {
 		return fmt.Errorf("failed to update %s %s/%s: %w", typeLogLine, expected.GetNamespace(), expected.GetName(), err)
 	}
-	c.Eventf(owner, corev1.EventTypeNormal, "Updated", "Updated %s %s/%s", typeLogLine, expected.GetNamespace(), expected.GetName())
+
+	if !isOwnerNil {
+		c.Eventf(owner, corev1.EventTypeNormal, "Updated", "Updated %s %s/%s", typeLogLine, expected.GetNamespace(), expected.GetName())
+	}
 
 	return nil
 }
 
+// logLineForObject returns a human-readable type name for logging
+// We use reflection since GetObjectKind() is often empty in practice
 func logLineForObject(obj client.Object) string {
 	// Note: don't use `obj.GetObjectKind()` as it's always empty.
-	return reflect.TypeOf(obj).String()
+	return strings.Replace(reflect.TypeOf(obj).String(), "*", "", 1)
 }
 
+// SemanticEqual is a function type for comparing two objects to determine if they are equivalent
+// This allows custom comparison logic beyond simple equality checks
 type SemanticEqual[T client.Object] func(expected T, curr T) bool

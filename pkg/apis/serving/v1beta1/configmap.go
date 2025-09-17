@@ -129,7 +129,25 @@ type IngressConfig struct {
 
 // +kubebuilder:object:generate=false
 type DeployConfig struct {
-	DefaultDeploymentMode string `json:"defaultDeploymentMode,omitempty"`
+	DefaultDeploymentMode     string                     `json:"defaultDeploymentMode,omitempty"`
+	DeploymentRolloutStrategy *DeploymentRolloutStrategy `json:"deploymentRolloutStrategy,omitempty"`
+}
+
+// DeploymentRolloutStrategy defines the rollout strategy configuration for deployments
+type DeploymentRolloutStrategy struct {
+	// DefaultRollout specifies the default rollout configuration
+	// +optional
+	DefaultRollout *RolloutSpec `json:"defaultRollout,omitempty"`
+}
+
+// RolloutSpec defines the rollout strategy configuration using Kubernetes deployment strategy
+type RolloutSpec struct {
+	// MaxSurge specifies the maximum number of pods that can be created above the desired replica count.
+	// Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).
+	MaxSurge string `json:"maxSurge"`
+	// MaxUnavailable specifies the maximum number of pods that can be unavailable during the update.
+	// Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).
+	MaxUnavailable string `json:"maxUnavailable"`
 }
 
 // +kubebuilder:object:generate=false
@@ -340,11 +358,20 @@ func NewDeployConfig(isvcConfigMap *corev1.ConfigMap) (*DeployConfig, error) {
 			return nil, errors.New("invalid deploy config, defaultDeploymentMode is required")
 		}
 
-		if deployConfig.DefaultDeploymentMode != string(constants.Serverless) &&
-			deployConfig.DefaultDeploymentMode != string(constants.RawDeployment) &&
+		if deployConfig.DefaultDeploymentMode == string(constants.LegacyServerless) {
+			// LegacyServerless is deprecated, so we convert it to Knative
+			deployConfig.DefaultDeploymentMode = string(constants.Knative)
+		}
+		if deployConfig.DefaultDeploymentMode == string(constants.LegacyRawDeployment) {
+			// LegacyRawDeployment is deprecated, so we convert it to Standard
+			deployConfig.DefaultDeploymentMode = string(constants.Standard)
+		}
+
+		if deployConfig.DefaultDeploymentMode != string(constants.Knative) &&
+			deployConfig.DefaultDeploymentMode != string(constants.Standard) &&
 			deployConfig.DefaultDeploymentMode != string(constants.ModelMeshDeployment) {
-			return nil, errors.New("invalid deployment mode. Supported modes are Serverless," +
-				" RawDeployment and ModelMesh")
+			return nil, errors.New("invalid deployment mode. Supported modes are Knative," +
+				" Standard and ModelMesh")
 		}
 	}
 	return deployConfig, nil

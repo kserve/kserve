@@ -13,6 +13,7 @@ exclude =
   python/kserve/test/__init__.py,
   python/kserve/test/test_knative*.py,
   python/kserve/kserve/protocol/grpc/grpc_predict_v2*.py
+  python/kserve/build/**/*.py
   python/*_pb2.py
   docs/**/*.py
   python/kserve/kserve/protocol/rest/openai/types/openapi.py

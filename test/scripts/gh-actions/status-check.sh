@@ -14,6 +14,10 @@ kubectl get pods -n kserve
 kubectl get pods -n kserve-ci-e2e-test
 echo "::endgroup::"
 
+echo "::group::List Pods in keda namespace"
+kubectl get pods -n keda
+echo "::endgroup::"
+
 echo "::group::List Pods in all other namespaces"
 kubectl get pods -A --field-selector=metadata.namespace!=kserve,metadata.namespace!=kserve-ci-e2e-test
 echo "::endgroup::"
@@ -54,6 +58,7 @@ for pod in $(kubectl get pods -l 'component in (predictor)' -o jsonpath='{.items
 done
 echo "::endgroup::"
 
+
 echo "::group::Transformer Pod logs"
 for pod in $(kubectl get pods -l 'component in (transformer)' -o jsonpath='{.items[*].metadata.name}' -n kserve-ci-e2e-test); do
     echo "=====================================  Logs for Transformer Pod: $pod  ======================================="
@@ -74,6 +79,22 @@ echo "::group::InferenceGraph Pod logs"
 for pod in $(kubectl get pods -l 'serving.kserve.io/inferencegraph=model-chainer' -o jsonpath='{.items[*].metadata.name}' -n kserve-ci-e2e-test); do
     echo "=====================================  Logs for Graph Pod: $pod  ========================================="
     kubectl logs "$pod" -c user-container -n kserve-ci-e2e-test --tail 500
+    echo "================================================================================================================"
+done
+echo "::endgroup::"
+
+echo "::group::KEDA Pod logs"
+for pod in $(kubectl get pods -o jsonpath='{.items[*].metadata.name}' -n keda); do
+    echo "=====================================  Logs for KEDA Pod: $pod  ========================================="
+    kubectl logs "$pod" -n keda --tail 500
+    echo "================================================================================================================"
+done
+echo "::endgroup::"
+
+echo "::group::OpenTelemetry Operator Pod logs"
+for pod in $(kubectl get pods -o jsonpath='{.items[*].metadata.name}' -n opentelemetry-operator); do
+    echo "=====================================  Logs for OpenTelemetry Operator Pod: $pod  ========================================="
+    kubectl logs "$pod" -n opentelemetry-operator --tail 500
     echo "================================================================================================================"
 done
 echo "::endgroup::"

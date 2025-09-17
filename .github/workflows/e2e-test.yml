@@ -415,7 +415,12 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 30
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms or collocation or explainer" "6"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms or collocation" "6"
+
+      - name: Run E2E tests - explainer
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "explainer" "1"
 
       - name: Check system status
         if: always()
@@ -583,6 +588,11 @@ jobs:
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "path_based_routing" "6"
 
+      - name: Run E2E tests with path-based routing - Explainer
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "explainer" "1"
+
       - name: Check system status
         if: always()
         run: |
@@ -732,6 +742,16 @@ jobs:
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
 
+      - name: Enable metrics server
+        run: |
+          minikube addons enable metrics-server
+          kubectl rollout status deployment/metrics-server -n kube-system --timeout=180s
+          kubectl get pods -n kube-system | grep metrics-server
+
+      - name: Check Metrics Server Logs
+        run: |
+          kubectl logs -n kube-system deploy/metrics-server
+      
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
         with:
