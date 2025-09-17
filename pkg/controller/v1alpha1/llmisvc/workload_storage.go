@@ -17,6 +17,7 @@ limitations under the License.
 package llmisvc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -25,7 +26,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/credentials/s3"
+	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -34,16 +35,7 @@ import (
 // The storage backend (PVC, OCI, Hugging Face, or S3) is determined from the URI schema and the appropriate helper function
 // is called to configure the PodSpec. This function will adjust volumes, container arguments, container volume mounts,
 // add containers, and do other changes to the PodSpec to ensure the model is fetched properly from storage.
-//
-// Parameters:
-//   - llmSvc: The LLMInferenceService resource containing the model specification.
-//   - podSpec: The PodSpec to configure with the model artifact.
-//   - storageConfig: The storage initializer configuration.
-//
-// Returns:
-//
-//	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachModelArtifacts(llmSvc *v1alpha1.LLMInferenceService, podSpec *corev1.PodSpec, storageConfig *types.StorageInitializerConfig) error {
+func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, podSpec *corev1.PodSpec, config *Config) error {
 	modelUri := llmSvc.Spec.Model.URI.String()
 	schema, _, sepFound := strings.Cut(modelUri, "://")
 
@@ -57,17 +49,17 @@ func (r *LLMISVCReconciler) attachModelArtifacts(llmSvc *v1alpha1.LLMInferenceSe
 
 	case constants.OciURIPrefix:
 		// Check of OCI is enabled
-		if !storageConfig.EnableOciImageSource {
+		if !config.StorageConfig.EnableOciImageSource {
 			return errors.New("OCI modelcars is not enabled")
 		}
 
-		return r.attachOciModelArtifact(modelUri, podSpec, storageConfig)
+		return r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig)
 
 	case constants.HfURIPrefix:
-		return r.attachStorageInitializer(modelUri, podSpec, storageConfig)
+		return r.attachHfModelArtifact(ctx, llmSvc.Namespace, llmSvc.Annotations, modelUri, podSpec, config.StorageConfig, config.CredentialConfig)
 
 	case constants.S3URIPrefix:
-		return r.attachS3ModelArtifact(modelUri, podSpec, storageConfig)
+		return r.attachS3ModelArtifact(ctx, llmSvc.Namespace, llmSvc.Annotations, modelUri, podSpec, config.StorageConfig, config.CredentialConfig)
 	}
 
 	return fmt.Errorf("unsupported schema in model URI: %s", modelUri)
@@ -78,7 +70,6 @@ func (r *LLMISVCReconciler) attachModelArtifacts(llmSvc *v1alpha1.LLMInferenceSe
 // required supporting volumes and volume mounts are added to the PodSpec.
 //
 // Parameters:
-//   - ctx: The context for API calls and logging.
 //   - modelUri: The URI of the model in the OCI registry.
 //   - podSpec: The PodSpec to which the OCI model should be attached.
 //   - storageConfig: The storage initializer configuration.
@@ -89,10 +80,6 @@ func (r *LLMISVCReconciler) attachModelArtifacts(llmSvc *v1alpha1.LLMInferenceSe
 func (r *LLMISVCReconciler) attachOciModelArtifact(modelUri string, podSpec *corev1.PodSpec, storageConfig *types.StorageInitializerConfig) error {
 	if err := utils.ConfigureModelcarToContainer(modelUri, podSpec, "main", storageConfig); err != nil {
 		return err
-	}
-
-	if mainContainer := utils.GetContainerWithName(podSpec, "main"); mainContainer != nil {
-		mainContainer.Command = append(mainContainer.Command, constants.DefaultModelLocalMountPath)
 	}
 
 	return nil
@@ -121,9 +108,6 @@ func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *cor
 	if err := utils.AddModelMount(storageMountParams, "main", podSpec); err != nil {
 		return err
 	}
-	if mainContainer := utils.GetContainerWithName(podSpec, "main"); mainContainer != nil {
-		mainContainer.Command = append(mainContainer.Command, constants.DefaultModelLocalMountPath)
-	}
 
 	return nil
 }
@@ -132,22 +116,71 @@ func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *cor
 // Model downloading is delegated to vLLM by passing the S3 URI and other required arguments.
 //
 // Parameters:
+//   - ctx: The context for API calls and logging.
+//   - podNamespace: The namespace in which the pod and llmisvc exist.
+//   - podAnnotations: The annotations present in the pod and llmisvc.
 //   - modelUri: The URI of the model in the S3-compatible object store.
 //   - podSpec: The PodSpec to which the S3 model should be attached.
 //   - storageConfig: The storage initializer configuration.
+//   - credentialConfig: The credential configuration used for model downloads.
 //
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachS3ModelArtifact(modelUri string, podSpec *corev1.PodSpec, storageConfig *types.StorageInitializerConfig) error {
+func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, podNamespace string, podAnnotations map[string]string, modelUri string, podSpec *corev1.PodSpec, storageConfig *types.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	if err := r.attachStorageInitializer(modelUri, podSpec, storageConfig); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
-		initContainer.Env = append(initContainer.Env, corev1.EnvVar{
-			Name:  s3.AWSAnonymousCredential,
-			Value: "true",
-		})
+		// Check for AWS IAM Role for Service Account or AWS IAM User Credentials
+		credentialBuilder := credentials.NewCredentialBuilderFromConfig(r.Client, r.Clientset, *credentialConfig)
+		if err := credentialBuilder.CreateSecretVolumeAndEnv(
+			ctx,
+			podNamespace,
+			podAnnotations,
+			podSpec.ServiceAccountName,
+			initContainer,
+			&podSpec.Volumes,
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// attachHfModelArtifact configures a PodSpec to use a model stored in the hugging face hub.
+// Model downloading is delegated to vLLM by passing the HF URI and other required arguments.
+//
+// Parameters:
+//   - ctx: The context for API calls and logging.
+//   - podNamespace: The namespace in which the pod and llmisvc exist.
+//   - podAnnotations: The annotations present in the pod and llmisvc.
+//   - modelUri: The URI of the model in hugging face hub.
+//   - podSpec: The PodSpec to which the HF model should be attached.
+//   - storageConfig: The storage initializer configuration.
+//   - credentialConfig: The credential configuration used for model downloads.
+//
+// Returns:
+//
+//	An error if the configuration fails, otherwise nil.
+func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, podNamespace string, podAnnotations map[string]string, modelUri string, podSpec *corev1.PodSpec, storageConfig *types.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+	if err := r.attachStorageInitializer(modelUri, podSpec, storageConfig); err != nil {
+		return err
+	}
+	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
+		// Check for service account with secret ref
+		credentialBuilder := credentials.NewCredentialBuilderFromConfig(r.Client, r.Clientset, *credentialConfig)
+		if err := credentialBuilder.CreateSecretVolumeAndEnv(
+			ctx,
+			podNamespace,
+			podAnnotations,
+			podSpec.ServiceAccountName,
+			initContainer,
+			&podSpec.Volumes,
+		); err != nil {
+			return err
+		}
 	}
 
 	return nil

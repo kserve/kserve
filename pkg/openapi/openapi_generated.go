@@ -78,6 +78,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomPredictor":                schema_pkg_apis_serving_v1beta1_CustomPredictor(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.CustomTransformer":              schema_pkg_apis_serving_v1beta1_CustomTransformer(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.DeployConfig":                   schema_pkg_apis_serving_v1beta1_DeployConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.DeploymentRolloutStrategy":      schema_pkg_apis_serving_v1beta1_DeploymentRolloutStrategy(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerConfig":                schema_pkg_apis_serving_v1beta1_ExplainerConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerExtensionSpec":         schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec":                  schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref),
@@ -119,6 +120,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec":                  schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig":                 schema_pkg_apis_serving_v1beta1_ResourceConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource":           schema_pkg_apis_serving_v1beta1_ResourceMetricSource(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.RolloutSpec":                    schema_pkg_apis_serving_v1beta1_RolloutSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec":                    schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SecurityConfig":                 schema_pkg_apis_serving_v1beta1_SecurityConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ServiceConfig":                  schema_pkg_apis_serving_v1beta1_ServiceConfig(ref),
@@ -1454,7 +1456,7 @@ func schema_pkg_apis_serving_v1alpha1_ModelSpec(ref common.ReferenceCallback) co
 					},
 					"framework": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Machine Learning <framework name> The values could be: \"tensorflow\",\"pytorch\",\"sklearn\",\"onnx\",\"xgboost\", \"myawesomeinternalframework\" etc.",
+							Description: "Machine Learning &lt;framework name&gt; The values could be: \"tensorflow\",\"pytorch\",\"sklearn\",\"onnx\",\"xgboost\", \"myawesomeinternalframework\" etc.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -4378,9 +4380,37 @@ func schema_pkg_apis_serving_v1beta1_DeployConfig(ref common.ReferenceCallback) 
 							Format: "",
 						},
 					},
+					"deploymentRolloutStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.DeploymentRolloutStrategy"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.DeploymentRolloutStrategy"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_DeploymentRolloutStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeploymentRolloutStrategy defines the rollout strategy configuration for deployments",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"defaultRollout": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DefaultRollout specifies the default rollout configuration",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.RolloutSpec"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.RolloutSpec"},
 	}
 }
 
@@ -4981,7 +5011,7 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 					},
 					"subdomain": {
 						SchemaProps: spec.SchemaProps{
-							Description: "If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.",
+							Description: "If specified, the fully qualified Pod hostname will be \"&lt;hostname&gt;.&lt;subdomain&gt;.&lt;pod namespace&gt;.svc.&lt;cluster domain&gt;\". If not specified, the pod will not have a domainname at all.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -6857,7 +6887,7 @@ func schema_pkg_apis_serving_v1beta1_ModelCopies(ref common.ReferenceCallback) c
 					},
 					"totalCopies": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Total number copies of this predictor's models that are currently loaded",
+							Description: "Total number of copies of this predictor's models across all states (Pending, Loading, Loaded, FailedToLoad).",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -8708,7 +8738,7 @@ func schema_pkg_apis_serving_v1beta1_PodSpec(ref common.ReferenceCallback) commo
 					},
 					"subdomain": {
 						SchemaProps: spec.SchemaProps{
-							Description: "If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.",
+							Description: "If specified, the fully qualified Pod hostname will be \"&lt;hostname&gt;.&lt;subdomain&gt;.&lt;pod namespace&gt;.svc.&lt;cluster domain&gt;\". If not specified, the pod will not have a domainname at all.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -9561,7 +9591,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 					},
 					"subdomain": {
 						SchemaProps: spec.SchemaProps{
-							Description: "If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.",
+							Description: "If specified, the fully qualified Pod hostname will be \"&lt;hostname&gt;.&lt;subdomain&gt;.&lt;pod namespace&gt;.svc.&lt;cluster domain&gt;\". If not specified, the pod will not have a domainname at all.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -9964,6 +9994,36 @@ func schema_pkg_apis_serving_v1beta1_ResourceMetricSource(ref common.ReferenceCa
 		},
 		Dependencies: []string{
 			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_RolloutSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RolloutSpec defines the rollout strategy configuration using Kubernetes deployment strategy",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"maxSurge": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxSurge specifies the maximum number of pods that can be created above the desired replica count. Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"maxUnavailable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxUnavailable specifies the maximum number of pods that can be unavailable during the update. Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"maxSurge", "maxUnavailable"},
+			},
+		},
 	}
 }
 
@@ -11254,7 +11314,7 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 					},
 					"subdomain": {
 						SchemaProps: spec.SchemaProps{
-							Description: "If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.",
+							Description: "If specified, the fully qualified Pod hostname will be \"&lt;hostname&gt;.&lt;subdomain&gt;.&lt;pod namespace&gt;.svc.&lt;cluster domain&gt;\". If not specified, the pod will not have a domainname at all.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -12146,7 +12206,7 @@ func schema_pkg_apis_serving_v1beta1_WorkerSpec(ref common.ReferenceCallback) co
 					},
 					"subdomain": {
 						SchemaProps: spec.SchemaProps{
-							Description: "If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.",
+							Description: "If specified, the fully qualified Pod hostname will be \"&lt;hostname&gt;.&lt;subdomain&gt;.&lt;pod namespace&gt;.svc.&lt;cluster domain&gt;\". If not specified, the pod will not have a domainname at all.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

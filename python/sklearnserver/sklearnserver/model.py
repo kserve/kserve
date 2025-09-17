@@ -17,7 +17,7 @@ import pathlib
 from typing import Dict, Union
 
 from kserve.errors import InferenceError, ModelMissingError
-from kserve.storage import Storage
+from kserve_storage import Storage
 
 import joblib
 from kserve.protocol.infer_type import InferRequest, InferResponse

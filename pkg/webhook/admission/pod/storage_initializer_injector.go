@@ -284,22 +284,14 @@ func CommonStorageInitialization(params *StorageInitializerParams) error {
 			if mountErr := utils.AddModelPvcMount(srcURI, userContainer.Name, isvcReadonlyStringFlag, &pod.Spec); mountErr != nil {
 				return mountErr
 			}
-			if transformerContainer != nil {
-				if mountErr := utils.AddModelPvcMount(srcURI, transformerContainer.Name, isvcReadonlyStringFlag, &pod.Spec); mountErr != nil {
-					return mountErr
-				}
-			}
+		}
 
-			// change the CustomSpecStorageUri env variable value
-			// to the default model path if present
-			for index, envVar := range userContainer.Env {
-				if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
-					userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
-				}
+		// change the CustomSpecStorageUri env variable value
+		// to the default model path if present
+		for index, envVar := range userContainer.Env {
+			if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
+				userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
 			}
-
-			// not inject the storage initializer
-			return nil
 		}
 
 		for index, envVar := range userContainer.Env {

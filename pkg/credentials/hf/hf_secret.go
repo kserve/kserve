@@ -28,11 +28,18 @@ const (
 func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
 	envs := make([]corev1.EnvVar, 0)
 
-	if token, ok := secret.Data[HFTokenKey]; ok {
+	if _, ok := secret.Data[HFTokenKey]; ok {
 		envs = append(envs, []corev1.EnvVar{
 			{
-				Name:  HFTokenKey,
-				Value: string(token),
+				Name: HFTokenKey,
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: secret.Name,
+						},
+						Key: HFTokenKey,
+					},
+				},
 			},
 			{
 				Name:  HFTransfer,

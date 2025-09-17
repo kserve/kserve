@@ -148,7 +148,7 @@ func NewRawKubeReconciler(ctx context.Context,
 		}
 
 		pod.CommonStorageInitialization(storageInitializerParams)
-		
+
 		if workerPodSpec != nil {
 			workerStorageInitializerParams := &pod.StorageInitializerParams{
 				Namespace:            workerComponentMeta.Namespace,

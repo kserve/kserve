@@ -26,6 +26,8 @@ import (
 	"knative.dev/pkg/network"
 )
 
+// IsInternalURL determines if a URL points to an internal/private endpoint
+// This is used to classify URLs as internal vs external for routing decisions
 func IsInternalURL(url *apis.URL) bool {
 	host := url.URL().Hostname()
 
@@ -36,18 +38,22 @@ func IsInternalURL(url *apis.URL) bool {
 	return isInternalHostname(host)
 }
 
+// IsExternalURL determines if a URL points to an external/public endpoint
 func IsExternalURL(url *apis.URL) bool {
 	return !IsInternalURL(url)
 }
 
+// FilterInternalURLs returns only the URLs that are internal/private
 func FilterInternalURLs(urls []*apis.URL) []*apis.URL {
 	return utils.FilterSlice(urls, IsInternalURL)
 }
 
+// FilterExternalURLs returns only the URLs that are external/public
 func FilterExternalURLs(urls []*apis.URL) []*apis.URL {
 	return utils.FilterSlice(urls, IsExternalURL)
 }
 
+// isInternalIP checks if an IP address is in a private range
 func isInternalIP(addr string) bool {
 	ip := net.ParseIP(addr)
 	if ip != nil && ip.IsPrivate() {
@@ -56,6 +62,8 @@ func isInternalIP(addr string) bool {
 	return false
 }
 
+// isInternalHostname checks if a hostname appears to be internal
+// This includes cluster-local domains and localhost variants
 func isInternalHostname(hostname string) bool {
 	hostname = strings.ToLower(hostname)
 
