@@ -19,7 +19,7 @@ from kserve import KServeClient, constants, V1alpha1LLMInferenceService
 from kubernetes import client, config
 from typing import List
 
-from .logging import logger
+from .test_logging import logger
 
 KSERVE_PLURAL_LLMINFERENCESERVICECONFIG = "llminferenceserviceconfigs"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"

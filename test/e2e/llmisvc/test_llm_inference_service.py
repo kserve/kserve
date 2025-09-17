@@ -32,7 +32,7 @@ from .fixtures import (
     # Factory functions are not called explicitly, but they need to be imported to work
     inject_k8s_proxy,
 )
-from .logging import log_execution
+from .test_logging import log_execution
 
 KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
 
