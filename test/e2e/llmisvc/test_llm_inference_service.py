@@ -31,8 +31,9 @@ from .fixtures import (
     generate_test_id,
     # Factory functions are not called explicitly, but they need to be imported to work
     inject_k8s_proxy,
+    test_case,  # noqa: F401,F811
 )
-from .test_logging import log_execution
+from .logging import log_execution
 
 KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
 
