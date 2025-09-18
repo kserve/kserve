@@ -1299,11 +1299,7 @@ spec:
                                         format: int32
                                         type: integer
                                       averageValue:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                       type:
                                         enum:
                                           - Utilization
@@ -1311,11 +1307,7 @@ spec:
                                           - AverageValue
                                         type: string
                                       value:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                     type: object
                                 required:
                                   - metric
@@ -1346,11 +1338,7 @@ spec:
                                         format: int32
                                         type: integer
                                       averageValue:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                       type:
                                         enum:
                                           - Utilization
@@ -1358,11 +1346,7 @@ spec:
                                           - AverageValue
                                         type: string
                                       value:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                     type: object
                                 required:
                                   - metric
@@ -1381,11 +1365,7 @@ spec:
                                         format: int32
                                         type: integer
                                       averageValue:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                       type:
                                         enum:
                                           - Utilization
@@ -1393,11 +1373,7 @@ spec:
                                           - AverageValue
                                         type: string
                                       value:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                     type: object
                                 required:
                                   - name
@@ -4537,11 +4513,7 @@ spec:
                                         format: int32
                                         type: integer
                                       averageValue:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                       type:
                                         enum:
                                           - Utilization
@@ -4549,11 +4521,7 @@ spec:
                                           - AverageValue
                                         type: string
                                       value:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                     type: object
                                 required:
                                   - metric
@@ -4584,11 +4552,7 @@ spec:
                                         format: int32
                                         type: integer
                                       averageValue:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                       type:
                                         enum:
                                           - Utilization
@@ -4596,11 +4560,7 @@ spec:
                                           - AverageValue
                                         type: string
                                       value:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                     type: object
                                 required:
                                   - metric
@@ -4619,11 +4579,7 @@ spec:
                                         format: int32
                                         type: integer
                                       averageValue:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                       type:
                                         enum:
                                           - Utilization
@@ -4631,11 +4587,7 @@ spec:
                                           - AverageValue
                                         type: string
                                       value:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                     type: object
                                 required:
                                   - name
@@ -18976,11 +18928,7 @@ spec:
                                         format: int32
                                         type: integer
                                       averageValue:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                       type:
                                         enum:
                                           - Utilization
@@ -18988,11 +18936,7 @@ spec:
                                           - AverageValue
                                         type: string
                                       value:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                     type: object
                                 required:
                                   - metric
@@ -19023,11 +18967,7 @@ spec:
                                         format: int32
                                         type: integer
                                       averageValue:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                       type:
                                         enum:
                                           - Utilization
@@ -19035,11 +18975,7 @@ spec:
                                           - AverageValue
                                         type: string
                                       value:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                     type: object
                                 required:
                                   - metric
@@ -19058,11 +18994,7 @@ spec:
                                         format: int32
                                         type: integer
                                       averageValue:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                       type:
                                         enum:
                                           - Utilization
@@ -19070,11 +19002,7 @@ spec:
                                           - AverageValue
                                         type: string
                                       value:
-                                        anyOf:
-                                          - type: integer
-                                          - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                                        x-kubernetes-int-or-string: true
+                                        type: string
                                     type: object
                                 required:
                                   - name
