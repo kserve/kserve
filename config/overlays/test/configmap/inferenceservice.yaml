@@ -18,7 +18,6 @@ data:
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
         "cpuLimit": "1",
-        "enableDirectPvcVolumeMount": true,
         "cpuModelcar": "10m",
         "memoryModelcar": "15Mi",
         "enableModelcar": true,
