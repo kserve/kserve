@@ -46,17 +46,13 @@ class V1beta1ModelCopies(object):
       attribute_map (dict): The key is attribute name
                             and the value is json key in definition.
     """
-    openapi_types = {
-        'failed_copies': 'int',
-        'total_copies': 'int'
-    }
+    openapi_types = {"failed_copies": "int", "total_copies": "int"}
 
-    attribute_map = {
-        'failed_copies': 'failedCopies',
-        'total_copies': 'totalCopies'
-    }
+    attribute_map = {"failed_copies": "failedCopies", "total_copies": "totalCopies"}
 
-    def __init__(self, failed_copies=0, total_copies=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self, failed_copies=0, total_copies=None, local_vars_configuration=None
+    ):  # noqa: E501
         """V1beta1ModelCopies - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -90,8 +86,13 @@ class V1beta1ModelCopies(object):
         :param failed_copies: The failed_copies of this V1beta1ModelCopies.  # noqa: E501
         :type: int
         """
-        if self.local_vars_configuration.client_side_validation and failed_copies is None:  # noqa: E501
-            raise ValueError("Invalid value for `failed_copies`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation
+            and failed_copies is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `failed_copies`, must not be `None`"
+            )  # noqa: E501
 
         self._failed_copies = failed_copies
 
@@ -125,18 +126,22 @@ class V1beta1ModelCopies(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
