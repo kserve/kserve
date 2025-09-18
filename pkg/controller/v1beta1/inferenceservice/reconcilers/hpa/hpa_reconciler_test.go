@@ -279,7 +279,7 @@ func TestCreateHPA(t *testing.T) {
 									Name: v1beta1.ResourceMetricMemory,
 									Target: v1beta1.MetricTarget{
 										Type:         v1beta1.AverageValueMetricType,
-										AverageValue: ptr.To(resource.MustParse("1Gi")),
+										AverageValue: ptr.To("1Gi"),
 									},
 								},
 							},
@@ -805,7 +805,7 @@ func TestGetHPAMetrics(t *testing.T) {
 								Name: v1beta1.ResourceMetricMemory,
 								Target: v1beta1.MetricTarget{
 									Type:         v1beta1.AverageValueMetricType,
-									AverageValue: ptr.To(resource.MustParse("500Mi")),
+									AverageValue: ptr.To("500Mi"),
 								},
 							},
 						},
@@ -846,7 +846,7 @@ func TestGetHPAMetrics(t *testing.T) {
 								Name: v1beta1.ResourceMetricMemory,
 								Target: v1beta1.MetricTarget{
 									Type:         v1beta1.AverageValueMetricType,
-									AverageValue: ptr.To(resource.MustParse("1Gi")),
+									AverageValue: ptr.To("1Gi"),
 								},
 							},
 						},

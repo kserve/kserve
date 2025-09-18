@@ -93,11 +93,11 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 					}
 				case v1beta1.AverageValueMetricType:
 					if metric.Resource.Target.AverageValue != nil {
-						targetValue = metric.Resource.Target.AverageValue.String()
+						targetValue = *metric.Resource.Target.AverageValue
 					}
 				case v1beta1.ValueMetricType:
 					if metric.Resource.Target.Value != nil {
-						targetValue = metric.Resource.Target.Value.String()
+						targetValue = *metric.Resource.Target.Value
 					}
 				}
 				triggers = append(triggers, kedav1alpha1.ScaleTriggers{
@@ -115,7 +115,7 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 					Metadata: map[string]string{
 						"serverAddress": serverAddress,
 						"query":         query,
-						"threshold":     fmt.Sprintf("%f", metric.External.Target.Value.AsApproximateFloat64()),
+						"threshold":     *metric.External.Target.Value,
 					},
 				}
 
@@ -148,7 +148,7 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 
 				triggerType := string(metric.PodMetric.Metric.Backend)
 				query := metric.PodMetric.Metric.Query
-				targetValue := fmt.Sprintf("%g", metric.PodMetric.Target.Value.AsApproximateFloat64())
+				targetValue := *metric.PodMetric.Target.Value
 
 				trigger := kedav1alpha1.ScaleTriggers{
 					Metadata: map[string]string{},

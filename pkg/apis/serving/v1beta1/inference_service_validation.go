@@ -26,13 +26,12 @@ import (
 	"strconv"
 	"strings"
 
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -315,11 +314,11 @@ func validateScaleTarget(target MetricTarget) error {
 		}
 		return validateTargetUtilization(*target.AverageUtilization)
 	case AverageValueMetricType:
-		if target.AverageValue == nil {
+		if target.AverageValue == nil || len(strings.TrimSpace(*target.AverageValue)) == 0 {
 			return errors.New("the AverageValue type should be set")
 		}
 	case ValueMetricType:
-		if target.Value == nil {
+		if target.Value == nil || len(strings.TrimSpace(*target.Value)) == 0 {
 			return errors.New("the Value type should be set")
 		}
 	}
@@ -388,8 +387,16 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 					if metric.Resource.Target.Type != AverageValueMetricType && metric.Resource.Target.Type != UtilizationMetricType {
 						return errors.New("the memory target value type should be AverageValue or Utilization")
 					}
-					if metric.Resource.Target.Type == AverageValueMetricType && metric.Resource.Target.AverageValue.Cmp(resource.MustParse("1Mi")) < 0 {
-						return errors.New("the memory target value should be greater than 1 MiB")
+					if metric.Resource.Target.Type == AverageValueMetricType && metric.Resource.Target.AverageValue != nil {
+						// Parse the string value to validate it's a valid memory quantity and meets minimum requirement
+						quantity, err := resource.ParseQuantity(*metric.Resource.Target.AverageValue)
+						if err != nil {
+							return fmt.Errorf("invalid memory target value: %w", err)
+						}
+						minMemory := resource.MustParse("1Mi")
+						if quantity.Cmp(minMemory) < 0 {
+							return errors.New("the memory target value should be greater than 1 MiB")
+						}
 					}
 				default:
 					return fmt.Errorf("resource type %s is not supported", metric.Resource.Name)
@@ -404,7 +411,7 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 				if metric.External.Metric.Query == "" {
 					return errors.New("the query should not be empty")
 				}
-				if metric.External.Target.Value == nil {
+				if metric.External.Target.Value == nil || len(strings.TrimSpace(*metric.External.Target.Value)) == 0 {
 					return errors.New("the target threshold value should not be empty")
 				}
 				if err := validateScaleTarget(metric.External.Target); err != nil {
@@ -417,7 +424,7 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 				if metric.PodMetric.Metric.Query == "" {
 					return errors.New("the query should not be empty")
 				}
-				if metric.PodMetric.Target.Value == nil {
+				if metric.PodMetric.Target.Value == nil || len(strings.TrimSpace(*metric.PodMetric.Target.Value)) == 0 {
 					return errors.New("the target threshold value should not be empty")
 				}
 				if err := validateScaleTarget(metric.PodMetric.Target); err != nil {

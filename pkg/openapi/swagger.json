@@ -3750,8 +3750,8 @@
           "format": "int32"
         },
         "averageValue": {
-          "description": "averageValue is the target value of the average of the metric across all relevant pods (as a quantity)",
-          "$ref": "#/definitions/resource.Quantity"
+          "description": "averageValue is the target value of the average of the metric across all relevant pods (as a string)",
+          "type": "string"
         },
         "type": {
           "description": "type represents whether the metric type is Utilization, Value, or AverageValue",
@@ -3759,8 +3759,8 @@
           "default": ""
         },
         "value": {
-          "description": "value is the target value of the metric (as a quantity).",
-          "$ref": "#/definitions/resource.Quantity"
+          "description": "value is the target value of the metric (as a string).",
+          "type": "string"
         }
       }
     },

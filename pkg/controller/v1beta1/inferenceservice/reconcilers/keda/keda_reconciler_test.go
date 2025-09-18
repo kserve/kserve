@@ -25,7 +25,6 @@ import (
 	"github.com/stretchr/testify/require"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -84,7 +83,7 @@ func TestGetKedaMetrics_ExternalMetricSourceType(t *testing.T) {
 	assert.Equal(t, "prometheus", triggers[0].Type)
 	assert.Equal(t, "http://prometheus-server", triggers[0].Metadata["serverAddress"])
 	assert.Equal(t, "http_requests_total", triggers[0].Metadata["query"])
-	assert.Equal(t, "100.000000", triggers[0].Metadata["threshold"])
+	assert.Equal(t, "100", triggers[0].Metadata["threshold"])
 }
 
 func TestGetKedaMetrics_PodMetricSourceType(t *testing.T) {
@@ -269,7 +268,7 @@ func TestGetKedaMetrics_AverageValueMetricSourceType(t *testing.T) {
 						Name: v1beta1.ResourceMetricCPU,
 						Target: v1beta1.MetricTarget{
 							Type:         v1beta1.AverageValueMetricType,
-							AverageValue: ptr.To(resource.MustParse("150m")),
+							AverageValue: ptr.To("150m"),
 						},
 					},
 				},
@@ -299,7 +298,7 @@ func TestGetKedaMetrics_ValueMetricSourceType(t *testing.T) {
 						Name: v1beta1.ResourceMetricMemory,
 						Target: v1beta1.MetricTarget{
 							Type:  v1beta1.ValueMetricType,
-							Value: ptr.To(resource.MustParse("512Mi")),
+							Value: ptr.To("512Mi"),
 						},
 					},
 				},
@@ -492,7 +491,7 @@ func TestGetKedaMetrics_ResourceMetricSourceType_AverageValue(t *testing.T) {
 						Name: v1beta1.ResourceMetricMemory,
 						Target: v1beta1.MetricTarget{
 							Type:         v1beta1.AverageValueMetricType,
-							AverageValue: ptr.To(resource.MustParse("256Mi")),
+							AverageValue: ptr.To("256Mi"),
 						},
 					},
 				},
@@ -521,7 +520,7 @@ func TestGetKedaMetrics_ResourceMetricSourceType_Value(t *testing.T) {
 						Name: v1beta1.ResourceMetricMemory,
 						Target: v1beta1.MetricTarget{
 							Type:  v1beta1.ValueMetricType,
-							Value: ptr.To(resource.MustParse("512Mi")),
+							Value: ptr.To("512Mi"),
 						},
 					},
 				},
@@ -554,7 +553,7 @@ func TestGetKedaMetrics_ExternalMetricSourceType_WithNamespaceAndAuth(t *testing
 							Namespace:     "test-ns",
 						},
 						Target: v1beta1.MetricTarget{
-							Value: ptr.To(resource.MustParse("123")),
+							Value: ptr.To("123"),
 						},
 						Authentication: &v1beta1.ExtMetricAuthentication{
 							AuthModes: "bearer",
@@ -575,7 +574,7 @@ func TestGetKedaMetrics_ExternalMetricSourceType_WithNamespaceAndAuth(t *testing
 	assert.Equal(t, "prometheus", trigger.Type)
 	assert.Equal(t, "http://prometheus-server", trigger.Metadata["serverAddress"])
 	assert.Equal(t, "http_requests_total", trigger.Metadata["query"])
-	assert.Equal(t, "123.000000", trigger.Metadata["threshold"])
+	assert.Equal(t, "123", trigger.Metadata["threshold"])
 	assert.Equal(t, "test-ns", trigger.Metadata["namespace"])
 	assert.Equal(t, "bearer", trigger.Metadata["authModes"])
 	assert.NotNil(t, trigger.AuthenticationRef)
@@ -599,7 +598,7 @@ func TestGetKedaMetrics_ExternalMetricSourceType_WithoutNamespaceOrAuth(t *testi
 							Query:         "http_requests_total",
 						},
 						Target: v1beta1.MetricTarget{
-							Value: ptr.To(resource.MustParse("99")),
+							Value: ptr.To("99"),
 						},
 					},
 				},
@@ -614,7 +613,7 @@ func TestGetKedaMetrics_ExternalMetricSourceType_WithoutNamespaceOrAuth(t *testi
 	assert.Equal(t, "prometheus", trigger.Type)
 	assert.Equal(t, "http://prometheus-server", trigger.Metadata["serverAddress"])
 	assert.Equal(t, "http_requests_total", trigger.Metadata["query"])
-	assert.Equal(t, "99.000000", trigger.Metadata["threshold"])
+	assert.Equal(t, "99", trigger.Metadata["threshold"])
 	assert.Nil(t, trigger.AuthenticationRef)
 }
 
@@ -636,7 +635,7 @@ func TestGetKedaMetrics_PodMetricSourceType_Success(t *testing.T) {
 							OperationOverTime: "sum",
 						},
 						Target: v1beta1.MetricTarget{
-							Value: ptr.To(resource.MustParse("200")),
+							Value: ptr.To("200"),
 						},
 					},
 				},
@@ -655,7 +654,7 @@ func TestGetKedaMetrics_PodMetricSourceType_Success(t *testing.T) {
 	assert.Equal(t, "sum", trigger.Metadata["operationOverTime"])
 }
 
-func TestGetKedaMetrics_PodMetricSourceType_QuantityFormatConversion(t *testing.T) {
+func TestGetKedaMetrics_StringPassthrough(t *testing.T) {
 	testCases := []struct {
 		name           string
 		inputValue     string
@@ -671,14 +670,14 @@ func TestGetKedaMetrics_PodMetricSourceType_QuantityFormatConversion(t *testing.
 		{
 			name:           "Decimal format 0.90",
 			inputValue:     "0.90",
-			expectedOutput: "0.9",
-			description:    "Decimal with trailing zero should normalize to 0.9",
+			expectedOutput: "0.90",
+			description:    "Decimal with trailing zero should be preserved as-is",
 		},
 		{
 			name:           "Milli format 900m",
 			inputValue:     "900m",
-			expectedOutput: "0.9",
-			description:    "Milli format should convert to decimal equivalent",
+			expectedOutput: "900m",
+			description:    "Milli format should be preserved as-is for KEDA",
 		},
 		{
 			name:           "Integer format 1",
@@ -689,8 +688,8 @@ func TestGetKedaMetrics_PodMetricSourceType_QuantityFormatConversion(t *testing.
 		{
 			name:           "Integer milli format 1000m",
 			inputValue:     "1000m",
-			expectedOutput: "1",
-			description:    "1000m should convert to 1",
+			expectedOutput: "1000m",
+			description:    "1000m should be preserved as-is for KEDA",
 		},
 		{
 			name:           "Half value 0.5",
@@ -701,8 +700,8 @@ func TestGetKedaMetrics_PodMetricSourceType_QuantityFormatConversion(t *testing.
 		{
 			name:           "Half value 500m",
 			inputValue:     "500m",
-			expectedOutput: "0.5",
-			description:    "500m should convert to 0.5",
+			expectedOutput: "500m",
+			description:    "500m should be preserved as-is for KEDA",
 		},
 		{
 			name:           "Large integer 200",
@@ -713,8 +712,8 @@ func TestGetKedaMetrics_PodMetricSourceType_QuantityFormatConversion(t *testing.
 		{
 			name:           "Scientific notation 9e-1",
 			inputValue:     "9e-1",
-			expectedOutput: "0.9",
-			description:    "Scientific notation should convert to decimal",
+			expectedOutput: "9e-1",
+			description:    "Scientific notation should be preserved as-is for KEDA",
 		},
 	}
 
@@ -735,7 +734,7 @@ func TestGetKedaMetrics_PodMetricSourceType_QuantityFormatConversion(t *testing.
 									Query:   "test_metric",
 								},
 								Target: v1beta1.MetricTarget{
-									Value: ptr.To(resource.MustParse(tc.inputValue)),
+									Value: ptr.To(tc.inputValue),
 								},
 							},
 						},
@@ -905,7 +904,7 @@ func createComponentExtensionWithExternalMetric() *v1beta1.ComponentExtensionSpe
 							Namespace:     "test-namespace",
 						},
 						Target: v1beta1.MetricTarget{
-							Value: ptr.To(resource.MustParse("100")),
+							Value: ptr.To("100"),
 						},
 					},
 				},
@@ -928,7 +927,7 @@ func createComponentExtensionWithPodMetric() *v1beta1.ComponentExtensionSpec {
 							OperationOverTime: "sum",
 						},
 						Target: v1beta1.MetricTarget{
-							Value: ptr.To(resource.MustParse("200")),
+							Value: ptr.To("200"),
 						},
 					},
 				},

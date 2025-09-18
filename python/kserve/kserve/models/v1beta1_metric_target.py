@@ -48,9 +48,9 @@ class V1beta1MetricTarget(object):
     """
     openapi_types = {
         'average_utilization': 'int',
-        'average_value': 'ResourceQuantity',
+        'average_value': 'str',
         'type': 'str',
-        'value': 'ResourceQuantity'
+        'value': 'str'
     }
 
     attribute_map = {
@@ -108,9 +108,10 @@ class V1beta1MetricTarget(object):
     def average_value(self):
         """Gets the average_value of this V1beta1MetricTarget.  # noqa: E501
 
+        averageValue is the target value of the average of the metric across all relevant pods (as a string)  # noqa: E501
 
         :return: The average_value of this V1beta1MetricTarget.  # noqa: E501
-        :rtype: ResourceQuantity
+        :rtype: str
         """
         return self._average_value
 
@@ -118,9 +119,10 @@ class V1beta1MetricTarget(object):
     def average_value(self, average_value):
         """Sets the average_value of this V1beta1MetricTarget.
 
+        averageValue is the target value of the average of the metric across all relevant pods (as a string)  # noqa: E501
 
         :param average_value: The average_value of this V1beta1MetricTarget.  # noqa: E501
-        :type: ResourceQuantity
+        :type: str
         """
 
         self._average_value = average_value
@@ -152,9 +154,10 @@ class V1beta1MetricTarget(object):
     def value(self):
         """Gets the value of this V1beta1MetricTarget.  # noqa: E501
 
+        value is the target value of the metric (as a string).  # noqa: E501
 
         :return: The value of this V1beta1MetricTarget.  # noqa: E501
-        :rtype: ResourceQuantity
+        :rtype: str
         """
         return self._value
 
@@ -162,9 +165,10 @@ class V1beta1MetricTarget(object):
     def value(self, value):
         """Sets the value of this V1beta1MetricTarget.
 
+        value is the target value of the metric (as a string).  # noqa: E501
 
         :param value: The value of this V1beta1MetricTarget.  # noqa: E501
-        :type: ResourceQuantity
+        :type: str
         """
 
         self._value = value

@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -90,7 +91,16 @@ func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2
 					ms.Resource.Target.AverageUtilization = metric.Resource.Target.AverageUtilization
 				} else if metric.Resource.Target.Type == v1beta1.AverageValueMetricType {
 					ms.Resource.Target.Type = autoscalingv2.AverageValueMetricType
-					ms.Resource.Target.AverageValue = metric.Resource.Target.AverageValue
+					if metric.Resource.Target.AverageValue != nil {
+						quantity, err := resource.ParseQuantity(*metric.Resource.Target.AverageValue)
+						if err != nil {
+							log.Error(err, "Failed to parse average value quantity for HPA metric, skipping metric",
+								"averageValue", *metric.Resource.Target.AverageValue,
+								"resourceName", metric.Resource.Name)
+							continue
+						}
+						ms.Resource.Target.AverageValue = &quantity
+					}
 				}
 				metrics = append(metrics, ms)
 			}

@@ -667,13 +667,13 @@ func (in *MetricTarget) DeepCopyInto(out *MetricTarget) {
 	*out = *in
 	if in.Value != nil {
 		in, out := &in.Value, &out.Value
-		x := (*in).DeepCopy()
-		*out = &x
+		*out = new(string)
+		**out = **in
 	}
 	if in.AverageValue != nil {
 		in, out := &in.AverageValue, &out.AverageValue
-		x := (*in).DeepCopy()
-		*out = &x
+		*out = new(string)
+		**out = **in
 	}
 	if in.AverageUtilization != nil {
 		in, out := &in.AverageUtilization, &out.AverageUtilization
