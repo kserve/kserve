@@ -439,7 +439,7 @@ func ValidateStorageURI(ctx context.Context, storageURI *string, client client.C
 
 // ValidateStorageURISpec validates that paths are absolute
 func ValidateStorageURISpec(storageUri *v1beta1.StorageUri) error {
-	//Validate that paths have a common parent
+	// Validate individual storage URI specification
 	if storageUri.Uri == "" {
 		return fmt.Errorf("storage URI cannot be empty")
 	}
@@ -450,6 +450,11 @@ func ValidateStorageURISpec(storageUri *v1beta1.StorageUri) error {
 
 	if !strings.HasPrefix(storageUri.Path, "/") {
 		return fmt.Errorf("storage path must be absolute: %s", storageUri.Path)
+	}
+
+	// Security validation: prevent directory traversal attacks
+	if strings.Contains(storageUri.Path, "..") {
+		return fmt.Errorf("storage path cannot contain '..' for security reasons: %s", storageUri.Path)
 	}
 
 	return nil

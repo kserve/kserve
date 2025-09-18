@@ -145,9 +145,13 @@ func NewRawKubeReconciler(ctx context.Context,
 			IsvcAnnotations:      componentMeta.Annotations,
 			StorageSpec:          storageSpec,
 			StorageContainerSpec: storageContainerSpec,
+			IsLegacyURI:          false,
 		}
 
-		pod.CommonStorageInitialization(storageInitializerParams)
+		err := pod.CommonStorageInitialization(storageInitializerParams)
+		if err != nil {
+			return nil, err
+		}
 
 		if workerPodSpec != nil {
 			workerStorageInitializerParams := &pod.StorageInitializerParams{
@@ -161,12 +165,23 @@ func NewRawKubeReconciler(ctx context.Context,
 				IsvcAnnotations:      workerComponentMeta.Annotations,
 				StorageSpec:          storageSpec,
 				StorageContainerSpec: storageContainerSpec,
+				IsLegacyURI:          false,
 			}
-			pod.CommonStorageInitialization(workerStorageInitializerParams)
+			err := pod.CommonStorageInitialization(workerStorageInitializerParams)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
-	deployment, err := deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
+	// Get deploy config
+	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
+	if err != nil {
+		log.Error(err, "failed to get deploy config")
+		deployConfig = nil // Use nil if config is not available
+	}
+
+	deployment, err := deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec, deployConfig)
 	if err != nil {
 		return nil, err
 	}

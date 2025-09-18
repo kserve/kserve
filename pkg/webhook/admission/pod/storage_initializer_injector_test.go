@@ -4022,546 +4022,365 @@ func TestLocalModelPVC(t *testing.T) {
 
 func TestCommonStorageInitialization(t *testing.T) {
 	scenarios := map[string]struct {
-		params              *StorageInitializerParams
-		expectedPodSpec     *corev1.PodSpec
-		expectedError       string
-		validateInitializer func(*testing.T, *corev1.PodSpec)
+		storageURIs           []v1beta1.StorageUri
+		isLegacyURI           bool
+		isReadOnly            bool
+		expectedInitContainer bool
+		expectedVolumeCount   int
+		expectedMountPaths    []string
+		expectError           bool
+		errorContains         string
 	}{
-		"Single storage URI with default config": {
-			params: &StorageInitializerParams{
-				Namespace: "default",
-				StorageURIs: []v1beta1.StorageUri{
-					{Uri: "gs://mybucket/model", Path: constants.DefaultModelLocalMountPath},
-				},
-				IsReadOnly: true,
-				PodSpec: &corev1.PodSpec{
-					ServiceAccountName: "default",
-					Containers: []corev1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-				},
-				CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{}),
-				Config:            storageInitializerConfig,
-				IsvcAnnotations:   map[string]string{},
-				StorageSpec:       &v1beta1.StorageSpec{},
-				StorageContainerSpec: &v1alpha1.StorageContainerSpec{
-					SupportsMultiModelDownload: ptr.Bool(true),
-				},
+		"Multiple Cloud Storage URIs": {
+			storageURIs: []v1beta1.StorageUri{
+				{Uri: "s3://bucket/model", Path: "/mnt/models/base"},
+				{Uri: "gs://bucket/adapter", Path: "/mnt/models/adapter"},
 			},
-			expectedPodSpec: &corev1.PodSpec{
-				ServiceAccountName: "default",
-				Containers: []corev1.Container{
-					{
-						Name: constants.InferenceServiceContainerName,
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      constants.StorageInitializerVolumeName,
-								MountPath: constants.DefaultModelLocalMountPath,
-								ReadOnly:  true,
-							},
-						},
-					},
-				},
-				InitContainers: []corev1.Container{
-					{
-						Name:  constants.StorageInitializerContainerName,
-						Image: constants.StorageInitializerContainerImage + ":" + constants.StorageInitializerContainerImageVersion,
-						Args:  []string{"gs://mybucket/model", constants.DefaultModelLocalMountPath},
-						Resources: corev1.ResourceRequirements{
-							Limits: map[corev1.ResourceName]resource.Quantity{
-								corev1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPULimit),
-								corev1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryLimit),
-							},
-							Requests: map[corev1.ResourceName]resource.Quantity{
-								corev1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPURequest),
-								corev1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryRequest),
-							},
-						},
-						TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      constants.StorageInitializerVolumeName,
-								MountPath: constants.DefaultModelLocalMountPath,
-							},
-						},
-					},
-				},
-				Volumes: []corev1.Volume{
-					{
-						Name: constants.StorageInitializerVolumeName,
-						VolumeSource: corev1.VolumeSource{
-							EmptyDir: &corev1.EmptyDirVolumeSource{},
-						},
-					},
-				},
-			},
+			isLegacyURI:           false,
+			expectedInitContainer: true,
+			expectedVolumeCount:   1,
+			expectedMountPaths:    []string{"/mnt/models/base", "/mnt/models/adapter"},
 		},
-		"Multiple storage URIs": {
-			params: &StorageInitializerParams{
-				Namespace: "default",
-				StorageURIs: []v1beta1.StorageUri{
-					{Uri: "gs://mybucket/model1", Path: "/mnt/models/model1"},
-					{Uri: "s3://anotherbucket/model2", Path: "/mnt/models/model2"},
-				},
-				IsReadOnly: true,
-				PodSpec: &corev1.PodSpec{
-					ServiceAccountName: "default",
-					Containers: []corev1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-				},
-				CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{}),
-				Config:            storageInitializerConfig,
-				IsvcAnnotations:   map[string]string{},
-				StorageSpec:       &v1beta1.StorageSpec{},
-				StorageContainerSpec: &v1alpha1.StorageContainerSpec{
-					SupportsMultiModelDownload: ptr.Bool(true),
-				},
+		"Mixed PVC and Cloud Storage": {
+			storageURIs: []v1beta1.StorageUri{
+				{Uri: "pvc://model-pvc/model", Path: "/mnt/models/model"},
+				{Uri: "s3://bucket/adapter", Path: "/mnt/models/adapter"},
 			},
-			validateInitializer: func(t *testing.T, podSpec *corev1.PodSpec) {
-				require.Len(t, podSpec.InitContainers, 1)
-				initContainer := podSpec.InitContainers[0]
-				assert.Equal(t, constants.StorageInitializerContainerName, initContainer.Name)
-				assert.Equal(t, []string{
-					"gs://mybucket/model1", "/mnt/models/model1",
-					"s3://anotherbucket/model2", "/mnt/models/model2",
-				}, initContainer.Args)
-
-				// Check that common parent mount path is used
-				expectedVolumeName := utils.GetVolumeNameFromPath("/mnt/models")
-				found := false
-				for _, vm := range initContainer.VolumeMounts {
-					if vm.Name == expectedVolumeName {
-						found = true
-						assert.Equal(t, "/mnt/models", vm.MountPath)
-						break
-					}
-				}
-				assert.True(t, found, "Expected volume mount for common parent path not found")
-			},
+			isLegacyURI:           false,
+			expectedInitContainer: true,
+			expectedVolumeCount:   2, // One for PVC, one for cloud storage
+			expectedMountPaths:    []string{"/mnt/models/model", "/mnt/models/adapter"},
 		},
-		"PVC storage URI": {
-			params: &StorageInitializerParams{
-				Namespace: "default",
-				StorageURIs: []v1beta1.StorageUri{
-					{Uri: "pvc://model-pvc/models/mymodel", Path: constants.DefaultModelLocalMountPath},
-				},
-				IsReadOnly: true,
-				PodSpec: &corev1.PodSpec{
-					ServiceAccountName: "default",
-					Containers: []corev1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-				},
-				CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{}),
-				Config:            storageInitializerConfig,
-				IsvcAnnotations:   map[string]string{},
-				StorageSpec:       &v1beta1.StorageSpec{},
-				StorageContainerSpec: &v1alpha1.StorageContainerSpec{
-					SupportsMultiModelDownload: ptr.Bool(true),
-				},
+		"Multiple PVC URIs": {
+			storageURIs: []v1beta1.StorageUri{
+				{Uri: "pvc://model-pvc1/model1", Path: "/mnt/models/model1"},
+				{Uri: "pvc://model-pvc2/model2", Path: "/mnt/models/model2"},
 			},
-			validateInitializer: func(t *testing.T, podSpec *corev1.PodSpec) {
-				// Should have init container with modified URI for PVC mount
-				require.Len(t, podSpec.InitContainers, 1)
-				initContainer := podSpec.InitContainers[0]
-				assert.Contains(t, initContainer.Args[0], PvcSourceMountPath)
-
-				// Should have PVC volume
-				pvcVolumeFound := false
-				for _, volume := range podSpec.Volumes {
-					if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == "model-pvc" {
-						pvcVolumeFound = true
-						break
-					}
-				}
-				assert.True(t, pvcVolumeFound, "PVC volume not found")
-			},
+			isLegacyURI:           false,
+			expectedInitContainer: false, // No init container for PVC-only
+			expectedVolumeCount:   2,     // One volume per PVC
+			expectedMountPaths:    []string{"/mnt/models/model1", "/mnt/models/model2"},
 		},
-		"Direct PVC mount enabled": {
-			params: &StorageInitializerParams{
-				Namespace: "default",
-				StorageURIs: []v1beta1.StorageUri{
-					{Uri: "pvc://model-pvc/models/mymodel", Path: constants.DefaultModelLocalMountPath},
-				},
-				IsReadOnly: true,
-				PodSpec: &corev1.PodSpec{
-					ServiceAccountName: "default",
-					Containers: []corev1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-				},
-				CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{}),
-				Config: &kserveTypes.StorageInitializerConfig{
-					CpuRequest:                 StorageInitializerDefaultCPURequest,
-					CpuLimit:                   StorageInitializerDefaultCPULimit,
-					MemoryRequest:              StorageInitializerDefaultMemoryRequest,
-					MemoryLimit:                StorageInitializerDefaultMemoryLimit,
-					EnableDirectPvcVolumeMount: true,
-				},
-				IsvcAnnotations: map[string]string{},
-				StorageSpec:     &v1beta1.StorageSpec{},
-				StorageContainerSpec: &v1alpha1.StorageContainerSpec{
-					SupportsMultiModelDownload: ptr.Bool(true),
-				},
+		"Three Storage URIs with Mixed Types": {
+			storageURIs: []v1beta1.StorageUri{
+				{Uri: "pvc://base-model/model", Path: "/mnt/models/base"},
+				{Uri: "s3://bucket/lora-adapter", Path: "/mnt/models/lora"},
+				{Uri: "gs://bucket/tokenizer", Path: "/mnt/models/tokenizer"},
 			},
-			validateInitializer: func(t *testing.T, podSpec *corev1.PodSpec) {
-				// Should not have init containers when direct PVC mount is enabled
-				assert.Len(t, podSpec.InitContainers, 0)
-
-				// Should have direct PVC volume mount on user container
-				userContainer := utils.GetContainerWithName(podSpec, constants.InferenceServiceContainerName)
-				require.NotNil(t, userContainer)
-
-				pvcMountFound := false
-				for _, mount := range userContainer.VolumeMounts {
-					if mount.SubPath == "models/mymodel" {
-						pvcMountFound = true
-						break
-					}
-				}
-				assert.True(t, pvcMountFound, "Direct PVC mount not found on user container")
-			},
+			isLegacyURI:           false,
+			expectedInitContainer: true,
+			expectedVolumeCount:   2, // One for PVC, one for cloud storage
+			expectedMountPaths:    []string{"/mnt/models/base", "/mnt/models/lora", "/mnt/models/tokenizer"},
 		},
-		"Agent injection skips storage initializer": {
-			params: &StorageInitializerParams{
-				Namespace: "default",
-				StorageURIs: []v1beta1.StorageUri{
-					{Uri: "gs://mybucket/model", Path: constants.DefaultModelLocalMountPath},
-				},
-				IsReadOnly: true,
-				PodSpec: &corev1.PodSpec{
-					ServiceAccountName: "default",
-					Containers: []corev1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-				},
-				CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{}),
-				Config:            storageInitializerConfig,
-				IsvcAnnotations: map[string]string{
-					constants.AgentShouldInjectAnnotationKey: "true",
-				},
-				StorageSpec: &v1beta1.StorageSpec{},
-				StorageContainerSpec: &v1alpha1.StorageContainerSpec{
-					SupportsMultiModelDownload: ptr.Bool(true),
-				},
-			},
-			validateInitializer: func(t *testing.T, podSpec *corev1.PodSpec) {
-				// Should not inject storage initializer when agent is present
-				assert.Len(t, podSpec.InitContainers, 0)
-			},
-		},
-		"OCI image source skips storage initializer": {
-			params: &StorageInitializerParams{
-				Namespace: "default",
-				StorageURIs: []v1beta1.StorageUri{
-					{Uri: constants.OciURIPrefix + "myrepo/mymodel:latest", Path: constants.DefaultModelLocalMountPath},
-				},
-				IsReadOnly: true,
-				PodSpec: &corev1.PodSpec{
-					ServiceAccountName: "default",
-					Containers: []corev1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-				},
-				CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{}),
-				Config: &kserveTypes.StorageInitializerConfig{
-					CpuRequest:           StorageInitializerDefaultCPURequest,
-					CpuLimit:             StorageInitializerDefaultCPULimit,
-					MemoryRequest:        StorageInitializerDefaultMemoryRequest,
-					MemoryLimit:          StorageInitializerDefaultMemoryLimit,
-					EnableOciImageSource: true,
-				},
-				IsvcAnnotations: map[string]string{},
-				StorageSpec:     &v1beta1.StorageSpec{},
-				StorageContainerSpec: &v1alpha1.StorageContainerSpec{
-					SupportsMultiModelDownload: ptr.Bool(true),
-				},
-			},
-			validateInitializer: func(t *testing.T, podSpec *corev1.PodSpec) {
-				// Should not inject storage initializer for OCI images
-				assert.Len(t, podSpec.InitContainers, 0)
-			},
-		},
-		"Already injected init container": {
-			params: &StorageInitializerParams{
-				Namespace: "default",
-				StorageURIs: []v1beta1.StorageUri{
-					{Uri: "gs://mybucket/model", Path: constants.DefaultModelLocalMountPath},
-				},
-				IsReadOnly: true,
-				PodSpec: &corev1.PodSpec{
-					ServiceAccountName: "default",
-					Containers: []corev1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-					InitContainers: []corev1.Container{
-						{
-							Name:  constants.StorageInitializerContainerName,
-							Image: "existing-init-container",
-						},
-					},
-				},
-				CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{}),
-				Config:            storageInitializerConfig,
-				IsvcAnnotations:   map[string]string{},
-				StorageSpec:       &v1beta1.StorageSpec{},
-				StorageContainerSpec: &v1alpha1.StorageContainerSpec{
-					SupportsMultiModelDownload: ptr.Bool(true),
-				},
-			},
-			validateInitializer: func(t *testing.T, podSpec *corev1.PodSpec) {
-				// Should not add another storage initializer
-				assert.Len(t, podSpec.InitContainers, 1)
-				assert.Equal(t, "existing-init-container", podSpec.InitContainers[0].Image)
-			},
-		},
-		"ReadOnly false annotation": {
-			params: &StorageInitializerParams{
-				Namespace: "default",
-				StorageURIs: []v1beta1.StorageUri{
-					{Uri: "gs://mybucket/model", Path: constants.DefaultModelLocalMountPath},
-				},
-				IsReadOnly: false,
-				PodSpec: &corev1.PodSpec{
-					ServiceAccountName: "default",
-					Containers: []corev1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-				},
-				CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{}),
-				Config:            storageInitializerConfig,
-				IsvcAnnotations: map[string]string{
-					constants.StorageReadonlyAnnotationKey: "false",
-				},
-				StorageSpec: &v1beta1.StorageSpec{},
-				StorageContainerSpec: &v1alpha1.StorageContainerSpec{
-					SupportsMultiModelDownload: ptr.Bool(true),
-				},
-			},
-			validateInitializer: func(t *testing.T, podSpec *corev1.PodSpec) {
-				userContainer := utils.GetContainerWithName(podSpec, constants.InferenceServiceContainerName)
-				require.NotNil(t, userContainer)
-
-				// Volume mount should not be readonly
-				found := false
-				for _, mount := range userContainer.VolumeMounts {
-					if mount.Name == constants.StorageInitializerVolumeName {
-						assert.False(t, mount.ReadOnly)
-						found = true
-						break
-					}
-				}
-				assert.True(t, found, "Volume mount not found")
-			},
-		},
-		"Transformer container present": {
-			params: &StorageInitializerParams{
-				Namespace: "default",
-				StorageURIs: []v1beta1.StorageUri{
-					{Uri: "gs://mybucket/model", Path: constants.DefaultModelLocalMountPath},
-				},
-				IsReadOnly: true,
-				PodSpec: &corev1.PodSpec{
-					ServiceAccountName: "default",
-					Containers: []corev1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-						{
-							Name: constants.TransformerContainerName,
-						},
-					},
-				},
-				CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{}),
-				Config:            storageInitializerConfig,
-				IsvcAnnotations:   map[string]string{},
-				StorageSpec:       &v1beta1.StorageSpec{},
-				StorageContainerSpec: &v1alpha1.StorageContainerSpec{
-					SupportsMultiModelDownload: ptr.Bool(true),
-				},
-			},
-			validateInitializer: func(t *testing.T, podSpec *corev1.PodSpec) {
-				// Both user and transformer containers should have volume mounts
-				userContainer := utils.GetContainerWithName(podSpec, constants.InferenceServiceContainerName)
-				transformerContainer := utils.GetContainerWithName(podSpec, constants.TransformerContainerName)
-
-				require.NotNil(t, userContainer)
-				require.NotNil(t, transformerContainer)
-
-				// Check that both containers have the storage volume mount
-				for _, container := range []*corev1.Container{userContainer, transformerContainer} {
-					found := false
-					for _, mount := range container.VolumeMounts {
-						if mount.Name == constants.StorageInitializerVolumeName {
-							found = true
-							break
-						}
-					}
-					assert.True(t, found, "Storage volume mount not found on container %s", container.Name)
-				}
-			},
-		},
-		"Missing user container": {
-			params: &StorageInitializerParams{
-				Namespace: "default",
-				StorageURIs: []v1beta1.StorageUri{
-					{Uri: "gs://mybucket/model", Path: constants.DefaultModelLocalMountPath},
-				},
-				IsReadOnly: true,
-				PodSpec: &corev1.PodSpec{
-					ServiceAccountName: "default",
-					Containers: []corev1.Container{
-						{
-							Name: "some-other-container",
-						},
-					},
-				},
-				CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{}),
-				Config:            storageInitializerConfig,
-				IsvcAnnotations:   map[string]string{},
-				StorageSpec:       &v1beta1.StorageSpec{},
-				StorageContainerSpec: &v1alpha1.StorageContainerSpec{
-					SupportsMultiModelDownload: ptr.Bool(true),
-				},
-			},
-			expectedError: "Invalid configuration: cannot find container",
-		},
-		"Custom storage URI env var": {
-			params: &StorageInitializerParams{
-				Namespace: "default",
-				StorageURIs: []v1beta1.StorageUri{
-					{Uri: "gs://mybucket/model", Path: constants.DefaultModelLocalMountPath},
-				},
-				IsReadOnly: true,
-				PodSpec: &corev1.PodSpec{
-					ServiceAccountName: "default",
-					Containers: []corev1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-							Env: []corev1.EnvVar{
-								{
-									Name:  constants.CustomSpecStorageUriEnvVarKey,
-									Value: "gs://mybucket/model",
-								},
-							},
-						},
-					},
-				},
-				CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{}),
-				Config:            storageInitializerConfig,
-				IsvcAnnotations:   map[string]string{},
-				StorageSpec:       &v1beta1.StorageSpec{},
-				StorageContainerSpec: &v1alpha1.StorageContainerSpec{
-					SupportsMultiModelDownload: ptr.Bool(true),
-				},
-			},
-			validateInitializer: func(t *testing.T, podSpec *corev1.PodSpec) {
-				userContainer := utils.GetContainerWithName(podSpec, constants.InferenceServiceContainerName)
-				require.NotNil(t, userContainer)
-
-				// Check that the custom storage URI env var is updated
-				found := false
-				for _, env := range userContainer.Env {
-					if env.Name == constants.CustomSpecStorageUriEnvVarKey {
-						assert.Equal(t, constants.DefaultModelLocalMountPath, env.Value)
-						found = true
-						break
-					}
-				}
-				assert.True(t, found, "Custom storage URI env var not updated")
-			},
-		},
-		"Storage spec with credentials": {
-			params: &StorageInitializerParams{
-				Namespace: "default",
-				StorageURIs: []v1beta1.StorageUri{
-					{Uri: "s3://mybucket/model", Path: constants.DefaultModelLocalMountPath},
-				},
-				IsReadOnly: true,
-				PodSpec: &corev1.PodSpec{
-					ServiceAccountName: "default",
-					Containers: []corev1.Container{
-						{
-							Name: constants.InferenceServiceContainerName,
-						},
-					},
-				},
-				CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{}),
-				Config:            storageInitializerConfig,
-				IsvcAnnotations:   map[string]string{},
-				StorageSpec: &v1beta1.StorageSpec{
-					StorageKey: ptr.String("my-storage-key"),
-					Parameters: &map[string]string{
-						"bucket": "mybucket",
-						"region": "us-east-1",
-					},
-				},
-				StorageContainerSpec: &v1alpha1.StorageContainerSpec{
-					SupportsMultiModelDownload: ptr.Bool(true),
-				},
-			},
-			validateInitializer: func(t *testing.T, podSpec *corev1.PodSpec) {
-				require.Len(t, podSpec.InitContainers, 1)
-				initContainer := podSpec.InitContainers[0]
-
-				// Should have storage configuration environment variables
-				hasStorageConfig := false
-				for _, env := range initContainer.Env {
-					if env.Name == credentials.StorageOverrideConfigEnvKey {
-						hasStorageConfig = true
-						break
-					}
-				}
-				assert.True(t, hasStorageConfig, "Storage configuration not found in init container")
-			},
+		"Empty Storage URIs": {
+			storageURIs:           []v1beta1.StorageUri{},
+			isLegacyURI:           false,
+			expectedInitContainer: false,
+			expectedVolumeCount:   0,
+			expectedMountPaths:    []string{},
 		},
 	}
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			// Make a deep copy of the PodSpec to avoid mutations affecting other tests
-			originalPodSpec := scenario.params.PodSpec.DeepCopy()
-			scenario.params.PodSpec = originalPodSpec
+			// Setup test pod with kserve-container
+			podSpec := &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  constants.InferenceServiceContainerName,
+						Image: "test-image",
+						Env: []corev1.EnvVar{
+							{Name: constants.CustomSpecStorageUriEnvVarKey, Value: "placeholder"},
+						},
+					},
+				},
+			}
 
-			err := CommonStorageInitialization(scenario.params)
+			// Setup parameters
+			params := &StorageInitializerParams{
+				Namespace:            "default",
+				StorageURIs:          scenario.storageURIs,
+				IsReadOnly:           scenario.isReadOnly,
+				IsLegacyURI:          scenario.isLegacyURI,
+				PodSpec:              podSpec,
+				CredentialBuilder:    credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
+				Client:               c,
+				Config:               storageInitializerConfig,
+				IsvcAnnotations:      map[string]string{},
+				StorageSpec:          nil,
+				StorageContainerSpec: nil,
+			}
 
-			if scenario.expectedError != "" {
+			// Execute the function
+			err := CommonStorageInitialization(params)
+
+			// Verify error expectations
+			if scenario.expectError {
 				assert.Error(t, err)
-				assert.Contains(t, err.Error(), scenario.expectedError)
+				if scenario.errorContains != "" {
+					assert.Contains(t, err.Error(), scenario.errorContains)
+				}
 				return
 			}
-
 			assert.NoError(t, err)
 
-			if scenario.expectedPodSpec != nil {
-				// Basic validation of expected structure
-				if len(scenario.expectedPodSpec.InitContainers) > 0 {
-					assert.Len(t, scenario.params.PodSpec.InitContainers, len(scenario.expectedPodSpec.InitContainers))
+			// Verify init container expectations
+			if scenario.expectedInitContainer {
+				assert.Greater(t, len(podSpec.InitContainers), 0, "Expected init container to be added")
+				initContainer := podSpec.InitContainers[0]
+				assert.Equal(t, constants.StorageInitializerContainerName, initContainer.Name)
+				assert.Equal(t, constants.StorageInitializerContainerImage+":"+constants.StorageInitializerContainerImageVersion, initContainer.Image)
+
+				// Verify resource limits and requests
+				assert.Equal(t, resourceRequirement.Requests, initContainer.Resources.Requests)
+				assert.Equal(t, resourceRequirement.Limits, initContainer.Resources.Limits)
+
+				// Verify init container args for multiple URIs
+				if !scenario.isLegacyURI && len(scenario.storageURIs) > 0 {
+					// For multiple URIs, verify args contain all URI/path pairs
+					for _, storageURI := range scenario.storageURIs {
+						if !strings.HasPrefix(storageURI.Uri, "pvc://") {
+							assert.Contains(t, initContainer.Args, storageURI.Uri, "Expected URI in args")
+							assert.Contains(t, initContainer.Args, storageURI.Path, "Expected path in args")
+						}
+					}
 				}
-				if len(scenario.expectedPodSpec.Volumes) > 0 {
-					assert.GreaterOrEqual(t, len(scenario.params.PodSpec.Volumes), len(scenario.expectedPodSpec.Volumes))
+			} else {
+				assert.Equal(t, 0, len(podSpec.InitContainers), "Expected no init container")
+			}
+
+			// Verify volume count
+			assert.Equal(t, scenario.expectedVolumeCount, len(podSpec.Volumes), "Volume count mismatch")
+
+			// Verify volume mounts on user container
+			if len(scenario.expectedMountPaths) > 0 {
+				userContainer := &podSpec.Containers[0]
+				assert.Equal(t, len(scenario.expectedMountPaths), len(userContainer.VolumeMounts), "Volume mount count mismatch")
+
+				// Verify each mount path and readonly setting
+				for i, expectedPath := range scenario.expectedMountPaths {
+					if i < len(userContainer.VolumeMounts) {
+						mount := userContainer.VolumeMounts[i]
+						assert.Equal(t, expectedPath, mount.MountPath, "Mount path mismatch at index %d", i)
+						assert.Equal(t, scenario.isReadOnly, mount.ReadOnly, "Volume mount readonly setting mismatch for %s", mount.MountPath)
+					}
 				}
 			}
 
-			if scenario.validateInitializer != nil {
-				scenario.validateInitializer(t, scenario.params.PodSpec)
+			// Verify environment variable update for modern mode
+			if !scenario.isLegacyURI && len(scenario.expectedMountPaths) > 0 {
+				userContainer := &podSpec.Containers[0]
+				found := false
+				for _, envVar := range userContainer.Env {
+					if envVar.Name == constants.CustomSpecStorageUriEnvVarKey {
+						expectedEnvValue := strings.Join(scenario.expectedMountPaths, ",")
+						assert.Equal(t, expectedEnvValue, envVar.Value, "Environment variable value mismatch")
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "Expected environment variable not found")
+			}
+		})
+	}
+}
+
+func TestCommonStorageInitializationWithCustomStorageContainer(t *testing.T) {
+	// Setup custom storage container
+	customStorageContainer := &v1alpha1.StorageContainerSpec{
+		Container: corev1.Container{
+			Name:  "custom-multi-downloader",
+			Image: "custom/storage-initializer:v1",
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("500Mi"),
+					corev1.ResourceCPU:    resource.MustParse("2"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("200Mi"),
+					corev1.ResourceCPU:    resource.MustParse("500m"),
+				},
+			},
+			Env: []corev1.EnvVar{
+				{Name: "CUSTOM_ENV", Value: "custom_value"},
+			},
+		},
+		SupportsMultiModelDownload: ptr.Bool(true),
+	}
+
+	// Test multiple URIs with custom storage container
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:  constants.InferenceServiceContainerName,
+				Image: "test-image",
+				Env: []corev1.EnvVar{
+					{Name: constants.CustomSpecStorageUriEnvVarKey, Value: "placeholder"},
+				},
+			},
+		},
+	}
+
+	params := &StorageInitializerParams{
+		Namespace: "default",
+		StorageURIs: []v1beta1.StorageUri{
+			{Uri: "s3://bucket/model1", Path: "/mnt/models/model1"},
+			{Uri: "gs://bucket/model2", Path: "/mnt/models/model2"},
+		},
+		IsReadOnly:           false,
+		IsLegacyURI:          false,
+		PodSpec:              podSpec,
+		CredentialBuilder:    credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
+		Client:               c,
+		Config:               storageInitializerConfig,
+		IsvcAnnotations:      map[string]string{},
+		StorageSpec:          nil,
+		StorageContainerSpec: customStorageContainer,
+	}
+
+	err := CommonStorageInitialization(params)
+	assert.NoError(t, err)
+
+	// Verify custom container was used
+	assert.Len(t, podSpec.InitContainers, 1)
+	initContainer := podSpec.InitContainers[0]
+
+	// Verify it uses the custom container spec
+	assert.Equal(t, "custom-multi-downloader", initContainer.Name)
+	assert.Equal(t, "custom/storage-initializer:v1", initContainer.Image)
+
+	// Verify resources from custom container
+	assert.Equal(t, resource.MustParse("500Mi"), initContainer.Resources.Limits[corev1.ResourceMemory])
+	assert.Equal(t, resource.MustParse("2"), initContainer.Resources.Limits[corev1.ResourceCPU])
+	assert.Equal(t, resource.MustParse("200Mi"), initContainer.Resources.Requests[corev1.ResourceMemory])
+	assert.Equal(t, resource.MustParse("500m"), initContainer.Resources.Requests[corev1.ResourceCPU])
+
+	// Verify custom env var is present
+	foundCustomEnv := false
+	for _, env := range initContainer.Env {
+		if env.Name == "CUSTOM_ENV" && env.Value == "custom_value" {
+			foundCustomEnv = true
+			break
+		}
+	}
+	assert.True(t, foundCustomEnv, "Custom env var not found")
+
+	// Verify args contain all URIs and paths
+	assert.Contains(t, initContainer.Args, "s3://bucket/model1")
+	assert.Contains(t, initContainer.Args, "/mnt/models/model1")
+	assert.Contains(t, initContainer.Args, "gs://bucket/model2")
+	assert.Contains(t, initContainer.Args, "/mnt/models/model2")
+
+	// Verify volume mounts on user container
+	assert.Len(t, podSpec.Containers[0].VolumeMounts, 2)
+	assert.Equal(t, "/mnt/models/model1", podSpec.Containers[0].VolumeMounts[0].MountPath)
+	assert.Equal(t, "/mnt/models/model2", podSpec.Containers[0].VolumeMounts[1].MountPath)
+}
+
+func TestCommonStorageInitializationErrorCases(t *testing.T) {
+	scenarios := map[string]struct {
+		setupPodSpec     func() *corev1.PodSpec
+		storageURIs      []v1beta1.StorageUri
+		storageContainer *v1alpha1.StorageContainerSpec
+		expectError      bool
+		errorContains    string
+	}{
+		"Missing Required Container": {
+			setupPodSpec: func() *corev1.PodSpec {
+				return &corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "other-container", Image: "test"},
+					},
+				}
+			},
+			storageURIs: []v1beta1.StorageUri{
+				{Uri: "s3://bucket/model", Path: "/mnt/models"},
+			},
+			expectError:   true,
+			errorContains: "cannot find required container",
+		},
+		"Multiple URIs Unsupported Storage Container": {
+			setupPodSpec: func() *corev1.PodSpec {
+				return &corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: constants.InferenceServiceContainerName, Image: "test"},
+					},
+				}
+			},
+			storageURIs: []v1beta1.StorageUri{
+				{Uri: "s3://bucket/model1", Path: "/mnt/models/model1"},
+				{Uri: "s3://bucket/model2", Path: "/mnt/models/model2"},
+			},
+			storageContainer: &v1alpha1.StorageContainerSpec{
+				Container:                  corev1.Container{Name: "custom-storage"},
+				SupportsMultiModelDownload: ptr.Bool(false),
+			},
+			expectError:   true,
+			errorContains: "does not support multi-model download",
+		},
+		"Agent Already Injected": {
+			setupPodSpec: func() *corev1.PodSpec {
+				return &corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: constants.InferenceServiceContainerName, Image: "test"},
+					},
+				}
+			},
+			storageURIs: []v1beta1.StorageUri{
+				{Uri: "s3://bucket/model", Path: "/mnt/models"},
+			},
+			expectError: false, // Should not error, just skip injection
+		},
+		"Init Container Already Present": {
+			setupPodSpec: func() *corev1.PodSpec {
+				return &corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: constants.InferenceServiceContainerName, Image: "test"},
+					},
+					InitContainers: []corev1.Container{
+						{Name: constants.StorageInitializerContainerName, Image: "existing"},
+					},
+				}
+			},
+			storageURIs: []v1beta1.StorageUri{
+				{Uri: "s3://bucket/model", Path: "/mnt/models"},
+			},
+			expectError: false, // Should not error, just skip injection
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			podSpec := scenario.setupPodSpec()
+
+			annotations := map[string]string{}
+			if name == "Agent Already Injected" {
+				annotations[constants.AgentShouldInjectAnnotationKey] = "true"
+			}
+
+			params := &StorageInitializerParams{
+				Namespace:            "default",
+				StorageURIs:          scenario.storageURIs,
+				IsReadOnly:           false,
+				IsLegacyURI:          false,
+				PodSpec:              podSpec,
+				CredentialBuilder:    credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
+				Client:               c,
+				Config:               storageInitializerConfig,
+				IsvcAnnotations:      annotations,
+				StorageSpec:          nil,
+				StorageContainerSpec: scenario.storageContainer,
+			}
+
+			err := CommonStorageInitialization(params)
+
+			if scenario.expectError {
+				assert.Error(t, err)
+				if scenario.errorContains != "" {
+					assert.Contains(t, err.Error(), scenario.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}

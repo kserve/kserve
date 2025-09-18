@@ -127,8 +127,11 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 
 	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
-	if err := p.addStorageInitializerAnnotations(ctx, predictor, annotations); err != nil {
-		return ctrl.Result{}, err
+	// Only add annotations for single storage URI case. Multiple storage URIs are handled directly by reconcilers.
+	if sourceURI != nil {
+		if err := p.addStorageInitializerAnnotations(ctx, predictor, annotations); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	if storageURIs != nil {

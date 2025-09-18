@@ -104,7 +104,7 @@ func addVolumeMountToContainer(container *corev1.Container, storageMountParams S
 	return true
 }
 
-func AddModelMount(storageMountParams StorageMountParams, containerName string, podSpec *corev1.PodSpec) error {
+func AddModelMount(storageMountParams StorageMountParams, containerName string, podSpec *corev1.PodSpec, storageURIEnvVar string) error {
 	var volumeSource corev1.VolumeSource
 
 	if storageMountParams.PVCName != "" {
@@ -125,6 +125,14 @@ func AddModelMount(storageMountParams StorageMountParams, containerName string, 
 	for idx := range podSpec.Containers {
 		if podSpec.Containers[idx].Name == containerName {
 			mountAdded = addVolumeMountToContainer(&podSpec.Containers[idx], storageMountParams)
+
+			// change the CustomSpecStorageUri env variable value
+			// to the default model path if present
+			for index, envVar := range podSpec.Containers[idx].Env {
+				if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
+					podSpec.Containers[idx].Env[index].Value = constants.DefaultModelLocalMountPath
+				}
+			}
 			break
 		}
 	}
@@ -135,6 +143,14 @@ func AddModelMount(storageMountParams StorageMountParams, containerName string, 
 			if podSpec.InitContainers[idx].Name == containerName {
 				storageMountParams.ReadOnly = false // init containers need to write to the mount
 				mountAdded = addVolumeMountToContainer(&podSpec.InitContainers[idx], storageMountParams)
+
+				// change the CustomSpecStorageUri env variable value
+				// to the default model path if present
+				for index, envVar := range podSpec.InitContainers[idx].Env {
+					if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
+						podSpec.InitContainers[idx].Env[index].Value = constants.DefaultModelLocalMountPath
+					}
+				}
 				break
 			}
 		}

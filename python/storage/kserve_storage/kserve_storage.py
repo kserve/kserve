@@ -26,7 +26,6 @@ import tempfile
 import time
 import zipfile
 from pathlib import Path
-from typing import Dict, Iterator
 from urllib.parse import urlparse
 import requests
 
@@ -59,9 +58,9 @@ _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
 
 class Storage(object):
     @staticmethod
-    def download(source_uris: list[str], out_dirs: list[str]) -> Iterator[str]:
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            model_dirs = executor.map(Storage._download, source_uris, out_dirs)
+    def download(source_uris: list[str], out_dirs: list[str]) -> list[str]:
+        with ThreadPoolExecutor() as executor:
+            model_dirs = list(executor.map(Storage._download, source_uris, out_dirs))
         return model_dirs
 
     @staticmethod
@@ -395,7 +394,7 @@ class Storage(object):
         return temp_dir
 
     @staticmethod
-    def _load_hdfs_configuration() -> Dict:
+    def _load_hdfs_configuration() -> dict:
         config = {
             "HDFS_NAMENODE": None,
             "USER_PROXY": None,
