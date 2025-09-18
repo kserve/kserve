@@ -14,7 +14,6 @@
 
 import os
 import uuid
-import subprocess
 
 import pytest
 from kubernetes import client
@@ -42,28 +41,11 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict_isvc
 import time
 import asyncio
-import logging
 
 TARGET = "autoscaling.knative.dev/target"
 METRIC = "autoscaling.knative.dev/metric"
 MODEL = "gs://kfserving-examples/models/sklearn/1.0/model"
 INPUT = "./data/iris_input.json"
-
-
-def report_node_descriptions():
-    """
-    Log the output of 'kubectl describe node' for all nodes in the cluster.
-    """
-    try:
-        result = subprocess.run(
-            ["kubectl", "describe", "node"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        logging.info("kubectl describe node output:\n" + result.stdout)
-    except Exception as e:
-        logging.error(f"Failed to run 'kubectl describe node': {e}")
 
 
 @pytest.mark.predictor
@@ -94,7 +76,6 @@ async def test_sklearn_kserve_concurrency(rest_v1_client):
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     pods = kserve_client.core_api.list_namespaced_pod(
@@ -140,7 +121,6 @@ async def test_sklearn_kserve_rps(rest_v1_client):
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     pods = kserve_client.core_api.list_namespaced_pod(
@@ -188,7 +168,6 @@ async def test_sklearn_kserve_cpu(rest_v1_client):
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     pods = kserve_client.core_api.list_namespaced_pod(
@@ -237,7 +216,6 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     api_instance = kserve_client.api_instance
@@ -257,7 +235,7 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.raw
+@pytest.mark.autoscaling
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_rolling_update():
     suffix = str(uuid.uuid4())[1:6]
@@ -310,7 +288,6 @@ async def test_sklearn_rolling_update():
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
@@ -326,7 +303,7 @@ async def test_sklearn_rolling_update():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.raw
+@pytest.mark.autoscaling
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_env_update():
     suffix = str(uuid.uuid4())[1:6]
@@ -400,7 +377,6 @@ async def test_sklearn_env_update():
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
@@ -422,7 +398,7 @@ async def test_sklearn_env_update():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.raw
+@pytest.mark.autoscaling
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer):
     """
@@ -470,7 +446,6 @@ async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer)
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     api_instance = kserve_client.api_instance
@@ -497,7 +472,7 @@ async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.raw
+@pytest.mark.autoscaling
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_layer):
     """
@@ -548,7 +523,6 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     api_instance = kserve_client.api_instance
@@ -574,7 +548,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.raw
+@pytest.mark.autoscaling
 @pytest.mark.asyncio(scope="session")
 async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_layer):
     """
@@ -627,7 +601,6 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
-    report_node_descriptions()
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     api_instance = kserve_client.api_instance

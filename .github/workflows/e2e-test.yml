@@ -282,7 +282,7 @@ jobs:
           if-no-files-found: error
 
   test-predictor:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build]
     steps:
       - name: Checkout
@@ -343,7 +343,7 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh
 
   test-transformer-explainer-mms:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs:
       [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
@@ -428,7 +428,7 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh
 
   test-graph:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs:
       [kserve-image-build, predictor-runtime-build, graph-tests-images-build]
     steps:
@@ -504,7 +504,7 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh
 
   test-path-based-routing:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs:
       [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
@@ -599,7 +599,7 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh
 
   test-qpext:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build]
     steps:
       - name: Checkout source
@@ -665,7 +665,7 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh
 
   test-with-helm:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs: [kserve-image-build]
     steps:
       - name: Checkout source
@@ -714,9 +714,10 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh
 
   test-raw:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 3
       matrix:
         # Test with Ingress and Gateway API
         network-layer: ["istio-ingress", "envoy-gatewayapi", "istio-gatewayapi"]
@@ -814,7 +815,7 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 30
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "4" ${{ matrix.network-layer }}
+          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6" ${{ matrix.network-layer }}
 
       - name: Patch inferenceservice config for path based routing
         if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
@@ -843,8 +844,87 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+  test-autoscaling:
+    runs-on: ubuntu-latest
+    needs:
+      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Enable metrics server
+        run: |
+          minikube addons enable metrics-server
+          kubectl rollout status deployment/metrics-server -n kube-system --timeout=180s
+          kubectl get pods -n kube-system | grep metrics-server
+
+      - name: Check Metrics Server Logs
+        run: |
+          kubectl logs -n kube-system deploy/metrics-server
+      
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+        with:
+          deployment-mode: "raw"
+          enable-keda: "true"
+          network-layer: "istio-ingress"
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: Download sklearn server image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ github.sha }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ./test/scripts/gh-actions/setup-kserve.sh "raw" "istio-ingress"
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Log the config map
+        run: |
+          kubectl describe configmaps -n kserve inferenceservice-config
+
+      - name: Run E2E tests
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "autoscaling" "6" "istio-ingress"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
   test-kourier:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs:
       [kserve-image-build, predictor-runtime-build, graph-tests-images-build]
     steps:
@@ -929,7 +1009,7 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh "kourier"
 
   test-llm:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build]
     steps:
       - name: Checkout source
@@ -988,7 +1068,7 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh
 
   test-huggingface-server-vllm:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build]
     steps:
       - name: Checkout source
@@ -1047,7 +1127,7 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh
 
   test-modelcache:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs: [kserve-image-build, predictor-runtime-build]
     steps:
       - name: Checkout source
