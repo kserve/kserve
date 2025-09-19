@@ -26,6 +26,9 @@ type TransformerSpec struct {
 	PodSpec `json:",inline"`
 	// Component extension defines the deployment configurations for a transformer
 	ComponentExtensionSpec `json:",inline"`
+
+	// Spec for multiple storage uris.
+	StorageUris []StorageUri `json:"storageUris,omitempty"`
 }
 
 // GetImplementations returns the implementations for the component

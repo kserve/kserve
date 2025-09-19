@@ -28,6 +28,14 @@ import (
 	"github.com/kserve/kserve/pkg/types"
 )
 
+type StorageMountParams struct {
+	MountPath  string
+	SubPath    string
+	VolumeName string
+	PVCName    string
+	ReadOnly   bool
+}
+
 // ParsePvcURI parses a PVC URI of the form "pvc://<name>[/path]" into its components.
 //
 // Parameters:
@@ -63,74 +71,91 @@ func ParsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {
 	return pvcName, pvcPath, nil
 }
 
-// AddModelPvcMount adds a PVC mount to the specified container in the given PodSpec based on the provided modelUri.
-// The modelUri must be in the format "pvc://<pvcname>[/path]". Both the VolumeMount and the Volume are named as in
-// constants.PvcSourceMountName. The PVC is mounted in the container at constants.DefaultModelLocalMountPath.
+// AddModelMount adds a mount to the specified container in the given PodSpec based on the provided modelUri.
 // If the mount or volume already exists, it will not be duplicated.
 //
 // Parameters:
 //   - modelUri: The URI specifying the PVC and optional sub-path to mount.
-//   - containerName: The name of the container within the PodSpec to which the PVC should be mounted.
+//   - containerName: The name of the container within the PodSpec to which the model should be mounted.
 //   - readOnly: Whether the mount should be read-only.
 //   - podSpec: PodSpec to modify.
 //
 // Returns:
 //   - error: An error if the modelUri is invalid or if any other issue occurs; otherwise, nil.
-func AddModelPvcMount(modelUri, containerName string, readOnly bool, podSpec *corev1.PodSpec) error {
-	pvcName, pvcPath, err := ParsePvcURI(modelUri)
-	if err != nil {
-		return err
+//
+// addVolumeMountToContainer adds a volume mount to a specific container
+func addVolumeMountToContainer(container *corev1.Container, storageMountParams StorageMountParams) bool {
+	// Check if mount already exists
+	for _, mount := range container.VolumeMounts {
+		if mount.Name == storageMountParams.VolumeName {
+			return true // Mount already exists
+		}
+	}
+
+	// Add the volume mount
+	sourceVolumeMount := corev1.VolumeMount{
+		Name:      storageMountParams.VolumeName,
+		MountPath: storageMountParams.MountPath,
+		SubPath:   storageMountParams.SubPath,
+		ReadOnly:  storageMountParams.ReadOnly,
+	}
+
+	container.VolumeMounts = append(container.VolumeMounts, sourceVolumeMount)
+	return true
+}
+
+func AddModelMount(storageMountParams StorageMountParams, containerName string, podSpec *corev1.PodSpec) error {
+	var volumeSource corev1.VolumeSource
+
+	if storageMountParams.PVCName != "" {
+		volumeSource = corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: storageMountParams.PVCName,
+			},
+		}
+	} else {
+		volumeSource = corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		}
 	}
 
 	mountAdded := false
+
+	// Check regular containers first
 	for idx := range podSpec.Containers {
 		if podSpec.Containers[idx].Name == containerName {
-			mountExists := false
-			for mountIdx := range podSpec.Containers[idx].VolumeMounts {
-				if podSpec.Containers[idx].VolumeMounts[mountIdx].Name == constants.PvcSourceMountName {
-					mountExists = true
-					mountAdded = true
-					break
-				}
-			}
-
-			if !mountExists {
-				pvcSourceVolumeMount := corev1.VolumeMount{
-					Name:      constants.PvcSourceMountName,
-					MountPath: constants.DefaultModelLocalMountPath,
-					// only path to volume's root ("") or folder is supported
-					SubPath:  pvcPath,
-					ReadOnly: readOnly,
-				}
-
-				podSpec.Containers[idx].VolumeMounts = append(podSpec.Containers[idx].VolumeMounts, pvcSourceVolumeMount)
-				mountAdded = true
-			}
-
+			mountAdded = addVolumeMountToContainer(&podSpec.Containers[idx], storageMountParams)
 			break
 		}
 	}
 
+	// If not found in regular containers, check init containers
+	if !mountAdded {
+		for idx := range podSpec.InitContainers {
+			if podSpec.InitContainers[idx].Name == containerName {
+				storageMountParams.ReadOnly = false // init containers need to write to the mount
+				mountAdded = addVolumeMountToContainer(&podSpec.InitContainers[idx], storageMountParams)
+				break
+			}
+		}
+	}
+
 	if mountAdded {
-		// add the PVC volume on the pod
+		// add the volume on the pod
 		volumeExists := false
 		for _, volume := range podSpec.Volumes {
-			if volume.Name == constants.PvcSourceMountName {
+			if volume.Name == storageMountParams.VolumeName {
 				volumeExists = true
 				break
 			}
 		}
 
 		if !volumeExists {
-			pvcSourceVolume := corev1.Volume{
-				Name: constants.PvcSourceMountName,
-				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: pvcName,
-					},
-				},
+			modelVolume := corev1.Volume{
+				Name:         storageMountParams.VolumeName,
+				VolumeSource: volumeSource,
 			}
-			podSpec.Volumes = append(podSpec.Volumes, pvcSourceVolume)
+			podSpec.Volumes = append(podSpec.Volumes, modelVolume)
 		}
 	}
 
@@ -153,70 +178,120 @@ func AddEmptyDirVolumeIfNotPresent(podSpec *corev1.PodSpec, name string) {
 	})
 }
 
-// AddStorageInitializerContainer configures the KServe storage-initializer in the
-// specified PodSpec:
-//   - An emptyDir volume is added to hold the model to download.
-//   - The KServe storage-initializer is added as an init-container.
-//   - The emptyDir volume is mounted in the container named as in mainContainerName in
-//     readOnly mode as specified by the readOnlyMainContainerMount argument.
-//
-// This function is idempotent.
-//
-// Returns:
-//
-//	The init container added to the podSpec, or the existing one.
-func AddStorageInitializerContainer(podSpec *corev1.PodSpec, mainContainerName, srcURI string, readOnlyMainContainerMount bool, storageConfig *types.StorageInitializerConfig) *corev1.Container {
-	// Create a volume that is shared between the storage-initializer and main container
-	AddEmptyDirVolumeIfNotPresent(podSpec, constants.StorageInitializerVolumeName)
-
-	// Add storage initializer container, if not present
-	initContainer := GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName)
-	if initContainer == nil {
-		storageInitializerImage := constants.StorageInitializerContainerImage + ":" + constants.StorageInitializerContainerImageVersion
-		if storageConfig.Image != "" {
-			storageInitializerImage = storageConfig.Image
-		}
-
-		initContainer = &corev1.Container{
-			Name:  constants.StorageInitializerContainerName,
-			Image: storageInitializerImage,
-			Args: []string{
-				srcURI,
-				constants.DefaultModelLocalMountPath,
-			},
-			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-			VolumeMounts: []corev1.VolumeMount{{
-				Name:      constants.StorageInitializerVolumeName,
-				MountPath: constants.DefaultModelLocalMountPath,
-				ReadOnly:  false,
-			}},
-			Resources: corev1.ResourceRequirements{
-				Limits: map[corev1.ResourceName]resource.Quantity{
-					corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),
-					corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryLimit),
-				},
-				Requests: map[corev1.ResourceName]resource.Quantity{
-					corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuRequest),
-					corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryRequest),
-				},
-			},
-		}
-		podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
-		initContainer = GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName)
+// findCommonParentPath finds the common parent directory of multiple paths
+func FindCommonParentPath(paths []string) string {
+	if len(paths) == 0 {
+		return ""
 	}
 
-	// Mount the shared volume to the main container, if not present
-	if len(mainContainerName) != 0 {
-		if mainContainer := GetContainerWithName(podSpec, mainContainerName); mainContainer != nil {
-			AddVolumeMountIfNotPresent(
-				mainContainer,
-				constants.StorageInitializerVolumeName,
-				constants.DefaultModelLocalMountPath,
-				readOnlyMainContainerMount)
+	if len(paths) == 1 {
+		return paths[0]
+	}
+
+	// Split all paths into components
+	pathComponents := make([][]string, len(paths))
+	minLength := -1
+	for i, path := range paths {
+		// Clean the path and split by "/"
+		cleanPath := strings.Trim(path, "/")
+		if cleanPath == "" {
+			pathComponents[i] = []string{}
+		} else {
+			pathComponents[i] = strings.Split(cleanPath, "/")
+
+			if minLength == -1 {
+				minLength = len(pathComponents[i])
+			} else {
+				minLength = min(minLength, len(pathComponents[i]))
+			}
 		}
 	}
 
-	return initContainer
+	// Find common prefix
+	var commonComponents []string
+	for i := 0; i < minLength; i++ {
+		levelComponents := make(map[string]struct{})
+		var pathComponent string
+
+		for _, components := range pathComponents {
+			pathComponent = components[i]
+			levelComponents[pathComponent] = struct{}{}
+		}
+
+		if len(levelComponents) == 1 {
+			commonComponents = append(commonComponents, pathComponent)
+		} else {
+			break
+		}
+	}
+
+	if len(commonComponents) == 0 {
+		return "/"
+	}
+
+	return "/" + strings.Join(commonComponents, "/")
+}
+
+// Helper function to generate volume name from path
+func GetVolumeNameFromPath(path string) string {
+	// Convert path to valid volume name (remove slashes, etc.)
+	return strings.ReplaceAll(strings.Trim(path, "/"), "/", "-")
+}
+
+func GetStorageResources(storageURIs []string, storagePaths []string) ([]corev1.VolumeMount, []corev1.Volume, []string, error) {
+	var initContainerArgs []string
+	var volumeMounts []corev1.VolumeMount
+	var volumes []corev1.Volume
+	var mountPaths []string
+
+	for i := 0; i < len(storageURIs); i++ {
+		initContainerArgs = append(initContainerArgs, storageURIs[i], storagePaths[i])
+		mountPaths = append(mountPaths, storagePaths[i])
+	}
+
+	mountPath := FindCommonParentPath(mountPaths)
+
+	volumeName := GetVolumeNameFromPath(mountPath)
+
+	volumeMounts = append(volumeMounts, corev1.VolumeMount{
+		Name:      volumeName,
+		MountPath: mountPath,
+		ReadOnly:  false,
+	})
+
+	volumes = append(volumes, corev1.Volume{
+		Name: volumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
+
+	return volumeMounts, volumes, initContainerArgs, nil
+}
+
+func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig, containerArgs []string) *corev1.Container {
+	storageInitializerImage := constants.StorageInitializerContainerImage + ":" + constants.StorageInitializerContainerImageVersion
+
+	if storageConfig.Image != "" {
+		storageInitializerImage = storageConfig.Image
+	}
+
+	return &corev1.Container{
+		Name:                     constants.StorageInitializerContainerName,
+		Image:                    storageInitializerImage,
+		Args:                     containerArgs,
+		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+		Resources: corev1.ResourceRequirements{
+			Limits: map[corev1.ResourceName]resource.Quantity{
+				corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),
+				corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryLimit),
+			},
+			Requests: map[corev1.ResourceName]resource.Quantity{
+				corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuRequest),
+				corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryRequest),
+			},
+		},
+	}
 }
 
 // CreateModelcarContainer creates the definition of a container holding a model intended to be used as a sidecar (modelcar).

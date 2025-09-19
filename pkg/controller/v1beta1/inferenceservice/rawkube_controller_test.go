@@ -95,7 +95,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 	}
 	Context("When creating inference service with raw kube predictor", func() {
@@ -1940,7 +1942,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -3801,7 +3805,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 		ctx := context.Background()
@@ -4502,6 +4508,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			   "additionalIngressDomains": ["additional.example.com"],
 			   "disableIngressCreation": true
             }`,
+			"storageInitializer": `{
+				"image" : "kserve/storage-initializer:latest",
+				"memoryRequest": "100Mi",
+				"memoryLimit": "1Gi",
+				"cpuRequest": "100m",
+				"cpuLimit": "1",
+				"cpuModelcar": "10m",
+				"memoryModelcar": "15Mi"
+			}`,
 		}
 
 		It("Should have service/deployment/hpa created and http route should not be created", func() {
@@ -4922,6 +4937,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
                "domainTemplate": "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}",
 			   "additionalIngressDomains": ["additional.example.com"]
             }`,
+			"storageInitializer": `{
+				"image" : "kserve/storage-initializer:latest",
+				"memoryRequest": "100Mi",
+				"memoryLimit": "1Gi",
+				"cpuRequest": "100m",
+				"cpuLimit": "1",
+				"cpuModelcar": "10m",
+				"memoryModelcar": "15Mi"
+			}`,
 		}
 
 		It("Should have httproute/service/deployment/hpa created", func() {
@@ -5504,7 +5528,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -6406,7 +6432,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -7359,7 +7387,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -7990,7 +8020,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -8942,7 +8974,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -9981,7 +10015,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 			"opentelemetryCollector": `{
 				"scrapeInterval": "5s",
@@ -10835,7 +10871,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
             		"cpuRequest": "100m",
             		"cpuLimit": "1",
             		"CaBundleConfigMapName": "",
-            		"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+            		"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+					"cpuModelcar": "10m",
+		           	"memoryModelcar": "15Mi"
         		}`,
 			}
 			configMap := &corev1.ConfigMap{
