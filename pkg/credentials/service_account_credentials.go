@@ -98,7 +98,7 @@ func NewCredentialBuilderFromConfig(client client.Client, clientset kubernetes.I
 	}
 }
 
-func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annotations map[string]string, storageKey string,
+func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(ctx context.Context, namespace string, annotations map[string]string, storageKey string,
 	overrideParams map[string]string, container *corev1.Container,
 ) error {
 	stype := overrideParams["type"]
@@ -114,7 +114,7 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 			storageSecretName = secretName
 		}
 	}
-	secret, err := c.clientset.CoreV1().Secrets(namespace).Get(context.TODO(), storageSecretName, metav1.GetOptions{})
+	secret, err := c.clientset.CoreV1().Secrets(namespace).Get(ctx, storageSecretName, metav1.GetOptions{})
 
 	var storageData []byte
 	if err == nil {
@@ -180,16 +180,18 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 	}
 
 	if strings.HasPrefix(container.Args[0], UriSchemePlaceholder+"://") {
-		path := container.Args[0][len(UriSchemePlaceholder+"://"):]
+		for i := 0; i < len(container.Args); i += 2 {
+			path := container.Args[i][len(UriSchemePlaceholder+"://"):]
 
-		if utils.Includes(StorageBucketTypes, stype) {
-			if bucket == "" {
-				return fmt.Errorf(MissingBucket, stype)
+			if utils.Includes(StorageBucketTypes, stype) {
+				if bucket == "" {
+					return fmt.Errorf(MissingBucket, stype)
+				}
+
+				container.Args[i] = fmt.Sprintf("%s://%s/%s", stype, bucket, path)
+			} else {
+				container.Args[i] = fmt.Sprintf("%s://%s", stype, path)
 			}
-
-			container.Args[0] = fmt.Sprintf("%s://%s/%s", stype, bucket, path)
-		} else {
-			container.Args[0] = fmt.Sprintf("%s://%s", stype, path)
 		}
 	}
 

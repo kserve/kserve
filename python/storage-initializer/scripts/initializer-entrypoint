@@ -6,12 +6,12 @@ from kserve_storage.logging import configure_logging, logger
 
 configure_logging()
 
-if len(sys.argv) != 3:
-    print("Usage: initializer-entrypoint src_uri dest_path")
+if len(sys.argv) < 3 or len(sys.argv) % 2 != 1:
+    print("Usage: initializer-entrypoint src_uri_0 dest_path_0 ... src_uri_n dest_path_n")
     sys.exit()
 
-src_uri = sys.argv[1]
-dest_path = sys.argv[2]
+src_uris = sys.argv[1::2]
+dest_paths = sys.argv[2::2]
 
-logger.info("Initializing, args: src_uri [%s] dest_path[ [%s]" % (src_uri, dest_path))
-Storage.download(src_uri, dest_path)
+logger.info(f"Initializing, args: (src_uri, dest_path): {[(src_uri, dest_path) for src_uri, dest_path in zip(src_uris, dest_paths)]}")
+Storage.download(src_uris, dest_paths)
