@@ -113,7 +113,21 @@ func (r *LLMISVCReconciler) attachOciModelArtifact(modelUri string, podSpec *cor
 //
 // TODO: For now, this supports only direct mount. Copying from PVC would come later (if it makes sense at all).
 func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *corev1.PodSpec) error {
-	if err := utils.AddModelPvcMount(modelUri, "main", true, podSpec); err != nil {
+	pvcName, pvcPath, err := utils.ParsePvcURI(modelUri)
+
+	if err != nil {
+		return err
+	}
+
+	storageMountParams := utils.StorageMountParams{
+		MountPath:  constants.DefaultModelLocalMountPath,
+		VolumeName: constants.PvcSourceMountName,
+		ReadOnly:   true,
+		PVCName:    pvcName,
+		SubPath:    pvcPath,
+	}
+
+	if err := utils.AddModelMount(storageMountParams, "main", podSpec, ""); err != nil {
 		return err
 	}
 
@@ -222,7 +236,22 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig) error {
-	utils.AddStorageInitializerContainer(podSpec, "main", modelUri, true, storageConfig)
+	containerArgs := []string{
+		modelUri,
+		constants.DefaultModelLocalMountPath,
+	}
+	storageMountParams := utils.StorageMountParams{
+		MountPath:  constants.DefaultModelLocalMountPath,
+		VolumeName: constants.StorageInitializerVolumeName,
+		ReadOnly:   false,
+	}
+	initContainer := utils.CreateInitContainerWithConfig(storageConfig, containerArgs)
+	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
+
+	utils.AddModelMount(storageMountParams, initContainer.Name, podSpec)
+
+	storageMountParams.ReadOnly = true
+	utils.AddModelMount(storageMountParams, "main", podSpec)
 
 	return nil
 }

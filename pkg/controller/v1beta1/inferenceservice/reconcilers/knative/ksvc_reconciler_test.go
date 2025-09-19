@@ -38,6 +38,10 @@ import (
 )
 
 func TestCreateKnativeService(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = knservingv1.AddToScheme(scheme)
+	_ = v1beta1.AddToScheme(scheme)
+
 	componentMeta := metav1.ObjectMeta{
 		Name:      "test-service",
 		Namespace: "default",
@@ -121,12 +125,21 @@ func TestCreateKnativeService(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Set up fake client
+			client := rtesting.NewClientBuilder().WithScheme(scheme).Build()
+
 			ksvc := createKnativeService(
+				client,
 				tt.componentMeta,
 				tt.componentExt,
 				podSpec,
 				tt.componentStatus,
 				disallowedLabelList,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
 			)
 			require.NotNil(t, ksvc, "createKnativeService should not return nil ksvc")
 
@@ -361,6 +374,11 @@ func TestKsvcReconciler_Reconcile(t *testing.T) {
 				podSpec,
 				componentStatus,
 				disallowedLabelList,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
 			)
 
 			// Call Reconcile

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
@@ -27,6 +28,9 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/otel"
 	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
+	"github.com/kserve/kserve/pkg/credentials"
+	kserveTypes "github.com/kserve/kserve/pkg/types"
+	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -59,8 +63,15 @@ func NewRawKubeReconciler(ctx context.Context,
 	componentMeta metav1.ObjectMeta,
 	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+	podSpec *corev1.PodSpec,
+	workerPodSpec *corev1.PodSpec,
+	storageUris *[]v1beta1.StorageUri,
+	storageInitializerConfig *kserveTypes.StorageInitializerConfig,
+	storageSpec *v1beta1.StorageSpec,
+	credentialBuilder *credentials.CredentialBuilder,
+	storageContainerSpec *v1alpha1.StorageContainerSpec,
 ) (*RawKubeReconciler, error) {
+
 	var otelCollector *otel.OtelReconciler
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
 	if err != nil {
@@ -112,6 +123,57 @@ func NewRawKubeReconciler(ctx context.Context,
 	serviceConfig, err1 := v1beta1.NewServiceConfig(isvcConfigMap)
 	if err1 != nil {
 		log.Error(err1, "failed to get service config")
+	}
+
+	if storageUris != nil && len(*storageUris) > 0 {
+		var isvcReadonlyStringFlag = true
+		isvcReadonlyString, ok := componentMeta.Annotations[constants.StorageReadonlyAnnotationKey]
+		if ok {
+			if isvcReadonlyString == "false" {
+				isvcReadonlyStringFlag = false
+			}
+		}
+
+		storageInitializerParams := &pod.StorageInitializerParams{
+			Ctx:                  ctx,
+			Namespace:            componentMeta.Namespace,
+			StorageURIs:          *storageUris,
+			IsReadOnly:           isvcReadonlyStringFlag,
+			PodSpec:              podSpec,
+			CredentialBuilder:    credentialBuilder,
+			Client:               client,
+			Config:               storageInitializerConfig,
+			IsvcAnnotations:      componentMeta.Annotations,
+			StorageSpec:          storageSpec,
+			StorageContainerSpec: storageContainerSpec,
+			IsLegacyURI:          false,
+		}
+
+		err := pod.CommonStorageInitialization(storageInitializerParams)
+		if err != nil {
+			return nil, err
+		}
+
+		if workerPodSpec != nil {
+			workerStorageInitializerParams := &pod.StorageInitializerParams{
+				Ctx:                  ctx,
+				Namespace:            workerComponentMeta.Namespace,
+				StorageURIs:          *storageUris,
+				IsReadOnly:           isvcReadonlyStringFlag,
+				PodSpec:              workerPodSpec,
+				CredentialBuilder:    credentialBuilder,
+				Client:               client,
+				Config:               storageInitializerConfig,
+				IsvcAnnotations:      workerComponentMeta.Annotations,
+				StorageSpec:          storageSpec,
+				StorageContainerSpec: storageContainerSpec,
+				IsLegacyURI:          false,
+			}
+			err := pod.CommonStorageInitialization(workerStorageInitializerParams)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	// Get deploy config
