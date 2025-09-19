@@ -185,7 +185,7 @@ wheels = [
 
 [[package]]
 name = "custom-transformer"
-version = "0.15.2"
+version = "0.16.0rc0"
 source = { virtual = "." }
 dependencies = [
     { name = "kserve" },
@@ -512,7 +512,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.15.2"
+version = "0.16.0rc0"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "cloudevents" },
@@ -541,18 +541,13 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "asgi-logger", marker = "extra == 'logging'", specifier = ">=0.1.0,<1.0.0" },
-    { name = "azure-identity", marker = "extra == 'storage'", specifier = ">=1.15.0,<2.0.0" },
-    { name = "azure-storage-blob", marker = "extra == 'storage'", specifier = ">=12.20.0,<13.0.0" },
-    { name = "azure-storage-file-share", marker = "extra == 'storage'", specifier = ">=12.16.0,<13.0.0" },
-    { name = "boto3", marker = "extra == 'storage'", specifier = ">=1.29.0,<2.0.0" },
     { name = "cloudevents", specifier = ">=1.6.2,<2.0.0" },
     { name = "fastapi", specifier = ">=0.115.3" },
-    { name = "google-cloud-storage", marker = "extra == 'storage'", specifier = ">=2.14.0,<3.0.0" },
     { name = "grpc-interceptor", specifier = ">=0.15.4,<1.0.0" },
     { name = "grpcio", specifier = ">=1.64.1,<2.0.0" },
     { name = "grpcio-tools", specifier = ">=1.64.1,<2.0.0" },
     { name = "httpx", specifier = ">=0.27.2,<1.0.0" },
-    { name = "huggingface-hub", extras = ["hf-transfer"], marker = "extra == 'storage'", specifier = ">=0.32.0" },
+    { name = "kserve-storage", marker = "extra == 'storage'", specifier = "==2" },
     { name = "kubernetes", specifier = ">=23.3.0" },
     { name = "numpy", specifier = ">=1.26.0,<3.0.0" },
     { name = "orjson", specifier = ">=3.9.15,<4.0.0" },
@@ -564,7 +559,6 @@ requires-dist = [
     { name = "python-dateutil", specifier = ">=2.8.0,<3.0.0" },
     { name = "pyyaml", specifier = ">=6.0.0,<7.0.0" },
     { name = "ray", extras = ["serve"], marker = "extra == 'ray'", specifier = ">=2.43.0" },
-    { name = "requests", marker = "extra == 'storage'", specifier = ">=2.32.2,<3.0.0" },
     { name = "six", specifier = ">=1.16.0,<2.0.0" },
     { name = "tabulate", specifier = ">=0.9.0,<1.0.0" },
     { name = "timing-asgi", specifier = ">=0.3.0,<1.0.0" },

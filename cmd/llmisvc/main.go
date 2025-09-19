@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	llmisvcvalidation "github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc/validation"
 
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc"
 )
@@ -163,6 +164,20 @@ func main() {
 		EventRecorder: llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceController"}),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceService")
+		os.Exit(1)
+	}
+
+	llmConfigValidator := &llmisvcvalidation.LLMInferenceServiceConfigValidator{
+		ClientSet: clientSet,
+	}
+	if err = llmConfigValidator.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig")
+		os.Exit(1)
+	}
+
+	llmInferenceServiceValidator := &llmisvcvalidation.LLMInferenceServiceValidator{}
+	if err = llmInferenceServiceValidator.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice")
 		os.Exit(1)
 	}
 

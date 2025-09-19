@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import sys
 
-from kserve.storage import Storage
-from kserve.logging import configure_logging, logger
+from kserve_storage import Storage
+from kserve_storage.logging import configure_logging, logger
 
 configure_logging()
 
