@@ -127,7 +127,7 @@ func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *cor
 		SubPath:    pvcPath,
 	}
 
-	if err := utils.AddModelMount(storageMountParams, "main", podSpec, ""); err != nil {
+	if err := utils.AddModelMount(storageMountParams, "main", podSpec); err != nil {
 		return err
 	}
 
