@@ -113,7 +113,7 @@ func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *cor
 		SubPath:    pvcPath,
 	}
 
-	if err := utils.AddModelMount(storageMountParams, "main", podSpec, ""); err != nil {
+	if err := utils.AddModelMount(storageMountParams, "main", podSpec); err != nil {
 		return err
 	}
 
@@ -217,10 +217,10 @@ func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, podSpec *c
 	initContainer := utils.CreateInitContainerWithConfig(storageConfig, containerArgs)
 	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
 
-	utils.AddModelMount(storageMountParams, initContainer.Name, podSpec, "")
+	utils.AddModelMount(storageMountParams, initContainer.Name, podSpec)
 
 	storageMountParams.ReadOnly = true
-	utils.AddModelMount(storageMountParams, "main", podSpec, "")
+	utils.AddModelMount(storageMountParams, "main", podSpec)
 
 	return nil
 }
