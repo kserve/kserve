@@ -114,7 +114,6 @@ data:
            "memoryLimit": "1Gi",
            "cpuRequest": "100m",
            "cpuLimit": "1",
-           "enableDirectPvcVolumeMount": true,
            "enableModelcar": false,
            "uidModelcar": 10,
            "cpuModelcar": "10m",
@@ -136,11 +135,6 @@ data:
 
            # cpuLimit is the limits.cpu to set for the storage initializer init container.
            "cpuLimit": "1",
-
-           # enableDirectPvcVolumeMount controls whether users can mount pvc volumes directly.
-           # if pvc volume is provided in storageuri then the pvc volume is directly mounted to /mnt/models in the user container.
-           # rather than symlink it to a shared volume. For more info see https://github.com/kserve/kserve/issues/2737
-           "enableDirectPvcVolumeMount": true,
 
            # enableModelcar enabled allows you to directly access an OCI container image by
            # using a source URL with an "oci://" schema.
@@ -242,7 +236,7 @@ data:
      # ====================================== INGRESS CONFIGURATION ======================================
      # Example
      ingress: |-
-       {   
+       {
            "enableGatewayApi": false,
            "kserveIngressGateway" : "kserve/kserve-ingress-gateway",
            "ingressGateway" : "knative-serving/knative-ingress-gateway",
@@ -257,17 +251,17 @@ data:
            "disableIngressCreation": false
        }
      ingress: |-
-       {   
+       {
            # enableGatewayApi specifies whether to use Gateway API instead of Ingress for serving external traffic.
            "enableGatewayApi": false,
-           
-           # KServe implements [Gateway API](https://gateway-api.sigs.k8s.io/) to serve external traffic. 
+
+           # KServe implements [Gateway API](https://gateway-api.sigs.k8s.io/) to serve external traffic.
            # By default, KServe configures a default gateway to serve external traffic.
            # But, KServe can be configured to use a custom gateway by modifying this configuration.
            # The gateway should be specified in format <gateway namespace>/<gateway name>
            # NOTE: This configuration only applicable for raw deployment.
            "kserveIngressGateway": "kserve/kserve-ingress-gateway",
-           
+
            # ingressGateway specifies the ingress gateway to serve external traffic.
            # The gateway should be specified in format <gateway namespace>/<gateway name>
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
@@ -481,7 +475,7 @@ data:
 
            # imagePullPolicy specifies when the router image should be pulled from registry.
            "imagePullPolicy": "IfNotPresent",
-          
+
           # imagePullSecrets specifies the list of secrets to be used for pulling the router image from registry.
           # https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
           "imagePullSecrets": ["docker-secret"]
@@ -621,7 +615,7 @@ data:
         }
     }
   ingress: |-
-    {   
+    {
         "enableGatewayApi": {{ .Values.kserve.controller.gateway.ingressGateway.enableGatewayApi }},
         "kserveIngressGateway" : "{{ .Values.kserve.controller.gateway.ingressGateway.kserveGateway }}",
         "ingressGateway" : "{{ .Values.kserve.controller.gateway.ingressGateway.gateway }}",
@@ -656,7 +650,6 @@ data:
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
         "cpuLimit": "1",
-        "enableDirectPvcVolumeMount": true,
         "caBundleConfigMapName": "{{ .Values.kserve.storage.caBundleConfigMapName }}",
         "caBundleVolumeMountPath": "{{ .Values.kserve.storage.caBundleVolumeMountPath }}",
         "enableModelcar": {{ .Values.kserve.storage.enableModelcar }},
