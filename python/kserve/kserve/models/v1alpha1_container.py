@@ -47,32 +47,45 @@ class V1alpha1Container(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'args': 'list[str]',
-        'command': 'list[str]',
-        'env': 'list[V1EnvVar]',
-        'image': 'str',
-        'image_pull_policy': 'str',
-        'liveness_probe': 'V1Probe',
-        'name': 'str',
-        'readiness_probe': 'V1Probe',
-        'resources': 'V1ResourceRequirements',
-        'working_dir': 'str'
+        "args": "list[str]",
+        "command": "list[str]",
+        "env": "list[V1EnvVar]",
+        "image": "str",
+        "image_pull_policy": "str",
+        "liveness_probe": "V1Probe",
+        "name": "str",
+        "readiness_probe": "V1Probe",
+        "resources": "V1ResourceRequirements",
+        "working_dir": "str",
     }
 
     attribute_map = {
-        'args': 'args',
-        'command': 'command',
-        'env': 'env',
-        'image': 'image',
-        'image_pull_policy': 'imagePullPolicy',
-        'liveness_probe': 'livenessProbe',
-        'name': 'name',
-        'readiness_probe': 'readinessProbe',
-        'resources': 'resources',
-        'working_dir': 'workingDir'
+        "args": "args",
+        "command": "command",
+        "env": "env",
+        "image": "image",
+        "image_pull_policy": "imagePullPolicy",
+        "liveness_probe": "livenessProbe",
+        "name": "name",
+        "readiness_probe": "readinessProbe",
+        "resources": "resources",
+        "working_dir": "workingDir",
     }
 
-    def __init__(self, args=None, command=None, env=None, image=None, image_pull_policy=None, liveness_probe=None, name=None, readiness_probe=None, resources=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        args=None,
+        command=None,
+        env=None,
+        image=None,
+        image_pull_policy=None,
+        liveness_probe=None,
+        name=None,
+        readiness_probe=None,
+        resources=None,
+        working_dir=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1alpha1Container - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -328,18 +341,22 @@ class V1alpha1Container(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
