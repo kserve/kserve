@@ -58,13 +58,13 @@ _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
 
 class Storage(object):
     @staticmethod
-    def download(source_uris: list[str], out_dirs: list[str]) -> list[str]:
+    def download_files(source_uris: list[str], out_dirs: list[str]) -> list[str]:
         with ThreadPoolExecutor() as executor:
-            model_dirs = list(executor.map(Storage._download, source_uris, out_dirs))
+            model_dirs = list(executor.map(Storage.download, source_uris, out_dirs))
         return model_dirs
 
     @staticmethod
-    def _download(uri: str, out_dir: str | None = None) -> str:
+    def download(uri: str, out_dir: str | None = None) -> str:
         start = time.monotonic()
         Storage._update_with_storage_spec()
         logger.info("Copying contents of %s to local", uri)

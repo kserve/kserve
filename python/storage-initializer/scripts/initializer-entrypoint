@@ -14,4 +14,4 @@ src_uris = sys.argv[1::2]
 dest_paths = sys.argv[2::2]
 
 logger.info(f"Initializing, args: (src_uri, dest_path): {[(src_uri, dest_path) for src_uri, dest_path in zip(src_uris, dest_paths)]}")
-Storage.download(src_uris, dest_paths)
+Storage.download_files(src_uris, dest_paths)
