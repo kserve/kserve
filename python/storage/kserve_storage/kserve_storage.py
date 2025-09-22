@@ -24,6 +24,7 @@ import shutil
 import tarfile
 import tempfile
 import time
+from typing import Optional
 import zipfile
 from pathlib import Path
 from urllib.parse import urlparse
@@ -64,7 +65,7 @@ class Storage(object):
         return model_dirs
 
     @staticmethod
-    def download(uri: str, out_dir: str | None = None) -> str:
+    def download(uri: str, out_dir: Optional[str] = None) -> str:
         start = time.monotonic()
         Storage._update_with_storage_spec()
         logger.info("Copying contents of %s to local", uri)
