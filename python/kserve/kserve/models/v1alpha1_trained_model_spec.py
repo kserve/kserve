@@ -46,17 +46,13 @@ class V1alpha1TrainedModelSpec(object):
       attribute_map (dict): The key is attribute name
                             and the value is json key in definition.
     """
-    openapi_types = {
-        'inference_service': 'str',
-        'model': 'V1alpha1ModelSpec'
-    }
+    openapi_types = {"inference_service": "str", "model": "V1alpha1ModelSpec"}
 
-    attribute_map = {
-        'inference_service': 'inferenceService',
-        'model': 'model'
-    }
+    attribute_map = {"inference_service": "inferenceService", "model": "model"}
 
-    def __init__(self, inference_service='', model=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self, inference_service="", model=None, local_vars_configuration=None
+    ):  # noqa: E501
         """V1alpha1TrainedModelSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -89,8 +85,13 @@ class V1alpha1TrainedModelSpec(object):
         :param inference_service: The inference_service of this V1alpha1TrainedModelSpec.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and inference_service is None:  # noqa: E501
-            raise ValueError("Invalid value for `inference_service`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation
+            and inference_service is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `inference_service`, must not be `None`"
+            )  # noqa: E501
 
         self._inference_service = inference_service
 
@@ -112,8 +113,12 @@ class V1alpha1TrainedModelSpec(object):
         :param model: The model of this V1alpha1TrainedModelSpec.  # noqa: E501
         :type: V1alpha1ModelSpec
         """
-        if self.local_vars_configuration.client_side_validation and model is None:  # noqa: E501
-            raise ValueError("Invalid value for `model`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and model is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `model`, must not be `None`"
+            )  # noqa: E501
 
         self._model = model
 
@@ -124,18 +129,22 @@ class V1alpha1TrainedModelSpec(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
