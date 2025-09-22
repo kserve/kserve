@@ -46,13 +46,17 @@ class V1beta1TransformerConfig(object):
       attribute_map (dict): The key is attribute name
                             and the value is json key in definition.
     """
-    openapi_types = {"default_image_version": "str", "image": "str"}
+    openapi_types = {
+        'default_image_version': 'str',
+        'image': 'str'
+    }
 
-    attribute_map = {"default_image_version": "defaultImageVersion", "image": "image"}
+    attribute_map = {
+        'default_image_version': 'defaultImageVersion',
+        'image': 'image'
+    }
 
-    def __init__(
-        self, default_image_version="", image="", local_vars_configuration=None
-    ):  # noqa: E501
+    def __init__(self, default_image_version='', image='', local_vars_configuration=None):  # noqa: E501
         """V1beta1TransformerConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -85,13 +89,8 @@ class V1beta1TransformerConfig(object):
         :param default_image_version: The default_image_version of this V1beta1TransformerConfig.  # noqa: E501
         :type: str
         """
-        if (
-            self.local_vars_configuration.client_side_validation
-            and default_image_version is None
-        ):  # noqa: E501
-            raise ValueError(
-                "Invalid value for `default_image_version`, must not be `None`"
-            )  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and default_image_version is None:  # noqa: E501
+            raise ValueError("Invalid value for `default_image_version`, must not be `None`")  # noqa: E501
 
         self._default_image_version = default_image_version
 
@@ -115,12 +114,8 @@ class V1beta1TransformerConfig(object):
         :param image: The image of this V1beta1TransformerConfig.  # noqa: E501
         :type: str
         """
-        if (
-            self.local_vars_configuration.client_side_validation and image is None
-        ):  # noqa: E501
-            raise ValueError(
-                "Invalid value for `image`, must not be `None`"
-            )  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and image is None:  # noqa: E501
+            raise ValueError("Invalid value for `image`, must not be `None`")  # noqa: E501
 
         self._image = image
 
@@ -131,22 +126,18 @@ class V1beta1TransformerConfig(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(
-                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
-                )
+                result[attr] = list(map(
+                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
+                    value
+                ))
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(
-                    map(
-                        lambda item: (
-                            (item[0], item[1].to_dict())
-                            if hasattr(item[1], "to_dict")
-                            else item
-                        ),
-                        value.items(),
-                    )
-                )
+                result[attr] = dict(map(
+                    lambda item: (item[0], item[1].to_dict())
+                    if hasattr(item[1], "to_dict") else item,
+                    value.items()
+                ))
             else:
                 result[attr] = value
 
