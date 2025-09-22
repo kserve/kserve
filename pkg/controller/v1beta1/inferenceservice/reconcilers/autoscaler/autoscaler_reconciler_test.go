@@ -123,15 +123,15 @@ func TestCreateAutoscaler(t *testing.T) {
 			wantErr:     false,
 		},
 		{
-			name:        "Return HPAReconciler for external annotation",
+			name:        "Return NoOpAutoscaler for external annotation",
 			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "external"},
-			wantType:    "*hpa.HPAReconciler",
+			wantType:    "*autoscaler.NoOpAutoscaler",
 			wantErr:     false,
 		},
 		{
-			name:        "Return HPAReconciler for none annotation",
+			name:        "Return NoOpAutoscaler for none annotation",
 			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "none"},
-			wantType:    "*hpa.HPAReconciler",
+			wantType:    "*autoscaler.NoOpAutoscaler",
 			wantErr:     false,
 		},
 		{
@@ -215,15 +215,15 @@ func TestNewAutoscalerReconciler(t *testing.T) {
 			wantErr:     false,
 		},
 		{
-			name:        "Return AutoscalerReconciler with HPAReconciler for external annotation",
+			name:        "Return AutoscalerReconciler with NoOpAutoscaler for external annotation",
 			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "external"},
-			wantType:    "*hpa.HPAReconciler",
+			wantType:    "*autoscaler.NoOpAutoscaler",
 			wantErr:     false,
 		},
 		{
-			name:        "Return AutoscalerReconciler with HPAReconciler for none annotation",
+			name:        "Return AutoscalerReconciler with NoOpAutoscaler for none annotation",
 			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "none"},
-			wantType:    "*hpa.HPAReconciler",
+			wantType:    "*autoscaler.NoOpAutoscaler",
 			wantErr:     false,
 		},
 		{
@@ -333,5 +333,87 @@ func TestAutoscalerReconciler_Reconcile(t *testing.T) {
 				t.Errorf("Expected Reconcile to be called on Autoscaler")
 			}
 		})
+	}
+}
+
+func TestNoOpAutoscaler(t *testing.T) {
+	noOp := &NoOpAutoscaler{}
+
+	// Test Reconcile method
+	err := noOp.Reconcile(t.Context())
+	if err != nil {
+		t.Errorf("NoOpAutoscaler.Reconcile() should not return error, got: %v", err)
+	}
+
+	// Test SetControllerReferences method
+	err = noOp.SetControllerReferences(nil, nil)
+	if err != nil {
+		t.Errorf("NoOpAutoscaler.SetControllerReferences() should not return error, got: %v", err)
+	}
+}
+
+func TestExternalAutoscalerWithNilComponentExt(t *testing.T) {
+	serviceName := "my-model"
+	namespace := "test"
+	meta := metav1.ObjectMeta{
+		Name:        serviceName,
+		Namespace:   namespace,
+		Annotations: map[string]string{"serving.kserve.io/autoscalerClass": "external"},
+	}
+
+	// Test with nil componentExt - this should not panic
+	as, err := createAutoscaler(nil, nil, meta, nil, nil)
+	if err != nil {
+		t.Errorf("createAutoscaler() with nil componentExt should not error for external class, got: %v", err)
+	}
+
+	if as == nil {
+		t.Errorf("Expected NoOpAutoscaler, got nil")
+		return
+	}
+
+	gotType := fmt.Sprintf("%T", as)
+	expectedType := "*autoscaler.NoOpAutoscaler"
+	if gotType != expectedType {
+		t.Errorf("Expected autoscaler type %s, got %s", expectedType, gotType)
+	}
+
+	// Test that the NoOpAutoscaler can be used without causing panics
+	err = as.Reconcile(t.Context())
+	if err != nil {
+		t.Errorf("NoOpAutoscaler.Reconcile() should not return error, got: %v", err)
+	}
+}
+
+func TestNoneAutoscalerWithNilComponentExt(t *testing.T) {
+	serviceName := "my-model"
+	namespace := "test"
+	meta := metav1.ObjectMeta{
+		Name:        serviceName,
+		Namespace:   namespace,
+		Annotations: map[string]string{"serving.kserve.io/autoscalerClass": "none"},
+	}
+
+	// Test with nil componentExt - this should not panic
+	as, err := createAutoscaler(nil, nil, meta, nil, nil)
+	if err != nil {
+		t.Errorf("createAutoscaler() with nil componentExt should not error for none class, got: %v", err)
+	}
+
+	if as == nil {
+		t.Errorf("Expected NoOpAutoscaler, got nil")
+		return
+	}
+
+	gotType := fmt.Sprintf("%T", as)
+	expectedType := "*autoscaler.NoOpAutoscaler"
+	if gotType != expectedType {
+		t.Errorf("Expected autoscaler type %s, got %s", expectedType, gotType)
+	}
+
+	// Test that the NoOpAutoscaler can be used without causing panics
+	err = as.Reconcile(t.Context())
+	if err != nil {
+		t.Errorf("NoOpAutoscaler.Reconcile() should not return error, got: %v", err)
 	}
 }
