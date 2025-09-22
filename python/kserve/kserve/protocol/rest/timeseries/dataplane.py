@@ -51,7 +51,10 @@ class TimeSeriesDataPlane(DataPlane):
         """
         model_name = request_body.model
         model = await self.get_model(model_name)
-        if not getattr(model, "__class__", None).__name__ == "HuggingFaceTimeSeriesModel":
+        if (
+            not getattr(model, "__class__", None).__name__
+            == "HuggingFaceTimeSeriesModel"
+        ):
             return create_error_response(
                 message=f"Model {model_name} does not support Time Series API",
                 status_code=HTTPStatus.NOT_IMPLEMENTED,
