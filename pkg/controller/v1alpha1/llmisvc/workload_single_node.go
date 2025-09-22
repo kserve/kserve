@@ -102,10 +102,13 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 
 	if llmSvc.Spec.Template != nil {
 		d.Spec.Template.Spec = *llmSvc.Spec.Template.DeepCopy()
+
+		var serviceAccount *corev1.ServiceAccount = nil
 		if hasRoutingSidecar(d.Spec.Template.Spec) {
 			log.FromContext(ctx).Info("Main container has a routing sidecar")
 
-			serviceAccount, err := r.expectedSingleNodeMainServiceAccount(ctx, llmSvc)
+			var err error
+			serviceAccount, err = r.expectedSingleNodeMainServiceAccount(ctx, llmSvc)
 			if err != nil {
 				return nil, fmt.Errorf("failed to created expected single node service account: %w", err)
 			}
@@ -118,9 +121,15 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 					ValueFrom: nil,
 				})
 			}
+		} else if llmSvc.Spec.Template.ServiceAccountName != "" {
+			serviceAccount = &corev1.ServiceAccount{}
+			err := r.Client.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch existing single node main service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Template.ServiceAccountName, err)
+			}
 		}
 
-		if err := r.attachModelArtifacts(ctx, llmSvc, &d.Spec.Template.Spec, config); err != nil {
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, &d.Spec.Template.Spec, config); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to main deployment: %w", err)
 		}
 	}
@@ -186,7 +195,16 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil {
 		d.Spec.Template.Spec = *llmSvc.Spec.Prefill.Template.DeepCopy()
 
-		if err := r.attachModelArtifacts(ctx, llmSvc, &d.Spec.Template.Spec, config); err != nil {
+		var existingServiceAccount *corev1.ServiceAccount = nil
+		if llmSvc.Spec.Prefill.Template.ServiceAccountName != "" {
+			existingServiceAccount = &corev1.ServiceAccount{}
+			err := r.Client.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Prefill.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch existing single node prefill service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Prefill.Template.ServiceAccountName, err)
+			}
+		}
+
+		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, &d.Spec.Template.Spec, config); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to prefill deployment: %w", err)
 		}
 	}
@@ -326,7 +344,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainServiceAccount(ctx context.Con
 		existingServiceAccount := &corev1.ServiceAccount{}
 		err := r.Client.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch existing single node service account %s/%s: %w", llmSvc.Spec.Template.ServiceAccountName, llmSvc.Namespace, err)
+			return nil, fmt.Errorf("failed to fetch existing single node main service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Template.ServiceAccountName, err)
 		}
 		expectedServiceAccount.Annotations = existingServiceAccount.Annotations
 		expectedServiceAccount.Labels = existingServiceAccount.Labels
