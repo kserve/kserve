@@ -579,12 +579,16 @@ func validateMultipleStorageURIsSpec(storageUris []StorageUri) error {
 }
 
 func validateMultipleStorageURIs(isvc *InferenceService) error {
-	if err := validateMultipleStorageURIsSpec(isvc.Spec.Transformer.StorageUris); err != nil {
-		return err
+	if isvc.Spec.Transformer != nil {
+		if err := validateMultipleStorageURIsSpec(isvc.Spec.Transformer.StorageUris); err != nil {
+			return err
+		}
 	}
 
-	if err := validateMultipleStorageURIsSpec(isvc.Spec.Explainer.StorageUris); err != nil {
-		return err
+	if isvc.Spec.Explainer != nil {
+		if err := validateMultipleStorageURIsSpec(isvc.Spec.Explainer.StorageUris); err != nil {
+			return err
+		}
 	}
 
 	if err := validateMultipleStorageURIsSpec(isvc.Spec.Predictor.StorageUris); err != nil {
