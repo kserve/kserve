@@ -81,7 +81,7 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 	})
 
 	if sourceURI != nil && storageURIs != nil {
-		return ctrl.Result{}, fmt.Errorf("Setting both StorageURI and StorageURIs is not supported.")
+		return ctrl.Result{}, errors.New("Setting both StorageURI and StorageURIs is not supported.")
 	}
 
 	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
@@ -91,17 +91,6 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 		err := isvcutils.ValidateStorageURI(ctx, sourceURI, p.client)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
-		}
-	}
-
-	if storageURIs != nil {
-		isvcutils.ValidateMultipleStorageURIsSpec(storageURIs)
-
-		for _, storageURI := range storageURIs {
-			err := isvcutils.ValidateStorageURI(ctx, &storageURI.Uri, p.client)
-			if err != nil {
-				return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
-			}
 		}
 	}
 
@@ -288,7 +277,7 @@ func (p *Transformer) reconcileTransformerKnativeDeployment(ctx context.Context,
 		storageSpec = &modelStorageSpec.StorageSpec
 	}
 
-	r := knative.NewKsvcReconciler(p.client, p.scheme, *objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
+	r := knative.NewKsvcReconciler(ctx, p.client, p.scheme, *objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
 		podSpec, isvc.Status.Components[v1beta1.TransformerComponent], p.inferenceServiceConfig.ServiceLabelDisallowedList, &isvc.Spec.Transformer.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec)
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {

@@ -71,24 +71,12 @@ func ParsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {
 	return pvcName, pvcPath, nil
 }
 
-// AddModelMount adds a mount to the specified container in the given PodSpec based on the provided modelUri.
-// If the mount or volume already exists, it will not be duplicated.
-//
-// Parameters:
-//   - modelUri: The URI specifying the PVC and optional sub-path to mount.
-//   - containerName: The name of the container within the PodSpec to which the model should be mounted.
-//   - readOnly: Whether the mount should be read-only.
-//   - podSpec: PodSpec to modify.
-//
-// Returns:
-//   - error: An error if the modelUri is invalid or if any other issue occurs; otherwise, nil.
-//
 // addVolumeMountToContainer adds a volume mount to a specific container
 func addVolumeMountToContainer(container *corev1.Container, storageMountParams StorageMountParams) bool {
 	// Check if mount already exists
 	for _, mount := range container.VolumeMounts {
 		if mount.Name == storageMountParams.VolumeName {
-			return true // Mount already exists
+			return false // Mount already exists
 		}
 	}
 
@@ -104,6 +92,17 @@ func addVolumeMountToContainer(container *corev1.Container, storageMountParams S
 	return true
 }
 
+// AddModelMount adds a mount to the specified container in the given PodSpec based on the provided modelUri.
+// If the mount or volume already exists, it will not be duplicated.
+//
+// Parameters:
+//   - modelUri: The URI specifying the PVC and optional sub-path to mount.
+//   - containerName: The name of the container within the PodSpec to which the model should be mounted.
+//   - readOnly: Whether the mount should be read-only.
+//   - podSpec: PodSpec to modify.
+//
+// Returns:
+//   - error: An error if the modelUri is invalid or if any other issue occurs; otherwise, nil.
 func AddModelMount(storageMountParams StorageMountParams, containerName string, podSpec *corev1.PodSpec) error {
 	var volumeSource corev1.VolumeSource
 
@@ -209,7 +208,7 @@ func FindCommonParentPath(paths []string) string {
 
 	// Find common prefix
 	var commonComponents []string
-	for i := 0; i < minLength; i++ {
+	for i := range minLength {
 		levelComponents := make(map[string]struct{})
 		var pathComponent string
 
@@ -239,12 +238,12 @@ func GetVolumeNameFromPath(path string) string {
 }
 
 func GetStorageResources(storageURIs []string, storagePaths []string) ([]corev1.VolumeMount, []corev1.Volume, []string, error) {
-	var initContainerArgs []string
+	initContainerArgs := make([]string, 0, len(storageURIs)*2)
 	var volumeMounts []corev1.VolumeMount
 	var volumes []corev1.Volume
-	var mountPaths []string
+	mountPaths := make([]string, 0, len(storageURIs))
 
-	for i := 0; i < len(storageURIs); i++ {
+	for i := range storageURIs {
 		initContainerArgs = append(initContainerArgs, storageURIs[i], storagePaths[i])
 		mountPaths = append(mountPaths, storagePaths[i])
 	}

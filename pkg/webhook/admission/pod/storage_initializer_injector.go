@@ -55,9 +55,6 @@ type StorageInitializerInjector struct {
 // across both single and multiple storage URI scenarios. This struct encapsulates
 // the configuration, context, and resources required to set up model downloading.
 type StorageInitializerParams struct {
-	// Ctx is the context for API operations and cancellation
-	Ctx context.Context
-
 	// Namespace is the Kubernetes namespace where the InferenceService is deployed
 	Namespace string
 
@@ -204,7 +201,7 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 //   - Model agent is already injected (annotation present)
 //   - Modelcar (OCI container) is being used instead of init containers
 //   - Storage initializer container is already present in the pod
-func CommonStorageInitialization(params *StorageInitializerParams) error {
+func CommonStorageInitialization(ctx context.Context, params *StorageInitializerParams) error {
 	// Don't inject if model agent is injected
 	if _, ok := params.IsvcAnnotations[constants.AgentShouldInjectAnnotationKey]; ok {
 		return nil
@@ -222,6 +219,11 @@ func CommonStorageInitialization(params *StorageInitializerParams) error {
 		}
 	}
 
+	if len(params.StorageURIs) == 0 {
+		// No storage URIs provided - noop
+		return nil
+	}
+
 	var initContainer *corev1.Container
 	numStorageURIs := len(params.StorageURIs)
 	initContainerArgs := make([]string, 0, numStorageURIs*2) // Each URI needs 2 args: URI and path
@@ -235,14 +237,14 @@ func CommonStorageInitialization(params *StorageInitializerParams) error {
 
 	if userContainer == nil {
 		if workerContainer == nil {
-			return fmt.Errorf("Invalid configuration: cannot find container")
+			return errors.New("Invalid configuration: cannot find container")
 		}
 		// Use worker container as fallback for certain deployment scenarios
 		userContainer = workerContainer
 	}
 
 	// Handle multiple storage URIs (new functionality)
-	if len(params.StorageURIs) > 0 && params.IsLegacyURI == false {
+	if len(params.StorageURIs) > 0 && !params.IsLegacyURI {
 		// Validate that the storage container supports multiple downloads
 		if params.StorageContainerSpec != nil && !*params.StorageContainerSpec.SupportsMultiModelDownload {
 			return fmt.Errorf("storage container %q does not support multi-model download; use the default storage initializer or a compatible storage container",
@@ -252,13 +254,11 @@ func CommonStorageInitialization(params *StorageInitializerParams) error {
 		nonPVCMountPaths := make([]string, 0, numStorageURIs)              // Paths for URIs that require init container download
 		pvcStorageURIs := make([]v1beta1.StorageUri, 0, numStorageURIs)    // URIs that point to existing PVCs
 		nonPVCStorageURIs := make([]v1beta1.StorageUri, 0, numStorageURIs) // URIs that require downloading (S3, GCS, etc.)
-		mountPaths := make([]string, 0, numStorageURIs)                    // All mount paths for volume creation
 
 		// Separate PVC URIs from other storage URIs since they have different handling:
 		// - PVC URIs are mounted directly as volumes (no download needed)
 		// - Other URIs require init container to download artifacts first
 		for _, storageUri := range params.StorageURIs {
-			mountPaths = append(mountPaths, storageUri.Path)
 			if strings.HasPrefix(storageUri.Uri, constants.PvcURIPrefix) {
 				pvcStorageURIs = append(pvcStorageURIs, storageUri)
 			} else {
@@ -326,7 +326,6 @@ func CommonStorageInitialization(params *StorageInitializerParams) error {
 					return fmt.Errorf("failed to add volume mount for container %q: %w", containerName, mountErr)
 				}
 			}
-
 		}
 	} else if len(params.StorageURIs) == 1 {
 		storageURI := params.StorageURIs[0]
@@ -352,7 +351,6 @@ func CommonStorageInitialization(params *StorageInitializerParams) error {
 			// PvcPath will be injected via SubPath, pvcPath must be a root or Dir.
 			// It is user responsibility to ensure it is a root or Dir
 			pvcName, pvcPath, err := utils.ParsePvcURI(storageURI.Uri)
-
 			if err != nil {
 				return err
 			}
@@ -386,18 +384,14 @@ func CommonStorageInitialization(params *StorageInitializerParams) error {
 				userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
 			}
 		}
-	} else {
-		// No storage URIs provided - should not inject anything
-		return nil
 	}
 
 	// Inject credentials only if we have an init container (not for PVC only sources)
 	if initContainer != nil {
 		if params.StorageSpec != nil && params.StorageSpec.StorageKey != nil && params.StorageSpec.Parameters != nil {
-
 			// initContainer.Args (storageURI.URI) is modified up in CreateStorageSpecSecretEnvs
 			if err := params.CredentialBuilder.CreateStorageSpecSecretEnvs(
-				params.Ctx,
+				ctx,
 				params.Namespace,
 				params.IsvcAnnotations,
 				*params.StorageSpec.StorageKey,
@@ -409,14 +403,13 @@ func CommonStorageInitialization(params *StorageInitializerParams) error {
 		} else {
 			// Inject service account credentials if storage spec doesn't exist
 			err := params.CredentialBuilder.CreateSecretVolumeAndEnv(
-				context.Background(),
+				ctx,
 				params.Namespace,
 				params.IsvcAnnotations,
 				params.PodSpec.ServiceAccountName,
 				initContainer,
 				&params.PodSpec.Volumes,
 			)
-
 			if err != nil {
 				return err
 			}
@@ -529,7 +522,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 		storageSpec.Parameters = &overrideParams
 	}
 
-	var isvcReadonlyStringFlag = true
+	isvcReadonlyStringFlag := true
 	isvcReadonlyString, ok := pod.ObjectMeta.Annotations[constants.StorageReadonlyAnnotationKey]
 	if ok {
 		if isvcReadonlyString == "false" {
@@ -546,7 +539,6 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 	}
 
 	storageInitializerParams := &StorageInitializerParams{
-		Ctx:                  ctx,
 		Namespace:            pod.Namespace,
 		StorageURIs:          storageURIs,
 		IsReadOnly:           isvcReadonlyStringFlag,
@@ -560,7 +552,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 		IsLegacyURI:          true,
 	}
 
-	return CommonStorageInitialization(storageInitializerParams)
+	return CommonStorageInitialization(ctx, storageInitializerParams)
 }
 
 // SetIstioCniSecurityContext determines if Istio is installed in using the CNI plugin. If so,

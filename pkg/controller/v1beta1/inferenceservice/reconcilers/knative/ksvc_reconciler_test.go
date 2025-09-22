@@ -129,6 +129,7 @@ func TestCreateKnativeService(t *testing.T) {
 			client := rtesting.NewClientBuilder().WithScheme(scheme).Build()
 
 			ksvc := createKnativeService(
+				t.Context(),
 				client,
 				tt.componentMeta,
 				tt.componentExt,
@@ -367,6 +368,7 @@ func TestKsvcReconciler_Reconcile(t *testing.T) {
 
 			// Create reconciler
 			reconciler := NewKsvcReconciler(
+				t.Context(),
 				client,
 				scheme,
 				componentMeta,

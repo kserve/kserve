@@ -17,7 +17,6 @@ limitations under the License.
 package pod
 
 import (
-	"context"
 	"reflect"
 	"strings"
 	"testing"
@@ -520,7 +519,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 			config: storageInitializerConfig,
 			client: c,
 		}
-		if err := injector.InjectStorageInitializer(context.Background(), scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(t.Context(), scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -561,7 +560,7 @@ func TestStorageInitializerFailureCases(t *testing.T) {
 			config: storageInitializerConfig,
 			client: c,
 		}
-		if err := injector.InjectStorageInitializer(context.Background(), scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(t.Context(), scenario.original); err != nil {
 			if !strings.HasPrefix(err.Error(), scenario.expectedErrorPrefix) {
 				t.Errorf("Test %q unexpected failure [%s], expected: %s", name, err.Error(), scenario.expectedErrorPrefix)
 			}
@@ -661,7 +660,7 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 			config: storageInitializerConfig,
 			client: c,
 		}
-		if err := injector.InjectStorageInitializer(context.Background(), scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(t.Context(), scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 
@@ -1113,7 +1112,7 @@ func TestCredentialInjection(t *testing.T) {
 			config:            storageInitializerConfig,
 			client:            c,
 		}
-		if err := injector.InjectStorageInitializer(context.Background(), scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(t.Context(), scenario.original); err != nil {
 			t.Errorf("Test %q unexpected failure [%s]", name, err.Error())
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -1208,7 +1207,7 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 			},
 			client: c,
 		}
-		if err := injector.InjectStorageInitializer(context.Background(), scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(t.Context(), scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -2048,7 +2047,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 			config:            scenario.storageConfig,
 			client:            c,
 		}
-		if err := injector.InjectStorageInitializer(context.Background(), scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(t.Context(), scenario.original); err != nil {
 			t.Errorf("Test %q unexpected failure [%s]", name, err.Error())
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -2273,7 +2272,7 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 			config: &kserveTypes.StorageInitializerConfig{},
 			client: c,
 		}
-		if err := injector.InjectStorageInitializer(context.Background(), scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(t.Context(), scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -2510,7 +2509,7 @@ func TestTransformerCollocation(t *testing.T) {
 			config: scenario.storageConfig,
 			client: c,
 		}
-		if err := injector.InjectStorageInitializer(context.Background(), scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(t.Context(), scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -2796,7 +2795,7 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 			client: c,
 		}
 
-		if err := injector.InjectStorageInitializer(context.Background(), scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(t.Context(), scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -3891,7 +3890,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 			config: storageInitializerConfig,
 			client: c,
 		}
-		if err := injector.InjectStorageInitializer(context.Background(), scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(t.Context(), scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if err := injector.SetIstioCniSecurityContext(scenario.original); err != nil {
@@ -4012,7 +4011,7 @@ func TestLocalModelPVC(t *testing.T) {
 			client: c,
 		}
 
-		if err := injector.InjectStorageInitializer(context.Background(), scenario.original); err != nil {
+		if err := injector.InjectStorageInitializer(t.Context(), scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
@@ -4113,7 +4112,7 @@ func TestCommonStorageInitialization(t *testing.T) {
 			}
 
 			// Execute the function
-			err := CommonStorageInitialization(params)
+			err := CommonStorageInitialization(t.Context(), params)
 
 			// Verify error expectations
 			if scenario.expectError {
@@ -4123,11 +4122,11 @@ func TestCommonStorageInitialization(t *testing.T) {
 				}
 				return
 			}
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Verify init container expectations
 			if scenario.expectedInitContainer {
-				assert.Greater(t, len(podSpec.InitContainers), 0, "Expected init container to be added")
+				assert.NotEmpty(t, podSpec.InitContainers, "Expected init container to be added")
 				initContainer := podSpec.InitContainers[0]
 				assert.Equal(t, constants.StorageInitializerContainerName, initContainer.Name)
 				assert.Equal(t, constants.StorageInitializerContainerImage+":"+constants.StorageInitializerContainerImageVersion, initContainer.Image)
@@ -4147,11 +4146,11 @@ func TestCommonStorageInitialization(t *testing.T) {
 					}
 				}
 			} else {
-				assert.Equal(t, 0, len(podSpec.InitContainers), "Expected no init container")
+				assert.Empty(t, podSpec.InitContainers, "Expected no init container")
 			}
 
 			// Verify volume count
-			assert.Equal(t, scenario.expectedVolumeCount, len(podSpec.Volumes), "Volume count mismatch")
+			assert.Len(t, podSpec.Volumes, scenario.expectedVolumeCount, "Volume count mismatch")
 
 			// Verify volume mounts on user container
 			if len(scenario.expectedMountPaths) > 0 {
@@ -4240,8 +4239,8 @@ func TestCommonStorageInitializationWithCustomStorageContainer(t *testing.T) {
 		StorageContainerSpec: customStorageContainer,
 	}
 
-	err := CommonStorageInitialization(params)
-	assert.NoError(t, err)
+	err := CommonStorageInitialization(t.Context(), params)
+	require.NoError(t, err)
 
 	// Verify custom container was used
 	assert.Len(t, podSpec.InitContainers, 1)
@@ -4373,15 +4372,15 @@ func TestCommonStorageInitializationErrorCases(t *testing.T) {
 				StorageContainerSpec: scenario.storageContainer,
 			}
 
-			err := CommonStorageInitialization(params)
+			err := CommonStorageInitialization(t.Context(), params)
 
 			if scenario.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				if scenario.errorContains != "" {
 					assert.Contains(t, err.Error(), scenario.errorContains)
 				}
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}

@@ -129,6 +129,10 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		return allWarnings, err
 	}
 
+	if err := validateMultipleStorageURIs(isvc); err != nil {
+		return allWarnings, err
+	}
+
 	for _, component := range []Component{
 		&isvc.Spec.Predictor,
 		isvc.Spec.Transformer,
@@ -491,5 +495,101 @@ func validateDeploymentMode(newIsvc *InferenceService, oldIsvc *InferenceService
 			return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, annotationDeploymentMode)
 		}
 	}
+	return nil
+}
+
+// ValidateStorageURISpec validates that paths are absolute
+func validateStorageURISpec(storageUri *StorageUri) error {
+	// Validate individual storage URI specification
+	if storageUri.Uri == "" {
+		return errors.New("storage URI cannot be empty")
+	}
+
+	if storageUri.Path == "/" {
+		return errors.New("storage path cannot be empty")
+	}
+
+	if !strings.HasPrefix(storageUri.Path, "/") {
+		return fmt.Errorf("storage path must be absolute: %s", storageUri.Path)
+	}
+
+	// Security validation: prevent directory traversal attacks
+	if strings.Contains(storageUri.Path, "..") {
+		return fmt.Errorf("storage path cannot contain '..' for security reasons: %s", storageUri.Path)
+	}
+
+	return nil
+}
+
+// ValidateMultipleStorageURISpecs validates a list of storage URI specifications.
+// It ensures that:
+// - Each individual URI specification is valid (non-empty URI, absolute path)
+// - All non-PVC paths share a common parent directory (not root)
+// - PVC paths are unique across the list
+// - The total number doesn't exceed the configured maximum
+//
+// Parameters:
+//   - storageURIs: List of storage URI specifications to validate
+//
+// Returns:
+//   - error: First validation error encountered, or nil if all validations pass
+func validateMultipleStorageURIsSpec(storageUris []StorageUri) error {
+	paths := make([]string, 0, len(storageUris))
+	pvcPaths := make([]string, 0, len(storageUris))
+
+	if len(storageUris) == 0 {
+		return nil
+	}
+
+	// Validate each individual StorageUrisSpec
+	for _, storageUri := range storageUris {
+		if err := validateStorageURISpec(&storageUri); err != nil {
+			return err
+		}
+		if strings.HasPrefix(storageUri.Uri, "pvc://") {
+			pvcPaths = append(pvcPaths, storageUri.Path)
+		} else {
+			paths = append(paths, storageUri.Path)
+		}
+	}
+
+	// If only one storage URI, no need to check common parent
+	if len(paths) <= 1 {
+		return nil
+	}
+
+	// Check that PVC paths are unique
+	if len(pvcPaths) > 1 {
+		pvcPathSet := make(map[string]bool)
+		for _, path := range pvcPaths {
+			if pvcPathSet[path] {
+				return errors.New("PVC storage paths must be unique")
+			}
+			pvcPathSet[path] = true
+		}
+	}
+
+	// Validate that paths have a common parent path
+	commonParent := utils.FindCommonParentPath(paths)
+	if commonParent == "/" {
+		return fmt.Errorf("storage paths must have a common parent directory. Current paths: %v have no common parent beyond root", paths)
+	}
+
+	return nil
+}
+
+func validateMultipleStorageURIs(isvc *InferenceService) error {
+	if err := validateMultipleStorageURIsSpec(isvc.Spec.Transformer.StorageUris); err != nil {
+		return err
+	}
+
+	if err := validateMultipleStorageURIsSpec(isvc.Spec.Explainer.StorageUris); err != nil {
+		return err
+	}
+
+	if err := validateMultipleStorageURIsSpec(isvc.Spec.Predictor.StorageUris); err != nil {
+		return err
+	}
+
 	return nil
 }

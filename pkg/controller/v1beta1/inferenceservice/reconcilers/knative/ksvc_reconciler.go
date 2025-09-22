@@ -62,6 +62,7 @@ type KsvcReconciler struct {
 }
 
 func NewKsvcReconciler(
+	ctx context.Context,
 	client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
@@ -78,13 +79,14 @@ func NewKsvcReconciler(
 	return &KsvcReconciler{
 		client:          client,
 		scheme:          scheme,
-		Service:         createKnativeService(client, componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList, storageUrisSpec, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec),
+		Service:         createKnativeService(ctx, client, componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList, storageUrisSpec, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec),
 		componentExt:    componentExt,
 		componentStatus: componentStatus,
 	}
 }
 
 func createKnativeService(
+	ctx context.Context,
 	client client.Client,
 	componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
@@ -166,7 +168,7 @@ func createKnativeService(
 	})
 
 	if storageUris != nil && len(*storageUris) > 0 {
-		var isvcReadonlyStringFlag = true
+		isvcReadonlyStringFlag := true
 		isvcReadonlyString, ok := annotations[constants.StorageReadonlyAnnotationKey]
 		if ok {
 			if isvcReadonlyString == "false" {
@@ -175,7 +177,6 @@ func createKnativeService(
 		}
 
 		storageInitializerParams := &pod.StorageInitializerParams{
-			Ctx:                  context.Background(),
 			Namespace:            componentMeta.Namespace,
 			StorageURIs:          *storageUris,
 			IsReadOnly:           isvcReadonlyStringFlag,
@@ -188,7 +189,7 @@ func createKnativeService(
 			StorageContainerSpec: storageContainerSpec,
 		}
 
-		err := pod.CommonStorageInitialization(storageInitializerParams)
+		err := pod.CommonStorageInitialization(ctx, storageInitializerParams)
 		if err != nil {
 			log.Error(err, "Failed to initialize storage init container")
 		}

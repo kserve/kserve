@@ -28,6 +28,7 @@ type TransformerSpec struct {
 	ComponentExtensionSpec `json:",inline"`
 
 	// Spec for multiple storage uris.
+	// +listType=atomic
 	StorageUris []StorageUri `json:"storageUris,omitempty"`
 }
 

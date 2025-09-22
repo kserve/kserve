@@ -114,7 +114,6 @@ func (r *LLMISVCReconciler) attachOciModelArtifact(modelUri string, podSpec *cor
 // TODO: For now, this supports only direct mount. Copying from PVC would come later (if it makes sense at all).
 func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *corev1.PodSpec) error {
 	pvcName, pvcPath, err := utils.ParsePvcURI(modelUri)
-
 	if err != nil {
 		return err
 	}

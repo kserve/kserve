@@ -79,7 +79,7 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	storageURIs := isvc.Spec.Explainer.StorageUris
 
 	if sourceURI != nil && storageURIs != nil {
-		return ctrl.Result{}, fmt.Errorf("Setting both StorageURI and StorageURIs is not supported.")
+		return ctrl.Result{}, errors.New("Setting both StorageURI and StorageURIs is not supported.")
 	}
 
 	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
@@ -92,16 +92,6 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		}
 	}
 
-	if storageURIs != nil {
-		isvcutils.ValidateMultipleStorageURIsSpec(storageURIs)
-
-		for _, storageURI := range storageURIs {
-			err := isvcutils.ValidateStorageURI(ctx, &storageURI.Uri, e.client)
-			if err != nil {
-				return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
-			}
-		}
-	}
 	addLoggerAnnotations(isvc.Spec.Explainer.Logger, annotations)
 
 	explainerName := constants.ExplainerServiceName(isvc.Name)
@@ -258,7 +248,7 @@ func (e *Explainer) reconcileExplainerKnativeDeployment(ctx context.Context, isv
 		storageSpec = &modelStorageSpec.StorageSpec
 	}
 
-	r := knative.NewKsvcReconciler(e.client, e.scheme, *objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
+	r := knative.NewKsvcReconciler(ctx, e.client, e.scheme, *objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
 		podSpec, isvc.Status.Components[v1beta1.ExplainerComponent], e.inferenceServiceConfig.ServiceLabelDisallowedList, &isvc.Spec.Explainer.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec)
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, e.scheme); err != nil {

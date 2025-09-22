@@ -71,7 +71,6 @@ func NewRawKubeReconciler(ctx context.Context,
 	credentialBuilder *credentials.CredentialBuilder,
 	storageContainerSpec *v1alpha1.StorageContainerSpec,
 ) (*RawKubeReconciler, error) {
-
 	var otelCollector *otel.OtelReconciler
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
 	if err != nil {
@@ -126,7 +125,7 @@ func NewRawKubeReconciler(ctx context.Context,
 	}
 
 	if storageUris != nil && len(*storageUris) > 0 {
-		var isvcReadonlyStringFlag = true
+		isvcReadonlyStringFlag := true
 		isvcReadonlyString, ok := componentMeta.Annotations[constants.StorageReadonlyAnnotationKey]
 		if ok {
 			if isvcReadonlyString == "false" {
@@ -135,7 +134,6 @@ func NewRawKubeReconciler(ctx context.Context,
 		}
 
 		storageInitializerParams := &pod.StorageInitializerParams{
-			Ctx:                  ctx,
 			Namespace:            componentMeta.Namespace,
 			StorageURIs:          *storageUris,
 			IsReadOnly:           isvcReadonlyStringFlag,
@@ -149,14 +147,13 @@ func NewRawKubeReconciler(ctx context.Context,
 			IsLegacyURI:          false,
 		}
 
-		err := pod.CommonStorageInitialization(storageInitializerParams)
+		err := pod.CommonStorageInitialization(ctx, storageInitializerParams)
 		if err != nil {
 			return nil, err
 		}
 
 		if workerPodSpec != nil {
 			workerStorageInitializerParams := &pod.StorageInitializerParams{
-				Ctx:                  ctx,
 				Namespace:            workerComponentMeta.Namespace,
 				StorageURIs:          *storageUris,
 				IsReadOnly:           isvcReadonlyStringFlag,
@@ -169,7 +166,7 @@ func NewRawKubeReconciler(ctx context.Context,
 				StorageContainerSpec: storageContainerSpec,
 				IsLegacyURI:          false,
 			}
-			err := pod.CommonStorageInitialization(workerStorageInitializerParams)
+			err := pod.CommonStorageInitialization(ctx, workerStorageInitializerParams)
 			if err != nil {
 				return nil, err
 			}
