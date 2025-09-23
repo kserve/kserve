@@ -514,7 +514,6 @@ class Storage(object):
     async def _download_azure_blob_async(uri, out_dir: str) -> str:
         """Async Azure blob download with chunked streaming and multi-level semaphores"""
         from azure.storage.blob.aio import BlobServiceClient
-        from azure.storage.blob._list_blobs_helper import BlobPrefix
 
         account_name, account_url, container_name, prefix = Storage._parse_azure_uri(uri)
         logger.info(
@@ -541,8 +540,9 @@ class Storage(object):
             blobs = []
             logger.info("Listing blobs with prefix: %s", prefix)
             async for blob in container_client.list_blobs(name_starts_with=prefix):
-                logger.info("Found blob: %s", blob.name)
-                blobs.append(blob)
+                logger.info("Found blob: %s (%d bytes)", blob.name, blob.size)
+                if blob.size > 0:
+                    blobs.append(blob)
 
             if not blobs:
                 raise RuntimeError("Failed to fetch model. No model found in %s." % uri)
