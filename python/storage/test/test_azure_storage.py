@@ -24,6 +24,7 @@ STORAGE_MODULE = "kserve_storage.kserve_storage"
 def create_mock_item(path):
     mock_obj = mock.MagicMock()
     mock_obj.name = path
+    mock_obj.size = 1024  # Mock non-zero size for regular files
 
     # For async streaming, we need to mock the chunks() method
     async def mock_chunks():
