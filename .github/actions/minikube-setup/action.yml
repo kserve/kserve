@@ -1,19 +1,23 @@
-name: 'Minikube setup action'
-description: 'Sets up minikube on the github runner'
+name: "Minikube setup action"
+description: "Sets up minikube on the github runner"
 
 inputs:
   nodes:
-    description: 'Number of nodes to start minikube with'
+    description: "Number of nodes to start minikube with"
     required: false
-    default: '1'
+    default: "1"
   driver:
-    description: 'Driver to use for minikube'
+    description: "Driver to use for minikube"
     required: false
-    default: 'none'
+    default: "none"
   start-args:
-    description: 'Additional arguments to pass to minikube start'
+    description: "Additional arguments to pass to minikube start"
     required: false
-    default: ''
+    default: ""
+  addons:
+    description: "Choose optional addons to install. Valid options: metallb, ingress, gcp-auth, registry ..."
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -21,19 +25,42 @@ runs:
     - name: Install kubectl
       uses: azure/setup-kubectl@v4.0.0
       with:
-        version: 'v1.30.7'
+        version: "v1.30.7"
 
     - name: Setup Minikube
       uses: medyagh/setup-minikube@latest
       with:
-        minikube-version: '1.35.0'
-        kubernetes-version: 'v1.30.7'
+        minikube-version: "1.35.0"
+        kubernetes-version: "v1.30.7"
         driver: ${{ inputs.driver }}
-        wait: 'all'
-        cpus: 'max'
-        memory: 'max'
+        addons: ${{ inputs.addons }}
+        wait: "all"
+        cpus: "max"
+        memory: "max"
         start-args: --wait-timeout=6m0s --nodes=${{ inputs.nodes }} ${{ inputs.start-args }}
+    - name: Configure MetalLB for Minikube
+      if: ${{ contains(inputs.addons, 'metallb') }}
+      shell: bash
+      run: |
+        IP=$(minikube ip)
+        PREFIX=${IP%.*}
+        START=${PREFIX}.200
+        END=${PREFIX}.235
 
+        kubectl apply -f - <<EOF
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          namespace: metallb-system
+          name: config
+        data:
+          config: |
+            address-pools:
+            - name: default
+              protocol: layer2
+              addresses:
+              - ${START}-${END}
+        EOF
     - name: Check Kubernetes pods
       shell: bash
       run: kubectl get pods -n kube-system
