@@ -665,32 +665,6 @@ class Storage(object):
         return out_dir
 
     @staticmethod
-    async def _download_single_file_async(
-        share_client, prefix: str, file_item, out_dir: str, file_semaphore: asyncio.Semaphore
-    ) -> str:
-        """Download a single file with chunked streaming"""
-        async with file_semaphore:  # Limit concurrent file downloads
-            parts = [prefix] if prefix else []
-            parts.append(file_item.name)
-            file_path = "/".join(parts).lstrip("/")
-            dest_path = os.path.join(out_dir, file_path)
-            Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
-
-            logger.info("Downloading: %s to %s", file_item.name, dest_path)
-
-            file_client = share_client.get_file_client(file_path)
-
-            # Download with streaming chunks
-            stream = await file_client.download_file(max_concurrency=_AZURE_MAX_CHUNK_CONCURRENCY)
-
-            with open(dest_path, "wb") as f:
-                # Stream chunks to avoid memory overload
-                async for chunk in stream.chunks():
-                    f.write(chunk)
-
-            return dest_path
-
-    @staticmethod
     def _download_azure_blob(uri, out_dir: str) -> str:
         """Wrapper to run async blob download"""
         return asyncio.run(Storage._download_azure_blob_async(uri, out_dir))

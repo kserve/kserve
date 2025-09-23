@@ -90,45 +90,17 @@ def create_mock_file(name):
 
 def create_mock_objects_for_file_share(mock_storage, mock_file_items):
     mock_share = mock.MagicMock()
-    
-    # Mock async list_directories_and_files
-    call_count = 0
-    async def mock_list_directories_and_files(directory_name=None):
-        nonlocal call_count
-        if call_count < len(mock_file_items):
-            items = mock_file_items[call_count]
-            call_count += 1
-            for item in items:
-                yield item
-    mock_share.list_directories_and_files = mock_list_directories_and_files
-    
-    # Mock async download_file returning a stream
-    async def mock_download_file(max_concurrency=None):
-        stream = mock.MagicMock()
-        async def mock_chunks():
-            yield b"test"
-        stream.chunks = mock_chunks
-        return stream
-    
+    mock_share.list_directories_and_files.side_effect = mock_file_items
+
     mock_file = mock.MagicMock()
-    mock_file.download_file = mock_download_file
     mock_share.get_file_client.return_value = mock_file
-    
+    mock_data = mock.MagicMock()
+    mock_file.download_file.return_value = mock_data
+
     mock_svc = mock.MagicMock()
     mock_svc.get_share_client.return_value = mock_share
     
-    # Make the service client work as an async context manager
-    async def mock_aenter(self):
-        return mock_svc
-    
-    async def mock_aexit(self, exc_type, exc_val, exc_tb):
-        return None
-    
-    mock_svc.__aenter__ = mock_aenter
-    mock_svc.__aexit__ = mock_aexit
-    
     mock_storage.return_value = mock_svc
-    mock_data = mock.MagicMock()  # Keep for compatibility
     return mock_storage, mock_share, mock_data
 
 
@@ -306,7 +278,7 @@ def test_blob_no_prefix(mock_storage, mock_makedirs):  # pylint: disable=unused-
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
 @mock.patch(STORAGE_MODULE + ".Storage._get_azure_storage_access_key")
-@mock.patch("azure.storage.fileshare.aio.ShareServiceClient")
+@mock.patch("azure.storage.fileshare.ShareServiceClient")
 def test_file_share(
     mock_storage, mock_get_access_key, mock_makedirs
 ):  # pylint: disable=unused-argument
@@ -342,7 +314,7 @@ def test_file_share(
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
 @mock.patch(STORAGE_MODULE + ".Storage._get_azure_storage_access_key")
-@mock.patch("azure.storage.fileshare.aio.ShareServiceClient")
+@mock.patch("azure.storage.fileshare.ShareServiceClient")
 def test_deep_file_share(
     mock_storage, mock_get_access_key, mock_makedirs
 ):  # pylint: disable=unused-argument
@@ -390,7 +362,7 @@ def test_deep_file_share(
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
 @mock.patch(STORAGE_MODULE + ".Storage._get_azure_storage_access_key")
-@mock.patch("azure.storage.fileshare.aio.ShareServiceClient")
+@mock.patch("azure.storage.fileshare.ShareServiceClient")
 def test_file_share_fq_file(
     mock_storage, mock_get_access_key, mock_makedirs
 ):  # pylint: disable=unused-argument
@@ -421,7 +393,7 @@ def test_file_share_fq_file(
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
 @mock.patch(STORAGE_MODULE + ".Storage._get_azure_storage_access_key")
-@mock.patch("azure.storage.fileshare.aio.ShareServiceClient")
+@mock.patch("azure.storage.fileshare.ShareServiceClient")
 def test_file_share_no_prefix(
     mock_storage, mock_get_access_key, mock_makedirs
 ):  # pylint: disable=unused-argument
