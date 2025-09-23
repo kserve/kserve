@@ -38,11 +38,11 @@ def create_mock_blob(mock_storage, paths):
     mock_objs = [create_mock_item(path) for path in paths]
     mock_container = mock.MagicMock()
     
-    # Mock async walk_blobs
-    async def mock_walk_blobs(name_starts_with=None):
+    # Mock async list_blobs (changed from walk_blobs)
+    async def mock_list_blobs(name_starts_with=None, include=None):
         for obj in mock_objs:
             yield obj
-    mock_container.walk_blobs = mock_walk_blobs
+    mock_container.list_blobs = mock_list_blobs
     
     # Mock async download_blob returning a stream (no blob_name param needed)
     async def mock_download_blob(max_concurrency=None):
