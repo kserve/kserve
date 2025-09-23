@@ -86,7 +86,7 @@ jobs:
       - name: Download base images
         uses: ./.github/actions/base-download
 
-      - name: Install Poetry and version plugin
+      - name: Setup UV
         run: ./test/scripts/gh-actions/setup-uv.sh
 
       - name: Install KServe
