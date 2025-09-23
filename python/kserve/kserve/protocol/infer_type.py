@@ -110,6 +110,35 @@ def deserialize_bytes_tensor(encoded_tensor: bytes) -> np.ndarray:
     return np.array(strs, dtype=np.object_)
 
 
+def deserialize_bf16_tensor(encoded_tensor: bytes) -> np.ndarray:
+    """
+    Deserializes an encoded bf16 tensor into a
+    numpy array of dtype float32
+
+    Args:
+        encoded_tensor : bytes
+            The encoded bytes tensor where each element
+            is 2 bytes (size of bfloat16)
+    Returns:
+        bf16_tensor : np.array
+            The 1-D numpy array of type float32 containing the
+            deserialized bytes in row-major form.
+    """
+    values = list()
+    offset = 0
+    val_buf = encoded_tensor
+    while offset < len(val_buf):
+        # Bfloat16 contains 2 bytes
+        bf16_bytes = struct.unpack_from("<2s", val_buf, offset)[0]
+        offset += 2
+        # Convert bfloat16 to float32 by padding with zeros
+        # Bfloat16 uses the same format as float32 but with 16 bits truncated
+        float32_bytes = b"\x00\x00" + bf16_bytes
+        float32_value = struct.unpack("<f", float32_bytes)[0]
+        values.append(float32_value)
+    return np.array(values, dtype=np.float32)
+
+
 class InferInput:
     _name: str
     _shape: List[int]
@@ -250,6 +279,8 @@ class InferInput:
                 # need to decode the raw bytes to convert into
                 # array elements.
                 np_array = deserialize_bytes_tensor(self._raw_data)
+            elif self.datatype == "BF16":
+                np_array = deserialize_bf16_tensor(self._raw_data)
             else:
                 np_array = np.frombuffer(self._raw_data, dtype=dtype)
             return np_array.reshape(self._shape)
