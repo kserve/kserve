@@ -59,7 +59,9 @@ _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
 # Azure async download configuration
 _AZURE_MAX_FILE_CONCURRENCY = int(os.getenv("AZURE_MAX_FILE_CONCURRENCY", "4"))
 _AZURE_MAX_CHUNK_CONCURRENCY = int(os.getenv("AZURE_MAX_CHUNK_CONCURRENCY", "4"))
-_AZURE_CHUNK_SIZE = int(os.getenv("AZURE_CHUNK_SIZE", str(8 * 1024 * 1024)))  # 8MB chunks
+_AZURE_CHUNK_SIZE = int(
+    os.getenv("AZURE_CHUNK_SIZE", str(8 * 1024 * 1024))
+)  # 8MB chunks
 
 
 class Storage(object):
@@ -306,7 +308,7 @@ class Storage(object):
     def _download_hf(uri, temp_dir: str) -> str:
         from huggingface_hub import snapshot_download
 
-        components = uri[len(_HF_PREFIX):].split("/")
+        components = uri[len(_HF_PREFIX) :].split("/")
 
         # Validate that the URI has two parts: repo and model (optional hash)
         if len(components) != 2:
@@ -440,9 +442,9 @@ class Storage(object):
         # Remove hdfs:// or webhdfs:// from the uri to get just the path
         # e.g. hdfs://user/me/model -> user/me/model
         if uri.startswith(_HDFS_PREFIX):
-            path = uri[len(_HDFS_PREFIX):]
+            path = uri[len(_HDFS_PREFIX) :]
         else:
-            path = uri[len(_WEBHDFS_PREFIX):]
+            path = uri[len(_WEBHDFS_PREFIX) :]
 
         if not config["HDFS_ROOTPATH"]:
             path = "/" + path
@@ -515,10 +517,14 @@ class Storage(object):
         """Async Azure blob download with chunked streaming and multi-level semaphores"""
         from azure.storage.blob.aio import BlobServiceClient
 
-        account_name, account_url, container_name, prefix = Storage._parse_azure_uri(uri)
+        account_name, account_url, container_name, prefix = Storage._parse_azure_uri(
+            uri
+        )
         logger.info(
             "Connecting to BLOB account: [%s], container: [%s], prefix: [%s]",
-            account_name, container_name, prefix
+            account_name,
+            container_name,
+            prefix,
         )
 
         token = (
@@ -533,7 +539,9 @@ class Storage(object):
         # File-level semaphore to control concurrent file downloads
         file_semaphore = asyncio.Semaphore(_AZURE_MAX_FILE_CONCURRENCY)
 
-        async with BlobServiceClient(account_url, credential=token) as blob_service_client:
+        async with BlobServiceClient(
+            account_url, credential=token
+        ) as blob_service_client:
             container_client = blob_service_client.get_container_client(container_name)
 
             # Get all blobs using flat listing (no delimiter) to get all files regardless of hierarchy
@@ -563,7 +571,7 @@ class Storage(object):
             dest_path = None
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
-                    logger.error('Blob %s failed: %s', blobs[i].name, result)
+                    logger.error("Blob %s failed: %s", blobs[i].name, result)
                     raise result
                 else:
                     dest_path = result
@@ -579,7 +587,11 @@ class Storage(object):
 
     @staticmethod
     async def _download_single_blob_async(
-        container_client, blob, out_dir: str, prefix: str, file_semaphore: asyncio.Semaphore
+        container_client,
+        blob,
+        out_dir: str,
+        prefix: str,
+        file_semaphore: asyncio.Semaphore,
     ) -> str:
         """Download a single blob with chunked streaming"""
         async with file_semaphore:  # Limit concurrent file downloads
@@ -595,7 +607,9 @@ class Storage(object):
             blob_client = container_client.get_blob_client(blob.name)
 
             # Download with streaming chunks to avoid memory overload
-            stream = await blob_client.download_blob(max_concurrency=_AZURE_MAX_CHUNK_CONCURRENCY)
+            stream = await blob_client.download_blob(
+                max_concurrency=_AZURE_MAX_CHUNK_CONCURRENCY
+            )
 
             with open(dest_path, "wb") as f:
                 # Stream chunks instead of loading entire file into memory

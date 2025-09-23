@@ -123,6 +123,9 @@ These are all handled by the `huggingface_hub` package, you can see all the avai
 - `AZ_TENANT_ID` / `AZURE_TENANT_ID`: Azure AD tenant ID
 - `AZ_CLIENT_ID` / `AZURE_CLIENT_ID`: Azure AD client ID
 - `AZ_CLIENT_SECRET` / `AZURE_CLIENT_SECRET`: Azure AD client secret
+- `_AZURE_MAX_FILE_CONCURRENCY`: number of files to download parallel (blob only)
+- `_AZURE_MAX_CHUNK_CONCURRENCY`: number of chunks for each file to download parallel (blob only)
+- `_AZURE_CHUNK_SIZE`: the chunk size (blob only)
 
 ### HDFS Configuration
 

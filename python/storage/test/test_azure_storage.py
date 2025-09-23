@@ -24,9 +24,11 @@ STORAGE_MODULE = "kserve_storage.kserve_storage"
 def create_mock_item(path):
     mock_obj = mock.MagicMock()
     mock_obj.name = path
+
     # For async streaming, we need to mock the chunks() method
     async def mock_chunks():
         yield b"test"
+
     mock_stream = mock.MagicMock()
     mock_stream.chunks = mock_chunks
     mock_obj.readall.return_value = b"test"
@@ -37,39 +39,42 @@ def create_mock_item(path):
 def create_mock_blob(mock_storage, paths):
     mock_objs = [create_mock_item(path) for path in paths]
     mock_container = mock.MagicMock()
-    
+
     # Mock async list_blobs (changed from walk_blobs)
     async def mock_list_blobs(name_starts_with=None, include=None):
         for obj in mock_objs:
             yield obj
+
     mock_container.list_blobs = mock_list_blobs
-    
+
     # Mock async download_blob returning a stream (no blob_name param needed)
     async def mock_download_blob(max_concurrency=None):
         # Return a stream-like object with chunks() method
         stream = mock.MagicMock()
+
         async def mock_chunks():
             yield b"test"
+
         stream.chunks = mock_chunks
         return stream
-    
+
     mock_blob_client = mock.MagicMock()
     mock_blob_client.download_blob = mock_download_blob
     mock_container.get_blob_client.return_value = mock_blob_client
-    
+
     mock_svc = mock.MagicMock()
     mock_svc.get_container_client.return_value = mock_container
-    
+
     # Make the service client work as an async context manager
     async def mock_aenter(self):
         return mock_svc
-    
+
     async def mock_aexit(self, exc_type, exc_val, exc_tb):
         return None
-    
+
     mock_svc.__aenter__ = mock_aenter
     mock_svc.__aexit__ = mock_aexit
-    
+
     mock_storage.return_value = mock_svc
     return mock_storage, mock_container
 
@@ -99,7 +104,7 @@ def create_mock_objects_for_file_share(mock_storage, mock_file_items):
 
     mock_svc = mock.MagicMock()
     mock_svc.get_share_client.return_value = mock_share
-    
+
     mock_storage.return_value = mock_svc
     return mock_storage, mock_share, mock_data
 
