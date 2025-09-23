@@ -1,9 +1,8 @@
 #!/bin/bash
-set -euo pipefail
 
 # Script version and metadata
-readonly SCRIPT_VERSION="1.1.0"
-readonly SCRIPT_NAME="$(basename "$0")"
+SCRIPT_VERSION="1.1.0"
+SCRIPT_NAME="$(basename "$0")"
 
 # Default values
 NAMESPACE=""
@@ -11,158 +10,16 @@ SELECTED_ISVCS=()
 PRESERVE_FILES="" 
 
 # Color codes for better output
-readonly RED='\033[0;31m'
-readonly GREEN='\033[0;32m'
-readonly YELLOW='\033[1;33m'
-readonly BLUE='\033[0;34m'
-readonly NC='\033[0m' # No Color
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
 # Function to display help
 show_help() {
     cat << EOF
 ${BLUE}KServe InferenceService Raw Deployment Converter${NC}
-
-${YELLOW}DESCRIPTION:${NC}
-  This script converts KServe InferenceService definitions into
-  RawDeployment mode, creating corresponding ServingRuntimes and
-  associated resources (ServiceAccounts, Roles, RoleBindings, Secrets)
-  as needed.
-
-${YELLOW}USAGE:${NC}
-  $SCRIPT_NAME [options]
-
-${YELLOW}Options:${NC}
-  -n, --namespace <name>       Target namespace where InferenceServices reside
-  --namespace=<name>           Same as above
-  -h, --help                   Show this help message and exit
-  -v, --version                Show script version and exit
-
-
-${YELLOW}EXAMPLES:${NC}
-  # Convert InferenceServices in the 'ml-project' namespace
-  $SCRIPT_NAME -n ml-project
-
-  # Show script version
-  $SCRIPT_NAME --version
-
-  # Show help
-  $SCRIPT_NAME --help
-
-${YELLOW}FILE PRESERVATION:${NC}
-    You'll be prompted whether to preserve the 
-    exported and transformed files. If you choose to keep them, they'll 
-    be organized as follows:
-    
-    <inference-service-name>/
-    ├── original/
-    │   ├── <name>-isvc.yaml              # Original InferenceService (YAML)
-    │   ├── <runtime>-sr.yaml             # Original ServingRuntime (YAML)
-    │   ├── <name>-sa.yaml                # Original ServiceAccount (YAML, if auth enabled)
-    │   ├── <name>-view-role.yaml         # Original Role (YAML, if auth enabled)
-    │   ├── <name>-view-rolebinding.yaml  # Original RoleBinding (YAML, if auth enabled)
-    │   └── <name>-secret.yaml            # Original Secret (YAML, if auth enabled)
-    └── raw/
-        ├── <name>-raw-isvc.yaml          # Transformed InferenceService (YAML)
-        ├── <runtime>-raw-sr.yaml         # Transformed ServingRuntime (YAML)
-        ├── <name>-raw-sa.yaml        # Transformed ServiceAccount (YAML, if auth enabled)
-        ├── <name>-raw-view-role.yaml # Transformed Role (YAML, if auth enabled)
-        ├── <name>-raw-view-rolebinding.yaml # Transformed RoleBinding (YAML, if auth enabled)
-        └── <name>-raw-secret.yaml    # Transformed Secret (YAML, if auth enabled)
-
-${YELLOW}WHAT IT DOES:${NC}
-    1. Exports existing InferenceService configuration to YAML
-    2. Creates raw deployment version with appropriate transformations
-    3. Processes ServingRuntime dependencies and creates raw versions
-    4. Handles authentication resources (ServiceAccounts, Roles, RoleBindings, Secrets)
-    5. Applies all resources to the target namespace
-    6. Maintains ownership relationships between resources
-
-${YELLOW}GENERATED RESOURCES:${NC}
-    Original Resource              Raw Deployment Resource
-    ─────────────────             ─────────────────────────
-    my-model                  →  my-model-raw
-    my-model-sa               →  my-model-raw-sa
-    my-model-view-role        →  my-model-raw-view-role
-    my-model-view             →  my-model-raw-view
-    runtime-v1                →  runtime-v1-raw
-
-${YELLOW}PREREQUISITES:${NC}
-    - OpenShift CLI (oc) installed and configured
-    - yq (YAML processor) v4.x+ installed
-    - Access to the OpenShift cluster with appropriate permissions
-    - Existing InferenceService in serverless mode
-
-${YELLOW}REQUIRED PERMISSIONS:${NC}
-    - Read/write access to InferenceServices and ServingRuntimes
-    - Manage ServiceAccounts, Roles, RoleBindings, and Secrets
-    - Access to the target namespace
-
-${YELLOW}ERROR HANDLING:${NC}
-    The script includes comprehensive error handling and will:
-    - Validate all prerequisites before starting
-    - Check if source resources exist
-    - Verify permissions
-    - Clean up temporary files on failure
-    - Provide detailed error messages
-
-${YELLOW}TROUBLESHOOTING:${NC}
-    Common issues and solutions:
-    
-    • Permission denied:
-      Check RBAC permissions: oc auth can-i create serviceaccounts -n <namespace>
-    
-    • ServingRuntime missing:
-      Verify runtime exists: oc get servingruntimes -n <namespace>
-
-${YELLOW}EXAMPLES OF SUCCESSFUL OUTPUT:${NC}
-================================================
-Converting: caikit-tgis
-================================================
-🔄 Creating temporary resource directories...
-✅ Processing InferenceService: caikit-tgis in namespace: test-project
-🔄 Step 1: Exporting InferenceService to caikit-tgis/original/caikit-tgis-isvc.yaml...
-🔄 Step 2: Creating caikit-tgis/raw/caikit-tgis-raw-isvc.yaml with raw deployment configuration...
-🔄 Step 3: Processing and applying serving runtime caikit-tgis...
-🔄 Step 4: Applying caikit-tgis/raw/caikit-tgis-raw-sr.yaml...
-servingruntime.serving.kserve.io/caikit-tgis-raw created
-🔄 Step 5: Checking if 'enable-auth' annotation is present and true...
-✅ enable-auth annotation is present and true
-🔄 Finding resources owned by InferenceService caikit-tgis...
-✅ Original InferenceService UID: 23ec8f41-7096-4440-91d3-0a304ca6e3db
-🔄 Looking for serviceaccounts with ownerReference...
-✅ Found serviceaccounts: caikit-tgis-sa (owned by InferenceService)
-🔄 Looking for roles with ownerReference...
-✅ Found roles: caikit-tgis-view-role (owned by InferenceService)
-🔄 Looking for rolebindings with ownerReference...
-✅ Found rolebindings: caikit-tgis-view (owned by InferenceService)
-🔄 Looking for Secret with service account annotation for caikit-tgis-sa...
-✅ Found Secret: default-name-caikit-tgis-sa (for service account caikit-tgis-sa)
-✅ Found Knative Route: caikit-tgis-predictor
-🔄 Step 6: Applying caikit-tgis/raw/caikit-tgis-raw-isvc.yaml...
-inferenceservice.serving.kserve.io/caikit-tgis-raw created
-🔄 Processing ServiceAccount...
-serviceaccount/caikit-tgis-raw-sa created
-🔄 Processing Role...
-role.rbac.authorization.k8s.io/caikit-tgis-raw-view-role created
-🔄 Processing RoleBinding...
-rolebinding.rbac.authorization.k8s.io/caikit-tgis-raw-view created
-🔄 Processing Secret...
-🔄 Waiting for ServiceAccount to be ready...
-✅ ServiceAccount UID: 4355ce84-9061-4f13-b22b-8ca080a2dc51
-secret/default-name-caikit-tgis-raw-sa created
-🔄 Step 7: Auth resources applied (if they existed)...
-✅   - ServiceAccount: caikit-tgis-raw-sa
-✅   - Role: caikit-tgis-raw-view-role
-✅   - RoleBinding: caikit-tgis-raw-view
-✅   - Secret: default-name-caikit-tgis-raw-sa
-
-✅ Completed conversion for caikit-tgis → caikit-tgis-raw
-✅ Preserved files under caikit-tgis/
-
-
-${YELLOW}VERSION:${NC} $SCRIPT_VERSION
-
-For more information, visit: https://issues.redhat.com/browse/RHOAIENG-33168
 EOF
 }
 
@@ -197,12 +54,12 @@ get_current_namespace() {
     current_ns=$(oc config view --minify -o jsonpath='{..namespace}' 2>/dev/null)
     
     # If not set in context, try the project command
-    if [[ -z "$current_ns" ]]; then
+    if [ -z "$current_ns" ]; then
         current_ns=$(oc project -q 2>/dev/null)
     fi
     
     # If still empty, default to 'default'
-    if [[ -z "$current_ns" ]]; then
+    if [ -z "$current_ns" ]; then
         current_ns="default"
     fi
     
@@ -211,6 +68,11 @@ get_current_namespace() {
 
 # Parse command line arguments
 parse_arguments() {
+    # if [ $# -eq 0 ]; then
+    #     echo -e "${YELLOW}No arguments provided${NC}"
+    #     show_help
+    #     exit 0
+    # fi
     
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -219,7 +81,7 @@ parse_arguments() {
                 shift
                 ;;
             -n|--namespace)
-                if [[ -n "$2" ]] && [[ $2 != --* ]]; then
+                if [ -n "$2" ] && [[ $2 != --* ]]; then
                     NAMESPACE="$2"
                     shift 2
                 else
@@ -259,12 +121,8 @@ check_prerequisites() {
     if ! command -v yq &> /dev/null; then
         missing_deps+=("yq (YAML processor)")
     fi
-
-    if !command -v jq &> /dev/null; then
-        missing_deps+=("jq (JSON processor)")
-    fi
     
-    if [[ ${#missing_deps[@]} -ne 0 ]]; then
+    if [ ${#missing_deps[@]} -ne 0 ]; then
         log_error "Missing required dependencies:"
         for dep in "${missing_deps[@]}"; do
             echo -e "  ${RED}•${NC} $dep"
@@ -273,7 +131,6 @@ check_prerequisites() {
         echo -e "${YELLOW}Installation instructions:${NC}"
         echo -e "  ${BLUE}oc:${NC} https://docs.openshift.com/container-platform/latest/cli_reference/openshift_cli/getting-started-cli.html"
         echo -e "  ${BLUE}yq:${NC} https://github.com/mikefarah/yq#install"
-        echo -e "  ${BLUE}yq:${NC} https://jqlang.org/download/"
         exit 1
     fi
     
@@ -294,20 +151,20 @@ validate_namespace() {
     local errors=()
 
     # If namespace not provided, get current namespace
-    if [[ -z "$NAMESPACE" ]]; then
+    if [ -z "$NAMESPACE" ]; then
         NAMESPACE=$(get_current_namespace)
-        if [[ -z "$NAMESPACE" ]]; then
+        if [ -z "$NAMESPACE" ]; then
             errors+=("Could not determine current namespace and none was provided")
         fi
     fi
 
     # Check if namespace exists (only if NAMESPACE is set)
-    if [[ -n "$NAMESPACE" ]] && ! oc get namespace "$NAMESPACE" &> /dev/null; then
+    if [ -n "$NAMESPACE" ] && ! oc get namespace "$NAMESPACE" &> /dev/null; then
         errors+=("Namespace '$NAMESPACE' does not exist.")
     fi
 
     # Handle validation errors
-    if [[ ${#errors[@]} -ne 0 ]]; then
+    if [ ${#errors[@]} -ne 0 ]; then
         log_error "Namespace validation failed:"
         for error in "${errors[@]}"; do
             echo -e "  ${RED}•${NC} $error"
@@ -355,7 +212,7 @@ check_permissions() {
         fi
     done
     
-    if [[ ${#failed_checks[@]} -ne 0 ]]; then
+    if [ ${#failed_checks[@]} -ne 0 ]; then
         log_error "Insufficient permissions in namespace '$NAMESPACE':"
         for failed in "${failed_checks[@]}"; do
             echo -e "  ${RED}•${NC} Cannot $failed"
@@ -390,18 +247,38 @@ list_and_select_inference_services() {
         exit 1
     fi
 
-    log_info "Found $isvc_count InferenceService(s) in namespace '$NAMESPACE'"
-    echo ""
-    echo "📦 Available InferenceServices:"
-    echo "==============================="
+    # Filter for InferenceServices with deploymentMode annotation set to "Serverless"
+    local filtered_isvcs=$(echo "$isvc_list" | yq '.items[] | select(.metadata.annotations."serving.kserve.io/deploymentMode" == "Serverless" or (.metadata.annotations."serving.kserve.io/deploymentMode" | not))')
+    
+    # Count filtered InferenceServices
+    local filtered_count=$(echo "$filtered_isvcs" | yq 'select(. != null) | length' 2>/dev/null || echo "0")
+    
+    if [[ "$filtered_count" -eq 0 ]]; then
+        log_error "No InferenceServices found with deploymentMode set to 'Serverless' (or unset) in namespace '$NAMESPACE'"
+        echo "Found $isvc_count total InferenceService(s), but none are eligible for conversion."
+        echo "Only InferenceServices with deploymentMode annotation set to 'Serverless' or unset can be converted to raw deployment."
+        exit 1
+    fi
 
-    # Store names in an array for selection
-    local isvc_names=($(echo "$isvc_list" | yq '.items[].metadata.name'))
+    log_info "Found $filtered_count eligible InferenceService(s) out of $isvc_count total in namespace '$NAMESPACE'"
+    echo ""
+    echo "📦 Available InferenceServices (Serverless deployment mode only):"
+    echo "=================================================================="
+
+    # Store names in an array for selection - get names from filtered results
+    local isvc_names=()
+    while IFS= read -r name; do
+        if [[ -n "$name" && "$name" != "null" ]]; then
+            isvc_names+=("$name")
+        fi
+    done < <(echo "$filtered_isvcs" | yq 'select(. != null) | .metadata.name' 2>/dev/null)
 
     # List each InferenceService with index numbers
     local index=1
     for isvc_name in "${isvc_names[@]}"; do
-        echo "[$index] $isvc_name"
+        # Get deployment mode for display
+        local deployment_mode=$(echo "$isvc_list" | yq ".items[] | select(.metadata.name == \"$isvc_name\") | .metadata.annotations.\"serving.kserve.io/deploymentMode\" // \"Serverless (default)\"")
+        echo "[$index] $isvc_name (Mode: $deployment_mode)"
         echo ""
         ((index++))
     done
@@ -422,7 +299,7 @@ list_and_select_inference_services() {
             exit 0
             ;;
         "all"|"ALL")
-            log_info "Selected all $isvc_count InferenceService(s) for migration"
+            log_info "Selected all $filtered_count InferenceService(s) for migration"
             SELECTED_ISVCS=("${isvc_names[@]}")
             ;;
         *)
@@ -584,17 +461,14 @@ convert_isvc(){
     # Step 2: Transform YAML to YAML using yq instead of jq
     log_step "Step 2: Creating $ISVC_RAW_FILE with raw deployment configuration..."
 
-    yq eval '
-        del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status) |
-        .metadata.name += "-raw" |
-        .metadata.annotations = ((.metadata.annotations // {}) | with_entries(select(.key | test("istio|knative") | not))) |
-        .metadata.labels = ((.metadata.labels // {}) | with_entries(select(.key | test("istio|knative") | not))) |
-        .metadata.labels."networking.kserve.io/visibility" = "exposed" |
-        .metadata.annotations."openshift.io/display-name" = ((.metadata.annotations."openshift.io/display-name" // "") + "-raw") |
-        .metadata.annotations."serving.kserve.io/deploymentMode" = "RawDeployment" |
-        .spec.predictor.model.runtime = ((.spec.predictor.model.runtime // "") + "-raw")
-        ' "$ISVC_FILE" > "$ISVC_RAW_FILE"
-
+    yq eval 'del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status) | 
+      .metadata.name += "-raw" | 
+      .metadata.annotations |= with_entries(select(.key | test("istio|knative") | not)) |
+      .metadata.labels |= with_entries(select(.key | test("istio|knative") | not)) |
+      .metadata.labels."networking.kserve.io/visibility" = "exposed" |
+      (.metadata.annotations."openshift.io/display-name" | select(. != null)) |= . + "-raw" |
+      .metadata.annotations."serving.kserve.io/deploymentMode" = "RawDeployment" |
+      .spec.predictor.model.runtime += "-raw"' "$ISVC_FILE" > "$ISVC_RAW_FILE"
 
     if [ $? -ne 0 ]; then
         log_error "Failed to transform YAML file"
@@ -915,7 +789,7 @@ EOF
     fi
     
     echo ""
-    log_info "Completed conversion for ${NAME} → ${NAME_RAW}"
+    log_info "✅ Completed conversion for ${NAME} → ${NAME_RAW}"
 
     # Cleanup per PRESERVE_FILES
     if [[ "$PRESERVE_FILES" != "true" ]]; then
