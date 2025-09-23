@@ -425,6 +425,8 @@ def get_content(datatype: str, data: InferTensorContents):
     elif datatype == "FP16":
         # FP16 data should be present in raw_input_content, so return an empty list.
         return list()
+    elif datatype == "BF16":
+        return list()
     elif datatype == "FP32":
         return list(data.fp32_contents)
     elif datatype == "FP64":
@@ -1062,12 +1064,15 @@ class InferOutput:
                 # need to decode the raw bytes to convert into
                 # array elements.
                 np_array = deserialize_bytes_tensor(self._raw_data)
+            elif self.datatype == "BF16":
+                np_array = deserialize_bf16_tensor(self._raw_data)
             else:
                 np_array = np.frombuffer(self._raw_data, dtype=dtype)
             return np_array.reshape(self._shape)
         else:
             np_array = np.array(self._data, dtype=dtype)
             return np_array.reshape(self._shape)
+
 
     def set_data_from_numpy(self, output_tensor: np.ndarray, binary_data: bool = True):
         """Set the tensor data from the specified numpy array for the inference output associated with this object.
