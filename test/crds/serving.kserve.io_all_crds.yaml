@@ -4772,6 +4772,9 @@ spec:
                       type: string
                   type: object
                 type: array
+              supportsMultiModelDownload:
+                default: false
+                type: boolean
               workloadType:
                 default: initContainer
                 type: string
@@ -8552,6 +8555,22 @@ spec:
                     type: boolean
                   shareProcessNamespace:
                     type: boolean
+                  storageUris:
+                    items:
+                      properties:
+                        path:
+                          default: /mnt/models
+                          maxLength: 255
+                          pattern: ^/.*
+                          type: string
+                        uri:
+                          minLength: 1
+                          type: string
+                      required:
+                      - uri
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
                   subdomain:
                     type: string
                   terminationGracePeriodSeconds:
@@ -17313,6 +17332,22 @@ spec:
                       workingDir:
                         type: string
                     type: object
+                  storageUris:
+                    items:
+                      properties:
+                        path:
+                          default: /mnt/models
+                          maxLength: 255
+                          pattern: ^/.*
+                          type: string
+                        uri:
+                          minLength: 1
+                          type: string
+                      required:
+                      - uri
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
                   subdomain:
                     type: string
                   tensorflow:
@@ -26229,6 +26264,22 @@ spec:
                     type: boolean
                   shareProcessNamespace:
                     type: boolean
+                  storageUris:
+                    items:
+                      properties:
+                        path:
+                          default: /mnt/models
+                          maxLength: 255
+                          pattern: ^/.*
+                          type: string
+                        uri:
+                          minLength: 1
+                          type: string
+                      required:
+                      - uri
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
                   subdomain:
                     type: string
                   terminationGracePeriodSeconds:
