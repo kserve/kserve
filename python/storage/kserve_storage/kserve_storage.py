@@ -537,20 +537,12 @@ class Storage(object):
         async with BlobServiceClient(account_url, credential=token) as blob_service_client:
             container_client = blob_service_client.get_container_client(container_name)
 
-            # Get all blobs - walk_blobs returns both BlobPrefix and actual blobs
+            # Get all blobs using flat listing (no delimiter) to get all files regardless of hierarchy
             blobs = []
-            max_depth = 5
-            stack = [(prefix, max_depth)]
-            while stack:
-                curr_prefix, depth = stack.pop()
-                if depth < 0:
-                    continue
-                async for item in container_client.walk_blobs(name_starts_with=curr_prefix):
-                    if isinstance(item, BlobPrefix):
-                        stack.append((item.name, depth - 1))
-                    else:
-                        # item is already a blob object, add it directly
-                        blobs.append(item)
+            logger.info("Listing blobs with prefix: %s", prefix)
+            async for blob in container_client.list_blobs(name_starts_with=prefix):
+                logger.info("Found blob: %s", blob.name)
+                blobs.append(blob)
 
             if not blobs:
                 raise RuntimeError("Failed to fetch model. No model found in %s." % uri)
@@ -613,76 +605,63 @@ class Storage(object):
             return dest_path
 
     @staticmethod
-    async def _download_azure_file_share_async(uri, out_dir: str) -> str:
-        """Async Azure file share download with chunked streaming"""
-        from azure.storage.fileshare.aio import ShareServiceClient
+    def _download_azure_file_share(
+        uri, out_dir: str
+    ) -> str:  # pylint: disable=too-many-locals
+        from azure.storage.fileshare import ShareServiceClient
 
         account_name, account_url, share_name, prefix = Storage._parse_azure_uri(uri)
         logger.info(
-            "Connecting to file share account: [%s], share: [%s], prefix: [%s]",
-            account_name, share_name, prefix
+            "Connecting to file share account: [%s], container: [%s], prefix: [%s]",
+            account_name,
+            share_name,
+            prefix,
         )
-
         access_key = Storage._get_azure_storage_access_key()
         if access_key is None:
             logger.warning(
                 "Azure storage access key not found, retrying anonymous access"
             )
 
-        file_semaphore = asyncio.Semaphore(_AZURE_MAX_FILE_CONCURRENCY)
-
-        async with ShareServiceClient(account_url, credential=access_key) as share_service_client:
-            share_client = share_service_client.get_share_client(share_name)
-
-            # Get all files using existing synchronous logic
-            share_files = []
-            max_depth = 5
-            stack = [(prefix, max_depth)]
-            while stack:
-                curr_prefix, depth = stack.pop()
-                if depth < 0:
-                    continue
-                async for item in share_client.list_directories_and_files(
-                    directory_name=curr_prefix
-                ):
-                    if item.is_directory:
-                        stack.append(
-                            ("/".join([curr_prefix, item.name]).strip("/"), depth - 1)
-                        )
-                    else:
-                        share_files.append((curr_prefix, item))
-
-            if not share_files:
-                raise RuntimeError("Failed to fetch model. No model found in %s." % uri)
-
-            # Create download tasks
-            download_tasks = [
-                Storage._download_single_file_async(
-                    share_client, prefix, file_item, out_dir, file_semaphore
-                )
-                for prefix, file_item in share_files
-            ]
-
-            # Execute downloads concurrently
-            results = await asyncio.gather(*download_tasks, return_exceptions=True)
-
-            # Check for exceptions
-            file_count = 0
-            dest_path = None
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    logger.error('File %s failed: %s', share_files[i][1].name, result)
-                    raise result
+        share_service_client = ShareServiceClient(account_url, credential=access_key)
+        share_client = share_service_client.get_share_client(share_name)
+        file_count = 0
+        share_files = []
+        max_depth = 5
+        stack = [(prefix, max_depth)]
+        while stack:
+            curr_prefix, depth = stack.pop()
+            if depth < 0:
+                continue
+            for item in share_client.list_directories_and_files(
+                directory_name=curr_prefix
+            ):
+                if item.is_directory:
+                    stack.append(
+                        ("/".join([curr_prefix, item.name]).strip("/"), depth - 1)
+                    )
                 else:
-                    dest_path = result
-                    file_count += 1
+                    share_files.append((curr_prefix, item))
+        for prefix, file_item in share_files:
+            parts = [prefix] if prefix else []
+            parts.append(file_item.name)
+            file_path = "/".join(parts).lstrip("/")
+            dest_path = os.path.join(out_dir, file_path)
+            Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
+            logger.info("Downloading: %s to %s", file_item.name, dest_path)
+            file_client = share_client.get_file_client(file_path)
+            with open(dest_path, "wb+") as f:
+                data = file_client.download_file()
+                data.readinto(f)
+            file_count += 1
+        if file_count == 0:
+            raise RuntimeError("Failed to fetch model. No model found in %s." % (uri))
 
-        # Handle single file unpacking
+        # Unpack compressed file, supports .tgz, tar.gz and zip file formats.
         if file_count == 1:
             mimetype, _ = mimetypes.guess_type(dest_path)
             if mimetype in ["application/x-tar", "application/zip"]:
                 out_dir = Storage._unpack_archive_file(dest_path, mimetype, out_dir)
-
         return out_dir
 
     @staticmethod
@@ -715,11 +694,6 @@ class Storage(object):
     def _download_azure_blob(uri, out_dir: str) -> str:
         """Wrapper to run async blob download"""
         return asyncio.run(Storage._download_azure_blob_async(uri, out_dir))
-
-    @staticmethod
-    def _download_azure_file_share(uri, out_dir: str) -> str:
-        """Wrapper to run async file share download"""
-        return asyncio.run(Storage._download_azure_file_share_async(uri, out_dir))
 
     @staticmethod
     def _parse_azure_uri(uri):  # pylint: disable=too-many-locals
