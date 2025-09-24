@@ -144,10 +144,6 @@ parse_arguments() {
                 show_help
                 exit 0
                 ;;
-            -v|--version)
-                show_version
-                exit 0
-                ;;
             *)
                 log_error "Unknown option: $1"
                 echo -e "${YELLOW}Use --help for usage information${NC}"
