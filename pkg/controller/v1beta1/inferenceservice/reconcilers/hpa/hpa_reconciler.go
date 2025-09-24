@@ -61,6 +61,9 @@ func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2
 	var metrics []autoscalingv2.MetricSpec
 	if componentExt != nil && componentExt.AutoScaling != nil {
 		for _, metric := range componentExt.AutoScaling.Metrics {
+			if metric.Resource == nil {
+				continue
+			}
 			switch metric.Resource.Name {
 			case v1beta1.ResourceMetricCPU:
 				averageUtilization := &constants.DefaultCPUUtilization

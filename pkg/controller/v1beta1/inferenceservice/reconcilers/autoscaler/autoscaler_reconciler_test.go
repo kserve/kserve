@@ -123,15 +123,15 @@ func TestCreateAutoscaler(t *testing.T) {
 			wantErr:     false,
 		},
 		{
-			name:        "Return NoOpAutoscaler for external annotation",
+			name:        "Return HPAReconciler for external annotation",
 			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "external"},
-			wantType:    "*autoscaler.NoOpAutoscaler",
+			wantType:    "*hpa.HPAReconciler",
 			wantErr:     false,
 		},
 		{
-			name:        "Return NoOpAutoscaler for none annotation",
+			name:        "Return HPAReconciler for none annotation",
 			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "none"},
-			wantType:    "*autoscaler.NoOpAutoscaler",
+			wantType:    "*hpa.HPAReconciler",
 			wantErr:     false,
 		},
 		{
@@ -215,15 +215,15 @@ func TestNewAutoscalerReconciler(t *testing.T) {
 			wantErr:     false,
 		},
 		{
-			name:        "Return AutoscalerReconciler with NoOpAutoscaler for external annotation",
+			name:        "Return AutoscalerReconciler with HPAReconciler for external annotation",
 			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "external"},
-			wantType:    "*autoscaler.NoOpAutoscaler",
+			wantType:    "*hpa.HPAReconciler",
 			wantErr:     false,
 		},
 		{
-			name:        "Return AutoscalerReconciler with NoOpAutoscaler for none annotation",
+			name:        "Return AutoscalerReconciler with HPAReconciler for none annotation",
 			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "none"},
-			wantType:    "*autoscaler.NoOpAutoscaler",
+			wantType:    "*hpa.HPAReconciler",
 			wantErr:     false,
 		},
 		{
@@ -368,20 +368,14 @@ func TestExternalAutoscalerWithNilComponentExt(t *testing.T) {
 	}
 
 	if as == nil {
-		t.Errorf("Expected NoOpAutoscaler, got nil")
+		t.Errorf("Expected HPAReconciler, got nil")
 		return
 	}
 
 	gotType := fmt.Sprintf("%T", as)
-	expectedType := "*autoscaler.NoOpAutoscaler"
+	expectedType := "*hpa.HPAReconciler"
 	if gotType != expectedType {
 		t.Errorf("Expected autoscaler type %s, got %s", expectedType, gotType)
-	}
-
-	// Test that the NoOpAutoscaler can be used without causing panics
-	err = as.Reconcile(t.Context())
-	if err != nil {
-		t.Errorf("NoOpAutoscaler.Reconcile() should not return error, got: %v", err)
 	}
 }
 
@@ -401,19 +395,13 @@ func TestNoneAutoscalerWithNilComponentExt(t *testing.T) {
 	}
 
 	if as == nil {
-		t.Errorf("Expected NoOpAutoscaler, got nil")
+		t.Errorf("Expected HPAReconciler, got nil")
 		return
 	}
 
 	gotType := fmt.Sprintf("%T", as)
-	expectedType := "*autoscaler.NoOpAutoscaler"
+	expectedType := "*hpa.HPAReconciler"
 	if gotType != expectedType {
 		t.Errorf("Expected autoscaler type %s, got %s", expectedType, gotType)
-	}
-
-	// Test that the NoOpAutoscaler can be used without causing panics
-	err = as.Reconcile(t.Context())
-	if err != nil {
-		t.Errorf("NoOpAutoscaler.Reconcile() should not return error, got: %v", err)
 	}
 }
