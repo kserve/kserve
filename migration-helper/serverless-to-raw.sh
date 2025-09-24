@@ -7,6 +7,7 @@ SCRIPT_NAME="$(basename "$0")"
 NAMESPACE=""
 SELECTED_ISVCS=()
 PRESERVE_FILES="" 
+DRY_RUN="false"
 
 # Color codes for better output
 RED='\033[0;31m'
@@ -32,9 +33,10 @@ OPTIONS:
     -n, --namespace NAMESPACE   Target namespace containing InferenceServices
                                If not specified, uses current OpenShift context namespace
     
-    -h, --help                 Show this help message and exit
+    --dry-run                  Generate transformation files without applying to cluster
+                               Files are always preserved when using this option
     
-    -v, --version              Show version information and exit
+    -h, --help                 Show this help message and exit
 
 EXAMPLES:
     # Convert InferenceServices in current namespace
@@ -43,6 +45,10 @@ EXAMPLES:
     # Convert InferenceServices in specific namespace
     $SCRIPT_NAME --namespace my-models
     $SCRIPT_NAME -n my-models
+    
+    # Generate files without applying to cluster
+    $SCRIPT_NAME --dry-run
+    $SCRIPT_NAME --dry-run -n my-models
 
 WHAT THIS SCRIPT DOES:
     1. Discovers InferenceServices with 'Serverless' deployment mode (or unset)
@@ -51,13 +57,13 @@ WHAT THIS SCRIPT DOES:
        • Exports original InferenceService and ServingRuntime configurations
        • Creates new '-raw' versions with RawDeployment mode
        • Handles authentication resources (ServiceAccount, Role, RoleBinding, Secret)
-       • Applies all transformed resources to the cluster
+       • Applies all transformed resources to the cluster (unless --dry-run is used)
     4. Optionally preserves exported files for review
 
 PREREQUISITES:
     • OpenShift CLI (oc) - logged into target cluster
     • yq (YAML processor) - for YAML manipulation
-    • Appropriate RBAC permissions in target namespace
+    • Appropriate RBAC permissions in target namespace (not needed for --dry-run)
 
 AUTHENTICATION SUPPORT:
     The script automatically detects and migrates authentication resources when the
@@ -139,6 +145,10 @@ parse_arguments() {
                     log_error "Option $1 requires a value"
                     exit 1
                 fi
+                ;;
+            --dry-run)
+                DRY_RUN="true"
+                shift
                 ;;
             -h|--help)
                 show_help
@@ -333,6 +343,10 @@ list_and_select_inference_services() {
     echo ""
     echo "🤔 Please select which InferenceServices to migrate:"
     echo "=================================================="
+    if [ "$DRY_RUN" == "true" ]; then
+        echo -e "${YELLOW}📝 DRY-RUN MODE: Files will be generated but NOT applied to the cluster${NC}"
+        echo ""
+    fi
     echo "Enter 'all' to migrate all InferenceServices"
     echo "Enter specific numbers separated by spaces (e.g., '1 3 5')"
     echo "Enter 'q' to quit"
@@ -388,6 +402,32 @@ list_and_select_inference_services() {
 }
 
 collect_preserve_file_response() {
+    # In dry-run mode, always preserve files
+    if [ "$DRY_RUN" == "true" ]; then
+        PRESERVE_FILES="true"
+        log_info "Running in dry-run mode - files will be preserved automatically"
+        echo -e "Files will be organized as follows:\n"
+        cat <<EOF
+  <inference-service-name>/
+  ├── original/
+  │   ├── <name>-isvc.yaml              # Original InferenceService (YAML)
+  │   ├── <runtime>-sr.yaml             # Original ServingRuntime (YAML)
+  │   ├── <name>-sa.yaml                # Original ServiceAccount (if auth enabled)
+  │   ├── <name>-view-role.yaml         # Original Role (if auth enabled)
+  │   ├── <name>-view-rolebinding.yaml  # Original RoleBinding (if auth enabled)
+  │   └── <name>-secret.yaml            # Original Secret (if auth enabled)
+  └── raw/
+      ├── <name>-raw-isvc.yaml          # Transformed InferenceService (YAML)
+      ├── <runtime>-raw-sr.yaml         # Transformed ServingRuntime (YAML)
+      ├── <name>-raw-sa.yaml            # Transformed ServiceAccount (if auth enabled)
+      ├── <name>-raw-view-role.yaml     # Transformed Role (if auth enabled)
+      ├── <name>-raw-view-rolebinding.yaml # Transformed RoleBinding (if auth enabled)
+      └── <name>-raw-secret.yaml        # Transformed Secret (if auth enabled)
+EOF
+        echo ""
+        return 0
+    fi
+
     echo -e "${YELLOW}After conversion, do you want to preserve the exported and transformed files?${NC}"
     echo -e "If you choose to keep them, they'll be organized as follows:\n"
 
@@ -597,12 +637,26 @@ convert_isvc(){
         return 1
     }
     
-    # Step 5: Check if "enable-auth" annotation is present and true
-    log_step "Step 5: Checking if 'enable-auth' annotation is present and true..."
-    ENABLE_AUTH=$(oc get isvc -n $NAMESPACE $NAME -o yaml 2>/dev/null | yq eval '.metadata.annotations["security.opendatahub.io/enable-auth"] // "false"' -)
+    # Step 5: Check if "enable-auth" annotation is present and add it if missing
+    log_step "Step 5: Checking and ensuring 'enable-auth' annotation is set..."
+    
+    # Check if the annotation exists in the original InferenceService
+    ENABLE_AUTH_ORIGINAL=$(oc get isvc -n $NAMESPACE $NAME -o yaml 2>/dev/null | yq eval '.metadata.annotations["security.opendatahub.io/enable-auth"] // null' -)
+    
+    if [ "$ENABLE_AUTH_ORIGINAL" == "null" ]; then
+        log_info "enable-auth annotation not present in original InferenceService, adding it with value 'false'"
+        # Add the annotation to the raw InferenceService with value "false"
+        yq eval '.metadata.annotations."security.opendatahub.io/enable-auth" = "false"' "$ISVC_RAW_FILE" > "${ISVC_RAW_FILE}.tmp" && mv "${ISVC_RAW_FILE}.tmp" "$ISVC_RAW_FILE"
+        ENABLE_AUTH="false"
+    else
+        ENABLE_AUTH="$ENABLE_AUTH_ORIGINAL"
+        log_info "enable-auth annotation found with value: $ENABLE_AUTH"
+        # Ensure the annotation is preserved in the raw InferenceService
+        yq eval ".metadata.annotations.\"security.opendatahub.io/enable-auth\" = \"$ENABLE_AUTH\"" "$ISVC_RAW_FILE" > "${ISVC_RAW_FILE}.tmp" && mv "${ISVC_RAW_FILE}.tmp" "$ISVC_RAW_FILE"
+    fi
     
     if [ "$ENABLE_AUTH" == "true" ]; then
-        log_info "enable-auth annotation is present and true"
+        log_info "enable-auth annotation is true - will process authentication resources"
         log_step "Finding resources owned by InferenceService $NAME..."
         
         # Get the UID of the original InferenceService for ownerReference queries
@@ -873,10 +927,19 @@ main() {
 
     log_info "All requested conversions finished."
     echo ""
-    echo -e "${YELLOW}Next steps:${NC}"
-    echo "  1. Verify the raw deployment: oc get isvc -n <NAMESPACE> <NAME_RAW>"
-    echo "  2. Test the endpoint: oc get isvc -n <NAMESPACE> <NAME_RAW> -o jsonpath='{.status.url}'"
-    echo "  3. Monitor the deployment: oc get pods -n <NAMESPACE> -l serving.kserve.io/inferenceservice=<NAME_RAW>"
+    if [ "$DRY_RUN" == "true" ]; then
+        echo -e "${YELLOW}Next steps (dry-run mode):${NC}"
+        echo "  1. Review the generated files in the respective directories"
+        echo "  2. Apply the raw resources manually: oc apply -f <inference-service-name>/raw/ -n $NAMESPACE"
+        echo "  3. Verify the deployment: oc get isvc -n $NAMESPACE <NAME_RAW>"
+        echo "  4. Test the endpoint: oc get isvc -n $NAMESPACE <NAME_RAW> -o jsonpath='{.status.url}'"
+        echo "  5. Monitor the deployment: oc get pods -n $NAMESPACE -l serving.kserve.io/inferenceservice=<NAME_RAW>"
+    else
+        echo -e "${YELLOW}Next steps:${NC}"
+        echo "  1. Verify the raw deployment: oc get isvc -n $NAMESPACE <NAME_RAW>"
+        echo "  2. Test the endpoint: oc get isvc -n $NAMESPACE <NAME_RAW> -o jsonpath='{.status.url}'"
+        echo "  3. Monitor the deployment: oc get pods -n $NAMESPACE -l serving.kserve.io/inferenceservice=<NAME_RAW>"
+    fi
 }
 
 
