@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Script version and metadata
-SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="$(basename "$0")"
 
 # Default values
@@ -19,14 +18,66 @@ NC='\033[0m' # No Color
 # Function to display help
 show_help() {
     cat << EOF
-${BLUE}KServe InferenceService Raw Deployment Converter${NC}
-EOF
-}
+KServe InferenceService Raw Deployment Converter
 
-# Function to display version
-show_version() {
-    echo "${BLUE}$SCRIPT_NAME${NC} version ${GREEN}$SCRIPT_VERSION${NC}"
-    echo "KServe InferenceService Raw Deployment Converter"
+DESCRIPTION:
+    Converts KServe InferenceServices from Serverless deployment mode to Raw deployment mode.
+    This script automates the process of migrating models from Knative-based serverless 
+    deployments to standard Kubernetes deployments for better control and resource management.
+
+USAGE:
+    $SCRIPT_NAME [OPTIONS]
+
+OPTIONS:
+    -n, --namespace NAMESPACE   Target namespace containing InferenceServices
+                               If not specified, uses current OpenShift context namespace
+    
+    -h, --help                 Show this help message and exit
+    
+    -v, --version              Show version information and exit
+
+EXAMPLES:
+    # Convert InferenceServices in current namespace
+    $SCRIPT_NAME
+    
+    # Convert InferenceServices in specific namespace
+    $SCRIPT_NAME --namespace my-models
+    $SCRIPT_NAME -n my-models
+
+WHAT THIS SCRIPT DOES:
+    1. Discovers InferenceServices with 'Serverless' deployment mode (or unset)
+    2. Allows interactive selection of which models to convert
+    3. For each selected InferenceService:
+       • Exports original InferenceService and ServingRuntime configurations
+       • Creates new '-raw' versions with RawDeployment mode
+       • Handles authentication resources (ServiceAccount, Role, RoleBinding, Secret)
+       • Applies all transformed resources to the cluster
+    4. Optionally preserves exported files for review
+
+PREREQUISITES:
+    • OpenShift CLI (oc) - logged into target cluster
+    • yq (YAML processor) - for YAML manipulation
+    • Appropriate RBAC permissions in target namespace
+
+AUTHENTICATION SUPPORT:
+    The script automatically detects and migrates authentication resources when the
+    'security.opendatahub.io/enable-auth' annotation is set to 'true' on the
+    original InferenceService.
+
+FILE ORGANIZATION:
+    When preserving files, they are organized as:
+    <inference-service-name>/
+    ├── original/          # Original exported resources
+    └── raw/              # Transformed resources for raw deployment
+
+EXIT CODES:
+    0    Success
+    1    Error (missing dependencies, permissions, validation failure, etc.)
+
+MORE INFORMATION:
+    For more details about KServe deployment modes, visit:
+    https://kserve.github.io/website/latest/admin/raw-deployment/
+EOF
 }
 
 # Function for colored output
@@ -247,11 +298,19 @@ list_and_select_inference_services() {
         exit 1
     fi
 
-    # Filter for InferenceServices with deploymentMode annotation set to "Serverless"
-    local filtered_isvcs=$(echo "$isvc_list" | yq '.items[] | select(.metadata.annotations."serving.kserve.io/deploymentMode" == "Serverless" or (.metadata.annotations."serving.kserve.io/deploymentMode" | not))')
+    # Get names of InferenceServices that are eligible (Serverless or unset deployment mode)
+    local isvc_names=()
+    while IFS= read -r name; do
+        if [[ -n "$name" && "$name" != "null" ]]; then
+            # Check if this InferenceService has Serverless deployment mode or no deployment mode set
+            local deployment_mode=$(echo "$isvc_list" | yq ".items[] | select(.metadata.name == \"$name\") | .metadata.annotations.\"serving.kserve.io/deploymentMode\" // \"\"")
+            if [[ "$deployment_mode" == "Serverless" || "$deployment_mode" == "" ]]; then
+                isvc_names+=("$name")
+            fi
+        fi
+    done < <(echo "$isvc_list" | yq '.items[].metadata.name' 2>/dev/null)
     
-    # Count filtered InferenceServices
-    local filtered_count=$(echo "$filtered_isvcs" | yq 'select(. != null) | length' 2>/dev/null || echo "0")
+    local filtered_count=${#isvc_names[@]}
     
     if [[ "$filtered_count" -eq 0 ]]; then
         log_error "No InferenceServices found with deploymentMode set to 'Serverless' (or unset) in namespace '$NAMESPACE'"
@@ -264,14 +323,6 @@ list_and_select_inference_services() {
     echo ""
     echo "📦 Available InferenceServices (Serverless deployment mode only):"
     echo "=================================================================="
-
-    # Store names in an array for selection - get names from filtered results
-    local isvc_names=()
-    while IFS= read -r name; do
-        if [[ -n "$name" && "$name" != "null" ]]; then
-            isvc_names+=("$name")
-        fi
-    done < <(echo "$filtered_isvcs" | yq 'select(. != null) | .metadata.name' 2>/dev/null)
 
     # List each InferenceService with index numbers
     local index=1
