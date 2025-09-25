@@ -47,24 +47,33 @@ class V1beta1PredictorConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'default_gpu_image_version': 'str',
-        'default_image_version': 'str',
-        'default_timeout': 'str',
-        'image': 'str',
-        'multi_model_server': 'bool',
-        'supported_frameworks': 'list[str]'
+        "default_gpu_image_version": "str",
+        "default_image_version": "str",
+        "default_timeout": "str",
+        "image": "str",
+        "multi_model_server": "bool",
+        "supported_frameworks": "list[str]",
     }
 
     attribute_map = {
-        'default_gpu_image_version': 'defaultGpuImageVersion',
-        'default_image_version': 'defaultImageVersion',
-        'default_timeout': 'defaultTimeout',
-        'image': 'image',
-        'multi_model_server': 'multiModelServer',
-        'supported_frameworks': 'supportedFrameworks'
+        "default_gpu_image_version": "defaultGpuImageVersion",
+        "default_image_version": "defaultImageVersion",
+        "default_timeout": "defaultTimeout",
+        "image": "image",
+        "multi_model_server": "multiModelServer",
+        "supported_frameworks": "supportedFrameworks",
     }
 
-    def __init__(self, default_gpu_image_version='', default_image_version='', default_timeout=None, image='', multi_model_server=None, supported_frameworks=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        default_gpu_image_version="",
+        default_image_version="",
+        default_timeout=None,
+        image="",
+        multi_model_server=None,
+        supported_frameworks=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1PredictorConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -107,8 +116,13 @@ class V1beta1PredictorConfig(object):
         :param default_gpu_image_version: The default_gpu_image_version of this V1beta1PredictorConfig.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and default_gpu_image_version is None:  # noqa: E501
-            raise ValueError("Invalid value for `default_gpu_image_version`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation
+            and default_gpu_image_version is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `default_gpu_image_version`, must not be `None`"
+            )  # noqa: E501
 
         self._default_gpu_image_version = default_gpu_image_version
 
@@ -132,8 +146,13 @@ class V1beta1PredictorConfig(object):
         :param default_image_version: The default_image_version of this V1beta1PredictorConfig.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and default_image_version is None:  # noqa: E501
-            raise ValueError("Invalid value for `default_image_version`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation
+            and default_image_version is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `default_image_version`, must not be `None`"
+            )  # noqa: E501
 
         self._default_image_version = default_image_version
 
@@ -180,8 +199,12 @@ class V1beta1PredictorConfig(object):
         :param image: The image of this V1beta1PredictorConfig.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and image is None:  # noqa: E501
-            raise ValueError("Invalid value for `image`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and image is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `image`, must not be `None`"
+            )  # noqa: E501
 
         self._image = image
 
@@ -228,8 +251,13 @@ class V1beta1PredictorConfig(object):
         :param supported_frameworks: The supported_frameworks of this V1beta1PredictorConfig.  # noqa: E501
         :type: list[str]
         """
-        if self.local_vars_configuration.client_side_validation and supported_frameworks is None:  # noqa: E501
-            raise ValueError("Invalid value for `supported_frameworks`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation
+            and supported_frameworks is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `supported_frameworks`, must not be `None`"
+            )  # noqa: E501
 
         self._supported_frameworks = supported_frameworks
 
@@ -240,18 +268,22 @@ class V1beta1PredictorConfig(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
