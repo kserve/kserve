@@ -132,7 +132,9 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, err
 	}
 
-	ctx, span := r.startReconcileSpan(ctx, req, isvc)
+	ctx, span, traceID := r.startReconcileSpan(ctx, req, isvc)
+	log := r.Log.WithValues("traceID", traceID)
+	ctx = logr.NewContext(ctx, log)
 	var reconcileErr error
 	defer func() {
 		span.End()
@@ -146,7 +148,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
 	if err != nil {
-		r.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
 		reconcileErr = err
 		return reconcile.Result{}, err
 	}
@@ -169,17 +171,17 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	deploymentMode := isvcutils.GetDeploymentMode(isvc.Status.DeploymentMode, annotations, deployConfig)
-	r.Log.Info("Inference service deployment mode ", "deployment mode ", deploymentMode)
+	log.Info("Inference service deployment mode ", "deployment mode ", deploymentMode)
 
 	if deploymentMode == constants.ModelMeshDeployment {
 		if isvc.Spec.Transformer == nil {
 			// Skip if no transformers
-			r.Log.Info("Skipping reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
+			log.Info("Skipping reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
 				"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 			return ctrl.Result{}, nil
 		}
 		// Continue to reconcile when there is a transformer
-		r.Log.Info("Continue reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
+		log.Info("Continue reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
 			"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	}
 
@@ -228,7 +230,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Used for when k8s autoreconciles the InferenceService.
 	if annotations != nil {
 		if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" && isvc.Status.IsReady() {
-			r.Log.Info("Auto-update is disabled for InferenceService, skipping reconciliation", "InferenceService", isvc.Name)
+			log.Info("Auto-update is disabled for InferenceService, skipping reconciliation", "InferenceService", isvc.Name)
 			return ctrl.Result{}, nil
 		}
 	}
@@ -255,11 +257,11 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return ctrl.Result{}, reconcileErr
 		}
 
-		knutils.ValidateInitialScaleAnnotation(isvc.Annotations, allowZeroInitialScale, r.Log)
+		knutils.ValidateInitialScaleAnnotation(isvc.Annotations, allowZeroInitialScale, log)
 	}
 
 	// Setup reconcilers
-	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
+	log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 
 	// Reconcile cabundleConfigMap
 	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset, r.Scheme)
@@ -281,10 +283,10 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	for _, reconciler := range reconcilers {
 		result, err := reconciler.Reconcile(ctx, isvc)
 		if err != nil {
-			r.Log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
+			log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
 			r.Recorder.Eventf(isvc, corev1.EventTypeWarning, "InternalError", err.Error())
-			if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
-				r.Log.Error(err, "Error updating status")
+			if err := r.updateStatus(ctx, log, isvc, deploymentMode); err != nil {
+				log.Error(err, "Error updating status")
 				reconcileErr = err
 				return result, err
 			}
@@ -373,7 +375,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	} else {
 		reconciler := ingress.NewIngressReconciler(r.Client, r.Clientset, r.Scheme, ingressConfig, isvcConfig)
-		r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
+		log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
 		if err := reconciler.Reconcile(ctx, isvc); err != nil {
 			reconcileErr = errors.Wrapf(err, "fails to reconcile ingress")
 			return reconcile.Result{}, reconcileErr
@@ -387,7 +389,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, err
 	}
 
-	if err = r.updateStatus(ctx, isvc, deploymentMode); err != nil {
+	if err = r.updateStatus(ctx, log, isvc, deploymentMode); err != nil {
 		r.Recorder.Event(isvc, corev1.EventTypeWarning, "InternalError", err.Error())
 		reconcileErr = err
 		return reconcile.Result{}, err
@@ -396,7 +398,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	return ctrl.Result{}, nil
 }
 
-func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredService *v1beta1.InferenceService,
+func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, log logr.Logger, desiredService *v1beta1.InferenceService,
 	deploymentMode constants.DeploymentModeType,
 ) error {
 	// set the DeploymentMode used for the InferenceService in the status
@@ -414,7 +416,7 @@ func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredSe
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if err := r.Status().Update(ctx, desiredService); err != nil {
-		r.Log.Error(err, "Failed to update InferenceService status", "InferenceService", desiredService.Name)
+		log.Error(err, "Failed to update InferenceService status", "InferenceService", desiredService.Name)
 		r.Recorder.Eventf(desiredService, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for InferenceService %q: %v", desiredService.Name, err)
 		return errors.Wrapf(err, "fails to update InferenceService status")
@@ -457,12 +459,22 @@ func inferenceServiceStatusEqual(s1, s2 v1beta1.InferenceServiceStatus, deployme
 	return equality.Semantic.DeepEqual(s1, s2)
 }
 
-func (r *InferenceServiceReconciler) startReconcileSpan(ctx context.Context, req ctrl.Request, isvc *v1beta1.InferenceService) (context.Context, oteltrace.Span) {
+func extractTraceID(traceparent string) string {
+	parts := strings.Split(traceparent, "-")
+	if len(parts) >= 4 {
+		return parts[1]
+	}
+	return ""
+}
+
+func (r *InferenceServiceReconciler) startReconcileSpan(ctx context.Context, req ctrl.Request, isvc *v1beta1.InferenceService) (context.Context, oteltrace.Span, string) {
 	carrier := propagation.MapCarrier{}
+	traceID := ""
 	if isvc != nil {
 		if traceparent, ok := isvc.Annotations["traceparent"]; ok && traceparent != "" {
 			carrier.Set("traceparent", traceparent)
 			ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
+			traceID = extractTraceID(traceparent)
 		}
 	}
 
@@ -484,7 +496,11 @@ func (r *InferenceServiceReconciler) startReconcileSpan(ctx context.Context, req
 	}
 
 	tracer := otel.Tracer("github.com/kserve/kserve/controller/inferenceservice")
-	return tracer.Start(ctx, "InferenceServiceReconcile", oteltrace.WithAttributes(attrs...))
+	ctx, span := tracer.Start(ctx, "InferenceServiceReconcile", oteltrace.WithAttributes(attrs...))
+	if traceID == "" {
+		traceID = span.SpanContext().TraceID().String()
+	}
+	return ctx, span, traceID
 }
 
 func (r *InferenceServiceReconciler) servingRuntimeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
