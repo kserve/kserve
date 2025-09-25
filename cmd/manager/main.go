@@ -46,6 +46,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	graphcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/inferencegraph"
+	llmisvcwebhook "github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc/webhook"
 	trainedmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
 	v1beta1controller "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice"
@@ -334,6 +335,20 @@ func main() {
 		WithValidator(&localmodelcache.LocalModelCacheValidator{Client: mgr.GetClient()}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "localmodelcache")
+		os.Exit(1)
+	}
+
+	llmConfigValidator := &llmisvcwebhook.LLMInferenceServiceConfigValidator{
+		ClientSet: clientSet,
+	}
+	if err = llmConfigValidator.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig")
+		os.Exit(1)
+	}
+
+	llmInferenceServiceValidator := &llmisvcwebhook.LLMInferenceServiceValidator{}
+	if err = llmInferenceServiceValidator.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice")
 		os.Exit(1)
 	}
 
