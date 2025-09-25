@@ -154,7 +154,7 @@ manifests: controller-gen yq
 	@$(CONTROLLER_GEN) rbac:roleName=llmisvc-manager-role paths={./pkg/controller/v1alpha1/llmisvc} output:rbac:artifacts:config=config/rbac/llmisvc
 	# Copy the cluster role to the helm chart
 	cat config/rbac/llmisvc/role.yaml > charts/llmisvc-resources/templates/clusterrole.yaml
-	cat config/rbac/llmisvc/leader_election_role.yaml >> charts/llmisvc-resources/templates/leader_election_role.yaml
+	cat config/rbac/llmisvc/leader_election_role.yaml > charts/llmisvc-resources/templates/leader_election_role.yaml
 	# Copy llmisvc crd
 	cp config/crd/full/serving.kserve.io_llminferenceservices.yaml charts/llmisvc-crd/templates/
 	cp config/crd/full/serving.kserve.io_llminferenceserviceconfigs.yaml charts/llmisvc-crd/templates/
