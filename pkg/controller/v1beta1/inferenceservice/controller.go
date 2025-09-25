@@ -469,14 +469,19 @@ func extractTraceID(traceparent string) string {
 
 func (r *InferenceServiceReconciler) startReconcileSpan(ctx context.Context, req ctrl.Request, isvc *v1beta1.InferenceService) (context.Context, oteltrace.Span, string) {
 	carrier := propagation.MapCarrier{}
-	traceID := ""
+	var (
+		traceID     string
+		traceparent string
+	)
 	if isvc != nil {
-		if traceparent, ok := isvc.Annotations["traceparent"]; ok && traceparent != "" {
+		if tp, ok := isvc.Annotations["traceparent"]; ok && strings.TrimSpace(tp) != "" {
+			traceparent = strings.TrimSpace(tp)
 			carrier.Set("traceparent", traceparent)
 			ctx = otel.GetTextMapPropagator().Extract(ctx, carrier)
-			traceID = extractTraceID(traceparent)
 		}
 	}
+
+	parentSpanCtx := oteltrace.SpanContextFromContext(ctx)
 
 	attrs := []attribute.KeyValue{
 		attribute.String("k8s.namespace", req.Namespace),
@@ -497,8 +502,20 @@ func (r *InferenceServiceReconciler) startReconcileSpan(ctx context.Context, req
 
 	tracer := otel.Tracer("github.com/kserve/kserve/controller/inferenceservice")
 	ctx, span := tracer.Start(ctx, "InferenceServiceReconcile", oteltrace.WithAttributes(attrs...))
-	if traceID == "" {
+
+	switch {
+	case parentSpanCtx.IsValid():
+		traceID = parentSpanCtx.TraceID().String()
+	case span.SpanContext().IsValid():
 		traceID = span.SpanContext().TraceID().String()
+	case traceparent != "":
+		traceID = extractTraceID(traceparent)
+	default:
+		traceID = "none"
+	}
+
+	if traceID != "none" && traceID != "" {
+		span.SetAttributes(attribute.String("trace.id", traceID))
 	}
 	return ctx, span, traceID
 }
