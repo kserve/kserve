@@ -25,6 +25,8 @@ rules:
   - inferenceservices
   - servingruntimes
   - trainedmodels
+  - llminferenceservices
+  - lllminferenceserviceconfigs
   verbs:
   - get
   - list
@@ -69,6 +71,8 @@ rules:
   - inferenceservices
   - servingruntimes
   - trainedmodels
+  - llminferenceservices
+  - lllminferenceserviceconfigs
   verbs:
   - get
   - list
