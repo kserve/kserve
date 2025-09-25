@@ -12,3 +12,6 @@ resources:
   - config-llm-scheduler.yaml
   - config-llm-template.yaml
   - config-llm-worker-data-parallel.yaml
+  - deployment.yaml
+  - service.yaml
+  - gateway-inference-extension.yaml

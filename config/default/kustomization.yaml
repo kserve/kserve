@@ -24,6 +24,7 @@ generatorOptions:
 
 
 replacements:
+# Replace with the name of the webhook service.
 - source:
     fieldPath: metadata.name
     kind: Service
@@ -65,16 +66,6 @@ replacements:
     select:
       kind: ValidatingWebhookConfiguration
       name: localmodelcache.serving.kserve.io
-  - fieldPaths:
-      - webhooks.*.clientConfig.service.name
-    select:
-      kind: ValidatingWebhookConfiguration
-      name: llminferenceservice.serving.kserve.io
-  - fieldPaths:
-      - webhooks.*.clientConfig.service.name
-    select:
-      kind: ValidatingWebhookConfiguration
-      name: llminferenceserviceconfig.serving.kserve.io
   - fieldPaths:
     - spec.commonName
     - spec.dnsNames.0
@@ -227,7 +218,45 @@ replacements:
     select:
       kind: ValidatingWebhookConfiguration
       name: llminferenceserviceconfig.serving.kserve.io
-
+# Replace llmisvc webhook service name
+- source:
+    fieldPath: metadata.name
+    kind: Service
+    name: llmisvc-webhook-server-service
+    version: v1
+  targets:
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
+      kind: MutatingWebhookConfiguration
+      name: llminferenceservice.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: llminferenceserviceconfig.serving.kserve.io
+# Replace llmisvc service account name
+- source:
+    fieldPath: metadata.name
+    kind: ServiceAccount
+    name: llmisvc-controller-manager
+    version: v1
+  targets:
+  - fieldPaths:
+    - subjects.*.name
+    select:
+      kind: ClusterRoleBinding
+      name: llmisvc-manager-rolebinding
+  - fieldPaths:
+    - subjects.*.name
+    select:
+      kind: RoleBinding
+      name: llmisvc-leader-election-rolebinding
+  - fieldPaths:
+    - spec.template.spec.serviceAccountName
+    select:
+      kind: Deployment
+      name: llmisvc-controller-manager
     # Protect the /metrics endpoint by putting it behind auth.
     # Only one of manager_auth_proxy_patch.yaml and
     # manager_prometheus_metrics_patch.yaml should be enabled.
@@ -253,3 +282,4 @@ patches:
 - path: localmodelnode_agent_image_patch.yaml
 - path: llmisvc_validatingwebhook_cainjection_patch.yaml
 - path: llmisvcconfig_validatingwebhook_cainjection_patch.yaml
+- path: llmisvc_manager_image_patch.yaml
