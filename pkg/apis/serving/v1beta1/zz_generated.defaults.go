@@ -100,6 +100,38 @@ func SetObjectDefaults_InferenceService(in *InferenceService) {
 			}
 		}
 	}
+	if in.Spec.Predictor.CatBoost != nil {
+		for i := range in.Spec.Predictor.CatBoost.PredictorExtensionSpec.Container.Ports {
+			a := &in.Spec.Predictor.CatBoost.PredictorExtensionSpec.Container.Ports[i]
+			if a.Protocol == "" {
+				a.Protocol = "TCP"
+			}
+		}
+		if in.Spec.Predictor.CatBoost.PredictorExtensionSpec.Container.LivenessProbe != nil {
+			if in.Spec.Predictor.CatBoost.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC != nil {
+				if in.Spec.Predictor.CatBoost.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+					var ptrVar1 string = ""
+					in.Spec.Predictor.CatBoost.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+				}
+			}
+		}
+		if in.Spec.Predictor.CatBoost.PredictorExtensionSpec.Container.ReadinessProbe != nil {
+			if in.Spec.Predictor.CatBoost.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC != nil {
+				if in.Spec.Predictor.CatBoost.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+					var ptrVar1 string = ""
+					in.Spec.Predictor.CatBoost.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+				}
+			}
+		}
+		if in.Spec.Predictor.CatBoost.PredictorExtensionSpec.Container.StartupProbe != nil {
+			if in.Spec.Predictor.CatBoost.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC != nil {
+				if in.Spec.Predictor.CatBoost.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service == nil {
+					var ptrVar1 string = ""
+					in.Spec.Predictor.CatBoost.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+				}
+			}
+		}
+	}
 	if in.Spec.Predictor.Tensorflow != nil {
 		for i := range in.Spec.Predictor.Tensorflow.PredictorExtensionSpec.Container.Ports {
 			a := &in.Spec.Predictor.Tensorflow.PredictorExtensionSpec.Container.Ports[i]

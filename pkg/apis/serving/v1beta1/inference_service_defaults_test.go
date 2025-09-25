@@ -745,6 +745,37 @@ func TestMlServerDefaults(t *testing.T) {
 				"labels":          gomega.HaveKeyWithValue(constants.ModelClassLabel, constants.MLServerModelClassXGBoost),
 			},
 		},
+		"CatBoost model": {
+			config: &InferenceServicesConfig{},
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						CatBoost: &CatBoostSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://testbucket/testmodel"),
+							},
+						},
+					},
+				},
+			},
+			matcher: map[string]types.GomegaMatcher{
+				"env": gomega.ContainElements(
+					corev1.EnvVar{
+						Name:  constants.MLServerModelNameEnv,
+						Value: "foo",
+					},
+					corev1.EnvVar{
+						Name:  constants.MLServerModelURIEnv,
+						Value: constants.DefaultModelLocalMountPath,
+					}),
+				"protocolVersion": gomega.Equal(constants.ProtocolV2),
+				"labels":          gomega.HaveKeyWithValue(constants.ModelClassLabel, constants.MLServerModelClassCatBoost),
+			},
+		},
 		"LightGBM model": {
 			config: &InferenceServicesConfig{},
 			isvc: InferenceService{
