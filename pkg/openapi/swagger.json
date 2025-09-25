@@ -1060,6 +1060,9 @@
             "$ref": "#/definitions/v1alpha1.SupportedUriFormat"
           }
         },
+        "supportsMultiModelDownload": {
+          "type": "boolean"
+        },
         "workloadType": {
           "type": "string"
         }
@@ -2902,6 +2905,15 @@
         "shareProcessNamespace": {
           "description": "Share a single process namespace between all of the containers in a pod. When this is set containers will be able to view and signal processes from other containers in the same pod, and the first process in each container will not be assigned PID 1. HostPID and ShareProcessNamespace cannot both be set. Optional: Default to false.",
           "type": "boolean"
+        },
+        "storageUris": {
+          "description": "Spec for multiple storage uris.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1beta1.StorageUri"
+          },
+          "x-kubernetes-list-type": "atomic"
         },
         "subdomain": {
           "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
@@ -5442,6 +5454,15 @@
           "description": "Spec for SKLearn model server",
           "$ref": "#/definitions/v1beta1.SKLearnSpec"
         },
+        "storageUris": {
+          "description": "Spec for multiple storage uris.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1beta1.StorageUri"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "subdomain": {
           "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
@@ -5784,6 +5805,22 @@
         "path": {
           "description": "The path to the object in the storage. Note that this path is relative to the storage URI.",
           "type": "string"
+        }
+      }
+    },
+    "v1beta1.StorageUri": {
+      "type": "object",
+      "required": [
+        "uri"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "default": ""
+        },
+        "uri": {
+          "type": "string",
+          "default": ""
         }
       }
     },
@@ -6421,6 +6458,15 @@
         "shareProcessNamespace": {
           "description": "Share a single process namespace between all of the containers in a pod. When this is set containers will be able to view and signal processes from other containers in the same pod, and the first process in each container will not be assigned PID 1. HostPID and ShareProcessNamespace cannot both be set. Optional: Default to false.",
           "type": "boolean"
+        },
+        "storageUris": {
+          "description": "Spec for multiple storage uris.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1beta1.StorageUri"
+          },
+          "x-kubernetes-list-type": "atomic"
         },
         "subdomain": {
           "description": "If specified, the fully qualified Pod hostname will be \"\u0026lt;hostname\u0026gt;.\u0026lt;subdomain\u0026gt;.\u0026lt;pod namespace\u0026gt;.svc.\u0026lt;cluster domain\u0026gt;\". If not specified, the pod will not have a domainname at all.",

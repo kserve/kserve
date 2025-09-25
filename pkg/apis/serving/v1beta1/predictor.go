@@ -54,6 +54,10 @@ type PredictorSpec struct {
 	// Model spec for any arbitrary framework.
 	Model *ModelSpec `json:"model,omitempty"`
 
+	// Spec for multiple storage uris.
+	// +listType=atomic
+	StorageUris []StorageUri `json:"storageUris,omitempty"`
+
 	// WorkerSpec for enabling multi-node/multi-gpu
 	WorkerSpec *WorkerSpec `json:"workerSpec,omitempty"`
 
@@ -66,6 +70,18 @@ type PredictorSpec struct {
 	PodSpec `json:",inline"`
 	// Component extension defines the deployment configurations for a predictor
 	ComponentExtensionSpec `json:",inline"`
+}
+
+type StorageUri struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Uri string `json:"uri"`
+
+	// +kubebuilder:default="/mnt/models"
+	// +kubebuilder:validation:Pattern="^/.*"
+	// +kubebuilder:validation:MaxLength=255
+	// +optional
+	Path string `json:"path"`
 }
 
 type WorkerSpec struct {
