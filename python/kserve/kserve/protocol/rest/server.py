@@ -71,22 +71,6 @@ from .v2_endpoints import register_v2_endpoints
 from ..model_repository_extension import ModelRepositoryExtension
 
 
-def _current_trace_id() -> str:
-    span = trace.get_current_span()
-    span_context = span.get_span_context() if span is not None else None
-    if span_context is None or not span_context.is_valid:
-        return ""
-    return format(span_context.trace_id, "032x")
-
-
-def _log_with_trace(log_method, message: str, *args, **kwargs):
-    trace_id = kwargs.pop("trace_id", None) or _current_trace_id() or "none"
-    if args:
-        log_method(f"{message} trace_id=%s", *args, trace_id, **kwargs)
-    else:
-        log_method(f"{message} trace_id=%s", trace_id, **kwargs)
-
-
 async def metrics_handler(request: Request) -> Response:
     encoder, content_type = exposition.choose_encoder(request.headers.get("accept"))
     return Response(content=encoder(REGISTRY), headers={"content-type": content_type})
@@ -94,7 +78,7 @@ async def metrics_handler(request: Request) -> Response:
 
 class PrintTimings(TimingClient):
     def timing(self, metric_name, timing, tags):
-        _log_with_trace(trace_logger.info, "%s: %s %s", metric_name, timing, tags)
+        trace_logger.info(f"{metric_name}: {timing} {tags}")
 
 
 class RESTServer:
@@ -132,7 +116,7 @@ class RESTServer:
         register_v1_endpoints(app, self.dataplane, self.model_repository_extension)
         register_v2_endpoints(app, self.dataplane, self.model_repository_extension)
         FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer_provider)
-        _log_with_trace(logger.info, "Opentelemetry tracing enabled")
+        logger.info("Opentelemetry tracing enabled")
         # Register OpenAI endpoints if any of the models in the registry implement the OpenAI interface
         # This adds /openai/v1/completions and /openai/v1/chat/completions routes to the
         # REST server.
@@ -142,10 +126,10 @@ class RESTServer:
             )
 
             maybe_register_openai_endpoints(app, self.dataplane.model_registry)
-            _log_with_trace(logger.info, "OpenAI endpoints registered")
+            logger.info("OpenAI endpoints registered")
 
         except ImportError:
-            _log_with_trace(logger.info, "OpenAI endpoints not registered")
+            logger.info("OpenAI endpoints not registered")
 
     def _add_exception_handlers(self, app: fastapi.FastAPI):
         app.add_exception_handler(InvalidInput, invalid_input_handler)
@@ -187,7 +171,7 @@ class RESTServer:
         try:
             app = import_from_string("kserve.model_server:app")
         except ImportFromStringError as exc:
-            _log_with_trace(logger.error, "Error loading ASGI app. %s", exc)
+            logger.error("Error loading ASGI app. %s", exc)
             sys.exit(1)
         self._add_middlewares(app)
         self._register_endpoints(app)
@@ -196,7 +180,7 @@ class RESTServer:
     async def start(self):
         """Starts the server without configuring the event loop."""
         self.create_application()
-        _log_with_trace(logger.info, "Starting uvicorn with %s workers", self.config.workers)
+        logger.info("Starting uvicorn with %s workers", self.config.workers)
         await self._server.serve()
 
     def run(self, sockets: Optional[List[socket]] = None):
