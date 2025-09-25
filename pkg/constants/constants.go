@@ -530,12 +530,16 @@ const (
 // opendatahub rawDeployment Auth
 const (
 	OauthProxyPort                  = 8443
+	OauthProxyProbePort             = 8643
 	OauthProxyResourceMemoryLimit   = "128Mi"
 	OauthProxyResourceCPULimit      = "200m"
 	OauthProxyResourceMemoryRequest = "64Mi"
 	OauthProxyResourceCPURequest    = "100m"
-	OauthProxyImage                 = "registry.redhat.io/openshift4/ose-oauth-proxy@sha256:8507daed246d4d367704f7d7193233724acf1072572e1226ca063c066b858ecf"
-	DefaultServiceAccount           = "default"
+	OauthProxySARCMName             = "kube-rbac-proxy-sar-config"
+	// Used for test purposes
+	OauthProxyImage       = "quay.io/opendatahub/odh-kube-auth-proxy@sha256:dcb09fbabd8811f0956ef612a0c9ddd5236804b9bd6548a0647d2b531c9d01b3"
+	DefaultServiceAccount = "default"
+	KubeRbacContainerName = "kube-rbac-proxy"
 )
 
 type ProtocolVersion int

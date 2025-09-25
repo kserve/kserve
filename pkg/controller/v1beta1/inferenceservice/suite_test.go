@@ -61,7 +61,6 @@ var (
 
 func TestV1beta1APIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-
 	RunSpecs(t, "v1beta1 Controller Suite")
 }
 
