@@ -73,6 +73,16 @@ replacements:
         options:
           delimiter: '.'
           index: 1
+      - fieldPaths:
+        - spec.commonName
+        - spec.dnsNames.0
+        options:
+          delimiter: '.'
+          index: 1
+        select:
+          kind: Certificate
+          name: llmisvc-serving-cert
+          namespace: kserve
       - select:
           kind: CustomResourceDefinition
           name: inferenceservices.serving.kserve.io
@@ -163,13 +173,23 @@ replacements:
     - fieldPaths:
       - webhooks.*.clientConfig.service.name
       select:
-        kind: MutatingWebhookConfiguration
+        kind: ValidatingWebhookConfiguration
         name: llminferenceservice.serving.kserve.io
     - fieldPaths:
       - webhooks.*.clientConfig.service.name
       select:
         kind: ValidatingWebhookConfiguration
         name: llminferenceserviceconfig.serving.kserve.io
+    - fieldPaths:
+      - spec.commonName
+      - spec.dnsNames.0
+      options:
+        delimiter: '.'
+        index: 0
+      select:
+        kind: Certificate
+        name: llmisvc-serving-cert
+        namespace: kserve
   # Replace llmisvc service account name
   - source:
       fieldPath: metadata.name
