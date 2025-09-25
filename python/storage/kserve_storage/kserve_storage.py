@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import base64
 import glob
 import gzip
@@ -55,6 +56,9 @@ _HF_PREFIX = "hf://"
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
 
+# Azure async download configuration
+_AZURE_MAX_FILE_CONCURRENCY = int(os.getenv("AZURE_MAX_FILE_CONCURRENCY", "4"))
+_AZURE_MAX_CHUNK_CONCURRENCY = int(os.getenv("AZURE_MAX_CHUNK_CONCURRENCY", "4"))
 
 class Storage(object):
     @staticmethod
@@ -505,11 +509,9 @@ class Storage(object):
         return out_dir
 
     @staticmethod
-    def _download_azure_blob(
-        uri, out_dir: str
-    ) -> str:  # pylint: disable=too-many-locals
-        from azure.storage.blob import BlobServiceClient
-        from azure.storage.blob._list_blobs_helper import BlobPrefix
+    async def _download_azure_blob_async(uri, out_dir: str) -> str:
+        """Async Azure blob download with chunked streaming and multi-level semaphores"""
+        from azure.storage.blob.aio import BlobServiceClient
 
         account_name, account_url, container_name, prefix = Storage._parse_azure_uri(
             uri
@@ -520,6 +522,7 @@ class Storage(object):
             container_name,
             prefix,
         )
+
         token = (
             Storage._get_azure_storage_token()
             or Storage._get_azure_storage_access_key()
@@ -529,43 +532,87 @@ class Storage(object):
                 "Azure credentials or shared access signature token not found, retrying anonymous access"
             )
 
-        blob_service_client = BlobServiceClient(account_url, credential=token)
-        container_client = blob_service_client.get_container_client(container_name)
-        file_count = 0
-        blobs = []
-        max_depth = 5
-        stack = [(prefix, max_depth)]
-        while stack:
-            curr_prefix, depth = stack.pop()
-            if depth < 0:
-                continue
-            for item in container_client.walk_blobs(name_starts_with=curr_prefix):
-                if isinstance(item, BlobPrefix):
-                    stack.append((item.name, depth - 1))
+        # File-level semaphore to control concurrent file downloads
+        file_semaphore = asyncio.Semaphore(_AZURE_MAX_FILE_CONCURRENCY)
+
+        async with BlobServiceClient(
+            account_url, credential=token
+        ) as blob_service_client:
+            container_client = blob_service_client.get_container_client(container_name)
+
+            # Get all blobs using flat listing (no delimiter) to get all files regardless of hierarchy
+            blobs = []
+            logger.info("Listing blobs with prefix: %s", prefix)
+            async for blob in container_client.list_blobs(name_starts_with=prefix):
+                logger.info("Found blob: %s (%d bytes)", blob.name, blob.size)
+                if blob.size > 0:
+                    blobs.append(blob)
+
+            if not blobs:
+                raise RuntimeError("Failed to fetch model. No model found in %s." % uri)
+
+            # Create download tasks with semaphore control
+            download_tasks = [
+                Storage._download_single_blob_async(
+                    container_client, blob, out_dir, prefix, file_semaphore
+                )
+                for blob in blobs
+            ]
+
+            # Execute all downloads concurrently
+            results = await asyncio.gather(*download_tasks, return_exceptions=True)
+
+            # Check for exceptions
+            file_count = 0
+            dest_path = None
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.error("Blob %s failed: %s", blobs[i].name, result)
+                    raise result
                 else:
-                    blobs += container_client.list_blobs(
-                        name_starts_with=item.name, include=["snapshots"]
-                    )
-        for blob in blobs:
+                    dest_path = result
+                    file_count += 1
+
+        # Handle single file unpacking
+        if file_count == 1:
+            mimetype, _ = mimetypes.guess_type(dest_path)
+            if mimetype in ["application/x-tar", "application/zip"]:
+                out_dir = Storage._unpack_archive_file(dest_path, mimetype, out_dir)
+
+        return out_dir
+
+    @staticmethod
+    async def _download_single_blob_async(
+        container_client,
+        blob,
+        out_dir: str,
+        prefix: str,
+        file_semaphore: asyncio.Semaphore,
+    ) -> str:
+        """Download a single blob with chunked streaming"""
+        async with file_semaphore:  # Limit concurrent file downloads
             file_name = blob.name.replace(prefix, "", 1).lstrip("/")
             if not file_name:
                 file_name = os.path.basename(prefix)
             dest_path = os.path.join(out_dir, file_name)
             Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
-            logger.info("Downloading: %s to %s", blob.name, dest_path)
-            downloader = container_client.download_blob(blob.name)
-            with open(dest_path, "wb+") as f:
-                f.write(downloader.readall())
-            file_count += 1
-        if file_count == 0:
-            raise RuntimeError("Failed to fetch model. No model found in %s." % (uri))
 
-        # Unpack compressed file, supports .tgz, tar.gz and zip file formats.
-        if file_count == 1:
-            mimetype, _ = mimetypes.guess_type(dest_path)
-            if mimetype in ["application/x-tar", "application/zip"]:
-                out_dir = Storage._unpack_archive_file(dest_path, mimetype, out_dir)
-        return out_dir
+            logger.info("Downloading: %s to %s", blob.name, dest_path)
+
+            # Get blob client and download with chunked streaming
+            blob_client = container_client.get_blob_client(blob.name)
+
+            # Download with streaming chunks to avoid memory overload
+            stream = await blob_client.download_blob(
+                max_concurrency=_AZURE_MAX_CHUNK_CONCURRENCY
+            )
+
+            with open(dest_path, "wb") as f:
+                # Stream chunks instead of loading entire file into memory
+                async for chunk in stream.chunks():
+                    f.write(chunk)
+
+            return dest_path
 
     @staticmethod
     def _download_azure_file_share(
@@ -626,6 +673,11 @@ class Storage(object):
             if mimetype in ["application/x-tar", "application/zip"]:
                 out_dir = Storage._unpack_archive_file(dest_path, mimetype, out_dir)
         return out_dir
+
+    @staticmethod
+    def _download_azure_blob(uri, out_dir: str) -> str:
+        """Wrapper to run async blob download"""
+        return asyncio.run(Storage._download_azure_blob_async(uri, out_dir))
 
     @staticmethod
     def _parse_azure_uri(uri):  # pylint: disable=too-many-locals
