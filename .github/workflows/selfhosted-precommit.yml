@@ -1,0 +1,27 @@
+name: Selfhosted Precommit (manual)
+
+on:
+  workflow_dispatch: {}   # 明確手動觸發
+
+concurrency:
+  group: selfhosted-precommit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  precommit:
+    runs-on: [self-hosted]   # 要在 self-hosted 跑就這樣寫；若要 GH-Hosted 改成 ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: |
+          go mod download
+          cd qpext && go mod download || true
+      - name: Precommit check
+        run: make check
