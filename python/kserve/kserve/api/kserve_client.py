@@ -19,6 +19,8 @@ from urllib.parse import urlparse
 import requests
 from kubernetes import client, config
 
+from opentelemetry.propagate import inject
+
 from ..models.v1alpha1_local_model_cache import V1alpha1LocalModelCache
 from ..models.v1alpha1_local_model_node_group import V1alpha1LocalModelNodeGroup
 from .creds_utils import set_gcs_credentials, set_s3_credentials, set_azure_credentials
@@ -136,6 +138,14 @@ class KServeClient(object):
 
         version = inferenceservice.api_version.split("/")[1]
 
+        headers = {}
+        inject(headers)
+        traceparent = headers.get("traceparent")
+        if traceparent:
+            inferenceservice = self._ensure_trace_annotation(
+                inferenceservice, traceparent
+            )
+
         if namespace is None:
             namespace = utils.get_isvc_namespace(inferenceservice)
 
@@ -236,6 +246,13 @@ class KServeClient(object):
         """
 
         version = inferenceservice.api_version.split("/")[1]
+        headers = {}
+        inject(headers)
+        traceparent = headers.get("traceparent")
+        if traceparent:
+            inferenceservice = self._ensure_trace_annotation(
+                inferenceservice, traceparent
+            )
         if namespace is None:
             namespace = utils.get_isvc_namespace(inferenceservice)
 
@@ -281,6 +298,14 @@ class KServeClient(object):
 
         version = inferenceservice.api_version.split("/")[1]
 
+        headers = {}
+        inject(headers)
+        traceparent = headers.get("traceparent")
+        if traceparent:
+            inferenceservice = self._ensure_trace_annotation(
+                inferenceservice, traceparent
+            )
+
         if namespace is None:
             namespace = utils.get_isvc_namespace(inferenceservice)
 
@@ -314,6 +339,24 @@ class KServeClient(object):
             )
         else:
             return outputs
+
+    @staticmethod
+    def _ensure_trace_annotation(inferenceservice, traceparent: str):
+        if isinstance(inferenceservice, dict):
+            metadata = inferenceservice.setdefault("metadata", {})
+            annotations = metadata.setdefault("annotations", {})
+            annotations["traceparent"] = traceparent
+            return inferenceservice
+
+        metadata = getattr(inferenceservice, "metadata", None)
+        if metadata is None:
+            metadata = client.V1ObjectMeta()
+            inferenceservice.metadata = metadata
+
+        annotations = getattr(metadata, "annotations", None) or {}
+        annotations["traceparent"] = traceparent
+        metadata.annotations = annotations
+        return inferenceservice
 
     def delete(self, name, namespace=None, version=constants.KSERVE_V1BETA1_VERSION):
         """
