@@ -93,4 +93,4 @@ spec:
         - name: cert
           secret:
             defaultMode: 420
-            secretName: kserve-webhook-server-cert
+            secretName: llmisvc-webhook-server-cert
