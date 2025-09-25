@@ -759,8 +759,8 @@ data:
       "resource": {
           "cpuLimit": "1",
           "memoryLimit": "2Gi",
-          "cpuRequest": "1",
-          "memoryRequest": "2Gi"
+          "cpuRequest": "200m",
+          "memoryRequest": "512Mi"
       }
     }
 
