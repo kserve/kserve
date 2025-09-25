@@ -6,5 +6,4 @@ namespace: kserve
 resources:
   - deployment.yaml
   - service.yaml
-  - secret.yaml
   - gateway-inference-extension.yaml
