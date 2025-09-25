@@ -59,9 +59,6 @@ _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
 # Azure async download configuration
 _AZURE_MAX_FILE_CONCURRENCY = int(os.getenv("AZURE_MAX_FILE_CONCURRENCY", "4"))
 _AZURE_MAX_CHUNK_CONCURRENCY = int(os.getenv("AZURE_MAX_CHUNK_CONCURRENCY", "4"))
-_AZURE_CHUNK_SIZE = int(
-    os.getenv("AZURE_CHUNK_SIZE", str(8 * 1024 * 1024))
-)  # 8MB chunks
 
 
 class Storage(object):
