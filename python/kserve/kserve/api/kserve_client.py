@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import time
 from typing import List
 from urllib.parse import urlparse
@@ -28,6 +29,9 @@ from .watch import isvc_watch
 from ..constants import constants
 from ..models import V1alpha1InferenceGraph
 from ..utils import utils
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class KServeClient(object):
@@ -145,6 +149,14 @@ class KServeClient(object):
             inferenceservice = self._ensure_trace_annotation(
                 inferenceservice, traceparent
             )
+            trace_id = self._extract_trace_id(traceparent)
+            _LOGGER.info(
+                "Propagating trace context for InferenceService create",
+                extra={
+                    "trace_id": trace_id,
+                    "traceparent": traceparent,
+                },
+            )
 
         if namespace is None:
             namespace = utils.get_isvc_namespace(inferenceservice)
@@ -253,6 +265,14 @@ class KServeClient(object):
             inferenceservice = self._ensure_trace_annotation(
                 inferenceservice, traceparent
             )
+            trace_id = self._extract_trace_id(traceparent)
+            _LOGGER.info(
+                "Propagating trace context for InferenceService patch",
+                extra={
+                    "trace_id": trace_id,
+                    "traceparent": traceparent,
+                },
+            )
         if namespace is None:
             namespace = utils.get_isvc_namespace(inferenceservice)
 
@@ -305,6 +325,14 @@ class KServeClient(object):
             inferenceservice = self._ensure_trace_annotation(
                 inferenceservice, traceparent
             )
+            trace_id = self._extract_trace_id(traceparent)
+            _LOGGER.info(
+                "Propagating trace context for InferenceService replace",
+                extra={
+                    "trace_id": trace_id,
+                    "traceparent": traceparent,
+                },
+            )
 
         if namespace is None:
             namespace = utils.get_isvc_namespace(inferenceservice)
@@ -339,6 +367,13 @@ class KServeClient(object):
             )
         else:
             return outputs
+
+    @staticmethod
+    def _extract_trace_id(traceparent: str) -> str:
+        parts = traceparent.split("-") if traceparent else []
+        if len(parts) >= 4:
+            return parts[1]
+        return ""
 
     @staticmethod
     def _ensure_trace_annotation(inferenceservice, traceparent: str):
