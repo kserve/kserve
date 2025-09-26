@@ -61,14 +61,14 @@ jobs:
       - name: Download LLM controller and storage initializer images
         uses: actions/download-artifact@v4
         with:
-          path: ${{ env.DOCKER_IMAGES_PATH }}
+          path: ./tmp
           pattern: ${{ env.BASE_ARTIFACT_PREFIX }}-*
           merge-multiple: true
 
       - name: Load docker images
         uses: ./.github/actions/load-docker-images
         with:
-          directory: ${{ env.DOCKER_IMAGES_PATH }}
+          directory: ./tmp
 
       - name: Setup UV
         run: ./test/scripts/gh-actions/setup-uv.sh
