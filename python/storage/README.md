@@ -115,6 +115,7 @@ These are all handled by the `huggingface_hub` package, you can see all the avai
 - `S3_VERIFY_SSL`: Enable/disable SSL verification
 - `S3_USER_VIRTUAL_BUCKET`: Use virtual hosted-style URLs
 - `S3_USE_ACCELERATE`: Use transfer acceleration
+- `S3_MAX_FILE_CONCURRENCY`: number of files to download parallel
 - `awsAnonymousCredential`: Use unsigned requests for public access
 
 ### Azure Configuration
