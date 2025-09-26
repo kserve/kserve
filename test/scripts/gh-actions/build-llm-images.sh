@@ -31,8 +31,12 @@ docker buildx build -f llmisvc-controller.Dockerfile . -t "${LLMISVC_CONTROLLER_
   -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LLMISVC_CONTROLLER_IMG}-${GITHUB_SHA}",compression-level=0
 
 echo "Building storage initializer image"
-docker buildx build -f python/storage-initializer.Dockerfile . -t "${STORAGE_INIT_IMG_TAG}" \
+# Create a temporary Dockerfile with corrected paths for root context build
+sed 's|COPY \./storage-initializer|COPY python/storage-initializer|g; s|COPY storage/|COPY python/storage/|g; s|COPY storage storage|COPY python/storage storage|g' python/storage-initializer.Dockerfile > /tmp/storage-initializer-fixed.Dockerfile
+docker buildx build -f /tmp/storage-initializer-fixed.Dockerfile . -t "${STORAGE_INIT_IMG_TAG}" \
   -o type=docker,dest="${DOCKER_IMAGES_PATH}/${STORAGE_INIT_IMG}-${GITHUB_SHA}",compression-level=0
+# Clean up temporary file
+rm -f /tmp/storage-initializer-fixed.Dockerfile
 
 echo "✅ LLM images built successfully!"
 echo "Built images:"
