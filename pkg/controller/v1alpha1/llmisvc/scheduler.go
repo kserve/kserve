@@ -32,10 +32,13 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	igwv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
@@ -138,16 +141,78 @@ func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, ll
 	return r.propagateDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
 }
 
+// consider pool "Ready" if any Parent has Accepted=True AND ResolvedRefs=True
+func isV1PoolReady(p *igwv1.InferencePool) bool {
+	for _, ps := range p.Status.Parents {
+		accepted, resolved := false, false
+		for _, c := range ps.Conditions {
+			if string(c.Type) == "Accepted" && string(c.Status) == "True" { accepted = true }
+			if string(c.Type) == "ResolvedRefs" && string(c.Status) == "True" { resolved = true }
+		}
+		if accepted && resolved { return true }
+	}
+	return false
+}
+
+// alpha2 check via dynamic client
+func (r *LLMISVCReconciler) isAlpha2PoolReady(ctx context.Context, ns, name string) bool {
+	u, err := r.DynamicClient.Resource(gvrInferencePoolV1Alpha2).Namespace(ns).Get(ctx, name, metav1.GetOptions{})
+	if err != nil { return false }
+	parents, _, _ := unstructured.NestedSlice(u.Object, "status", "parents")
+	for _, p := range parents {
+		pm, _ := p.(map[string]any)
+		conds, _, _ := unstructured.NestedSlice(pm, "conditions")
+		accepted, resolved := false, false
+		for _, cc := range conds {
+			cm, _ := cc.(map[string]any)
+			if cm["type"] == "Accepted" && cm["status"] == "True" { accepted = true }
+			if cm["type"] == "ResolvedRefs" && cm["status"] == "True" { resolved = true }
+		}
+		if accepted && resolved { return true }
+	}
+	return false
+}
+
 func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
+	// If router/scheduler disabled or BYO pool (HasRef), delete both variants and exit.
 	expected := r.expectedSchedulerInferencePool(ctx, llmSvc)
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
-		return Delete(ctx, r, llmSvc, expected)
+		if err := Delete(ctx, r, llmSvc, expected); err != nil { // v1 typed
+			return err
+		}
+		return r.deleteAlpha2PoolIfExists(ctx, llmSvc) // best-effort alpha2
 	}
 
-	if err := Reconcile(ctx, r, llmSvc, &igwapi.InferencePool{}, expected, semanticInferencePoolIsEqual); err != nil {
+	// 1) Ensure v1 InferencePool (typed) exists/updated.
+	if err := Reconcile(ctx, r, llmSvc, &igwv1.InferencePool{}, expected, semanticInferencePoolIsEqual); err != nil {
 		return err
 	}
-	// TODO add inference pool condition propagation and then aggregate it into "RouterReady" similar to WorkloadReady.
+
+	// 2) Ensure v1alpha2 InferencePool (dynamic) exists/updated.
+	if err := r.reconcileAlpha2Pool(ctx, llmSvc, expected); err != nil {
+		return err
+	}
+
+	// ---- Readiness aggregation (prefer v1; fallback to v1alpha2) ----
+	// Fetch current v1 to read Status (expected has no Status).
+	cur := &igwv1.InferencePool{}
+	if err := r.Client.Get(ctx, crclient.ObjectKey{
+		Namespace: expected.Namespace, 
+		Name: expected.Name,
+	}, cur); err != nil {
+		// If we can't fetch v1, treat v1 as not ready and rely on alpha2 below.
+	}
+
+	v1Ready := isV1PoolReady(cur)
+	alpha2Ready := r.isAlpha2PoolReady(ctx, llmSvc.GetNamespace(), expected.GetName())
+
+	if v1Ready || alpha2Ready {
+		// Prefer v1 but either is acceptable.
+		llmSvc.MarkRouterReady()
+	} else {
+		llmSvc.MarkRouterNotReady("InferencePoolNotReady", "Neither v1 nor v1alpha2 InferencePool reports Accepted=True and ResolvedRefs=True")
+	}
+
 	return nil
 }
 
@@ -165,16 +230,80 @@ func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSv
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerInferenceModel(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
-	expected := r.expectedSchedulerInferenceModel(ctx, llmSvc)
+	// If scheduler disabled, best-effort delete v1alpha2 InferenceModel and return.
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
-		return Delete(ctx, r, llmSvc, expected)
+		return r.deleteAlpha2InferenceModelIfExists(ctx, llmSvc)
 	}
 
-	if err := Reconcile(ctx, r, llmSvc, &igwapi.InferenceModel{}, expected, semanticInferenceModelIsEqual); err != nil {
+	u := r.expectedAlpha2InferenceModel(llmSvc)
+	res := r.DynamicClient.Resource(gvrInferenceModelV1Alpha2).Namespace(u.GetNamespace())
+
+	// Upsert pattern using dynamic client.
+	cur, err := res.Get(ctx, u.GetName(), metav1.GetOptions{})
+	if err == nil {
+		u.SetResourceVersion(cur.GetResourceVersion())
+		_, err = res.Update(ctx, u, metav1.UpdateOptions{})
 		return err
 	}
+	_, err = res.Create(ctx, u, metav1.CreateOptions{})
+	return err
+}
 
-	return nil
+// Build v1alpha2 InferenceModel unstructured.
+// NOTE: We avoid v1 typed IM (doesn't exist). We write the fields the scheduler expects.
+func (r *LLMISVCReconciler) expectedAlpha2InferenceModel(llmSvc *v1alpha1.LLMInferenceService) *unstructured.Unstructured {
+	name := v1alpha1.InferenceModelName(llmSvc)
+	group := "inference.networking.k8s.io" // pool group we target - updated to v1 group
+	poolName := llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc)
+
+	// Default modelName to resource name if spec.model.name is empty.
+	modelName := ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.GetName())
+
+	// Default criticality to "Critical" if not set (keeps old behavior).
+	criticality := "Critical"
+	if llmSvc.Spec.Model.Criticality != nil && *llmSvc.Spec.Model.Criticality != "" {
+		criticality = string(*llmSvc.Spec.Model.Criticality)
+	}
+
+	return &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "inference.networking.x-k8s.io/v1alpha2",
+			"kind":       "InferenceModel",
+			"metadata": map[string]any{
+				"name":      name,
+				"namespace": llmSvc.GetNamespace(),
+				"labels":    r.schedulerLabels(llmSvc),
+				"ownerReferences": []any{
+					map[string]any{
+						"apiVersion": v1alpha1.LLMInferenceServiceGVK.GroupVersion().String(),
+						"kind":       v1alpha1.LLMInferenceServiceGVK.Kind,
+						"name":       llmSvc.GetName(),
+						"uid":        string(llmSvc.GetUID()),
+						"controller": true,
+					},
+				},
+			},
+			"spec": map[string]any{
+				"modelName": modelName,
+				"poolRef": map[string]any{
+					"group": group,
+					"kind":  "InferencePool",
+					"name":  poolName,
+				},
+				"criticality": criticality,
+			},
+		},
+	}
+}
+
+func (r *LLMISVCReconciler) deleteAlpha2InferenceModelIfExists(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
+	name := v1alpha1.InferenceModelName(llmSvc)
+	res := r.DynamicClient.Resource(gvrInferenceModelV1Alpha2).Namespace(llmSvc.GetNamespace())
+	_, err := res.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return nil // not found or not installed so ignore
+	}
+	return res.Delete(ctx, name, metav1.DeleteOptions{})
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *corev1.Service {
@@ -234,10 +363,10 @@ func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc
 	return svc
 }
 
-func (r *LLMISVCReconciler) expectedSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *igwapi.InferencePool {
+func (r *LLMISVCReconciler) expectedSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *igwv1.InferencePool {
 	labels := r.schedulerLabels(llmSvc)
 
-	ip := &igwapi.InferencePool{
+	ip := &igwv1.InferencePool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-inference-pool"),
 			Namespace: llmSvc.GetNamespace(),
@@ -256,36 +385,37 @@ func (r *LLMISVCReconciler) expectedSchedulerInferencePool(ctx context.Context, 
 	return ip
 }
 
-func (r *LLMISVCReconciler) expectedSchedulerInferenceModel(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *igwapi.InferenceModel {
-	labels := r.schedulerLabels(llmSvc)
+// Leftover typed v1 InferenceModel code (it doesn’t exist in v1)
+// func (r *LLMISVCReconciler) expectedSchedulerInferenceModel(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *igwv1.InferenceModel {
+// 	labels := r.schedulerLabels(llmSvc)
 
-	im := &igwapi.InferenceModel{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      v1alpha1.InferenceModelName(llmSvc),
-			Namespace: llmSvc.GetNamespace(),
-			Labels:    labels,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(llmSvc, v1alpha1.LLMInferenceServiceGVK),
-			},
-		},
-		Spec: igwapi.InferenceModelSpec{
-			ModelName: ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.GetName()),
-			PoolRef: igwapi.PoolObjectReference{
-				Group: "inference.networking.x-k8s.io",
-				Kind:  "InferencePool",
-				Name:  igwapi.ObjectName(llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc)),
-			},
-			Criticality: llmSvc.Spec.Model.Criticality,
-		},
-	}
-	if im.Spec.Criticality == nil {
-		im.Spec.Criticality = ptr.To(igwapi.Critical)
-	}
+// 	im := &igwv1.InferenceModel{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      v1alpha1.InferenceModelName(llmSvc),
+// 			Namespace: llmSvc.GetNamespace(),
+// 			Labels:    labels,
+// 			OwnerReferences: []metav1.OwnerReference{
+// 				*metav1.NewControllerRef(llmSvc, v1alpha1.LLMInferenceServiceGVK),
+// 			},
+// 		},
+// 		Spec: igwv1.InferenceModelSpec{
+// 			ModelName: ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.GetName()),
+// 			PoolRef: igwv1.PoolObjectReference{
+// 				Group: "inference.networking.x-k8s.io",
+// 				Kind:  "InferencePool",
+// 				Name:  igwv1.ObjectName(llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc)),
+// 			},
+// 			Criticality: llmSvc.Spec.Model.Criticality,
+// 		},
+// 	}
+// 	if im.Spec.Criticality == nil {
+// 		im.Spec.Criticality = ptr.To(igwv1.Critical)
+// 	}
 
-	log.FromContext(ctx).V(2).Info("Expected InferenceModel", "inferencemodel", im)
+// 	log.FromContext(ctx).V(2).Info("Expected InferenceModel", "inferencemodel", im)
 
-	return im
-}
+// 	return im
+// }
 
 func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *appsv1.Deployment {
 	labels := r.schedulerLabels(llmSvc)
@@ -447,6 +577,7 @@ func (r *LLMISVCReconciler) expectedSchedulerRole(llmSvc *v1alpha1.LLMInferenceS
 		Rules: []rbacv1.PolicyRule{
 			{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"inference.networking.x-k8s.io"}, Resources: []string{"inferencepools", "inferencemodels"}, Verbs: []string{"get", "list", "watch"}},
+			{APIGroups: []string{"inference.networking.k8s.io"}, Resources: []string{"inferencepools", "inferencemodels"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"discovery.k8s.io"}, Resources: []string{"endpointslices"}, Verbs: []string{"get", "list", "watch"}},
 		},
 	}
@@ -483,13 +614,13 @@ func semanticServiceIsEqual(expected *corev1.Service, current *corev1.Service) b
 		equality.Semantic.DeepDerivative(expected.Annotations, current.Annotations)
 }
 
-func semanticInferenceModelIsEqual(expected *igwapi.InferenceModel, current *igwapi.InferenceModel) bool {
-	return equality.Semantic.DeepDerivative(expected.Spec, current.Spec) &&
-		equality.Semantic.DeepDerivative(expected.Labels, current.Labels) &&
-		equality.Semantic.DeepDerivative(expected.Annotations, current.Annotations)
-}
+// func semanticInferenceModelIsEqual(expected *igwv1.InferenceModel, current *igwv1.InferenceModel) bool {
+// 	return equality.Semantic.DeepDerivative(expected.Spec, current.Spec) &&
+// 		equality.Semantic.DeepDerivative(expected.Labels, current.Labels) &&
+// 		equality.Semantic.DeepDerivative(expected.Annotations, current.Annotations)
+// }
 
-func semanticInferencePoolIsEqual(expected *igwapi.InferencePool, curr *igwapi.InferencePool) bool {
+func semanticInferencePoolIsEqual(expected *igwv1.InferencePool, curr *igwv1.InferencePool) bool {
 	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
@@ -528,4 +659,102 @@ func (r *LLMISVCReconciler) schedulerLabels(llmSvc *v1alpha1.LLMInferenceService
 		"app.kubernetes.io/name":      llmSvc.GetName(),
 		"app.kubernetes.io/part-of":   "llminferenceservice",
 	}
+}
+
+var gvrInferencePoolV1Alpha2 = schema.GroupVersionResource{
+	Group:    "inference.networking.x-k8s.io",
+	Version:  "v1alpha2",
+	Resource: "inferencepools",
+}
+
+var gvrInferenceModelV1Alpha2 = schema.GroupVersionResource{
+	Group:    "inference.networking.x-k8s.io",
+	Version:  "v1alpha2",
+	Resource: "inferencemodels",
+}
+
+func (r *LLMISVCReconciler) reconcileAlpha2Pool(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, v1pool *igwv1.InferencePool) error {
+	u, err := v1ToAlpha2Unstructured(v1pool)
+	if err != nil {
+		return err
+	}
+	res := r.DynamicClient.Resource(gvrInferencePoolV1Alpha2).Namespace(u.GetNamespace())
+	cur, err := res.Get(ctx, u.GetName(), metav1.GetOptions{})
+	if err == nil {
+		u.SetResourceVersion(cur.GetResourceVersion())
+		_, err = res.Update(ctx, u, metav1.UpdateOptions{})
+		return err
+	}
+	_, err = res.Create(ctx, u, metav1.CreateOptions{})
+	return err
+}
+
+func (r *LLMISVCReconciler) deleteAlpha2PoolIfExists(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
+	name := kmeta.ChildName(llmSvc.GetName(), "-inference-pool")
+	res := r.DynamicClient.Resource(gvrInferencePoolV1Alpha2).Namespace(llmSvc.GetNamespace())
+	_, err := res.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return nil // nothing to delete or not found
+	}
+	return res.Delete(ctx, name, metav1.DeleteOptions{})
+}
+
+// Convert the typed v1 pool to a v1alpha2 unstructured object.
+// NOTE: v1 uses typed LabelKey/LabelValue and non-pointer Kind/Number/FailureMode.
+// We convert keys/values to strings and use "" / >0 checks instead of nil checks.
+func v1ToAlpha2Unstructured(v1p *igwv1.InferencePool) (*unstructured.Unstructured, error) {
+	if v1p == nil {
+		return nil, fmt.Errorf("nil v1 pool")
+	}
+
+	// selector: v1 -> v1alpha2 (string map)
+	selector := map[string]any{}
+	if v1p.Spec.Selector.MatchLabels != nil {
+		for k, v := range v1p.Spec.Selector.MatchLabels {
+			selector[string(k)] = string(v) // v1 uses typed keys/values; alpha2 wants plain strings
+		}
+	}
+
+	// target port: v1 TargetPorts[0].Number -> alpha2 targetPortNumber (int)
+	if len(v1p.Spec.TargetPorts) == 0 {
+		return nil, fmt.Errorf("spec.targetPorts[0] required")
+	}
+	tp := int(v1p.Spec.TargetPorts[0].Number) // Number is a non-pointer alias (int32)
+
+	// endpointPickerRef -> extensionRef
+	// IMPORTANT: Kind/Group/FailureMode are value types in v1, not pointers.
+	ext := map[string]any{
+		"name": string(v1p.Spec.EndpointPickerRef.Name),
+	}
+	if v1p.Spec.EndpointPickerRef.Group != nil && *v1p.Spec.EndpointPickerRef.Group != "" {
+	ext["group"] = string(*v1p.Spec.EndpointPickerRef.Group) // ✅ deref the *Group
+	}
+	if s := string(v1p.Spec.EndpointPickerRef.Kind); s != "" {
+		ext["kind"] = s
+	}
+	if v1p.Spec.EndpointPickerRef.Port != nil && v1p.Spec.EndpointPickerRef.Port.Number > 0 {
+		ext["portNumber"] = int(v1p.Spec.EndpointPickerRef.Port.Number)
+	}
+	if s := string(v1p.Spec.EndpointPickerRef.FailureMode); s != "" {
+		ext["failureMode"] = s
+	}
+
+	u := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "inference.networking.x-k8s.io/v1alpha2",
+			"kind":       "InferencePool",
+			"metadata": map[string]any{
+				"name":        v1p.Name,
+				"namespace":   v1p.Namespace,
+				"labels":      v1p.Labels,
+				"annotations": v1p.Annotations,
+			},
+			"spec": map[string]any{
+				"selector":         selector,
+				"targetPortNumber": tp,
+				"extensionRef":     ext,
+			},
+		},
+	}
+	return u, nil
 }

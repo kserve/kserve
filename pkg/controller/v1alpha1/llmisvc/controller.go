@@ -29,6 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	"k8s.io/client-go/dynamic"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 
@@ -43,10 +45,12 @@ import (
 // LLMISVCReconciler reconciles a LLMInferenceService object
 // This controller is responsible for managing the lifecycle of LLMInferenceService resources.
 type LLMISVCReconciler struct {
-	client.Client
-	record.EventRecorder
-	Clientset kubernetes.Interface
+    client.Client
+    record.EventRecorder
+    Clientset     kubernetes.Interface
+    DynamicClient dynamic.Interface  // for the v1alpha2 unstructured bridge
 }
+
 
 func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
@@ -57,9 +61,15 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.LLMInferenceService{}).
-		Complete(r)
+    dyn, err := dynamic.NewForConfig(mgr.GetConfig())
+    if err != nil {
+        return fmt.Errorf("failed to init dynamic client: %w", err)
+    }
+    r.DynamicClient = dyn
+
+    return ctrl.NewControllerManagedBy(mgr).
+        For(&v1alpha1.LLMInferenceService{}).
+        Complete(r)
 }
 
 func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, error) {

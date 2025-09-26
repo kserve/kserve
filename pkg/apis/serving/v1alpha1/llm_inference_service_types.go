@@ -21,7 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	igwv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -128,7 +128,7 @@ type LLMModelSpec struct {
 	// Criticality defines how important it is to serve the model compared to other models.
 	// This is used by the Inference Gateway scheduler.
 	// +optional
-	Criticality *igwapi.Criticality `json:"criticality,omitempty"`
+	Criticality *ModelCriticality `json:"criticality,omitempty"`
 
 	// LoRA (Low-Rank Adaptation) adapters configurations.
 	// Allows for specifying one or more LoRA adapters to be applied to the base model.
@@ -232,7 +232,7 @@ type SchedulerSpec struct {
 type InferencePoolSpec struct {
 	// Spec defines an inline InferencePool specification.
 	// +optional
-	Spec *igwapi.InferencePoolSpec `json:"spec,omitempty"`
+	Spec *igwv1.InferencePoolSpec `json:"spec,omitempty"`
 
 	// Ref is a reference to an existing InferencePool.
 	// +optional

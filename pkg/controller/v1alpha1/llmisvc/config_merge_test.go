@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
-	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -402,21 +402,15 @@ func TestMergeSpecs(t *testing.T) {
 						Scheduler: &v1alpha1.SchedulerSpec{
 							Pool: &v1alpha1.InferencePoolSpec{
 								Spec: &igwapi.InferencePoolSpec{
-									TargetPortNumber: 0,
-									EndpointPickerConfig: igwapi.EndpointPickerConfig{
-										ExtensionRef: &igwapi.Extension{
-											ExtensionConnection: igwapi.ExtensionConnection{
-												FailureMode: ptr.To(igwapi.FailClose),
-											},
-										},
+									TargetPorts: []igwapi.Port{
+										{Number: 0},
 									},
+									EndpointPickerRef: igwapi.EndpointPickerRef{},
 								},
 							},
 							Template: &corev1.PodSpec{
 								Containers: []corev1.Container{
-									{
-										Name: "main",
-									},
+									{Name: "main"},
 								},
 							},
 						},
@@ -451,14 +445,10 @@ func TestMergeSpecs(t *testing.T) {
 					Scheduler: &v1alpha1.SchedulerSpec{
 						Pool: &v1alpha1.InferencePoolSpec{
 							Spec: &igwapi.InferencePoolSpec{
-								TargetPortNumber: 0,
-								EndpointPickerConfig: igwapi.EndpointPickerConfig{
-									ExtensionRef: &igwapi.Extension{
-										ExtensionConnection: igwapi.ExtensionConnection{
-											FailureMode: ptr.To(igwapi.FailClose),
-										},
-									},
+								TargetPorts: []igwapi.Port{
+									{Number: 0},
 								},
+								EndpointPickerRef: igwapi.EndpointPickerRef{},
 							},
 						},
 						Template: &corev1.PodSpec{
@@ -779,19 +769,18 @@ func TestMergeSpecs(t *testing.T) {
 				{
 					Model: v1alpha1.LLMModelSpec{
 						URI:         mustParseURL("model-uri"),
-						Criticality: ptr.To(igwapi.Sheddable),
-					},
+						Criticality: ptr.To(v1alpha1.ModelCriticality("Sheddable"))},
 				},
 				{
 					Model: v1alpha1.LLMModelSpec{
-						Criticality: ptr.To(igwapi.Critical),
+						Criticality: ptr.To(v1alpha1.ModelCriticality("Critical")),
 					},
 				},
 			},
 			want: v1alpha1.LLMInferenceServiceSpec{
 				Model: v1alpha1.LLMModelSpec{
 					URI:         mustParseURL("model-uri"),
-					Criticality: ptr.To(igwapi.Critical),
+					Criticality: ptr.To(v1alpha1.ModelCriticality("Critical")),
 				},
 			},
 		},
@@ -906,7 +895,7 @@ func TestMergeSpecs(t *testing.T) {
 					Model: v1alpha1.LLMModelSpec{
 						URI:         mustParseURL("base-model"),
 						Name:        ptr.To("base-name"),
-						Criticality: ptr.To(igwapi.Sheddable),
+						Criticality: ptr.To(v1alpha1.ModelCriticality("Sheddable")),
 						LoRA: &v1alpha1.LoRASpec{
 							Adapters: []v1alpha1.ModelSpec{
 								{StorageURI: "base-adapter", Framework: "pytorch", Memory: resource.MustParse("1Gi")},
@@ -928,7 +917,7 @@ func TestMergeSpecs(t *testing.T) {
 				{
 					Model: v1alpha1.LLMModelSpec{
 						Name:        ptr.To("override-name"),
-						Criticality: ptr.To(igwapi.Critical),
+						Criticality: ptr.To(v1alpha1.ModelCriticality("Critical")),
 						LoRA: &v1alpha1.LoRASpec{
 							Adapters: []v1alpha1.ModelSpec{
 								{StorageURI: "override-adapter", Framework: "tensorflow", Memory: resource.MustParse("2Gi")},
@@ -954,7 +943,7 @@ func TestMergeSpecs(t *testing.T) {
 				Model: v1alpha1.LLMModelSpec{
 					URI:         mustParseURL("base-model"), // Base URI preserved
 					Name:        ptr.To("override-name"),    // Override name
-					Criticality: ptr.To(igwapi.Critical),
+					Criticality: ptr.To(v1alpha1.ModelCriticality("Critical")),
 					LoRA: &v1alpha1.LoRASpec{
 						Adapters: []v1alpha1.ModelSpec{
 							{StorageURI: "override-adapter", Framework: "tensorflow", Memory: resource.MustParse("2Gi")},

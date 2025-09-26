@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
@@ -145,18 +145,28 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	}
 
 	if llmSvcCfg.Spec.Router != nil &&
-		llmSvcCfg.Spec.Router.Scheduler != nil &&
-		llmSvcCfg.Spec.Router.Scheduler.Pool != nil &&
-		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec != nil &&
-		len(llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.Selector) == 0 {
-		selector := getInferencePoolWorkloadLabelSelector(llmSvc.ObjectMeta, &llmSvcCfg.Spec)
-
-		gieSelector := make(map[igwapi.LabelKey]igwapi.LabelValue, len(selector))
-		for k, v := range selector {
-			gieSelector[igwapi.LabelKey(k)] = igwapi.LabelValue(v)
-		}
-		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.Selector = gieSelector
+	llmSvcCfg.Spec.Router.Scheduler != nil &&
+	llmSvcCfg.Spec.Router.Scheduler.Pool != nil &&
+	llmSvcCfg.Spec.Router.Scheduler.Pool.Spec != nil {
+	// Start with any existing matchLabels (typed in v1). 
+	dst := make(map[igwapi.LabelKey]igwapi.LabelValue, len(llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.Selector.MatchLabels))
+	for k, v := range llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.Selector.MatchLabels {
+		dst[k] = v
 	}
+
+	// Merge in the controller’s workload labels (plain strings) as typed keys/values.
+	// getInferencePoolWorkloadLabelSelector returns map[string]string.
+	if extra := getInferencePoolWorkloadLabelSelector(llmSvc.ObjectMeta, &llmSvcCfg.Spec); len(extra) > 0 {
+		for k, v := range extra {
+			dst[igwapi.LabelKey(k)] = igwapi.LabelValue(v)
+		}
+	}
+
+	// v1 uses igwapi.LabelSelector{ MatchLabels map[LabelKey]LabelValue } (typed), not map[string]string.
+	llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.Selector = igwapi.LabelSelector{
+		MatchLabels: dst,
+	}
+}
 
 	if llmSvcCfg.Spec.Router != nil &&
 		llmSvcCfg.Spec.Router.Scheduler != nil &&

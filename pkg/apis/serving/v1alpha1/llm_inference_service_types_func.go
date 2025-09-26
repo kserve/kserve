@@ -38,14 +38,25 @@ func (s *SchedulerSpec) InferencePoolName(llmSvc *LLMInferenceService) string {
 }
 
 func (r *RouterSpec) EPPServiceName(llmSvc *LLMInferenceService) string {
-	if r == nil || r.Route == nil || r.Scheduler == nil || r.Scheduler.Pool == nil || !r.Scheduler.Pool.HasRef() || r.Scheduler.Pool.Spec == nil || r.Scheduler.Pool.Spec.ExtensionRef == nil {
+	// If Scheduler/Pool/inline Spec aren’t provided, fall back to our managed EPP Service name.
+	if r == nil || r.Scheduler == nil || r.Scheduler.Pool == nil || r.Scheduler.Pool.Spec == nil {
 		return kmeta.ChildName(llmSvc.GetName(), "-epp-service")
 	}
-	return string(r.Scheduler.Pool.Spec.ExtensionRef.Name)
+
+	// In v1, EndpointPickerRef is a value (not a pointer). Its Name is a typed string alias.
+	name := string(r.Scheduler.Pool.Spec.EndpointPickerRef.Name)
+	if name == "" {
+		return kmeta.ChildName(llmSvc.GetName(), "-epp-service")
+	}
+	return name
 }
 
 func (in *GatewayRoutesSpec) IsManaged() bool {
-	return in != nil && in == &GatewayRoutesSpec{}
+	if in == nil || in.HTTP == nil {
+		return false
+	}
+	// “Managed” means: user gave an inline HTTPRoute spec and did NOT provide refs.
+	return in.HTTP.Spec != nil && len(in.HTTP.Refs) == 0
 }
 
 func (in *GatewaySpec) HasRefs() bool {
