@@ -23,6 +23,7 @@ env:
   BASE_ARTIFACT_PREFIX: "base"
   # Controller images
   CONTROLLER_IMG: "kserve-controller"
+  LLMISVC_CONTROLLER_IMG: "llmisvc-controller"
   LOCALMODEL_CONTROLLER_IMG: "kserve-localmodel-controller"
   LOCALMODEL_AGENT_IMG: "kserve-localmodelnode-agent"
   STORAGE_INIT_IMG: "storage-initializer"
@@ -93,6 +94,113 @@ jobs:
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh "raw" "istio-gatewayapi-ext"
 
+      - name: Setup LLM Controller
+        run: |
+          # Deploy the dedicated LLM controller
+          echo "🚀 Setting up dedicated LLM controller..."
+
+          # Apply LLM controller RBAC
+          kubectl apply -f config/rbac/llmisvc/role.yaml
+          kubectl create clusterrolebinding llmisvc-manager-rolebinding \
+            --clusterrole=llmisvc-manager-role \
+            --serviceaccount=kserve:kserve-controller-manager \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Create LLM controller deployment
+          kubectl apply -f - <<EOF
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            labels:
+              app.kubernetes.io/name: llm-isvc-controller-manager
+              control-plane: llm-isvc-controller-manager
+            name: llm-isvc-controller-manager
+            namespace: kserve
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                control-plane: llm-isvc-controller-manager
+            template:
+              metadata:
+                annotations:
+                  kubectl.kubernetes.io/default-container: manager
+                labels:
+                  control-plane: llm-isvc-controller-manager
+              spec:
+                containers:
+                - args:
+                  - --metrics-addr=127.0.0.1:8080
+                  - --leader-elect
+                  env:
+                  - name: POD_NAMESPACE
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.namespace
+                  image: ${{ env.DOCKER_REPO }}/${{ env.LLMISVC_CONTROLLER_IMG }}:${{ github.sha }}
+                  name: manager
+                  ports:
+                  - containerPort: 9443
+                    name: webhook-server
+                    protocol: TCP
+                  resources:
+                    limits:
+                      cpu: 500m
+                      memory: 128Mi
+                    requests:
+                      cpu: 10m
+                      memory: 64Mi
+                  securityContext:
+                    allowPrivilegeEscalation: false
+                    capabilities:
+                      drop:
+                      - ALL
+                  volumeMounts:
+                  - mountPath: /tmp/k8s-webhook-server/serving-certs
+                    name: cert
+                    readOnly: true
+                securityContext:
+                  runAsNonRoot: true
+                serviceAccountName: kserve-controller-manager
+                terminationGracePeriodSeconds: 10
+                volumes:
+                - name: cert
+                  secret:
+                    defaultMode: 420
+                    secretName: kserve-webhook-server-cert
+          EOF
+
+          # Create LLM webhook service
+          kubectl apply -f - <<EOF
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: llm-isvc-webhook-server-service
+            namespace: kserve
+          spec:
+            ports:
+            - name: webhook-server
+              port: 443
+              targetPort: 9443
+            selector:
+              control-plane: llm-isvc-controller-manager
+          EOF
+
+          # Update webhook configurations to point to LLM controller
+          kubectl patch validatingwebhookconfiguration llminferenceserviceconfig.serving.kserve.io --type='json' -p='[{
+            "op": "replace",
+            "path": "/webhooks/0/clientConfig/service/name",
+            "value": "llm-isvc-webhook-server-service"
+          }]'
+
+          kubectl patch validatingwebhookconfiguration llminferenceservice.serving.kserve.io --type='json' -p='[{
+            "op": "replace", 
+            "path": "/webhooks/0/clientConfig/service/name",
+            "value": "llm-isvc-webhook-server-service"
+          }]'
+
+          echo "✅ LLM controller setup complete!"
+
       - name: Run E2E tests
         timeout-minutes: 30
         run: |
@@ -130,6 +238,14 @@ jobs:
         with:
           name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.CONTROLLER_IMG }}-${{ github.sha }}
           path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CONTROLLER_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload LLM controller image
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LLMISVC_CONTROLLER_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LLMISVC_CONTROLLER_IMG }}-${{ github.sha }}
           compression-level: 0
           if-no-files-found: error
 

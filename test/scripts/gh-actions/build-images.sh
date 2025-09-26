@@ -24,6 +24,7 @@ set -o pipefail
 
 echo "Github SHA ${GITHUB_SHA}"
 CONTROLLER_IMG_TAG=${DOCKER_REPO}/${CONTROLLER_IMG}:${GITHUB_SHA}
+LLMISVC_CONTROLLER_IMG_TAG=${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${GITHUB_SHA}
 LOCALMODEL_CONTROLLER_IMG_TAG=${DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${GITHUB_SHA}
 LOCALMODEL_AGENT_IMG_TAG=${DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${GITHUB_SHA}
 STORAGE_INIT_IMG_TAG=${DOCKER_REPO}/${STORAGE_INIT_IMG}:${GITHUB_SHA}
@@ -33,6 +34,10 @@ ROUTER_IMG_TAG=${DOCKER_REPO}/${ROUTER_IMG}:${GITHUB_SHA}
 echo "Building Kserve controller image"
 docker buildx build . -t "${CONTROLLER_IMG_TAG}" \
   -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CONTROLLER_IMG}-${GITHUB_SHA}",compression-level=0
+
+echo "Building LLM controller image"
+docker buildx build -f llmisvc-controller.Dockerfile . -t "${LLMISVC_CONTROLLER_IMG_TAG}" \
+  -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LLMISVC_CONTROLLER_IMG}-${GITHUB_SHA}",compression-level=0
 
 echo "Building localmodel controller image"
 docker buildx build -f localmodel.Dockerfile . -t "${LOCALMODEL_CONTROLLER_IMG_TAG}" \

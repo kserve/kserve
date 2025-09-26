@@ -46,8 +46,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	graphcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/inferencegraph"
-	llmisvccontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc"
-	llmisvcwebhook "github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc/webhook"
 	trainedmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
 	v1beta1controller "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice"
@@ -288,17 +286,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("Setting up LLMInferenceService controller")
-	llmEventBroadcaster := record.NewBroadcaster()
-	llmEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
-	if err = (&llmisvccontroller.LLMISVCReconciler{
-		Client:        mgr.GetClient(),
-		Clientset:     clientSet,
-		EventRecorder: llmEventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "LLMInferenceServiceController"}),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "LLMInferenceService")
-		os.Exit(1)
-	}
 	setupLog.Info("setting up webhook server")
 	hookServer := mgr.GetWebhookServer()
 
@@ -347,20 +334,6 @@ func main() {
 		WithValidator(&localmodelcache.LocalModelCacheValidator{Client: mgr.GetClient()}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "localmodelcache")
-		os.Exit(1)
-	}
-
-	llmConfigValidator := &llmisvcwebhook.LLMInferenceServiceConfigValidator{
-		ClientSet: clientSet,
-	}
-	if err = llmConfigValidator.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig")
-		os.Exit(1)
-	}
-
-	llmInferenceServiceValidator := &llmisvcwebhook.LLMInferenceServiceValidator{}
-	if err = llmInferenceServiceValidator.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice")
 		os.Exit(1)
 	}
 

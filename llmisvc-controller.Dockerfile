@@ -12,7 +12,7 @@ COPY cmd/    cmd/
 COPY pkg/    pkg/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux go build -a -o manager ./cmd/llmisvc
+RUN CGO_ENABLED=0 GOOS=linux go build -a -o llmisvc ./cmd/llmisvc
 
 # Generate third-party licenses
 COPY LICENSE LICENSE
@@ -24,5 +24,5 @@ RUN go-licenses save --save_path third_party/library ./cmd/llmisvc
 # Copy the controller-manager into a thin image
 FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /go/src/github.com/kserve/kserve/third_party /third_party
-COPY --from=builder /go/src/github.com/kserve/kserve/manager /
+COPY --from=builder /go/src/github.com/kserve/kserve/llmisvc /
 ENTRYPOINT ["/llmisvc"]
