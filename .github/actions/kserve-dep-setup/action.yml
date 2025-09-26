@@ -1,18 +1,22 @@
-name: 'Kserve dependency setup action'
-description: 'Sets up Kserve dependencies on the running kubernetes cluster'
+name: "Kserve dependency setup action"
+description: "Sets up Kserve dependencies on the running kubernetes cluster"
 inputs:
   network-layer:
-    description: 'Network layer to install'
+    description: "Network layer to install"
     required: true
-    default: 'istio'
+    default: "istio"
   deployment-mode:
-    description:  'Kserve deployment mode. Supported values are serverless and raw'
+    description: "Kserve deployment mode. Supported values are serverless and raw"
     required: false
-    default: 'serverless'
+    default: "serverless"
   enable-keda:
-    description: 'Enable KEDA for autoscaling'
+    description: "Enable KEDA for autoscaling"
     required: false
-    default: 'false'
+    default: "false"
+  enable-lws:
+    description: "Enable Leader Worker Set"
+    required: false
+    default: "false"
 runs:
   using: "composite"
   steps:
@@ -26,7 +30,7 @@ runs:
           ./test/scripts/gh-actions/setup-kourier.sh
         else
           echo "Selected network layer ${{ inputs.network-layer }}"
-          ./test/scripts/gh-actions/setup-deps.sh ${{ inputs.deployment-mode }} "${{ inputs.network-layer }}" "${{ inputs.enable-keda }}"
+          ./test/scripts/gh-actions/setup-deps.sh ${{ inputs.deployment-mode }} "${{ inputs.network-layer }}" "${{ inputs.enable-keda }}" "${{ inputs.enable-lws }}"
         fi
 
     - name: Update test overlays
