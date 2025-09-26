@@ -81,6 +81,9 @@ jobs:
           # Install CRDs, ConfigMap, and test infrastructure
           echo "🏗️ Installing minimal KServe components for LLM tests..."
 
+          # Create the kserve namespace first
+          kubectl create namespace kserve --dry-run=client -o yaml | kubectl apply -f -
+
           # Install CRDs
           kubectl apply --server-side=true --force-conflicts -k config/crd
           kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
