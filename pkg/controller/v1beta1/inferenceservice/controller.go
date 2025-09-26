@@ -504,12 +504,12 @@ func (r *InferenceServiceReconciler) startReconcileSpan(ctx context.Context, req
 	ctx, span := tracer.Start(ctx, "InferenceServiceReconcile", oteltrace.WithAttributes(attrs...))
 
 	switch {
+	case traceparent != "":
+		traceID = extractTraceID(traceparent)
 	case parentSpanCtx.IsValid():
 		traceID = parentSpanCtx.TraceID().String()
 	case span.SpanContext().IsValid():
 		traceID = span.SpanContext().TraceID().String()
-	case traceparent != "":
-		traceID = extractTraceID(traceparent)
 	default:
 		traceID = "none"
 	}
