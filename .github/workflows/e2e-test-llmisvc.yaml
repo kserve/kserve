@@ -73,19 +73,14 @@ jobs:
       - name: Setup UV
         run: ./test/scripts/gh-actions/setup-uv.sh
 
-      - name: Install KServe with LLM controller
+      - name: Install KServe and LLM controller
         run: |
-          echo "🏗️ Installing KServe base components (without main controller)..."
+          ./test/scripts/gh-actions/setup-kserve.sh
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
 
-          # Replicate make deploy-ci but skip the main controller wait
-          make manifests
-          kubectl apply --server-side=true --force-conflicts -k config/crd
-          kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
-          kubectl apply --server-side=true -k config/overlays/test
-          # Skip: kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-          kubectl apply --server-side=true -k config/overlays/test/clusterresources
 
-          echo "🔄 Installing LLM controller instead of main controller..."
+          echo "🔄 Installing LLM controller alongside KServe..."
           helm install llmisvc ./charts/llmisvc-resources \
             --namespace kserve \
             --set kserve.llmisvc.controller.image="${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}" \
@@ -96,7 +91,9 @@ jobs:
           echo "⏳ Waiting for LLM controller to be ready..."
           kubectl wait --for=condition=ready pod -l control-plane=kserve-llmisvc-controller-manager -n kserve --timeout=300s
 
-          echo "✅ KServe with LLM controller installation complete!"
+          echo "✅ KServe and LLM controller installation complete!"
+          echo "📋 Controllers running:"
+          kubectl get pods -n kserve -l control-plane
 
       - name: Run E2E tests
         timeout-minutes: 30
