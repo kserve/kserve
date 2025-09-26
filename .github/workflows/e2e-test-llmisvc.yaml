@@ -215,6 +215,8 @@ jobs:
 
   kserve-image-build:
     runs-on: ubuntu-latest
+    env:
+      LLMISVC_CONTROLLER_IMG: "llmisvc-controller"
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -230,6 +232,13 @@ jobs:
           sudo mkdir -p ${DOCKER_IMAGES_PATH}
           sudo chown -R $USER ${DOCKER_IMAGES_PATH}
           ./test/scripts/gh-actions/build-images.sh
+
+          # Build LLM controller image separately
+          echo "Building LLM controller image"
+          LLMISVC_CONTROLLER_IMG_TAG=${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${GITHUB_SHA}
+          docker buildx build -f llmisvc-controller.Dockerfile . -t "${LLMISVC_CONTROLLER_IMG_TAG}" \
+            -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LLMISVC_CONTROLLER_IMG}-${GITHUB_SHA}",compression-level=0
+
           docker image ls
           sudo ls -lh ${DOCKER_IMAGES_PATH}
 
