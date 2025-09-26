@@ -24,9 +24,38 @@ from botocore import UNSIGNED
 from kserve_storage import Storage
 
 
+class MockPool:
+    """
+    Mock multiprocessing.Pool that executes tasks synchronously in the same process.
+    This allows boto3 mocks to work properly in tests.
+    """
+    def __init__(self, processes=None, initializer=None, initargs=(), **kwargs):
+        self.processes = processes
+        self.initializer = initializer
+        self.initargs = initargs
+        # Call initializer immediately if provided (simulating worker process initialization)
+        if self.initializer:
+            self.initializer(*self.initargs)
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+    
+    def map(self, func, iterable):
+        """Execute tasks synchronously instead of in parallel processes"""
+        return [func(item) for item in iterable]
+
+
+# Mock multiprocessing.Pool globally for all S3 tests
+mock.patch('kserve_storage.kserve_storage.multiprocessing.Pool', MockPool).start()
+
+
 def create_mock_obj(path):
     mock_obj = mock.MagicMock()
     mock_obj.key = path
+    mock_obj.size = 1024  # Non-zero size to avoid being skipped
     mock_obj.is_dir = False
     return mock_obj
 
@@ -407,10 +436,11 @@ def test_ca_bundle_with_aws_ca_bundle_only(mock_storage):
         ):
             Storage._download_s3(f"s3://{bucket_name}/{object_key}", "dest_path")
 
-        # Verify that boto3.resource was called with the correct verify parameter
-        mock_storage.assert_called_once()
-        call_args = mock_storage.call_args
-        assert call_args[1]["verify"] == ca_bundle_path
+        # Verify that boto3.resource was called twice (once for listing, once for download)
+        # Both calls should have the correct verify parameter
+        assert mock_storage.call_count == 2
+        for call_args in mock_storage.call_args_list:
+            assert call_args[1]["verify"] == ca_bundle_path
 
     finally:
         # Clean up the temporary file
@@ -444,10 +474,11 @@ def test_ca_bundle_with_configmap_only(mock_storage):
         ):
             Storage._download_s3(f"s3://{bucket_name}/{object_key}", "dest_path")
 
-        # Verify that boto3.resource was called with the correct verify parameter
-        mock_storage.assert_called_once()
-        call_args = mock_storage.call_args
-        assert call_args[1]["verify"] == ca_bundle_path
+        # Verify that boto3.resource was called twice (once for listing, once for download)
+        # Both calls should have the correct verify parameter
+        assert mock_storage.call_count == 2
+        for call_args in mock_storage.call_args_list:
+            assert call_args[1]["verify"] == ca_bundle_path
 
 
 @mock.patch("boto3.resource")
@@ -489,10 +520,10 @@ def test_ca_bundle_aws_ca_bundle_takes_precedence(mock_storage):
             ):
                 Storage._download_s3(f"s3://{bucket_name}/{object_key}", "dest_path")
 
-            # Verify that boto3.resource was called with AWS_CA_BUNDLE path (takes precedence)
-            mock_storage.assert_called_once()
-            call_args = mock_storage.call_args
-            assert call_args[1]["verify"] == aws_ca_bundle_path
+            # Verify that boto3.resource was called twice with AWS_CA_BUNDLE path (takes precedence)
+            assert mock_storage.call_count == 2
+            for call_args in mock_storage.call_args_list:
+                assert call_args[1]["verify"] == aws_ca_bundle_path
 
         finally:
             # Clean up the temporary file
@@ -567,9 +598,9 @@ def test_ca_bundle_verify_ssl_false_no_ca_bundle_check(mock_storage):
         # This should not raise an error because verify_ssl is False
         Storage._download_s3(f"s3://{bucket_name}/{object_key}", "dest_path")
 
-        # Verify that boto3.resource was called with verify=False
-        mock_storage.assert_called_once()
-        call_args = mock_storage.call_args
+    # Verify that boto3.resource was called twice with verify=False
+    assert mock_storage.call_count == 2
+    for call_args in mock_storage.call_args_list:
         assert call_args[1]["verify"] is False
 
 
@@ -601,7 +632,7 @@ def test_ca_bundle_empty_aws_ca_bundle_uses_configmap(mock_storage):
         ):
             Storage._download_s3(f"s3://{bucket_name}/{object_key}", "dest_path")
 
-        # Verify that boto3.resource was called with the ConfigMap path
-        mock_storage.assert_called_once()
-        call_args = mock_storage.call_args
-        assert call_args[1]["verify"] == ca_bundle_path
+        # Verify that boto3.resource was called twice with the ConfigMap path
+        assert mock_storage.call_count == 2
+        for call_args in mock_storage.call_args_list:
+            assert call_args[1]["verify"] == ca_bundle_path
