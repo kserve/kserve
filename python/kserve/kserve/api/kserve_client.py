@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import time
 from typing import List
 from urllib.parse import urlparse
 
 import requests
 from kubernetes import client, config
+
+from opentelemetry.propagate import inject
 
 from ..models.v1alpha1_local_model_cache import V1alpha1LocalModelCache
 from ..models.v1alpha1_local_model_node_group import V1alpha1LocalModelNodeGroup
@@ -26,6 +29,9 @@ from .watch import isvc_watch
 from ..constants import constants
 from ..models import V1alpha1InferenceGraph
 from ..utils import utils
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class KServeClient(object):
@@ -136,6 +142,22 @@ class KServeClient(object):
 
         version = inferenceservice.api_version.split("/")[1]
 
+        headers = {}
+        inject(headers)
+        traceparent = headers.get("traceparent")
+        if traceparent:
+            inferenceservice = self._ensure_trace_annotation(
+                inferenceservice, traceparent
+            )
+            trace_id = self._extract_trace_id(traceparent)
+            _LOGGER.info(
+                "Propagating trace context for InferenceService create",
+                extra={
+                    "trace_id": trace_id,
+                    "traceparent": traceparent,
+                },
+            )
+
         if namespace is None:
             namespace = utils.get_isvc_namespace(inferenceservice)
 
@@ -236,6 +258,21 @@ class KServeClient(object):
         """
 
         version = inferenceservice.api_version.split("/")[1]
+        headers = {}
+        inject(headers)
+        traceparent = headers.get("traceparent")
+        if traceparent:
+            inferenceservice = self._ensure_trace_annotation(
+                inferenceservice, traceparent
+            )
+            trace_id = self._extract_trace_id(traceparent)
+            _LOGGER.info(
+                "Propagating trace context for InferenceService patch",
+                extra={
+                    "trace_id": trace_id,
+                    "traceparent": traceparent,
+                },
+            )
         if namespace is None:
             namespace = utils.get_isvc_namespace(inferenceservice)
 
@@ -281,6 +318,22 @@ class KServeClient(object):
 
         version = inferenceservice.api_version.split("/")[1]
 
+        headers = {}
+        inject(headers)
+        traceparent = headers.get("traceparent")
+        if traceparent:
+            inferenceservice = self._ensure_trace_annotation(
+                inferenceservice, traceparent
+            )
+            trace_id = self._extract_trace_id(traceparent)
+            _LOGGER.info(
+                "Propagating trace context for InferenceService replace",
+                extra={
+                    "trace_id": trace_id,
+                    "traceparent": traceparent,
+                },
+            )
+
         if namespace is None:
             namespace = utils.get_isvc_namespace(inferenceservice)
 
@@ -314,6 +367,31 @@ class KServeClient(object):
             )
         else:
             return outputs
+
+    @staticmethod
+    def _extract_trace_id(traceparent: str) -> str:
+        parts = traceparent.split("-") if traceparent else []
+        if len(parts) >= 4:
+            return parts[1]
+        return ""
+
+    @staticmethod
+    def _ensure_trace_annotation(inferenceservice, traceparent: str):
+        if isinstance(inferenceservice, dict):
+            metadata = inferenceservice.setdefault("metadata", {})
+            annotations = metadata.setdefault("annotations", {})
+            annotations["traceparent"] = traceparent
+            return inferenceservice
+
+        metadata = getattr(inferenceservice, "metadata", None)
+        if metadata is None:
+            metadata = client.V1ObjectMeta()
+            inferenceservice.metadata = metadata
+
+        annotations = getattr(metadata, "annotations", None) or {}
+        annotations["traceparent"] = traceparent
+        metadata.annotations = annotations
+        return inferenceservice
 
     def delete(self, name, namespace=None, version=constants.KSERVE_V1BETA1_VERSION):
         """
