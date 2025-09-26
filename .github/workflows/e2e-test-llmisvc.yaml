@@ -88,13 +88,33 @@ jobs:
           kubectl apply --server-side=true --force-conflicts -k config/crd
           kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
 
-          # Install ConfigMap, RBAC, cert-manager, webhooks, and LLM presets (without main controller)
+          # Install minimal components (without main controller deployment)
           kubectl apply --server-side=true -k config/configmap
-          kubectl apply --server-side=true -k config/rbac
           kubectl apply --server-side=true -k config/certmanager
           kubectl apply --server-side=true -k config/webhook
           kubectl apply --server-side=true -k config/llmisvc
           kubectl apply --server-side=true -k config/overlays/test/minio
+
+          # Apply RBAC components with proper namespace context
+          # Create ClusterRoleBindings manually with correct namespace
+          kubectl create clusterrolebinding kserve-manager-rolebinding \
+            --clusterrole=kserve-manager-role \
+            --serviceaccount=kserve:kserve-controller-manager \
+            --dry-run=client -o yaml | kubectl apply -f -
+            
+          kubectl create clusterrolebinding kserve-proxy-rolebinding \
+            --clusterrole=kserve-proxy-role \
+            --serviceaccount=kserve:kserve-controller-manager \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Apply other RBAC resources normally
+          kubectl apply --server-side=true -f config/rbac/service_account.yaml
+          kubectl apply --server-side=true -f config/rbac/role.yaml
+          kubectl apply --server-side=true -f config/rbac/leader_election_role.yaml
+          kubectl apply --server-side=true -f config/rbac/leader_election_role_binding.yaml
+          kubectl apply --server-side=true -f config/rbac/auth_proxy_service.yaml
+          kubectl apply --server-side=true -f config/rbac/auth_proxy_role.yaml
+          kubectl apply --server-side=true -f config/rbac/auth_proxy_role_binding.yaml
 
           # Wait for certificate to be ready
           kubectl wait --for=condition=Ready certificate/serving-cert -n kserve --timeout=60s
