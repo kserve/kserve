@@ -17,7 +17,7 @@ concurrency:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  DOCKER_IMAGES_PATH: /tmp/images
+  DOCKER_IMAGES_PATH: /mnt/docker-images
   DOCKER_REPO: kserve
   BASE_ARTIFACT_PREFIX: kserve-controller
   LLMISVC_CONTROLLER_IMG: llmisvc-controller
@@ -127,17 +127,23 @@ jobs:
       - name: Build LLM images
         run: |
           sudo mkdir -p ${{ env.DOCKER_IMAGES_PATH }}
+          sudo chown -R $USER ${{ env.DOCKER_IMAGES_PATH }}
           ./test/scripts/gh-actions/build-llm-images.sh
           docker image ls
+          sudo ls -lh ${{ env.DOCKER_IMAGES_PATH }}
 
       - name: Upload LLM controller image
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LLMISVC_CONTROLLER_IMG }}-${{ github.sha }}
           path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LLMISVC_CONTROLLER_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Upload storage initializer image
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.STORAGE_INIT_IMG }}-${{ github.sha }}
           path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.STORAGE_INIT_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
