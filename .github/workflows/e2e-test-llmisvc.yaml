@@ -2,31 +2,30 @@ name: LLMInferenceService E2E Tests
 
 on:
   pull_request:
-    branches: [master, release*, feature-llmd-*]
     paths:
-      - "**"
-      - "!.github/**"
-      - "!docs/**"
-      - "!**.md"
-      - ".github/workflows/e2e-test-llmisvc.yml"
-  workflow_dispatch:
-
-env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  DOCKER_IMAGES_PATH: "/mnt/docker-images"
-  DOCKER_REPO: "kserve"
-  BASE_ARTIFACT_PREFIX: "base"
-  # LLM test images
-  LLMISVC_CONTROLLER_IMG: "llmisvc-controller"
-  STORAGE_INIT_IMG: "storage-initializer"
+      - "pkg/apis/serving/v1alpha1/llm*"
+      - "pkg/controller/v1alpha1/llmisvc/**"
+      - "config/llmisvc/**"
+      - "config/rbac/llmisvc/**"
+      - "cmd/llmisvc/**"
+      - "test/e2e/llmisvc/**"
+      - ".github/workflows/e2e-test-llmisvc.yaml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  DOCKER_IMAGES_PATH: /tmp/images
+  DOCKER_REPO: kserve
+  BASE_ARTIFACT_PREFIX: kserve-controller
+  LLMISVC_CONTROLLER_IMG: llmisvc-controller
+  STORAGE_INIT_IMG: storage-initializer
+
 jobs:
   test-llmisvc:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     needs: [kserve-image-build]
     steps:
       - name: Checkout source
@@ -43,188 +42,63 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.9"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
         with:
-          addons: "metallb"
+          addons: metallb
 
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
         with:
-          network-layer: "istio-gatewayapi-ext"
-          enable-lws: "true"
+          deployment-mode: "raw"
+          network-layer: "istio-gatewayapi"
 
-      - name: Download LLM images
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: Download LLM controller and storage initializer images
         uses: actions/download-artifact@v4
         with:
-          path: ./tmp
+          path: ${{ env.DOCKER_IMAGES_PATH }}
           pattern: ${{ env.BASE_ARTIFACT_PREFIX }}-*
           merge-multiple: true
 
-      - name: Load LLM images
-        run: |
-          files=$(find ./tmp -maxdepth 1 -type f)
-          for file in ${files[@]};do
-            echo "Loading image $(basename ${file})"
-            docker image load -i ${file}
-          done
-          rm -rf ./tmp
-          docker image ls
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ${{ env.DOCKER_IMAGES_PATH }}
 
       - name: Setup UV
         run: ./test/scripts/gh-actions/setup-uv.sh
 
-      - name: Install KServe (minimal for LLM)
+      - name: Install KServe with LLM controller
         run: |
-          # Install CRDs, ConfigMap, and test infrastructure
-          echo "🏗️ Installing minimal KServe components for LLM tests..."
+          echo "🏗️ Installing KServe using standard CI deployment..."
 
-          # Create the kserve namespace first
-          kubectl create namespace kserve --dry-run=client -o yaml | kubectl apply -f -
+          # Use the standard KServe installation process (handles all RBAC correctly)
+          make deploy-ci
 
-          # Install CRDs
-          kubectl apply --server-side=true --force-conflicts -k config/crd
-          kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
+          # Replace the main controller with the LLM controller
+          echo "🔄 Replacing main controller with LLM controller..."
+          kubectl delete deployment kserve-controller-manager -n kserve
 
-          # Install minimal components (without main controller deployment)
-          kubectl apply --server-side=true -k config/configmap
-          kubectl apply --server-side=true -k config/certmanager
-          kubectl apply --server-side=true -k config/webhook
-          kubectl apply --server-side=true -k config/llmisvc
-          kubectl apply --server-side=true -k config/overlays/test/minio
+          # Install LLM CRDs (already installed by make deploy-ci, but ensure they're there)
+          # helm install llmisvc-crd ./charts/llmisvc-crd --namespace kserve --wait
 
-          # Apply RBAC components with proper namespace context
-          # Create ClusterRoleBindings manually with correct namespace
-          kubectl create clusterrolebinding kserve-manager-rolebinding \
-            --clusterrole=kserve-manager-role \
-            --serviceaccount=kserve:kserve-controller-manager \
-            --dry-run=client -o yaml | kubectl apply -f -
-            
-          kubectl create clusterrolebinding kserve-proxy-rolebinding \
-            --clusterrole=kserve-proxy-role \
-            --serviceaccount=kserve:kserve-controller-manager \
-            --dry-run=client -o yaml | kubectl apply -f -
+          # Deploy LLM controller using Helm chart with our built image
+          helm install llmisvc ./charts/llmisvc-resources \
+            --namespace kserve \
+            --set kserve.llmisvc.controller.image="${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}" \
+            --set kserve.llmisvc.controller.tag="${GITHUB_SHA}" \
+            --set kserve.llmisvc.controller.imagePullPolicy="Never" \
+            --wait --timeout=300s
 
-          # Apply other RBAC resources normally
-          kubectl apply --server-side=true -f config/rbac/service_account.yaml
-          kubectl apply --server-side=true -f config/rbac/role.yaml
-          kubectl apply --server-side=true -f config/rbac/leader_election_role.yaml
-          kubectl apply --server-side=true -f config/rbac/leader_election_role_binding.yaml
-          kubectl apply --server-side=true -f config/rbac/auth_proxy_service.yaml
-          kubectl apply --server-side=true -f config/rbac/auth_proxy_role.yaml
-          kubectl apply --server-side=true -f config/rbac/auth_proxy_role_binding.yaml
+          # Wait for LLM controller to be ready
+          kubectl wait --for=condition=ready pod -l control-plane=kserve-llmisvc-controller-manager -n kserve --timeout=300s
 
-          # Wait for certificate to be ready
-          kubectl wait --for=condition=Ready certificate/serving-cert -n kserve --timeout=60s
-
-          # Create namespace and test secrets
-          kubectl create namespace kserve-ci-e2e-test
-          kubectl apply -f config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test
-
-          # Wait for MinIO to be ready
-          kubectl wait --for=condition=Ready pods -l app=minio -n kserve --timeout=180s
-
-          # Initialize test models in MinIO
-          kubectl apply -f config/overlays/test/minio/minio-init-job.yaml -n kserve
-          kubectl wait --for=condition=complete --timeout=90s job/minio-init -n kserve
-
-          echo "✅ Minimal KServe installation complete!"
-
-      - name: Setup LLM Controller
-        run: |
-          # Deploy the dedicated LLM controller
-          echo "🚀 Setting up dedicated LLM controller..."
-
-          # Apply LLM controller RBAC
-          kubectl apply -f config/rbac/llmisvc/role.yaml
-          kubectl create clusterrolebinding llmisvc-manager-rolebinding \
-            --clusterrole=llmisvc-manager-role \
-            --serviceaccount=kserve:kserve-controller-manager \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-          # Create LLM controller deployment
-          kubectl apply -f - <<EOF
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            labels:
-              app.kubernetes.io/name: llm-isvc-controller-manager
-              control-plane: llm-isvc-controller-manager
-            name: llm-isvc-controller-manager
-            namespace: kserve
-          spec:
-            replicas: 1
-            selector:
-              matchLabels:
-                control-plane: llm-isvc-controller-manager
-            template:
-              metadata:
-                annotations:
-                  kubectl.kubernetes.io/default-container: manager
-                labels:
-                  control-plane: llm-isvc-controller-manager
-              spec:
-                containers:
-                - args:
-                  - --metrics-addr=127.0.0.1:8080
-                  - --leader-elect
-                  env:
-                  - name: POD_NAMESPACE
-                    valueFrom:
-                      fieldRef:
-                        fieldPath: metadata.namespace
-                  image: ${{ env.DOCKER_REPO }}/${{ env.LLMISVC_CONTROLLER_IMG }}:${{ github.sha }}
-                  name: manager
-                  ports:
-                  - containerPort: 9443
-                    name: webhook-server
-                    protocol: TCP
-                  resources:
-                    limits:
-                      cpu: 500m
-                      memory: 128Mi
-                    requests:
-                      cpu: 10m
-                      memory: 64Mi
-                  securityContext:
-                    allowPrivilegeEscalation: false
-                    capabilities:
-                      drop:
-                      - ALL
-                  volumeMounts:
-                  - mountPath: /tmp/k8s-webhook-server/serving-certs
-                    name: cert
-                    readOnly: true
-                securityContext:
-                  runAsNonRoot: true
-                serviceAccountName: kserve-controller-manager
-                terminationGracePeriodSeconds: 10
-                volumes:
-                - name: cert
-                  secret:
-                    defaultMode: 420
-                    secretName: kserve-webhook-server-cert
-          EOF
-
-          # Create LLM webhook service (using same name as certificate expects)
-          kubectl apply -f - <<EOF
-          apiVersion: v1
-          kind: Service
-          metadata:
-            name: kserve-webhook-server-service
-            namespace: kserve
-          spec:
-            ports:
-            - name: webhook-server
-              port: 443
-              targetPort: 9443
-            selector:
-              control-plane: llm-isvc-controller-manager
-          EOF
-
-          echo "✅ LLM controller setup complete!"
+          echo "✅ KServe with LLM controller installation complete!"
 
       - name: Run E2E tests
         timeout-minutes: 30
@@ -244,33 +118,26 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Free-up disk space
-        uses: ./.github/actions/free-up-disk-space
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Build LLM images
         run: |
-          sudo mkdir -p ${DOCKER_IMAGES_PATH}
-          sudo chown -R $USER ${DOCKER_IMAGES_PATH}
+          sudo mkdir -p ${{ env.DOCKER_IMAGES_PATH }}
           ./test/scripts/gh-actions/build-llm-images.sh
-
           docker image ls
-          sudo ls -lh ${DOCKER_IMAGES_PATH}
 
       - name: Upload LLM controller image
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LLMISVC_CONTROLLER_IMG }}-${{ github.sha }}
           path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LLMISVC_CONTROLLER_IMG }}-${{ github.sha }}
-          compression-level: 0
-          if-no-files-found: error
 
       - name: Upload storage initializer image
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.STORAGE_INIT_IMG }}-${{ github.sha }}
           path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.STORAGE_INIT_IMG }}-${{ github.sha }}
-          compression-level: 0
-          if-no-files-found: error
