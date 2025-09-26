@@ -58,6 +58,8 @@ _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
 
 # S3 parallel download configuration  
 _S3_MAX_FILE_CONCURRENCY = int(os.getenv("S3_MAX_FILE_CONCURRENCY", "4"))
+# Global variable for S3 resource in worker processes
+_worker_s3_resource = None
 
 class Storage(object):
     @staticmethod
@@ -242,9 +244,25 @@ class Storage(object):
         return kwargs
 
     @staticmethod
+    def _init_s3_worker():
+        """
+        Initialize S3 resources for worker processes.
+        This runs once per worker process to avoid repeated initialization overhead.
+        """
+        global _worker_s3_resource
+        try:
+            import boto3
+            kwargs = Storage._get_s3_client_kwargs()
+            _worker_s3_resource = boto3.resource("s3", **kwargs)
+        except Exception as e:
+            logger.error(f"Failed to initialize S3 worker: {e}")
+            _worker_s3_resource = None
+
+    @staticmethod
     def _download_s3_object(args: Tuple) -> Tuple[bool, str, str]:
         """
         Worker function to download a single S3 object in a separate process.
+        Uses pre-initialized S3 resource from _init_s3_worker().
         
         Args:
             args: Tuple containing (bucket_name:str, obj_key:str, target_path:str)
@@ -253,15 +271,13 @@ class Storage(object):
             Tuple of (success: bool, obj_key: str, error_message: str)
         """
         try:
-            import boto3
+            global _worker_s3_resource
+            
+            if _worker_s3_resource is None:
+                return False, args[1], "S3 resource not initialized in worker process"
+            
             bucket_name, obj_key, target_path = args
-            
-            # Get S3 configuration using the shared helper method
-            kwargs = Storage._get_s3_client_kwargs()
-            
-            # Create S3 resource in this process
-            s3 = boto3.resource("s3", **kwargs)
-            bucket = s3.Bucket(bucket_name)
+            bucket = _worker_s3_resource.Bucket(bucket_name)
             
             # Download the file
             bucket.download_file(obj_key, target_path)
@@ -319,7 +335,7 @@ class Storage(object):
         
         num_processes = min(_S3_MAX_FILE_CONCURRENCY, len(download_tasks))
         
-        with multiprocessing.Pool(processes=num_processes) as pool:
+        with multiprocessing.Pool(processes=num_processes, initializer=Storage._init_s3_worker) as pool:
             results = pool.map(Storage._download_s3_object, download_tasks)
         
         # Process results and handle errors
