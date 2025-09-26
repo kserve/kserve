@@ -75,19 +75,17 @@ jobs:
 
       - name: Install KServe with LLM controller
         run: |
-          echo "🏗️ Installing KServe using standard CI deployment..."
+          echo "🏗️ Installing KServe base components (without main controller)..."
 
-          # Use the standard KServe installation process (handles all RBAC correctly)
-          make deploy-ci
+          # Replicate make deploy-ci but skip the main controller wait
+          make manifests
+          kubectl apply --server-side=true --force-conflicts -k config/crd
+          kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
+          kubectl apply --server-side=true -k config/overlays/test
+          # Skip: kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+          kubectl apply --server-side=true -k config/overlays/test/clusterresources
 
-          # Replace the main controller with the LLM controller
-          echo "🔄 Replacing main controller with LLM controller..."
-          kubectl delete deployment kserve-controller-manager -n kserve
-
-          # Install LLM CRDs (already installed by make deploy-ci, but ensure they're there)
-          # helm install llmisvc-crd ./charts/llmisvc-crd --namespace kserve --wait
-
-          # Deploy LLM controller using Helm chart with our built image
+          echo "🔄 Installing LLM controller instead of main controller..."
           helm install llmisvc ./charts/llmisvc-resources \
             --namespace kserve \
             --set kserve.llmisvc.controller.image="${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}" \
@@ -95,7 +93,7 @@ jobs:
             --set kserve.llmisvc.controller.imagePullPolicy="Never" \
             --wait --timeout=300s
 
-          # Wait for LLM controller to be ready
+          echo "⏳ Waiting for LLM controller to be ready..."
           kubectl wait --for=condition=ready pod -l control-plane=kserve-llmisvc-controller-manager -n kserve --timeout=300s
 
           echo "✅ KServe with LLM controller installation complete!"
