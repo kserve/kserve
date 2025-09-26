@@ -226,6 +226,8 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build KServe images
+        env:
+          LLMISVC_CONTROLLER_IMG: ${{ env.LLMISVC_CONTROLLER_IMG }}
         run: |
           sudo mkdir -p ${DOCKER_IMAGES_PATH}
           sudo chown -R $USER ${DOCKER_IMAGES_PATH}
