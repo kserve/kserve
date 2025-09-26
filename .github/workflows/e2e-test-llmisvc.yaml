@@ -227,7 +227,7 @@ jobs:
 
       - name: Build KServe images
         env:
-          LLMISVC_CONTROLLER_IMG: ${{ env.LLMISVC_CONTROLLER_IMG }}
+          LLMISVC_CONTROLLER_IMG: "llmisvc-controller"
         run: |
           sudo mkdir -p ${DOCKER_IMAGES_PATH}
           sudo chown -R $USER ${DOCKER_IMAGES_PATH}
