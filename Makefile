@@ -122,10 +122,6 @@ manifests: controller-gen yq
 	kubectl kustomize https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd?ref=$(GIE_VERSION) > charts/llmisvc-resources/templates/gateway-inference-extension.yaml
 	cp charts/llmisvc-resources/templates/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
 
-	# Copy the llmisvc templates
-	cp config/llmisvc/* charts/llmisvc-resources/templates/
-	rm charts/llmisvc-resources/templates/kustomization.yaml
-
 	#remove the required property on framework as name field needs to be optional
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	#remove ephemeralContainers properties for compress crd size https://github.com/kubeflow/kfserving/pull/1141#issuecomment-714170602
