@@ -72,7 +72,7 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 	var triggers []kedav1alpha1.ScaleTriggers
 
 	// metric configuration from componentExtension.AutoScaling if it is set
-	if componentExt.AutoScaling != nil {
+	if componentExt != nil && componentExt.AutoScaling != nil {
 		metrics := componentExt.AutoScaling.Metrics
 		for _, metric := range metrics {
 			switch metric.Type {
@@ -183,12 +183,16 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 ) (*kedav1alpha1.ScaledObject, error) {
 	annotations := componentMeta.GetAnnotations()
 
-	MinReplicas := componentExtension.MinReplicas
-	MaxReplicas := componentExtension.MaxReplicas
+	var MinReplicas *int32
+	var MaxReplicas int32
+	if componentExtension != nil {
+		MinReplicas = componentExtension.MinReplicas
+		MaxReplicas = componentExtension.MaxReplicas
+	}
 
 	var scaleDownStabilizationWindowSeconds, scaleUpStabilizationWindowSeconds *int32
 
-	if componentExtension.AutoScaling != nil && componentExtension.AutoScaling.Behavior != nil {
+	if componentExtension != nil && componentExtension.AutoScaling != nil && componentExtension.AutoScaling.Behavior != nil {
 		if sd := componentExtension.AutoScaling.Behavior.ScaleDown; sd != nil {
 			scaleDownStabilizationWindowSeconds = sd.StabilizationWindowSeconds
 		}

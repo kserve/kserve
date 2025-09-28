@@ -371,6 +371,45 @@ func TestCreateHPA(t *testing.T) {
 			},
 			err: nil,
 		},
+		{
+			name: "nil componentExt for createHPA",
+			args: args{
+				objectMeta: metav1.ObjectMeta{
+					Name:      "nil-component-ext",
+					Namespace: "default",
+				},
+				componentExt: nil,
+			},
+			expected: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "nil-component-ext",
+					Namespace: "default",
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "nil-component-ext",
+					},
+					MinReplicas: &defaultMinReplicas,
+					MaxReplicas: 1,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
+								Name: corev1.ResourceCPU,
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: &defaultUtilization,
+								},
+							},
+						},
+					},
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+				},
+			},
+			err: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -871,6 +910,22 @@ func TestGetHPAMetrics(t *testing.T) {
 						Target: autoscalingv2.MetricTarget{
 							Type:         autoscalingv2.AverageValueMetricType,
 							AverageValue: ptr.To(resource.MustParse("1Gi")),
+						},
+					},
+				},
+			},
+		},
+		{
+			name:         "nil componentExt should return default CPU metric",
+			componentExt: nil,
+			expectedSpecs: []autoscalingv2.MetricSpec{
+				{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
+						Name: corev1.ResourceCPU,
+						Target: autoscalingv2.MetricTarget{
+							Type:               autoscalingv2.UtilizationMetricType,
+							AverageUtilization: ptr.To(int32(80)),
 						},
 					},
 				},
