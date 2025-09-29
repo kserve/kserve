@@ -12,3 +12,6 @@ resources:
   - config-llm-scheduler.yaml
   - config-llm-template.yaml
   - config-llm-worker-data-parallel.yaml
+  - llmisvc-controller-deployment.yaml
+  - ../rbac/llmisvc/role.yaml
+  - llmisvc-rbac-binding.yaml

@@ -87,34 +87,19 @@ jobs:
 
       - name: Install KServe and LLM controller
         run: |
-          echo "🏗️ Installing complete KServe system with built images..."
+          echo "🏗️ Installing complete KServe system with LLM controller using built images..."
           # Set image tags to use our built images
           export CONTROLLER_IMG="${DOCKER_REPO}/${CONTROLLER_IMG}:${GITHUB_SHA}"
           export LOCALMODEL_CONTROLLER_IMG="${DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${GITHUB_SHA}"
           export LOCALMODEL_AGENT_IMG="${DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${GITHUB_SHA}"
+          export LLMISVC_CONTROLLER_IMG="${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${GITHUB_SHA}"
+
+          # Deploy everything including LLM controller (make deploy-ci now includes LLM controller deployment)
           make deploy-ci
 
-          echo "🔄 Installing LLM controller alongside KServe..."
-          # Install LLM controller with a different webhook service to avoid conflicts
-          helm install llmisvc ./charts/llmisvc-resources \
-            --namespace kserve \
-            --set kserve.llmisvc.controller.image="${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}" \
-            --set kserve.llmisvc.controller.tag="${GITHUB_SHA}" \
-            --set kserve.llmisvc.controller.imagePullPolicy="Never" \
-            --wait --timeout=300s
-
-          echo "⏳ Waiting for LLM controller to be ready..."
+          echo "⏳ Waiting for controllers to be ready..."
+          kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
           kubectl wait --for=condition=ready pod -l control-plane=kserve-llmisvc-controller-manager -n kserve --timeout=300s
-
-          echo "🔧 Updating LLM webhook configurations to use LLM controller service..."
-          # Point LLM webhooks to the LLM controller service instead of main controller
-          kubectl patch validatingwebhookconfiguration llminferenceservice.serving.kserve.io \
-            --type='json' \
-            -p='[{"op": "replace", "path": "/webhooks/0/clientConfig/service/name", "value": "kserve-llmisvc-controller-manager-service"}]'
-
-          kubectl patch validatingwebhookconfiguration llminferenceserviceconfig.serving.kserve.io \
-            --type='json' \
-            -p='[{"op": "replace", "path": "/webhooks/0/clientConfig/service/name", "value": "kserve-llmisvc-controller-manager-service"}]'
 
           echo "✅ KServe and LLM controller installation complete!"
           echo "📋 Controllers running:"
