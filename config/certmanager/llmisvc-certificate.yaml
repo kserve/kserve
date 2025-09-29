@@ -1,0 +1,15 @@
+# Certificate for LLM controller webhook
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: llmisvc-serving-cert
+  namespace: kserve
+spec:
+  # Use the same pattern as the main certificate but for LLM service
+  commonName: kserve-llmisvc-controller-manager-service.kserve.svc
+  dnsNames:
+    - kserve-llmisvc-controller-manager-service.kserve.svc
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: kserve-llmisvc-webhook-server-cert

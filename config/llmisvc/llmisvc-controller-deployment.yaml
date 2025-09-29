@@ -118,4 +118,4 @@ spec:
         - name: cert
           secret:
             defaultMode: 420
-            secretName: kserve-webhook-server-cert
+            secretName: kserve-llmisvc-webhook-server-cert
