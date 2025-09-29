@@ -22,3 +22,5 @@ resources:
   - llmisvc/role_binding.yaml
   - llmisvc/role.yaml
   - llmisvc/service_account.yaml
+  - llmisvc/leader_election_role.yaml
+  - llmisvc/leader_election_role_binding.yaml
