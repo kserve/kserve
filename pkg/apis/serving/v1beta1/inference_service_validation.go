@@ -526,7 +526,6 @@ func validateStorageURISpec(storageUri *StorageUri) error {
 // - Each individual URI specification is valid (non-empty URI, absolute path)
 // - All non-PVC paths share a common parent directory (not root)
 // - PVC paths are unique across the list
-// - The total number doesn't exceed the configured maximum
 //
 // Parameters:
 //   - storageURIs: List of storage URI specifications to validate
