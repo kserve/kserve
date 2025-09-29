@@ -17,11 +17,23 @@ concurrency:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  DOCKER_IMAGES_PATH: /mnt/docker-images
-  DOCKER_REPO: kserve
-  BASE_ARTIFACT_PREFIX: kserve-controller
-  LLMISVC_CONTROLLER_IMG: llmisvc-controller
-  STORAGE_INIT_IMG: storage-initializer
+  DOCKER_IMAGES_PATH: "/mnt/docker-images"
+  DOCKER_REPO: "kserve"
+  # artifact prefixes for bulk download
+  PREDICTOR_ARTIFACT_PREFIX: "pred"
+  EXPLAINER_ARTIFACT_PREFIX: "exp"
+  TRANSFORMER_ARTIFACT_PREFIX: "trans"
+  GRAPH_ARTIFACT_PREFIX: "graph"
+  BASE_ARTIFACT_PREFIX: "base"
+  # Controller images
+  CONTROLLER_IMG: "kserve-controller"
+  LOCALMODEL_CONTROLLER_IMG: "kserve-localmodel-controller"
+  LOCALMODEL_AGENT_IMG: "kserve-localmodelnode-agent"
+  STORAGE_INIT_IMG: "storage-initializer"
+  AGENT_IMG: "agent"
+  ROUTER_IMG: "router"
+  # LLM-specific images
+  LLMISVC_CONTROLLER_IMG: "llmisvc-controller"
 
 jobs:
   test-llmisvc:
@@ -58,7 +70,7 @@ jobs:
       - name: Download base images
         uses: ./.github/actions/base-download
 
-      - name: Download LLM controller and storage initializer images
+      - name: Download KServe and LLM controller images
         uses: actions/download-artifact@v4
         with:
           path: ./tmp
@@ -75,12 +87,15 @@ jobs:
 
       - name: Install KServe and LLM controller
         run: |
-          ./test/scripts/gh-actions/setup-kserve.sh
-          kubectl get pods -n kserve
-          kubectl describe pods -n kserve
-
+          echo "🏗️ Installing complete KServe system with built images..."
+          # Set image tags to use our built images
+          export CONTROLLER_IMG="${DOCKER_REPO}/${CONTROLLER_IMG}:${GITHUB_SHA}"
+          export LOCALMODEL_CONTROLLER_IMG="${DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${GITHUB_SHA}"
+          export LOCALMODEL_AGENT_IMG="${DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${GITHUB_SHA}"
+          make deploy-ci
 
           echo "🔄 Installing LLM controller alongside KServe..."
+          # Install LLM controller with a different webhook service to avoid conflicts
           helm install llmisvc ./charts/llmisvc-resources \
             --namespace kserve \
             --set kserve.llmisvc.controller.image="${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}" \
@@ -90,6 +105,16 @@ jobs:
 
           echo "⏳ Waiting for LLM controller to be ready..."
           kubectl wait --for=condition=ready pod -l control-plane=kserve-llmisvc-controller-manager -n kserve --timeout=300s
+
+          echo "🔧 Updating LLM webhook configurations to use LLM controller service..."
+          # Point LLM webhooks to the LLM controller service instead of main controller
+          kubectl patch validatingwebhookconfiguration llminferenceservice.serving.kserve.io \
+            --type='json' \
+            -p='[{"op": "replace", "path": "/webhooks/0/clientConfig/service/name", "value": "kserve-llmisvc-controller-manager-service"}]'
+
+          kubectl patch validatingwebhookconfiguration llminferenceserviceconfig.serving.kserve.io \
+            --type='json' \
+            -p='[{"op": "replace", "path": "/webhooks/0/clientConfig/service/name", "value": "kserve-llmisvc-controller-manager-service"}]'
 
           echo "✅ KServe and LLM controller installation complete!"
           echo "📋 Controllers running:"
@@ -119,13 +144,43 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build LLM images
+      - name: Build KServe and LLM images
         run: |
           sudo mkdir -p ${{ env.DOCKER_IMAGES_PATH }}
           sudo chown -R $USER ${{ env.DOCKER_IMAGES_PATH }}
-          ./test/scripts/gh-actions/build-llm-images.sh
+          # Build all KServe images using the standard script
+          ./test/scripts/gh-actions/build-images.sh
+          # Build LLM controller image
+          echo "Building LLM controller image"
+          LLMISVC_CONTROLLER_IMG_TAG=${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${GITHUB_SHA}
+          docker buildx build -f llmisvc-controller.Dockerfile . -t "${LLMISVC_CONTROLLER_IMG_TAG}" \
+            -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LLMISVC_CONTROLLER_IMG}-${GITHUB_SHA}",compression-level=0
           docker image ls
           sudo ls -lh ${{ env.DOCKER_IMAGES_PATH }}
+
+      - name: Upload KServe controller image
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.CONTROLLER_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CONTROLLER_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload localmodel controller image
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LOCALMODEL_CONTROLLER_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LOCALMODEL_CONTROLLER_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload localmodel agent image
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LOCALMODEL_AGENT_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LOCALMODEL_AGENT_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Upload LLM controller image
         uses: actions/upload-artifact@v4
