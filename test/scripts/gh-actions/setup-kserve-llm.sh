@@ -24,6 +24,10 @@ set -o pipefail
 DEPLOYMENT_MODE="${1:-'serverless'}"
 NETWORK_LAYER="${2:-'istio'}"
 
+echo "🏗️ Setting up dependencies (Gateway API, Istio, cert-manager)..."
+./test/scripts/gh-actions/setup-deps.sh "$DEPLOYMENT_MODE" "$NETWORK_LAYER" "false" "false"
+
+echo "🏗️ Deploying KServe with LLM controller using make deploy-ci-llm..."
 make deploy-ci-llm
 
 shopt -s nocasematch

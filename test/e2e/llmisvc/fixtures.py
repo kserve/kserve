@@ -52,6 +52,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "timeoutSeconds": 5,
                         "failureThreshold": 3,
                     },
+                    "securityContext": {
+                        "runAsNonRoot": False,  # Allow running as root for vLLM
+                        "runAsUser": 0,
+                    },
                 }
             ]
         },
@@ -83,6 +87,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "timeoutSeconds": 5,
                         "failureThreshold": 3,
                     },
+                    "securityContext": {
+                        "runAsNonRoot": False,  # Allow running as root for vLLM
+                        "runAsUser": 0,
+                    },
                 }
             ]
         },
@@ -112,6 +120,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                             "periodSeconds": 10,
                             "timeoutSeconds": 5,
                             "failureThreshold": 3,
+                        },
+                        "securityContext": {
+                            "runAsNonRoot": False,  # Allow running as root for vLLM
+                            "runAsUser": 0,
                         },
                     }
                 ]
@@ -334,6 +346,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "limits": {"cpu": "2", "memory": "16Gi"},
                         "requests": {"cpu": "1", "memory": "8Gi"},
                     },
+                    "securityContext": {
+                        "runAsNonRoot": False,  # Allow running as root for vLLM
+                        "runAsUser": 0,
+                    },
                 }
             ]
         },
@@ -358,6 +374,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "resources": {
                         "limits": {"cpu": "2", "memory": "16Gi"},
                         "requests": {"cpu": "1", "memory": "8Gi"},
+                    },
+                    "securityContext": {
+                        "runAsNonRoot": False,  # Allow running as root for vLLM
+                        "runAsUser": 0,
                     },
                 }
             ]
