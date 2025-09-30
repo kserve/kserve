@@ -119,7 +119,7 @@ manifests: controller-gen yq
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.worker.required)' -i config/crd/full/serving.kserve.io_llminferenceservices.yaml
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.template.required)' -i config/crd/full/serving.kserve.io_llminferenceservices.yaml
 
-	kubectl kustomize https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd?ref=$(GIE_VERSION) > charts/llmisvc-resources/templates/gateway-inference-extension.yaml
+	kubectl kustomize https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > charts/llmisvc-resources/templates/gateway-inference-extension.yaml
 	cp charts/llmisvc-resources/templates/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
 	cp charts/llmisvc-resources/templates/gateway-inference-extension.yaml config/llmisvc/gateway-inference-extension.yaml
 
