@@ -82,32 +82,22 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Setup UV
+      - name: Install UV
         run: ./test/scripts/gh-actions/setup-uv.sh
 
-      - name: Install KServe and LLM controller
+      - name: Install KServe
         run: |
-          echo "🏗️ Installing complete KServe system with LLM controller using built images..."
-          # Set image tags to use our built images
-          export CONTROLLER_IMG_TAG="${DOCKER_REPO}/${CONTROLLER_IMG}:${GITHUB_SHA}"
-          export LOCALMODEL_CONTROLLER_IMG_TAG="${DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${GITHUB_SHA}"
-          export LOCALMODEL_AGENT_IMG_TAG="${DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${GITHUB_SHA}"
+          echo "🏗️ Installing KServe using standard setup script..."
+          # Use the standard KServe setup script (includes make deploy-ci + uv sync)
+          ./test/scripts/gh-actions/setup-kserve.sh "raw" "istio-gatewayapi"
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Configure LLM controller
+        run: |
+          echo "🔧 Configuring LLM controller with custom image and webhooks..."
           export LLMISVC_CONTROLLER_IMG_TAG="${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${GITHUB_SHA}"
-
-          echo "Image tags being used:"
-          echo "CONTROLLER_IMG_TAG=$CONTROLLER_IMG_TAG"
-          echo "LOCALMODEL_CONTROLLER_IMG_TAG=$LOCALMODEL_CONTROLLER_IMG_TAG"
-          echo "LOCALMODEL_AGENT_IMG_TAG=$LOCALMODEL_AGENT_IMG_TAG"
-          echo "LLMISVC_CONTROLLER_IMG_TAG=$LLMISVC_CONTROLLER_IMG_TAG"
-
-          echo "📋 Checking available Docker images..."
-          docker images | grep -E "(kserve|llmisvc)" | head -10
-
-          # Deploy everything including LLM controller (make deploy-ci now includes LLM controller deployment)
-          make deploy-ci
-
-          echo "⏳ Waiting for main KServe controller to be ready..."
-          kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 
           echo "🔍 Verifying LLM controller image is available..."
           # Extract just the image name and tag for verification
@@ -203,7 +193,7 @@ jobs:
           kubectl get validatingwebhookconfiguration llminferenceserviceconfig.serving.kserve.io -o json | jq --arg ca_bundle "$LLM_CA_BUNDLE" '.webhooks[0].clientConfig.caBundle = $ca_bundle' | kubectl replace -f -
           kubectl get validatingwebhookconfiguration llminferenceservice.serving.kserve.io -o json | jq --arg ca_bundle "$LLM_CA_BUNDLE" '.webhooks[0].clientConfig.caBundle = $ca_bundle' | kubectl replace -f -
 
-          echo "✅ KServe and LLM controller installation complete!"
+          echo "✅ LLM controller configuration complete!"
           echo "📋 Controllers running:"
           kubectl get pods -n kserve -l control-plane
 
