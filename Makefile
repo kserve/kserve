@@ -282,12 +282,18 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 	kubectl apply --server-side=true -k config/overlays/dev-image-config
 
 deploy-ci: manifests
-	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
-	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
-	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
+	# Deploy standard KServe without LLM controller
+	kubectl apply --server-side=true --force-conflicts -k config/crd
+	kubectl apply --server-side=true -k config/overlays/test
+	# TODO: Add runtimes as part of default deployment
+	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+	kubectl apply --server-side=true -k config/overlays/test/clusterresources
+
+deploy-ci-llm: manifests
+	# Deploy KServe with LLM controller
 	kubectl apply --server-side=true --force-conflicts -k config/crd
 	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
-	kubectl apply --server-side=true -k config/overlays/test
+	kubectl apply --server-side=true -k config/overlays/test-llm
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 	kubectl apply --server-side=true -k config/overlays/test/clusterresources

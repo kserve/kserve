@@ -85,117 +85,30 @@ jobs:
       - name: Install UV
         run: ./test/scripts/gh-actions/setup-uv.sh
 
-      - name: Install KServe
+      - name: Install KServe with LLM controller
         run: |
-          echo "🏗️ Installing KServe using standard setup script..."
-          # Use the standard KServe setup script (includes make deploy-ci + uv sync)
-          ./test/scripts/gh-actions/setup-kserve.sh "raw" "istio-gatewayapi"
+          echo "🏗️ Installing KServe with LLM controller using dedicated setup script..."
+          # Use the LLM-specific setup script (includes make deploy-ci-llm + uv sync)
+          ./test/scripts/gh-actions/setup-kserve-llm.sh "raw" "istio-gatewayapi"
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
 
       - name: Configure LLM controller
         run: |
-          echo "🔧 Configuring LLM controller with custom image and webhooks..."
+          echo "🔧 Configuring LLM controller using dedicated script..."
           export LLMISVC_CONTROLLER_IMG_TAG="${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${GITHUB_SHA}"
 
-          echo "🔍 Verifying LLM controller image is available..."
-          # Extract just the image name and tag for verification
-          LLMISVC_IMG_NAME=$(echo "$LLMISVC_CONTROLLER_IMG_TAG" | cut -d':' -f1)
-          LLMISVC_IMG_TAG=$(echo "$LLMISVC_CONTROLLER_IMG_TAG" | cut -d':' -f2)
+          # Use the dedicated script for LLM controller configuration
+          ./test/scripts/gh-actions/configure-llmisvc.sh
 
-          echo "Looking for image: $LLMISVC_IMG_NAME with tag: $LLMISVC_IMG_TAG"
-          echo "Available llmisvc images:"
-          docker images | grep llmisvc || echo "No llmisvc images found"
-
-          # Check if the specific image and tag exist
-          if ! docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${LLMISVC_IMG_NAME}:${LLMISVC_IMG_TAG}$"; then
-            echo "❌ LLM controller image $LLMISVC_CONTROLLER_IMG_TAG not found!"
-            echo "All available images:"
-            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}" | head -15
-            exit 1
-          fi
-          echo "✅ LLM controller image $LLMISVC_CONTROLLER_IMG_TAG is available"
-
-          echo "📋 Checking initial LLM controller deployment state..."
-          kubectl get deployment kserve-llmisvc-controller-manager -n kserve -o jsonpath='{.spec.template.spec.containers[0].image}'
-          echo ""
-          kubectl get pods -n kserve -l control-plane=kserve-llmisvc-controller-manager -o wide
-
-          echo "🔧 Patching LLM controller deployment with correct image tag and volume mount..."
-          kubectl patch deployment kserve-llmisvc-controller-manager -n kserve --type='merge' -p="{
-            \"spec\": {
-              \"template\": {
-                \"spec\": {
-                  \"containers\": [{
-                    \"name\": \"manager\",
-                    \"image\": \"$LLMISVC_CONTROLLER_IMG_TAG\",
-                    \"imagePullPolicy\": \"Never\",
-                    \"volumeMounts\": [{
-                      \"mountPath\": \"/tmp/k8s-webhook-server/serving-certs\",
-                      \"name\": \"cert\",
-                      \"readOnly\": true
-                    }]
-                  }]
-                }
-              }
-            }
-          }"
-
-          echo "📋 Checking LLM controller deployment status..."
-          kubectl get deployment kserve-llmisvc-controller-manager -n kserve -o wide
-
-          echo "📋 Checking LLM controller pod status..."
-          kubectl get pods -n kserve -l control-plane=kserve-llmisvc-controller-manager -o wide
-
-          echo "📋 Waiting for deployment rollout to complete..."
-          kubectl rollout status deployment/kserve-llmisvc-controller-manager -n kserve --timeout=120s
-
-          echo "⏳ Waiting for LLM controller to be ready (with detailed monitoring)..."
-
-          # First check if deployment is available (which it should be based on the logs)
-          if kubectl wait --for=condition=available deployment/kserve-llmisvc-controller-manager -n kserve --timeout=60s; then
-            echo "✅ LLM controller deployment is available!"
-            
-            # Check if pods are running (even if readiness probe might be failing)
-            if kubectl get pods -n kserve -l control-plane=kserve-llmisvc-controller-manager | grep -q "Running"; then
-              echo "✅ LLM controller pod is running!"
-              
-              # Try to wait for ready, but don't fail if it times out since the controller is clearly working
-              if kubectl wait --for=condition=ready pod -l control-plane=kserve-llmisvc-controller-manager -n kserve --timeout=60s; then
-                echo "✅ LLM controller pod is ready!"
-              else
-                echo "⚠️ Pod readiness check timed out, but controller appears to be working based on logs"
-                echo "📋 Checking if webhook server is responding..."
-                kubectl logs -n kserve -l control-plane=kserve-llmisvc-controller-manager --tail=10 | grep -E "(webhook|server|ready)" || true
-                echo "📋 Final pod status:"
-                kubectl get pods -n kserve -l control-plane=kserve-llmisvc-controller-manager -o wide
-                echo "🔄 Continuing with webhook configuration since controller is running..."
-              fi
-            else
-              echo "❌ LLM controller pod is not running. Debugging..."
-              kubectl get pods -n kserve -l control-plane=kserve-llmisvc-controller-manager -o wide
-              kubectl logs -n kserve -l control-plane=kserve-llmisvc-controller-manager --tail=20 || true
-              exit 1
-            fi
-          else
-            echo "❌ LLM controller deployment failed to become available. Debugging..."
-            kubectl describe deployment kserve-llmisvc-controller-manager -n kserve
-            exit 1
-          fi
-
-          echo "🔧 Updating webhook configurations to point to LLM controller..."
-          kubectl patch validatingwebhookconfiguration llminferenceserviceconfig.serving.kserve.io --type='json' -p='[{"op": "replace", "path": "/webhooks/0/clientConfig/service/name", "value": "kserve-llmisvc-controller-manager-service"}]'
-          kubectl patch validatingwebhookconfiguration llminferenceservice.serving.kserve.io --type='json' -p='[{"op": "replace", "path": "/webhooks/0/clientConfig/service/name", "value": "kserve-llmisvc-controller-manager-service"}]'
-
-          echo "🔧 Updating webhook CA bundles..."
-          LLM_CA_BUNDLE=$(kubectl get secret kserve-llmisvc-webhook-server-cert -n kserve -o jsonpath='{.data.ca\.crt}')
-          kubectl get validatingwebhookconfiguration llminferenceserviceconfig.serving.kserve.io -o json | jq --arg ca_bundle "$LLM_CA_BUNDLE" '.webhooks[0].clientConfig.caBundle = $ca_bundle' | kubectl replace -f -
-          kubectl get validatingwebhookconfiguration llminferenceservice.serving.kserve.io -o json | jq --arg ca_bundle "$LLM_CA_BUNDLE" '.webhooks[0].clientConfig.caBundle = $ca_bundle' | kubectl replace -f -
-
-          echo "✅ LLM controller configuration complete!"
-          echo "📋 Controllers running:"
-          kubectl get pods -n kserve -l control-plane
+      - name: Fix webhook template variables
+        run: |
+          echo "🔧 Fixing remaining template variables in webhooks..."
+          # Fix the namespace template variable in both webhook configurations
+          kubectl patch validatingwebhookconfiguration llminferenceserviceconfig.serving.kserve.io --type='json' -p='[{"op": "replace", "path": "/webhooks/0/clientConfig/service/namespace", "value": "kserve"}]'
+          kubectl patch validatingwebhookconfiguration llminferenceservice.serving.kserve.io --type='json' -p='[{"op": "replace", "path": "/webhooks/0/clientConfig/service/namespace", "value": "kserve"}]'
+          echo "✅ All template variables fixed!"
 
       - name: Run E2E tests
         timeout-minutes: 30

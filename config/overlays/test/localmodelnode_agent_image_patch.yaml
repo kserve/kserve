@@ -8,8 +8,8 @@ spec:
     spec:
       containers:
         - name: manager
-          image: kserve/kserve-localmodelnode-agent:latest
-          imagePullPolicy: IfNotPresent
+          image: kserve/kserve-localmodelnode-agent:local-test
+          imagePullPolicy: Never
           resources:
             limits:
               cpu: 100m

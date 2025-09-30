@@ -37,10 +37,20 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "requests": {"cpu": "1", "memory": "8Gi"},
                     },
                     "livenessProbe": {
-                        "initialDelaySeconds": 30,
+                        "initialDelaySeconds": 120,  # Allow 2 minutes for model download/init
                         "periodSeconds": 30,
                         "timeoutSeconds": 30,
                         "failureThreshold": 5,
+                    },
+                    "readinessProbe": {
+                        "httpGet": {
+                            "path": "/health",
+                            "port": 8000,
+                        },
+                        "initialDelaySeconds": 30,
+                        "periodSeconds": 10,
+                        "timeoutSeconds": 5,
+                        "failureThreshold": 3,
                     },
                 }
             ]
@@ -57,6 +67,22 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "limits": {"cpu": "2", "memory": "10Gi"},
                         "requests": {"cpu": "1", "memory": "8Gi"},
                     },
+                    "livenessProbe": {
+                        "initialDelaySeconds": 120,  # Allow 2 minutes for model download/init
+                        "periodSeconds": 30,
+                        "timeoutSeconds": 30,
+                        "failureThreshold": 5,
+                    },
+                    "readinessProbe": {
+                        "httpGet": {
+                            "path": "/health",
+                            "port": 8000,
+                        },
+                        "initialDelaySeconds": 30,
+                        "periodSeconds": 10,
+                        "timeoutSeconds": 5,
+                        "failureThreshold": 3,
+                    },
                 }
             ]
         },
@@ -70,6 +96,22 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "resources": {
                             "limits": {"cpu": "2", "memory": "10Gi"},
                             "requests": {"cpu": "1", "memory": "8Gi"},
+                        },
+                        "livenessProbe": {
+                            "initialDelaySeconds": 120,  # Allow 2 minutes for model download/init
+                            "periodSeconds": 30,
+                            "timeoutSeconds": 30,
+                            "failureThreshold": 5,
+                        },
+                        "readinessProbe": {
+                            "httpGet": {
+                                "path": "/health",
+                                "port": 8000,
+                            },
+                            "initialDelaySeconds": 30,
+                            "periodSeconds": 10,
+                            "timeoutSeconds": 5,
+                            "failureThreshold": 3,
                         },
                     }
                 ]

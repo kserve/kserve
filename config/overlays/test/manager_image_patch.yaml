@@ -9,8 +9,8 @@ spec:
       containers:
         - name: manager
           command:
-          image: kserve/kserve-controller:latest
-          imagePullPolicy: IfNotPresent
+          image: kserve/kserve-controller:local-test
+          imagePullPolicy: Never
           resources:
             limits:
               cpu: 100m
