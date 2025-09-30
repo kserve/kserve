@@ -54,6 +54,17 @@ EOF
 fi
 shopt -u nocasematch
 
+echo "🔧 Installing Gateway API Inference Extension CRDs..."
+# Install required CRDs for InferenceModel and InferencePool
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/v0.5.0/config/crd/bases/inference.networking.x-k8s.io_inferencemodels.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/gateway-api-inference-extension/v0.5.0/config/crd/bases/inference.networking.x-k8s.io_inferencepools.yaml
+
+# Wait for CRDs to be established
+kubectl wait --for=condition=established --timeout=60s crd/inferencemodels.inference.networking.x-k8s.io
+kubectl wait --for=condition=established --timeout=60s crd/inferencepools.inference.networking.x-k8s.io
+
+echo "✅ Gateway API Inference Extension CRDs installed"
+
 echo "Waiting for KServe and LLM controller started ..."
 kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
 kubectl get events -A

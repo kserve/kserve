@@ -70,10 +70,132 @@ echo "🔧 Updating webhook configurations to point to LLM controller..."
 kubectl patch validatingwebhookconfiguration llminferenceserviceconfig.serving.kserve.io --type='json' -p='[{"op": "replace", "path": "/webhooks/0/clientConfig/service/name", "value": "kserve-llmisvc-controller-manager-service"}]'
 kubectl patch validatingwebhookconfiguration llminferenceservice.serving.kserve.io --type='json' -p='[{"op": "replace", "path": "/webhooks/0/clientConfig/service/name", "value": "kserve-llmisvc-controller-manager-service"}]'
 
+echo "🔧 Fixing remaining template variables in webhooks..."
+# Fix the namespace template variable in both webhook configurations
+kubectl patch validatingwebhookconfiguration llminferenceserviceconfig.serving.kserve.io --type='json' -p='[{"op": "replace", "path": "/webhooks/0/clientConfig/service/namespace", "value": "kserve"}]'
+kubectl patch validatingwebhookconfiguration llminferenceservice.serving.kserve.io --type='json' -p='[{"op": "replace", "path": "/webhooks/0/clientConfig/service/namespace", "value": "kserve"}]'
+echo "✅ All template variables fixed!"
+
 echo "🔧 Updating webhook CA bundles..."
 LLM_CA_BUNDLE=$(kubectl get secret kserve-llmisvc-webhook-server-cert -n kserve -o jsonpath='{.data.ca\.crt}')
 kubectl get validatingwebhookconfiguration llminferenceserviceconfig.serving.kserve.io -o json | jq --arg ca_bundle "$LLM_CA_BUNDLE" '.webhooks[0].clientConfig.caBundle = $ca_bundle' | kubectl replace -f -
 kubectl get validatingwebhookconfiguration llminferenceservice.serving.kserve.io -o json | jq --arg ca_bundle "$LLM_CA_BUNDLE" '.webhooks[0].clientConfig.caBundle = $ca_bundle' | kubectl replace -f -
+
+echo "🔧 Setting up EPP (Endpoint Picker Plugin) controller for InferencePool management..."
+# Create RBAC for EPP controller
+kubectl apply -f - << 'EOF'
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: epp-controller
+rules:
+- apiGroups: ["inference.networking.x-k8s.io"]
+  resources: ["inferencepools", "inferencemodels"]
+  verbs: ["get", "watch", "list", "update", "patch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["authentication.k8s.io"]
+  resources: ["tokenreviews"]
+  verbs: ["create"]
+- apiGroups: ["authorization.k8s.io"]
+  resources: ["subjectaccessreviews"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: epp-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: epp-controller
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: kserve-ci-e2e-test
+EOF
+
+echo "🔧 Setting up EPP controller monitoring for InferencePools..."
+# Create a background script to monitor and create EPP controllers as needed
+cat > /tmp/epp-monitor.sh << 'EOF'
+#!/bin/bash
+while true; do
+  # Check for InferencePools that need EPP controllers
+  for pool in $(kubectl get inferencepools -A -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name}{"\n"}{end}'); do
+    namespace=$(echo $pool | cut -d'/' -f1)
+    name=$(echo $pool | cut -d'/' -f2)
+    epp_name="${name}-epp"
+    
+    # Check if EPP service already exists
+    if ! kubectl get service "$epp_name-service" -n "$namespace" >/dev/null 2>&1; then
+      echo "Creating EPP controller for InferencePool $namespace/$name"
+      
+      # Create EPP service
+      kubectl apply -f - << EOFINNER
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${epp_name}-service
+  namespace: $namespace
+spec:
+  selector:
+    app: ${epp_name}
+  ports:
+    - protocol: TCP
+      port: 9002
+      targetPort: 9002
+      appProtocol: http2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${epp_name}
+  namespace: $namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ${epp_name}
+  template:
+    metadata:
+      labels:
+        app: ${epp_name}
+    spec:
+      containers:
+      - name: epp
+        image: registry.k8s.io/gateway-api-inference-extension/epp:v0.5.0
+        args:
+          - --poolName=${name}
+          - --poolNamespace=${namespace}
+          - --v=4
+        ports:
+          - containerPort: 9002
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          grpc:
+            port: 9002
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          grpc:
+            port: 9002
+          initialDelaySeconds: 5
+          periodSeconds: 5
+EOFINNER
+    fi
+  done
+  sleep 10
+done
+EOF
+
+chmod +x /tmp/epp-monitor.sh
+# Start the monitor in the background
+/tmp/epp-monitor.sh &
+echo "✅ EPP controller monitoring started"
 
 echo "✅ LLM controller configuration complete!"
 echo "📋 Controllers running:"

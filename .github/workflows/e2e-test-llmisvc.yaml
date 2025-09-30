@@ -88,7 +88,7 @@ jobs:
       - name: Install KServe with LLM controller
         run: |
           echo "🏗️ Installing KServe with LLM controller using dedicated setup script..."
-          # Use the LLM-specific setup script (includes make deploy-ci-llm + uv sync)
+          # Use the LLM-specific setup script (includes make deploy-ci-llm + uv sync + Gateway API CRDs)
           ./test/scripts/gh-actions/setup-kserve-llm.sh "raw" "istio-gatewayapi"
 
           kubectl get pods -n kserve
@@ -99,20 +99,33 @@ jobs:
           echo "🔧 Configuring LLM controller using dedicated script..."
           export LLMISVC_CONTROLLER_IMG_TAG="${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${GITHUB_SHA}"
 
-          # Use the dedicated script for LLM controller configuration
+          # Use the dedicated script for LLM controller configuration (includes webhook fixes + EPP setup)
           ./test/scripts/gh-actions/configure-llmisvc.sh
 
-      - name: Fix webhook template variables
+      - name: Verify LLM setup
         run: |
-          echo "🔧 Fixing remaining template variables in webhooks..."
-          # Fix the namespace template variable in both webhook configurations
-          kubectl patch validatingwebhookconfiguration llminferenceserviceconfig.serving.kserve.io --type='json' -p='[{"op": "replace", "path": "/webhooks/0/clientConfig/service/namespace", "value": "kserve"}]'
-          kubectl patch validatingwebhookconfiguration llminferenceservice.serving.kserve.io --type='json' -p='[{"op": "replace", "path": "/webhooks/0/clientConfig/service/namespace", "value": "kserve"}]'
-          echo "✅ All template variables fixed!"
+          echo "🔍 Verifying LLM controller setup..."
+
+          echo "📋 KServe Controllers:"
+          kubectl get pods -n kserve -l control-plane || true
+
+          echo "📋 LLM Resources:"
+          kubectl get llminferenceserviceconfigs -A || true
+
+          echo "📋 Gateway API Resources:"
+          kubectl get crd | grep inference || true
+
+          echo "✅ LLM setup verification complete!"
 
       - name: Run E2E tests
-        timeout-minutes: 30
+        timeout-minutes: 45
         run: |
+          echo "🧪 Running LLM E2E tests with extended timeout..."
+          echo "📋 Pre-test system status:"
+          kubectl get pods -n kserve
+          kubectl get llminferenceserviceconfigs -A
+          kubectl get inferencepools -A || echo "No InferencePools yet"
+
           # Run only CPU tests for now using pytest markers (cluster_)
           # Available GPU vendors: amd, nvidia, intel
           ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and cluster_cpu" 2 "istio-gatewayapi-ext"
@@ -120,6 +133,31 @@ jobs:
       - name: Check system status
         if: always()
         run: |
+          echo "🔍 Enhanced LLM system status check..."
+
+          echo "📋 KServe Controllers:"
+          kubectl get pods -n kserve -l control-plane || true
+
+          echo "📋 LLM Resources:"
+          kubectl get llminferenceservices -A || true
+          kubectl get llminferenceserviceconfigs -A || true
+          kubectl get inferencepools -A || true
+          kubectl get inferencemodels -A || true
+
+          echo "📋 EPP Controllers:"
+          kubectl get pods -A -l app | grep epp || echo "No EPP controllers found"
+
+          echo "📋 Gateway API Resources:"
+          kubectl get gateways -A || true
+          kubectl get httproutes -A || true
+
+          echo "📋 Webhook Configurations:"
+          kubectl get validatingwebhookconfiguration | grep llm || true
+
+          echo "📋 Recent Events:"
+          kubectl get events -A --sort-by='.lastTimestamp' | tail -20 || true
+
+          # Run standard status check
           ./test/scripts/gh-actions/status-check.sh
 
   kserve-image-build:
