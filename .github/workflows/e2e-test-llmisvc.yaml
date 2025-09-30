@@ -89,17 +89,37 @@ jobs:
         run: |
           echo "🏗️ Installing complete KServe system with LLM controller using built images..."
           # Set image tags to use our built images
-          export CONTROLLER_IMG="${DOCKER_REPO}/${CONTROLLER_IMG}:${GITHUB_SHA}"
-          export LOCALMODEL_CONTROLLER_IMG="${DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${GITHUB_SHA}"
-          export LOCALMODEL_AGENT_IMG="${DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${GITHUB_SHA}"
-          export LLMISVC_CONTROLLER_IMG="${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${GITHUB_SHA}"
+          export CONTROLLER_IMG_TAG="${DOCKER_REPO}/${CONTROLLER_IMG}:${GITHUB_SHA}"
+          export LOCALMODEL_CONTROLLER_IMG_TAG="${DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${GITHUB_SHA}"
+          export LOCALMODEL_AGENT_IMG_TAG="${DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${GITHUB_SHA}"
+          export LLMISVC_CONTROLLER_IMG_TAG="${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${GITHUB_SHA}"
+
+          echo "Image tags being used:"
+          echo "CONTROLLER_IMG_TAG=$CONTROLLER_IMG_TAG"
+          echo "LOCALMODEL_CONTROLLER_IMG_TAG=$LOCALMODEL_CONTROLLER_IMG_TAG"
+          echo "LOCALMODEL_AGENT_IMG_TAG=$LOCALMODEL_AGENT_IMG_TAG"
+          echo "LLMISVC_CONTROLLER_IMG_TAG=$LLMISVC_CONTROLLER_IMG_TAG"
 
           # Deploy everything including LLM controller (make deploy-ci now includes LLM controller deployment)
           make deploy-ci
 
-          echo "⏳ Waiting for controllers to be ready..."
+          echo "⏳ Waiting for main KServe controller to be ready..."
           kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+
+          echo "🔧 Patching LLM controller deployment with correct image tag..."
+          kubectl patch deployment kserve-llmisvc-controller-manager -n kserve --type='merge' -p="{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"manager\",\"image\":\"$LLMISVC_CONTROLLER_IMG_TAG\"}]}}}}"
+
+          echo "⏳ Waiting for LLM controller to be ready..."
           kubectl wait --for=condition=ready pod -l control-plane=kserve-llmisvc-controller-manager -n kserve --timeout=300s
+
+          echo "🔧 Updating webhook configurations to point to LLM controller..."
+          kubectl patch validatingwebhookconfiguration llminferenceserviceconfig.serving.kserve.io --type='json' -p='[{"op": "replace", "path": "/webhooks/0/clientConfig/service/name", "value": "kserve-llmisvc-controller-manager-service"}]'
+          kubectl patch validatingwebhookconfiguration llminferenceservice.serving.kserve.io --type='json' -p='[{"op": "replace", "path": "/webhooks/0/clientConfig/service/name", "value": "kserve-llmisvc-controller-manager-service"}]'
+
+          echo "🔧 Updating webhook CA bundles..."
+          LLM_CA_BUNDLE=$(kubectl get secret kserve-llmisvc-webhook-server-cert -n kserve -o jsonpath='{.data.ca\.crt}')
+          kubectl get validatingwebhookconfiguration llminferenceserviceconfig.serving.kserve.io -o json | jq --arg ca_bundle "$LLM_CA_BUNDLE" '.webhooks[0].clientConfig.caBundle = $ca_bundle' | kubectl replace -f -
+          kubectl get validatingwebhookconfiguration llminferenceservice.serving.kserve.io -o json | jq --arg ca_bundle "$LLM_CA_BUNDLE" '.webhooks[0].clientConfig.caBundle = $ca_bundle' | kubectl replace -f -
 
           echo "✅ KServe and LLM controller installation complete!"
           echo "📋 Controllers running:"
