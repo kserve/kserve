@@ -110,10 +110,19 @@ jobs:
           kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 
           echo "🔍 Verifying LLM controller image is available..."
-          if ! docker images | grep -q "$LLMISVC_CONTROLLER_IMG_TAG"; then
+          # Extract just the image name and tag for verification
+          LLMISVC_IMG_NAME=$(echo "$LLMISVC_CONTROLLER_IMG_TAG" | cut -d':' -f1)
+          LLMISVC_IMG_TAG=$(echo "$LLMISVC_CONTROLLER_IMG_TAG" | cut -d':' -f2)
+
+          echo "Looking for image: $LLMISVC_IMG_NAME with tag: $LLMISVC_IMG_TAG"
+          echo "Available llmisvc images:"
+          docker images | grep llmisvc || echo "No llmisvc images found"
+
+          # Check if the specific image and tag exist
+          if ! docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${LLMISVC_IMG_NAME}:${LLMISVC_IMG_TAG}$"; then
             echo "❌ LLM controller image $LLMISVC_CONTROLLER_IMG_TAG not found!"
-            echo "Available images:"
-            docker images | grep llmisvc || echo "No llmisvc images found"
+            echo "All available images:"
+            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}" | head -15
             exit 1
           fi
           echo "✅ LLM controller image $LLMISVC_CONTROLLER_IMG_TAG is available"
