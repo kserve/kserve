@@ -21,6 +21,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/go-logr/logr"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -34,10 +36,9 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/common"
 	"github.com/kserve/kserve/pkg/utils"
 )
-
-var log = logf.Log.WithName("ServiceReconciler")
 
 // ServiceReconciler is the struct of Raw K8S Object
 type ServiceReconciler struct {
@@ -45,6 +46,7 @@ type ServiceReconciler struct {
 	scheme       *runtime.Scheme
 	ServiceList  []*corev1.Service
 	componentExt *v1beta1.ComponentExtensionSpec
+	logger       logr.Logger
 }
 
 func NewServiceReconciler(client client.Client,
@@ -59,6 +61,7 @@ func NewServiceReconciler(client client.Client,
 		scheme:       scheme,
 		ServiceList:  createService(componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
 		componentExt: componentExt,
+		logger:       logf.Log.WithName("ServiceReconciler"),
 	}
 }
 
@@ -216,6 +219,7 @@ func createHeadlessSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
 }
 
 func (r *ServiceReconciler) cleanHeadSvc(ctx context.Context) error {
+	_, logger, _ := common.LoggerWithFallback(ctx, r.logger)
 	svcList := &corev1.ServiceList{}
 	if err := r.client.List(ctx, svcList, client.MatchingLabels{
 		constants.MultiNodeRoleLabelKey: constants.MultiNodeHead,
@@ -237,9 +241,9 @@ func (r *ServiceReconciler) cleanHeadSvc(ctx context.Context) error {
 		if err == nil {
 			err := r.client.Delete(ctx, existingService)
 			if err != nil {
-				log.Error(err, "Failed to delete service", "name", existingService.Name)
+				logger.Error(err, "Failed to delete service", "name", existingService.Name)
 			} else {
-				log.Info("Deleted service", "name", existingService.Name, "namespace", existingService.Namespace)
+				logger.Info("Deleted service", "name", existingService.Name, "namespace", existingService.Namespace)
 			}
 		}
 	}
@@ -289,6 +293,15 @@ func semanticServiceEquals(desired, existing *corev1.Service) bool {
 
 // Reconcile ...
 func (r *ServiceReconciler) Reconcile(ctx context.Context) ([]*corev1.Service, error) {
+	var fromContext bool
+	ctx, log, fromContext := common.LoggerWithFallback(ctx, r.logger)
+	// Only add the reconciler name when the logger already came from the request context
+	// so we preserve the contextual fields (like trace IDs) without duplicating names on fallbacks.
+	if fromContext {
+		log = log.WithName("ServiceReconciler")
+		ctx = logr.NewContext(ctx, log)
+	}
+	log.Info("Reconciling services")
 	for _, svc := range r.ServiceList {
 		// reconcile Service
 		checkResult, _, err := r.checkServiceExist(ctx, r.client, svc)
@@ -318,5 +331,6 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context) ([]*corev1.Service, e
 	if len(r.ServiceList) > 1 {
 		r.cleanHeadSvc(ctx)
 	}
+	log.Info("Finished reconciling services")
 	return r.ServiceList, nil
 }

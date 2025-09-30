@@ -72,6 +72,7 @@ const (
 
 func setupTracing(ctx context.Context) (func(context.Context) error, error) {
 	logger := ctrl.Log.WithName("tracing")
+	// TODO: Make OTEL_COLLECTOR_ENDPOINT configurable??
 	endpoint := os.Getenv("OTEL_COLLECTOR_ENDPOINT")
 	if endpoint == "" {
 		endpoint = "localhost:4317"
