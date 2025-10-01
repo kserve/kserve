@@ -119,11 +119,6 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	predictor := isvc.Spec.Predictor.GetImplementation()
 
 	sourceURI := predictor.GetStorageUri()
-	storageURIs := isvc.Spec.Predictor.StorageUris
-
-	if sourceURI != nil && storageURIs != nil {
-		return ctrl.Result{}, errors.New("Setting both StorageURI and StorageURIs is not supported.")
-	}
 
 	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data

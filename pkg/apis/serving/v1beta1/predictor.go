@@ -81,7 +81,7 @@ type StorageUri struct {
 	// +kubebuilder:validation:Pattern="^/.*"
 	// +kubebuilder:validation:MaxLength=255
 	// +optional
-	Path string `json:"path"`
+	MountPath string `json:"mountPath"`
 }
 
 type WorkerSpec struct {

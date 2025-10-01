@@ -4033,8 +4033,8 @@ func TestCommonStorageInitialization(t *testing.T) {
 	}{
 		"Multiple Cloud Storage URIs": {
 			storageURIs: []v1beta1.StorageUri{
-				{Uri: "s3://bucket/model", Path: "/mnt/models/base"},
-				{Uri: "gs://bucket/adapter", Path: "/mnt/models/adapter"},
+				{Uri: "s3://bucket/model", MountPath: "/mnt/models/base"},
+				{Uri: "gs://bucket/adapter", MountPath: "/mnt/models/adapter"},
 			},
 			isLegacyURI:           false,
 			expectedInitContainer: true,
@@ -4043,8 +4043,8 @@ func TestCommonStorageInitialization(t *testing.T) {
 		},
 		"Mixed PVC and Cloud Storage": {
 			storageURIs: []v1beta1.StorageUri{
-				{Uri: "pvc://model-pvc/model", Path: "/mnt/models/model"},
-				{Uri: "s3://bucket/adapter", Path: "/mnt/models/adapter"},
+				{Uri: "pvc://model-pvc/model", MountPath: "/mnt/models/model"},
+				{Uri: "s3://bucket/adapter", MountPath: "/mnt/models/adapter"},
 			},
 			isLegacyURI:           false,
 			expectedInitContainer: true,
@@ -4053,8 +4053,8 @@ func TestCommonStorageInitialization(t *testing.T) {
 		},
 		"Multiple PVC URIs": {
 			storageURIs: []v1beta1.StorageUri{
-				{Uri: "pvc://model-pvc1/model1", Path: "/mnt/models/model1"},
-				{Uri: "pvc://model-pvc2/model2", Path: "/mnt/models/model2"},
+				{Uri: "pvc://model-pvc1/model1", MountPath: "/mnt/models/model1"},
+				{Uri: "pvc://model-pvc2/model2", MountPath: "/mnt/models/model2"},
 			},
 			isLegacyURI:           false,
 			expectedInitContainer: false, // No init container for PVC-only
@@ -4063,9 +4063,9 @@ func TestCommonStorageInitialization(t *testing.T) {
 		},
 		"Three Storage URIs with Mixed Types": {
 			storageURIs: []v1beta1.StorageUri{
-				{Uri: "pvc://base-model/model", Path: "/mnt/models/base"},
-				{Uri: "s3://bucket/lora-adapter", Path: "/mnt/models/lora"},
-				{Uri: "gs://bucket/tokenizer", Path: "/mnt/models/tokenizer"},
+				{Uri: "pvc://base-model/model", MountPath: "/mnt/models/base"},
+				{Uri: "s3://bucket/lora-adapter", MountPath: "/mnt/models/lora"},
+				{Uri: "gs://bucket/tokenizer", MountPath: "/mnt/models/tokenizer"},
 			},
 			isLegacyURI:           false,
 			expectedInitContainer: true,
@@ -4141,7 +4141,7 @@ func TestCommonStorageInitialization(t *testing.T) {
 					for _, storageURI := range scenario.storageURIs {
 						if !strings.HasPrefix(storageURI.Uri, "pvc://") {
 							assert.Contains(t, initContainer.Args, storageURI.Uri, "Expected URI in args")
-							assert.Contains(t, initContainer.Args, storageURI.Path, "Expected path in args")
+							assert.Contains(t, initContainer.Args, storageURI.MountPath, "Expected path in args")
 						}
 					}
 				}
@@ -4225,8 +4225,8 @@ func TestCommonStorageInitializationWithCustomStorageContainer(t *testing.T) {
 	params := &StorageInitializerParams{
 		Namespace: "default",
 		StorageURIs: []v1beta1.StorageUri{
-			{Uri: "s3://bucket/model1", Path: "/mnt/models/model1"},
-			{Uri: "gs://bucket/model2", Path: "/mnt/models/model2"},
+			{Uri: "s3://bucket/model1", MountPath: "/mnt/models/model1"},
+			{Uri: "gs://bucket/model2", MountPath: "/mnt/models/model2"},
 		},
 		IsReadOnly:           false,
 		IsLegacyURI:          false,
@@ -4294,7 +4294,7 @@ func TestCommonStorageInitializationErrorCases(t *testing.T) {
 				}
 			},
 			storageURIs: []v1beta1.StorageUri{
-				{Uri: "s3://bucket/model", Path: "/mnt/models"},
+				{Uri: "s3://bucket/model", MountPath: "/mnt/models"},
 			},
 			expectError:   true,
 			errorContains: "cannot find container",
@@ -4308,8 +4308,8 @@ func TestCommonStorageInitializationErrorCases(t *testing.T) {
 				}
 			},
 			storageURIs: []v1beta1.StorageUri{
-				{Uri: "s3://bucket/model1", Path: "/mnt/models/model1"},
-				{Uri: "s3://bucket/model2", Path: "/mnt/models/model2"},
+				{Uri: "s3://bucket/model1", MountPath: "/mnt/models/model1"},
+				{Uri: "s3://bucket/model2", MountPath: "/mnt/models/model2"},
 			},
 			storageContainer: &v1alpha1.StorageContainerSpec{
 				Container:                  corev1.Container{Name: "custom-storage"},
@@ -4327,7 +4327,7 @@ func TestCommonStorageInitializationErrorCases(t *testing.T) {
 				}
 			},
 			storageURIs: []v1beta1.StorageUri{
-				{Uri: "s3://bucket/model", Path: "/mnt/models"},
+				{Uri: "s3://bucket/model", MountPath: "/mnt/models"},
 			},
 			expectError: false, // Should not error, just skip injection
 		},
@@ -4343,7 +4343,7 @@ func TestCommonStorageInitializationErrorCases(t *testing.T) {
 				}
 			},
 			storageURIs: []v1beta1.StorageUri{
-				{Uri: "s3://bucket/model", Path: "/mnt/models"},
+				{Uri: "s3://bucket/model", MountPath: "/mnt/models"},
 			},
 			expectError: false, // Should not error, just skip injection
 		},

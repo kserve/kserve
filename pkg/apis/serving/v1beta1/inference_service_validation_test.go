@@ -1680,29 +1680,29 @@ func TestValidateStorageUriSpec(t *testing.T) {
 	}{
 		"ValidStorageUriSpec": {
 			storageUri: &StorageUri{
-				Uri:  "gs://bucket/model",
-				Path: "/mnt/models",
+				Uri:       "gs://bucket/model",
+				MountPath: "/mnt/models",
 			},
 			expected: gomega.BeNil(),
 		},
 		"ValidStorageUriSpecWithRootPath": {
 			storageUri: &StorageUri{
-				Uri:  "s3://bucket/model",
-				Path: "/",
+				Uri:       "s3://bucket/model",
+				MountPath: "/",
 			},
 			expected: gomega.MatchError("storage path cannot be empty"),
 		},
 		"EmptyUri": {
 			storageUri: &StorageUri{
-				Uri:  "",
-				Path: "/mnt/models",
+				Uri:       "",
+				MountPath: "/mnt/models",
 			},
 			expected: gomega.MatchError("storage URI cannot be empty"),
 		},
 		"RelativePath": {
 			storageUri: &StorageUri{
-				Uri:  "gs://bucket/model",
-				Path: "mnt/models",
+				Uri:       "gs://bucket/model",
+				MountPath: "mnt/models",
 			},
 			expected: gomega.MatchError("storage path must be absolute: mnt/models"),
 		},
@@ -1730,8 +1730,8 @@ func TestValidateStorageUri(t *testing.T) {
 		"SingleValidStorageUri": {
 			storageUris: []StorageUri{
 				{
-					Uri:  "gs://bucket/model1",
-					Path: "/mnt/models",
+					Uri:       "gs://bucket/model1",
+					MountPath: "/mnt/models",
 				},
 			},
 			expected: gomega.BeNil(),
@@ -1739,12 +1739,12 @@ func TestValidateStorageUri(t *testing.T) {
 		"MultipleValidStorageUrisWithCommonParent": {
 			storageUris: []StorageUri{
 				{
-					Uri:  "gs://bucket/model1",
-					Path: "/mnt/models/model1",
+					Uri:       "gs://bucket/model1",
+					MountPath: "/mnt/models/model1",
 				},
 				{
-					Uri:  "s3://bucket/model2",
-					Path: "/mnt/models/model2",
+					Uri:       "s3://bucket/model2",
+					MountPath: "/mnt/models/model2",
 				},
 			},
 			expected: gomega.BeNil(),
@@ -1752,12 +1752,12 @@ func TestValidateStorageUri(t *testing.T) {
 		"MultipleStorageUrisWithoutCommonParent": {
 			storageUris: []StorageUri{
 				{
-					Uri:  "gs://bucket/model1",
-					Path: "/mnt/models",
+					Uri:       "gs://bucket/model1",
+					MountPath: "/mnt/models",
 				},
 				{
-					Uri:  "s3://bucket/model2",
-					Path: "/opt/models",
+					Uri:       "s3://bucket/model2",
+					MountPath: "/opt/models",
 				},
 			},
 			expected: gomega.MatchError(gomega.ContainSubstring("storage paths must have a common parent directory")),
@@ -1765,12 +1765,12 @@ func TestValidateStorageUri(t *testing.T) {
 		"InvalidStorageUriInList": {
 			storageUris: []StorageUri{
 				{
-					Uri:  "gs://bucket/model1",
-					Path: "/mnt/models",
+					Uri:       "gs://bucket/model1",
+					MountPath: "/mnt/models",
 				},
 				{
-					Uri:  "",
-					Path: "/mnt/models/model2",
+					Uri:       "",
+					MountPath: "/mnt/models/model2",
 				},
 			},
 			expected: gomega.MatchError("storage URI cannot be empty"),
@@ -1778,12 +1778,12 @@ func TestValidateStorageUri(t *testing.T) {
 		"RelativePathInList": {
 			storageUris: []StorageUri{
 				{
-					Uri:  "gs://bucket/model1",
-					Path: "/mnt/models",
+					Uri:       "gs://bucket/model1",
+					MountPath: "/mnt/models",
 				},
 				{
-					Uri:  "s3://bucket/model2",
-					Path: "mnt/models/model2",
+					Uri:       "s3://bucket/model2",
+					MountPath: "mnt/models/model2",
 				},
 			},
 			expected: gomega.MatchError("storage path must be absolute: mnt/models/model2"),

@@ -42,6 +42,7 @@ import (
 const (
 	IsvcNameFmt                         string = "[a-z]([-a-z0-9]*[a-z0-9])?"
 	StorageUriPresentInTransformerError string = "storage uri should not be specified in transformer container"
+	InvalidStorageUriConfigError        string = "Setting both StorageURI and StorageURIs is not supported."
 )
 
 var (
@@ -505,17 +506,17 @@ func validateStorageURISpec(storageUri *StorageUri) error {
 		return errors.New("storage URI cannot be empty")
 	}
 
-	if storageUri.Path == "/" {
+	if storageUri.MountPath == "/" {
 		return errors.New("storage path cannot be empty")
 	}
 
-	if !strings.HasPrefix(storageUri.Path, "/") {
-		return fmt.Errorf("storage path must be absolute: %s", storageUri.Path)
+	if !strings.HasPrefix(storageUri.MountPath, "/") {
+		return fmt.Errorf("storage path must be absolute: %s", storageUri.MountPath)
 	}
 
 	// Security validation: prevent directory traversal attacks
-	if strings.Contains(storageUri.Path, "..") {
-		return fmt.Errorf("storage path cannot contain '..' for security reasons: %s", storageUri.Path)
+	if strings.Contains(storageUri.MountPath, "..") {
+		return fmt.Errorf("storage path cannot contain '..' for security reasons: %s", storageUri.MountPath)
 	}
 
 	return nil
@@ -546,9 +547,9 @@ func validateMultipleStorageURIsSpec(storageUris []StorageUri) error {
 			return err
 		}
 		if strings.HasPrefix(storageUri.Uri, "pvc://") {
-			pvcPaths = append(pvcPaths, storageUri.Path)
+			pvcPaths = append(pvcPaths, storageUri.MountPath)
 		} else {
-			paths = append(paths, storageUri.Path)
+			paths = append(paths, storageUri.MountPath)
 		}
 	}
 
@@ -579,18 +580,46 @@ func validateMultipleStorageURIsSpec(storageUris []StorageUri) error {
 
 func validateMultipleStorageURIs(isvc *InferenceService) error {
 	if isvc.Spec.Transformer != nil {
-		if err := validateMultipleStorageURIsSpec(isvc.Spec.Transformer.StorageUris); err != nil {
+		storageURIs := isvc.Spec.Transformer.StorageUris
+		var storageURI *string
+		if len(isvc.Spec.Transformer.GetImplementations()) > 0 {
+			storageURI = isvc.Spec.Transformer.GetImplementation().GetStorageUri()
+		}
+		if storageURI != nil && storageURIs != nil {
+			return errors.New(InvalidStorageUriConfigError)
+		}
+
+		if err := validateMultipleStorageURIsSpec(storageURIs); err != nil {
 			return err
 		}
 	}
 
 	if isvc.Spec.Explainer != nil {
-		if err := validateMultipleStorageURIsSpec(isvc.Spec.Explainer.StorageUris); err != nil {
+		storageURIs := isvc.Spec.Explainer.StorageUris
+		var storageURI *string
+		if len(isvc.Spec.Explainer.GetImplementations()) > 0 {
+			storageURI = isvc.Spec.Explainer.GetImplementation().GetStorageUri()
+		}
+		if storageURI != nil && storageURIs != nil {
+			return errors.New(InvalidStorageUriConfigError)
+		}
+
+		if err := validateMultipleStorageURIsSpec(storageURIs); err != nil {
 			return err
 		}
 	}
 
-	if err := validateMultipleStorageURIsSpec(isvc.Spec.Predictor.StorageUris); err != nil {
+	storageURIs := isvc.Spec.Predictor.StorageUris
+	var storageURI *string
+	if len(isvc.Spec.Predictor.GetImplementations()) > 0 {
+		storageURI = isvc.Spec.Predictor.GetImplementation().GetStorageUri()
+	}
+
+	if storageURI != nil && storageURIs != nil {
+		return errors.New(InvalidStorageUriConfigError)
+	}
+
+	if err := validateMultipleStorageURIsSpec(storageURIs); err != nil {
 		return err
 	}
 

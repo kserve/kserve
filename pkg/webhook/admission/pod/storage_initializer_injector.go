@@ -247,7 +247,7 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 	if len(params.StorageURIs) > 0 && !params.IsLegacyURI {
 		// Validate that the storage container supports multiple downloads
 		if params.StorageContainerSpec != nil && !*params.StorageContainerSpec.SupportsMultiModelDownload {
-			return fmt.Errorf("storage container %q does not support multi-model download; use the default storage initializer or a compatible storage container",
+			return fmt.Errorf("storage container %q does not support multi-model download; use the default kserve storage initializer or a compatible storage container",
 				params.StorageContainerSpec.Container.Name)
 		}
 
@@ -263,7 +263,7 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 				pvcStorageURIs = append(pvcStorageURIs, storageUri)
 			} else {
 				nonPVCStorageURIs = append(nonPVCStorageURIs, storageUri)
-				nonPVCMountPaths = append(nonPVCMountPaths, storageUri.Path)
+				nonPVCMountPaths = append(nonPVCMountPaths, storageUri.MountPath)
 			}
 		}
 
@@ -281,9 +281,9 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 				}
 
 				storageMountParams := utils.StorageMountParams{
-					MountPath:  storageURI.Path,
+					MountPath:  storageURI.MountPath,
 					SubPath:    "",
-					VolumeName: utils.GetVolumeNameFromPath(storageURI.Path),
+					VolumeName: utils.GetVolumeNameFromPath(storageURI.MountPath),
 					PVCName:    pvcName,
 					ReadOnly:   params.IsReadOnly,
 				}
@@ -300,7 +300,7 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 
 			// Build init container arguments: alternating pairs of source URI and target path
 			for _, storageUri := range nonPVCStorageURIs {
-				initContainerArgs = append(initContainerArgs, storageUri.Uri, storageUri.Path)
+				initContainerArgs = append(initContainerArgs, storageUri.Uri, storageUri.MountPath)
 			}
 
 			initContainer = utils.CreateInitContainerWithConfig(params.Config, initContainerArgs)
@@ -359,7 +359,7 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 			storageMountParams.PVCName = pvcName
 			storageMountParams.VolumeName = constants.PvcSourceMountName
 		} else {
-			initContainerArgs = append(initContainerArgs, storageURI.Uri, storageURI.Path)
+			initContainerArgs = append(initContainerArgs, storageURI.Uri, storageURI.MountPath)
 			initContainer = utils.CreateInitContainerWithConfig(params.Config, initContainerArgs)
 
 			// Append the init container to the pod spec
@@ -530,7 +530,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 		}
 	}
 
-	storageURIs := []v1beta1.StorageUri{{Uri: srcURI, Path: constants.DefaultModelLocalMountPath}}
+	storageURIs := []v1beta1.StorageUri{{Uri: srcURI, MountPath: constants.DefaultModelLocalMountPath}}
 
 	// Get storage container spec for the URI
 	storageContainerSpec, err := GetStorageSpecForUri(ctx, srcURI, mi.client)

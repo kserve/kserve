@@ -8558,7 +8558,7 @@ spec:
                   storageUris:
                     items:
                       properties:
-                        path:
+                        mountPath:
                           default: /mnt/models
                           maxLength: 255
                           pattern: ^/.*
@@ -17335,7 +17335,7 @@ spec:
                   storageUris:
                     items:
                       properties:
-                        path:
+                        mountPath:
                           default: /mnt/models
                           maxLength: 255
                           pattern: ^/.*
@@ -26267,7 +26267,7 @@ spec:
                   storageUris:
                     items:
                       properties:
-                        path:
+                        mountPath:
                           default: /mnt/models
                           maxLength: 255
                           pattern: ^/.*
