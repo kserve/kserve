@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 // LoggerWithFallback returns a logger sourced from the provided context if available,
@@ -24,4 +25,19 @@ func LoggerWithFallback(ctx context.Context, fallback logr.Logger) (context.Cont
 	}
 	ctx = logr.NewContext(ctx, log)
 	return ctx, log, fromContext
+}
+
+// LoggerForContext returns a logger sourced from the provided context if available and enriches it with the
+// supplied name and trace identifier. The updated logger is stored back in the context before being returned.
+func LoggerForContext(ctx context.Context, fallback logr.Logger, name string) (context.Context, logr.Logger) {
+	ctx, log, fromContext := LoggerWithFallback(ctx, fallback)
+	if name != "" && fromContext {
+		log = log.WithName(name)
+	}
+	spanCtx := oteltrace.SpanContextFromContext(ctx)
+	if spanCtx.IsValid() && spanCtx.HasTraceID() {
+		log = log.WithValues("trace_id", spanCtx.TraceID().String())
+	}
+	ctx = logr.NewContext(ctx, log)
+	return ctx, log
 }

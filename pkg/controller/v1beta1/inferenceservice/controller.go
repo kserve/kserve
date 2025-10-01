@@ -57,6 +57,7 @@ import (
 	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/common"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
@@ -116,6 +117,7 @@ type InferenceServiceReconciler struct {
 }
 
 func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx, log := common.LoggerForContext(ctx, r.Log, "InferenceServiceReconciler")
 	// Fetch the InferenceService instance
 	isvc := &v1beta1.InferenceService{}
 	if err := r.Get(ctx, req.NamespacedName, isvc); err != nil {
@@ -129,7 +131,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
 	if err != nil {
-		r.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
 		return reconcile.Result{}, err
 	}
 	isvcConfig, err := v1beta1.NewInferenceServicesConfig(isvcConfigMap)
@@ -149,17 +151,17 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	deploymentMode := isvcutils.GetDeploymentMode(isvc.Status.DeploymentMode, annotations, deployConfig)
-	r.Log.Info("Inference service deployment mode ", "deployment mode ", deploymentMode)
+	log.Info("Inference service deployment mode ", "deployment mode ", deploymentMode)
 
 	if deploymentMode == constants.ModelMeshDeployment {
 		if isvc.Spec.Transformer == nil {
 			// Skip if no transformers
-			r.Log.Info("Skipping reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
+			log.Info("Skipping reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
 				"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 			return ctrl.Result{}, nil
 		}
 		// Continue to reconcile when there is a transformer
-		r.Log.Info("Continue reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
+		log.Info("Continue reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
 			"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	}
 
@@ -205,7 +207,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Used for when k8s autoreconciles the InferenceService.
 	if annotations != nil {
 		if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" && isvc.Status.IsReady() {
-			r.Log.Info("Auto-update is disabled for InferenceService, skipping reconciliation", "InferenceService", isvc.Name)
+			log.Info("Auto-update is disabled for InferenceService, skipping reconciliation", "InferenceService", isvc.Name)
 			return ctrl.Result{}, nil
 		}
 	}
@@ -229,11 +231,11 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return ctrl.Result{}, errors.Wrapf(err, "failed to retrieve the knative autoscaler configuration")
 		}
 
-		knutils.ValidateInitialScaleAnnotation(isvc.Annotations, allowZeroInitialScale, r.Log)
+		knutils.ValidateInitialScaleAnnotation(isvc.Annotations, allowZeroInitialScale, log)
 	}
 
 	// Setup reconcilers
-	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
+	log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 
 	// Reconcile cabundleConfigMap
 	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset, r.Scheme)
@@ -254,10 +256,10 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	for _, reconciler := range reconcilers {
 		result, err := reconciler.Reconcile(ctx, isvc)
 		if err != nil {
-			r.Log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
+			log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
 			r.Recorder.Eventf(isvc, corev1.EventTypeWarning, "InternalError", err.Error())
 			if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
-				r.Log.Error(err, "Error updating status")
+				log.Error(err, "Error updating status")
 				return result, err
 			}
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile component")
@@ -340,7 +342,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	} else {
 		reconciler := ingress.NewIngressReconciler(r.Client, r.Clientset, r.Scheme, ingressConfig, isvcConfig)
-		r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
+		log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
 		if err := reconciler.Reconcile(ctx, isvc); err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
 		}
@@ -363,6 +365,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredService *v1beta1.InferenceService,
 	deploymentMode constants.DeploymentModeType,
 ) error {
+	ctx, log := common.LoggerForContext(ctx, r.Log, "InferenceServiceReconciler")
 	// set the DeploymentMode used for the InferenceService in the status
 	desiredService.Status.DeploymentMode = string(deploymentMode)
 
@@ -378,7 +381,7 @@ func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredSe
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
 	} else if err := r.Status().Update(ctx, desiredService); err != nil {
-		r.Log.Error(err, "Failed to update InferenceService status", "InferenceService", desiredService.Name)
+		log.Error(err, "Failed to update InferenceService status", "InferenceService", desiredService.Name)
 		r.Recorder.Eventf(desiredService, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for InferenceService %q: %v", desiredService.Name, err)
 		return errors.Wrapf(err, "fails to update InferenceService status")
@@ -427,11 +430,12 @@ func (r *InferenceServiceReconciler) servingRuntimeFunc(ctx context.Context, obj
 	if !ok || runtimeObj == nil {
 		return nil
 	}
+	ctx, log := common.LoggerForContext(ctx, r.Log, "InferenceServiceReconciler")
 
 	var isvcList v1beta1.InferenceServiceList
 	// List all InferenceServices in the same namespace.
 	if err := r.Client.List(ctx, &isvcList, client.InNamespace(runtimeObj.Namespace)); err != nil {
-		r.Log.Error(err, "unable to list InferenceServices", "runtime", runtimeObj.Name)
+		log.Error(err, "unable to list InferenceServices", "runtime", runtimeObj.Name)
 		return nil
 	}
 
@@ -440,7 +444,7 @@ func (r *InferenceServiceReconciler) servingRuntimeFunc(ctx context.Context, obj
 		annotations := isvc.GetAnnotations()
 		if annotations != nil {
 			if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" && isvc.Status.IsReady() {
-				r.Log.Info("Auto-update is disabled for InferenceService", "InferenceService", isvc.Name)
+				log.Info("Auto-update is disabled for InferenceService", "InferenceService", isvc.Name)
 				continue
 			}
 		}
@@ -462,10 +466,11 @@ func (r *InferenceServiceReconciler) clusterServingRuntimeFunc(ctx context.Conte
 	if !ok || clusterServingRuntimeObj == nil {
 		return nil
 	}
+	ctx, log := common.LoggerForContext(ctx, r.Log, "InferenceServiceReconciler")
 
 	var isvcList v1beta1.InferenceServiceList
 	if err := r.Client.List(ctx, &isvcList, client.InNamespace(clusterServingRuntimeObj.Namespace)); err != nil {
-		r.Log.Error(err, "unable to list InferenceServices", "clusterServingRuntime", clusterServingRuntimeObj.Name)
+		log.Error(err, "unable to list InferenceServices", "clusterServingRuntime", clusterServingRuntimeObj.Name)
 		return nil
 	}
 
@@ -474,7 +479,7 @@ func (r *InferenceServiceReconciler) clusterServingRuntimeFunc(ctx context.Conte
 		annotations := isvc.GetAnnotations()
 		if annotations != nil {
 			if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" && isvc.Status.IsReady() {
-				r.Log.Info("Auto-update is disabled for InferenceService", "InferenceService", isvc.Name)
+				log.Info("Auto-update is disabled for InferenceService", "InferenceService", isvc.Name)
 				continue
 			}
 		}
@@ -491,6 +496,7 @@ func (r *InferenceServiceReconciler) clusterServingRuntimeFunc(ctx context.Conte
 func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1.DeployConfig, ingressConfig *v1beta1.IngressConfig) error {
 	r.ClientConfig = mgr.GetConfig()
 	ctx := context.Background()
+	ctx, log := common.LoggerForContext(ctx, r.Log, "InferenceServiceReconciler")
 
 	ksvcFound, err := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
 	if err != nil {
@@ -559,7 +565,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	if ksvcFound {
 		ctrlBuilder = ctrlBuilder.Owns(&knservingv1.Service{})
 	} else {
-		r.Log.Info("The InferenceService controller won't watch serving.knative.dev/v1/Service resources because the CRD is not available.")
+		log.Info("The InferenceService controller won't watch serving.knative.dev/v1/Service resources because the CRD is not available.")
 	}
 
 	if kedaFound {
@@ -576,19 +582,19 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 			},
 		}))
 	} else {
-		r.Log.Info("The InferenceService controller won't watch keda.sh/v1/ScaledObject resources because the CRD is not available.")
+		log.Info("The InferenceService controller won't watch keda.sh/v1/ScaledObject resources because the CRD is not available.")
 	}
 
 	if otelFound {
 		ctrlBuilder = ctrlBuilder.Owns(&otelv1beta1.OpenTelemetryCollector{})
 	} else {
-		r.Log.Info("The InferenceService controller won't watch opentelemetry-collector resources because the CRD is not available.")
+		log.Info("The InferenceService controller won't watch opentelemetry-collector resources because the CRD is not available.")
 	}
 
 	if vsFound && !ingressConfig.DisableIstioVirtualHost {
 		ctrlBuilder = ctrlBuilder.Owns(&istioclientv1beta1.VirtualService{})
 	} else {
-		r.Log.Info("The InferenceService controller won't watch networking.istio.io/v1beta1/VirtualService resources because the CRD is not available.")
+		log.Info("The InferenceService controller won't watch networking.istio.io/v1beta1/VirtualService resources because the CRD is not available.")
 	}
 
 	if ingressConfig.EnableGatewayAPI {
@@ -600,7 +606,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		if gatewayapiFound {
 			ctrlBuilder = ctrlBuilder.Owns(&gwapiv1.HTTPRoute{})
 		} else {
-			r.Log.Info("The InferenceService controller won't watch gateway.networking.k8s.io/v1/HTTPRoute resources because the CRD is not available.")
+			log.Info("The InferenceService controller won't watch gateway.networking.k8s.io/v1/HTTPRoute resources because the CRD is not available.")
 			panic("Gateway API CRD not available")
 		}
 	} else {
@@ -613,22 +619,23 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 }
 
 func (r *InferenceServiceReconciler) deleteExternalResources(ctx context.Context, isvc *v1beta1.InferenceService) error {
+	ctx, log := common.LoggerForContext(ctx, r.Log, "InferenceServiceReconciler")
 	// Delete all the TrainedModel that uses this InferenceService as parent
-	r.Log.Info("Deleting external resources", "InferenceService", isvc.Name)
+	log.Info("Deleting external resources", "InferenceService", isvc.Name)
 	var trainedModels v1alpha1.TrainedModelList
 	if err := r.List(ctx,
 		&trainedModels,
 		client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name},
 		client.InNamespace(isvc.Namespace),
 	); err != nil {
-		r.Log.Error(err, "unable to list trained models", "inferenceservice", isvc.Name)
+		log.Error(err, "unable to list trained models", "inferenceservice", isvc.Name)
 		return err
 	}
 
 	// #nosec G601
 	for i, v := range trainedModels.Items {
 		if err := r.Delete(ctx, &trainedModels.Items[i], client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
-			r.Log.Error(err, "unable to delete trainedmodel", "trainedmodel", v)
+			log.Error(err, "unable to delete trainedmodel", "trainedmodel", v)
 		}
 	}
 	return nil

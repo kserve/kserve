@@ -63,16 +63,7 @@ func NewRawKubeReconciler(ctx context.Context,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
 ) (*RawKubeReconciler, error) {
 	var otelCollector *otel.OtelReconciler
-
-	// Avoid LoggerWithFallback here; the constructor only runs once during setup,
-	// outside the reconcile loop, so we just need a stable fallback logger and
-	// the trace-aware context will be reattached inside Reconcile.
-	baseLogger := logr.FromContextOrDiscard(ctx)
-	if baseLogger.GetSink() == nil {
-		baseLogger = logf.Log
-	}
-	logger := baseLogger.WithName("RawKubeReconciler")
-
+	ctx, logger := common.LoggerForContext(ctx, logf.Log, "RawKubeReconciler")
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
 	if err != nil {
 		logger.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
@@ -161,12 +152,7 @@ func createRawURL(ingressConfig *v1beta1.IngressConfig, metadata metav1.ObjectMe
 
 // Reconcile ...
 func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
-	var fromContext bool
-	ctx, log, fromContext := common.LoggerWithFallback(ctx, r.logger)
-	if fromContext {
-		log = log.WithName("RawKubeReconciler")
-		ctx = logr.NewContext(ctx, log)
-	}
+	ctx, log := common.LoggerForContext(ctx, r.logger, "RawKubeReconciler")
 	log.Info("Reconciling raw kubernetes resources")
 	// reconcile OTel Collector
 	if r.OtelCollector != nil {
