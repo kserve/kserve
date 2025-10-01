@@ -8,23 +8,36 @@
 [![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://github.com/kserve/community/blob/main/README.md#questions-and-issues)
 [![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20KServe%20Guru-006BFF)](https://gurubase.io/g/kserve)
 
-KServe provides a Kubernetes [Custom Resource Definition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) for serving predictive and generative machine learning (ML) models. It aims to solve production model serving use cases by providing high abstraction interfaces for Tensorflow, XGBoost, ScikitLearn, PyTorch, Huggingface Transformer/LLM models using standardized data plane protocols.
+KServe is a standardized distributed generative and predictive AI inference platform for scalable, multi-framework deployment on Kubernetes.
 
-It encapsulates the complexity of autoscaling, networking, health checking, and server configuration to bring cutting edge serving features like GPU Autoscaling, Scale to Zero, and Canary Rollouts to your ML deployments. It enables a simple, pluggable, and complete story for Production ML Serving including prediction, pre-processing, post-processing and explainability. KServe is being [used across various organizations.](https://kserve.github.io/website/docs/community/adopters)
-
-KServe is a [Cloud Native Computing Foundation (CNCF)](https://www.cncf.io/) incubating project.
+KServe is being [used across various organizations](https://kserve.github.io/website/docs/community/adopters) and is a [Cloud Native Computing Foundation (CNCF)](https://www.cncf.io/) incubating project.
 
 For more details, visit the [KServe website](https://kserve.github.io/website/).
 
 ![KServe](/docs/diagrams/kserve_new.png)
 
 ### Why KServe?
-- KServe is a standard, cloud agnostic **Model Inference Platform** for serving predictive and generative AI models on Kubernetes, built for highly scalable use cases.
-- Provides performant, **standardized inference protocol** across ML frameworks including OpenAI specification for generative models.
-- Support modern **serverless inference workload** with **request based autoscaling including scale-to-zero** on **CPU and GPU**.
-- Provides **high scalability, density packing and intelligent routing** using **ModelMesh**.
-- **Simple and pluggable production serving** for **inference**, **pre/post processing**, **monitoring** and **explainability**.
-- Advanced deployments for **canary rollout**, **pipeline**, **ensembles** with **InferenceGraph**.
+
+Single platform that unifies Generative and Predictive AI inference on Kubernetes. Simple enough for quick deployments, yet powerful enough to handle enterprise-scale AI workloads with advanced features.
+
+### Features
+
+**Generative AI**
+  * 🧠 **LLM-Optimized**: OpenAI-compatible inference protocol for seamless integration with large language models
+  * 🚅 **GPU Acceleration**: High-performance serving with GPU support and optimized memory management for large models
+  * 💾 **Model Caching**: Intelligent model caching to reduce loading times and improve response latency for frequently used models
+  * 🗂️ **KV Cache Offloading**: Advanced memory management with KV cache offloading to CPU/disk for handling longer sequences efficiently
+  * 📈 **Autoscaling**: Request-based autoscaling capabilities optimized for generative workload patterns
+  * 🔧 **Hugging Face Ready**: Native support for Hugging Face models with streamlined deployment workflows
+
+**Predictive AI**
+  * 🧮 **Multi-Framework**: Support for TensorFlow, PyTorch, scikit-learn, XGBoost, ONNX, and more
+  * 🔀 **Intelligent Routing**: Seamless request routing between predictor, transformer, and explainer components with automatic traffic management
+  * 🔄 **Advanced Deployments**: Canary rollouts, inference pipelines, and ensembles with InferenceGraph
+  * ⚡ **Autoscaling**: Request-based autoscaling with scale-to-zero for predictive workloads
+  * 🔍 **Model Explainability**: Built-in support for model explanations and feature attribution to understand prediction reasoning
+  * 📊 **Advanced Monitoring**: Enables payload logging, outlier detection, adversarial detection, and drift detection
+  * 💰 **Cost Efficient**: Scale-to-zero on expensive resources when not in use, reducing infrastructure costs
 
 ### Learn More
 To learn more about KServe, how to use various supported features, and how to participate in the KServe community, 
@@ -34,8 +47,8 @@ Additionally, we have compiled a list of [presentations and demos](https://kserv
 ### :hammer_and_wrench: Installation
 
 #### Standalone Installation
-- **[Serverless Installation](https://kserve.github.io/website/docs/admin-guide/overview#serverless-deployment)**: KServe by default installs Knative for **serverless deployment** for InferenceService.
-- **[Raw Deployment Installation](https://kserve.github.io/website/docs/admin-guide/overview#raw-kubernetes-deployment)**: Compared to Serverless Installation, this is a more **lightweight** installation. However, this option does not support canary deployment and request based autoscaling with scale-to-zero.
+- **[Standard Kubernetes Installation](https://kserve.github.io/website/docs/admin-guide/overview#raw-kubernetes-deployment)**: Compared to Serverless Installation, this is a more **lightweight** installation. However, this option does not support canary deployment and request based autoscaling with scale-to-zero.
+- **[Knative Installation](https://kserve.github.io/website/docs/admin-guide/overview#serverless-deployment)**: KServe by default installs Knative for **serverless deployment** for InferenceService.
 - **[ModelMesh Installation](https://kserve.github.io/website/docs/admin-guide/overview#modelmesh-deployment)**: You can optionally install ModelMesh to enable **high-scale**, **high-density** and **frequently-changing model serving** use cases. 
 - **[Quick Installation](https://kserve.github.io/website/docs/getting-started/quickstart-guide)**: Install KServe on your local machine.
 
