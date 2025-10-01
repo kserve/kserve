@@ -10,7 +10,7 @@
 
 KServe is a standardized distributed generative and predictive AI inference platform for scalable, multi-framework deployment on Kubernetes.
 
-KServe is being [used across various organizations](https://kserve.github.io/website/docs/community/adopters) and is a [Cloud Native Computing Foundation (CNCF)](https://www.cncf.io/) incubating project.
+KServe is being [used by many organizations](https://kserve.github.io/website/docs/community/adopters) and is a [Cloud Native Computing Foundation (CNCF)](https://www.cncf.io/) incubating project.
 
 For more details, visit the [KServe website](https://kserve.github.io/website/).
 
