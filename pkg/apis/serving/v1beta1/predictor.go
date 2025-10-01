@@ -77,6 +77,10 @@ type StorageUri struct {
 	// +kubebuilder:validation:MinLength=1
 	Uri string `json:"uri"`
 
+	// MountPath is the path where the model will be mounted inside the container.
+	// If not specified, it defaults to /mnt/models.
+	//
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:default="/mnt/models"
 	// +kubebuilder:validation:Pattern="^/.*"
 	// +kubebuilder:validation:MaxLength=255
