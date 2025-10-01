@@ -56,13 +56,14 @@ type AutoscalerReconciler struct {
 	componentExt *v1beta1.ComponentExtensionSpec
 }
 
-func NewAutoscalerReconciler(client client.Client,
+func NewAutoscalerReconciler(ctx context.Context,
+	client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	configMap *corev1.ConfigMap,
 ) (*AutoscalerReconciler, error) {
-	as, err := createAutoscaler(client, scheme, componentMeta, componentExt, configMap)
+	as, err := createAutoscaler(ctx, client, scheme, componentMeta, componentExt, configMap)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +84,7 @@ func getAutoscalerClass(metadata metav1.ObjectMeta) constants.AutoscalerClassTyp
 	}
 }
 
-func createAutoscaler(client client.Client,
+func createAutoscaler(ctx context.Context, client client.Client,
 	scheme *runtime.Scheme, componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	configMap *corev1.ConfigMap,
@@ -93,7 +94,7 @@ func createAutoscaler(client client.Client,
 	case constants.AutoscalerClassHPA, constants.AutoscalerClassExternal, constants.AutoscalerClassNone:
 		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt)
 	case constants.AutoscalerClassKeda:
-		return keda.NewKedaReconciler(client, scheme, componentMeta, componentExt, configMap)
+		return keda.NewKedaReconciler(ctx, client, scheme, componentMeta, componentExt, configMap)
 	default:
 		return nil, fmt.Errorf("unknown autoscaler class type: %v", ac)
 	}

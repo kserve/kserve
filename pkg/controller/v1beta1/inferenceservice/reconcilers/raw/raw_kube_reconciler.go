@@ -85,14 +85,14 @@ func NewRawKubeReconciler(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			otelCollector, err = otel.NewOtelReconciler(client, scheme, componentMeta, metricNames, *otelConfig)
+			otelCollector, err = otel.NewOtelReconciler(ctx, client, scheme, componentMeta, metricNames, *otelConfig)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt, isvcConfigMap)
+	as, err := autoscaler.NewAutoscalerReconciler(ctx, client, scheme, componentMeta, componentExt, isvcConfigMap)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func NewRawKubeReconciler(ctx context.Context,
 		deployConfig = nil // Use nil if config is not available
 	}
 
-	deployment, err := deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec, deployConfig)
+	deployment, err := deployment.NewDeploymentReconciler(ctx, client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec, deployConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ func NewRawKubeReconciler(ctx context.Context,
 		client:        client,
 		scheme:        scheme,
 		Deployment:    deployment,
-		Service:       service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
+		Service:       service.NewServiceReconciler(ctx, client, scheme, componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
 		Scaler:        as,
 		OtelCollector: otelCollector,
 		URL:           url,

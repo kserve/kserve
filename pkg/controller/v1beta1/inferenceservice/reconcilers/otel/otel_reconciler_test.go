@@ -164,7 +164,7 @@ func TestReconcileCreate(t *testing.T) {
 	// Create fake client
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
 	// Create reconciler
-	reconciler, err := NewOtelReconciler(client, scheme, componentMeta, []string{}, otelConfig)
+	reconciler, err := NewOtelReconciler(t.Context(), client, scheme, componentMeta, []string{}, otelConfig)
 	require.NoError(t, err)
 
 	// Test reconcile - should create a new resource
@@ -240,7 +240,7 @@ func TestReconcileUpdate(t *testing.T) {
 	// Create fake client with existing collector
 	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existingCollector).Build()
 	// Create reconciler
-	reconciler, err := NewOtelReconciler(client, scheme, componentMeta, []string{}, otelConfig)
+	reconciler, err := NewOtelReconciler(t.Context(), client, scheme, componentMeta, []string{}, otelConfig)
 	require.NoError(t, err)
 
 	// Test reconcile - should update existing resource
@@ -295,7 +295,7 @@ func TestSetControllerReferences(t *testing.T) {
 	// Create fake client
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
 	// Create reconciler
-	reconciler, err := NewOtelReconciler(client, scheme, componentMeta, []string{}, otelConfig)
+	reconciler, err := NewOtelReconciler(t.Context(), client, scheme, componentMeta, []string{}, otelConfig)
 	require.NoError(t, err)
 
 	// Test set controller reference

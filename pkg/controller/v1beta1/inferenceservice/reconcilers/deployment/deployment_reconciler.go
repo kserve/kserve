@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	appsv1 "k8s.io/api/apps/v1"
@@ -39,20 +40,23 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/common"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
-var log = logf.Log.WithName("DeploymentReconciler")
+var deploymentLogger = logf.Log.WithName("DeploymentReconciler")
 
 // DeploymentReconciler reconciles the raw kubernetes deployment resource
 type DeploymentReconciler struct {
 	client         kclient.Client
 	scheme         *runtime.Scheme
+	Log            logr.Logger
 	DeploymentList []*appsv1.Deployment
 	componentExt   *v1beta1.ComponentExtensionSpec
 }
 
-func NewDeploymentReconciler(client kclient.Client,
+func NewDeploymentReconciler(ctx context.Context,
+	client kclient.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	workerComponentMeta metav1.ObjectMeta,
@@ -60,6 +64,7 @@ func NewDeploymentReconciler(client kclient.Client,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
 	deployConfig *v1beta1.DeployConfig,
 ) (*DeploymentReconciler, error) {
+	_, logger := common.LoggerForContext(ctx, deploymentLogger, "DeploymentReconciler")
 	deploymentList, err := createRawDeployment(componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec, deployConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create raw deployment: %w", err)
@@ -68,6 +73,7 @@ func NewDeploymentReconciler(client kclient.Client,
 	return &DeploymentReconciler{
 		client:         client,
 		scheme:         scheme,
+		Log:            logger,
 		DeploymentList: deploymentList,
 		componentExt:   componentExt,
 	}, nil
@@ -95,7 +101,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 				if value, exists := utils.GetEnvVarValue(container.Env, constants.RayNodeCountEnvName); exists {
 					rayNodeCountFromEnv, err := utils.StringToInt32(value)
 					if err != nil {
-						log.Error(err, "Failed to convert rayNodeCount to int. Use default")
+						deploymentLogger.Error(err, "Failed to convert rayNodeCount to int. Use default")
 					}
 					workerNodeReplicas = rayNodeCountFromEnv - 1
 				}
@@ -260,13 +266,13 @@ func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client 
 	// Do a dry-run update. This will populate our local deployment object with any default values
 	// that are present on the remote version.
 	if err := client.Update(ctx, deployment, kclient.DryRunAll); err != nil {
-		log.Error(err, "Failed to perform dry-run update of deployment", "Deployment", deployment.Name)
+		r.Log.Error(err, "Failed to perform dry-run update of deployment", "Deployment", deployment.Name)
 		return constants.CheckResultUnknown, nil, err
 	}
 	if diff, err := kmp.SafeDiff(deployment.Spec, existingDeployment.Spec, ignoreFields); err != nil {
 		return constants.CheckResultUnknown, nil, err
 	} else if diff != "" {
-		log.Info("Deployment Updated", "Diff", diff)
+		r.Log.Info("Deployment Updated", "Diff", diff)
 		return constants.CheckResultUpdate, existingDeployment, nil
 	}
 	return constants.CheckResultExisted, existingDeployment, nil
@@ -454,7 +460,7 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 		if err != nil {
 			return nil, err
 		}
-		log.Info("deployment reconcile", "checkResult", checkResult, "err", err)
+		r.Log.Info("deployment reconcile", "checkResult", checkResult, "err", err)
 
 		var opErr error
 		switch checkResult {
@@ -491,7 +497,7 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 			opErr = r.client.Patch(ctx, existingDep, kclient.RawPatch(types.StrategicMergePatchType, patchByte))
 
 		case constants.CheckResultDelete:
-			log.Info("Deleting deployment", "namespace", existingDep.Namespace, "name", existingDep.Name)
+			r.Log.Info("Deleting deployment", "namespace", existingDep.Namespace, "name", existingDep.Name)
 			if existingDep.GetDeletionTimestamp() == nil { // check if the deployment was already deleted
 				opErr = r.client.Delete(ctx, existingDep)
 			}

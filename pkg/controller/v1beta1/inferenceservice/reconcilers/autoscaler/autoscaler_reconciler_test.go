@@ -166,7 +166,7 @@ func TestCreateAutoscaler(t *testing.T) {
 			}
 
 			// Use nils for client, scheme as we only test type selection logic
-			as, err := createAutoscaler(nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, configMap)
+			as, err := createAutoscaler(t.Context(), nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, configMap)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("createAutoscaler() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -257,7 +257,7 @@ func TestNewAutoscalerReconciler(t *testing.T) {
 				}
 			}
 
-			ar, err := NewAutoscalerReconciler(nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, configMap)
+			ar, err := NewAutoscalerReconciler(t.Context(), nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, configMap)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewAutoscalerReconciler() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -362,7 +362,7 @@ func TestExternalAutoscalerWithNilComponentExt(t *testing.T) {
 	}
 
 	// Test with nil componentExt - this should not panic
-	as, err := createAutoscaler(nil, nil, meta, nil, nil)
+	as, err := createAutoscaler(t.Context(), nil, nil, meta, nil, nil)
 	if err != nil {
 		t.Errorf("createAutoscaler() with nil componentExt should not error for external class, got: %v", err)
 	}
@@ -389,7 +389,7 @@ func TestNoneAutoscalerWithNilComponentExt(t *testing.T) {
 	}
 
 	// Test with nil componentExt - this should not panic
-	as, err := createAutoscaler(nil, nil, meta, nil, nil)
+	as, err := createAutoscaler(t.Context(), nil, nil, meta, nil, nil)
 	if err != nil {
 		t.Errorf("createAutoscaler() with nil componentExt should not error for none class, got: %v", err)
 	}

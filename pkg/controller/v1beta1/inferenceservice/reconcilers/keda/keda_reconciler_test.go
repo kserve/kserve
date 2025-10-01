@@ -48,7 +48,7 @@ func TestNewKedaReconciler(t *testing.T) {
 	}
 	configMap := &corev1.ConfigMap{}
 
-	r, err := NewKedaReconciler(client, scheme.Scheme, componentMeta, componentExt, configMap)
+	r, err := NewKedaReconciler(t.Context(), client, scheme.Scheme, componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 	assert.NotNil(t, r)
 	assert.Equal(t, "test-component", r.ScaledObject.Name)
@@ -148,7 +148,7 @@ func TestReconcile(t *testing.T) {
 	}
 	configMap := &corev1.ConfigMap{}
 
-	r, err := NewKedaReconciler(client, scheme.Scheme, componentMeta, componentExt, configMap)
+	r, err := NewKedaReconciler(t.Context(), client, scheme.Scheme, componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 
 	err = r.Reconcile(t.Context())
@@ -173,7 +173,7 @@ func TestSetControllerReferences(t *testing.T) {
 	}
 	configMap := &corev1.ConfigMap{}
 
-	r, err := NewKedaReconciler(client, scheme.Scheme, componentMeta, componentExt, configMap)
+	r, err := NewKedaReconciler(t.Context(), client, scheme.Scheme, componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 
 	owner := &corev1.ConfigMap{
@@ -200,7 +200,7 @@ func TestReconcile_CreateScaledObject(t *testing.T) {
 	}
 	configMap := &corev1.ConfigMap{}
 
-	r, err := NewKedaReconciler(client, scheme.Scheme, componentMeta, componentExt, configMap)
+	r, err := NewKedaReconciler(t.Context(), client, scheme.Scheme, componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 
 	err = r.Reconcile(t.Context())
@@ -228,7 +228,7 @@ func TestReconcile_UpdateScaledObject(t *testing.T) {
 	}
 	configMap := &corev1.ConfigMap{}
 
-	r, err := NewKedaReconciler(client, scheme.Scheme, componentMeta, componentExt, configMap)
+	r, err := NewKedaReconciler(t.Context(), client, scheme.Scheme, componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 
 	// Create an existing ScaledObject with different MaxReplicaCount
@@ -357,7 +357,7 @@ func TestReconcile_HandleGetError(t *testing.T) {
 	}
 	configMap := &corev1.ConfigMap{}
 
-	r, err := NewKedaReconciler(client, scheme.Scheme, componentMeta, componentExt, configMap)
+	r, err := NewKedaReconciler(t.Context(), client, scheme.Scheme, componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 
 	// Simulate a client error by using an invalid name for the ScaledObject

@@ -19,6 +19,7 @@ package multimodelconfig
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,23 +31,27 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/common"
 	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/modelconfig"
 )
 
-var log = logf.Log.WithName("Reconciler")
+var modelConfigLogger = logf.Log.WithName("ModelConfigReconciler")
 
 type ModelConfigReconciler struct {
 	client    client.Client
 	clientset kubernetes.Interface
 	scheme    *runtime.Scheme
+	logger    logr.Logger
 }
 
-func NewModelConfigReconciler(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme) *ModelConfigReconciler {
+func NewModelConfigReconciler(ctx context.Context, client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme) *ModelConfigReconciler {
+	_, logger := common.LoggerForContext(ctx, modelConfigLogger, "ModelConfigReconciler")
 	return &ModelConfigReconciler{
 		client:    client,
 		clientset: clientset,
 		scheme:    scheme,
+		logger:    logger,
 	}
 }
 
@@ -62,7 +67,7 @@ func (c *ModelConfigReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Inf
 			if err != nil {
 				if errors.IsNotFound(err) {
 					// If the modelConfig does not exist for an InferenceService without storageUri, create an empty modelConfig
-					log.Info("Creating modelConfig", "configmap", modelConfigName, "inferenceservice", isvc.Name, "namespace", isvc.Namespace)
+					c.logger.Info("Creating modelConfig", "configmap", modelConfigName, "inferenceservice", isvc.Name, "namespace", isvc.Namespace)
 					newModelConfig, err := modelconfig.CreateEmptyModelConfig(isvc, id)
 					if err != nil {
 						return err

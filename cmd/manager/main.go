@@ -24,8 +24,6 @@ import (
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	istio_networking "istio.io/api/networking/v1alpha3"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -43,13 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
-
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -69,57 +60,6 @@ var setupLog = ctrl.Log.WithName("setup")
 const (
 	LeaderLockName = "kserve-controller-manager-leader-lock"
 )
-
-func setupTracing(ctx context.Context) (func(context.Context) error, error) {
-	logger := ctrl.Log.WithName("tracing")
-	// TODO: Make OTEL_COLLECTOR_ENDPOINT configurable??
-	endpoint := os.Getenv("OTEL_COLLECTOR_ENDPOINT")
-	if endpoint == "" {
-		endpoint = "localhost:4317"
-	}
-
-	res, err := resource.New(ctx,
-		resource.WithFromEnv(),
-		resource.WithTelemetrySDK(),
-		resource.WithHost(),
-		resource.WithAttributes(semconv.ServiceNameKey.String("kserve-controller")),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	tpOptions := []sdktrace.TracerProviderOption{
-		sdktrace.WithResource(res),
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-	}
-
-	exporter, err := otlptracegrpc.New(ctx,
-		otlptracegrpc.WithEndpoint(endpoint),
-		otlptracegrpc.WithDialOption(grpc.WithTransportCredentials(insecure.NewCredentials())),
-	)
-	if err != nil {
-		logger.Error(err, "failed to create OTLP trace exporter, continuing without remote export", "endpoint", endpoint)
-	} else {
-		tpOptions = append(tpOptions, sdktrace.WithBatcher(exporter))
-	}
-
-	tp := sdktrace.NewTracerProvider(tpOptions...)
-	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
-		propagation.TraceContext{},
-		propagation.Baggage{},
-	))
-
-	shutdown := func(ctx context.Context) error {
-		if err := tp.Shutdown(ctx); err != nil {
-			logger.Error(err, "failed to shutdown tracer provider")
-			return err
-		}
-		return nil
-	}
-
-	return shutdown, nil
-}
 
 // Options defines the program configurable options that may be passed on the command line.
 type Options struct {
@@ -164,18 +104,6 @@ func init() {
 func main() {
 	options := GetOptions()
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&options.zapOpts)))
-
-	ctx := context.Background()
-	shutdownTracer, err := setupTracing(ctx)
-	if err != nil {
-		setupLog.Error(err, "unable to set up OpenTelemetry tracing")
-		os.Exit(1)
-	}
-	defer func() {
-		if err := shutdownTracer(context.Background()); err != nil {
-			setupLog.Error(err, "error shutting down OpenTelemetry tracing")
-		}
-	}()
 
 	// Get a config to talk to the apiserver
 	setupLog.Info("Setting up client for manager")

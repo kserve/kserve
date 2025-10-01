@@ -21,8 +21,10 @@ import (
 	"fmt"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/common"
 	"github.com/kserve/kserve/pkg/utils"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -86,24 +88,28 @@ const (
 	KeyEndpoint         = "endpoint"
 )
 
-var log = logf.Log.WithName("OTelReconciler")
+var otelLogger = logf.Log.WithName("OTelReconciler")
 
 type OtelReconciler struct {
 	client        client.Client
 	scheme        *runtime.Scheme
 	OTelCollector *otelv1beta1.OpenTelemetryCollector
+	logger        logr.Logger
 }
 
-func NewOtelReconciler(client client.Client,
+func NewOtelReconciler(ctx context.Context,
+	client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	metricNames []string,
 	otelConfig v1beta1.OtelCollectorConfig,
 ) (*OtelReconciler, error) {
+	_, logger := common.LoggerForContext(ctx, otelLogger, "OTelReconciler")
 	return &OtelReconciler{
 		client:        client,
 		scheme:        scheme,
 		OTelCollector: createOtelCollector(componentMeta, metricNames, otelConfig),
+		logger:        logger,
 	}, nil
 }
 
@@ -141,7 +147,7 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 ) *otelv1beta1.OpenTelemetryCollector {
 	port, ok := componentMeta.Annotations[AnnotationPrometheusPort]
 	if !ok {
-		log.Info(fmt.Sprintf("Annotation %s is missing, using default value %s to configure OTel Collector", AnnotationPrometheusPort, DefaultPrometheusPort))
+		otelLogger.Info(fmt.Sprintf("Annotation %s is missing, using default value %s to configure OTel Collector", AnnotationPrometheusPort, DefaultPrometheusPort))
 		port = DefaultPrometheusPort
 	}
 
@@ -260,7 +266,7 @@ func (o *OtelReconciler) Reconcile(ctx context.Context) error {
 
 	if forceStopRuntime {
 		if existing.GetDeletionTimestamp() == nil { // check if the otel was already deleted
-			log.Info("Deleting OpenTelemetry Collector", "namespace", existing.Namespace, "name", existing.Name)
+			o.logger.Info("Deleting OpenTelemetry Collector", "namespace", existing.Namespace, "name", existing.Name)
 			if err := o.client.Delete(ctx, existing); err != nil {
 				return err
 			}
@@ -270,9 +276,9 @@ func (o *OtelReconciler) Reconcile(ctx context.Context) error {
 
 	// Create or update the otel to match the desired state
 	if getExistingErr != nil && otelIsNotFound {
-		log.Info("Creating OTel Collector resource", "name", desired.Name)
+		o.logger.Info("Creating OTel Collector resource", "name", desired.Name)
 		if err := o.client.Create(ctx, desired); err != nil {
-			log.Error(err, "Failed to create OTel Collector resource", "name", desired.Name)
+			o.logger.Error(err, "Failed to create OTel Collector resource", "name", desired.Name)
 			return err
 		}
 		return nil
@@ -285,13 +291,13 @@ func (o *OtelReconciler) Reconcile(ctx context.Context) error {
 	// Removing it would lead to constantly updating the resource due to default values set by the API server.
 	// This will populate our local Otel with any default values that are present on the remote version.
 	if err := o.client.Update(ctx, desired, client.DryRunAll); err != nil {
-		log.Error(err, "Failed to perform dry-run update for OTel Collector", "name", desired.Name)
+		o.logger.Error(err, "Failed to perform dry-run update for OTel Collector", "name", desired.Name)
 		return err
 	}
 	if !semanticOtelCollectorEquals(desired, existing) {
-		log.Info("Updating OTel Collector resource", "name", desired.Name)
+		o.logger.Info("Updating OTel Collector resource", "name", desired.Name)
 		if err := o.client.Update(ctx, desired); err != nil {
-			log.Error(err, "Failed to update OTel Collector", "name", desired.Name)
+			o.logger.Error(err, "Failed to update OTel Collector", "name", desired.Name)
 		}
 	}
 	return nil
