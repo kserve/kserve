@@ -89,6 +89,8 @@ spec:
         - "--metrics-addr={{ .Values.kserve.controller.metricsBindAddress }}:{{ .Values.kserve.controller.metricsBindPort }}"
         - "--leader-elect"
         env:
+          - name: KNATIVE_CONFIG_AUTOSCALER_NAMESPACE
+            value: {{ .Values.knative.namespace | default "knative-serving" }}
           - name: POD_NAMESPACE
             valueFrom:
               fieldRef:
