@@ -44,16 +44,12 @@ class NetUrlUserinfo(object):
       attribute_map (dict): The key is attribute name
                             and the value is json key in definition.
     """
-    openapi_types = {
-        'password': 'str',
-        'password_set': 'bool',
-        'username': 'str'
-    }
+    openapi_types = {"password": "str", "password_set": "bool", "username": "str"}
 
     attribute_map = {
-        'password': 'password',
-        'password_set': 'passwordSet',
-        'username': 'username'
+        "password": "password",
+        "password_set": "passwordSet",
+        "username": "username",
     }
 
     def __init__(self, password=None, password_set=None, username=None):  # noqa: E501
@@ -87,7 +83,9 @@ class NetUrlUserinfo(object):
         :type: str
         """
         if password is None:
-            raise ValueError("Invalid value for `password`, must not be `None`")  # noqa: E501
+            raise ValueError(
+                "Invalid value for `password`, must not be `None`"
+            )  # noqa: E501
 
         self._password = password
 
@@ -110,7 +108,9 @@ class NetUrlUserinfo(object):
         :type: bool
         """
         if password_set is None:
-            raise ValueError("Invalid value for `password_set`, must not be `None`")  # noqa: E501
+            raise ValueError(
+                "Invalid value for `password_set`, must not be `None`"
+            )  # noqa: E501
 
         self._password_set = password_set
 
@@ -133,7 +133,9 @@ class NetUrlUserinfo(object):
         :type: str
         """
         if username is None:
-            raise ValueError("Invalid value for `username`, must not be `None`")  # noqa: E501
+            raise ValueError(
+                "Invalid value for `username`, must not be `None`"
+            )  # noqa: E501
 
         self._username = username
 
@@ -144,18 +146,22 @@ class NetUrlUserinfo(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
         if issubclass(NetUrlUserinfo, dict):

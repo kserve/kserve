@@ -47,30 +47,42 @@ class V1beta1ComponentStatusSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'address': 'KnativeAddressable',
-        'grpc_url': 'KnativeURL',
-        'latest_created_revision': 'str',
-        'latest_ready_revision': 'str',
-        'latest_rolledout_revision': 'str',
-        'previous_rolledout_revision': 'str',
-        'rest_url': 'KnativeURL',
-        'traffic': 'list[KnativeDevServingPkgApisServingV1TrafficTarget]',
-        'url': 'KnativeURL'
+        "address": "KnativeAddressable",
+        "grpc_url": "KnativeURL",
+        "latest_created_revision": "str",
+        "latest_ready_revision": "str",
+        "latest_rolledout_revision": "str",
+        "previous_rolledout_revision": "str",
+        "rest_url": "KnativeURL",
+        "traffic": "list[KnativeDevServingPkgApisServingV1TrafficTarget]",
+        "url": "KnativeURL",
     }
 
     attribute_map = {
-        'address': 'address',
-        'grpc_url': 'grpcUrl',
-        'latest_created_revision': 'latestCreatedRevision',
-        'latest_ready_revision': 'latestReadyRevision',
-        'latest_rolledout_revision': 'latestRolledoutRevision',
-        'previous_rolledout_revision': 'previousRolledoutRevision',
-        'rest_url': 'restUrl',
-        'traffic': 'traffic',
-        'url': 'url'
+        "address": "address",
+        "grpc_url": "grpcUrl",
+        "latest_created_revision": "latestCreatedRevision",
+        "latest_ready_revision": "latestReadyRevision",
+        "latest_rolledout_revision": "latestRolledoutRevision",
+        "previous_rolledout_revision": "previousRolledoutRevision",
+        "rest_url": "restUrl",
+        "traffic": "traffic",
+        "url": "url",
     }
 
-    def __init__(self, address=None, grpc_url=None, latest_created_revision=None, latest_ready_revision=None, latest_rolledout_revision=None, previous_rolledout_revision=None, rest_url=None, traffic=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        address=None,
+        grpc_url=None,
+        latest_created_revision=None,
+        latest_ready_revision=None,
+        latest_rolledout_revision=None,
+        previous_rolledout_revision=None,
+        rest_url=None,
+        traffic=None,
+        url=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1ComponentStatusSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -312,18 +324,22 @@ class V1beta1ComponentStatusSpec(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

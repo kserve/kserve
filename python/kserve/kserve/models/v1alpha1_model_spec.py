@@ -47,18 +47,20 @@ class V1alpha1ModelSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'framework': 'str',
-        'memory': 'ResourceQuantity',
-        'storage_uri': 'str'
+        "framework": "str",
+        "memory": "ResourceQuantity",
+        "storage_uri": "str",
     }
 
     attribute_map = {
-        'framework': 'framework',
-        'memory': 'memory',
-        'storage_uri': 'storageUri'
+        "framework": "framework",
+        "memory": "memory",
+        "storage_uri": "storageUri",
     }
 
-    def __init__(self, framework='', memory=None, storage_uri='', local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self, framework="", memory=None, storage_uri="", local_vars_configuration=None
+    ):  # noqa: E501
         """V1alpha1ModelSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -93,8 +95,12 @@ class V1alpha1ModelSpec(object):
         :param framework: The framework of this V1alpha1ModelSpec.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and framework is None:  # noqa: E501
-            raise ValueError("Invalid value for `framework`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and framework is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `framework`, must not be `None`"
+            )  # noqa: E501
 
         self._framework = framework
 
@@ -116,8 +122,12 @@ class V1alpha1ModelSpec(object):
         :param memory: The memory of this V1alpha1ModelSpec.  # noqa: E501
         :type: ResourceQuantity
         """
-        if self.local_vars_configuration.client_side_validation and memory is None:  # noqa: E501
-            raise ValueError("Invalid value for `memory`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and memory is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `memory`, must not be `None`"
+            )  # noqa: E501
 
         self._memory = memory
 
@@ -141,8 +151,12 @@ class V1alpha1ModelSpec(object):
         :param storage_uri: The storage_uri of this V1alpha1ModelSpec.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and storage_uri is None:  # noqa: E501
-            raise ValueError("Invalid value for `storage_uri`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and storage_uri is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `storage_uri`, must not be `None`"
+            )  # noqa: E501
 
         self._storage_uri = storage_uri
 
@@ -153,18 +167,22 @@ class V1alpha1ModelSpec(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
