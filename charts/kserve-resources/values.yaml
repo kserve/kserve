@@ -459,3 +459,15 @@ kserve:
       requests:
         cpu: "1"
         memory: "2Gi"
+  opentelemetryCollector:
+    scrapeInterval: "5s"
+    metricReceiverEndpoint: "keda-otel-scaler.keda.svc:4317"
+    metricScalerEndpoint: "keda-otel-scaler.keda.svc:4318"
+    resource:
+      cpuLimit: "1"
+      memoryLimit: "2Gi"
+      cpuRequest: "200m"
+      memoryRequest: "512Mi"
+  autoscaler:
+    scaleUpStabilizationWindowSeconds: "0"
+    scaleDownStabilizationWindowSeconds: "300"

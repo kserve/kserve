@@ -18,6 +18,8 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0-rc0
 |-----|------|---------|-------------|
 | kserve.agent.image | string | `"kserve/agent"` |  |
 | kserve.agent.tag | string | `"v0.16.0-rc0"` |  |
+| kserve.autoscaler.scaleDownStabilizationWindowSeconds | string | `"300"` |  |
+| kserve.autoscaler.scaleUpStabilizationWindowSeconds | string | `"0"` |  |
 | kserve.controller.affinity | object | `{}` | A Kubernetes Affinity, if required. For more information, see [Affinity v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#affinity-v1-core).  For example:   affinity:     nodeAffinity:      requiredDuringSchedulingIgnoredDuringExecution:        nodeSelectorTerms:        - matchExpressions:          - key: foo.bar.com/role            operator: In            values:            - master |
 | kserve.controller.annotations | object | `{}` | Optional additional annotations to add to the controller deployment. |
 | kserve.controller.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true}` | Container Security Context to be set on the controller component container. For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/). |
@@ -85,6 +87,13 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0-rc0
 | kserve.localmodel.securityContext.fsGroup | int | `1000` |  |
 | kserve.metricsaggregator.enableMetricAggregation | string | `"false"` | configures metric aggregation annotation. This adds the annotation serving.kserve.io/enable-metric-aggregation to every service with the specified boolean value. If true enables metric aggregation in queue-proxy by setting env vars in the queue proxy container to configure scraping ports. |
 | kserve.metricsaggregator.enablePrometheusScraping | string | `"false"` | If true, prometheus annotations are added to the pod to scrape the metrics. If serving.kserve.io/enable-metric-aggregation is false, the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port. |
+| kserve.opentelemetryCollector.metricReceiverEndpoint | string | `"keda-otel-scaler.keda.svc:4317"` |  |
+| kserve.opentelemetryCollector.metricScalerEndpoint | string | `"keda-otel-scaler.keda.svc:4318"` |  |
+| kserve.opentelemetryCollector.resource.cpuLimit | string | `"1"` |  |
+| kserve.opentelemetryCollector.resource.cpuRequest | string | `"200m"` |  |
+| kserve.opentelemetryCollector.resource.memoryLimit | string | `"2Gi"` |  |
+| kserve.opentelemetryCollector.resource.memoryRequest | string | `"512Mi"` |  |
+| kserve.opentelemetryCollector.scrapeInterval | string | `"5s"` |  |
 | kserve.router.image | string | `"kserve/router"` |  |
 | kserve.router.imagePullPolicy | string | `"IfNotPresent"` | Specifies when to pull router image from registry. |
 | kserve.router.imagePullSecrets | list | `[]` | specifies the list of secrets to be used for pulling the router image from registry. |
