@@ -29,6 +29,9 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+      
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
 
       - name: Run tests
         run: |
@@ -36,7 +39,7 @@ jobs:
             docker-compose --file docker-compose.test.yml build
             docker-compose --file docker-compose.test.yml run sut
           else
-            docker buildx build . --file Dockerfile
+            docker buildx build . --file llmisvc-controller.Dockerfile
           fi
 
   # Push image to GitHub Packages.
@@ -51,6 +54,9 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+      
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
@@ -92,7 +98,7 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
           context: .
-          file: Dockerfile
+          file: llmisvc-controller.Dockerfile
           push: true
           tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
           # https://github.com/docker/buildx/issues/1533

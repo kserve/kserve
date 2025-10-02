@@ -158,7 +158,7 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 			},
 		},
 	}
-	if componentExt.DeploymentStrategy != nil {
+	if componentExt != nil && componentExt.DeploymentStrategy != nil {
 		// User-specified deployment strategy takes precedence
 		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
 	} else {
@@ -166,7 +166,7 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 		setDefaultDeploymentSpec(&deployment.Spec)
 		applyRolloutStrategyFromConfigmap(&deployment.Spec, deployConfig)
 	}
-	if componentExt.MinReplicas != nil && deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassNone) {
+	if componentExt != nil && componentExt.MinReplicas != nil && deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassNone) {
 		deployment.Spec.Replicas = ptr.To(*componentExt.MinReplicas)
 	}
 
@@ -196,7 +196,7 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 			},
 		},
 	}
-	if componentExt.DeploymentStrategy != nil {
+	if componentExt != nil && componentExt.DeploymentStrategy != nil {
 		// User-specified deployment strategy takes precedence
 		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
 	} else {
