@@ -16,6 +16,7 @@ Help() {
 }
 
 export GATEWAY_API_VERSION=v1.2.1
+export GATEWAY_API_INFERENCE_EXT_VERSION=v0.5.0
 export KSERVE_VERSION=v0.16.0-rc0
 export LLMISVC_VERSION=v0.16.0-rc0
 export LWS_VERSION=0.7.0
@@ -46,6 +47,7 @@ uninstall() {
    helm uninstall --ignore-not-found llmisvc -n kserve
    helm uninstall --ignore-not-found llmisvc-crd -n kserve
    echo "😀 Successfully uninstalled LLMISvc"
+
 
    # Delete namespaces
    kubectl delete --ignore-not-found=true namespace kserve
@@ -89,8 +91,24 @@ if [ "$(get_kube_version)" -lt 24 ]; then
    exit 1
 fi
 
+# Install cert-manager if not already installed
+if ! kubectl get namespace cert-manager &> /dev/null; then
+    echo "Installing cert-manager..."
+    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
+    kubectl wait --for=condition=available --timeout=300s deployment/cert-manager -n cert-manager
+    kubectl wait --for=condition=available --timeout=300s deployment/cert-manager-cainjector -n cert-manager
+    kubectl wait --for=condition=available --timeout=300s deployment/cert-manager-webhook -n cert-manager
+    echo "😀 Successfully installed cert-manager"
+else
+    echo "cert-manager already installed, skipping..."
+fi
+
 echo "Installing Gateway API CRDs ..."
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
+
+echo "Installing Gateway API Inference Extension CRDs ..."
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GATEWAY_API_INFERENCE_EXT_VERSION}/install.yaml
+echo "😀 Successfully installed Gateway API Inference Extension CRDs"
 
 # Install Envoy Gateway
 echo "Installing Envoy Gateway ..."
@@ -153,14 +171,24 @@ if [ "${installLLMISvc}" = false ]; then
    exit
 fi
 
-# Install LLMISvc
-echo "Installing LLMISvc ..."
-helm install llmisvc-crd oci://ghcr.io/kserve/charts/llmisvc-crd --version ${LLMISVC_VERSION} --namespace kserve --create-namespace --wait
-helm install llmisvc oci://ghcr.io/kserve/charts/llmisvc-resources --version ${LLMISVC_VERSION} --namespace kserve --create-namespace --wait
-echo "😀 Successfully installed LLMISvc"
+if [ "${USE_LOCAL_CHARTS}" = true ]; then
+   # Install LLMISvc using local charts (to avoid template function errors in published charts)
+   echo "Installing LLMISvc using local charts..."
+   echo "📍 Using local charts from $(pwd)/charts/"
+   # Install LLMISvc CRDs from local chart
+   helm install llmisvc-crd ./charts/llmisvc-crd --namespace kserve --create-namespace --wait
 
-echo ""
-echo "🎉 LLMISvc installation completed successfully!"
+   # Install LLMISvc resources from local chart  
+   helm install llmisvc ./charts/llmisvc-resources --set kserve.llmisvc.controller.tag=local-test --set kserve.llmisvc.controller.imagePullPolicy=Never --namespace kserve --create-namespace --wait
+   echo "😀 Successfully installed LLMISvc using local charts"
+
+else
+   echo "Installing LLMISvc ..."
+   helm install llmisvc-crd oci://ghcr.io/kserve/charts/llmisvc-crd --version ${LLMISVC_VERSION} --namespace kserve --create-namespace --wait
+   helm install llmisvc oci://ghcr.io/kserve/charts/llmisvc-resources --version ${LLMISVC_VERSION} --namespace kserve --create-namespace --wait
+
+fi
+echo "😀 Successfully installed LLMISvc"
 
 # Create Gateway resource
 echo "Creating kserve-ingress-gateway ..."
