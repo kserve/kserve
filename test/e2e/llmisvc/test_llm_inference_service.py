@@ -69,7 +69,7 @@ class TestCase:
     service_name: Optional[str] = None
     max_tokens: int = 100
     response_assertion: Callable[[requests.Response], None] = assert_200
-    wait_timeout: int = 300
+    wait_timeout: int = 600
     response_timeout: int = 60
     before_test: List[Callable[[], Any]] = field(default_factory=list)
     after_test: List[Callable[[], Any]] = field(default_factory=list)

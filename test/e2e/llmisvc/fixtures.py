@@ -542,6 +542,49 @@ LLMINFERENCESERVICE_CONFIGS = {
         "router": {
             "scheduler": {},
         },
+    },
+    "router-with-gateway-ref": {
+        "router": {
+            "gateway": {
+                "refs": [
+                    {"name": "router-gateway-1", "namespace": KSERVE_TEST_NAMESPACE},
+                ],
+            },
+        },
+    },
+    "router-with-managed-route": {
+        "router": {
+            "route": {}
+        },
+    },
+    "workload-llmd-simulator": {
+        "replicas": 1,
+        "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
+        "template": {
+            "containers": [
+                {
+                    "name": "main",
+                    "image": "ghcr.io/llm-d/llm-d-inference-sim:v0.5.1",
+                    "command": ["/app/llm-d-inference-sim"],
+                    "args": [
+                        "--port",
+                        "8000",
+                        "--model",
+                        "{{ .Spec.Model.Name }}",
+                        "--mode",
+                        "random",
+                        "--ssl-certfile",
+                        "/etc/ssl/certs/tls.crt",
+                        "--ssl-keyfile",
+                        "/etc/ssl/certs/tls.key"
+                    ],
+                    "resources": {
+                        "limits": {"cpu": "1", "memory": "2Gi"},
+                        "requests": {"cpu": "1", "memory": "2Gi"},
+                    },
+                }
+            ]
+        },
     }
 }
 
