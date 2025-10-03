@@ -128,6 +128,29 @@ kubectl rollout restart -n envoy-gateway-system deployment/envoy-gateway
 kubectl wait --timeout=2m -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available
 echo "😀 Successfully enabled Gateway API Inference Extension support for Envoy Gateway"
 
+# Create Gateway resource
+echo "Creating kserve-ingress-gateway ..."
+kubectl apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: kserve-ingress-gateway
+  namespace: kserve
+spec:
+  gatewayClassName: envoy
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All
+  infrastructure:
+    labels:
+      serving.kserve.io/gateway: kserve-ingress-gateway
+EOF
+echo "😀 Successfully created kserve-ingress-gateway"
+
 # Install Leader Worker Set (LWS)
 echo "Installing Leader Worker Set ..."
 helm install lws oci://registry.k8s.io/lws/charts/lws \
@@ -162,25 +185,3 @@ echo "😀 Successfully installed LLMISvc"
 echo ""
 echo "🎉 LLMISvc installation completed successfully!"
 
-# Create Gateway resource
-echo "Creating kserve-ingress-gateway ..."
-kubectl apply -f - <<EOF
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: kserve-ingress-gateway
-  namespace: kserve
-spec:
-  gatewayClassName: envoy
-  listeners:
-    - name: http
-      protocol: HTTP
-      port: 80
-      allowedRoutes:
-        namespaces:
-          from: All
-  infrastructure:
-    labels:
-      serving.kserve.io/gateway: kserve-ingress-gateway
-EOF
-echo "😀 Successfully created kserve-ingress-gateway"
