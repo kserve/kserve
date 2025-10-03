@@ -7,7 +7,7 @@ requires-python = "<3.13,>=3.9"
 dependencies = [
     "kserve[llm] @ file:///${PROJECT_ROOT}/../kserve",
     "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
-    "transformers>=4.51.2",
+    "transformers>=4.53.2",
     "accelerate<2.0.0,>=1.6.0",
     "torch>=2.7.0",
     "triton>=3.2.0",
