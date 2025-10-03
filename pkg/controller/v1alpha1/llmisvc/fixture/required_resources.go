@@ -152,7 +152,7 @@ func InferenceServiceCfgMap(ns string) *corev1.ConfigMap {
 // SharedConfigPresets loads preset files shared as kustomize manifests that are stored in projects config.
 // Every file prefixed with `config-` is treated as such
 func SharedConfigPresets(ns string) []*v1alpha1.LLMInferenceServiceConfig {
-	configDir := filepath.Join(testing.ProjectRoot(), "config", "llmisvc")
+	configDir := filepath.Join(testing.ProjectRoot(), "config", "llmisvcconfig")
 	var configs []*v1alpha1.LLMInferenceServiceConfig
 	err := filepath.Walk(configDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
