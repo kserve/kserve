@@ -43,21 +43,27 @@ trace.set_tracer_provider(tracer_provider)
 otel_collector_endpoint = os.getenv("OTEL_COLLECTOR_ENDPOINT", "localhost:4317")
 
 TRACE_RESPONSE_HEADER_ENV = "TRACE_RESPONSE_HEADER_NAME"
-TRACE_RESPONSE_HEADER_FALLBACK = "traceparent"
-TRACE_RESPONSE_HEADER_NAME = os.getenv(
-    TRACE_RESPONSE_HEADER_ENV, TRACE_RESPONSE_HEADER_FALLBACK
-)
+TRACE_RESPONSE_HEADER_NAME = os.getenv(TRACE_RESPONSE_HEADER_ENV, "traceparent")
 
 TRACE_RESPONSE_TRACESTATE_HEADER_ENV = "TRACE_RESPONSE_TRACESTATE_HEADER_NAME"
 TRACE_RESPONSE_TRACESTATE_HEADER_FALLBACK = "tracestate"
 TRACE_RESPONSE_TRACESTATE_HEADER_NAME = os.getenv(
-    TRACE_RESPONSE_TRACESTATE_HEADER_ENV, TRACE_RESPONSE_TRACESTATE_HEADER_FALLBACK
+    TRACE_RESPONSE_TRACESTATE_HEADER_ENV, "tracestate"
 )
 
 # Set up the tracer provider and exporter
-otlp_exporter = OTLPSpanExporter(endpoint=otel_collector_endpoint, insecure=True)
-span_processor = BatchSpanProcessor(otlp_exporter)
-tracer_provider.add_span_processor(span_processor)
+ENABLE_OTEL_EXPORTER_ENV = "ENABLE_OTEL_EXPORTER"
+ENABLE_OTEL_EXPORTER = os.getenv(ENABLE_OTEL_EXPORTER_ENV, "true").lower() in {
+    "true",
+    "1",
+    "yes",
+    "on",
+}
+
+if ENABLE_OTEL_EXPORTER:
+    otlp_exporter = OTLPSpanExporter(endpoint=otel_collector_endpoint, insecure=True)
+    span_processor = BatchSpanProcessor(otlp_exporter)
+    tracer_provider.add_span_processor(span_processor)
 
 from kserve.errors import (
     InferenceError,
@@ -98,6 +104,7 @@ class PrintTimings(TimingClient):
 
 class TraceResponseHeaderMiddleware(BaseHTTPMiddleware):
     """ASGI middleware that adds W3C Trace Context headers to every response."""
+
     def __init__(
         self,
         app: fastapi.FastAPI,
@@ -174,6 +181,8 @@ class RESTServer:
         register_v2_endpoints(app, self.dataplane, self.model_repository_extension)
         FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer_provider)
         logger.info("Opentelemetry tracing enabled")
+        if ENABLE_OTEL_EXPORTER:
+            logger.info("OpenTelemetry exporter enabled. Exporting to %s", otel_collector_endpoint)
         # Register OpenAI endpoints if any of the models in the registry implement the OpenAI interface
         # This adds /openai/v1/completions and /openai/v1/chat/completions routes to the
         # REST server.
