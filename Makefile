@@ -26,6 +26,7 @@ STORAGE_INIT_IMG ?= storage-initializer
 QPEXT_IMG ?= qpext:latest
 SUCCESS_200_ISVC_IMG ?= success-200-isvc
 ERROR_404_ISVC_IMG ?= error-404-isvc
+LLMISVC_IMG ?= kserve-llmisvc-controller:latest
 
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
@@ -322,6 +323,12 @@ docker-build:
 # Push the docker image
 docker-push:
 	docker push ${IMG}
+
+docker-build-llmisvc:
+	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${LLMISVC_IMG} -f llmisvc-controller.Dockerfile .
+
+docker-push-llmisvc: docker-build-llmisvc
+	${ENGINE} buildx build ${ARCH} --push -t ${KO_DOCKER_REPO}/${LLMISVC_IMG} -f llmisvc-controller.Dockerfile .
 
 docker-build-agent:
 	${ENGINE} buildx build ${ARCH} -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}
