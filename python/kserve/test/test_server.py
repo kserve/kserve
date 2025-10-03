@@ -53,6 +53,7 @@ from kserve.utils.utils import generate_uuid, get_predict_input, get_predict_res
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 from kserve.protocol.rest.multiprocess.server import RESTServerMultiProcess
+from kserve.protocol.rest.server import TRACE_RESPONSE_HEADER_NAME
 from kserve.predictor_config import PredictorConfig
 from kserve import context as kserve_context
 
@@ -452,6 +453,16 @@ class TestV1Endpoints:
         assert resp.status_code == 200
         assert resp.content == b'{"predictions":[[1,2]]}'
         assert resp.headers["content-type"] == "application/json"
+
+    def test_trace_id_header_present(self, http_server_client):
+        resp = http_server_client.post(
+            "/v1/models/TestModel:predict", content=b'{"instances":[[3,4]]}'
+        )
+        header_name = TRACE_RESPONSE_HEADER_NAME or "traceparent"
+        assert header_name in resp.headers
+        assert re.fullmatch(
+            r"00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}", resp.headers[header_name]
+        )
 
     def test_explain_v1(self, http_server_client):
         resp = http_server_client.post(
