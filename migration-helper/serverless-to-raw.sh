@@ -51,7 +51,7 @@ EXAMPLES:
     $SCRIPT_NAME --dry-run -n my-models
 
 WHAT THIS SCRIPT DOES:
-    1. Discovers InferenceServices with 'Serverless' deployment mode (or unset)
+    1. Discovers InferenceServices with 'Serverless' deployment mode
     2. Allows interactive selection of which models to convert
     3. For each selected InferenceService:
        • Exports original InferenceService and ServingRuntime configurations
@@ -63,6 +63,7 @@ WHAT THIS SCRIPT DOES:
 PREREQUISITES:
     • OpenShift CLI (oc) - logged into target cluster
     • yq (YAML processor) - for YAML manipulation
+    • jq (JSON processor) - for JSON manipulation
     • Appropriate RBAC permissions in target namespace (not needed for --dry-run)
 
 AUTHENTICATION SUPPORT:
@@ -179,6 +180,11 @@ check_prerequisites() {
         missing_deps+=("yq (YAML processor)")
     fi
     
+    # Check for jq command
+    if ! command -v jq &> /dev/null; then
+        missing_deps+=("jq (JSON processor)")
+    fi
+    
     if [ ${#missing_deps[@]} -ne 0 ]; then
         log_error "Missing required dependencies:"
         for dep in "${missing_deps[@]}"; do
@@ -188,6 +194,7 @@ check_prerequisites() {
         echo -e "${YELLOW}Installation instructions:${NC}"
         echo -e "  ${BLUE}oc:${NC} https://docs.openshift.com/container-platform/latest/cli_reference/openshift_cli/getting-started-cli.html"
         echo -e "  ${BLUE}yq:${NC} https://github.com/mikefarah/yq#install"
+        echo -e "  ${BLUE}jq:${NC} https://jqlang.github.io/jq/download/"
         exit 1
     fi
     
@@ -304,13 +311,13 @@ list_and_select_inference_services() {
         exit 1
     fi
 
-    # Get names of InferenceServices that are eligible (Serverless or unset deployment mode)
+    # Get names of InferenceServices that are eligible (Serverless deployment mode)
     local isvc_names=()
     while IFS= read -r name; do
         if [[ -n "$name" && "$name" != "null" ]]; then
-            # Check if this InferenceService has Serverless deployment mode or no deployment mode set
+            # Check if this InferenceService has Serverless deployment mode
             local deployment_mode=$(echo "$isvc_list" | yq ".items[] | select(.metadata.name == \"$name\") | .metadata.annotations.\"serving.kserve.io/deploymentMode\" // \"\"")
-            if [[ "$deployment_mode" == "Serverless" || "$deployment_mode" == "" ]]; then
+            if [[ "$deployment_mode" == "Serverless" ]]; then
                 isvc_names+=("$name")
             fi
         fi
@@ -319,9 +326,9 @@ list_and_select_inference_services() {
     local filtered_count=${#isvc_names[@]}
     
     if [[ "$filtered_count" -eq 0 ]]; then
-        log_error "No InferenceServices found with deploymentMode set to 'Serverless' (or unset) in namespace '$NAMESPACE'"
+        log_error "No InferenceServices found with deploymentMode set to 'Serverless' in namespace '$NAMESPACE'"
         echo "Found $isvc_count total InferenceService(s), but none are eligible for conversion."
-        echo "Only InferenceServices with deploymentMode annotation set to 'Serverless' or unset can be converted to raw deployment."
+        echo "Only InferenceServices with deploymentMode annotation set to 'Serverless' can be converted to raw deployment."
         exit 1
     fi
 
