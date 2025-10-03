@@ -19,3 +19,8 @@ resources:
 - localmodelnode/role_binding.yaml
 - localmodelnode/role.yaml
 - localmodelnode/service_account.yaml
+- llmisvc/role.yaml
+- llmisvc/clusterrolebinding.yaml
+- llmisvc/leader_election_role.yaml
+- llmisvc/leader_election_role_binding.yaml
+- llmisvc/service_account.yaml
