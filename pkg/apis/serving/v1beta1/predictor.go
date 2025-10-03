@@ -56,6 +56,7 @@ type PredictorSpec struct {
 
 	// Spec for multiple storage uris.
 	// +listType=atomic
+	// +kubebuilder:validation:MinItems=1
 	StorageUris []StorageUri `json:"storageUris,omitempty"`
 
 	// WorkerSpec for enabling multi-node/multi-gpu

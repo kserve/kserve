@@ -125,13 +125,7 @@ func NewRawKubeReconciler(ctx context.Context,
 	}
 
 	if storageUris != nil && len(*storageUris) > 0 {
-		isvcReadonlyStringFlag := true
-		isvcReadonlyString, ok := componentMeta.Annotations[constants.StorageReadonlyAnnotationKey]
-		if ok {
-			if isvcReadonlyString == "false" {
-				isvcReadonlyStringFlag = false
-			}
-		}
+		isvcReadonlyStringFlag := pod.GetStorageInitializerReadOnlyFlag(componentMeta.Annotations)
 
 		storageInitializerParams := &pod.StorageInitializerParams{
 			Namespace:            componentMeta.Namespace,

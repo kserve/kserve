@@ -47,49 +47,51 @@ class V1beta1StorageUri(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'path': 'str',
+        'mount_path': 'str',
         'uri': 'str'
     }
 
     attribute_map = {
-        'path': 'path',
+        'mount_path': 'mountPath',
         'uri': 'uri'
     }
 
-    def __init__(self, path='', uri='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, mount_path='', uri='', local_vars_configuration=None):  # noqa: E501
         """V1beta1StorageUri - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._path = None
+        self._mount_path = None
         self._uri = None
         self.discriminator = None
 
-        if path is not None:
-            self.path = path
+        if mount_path is not None:
+            self.mount_path = mount_path
         self.uri = uri
 
     @property
-    def path(self):
-        """Gets the path of this V1beta1StorageUri.  # noqa: E501
+    def mount_path(self):
+        """Gets the mount_path of this V1beta1StorageUri.  # noqa: E501
 
+        MountPath is the path where the model will be mounted inside the container. If not specified, it defaults to /mnt/models.  # noqa: E501
 
-        :return: The path of this V1beta1StorageUri.  # noqa: E501
+        :return: The mount_path of this V1beta1StorageUri.  # noqa: E501
         :rtype: str
         """
-        return self._path
+        return self._mount_path
 
-    @path.setter
-    def path(self, path):
-        """Sets the path of this V1beta1StorageUri.
+    @mount_path.setter
+    def mount_path(self, mount_path):
+        """Sets the mount_path of this V1beta1StorageUri.
 
+        MountPath is the path where the model will be mounted inside the container. If not specified, it defaults to /mnt/models.  # noqa: E501
 
-        :param path: The path of this V1beta1StorageUri.  # noqa: E501
+        :param mount_path: The mount_path of this V1beta1StorageUri.  # noqa: E501
         :type: str
         """
 
-        self._path = path
+        self._mount_path = mount_path
 
     @property
     def uri(self):

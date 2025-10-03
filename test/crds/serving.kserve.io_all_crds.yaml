@@ -8569,6 +8569,7 @@ spec:
                       required:
                       - uri
                       type: object
+                    minItems: 1
                     type: array
                     x-kubernetes-list-type: atomic
                   subdomain:
@@ -17346,6 +17347,7 @@ spec:
                       required:
                       - uri
                       type: object
+                    minItems: 1
                     type: array
                     x-kubernetes-list-type: atomic
                   subdomain:
@@ -26278,6 +26280,7 @@ spec:
                       required:
                       - uri
                       type: object
+                    minItems: 1
                     type: array
                     x-kubernetes-list-type: atomic
                   subdomain:

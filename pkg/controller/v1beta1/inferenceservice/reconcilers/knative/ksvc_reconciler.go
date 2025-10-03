@@ -168,13 +168,7 @@ func createKnativeService(
 	})
 
 	if storageUris != nil && len(*storageUris) > 0 {
-		isvcReadonlyStringFlag := true
-		isvcReadonlyString, ok := annotations[constants.StorageReadonlyAnnotationKey]
-		if ok {
-			if isvcReadonlyString == "false" {
-				isvcReadonlyStringFlag = false
-			}
-		}
+		isvcReadonlyStringFlag := pod.GetStorageInitializerReadOnlyFlag(annotations)
 
 		storageInitializerParams := &pod.StorageInitializerParams{
 			Namespace:            componentMeta.Namespace,

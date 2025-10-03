@@ -5814,7 +5814,8 @@
         "uri"
       ],
       "properties": {
-        "path": {
+        "mountPath": {
+          "description": "MountPath is the path where the model will be mounted inside the container. If not specified, it defaults to /mnt/models.",
           "type": "string",
           "default": ""
         },

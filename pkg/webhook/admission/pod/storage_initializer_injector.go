@@ -99,7 +99,7 @@ type StorageInitializerParams struct {
 	IsLegacyURI bool
 }
 
-// GetStorageSpecForUri finds and returns a ClusterStorageContainer specification
+// GetStorageContainerSpec finds and returns a ClusterStorageContainer specification
 // that supports the given storage URI. This function searches through all available
 // ClusterStorageContainer resources in the cluster and returns the first one that
 // can handle the specified URI format.
@@ -115,7 +115,7 @@ type StorageInitializerParams struct {
 //
 // The function iterates through ClusterStorageContainer resources and uses their
 // IsStorageUriSupported method to determine compatibility with the provided URI.
-func GetStorageSpecForUri(ctx context.Context, storageUri string, client client.Client) (*v1alpha1.StorageContainerSpec, error) {
+func GetStorageContainerSpec(ctx context.Context, storageUri string, client client.Client) (*v1alpha1.StorageContainerSpec, error) {
 	storageContainers := &v1alpha1.ClusterStorageContainerList{}
 	if err := client.List(ctx, storageContainers); err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func GetStorageSpecForUri(ctx context.Context, storageUri string, client client.
 }
 
 func GetContainerSpecForStorageUri(ctx context.Context, storageUri string, client client.Client) (*corev1.Container, error) {
-	supported, err := GetStorageSpecForUri(ctx, storageUri, client)
+	supported, err := GetStorageContainerSpec(ctx, storageUri, client)
 	if err != nil {
 		return nil, fmt.Errorf("error checking storage container %s: %w", supported.Container.Name, err)
 	}
@@ -178,6 +178,17 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 	return nil
 }
 
+func GetStorageInitializerReadOnlyFlag(annotations map[string]string) bool {
+	isvcReadonlyStringFlag := true
+	isvcReadonlyString, ok := annotations[constants.StorageReadonlyAnnotationKey]
+	if ok {
+		if isvcReadonlyString == "false" {
+			isvcReadonlyStringFlag = false
+		}
+	}
+	return isvcReadonlyStringFlag
+}
+
 // CommonStorageInitialization handles the injection of storage initialization logic for both single and multiple storage URIs.
 // This function consolidates the shared logic for setting up init containers and volume mounts to download model artifacts
 // from various storage backends (S3, GCS, Azure Blob, PVC, etc.) before the main inference container starts.
@@ -191,7 +202,8 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 //
 // Parameters:
 //   - params: A StorageInitializerParams struct containing all necessary configuration including
-//     storage URIs, pod spec, credentials, and storage container specifications
+//     storage URIs, pod spec, credentials, and storage container specifications;
+//     podSpec is modified in place to include init containers and volume mounts
 //
 // Returns:
 //   - error: nil on success, or an error if injection fails due to invalid configuration,
@@ -244,6 +256,7 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 	}
 
 	// Handle multiple storage URIs (new functionality)
+	// This has to be enabled via the feature flag for Knative deployments
 	if len(params.StorageURIs) > 0 && !params.IsLegacyURI {
 		// Validate that the storage container supports multiple downloads
 		if params.StorageContainerSpec != nil && !*params.StorageContainerSpec.SupportsMultiModelDownload {
@@ -328,6 +341,7 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 			}
 		}
 	} else if len(params.StorageURIs) == 1 {
+		// Handle single storage URI (backward compatibility)
 		storageURI := params.StorageURIs[0]
 
 		storageMountParams := utils.StorageMountParams{
@@ -467,9 +481,7 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 			initContainer.VolumeMounts = append(initContainer.VolumeMounts, caBundleVolumeMount)
 		}
 
-		// Update initContainer (container spec) from a storage container CR if there is a match,
-		// otherwise initContainer is not updated.
-		// Priority: CR > configMap
+		// Merge any customizations from the storage container spec into the init container
 		if params.StorageContainerSpec != nil {
 			err := mergeContainerSpecs(initContainer, &params.StorageContainerSpec.Container)
 			if err != nil {
@@ -485,6 +497,9 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 // for the serving container in a unified way across storage tech by injecting
 // a provisioning INIT container. This is a workaround because Knative does not
 // support INIT containers: https://github.com/knative/serving/issues/4307
+// This method handles old single storage URI scenario for backward compatibility;
+// Knative supports init containers so storage initializer is added as init container directly
+// in the controller for new multiple storage URI scenarios.
 func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Context, pod *corev1.Pod) error {
 	// Only inject if the required annotations are set
 	srcURI, ok := pod.ObjectMeta.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
@@ -522,18 +537,12 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 		storageSpec.Parameters = &overrideParams
 	}
 
-	isvcReadonlyStringFlag := true
-	isvcReadonlyString, ok := pod.ObjectMeta.Annotations[constants.StorageReadonlyAnnotationKey]
-	if ok {
-		if isvcReadonlyString == "false" {
-			isvcReadonlyStringFlag = false
-		}
-	}
+	isvcReadonlyStringFlag := GetStorageInitializerReadOnlyFlag(pod.ObjectMeta.Annotations)
 
 	storageURIs := []v1beta1.StorageUri{{Uri: srcURI, MountPath: constants.DefaultModelLocalMountPath}}
 
 	// Get storage container spec for the URI
-	storageContainerSpec, err := GetStorageSpecForUri(ctx, srcURI, mi.client)
+	storageContainerSpec, err := GetStorageContainerSpec(ctx, srcURI, mi.client)
 	if err != nil {
 		return err
 	}

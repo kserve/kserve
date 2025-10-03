@@ -173,7 +173,7 @@ func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v
 
 	var storageContainerSpec *v1alpha1.StorageContainerSpec
 	if len(isvc.Spec.Explainer.StorageUris) > 0 {
-		storageContainerSpec, err = pod.GetStorageSpecForUri(ctx, isvc.Spec.Explainer.StorageUris[0].Uri, e.client)
+		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Spec.Explainer.StorageUris[0].Uri, e.client)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get storage container spec")
 		}
@@ -232,7 +232,7 @@ func (e *Explainer) reconcileExplainerKnativeDeployment(ctx context.Context, isv
 
 	var storageContainerSpec *v1alpha1.StorageContainerSpec
 	if len(isvc.Spec.Explainer.StorageUris) > 0 {
-		storageContainerSpec, err = pod.GetStorageSpecForUri(ctx, isvc.Spec.Explainer.StorageUris[0].Uri, e.client)
+		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Spec.Explainer.StorageUris[0].Uri, e.client)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get storage container spec")
 		}
