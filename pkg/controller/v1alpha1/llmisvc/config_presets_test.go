@@ -40,7 +40,7 @@ import (
 
 // TODO(webhook): re-use webhook logic to do the spec merge and validation
 func TestPresetFiles(t *testing.T) {
-	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvc")
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
 
 	llmSvc := llmisvc.LLMInferenceServiceSample()
 	kserveSystemConfig := llmisvc.Config{

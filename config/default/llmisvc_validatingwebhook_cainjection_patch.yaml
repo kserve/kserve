@@ -3,6 +3,6 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: llminferenceservice.serving.kserve.io
   annotations:
-    cert-manager.io/inject-ca-from: $(kserveNamespace)/serving-cert
+    cert-manager.io/inject-ca-from: $(kserveNamespace)/llmisvc-serving-cert
 webhooks:
   - name: llminferenceservice.kserve-webhook-server.validator
