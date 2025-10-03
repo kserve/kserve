@@ -12,33 +12,46 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import logging
-from socket import socket
+import os
 import sys
+from socket import socket
 from typing import List, Optional
 
 import fastapi
 import uvicorn
 from fastapi import Request, Response
 from fastapi.routing import APIRouter
-from prometheus_client import REGISTRY, exposition
-from timing_asgi import TimingClient, TimingMiddleware
-from timing_asgi.integrations import StarletteScopeToName
-from uvicorn.importer import import_from_string, ImportFromStringError
-
 from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.trace import format_span_id, format_trace_id
+from prometheus_client import REGISTRY, exposition
+from starlette.middleware.base import BaseHTTPMiddleware
+from timing_asgi import TimingClient, TimingMiddleware
+from timing_asgi.integrations import StarletteScopeToName
+from uvicorn.importer import ImportFromStringError, import_from_string
 
-tracer_provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "kserve"}))  
+tracer_provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "kserve"}))
 trace.set_tracer_provider(tracer_provider)
 
 # Read the endpoint from the environment variable
 otel_collector_endpoint = os.getenv("OTEL_COLLECTOR_ENDPOINT", "localhost:4317")
+
+TRACE_RESPONSE_HEADER_ENV = "TRACE_RESPONSE_HEADER_NAME"
+TRACE_RESPONSE_HEADER_FALLBACK = "traceparent"
+TRACE_RESPONSE_HEADER_NAME = os.getenv(
+    TRACE_RESPONSE_HEADER_ENV, TRACE_RESPONSE_HEADER_FALLBACK
+)
+
+TRACE_RESPONSE_TRACESTATE_HEADER_ENV = "TRACE_RESPONSE_TRACESTATE_HEADER_NAME"
+TRACE_RESPONSE_TRACESTATE_HEADER_FALLBACK = "tracestate"
+TRACE_RESPONSE_TRACESTATE_HEADER_NAME = os.getenv(
+    TRACE_RESPONSE_TRACESTATE_HEADER_ENV, TRACE_RESPONSE_TRACESTATE_HEADER_FALLBACK
+)
 
 # Set up the tracer provider and exporter
 otlp_exporter = OTLPSpanExporter(endpoint=otel_collector_endpoint, insecure=True)
@@ -63,14 +76,14 @@ from kserve.errors import (
     server_not_ready_handler,
     unsupported_protocol_error_handler,
 )
-from kserve.logging import trace_logger, logger
+from kserve.logging import logger, trace_logger
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.rest.timeseries.config import maybe_register_time_series_endpoints
 
+from ..model_repository_extension import ModelRepositoryExtension
+from .ssl_cert_refresher import SSLCertRefresher
 from .v1_endpoints import register_v1_endpoints
 from .v2_endpoints import register_v2_endpoints
-from .ssl_cert_refresher import SSLCertRefresher
-from ..model_repository_extension import ModelRepositoryExtension
 
 
 async def metrics_handler(request: Request) -> Response:
@@ -84,6 +97,49 @@ class PrintTimings(TimingClient):
 
 
 VALID_UVICORN_LOOPS = {"auto", "asyncio", "uvloop"}
+
+
+class TraceResponseHeaderMiddleware(BaseHTTPMiddleware):
+    """ASGI middleware that adds W3C Trace Context headers to every response."""
+    def __init__(
+        self,
+        app: fastapi.FastAPI,
+        header_name: Optional[str] = None,
+        tracestate_header_name: Optional[str] = None,
+    ):
+        super().__init__(app)
+        self._header_name = header_name or TRACE_RESPONSE_HEADER_NAME
+        self._tracestate_header_name = (
+            tracestate_header_name or TRACE_RESPONSE_TRACESTATE_HEADER_NAME
+        )
+
+    async def dispatch(self, request: Request, call_next):
+        span = trace.get_current_span()
+        response = await call_next(request)
+
+        if span is None:
+            return response
+
+        span_context = span.get_span_context()
+        if not (span_context and span_context.is_valid):
+            return response
+
+        trace_id = format_trace_id(span_context.trace_id)
+        span_id = format_span_id(span_context.span_id)
+        trace_flags = f"{int(span_context.trace_flags):02x}"
+
+        if self._header_name and trace_id and span_id:
+            # Compose the W3C traceparent header from the span context
+            traceparent_value = f"00-{trace_id}-{span_id}-{trace_flags}"
+            response.headers[self._header_name] = traceparent_value
+
+        if self._tracestate_header_name and span_context.trace_state:
+            tracestate_value = str(span_context.trace_state)
+            if tracestate_value:
+                response.headers[self._tracestate_header_name] = tracestate_value
+
+        return response
+
 
 
 class _RefreshingServer(uvicorn.Server):
@@ -207,6 +263,7 @@ class RESTServer:
             client=PrintTimings(),
             metric_namer=StarletteScopeToName(prefix="kserve.io", starlette_app=app),
         )
+        app.add_middleware(TraceResponseHeaderMiddleware)
 
         # More context in https://github.com/encode/uvicorn/pull/947
         # At the time of writing the ASGI specs are not clear when it comes
@@ -214,7 +271,9 @@ class RESTServer:
         # chose to create a custom middleware for this.
         # The allowed log format is specified in https://github.com/Kludex/asgi-logger#usage
         if self.access_log_format:
-            from asgi_logger import AccessLoggerMiddleware
+            from asgi_logger import (
+                AccessLoggerMiddleware,  # type: ignore[import-not-found]
+            )
 
             # As indicated by the asgi-logger docs, we need to clear/unset
             # any setting for uvicorn.access to avoid log duplicates.
