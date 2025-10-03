@@ -7748,6 +7748,12 @@ func schema_pkg_apis_serving_v1beta1_OauthConfig(ref common.ReferenceCallback) c
 							Format:  "",
 						},
 					},
+					"timeoutSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"image", "cpuLimit", "cpuRequest", "memoryLimit", "memoryRequest"},
 			},

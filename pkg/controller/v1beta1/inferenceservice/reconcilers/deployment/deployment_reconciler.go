@@ -258,6 +258,7 @@ func addOauthContainerToDeployment(ctx context.Context,
 ) error {
 	var isvcname string
 	var upstreamPort string
+	var upstreamTimeout string
 	var sa string
 	if val, ok := componentMeta.Labels[constants.InferenceServicePodLabelKey]; ok {
 		isvcname = val
@@ -281,7 +282,10 @@ func addOauthContainerToDeployment(ctx context.Context,
 		} else {
 			sa = podSpec.ServiceAccountName
 		}
-		oauthProxyContainer, err := generateOauthProxyContainer(ctx, clientset, isvcname, componentMeta.Namespace, upstreamPort, sa)
+		if componentExt != nil && componentExt.TimeoutSeconds != nil {
+			upstreamTimeout = strconv.FormatInt(*componentExt.TimeoutSeconds, 10)
+		}
+		oauthProxyContainer, err := generateOauthProxyContainer(ctx, clientset, isvcname, componentMeta.Namespace, upstreamPort, upstreamTimeout, sa)
 		if err != nil {
 			// return the deployment without the oauth proxy container if there was an error
 			// This is required for the deployment_reconciler_tests
@@ -355,7 +359,7 @@ func GetKServeContainerPort(podSpec *corev1.PodSpec) string {
 	return kserveContainerPort
 }
 
-func generateOauthProxyContainer(ctx context.Context, clientset kubernetes.Interface, isvc string, namespace string, upstreamPort string, sa string) (*corev1.Container, error) {
+func generateOauthProxyContainer(ctx context.Context, clientset kubernetes.Interface, isvc string, namespace string, upstreamPort string, upstreamTimeout string, sa string) (*corev1.Container, error) {
 	isvcConfigMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(ctx, constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
@@ -367,33 +371,42 @@ func generateOauthProxyContainer(ctx context.Context, clientset kubernetes.Inter
 	}
 	if oauthProxyConfig.Image == "" || oauthProxyConfig.MemoryRequest == "" || oauthProxyConfig.MemoryLimit == "" ||
 		oauthProxyConfig.CpuRequest == "" || oauthProxyConfig.CpuLimit == "" {
-		return nil, errors.New("one or more oauthProxyConfig fields are empty")
+		return nil, errors.New("one or more required oauthProxyConfig fields are empty")
 	}
 	oauthImage := oauthProxyConfig.Image
 	oauthMemoryRequest := oauthProxyConfig.MemoryRequest
 	oauthMemoryLimit := oauthProxyConfig.MemoryLimit
 	oauthCpuRequest := oauthProxyConfig.CpuRequest
 	oauthCpuLimit := oauthProxyConfig.CpuLimit
+	oauthUpstreamTimeout := oauthProxyConfig.TimeoutSeconds
+	if upstreamTimeout != "" {
+		oauthUpstreamTimeout = upstreamTimeout
+	}
 
 	cookieSecret, err := generateCookieSecret()
 	if err != nil {
 		return nil, err
 	}
 
+	args := []string{
+		`--https-address=:` + strconv.Itoa(constants.OauthProxyPort),
+		`--provider=openshift`,
+		`--skip-provider-button`,
+		`--openshift-service-account=` + sa,
+		`--upstream=http://localhost:` + upstreamPort,
+		`--tls-cert=/etc/tls/private/tls.crt`,
+		`--tls-key=/etc/tls/private/tls.key`,
+		`--cookie-secret=` + cookieSecret,
+		`--openshift-delegate-urls={"/": {"namespace": "` + namespace + `", "resource": "inferenceservices", "group": "serving.kserve.io", "name": "` + isvc + `", "verb": "get"}}`,
+		`--openshift-sar={"namespace": "` + namespace + `", "resource": "inferenceservices", "group": "serving.kserve.io", "name": "` + isvc + `", "verb": "get"}`,
+	}
+	if oauthUpstreamTimeout != "" {
+		args = append(args, `--upstream-timeout=`+oauthUpstreamTimeout+`s`)
+	}
+
 	return &corev1.Container{
-		Name: "oauth-proxy",
-		Args: []string{
-			`--https-address=:` + strconv.Itoa(constants.OauthProxyPort),
-			`--provider=openshift`,
-			`--skip-provider-button`,
-			`--openshift-service-account=` + sa,
-			`--upstream=http://localhost:` + upstreamPort,
-			`--tls-cert=/etc/tls/private/tls.crt`,
-			`--tls-key=/etc/tls/private/tls.key`,
-			`--cookie-secret=` + cookieSecret,
-			`--openshift-delegate-urls={"/": {"namespace": "` + namespace + `", "resource": "inferenceservices", "group": "serving.kserve.io", "name": "` + isvc + `", "verb": "get"}}`,
-			`--openshift-sar={"namespace": "` + namespace + `", "resource": "inferenceservices", "group": "serving.kserve.io", "name": "` + isvc + `", "verb": "get"}`,
-		},
+		Name:  "oauth-proxy",
+		Args:  args,
 		Image: oauthImage,
 		Ports: []corev1.ContainerPort{
 			{

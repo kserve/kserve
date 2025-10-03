@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,6 +35,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"k8s.io/client-go/kubernetes/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -857,6 +860,140 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					t.Errorf("Test %q unexpected deployment (-want +got): %v", tt.name, diff)
 				}
 			}
+		})
+	}
+}
+
+func TestOauthProxyUpstreamTimeout(t *testing.T) {
+	type args struct {
+		clientset        kubernetes.Interface
+		objectMeta       metav1.ObjectMeta
+		workerObjectMeta metav1.ObjectMeta
+		componentExt     *v1beta1.ComponentExtensionSpec
+		podSpec          *corev1.PodSpec
+		workerPodSpec    *corev1.PodSpec
+		expectedTimeout  string
+	}
+
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "default deployment",
+			args: args{
+				clientset: fake.NewSimpleClientset(&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+					Data: map[string]string{
+						oauthProxy: `{"image": "registry.redhat.io/openshift4/ose-oauth-proxy@sha256:8507daed246d4d367704f7d7193233724acf1072572e1226ca063c066b858ecf", "memoryRequest": "64Mi", "memoryLimit": "128Mi", "cpuRequest": "100m", "cpuLimit": "200m"}`,
+					},
+				}),
+				objectMeta: metav1.ObjectMeta{
+					Name:      "default-predictor",
+					Namespace: "default-predictor-namespace",
+					Annotations: map[string]string{
+						constants.ODHKserveRawAuth: "true",
+					},
+					Labels: map[string]string{
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
+					},
+				},
+				workerObjectMeta: metav1.ObjectMeta{},
+				componentExt:     &v1beta1.ComponentExtensionSpec{},
+				podSpec:          &corev1.PodSpec{},
+				workerPodSpec:    nil,
+				expectedTimeout:  "",
+			},
+		},
+		{
+			name: "deployment with oauth proxy upstream timeout defined in oauth proxy config",
+			args: args{
+				clientset: fake.NewSimpleClientset(&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+					Data: map[string]string{
+						oauthProxy: `{"image": "registry.redhat.io/openshift4/ose-oauth-proxy@sha256:8507daed246d4d367704f7d7193233724acf1072572e1226ca063c066b858ecf", "memoryRequest": "64Mi", "memoryLimit": "128Mi", "cpuRequest": "100m", "cpuLimit": "200m", "timeoutSeconds": "20"}`,
+					},
+				}),
+				objectMeta: metav1.ObjectMeta{
+					Name:      "config-timeout-predictor",
+					Namespace: "config-timeout-predictor-namespace",
+					Annotations: map[string]string{
+						constants.ODHKserveRawAuth: "true",
+					},
+					Labels: map[string]string{
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
+					},
+				},
+				workerObjectMeta: metav1.ObjectMeta{},
+				componentExt:     &v1beta1.ComponentExtensionSpec{},
+				podSpec:          &corev1.PodSpec{},
+				workerPodSpec:    nil,
+				expectedTimeout:  "20s",
+			},
+		},
+		{
+			name: "deployment with oauth proxy upstream timeout defined in component spec",
+			args: args{
+				clientset: fake.NewSimpleClientset(&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+					Data: map[string]string{
+						oauthProxy: `{"image": "registry.redhat.io/openshift4/ose-oauth-proxy@sha256:8507daed246d4d367704f7d7193233724acf1072572e1226ca063c066b858ecf", "memoryRequest": "64Mi", "memoryLimit": "128Mi", "cpuRequest": "100m", "cpuLimit": "200m"}`,
+					},
+				}),
+				objectMeta: metav1.ObjectMeta{
+					Name:      "config-timeout-predictor",
+					Namespace: "config-timeout-predictor-namespace",
+					Annotations: map[string]string{
+						constants.ODHKserveRawAuth: "true",
+					},
+					Labels: map[string]string{
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
+					},
+				},
+				workerObjectMeta: metav1.ObjectMeta{},
+				componentExt: &v1beta1.ComponentExtensionSpec{
+					TimeoutSeconds: func(i int64) *int64 { return &i }(40),
+				},
+				podSpec:         &corev1.PodSpec{},
+				workerPodSpec:   nil,
+				expectedTimeout: "40s",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			deployments, err := createRawDeploymentODH(
+				t.Context(),
+				tt.args.clientset,
+				constants.InferenceServiceResource,
+				tt.args.objectMeta,
+				tt.args.workerObjectMeta,
+				tt.args.componentExt,
+				tt.args.podSpec,
+				tt.args.workerPodSpec,
+			)
+			require.NoError(t, err)
+			require.NotEmpty(t, deployments)
+
+			oauthProxyContainerFound := false
+			containers := deployments[0].Spec.Template.Spec.Containers
+			for _, container := range containers {
+				if container.Name == "oauth-proxy" {
+					oauthProxyContainerFound = true
+					if tt.args.expectedTimeout == "" {
+						for _, arg := range container.Args {
+							assert.NotContains(t, arg, "upstream-timeout")
+						}
+					} else {
+						require.Contains(t, container.Args, "--upstream-timeout="+tt.args.expectedTimeout)
+					}
+				}
+			}
+			require.True(t, oauthProxyContainerFound)
 		})
 	}
 }
