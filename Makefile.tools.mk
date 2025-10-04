@@ -31,7 +31,7 @@ UV_VERSION ?= 0.7.8
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT)
 $(GOLANGCI_LINT): $(LOCALBIN)
-	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
+	$(call curl-install-tool,$(GOLANGCI_LINT),https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh,$(GOLANGCI_LINT_VERSION))
 
 ## Download controller-gen locally if necessary.
 .PHONY: controller-gen
@@ -80,6 +80,21 @@ rm -f $(1) || true ;\
 GOBIN=$(LOCALBIN) go install $${package} ;\
 go mod tidy ;\
 mv $(1) $(1)-$(3) ;\
+} ;\
+ln -sf $(1)-$(3) $(1)
+endef
+
+# curl-install-tool 'go install' any package with custom target and name of binary, if it doesn't exist
+# $1 - target path with name of binary
+# $2 - package url which can be installed
+# $3 - specific version of package
+define curl-install-tool
+@[ -f "$(1)-$(3)" ] || { \
+set -e; \
+echo "Downloading $(2) version $(3)" ;\
+rm -f $(1) || true ;\
+curl -sSfL $(2) | sh -s -- -b $(LOCALBIN) $(3) ;\
+mv $(LOCALBIN)/$(notdir $(1)) $(1)-$(3) ;\
 } ;\
 ln -sf $(1)-$(3) $(1)
 endef
