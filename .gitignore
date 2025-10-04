@@ -10,6 +10,14 @@
 bin
 .venv/
 venv/
+
+# CatBoost training artifacts
+catboost_info/
+**/catboost_info/
+catboost_training.json
+learn_error.tsv
+time_left.tsv
+events.out.tfevents
 # Test binary, build with `go test -c`
 *.test
 
