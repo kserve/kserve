@@ -47,16 +47,21 @@ class V1beta1AutoscalerConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'scale_down_stabilization_window_seconds': 'str',
-        'scale_up_stabilization_window_seconds': 'str'
+        "scale_down_stabilization_window_seconds": "str",
+        "scale_up_stabilization_window_seconds": "str",
     }
 
     attribute_map = {
-        'scale_down_stabilization_window_seconds': 'scaleDownStabilizationWindowSeconds',
-        'scale_up_stabilization_window_seconds': 'scaleUpStabilizationWindowSeconds'
+        "scale_down_stabilization_window_seconds": "scaleDownStabilizationWindowSeconds",
+        "scale_up_stabilization_window_seconds": "scaleUpStabilizationWindowSeconds",
     }
 
-    def __init__(self, scale_down_stabilization_window_seconds=None, scale_up_stabilization_window_seconds=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        scale_down_stabilization_window_seconds=None,
+        scale_up_stabilization_window_seconds=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1AutoscalerConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -67,9 +72,13 @@ class V1beta1AutoscalerConfig(object):
         self.discriminator = None
 
         if scale_down_stabilization_window_seconds is not None:
-            self.scale_down_stabilization_window_seconds = scale_down_stabilization_window_seconds
+            self.scale_down_stabilization_window_seconds = (
+                scale_down_stabilization_window_seconds
+            )
         if scale_up_stabilization_window_seconds is not None:
-            self.scale_up_stabilization_window_seconds = scale_up_stabilization_window_seconds
+            self.scale_up_stabilization_window_seconds = (
+                scale_up_stabilization_window_seconds
+            )
 
     @property
     def scale_down_stabilization_window_seconds(self):
@@ -82,7 +91,9 @@ class V1beta1AutoscalerConfig(object):
         return self._scale_down_stabilization_window_seconds
 
     @scale_down_stabilization_window_seconds.setter
-    def scale_down_stabilization_window_seconds(self, scale_down_stabilization_window_seconds):
+    def scale_down_stabilization_window_seconds(
+        self, scale_down_stabilization_window_seconds
+    ):
         """Sets the scale_down_stabilization_window_seconds of this V1beta1AutoscalerConfig.
 
 
@@ -90,7 +101,9 @@ class V1beta1AutoscalerConfig(object):
         :type: str
         """
 
-        self._scale_down_stabilization_window_seconds = scale_down_stabilization_window_seconds
+        self._scale_down_stabilization_window_seconds = (
+            scale_down_stabilization_window_seconds
+        )
 
     @property
     def scale_up_stabilization_window_seconds(self):
@@ -103,7 +116,9 @@ class V1beta1AutoscalerConfig(object):
         return self._scale_up_stabilization_window_seconds
 
     @scale_up_stabilization_window_seconds.setter
-    def scale_up_stabilization_window_seconds(self, scale_up_stabilization_window_seconds):
+    def scale_up_stabilization_window_seconds(
+        self, scale_up_stabilization_window_seconds
+    ):
         """Sets the scale_up_stabilization_window_seconds of this V1beta1AutoscalerConfig.
 
 
@@ -111,7 +126,9 @@ class V1beta1AutoscalerConfig(object):
         :type: str
         """
 
-        self._scale_up_stabilization_window_seconds = scale_up_stabilization_window_seconds
+        self._scale_up_stabilization_window_seconds = (
+            scale_up_stabilization_window_seconds
+        )
 
     def to_dict(self):
         """Returns the model properties as a dict"""
@@ -120,18 +137,22 @@ class V1beta1AutoscalerConfig(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
