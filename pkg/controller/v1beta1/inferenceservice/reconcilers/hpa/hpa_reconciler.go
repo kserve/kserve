@@ -93,7 +93,10 @@ func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2
 					ms.Resource.Target.AverageUtilization = metric.Resource.Target.AverageUtilization
 				} else if metric.Resource.Target.Type == v1beta1.AverageValueMetricType {
 					ms.Resource.Target.Type = autoscalingv2.AverageValueMetricType
-					ms.Resource.Target.AverageValue = metric.Resource.Target.AverageValue
+					if metric.Resource.Target.AverageValue != nil {
+						quantity := metric.Resource.Target.AverageValue.GetQuantity()
+						ms.Resource.Target.AverageValue = &quantity
+					}
 				}
 				metrics = append(metrics, ms)
 			}
