@@ -20,9 +20,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/common"
 	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/otel"
@@ -38,8 +40,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var log = logf.Log.WithName("RawKubeReconciler")
-
 // RawKubeReconciler reconciles the Native K8S Resources
 type RawKubeReconciler struct {
 	client        client.Client
@@ -49,6 +49,7 @@ type RawKubeReconciler struct {
 	Scaler        *autoscaler.AutoscalerReconciler
 	OtelCollector *otel.OtelReconciler
 	URL           *knapis.URL
+	logger        logr.Logger
 }
 
 // NewRawKubeReconciler creates raw kubernetes resource reconciler.
@@ -62,9 +63,10 @@ func NewRawKubeReconciler(ctx context.Context,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
 ) (*RawKubeReconciler, error) {
 	var otelCollector *otel.OtelReconciler
+	ctx, logger := common.LoggerForContext(ctx, logf.Log, "RawKubeReconciler")
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
 	if err != nil {
-		log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		logger.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
 		return nil, err
 	}
 	// create OTel Collector if pod metrics is enabled for auto-scaling
@@ -83,14 +85,14 @@ func NewRawKubeReconciler(ctx context.Context,
 			if err != nil {
 				return nil, err
 			}
-			otelCollector, err = otel.NewOtelReconciler(client, scheme, componentMeta, metricNames, *otelConfig)
+			otelCollector, err = otel.NewOtelReconciler(ctx, client, scheme, componentMeta, metricNames, *otelConfig)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt, isvcConfigMap)
+	as, err := autoscaler.NewAutoscalerReconciler(ctx, client, scheme, componentMeta, componentExt, isvcConfigMap)
 	if err != nil {
 		return nil, err
 	}
@@ -111,17 +113,17 @@ func NewRawKubeReconciler(ctx context.Context,
 	// do not return error as service config is optional
 	serviceConfig, err1 := v1beta1.NewServiceConfig(isvcConfigMap)
 	if err1 != nil {
-		log.Error(err1, "failed to get service config")
+		logger.Error(err1, "failed to get service config")
 	}
 
 	// Get deploy config
 	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
 	if err != nil {
-		log.Error(err, "failed to get deploy config")
+		logger.Error(err, "failed to get deploy config")
 		deployConfig = nil // Use nil if config is not available
 	}
 
-	deployment, err := deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec, deployConfig)
+	deployment, err := deployment.NewDeploymentReconciler(ctx, client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec, deployConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -130,10 +132,11 @@ func NewRawKubeReconciler(ctx context.Context,
 		client:        client,
 		scheme:        scheme,
 		Deployment:    deployment,
-		Service:       service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
+		Service:       service.NewServiceReconciler(ctx, client, scheme, componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
 		Scaler:        as,
 		OtelCollector: otelCollector,
 		URL:           url,
+		logger:        logger,
 	}, nil
 }
 
@@ -149,30 +152,36 @@ func createRawURL(ingressConfig *v1beta1.IngressConfig, metadata metav1.ObjectMe
 
 // Reconcile ...
 func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
+	ctx, log := common.LoggerForContext(ctx, r.logger, "RawKubeReconciler")
+	log.Info("Reconciling raw kubernetes resources")
 	// reconcile OTel Collector
 	if r.OtelCollector != nil {
-		err := r.OtelCollector.Reconcile(ctx)
-		if err != nil {
+		if err := r.OtelCollector.Reconcile(ctx); err != nil {
+			log.Error(err, "failed to reconcile otel collector")
 			return nil, err
 		}
 	}
 	// reconcile Deployment
 	deploymentList, err := r.Deployment.Reconcile(ctx)
 	if err != nil {
+		log.Error(err, "failed to reconcile deployment")
 		return nil, err
 	}
 
 	// reconcile Service
 	_, err = r.Service.Reconcile(ctx)
 	if err != nil {
+		log.Error(err, "failed to reconcile service")
 		return nil, err
 	}
 
 	// reconcile HPA
 	err = r.Scaler.Reconcile(ctx)
 	if err != nil {
+		log.Error(err, "failed to reconcile autoscaler")
 		return nil, err
 	}
 
+	log.Info("Successfully reconciled raw kubernetes resources")
 	return deploymentList, nil
 }

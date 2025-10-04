@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"strconv"
 
-	autoscalingv2 "k8s.io/api/autoscaling/v2"
-
+	"github.com/go-logr/logr"
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -37,24 +37,28 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/common"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
-var log = logf.Log.WithName("KedaReconciler")
+var kedaLogger = logf.Log.WithName("KedaReconciler")
 
 type KedaReconciler struct {
 	client       client.Client
 	scheme       *runtime.Scheme
 	ScaledObject *kedav1alpha1.ScaledObject
 	componentExt *v1beta1.ComponentExtensionSpec
+	logger       logr.Logger
 }
 
-func NewKedaReconciler(client client.Client,
+func NewKedaReconciler(ctx context.Context,
+	client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	configMap *corev1.ConfigMap,
 ) (*KedaReconciler, error) {
+	_, logger := common.LoggerForContext(ctx, kedaLogger, "KedaReconciler")
 	scaledObject, err := createKedaScaledObject(componentMeta, componentExt, configMap)
 	if err != nil {
 		return nil, err
@@ -64,6 +68,7 @@ func NewKedaReconciler(client client.Client,
 		scheme:       scheme,
 		ScaledObject: scaledObject,
 		componentExt: componentExt,
+		logger:       logger,
 	}, nil
 }
 
@@ -294,7 +299,7 @@ func (r *KedaReconciler) Reconcile(ctx context.Context) error {
 		return nil
 	}
 	if forceStopRuntime {
-		log.Info("Deleting KEDA Autoscaler", "namespace", existing.Namespace, "name", existing.Name)
+		r.logger.Info("Deleting KEDA Autoscaler", "namespace", existing.Namespace, "name", existing.Name)
 		if existing.GetDeletionTimestamp() == nil { // check if the autoscaler was already deleted
 			err := r.client.Delete(ctx, existing)
 			if err != nil {
@@ -306,9 +311,9 @@ func (r *KedaReconciler) Reconcile(ctx context.Context) error {
 
 	// Create or update the keda autoscaler to match the desired state
 	if getExistingErr != nil && kedaIsNotFound {
-		log.Info("Creating KEDA ScaledObject resource", "name", desired.Name)
+		r.logger.Info("Creating KEDA ScaledObject resource", "name", desired.Name)
 		if err := r.client.Create(ctx, desired); err != nil {
-			log.Error(err, "Failed to create KEDA ScaledObject", "name", desired.Name)
+			r.logger.Error(err, "Failed to create KEDA ScaledObject", "name", desired.Name)
 			return err
 		}
 		return nil
@@ -321,13 +326,13 @@ func (r *KedaReconciler) Reconcile(ctx context.Context) error {
 	// Removing it would lead to constantly updating the resource due to default values set by the API server.
 	// This will populate our local ScaledObject with any default values that are present on the remote version.
 	if err := r.client.Update(ctx, desired, client.DryRunAll); err != nil {
-		log.Error(err, "Failed to perform dry-run update for KEDA ScaledObject", "name", desired.Name)
+		r.logger.Error(err, "Failed to perform dry-run update for KEDA ScaledObject", "name", desired.Name)
 		return err
 	}
 	if !semanticScaledObjectEquals(desired, existing) {
-		log.Info("Updating KEDA ScaledObject resource", "name", desired.Name)
+		r.logger.Info("Updating KEDA ScaledObject resource", "name", desired.Name)
 		if err := r.client.Update(ctx, desired); err != nil {
-			log.Error(err, "Failed to update KEDA ScaledObject", "name", desired.Name)
+			r.logger.Error(err, "Failed to update KEDA ScaledObject", "name", desired.Name)
 		}
 	}
 	return nil

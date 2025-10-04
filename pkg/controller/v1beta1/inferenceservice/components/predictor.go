@@ -240,7 +240,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 }
 
 func (p *Predictor) reconcileModelConfig(ctx context.Context, isvc *v1beta1.InferenceService) error {
-	configMapReconciler := modelconfig.NewModelConfigReconciler(p.client, p.clientset, p.scheme)
+	configMapReconciler := modelconfig.NewModelConfigReconciler(ctx, p.client, p.clientset, p.scheme)
 	return configMapReconciler.Reconcile(ctx, isvc)
 }
 

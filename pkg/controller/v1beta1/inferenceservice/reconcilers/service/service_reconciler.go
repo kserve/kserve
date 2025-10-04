@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -34,10 +35,11 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/common"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
-var log = logf.Log.WithName("ServiceReconciler")
+var serviceLogger = logf.Log.WithName("ServiceReconciler")
 
 // ServiceReconciler is the struct of Raw K8S Object
 type ServiceReconciler struct {
@@ -45,20 +47,24 @@ type ServiceReconciler struct {
 	scheme       *runtime.Scheme
 	ServiceList  []*corev1.Service
 	componentExt *v1beta1.ComponentExtensionSpec
+	logger       logr.Logger
 }
 
-func NewServiceReconciler(client client.Client,
+func NewServiceReconciler(ctx context.Context,
+	client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, multiNodeEnabled bool,
 	serviceConfig *v1beta1.ServiceConfig,
 ) *ServiceReconciler {
+	_, logger := common.LoggerForContext(ctx, serviceLogger, "ServiceReconciler")
 	return &ServiceReconciler{
 		client:       client,
 		scheme:       scheme,
 		ServiceList:  createService(componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
 		componentExt: componentExt,
+		logger:       logger,
 	}
 }
 
@@ -237,9 +243,9 @@ func (r *ServiceReconciler) cleanHeadSvc(ctx context.Context) error {
 		if err == nil {
 			err := r.client.Delete(ctx, existingService)
 			if err != nil {
-				log.Error(err, "Failed to delete service", "name", existingService.Name)
+				r.logger.Error(err, "Failed to delete service", "name", existingService.Name)
 			} else {
-				log.Info("Deleted service", "name", existingService.Name, "namespace", existingService.Namespace)
+				r.logger.Info("Deleted service", "name", existingService.Name, "namespace", existingService.Namespace)
 			}
 		}
 	}
@@ -292,7 +298,7 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context) ([]*corev1.Service, e
 	for _, svc := range r.ServiceList {
 		// reconcile Service
 		checkResult, _, err := r.checkServiceExist(ctx, r.client, svc)
-		log.Info("service reconcile", "checkResult", checkResult, "err", err)
+		r.logger.Info("service reconcile", "checkResult", checkResult, "err", err)
 		if err != nil {
 			return nil, err
 		}
@@ -305,7 +311,7 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context) ([]*corev1.Service, e
 			opErr = r.client.Update(ctx, svc)
 		case constants.CheckResultDelete:
 			if svc.GetDeletionTimestamp() == nil { // check if the service was already deleted
-				log.Info("Deleting service", "namespace", svc.Namespace, "name", svc.Name)
+				r.logger.Info("Deleting service", "namespace", svc.Namespace, "name", svc.Name)
 				opErr = r.client.Delete(ctx, svc)
 			}
 		}
