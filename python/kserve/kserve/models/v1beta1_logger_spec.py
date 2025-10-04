@@ -47,6 +47,7 @@ class V1beta1LoggerSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'log_schema': 'str',
         'metadata_annotations': 'list[str]',
         'metadata_headers': 'list[str]',
         'mode': 'str',
@@ -55,6 +56,7 @@ class V1beta1LoggerSpec(object):
     }
 
     attribute_map = {
+        'log_schema': 'logSchema',
         'metadata_annotations': 'metadataAnnotations',
         'metadata_headers': 'metadataHeaders',
         'mode': 'mode',
@@ -62,12 +64,13 @@ class V1beta1LoggerSpec(object):
         'url': 'url'
     }
 
-    def __init__(self, metadata_annotations=None, metadata_headers=None, mode=None, storage=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, log_schema=None, metadata_annotations=None, metadata_headers=None, mode=None, storage=None, url=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1LoggerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._log_schema = None
         self._metadata_annotations = None
         self._metadata_headers = None
         self._mode = None
@@ -75,6 +78,8 @@ class V1beta1LoggerSpec(object):
         self._url = None
         self.discriminator = None
 
+        if log_schema is not None:
+            self.log_schema = log_schema
         if metadata_annotations is not None:
             self.metadata_annotations = metadata_annotations
         if metadata_headers is not None:
@@ -85,6 +90,29 @@ class V1beta1LoggerSpec(object):
             self.storage = storage
         if url is not None:
             self.url = url
+
+    @property
+    def log_schema(self):
+        """Gets the log_schema of this V1beta1LoggerSpec.  # noqa: E501
+
+        Specifies the format for custom log generation.  The standard cloud events currently sent will not be compatible with a custom format Valid values are: - \"JSON\": logs are generated and sent as a JSON payload following the format specified in inference-logging-configmap  # noqa: E501
+
+        :return: The log_schema of this V1beta1LoggerSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._log_schema
+
+    @log_schema.setter
+    def log_schema(self, log_schema):
+        """Sets the log_schema of this V1beta1LoggerSpec.
+
+        Specifies the format for custom log generation.  The standard cloud events currently sent will not be compatible with a custom format Valid values are: - \"JSON\": logs are generated and sent as a JSON payload following the format specified in inference-logging-configmap  # noqa: E501
+
+        :param log_schema: The log_schema of this V1beta1LoggerSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._log_schema = log_schema
 
     @property
     def metadata_annotations(self):

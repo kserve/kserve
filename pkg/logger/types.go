@@ -35,4 +35,5 @@ type LogRequest struct {
 	Annotations      map[string]string
 	CertName         string
 	TlsSkipVerify    bool
+	CustomSchema     string
 }

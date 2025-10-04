@@ -88,6 +88,11 @@ type LoggerSpec struct {
 	// Specifies the storage location for the inference logger cloud events.
 	// +optional
 	Storage *LoggerStorageSpec `json:"storage,omitempty"`
+	// Specifies the format for custom log generation.  The standard cloud events currently sent will not be compatible with a custom format
+	//Valid values are:
+	// - "JSON": logs are generated and sent as a JSON payload following the format specified in inference-logging-configmap
+	// +optional
+	Schema *string `json:"logSchema,omitempty"`
 }
 
 // MetricsBackend enum
