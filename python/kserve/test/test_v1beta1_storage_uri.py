@@ -50,7 +50,7 @@ class TestV1beta1StorageUri(unittest.TestCase):
         optional params are included"""
         # model = kserve.models.v1beta1_storage_uri.V1beta1StorageUri()  # noqa: E501
         if include_optional:
-            return V1beta1StorageUri(path="0", uri="0")
+            return V1beta1StorageUri(mount_path="0", uri="0")
         else:
             return V1beta1StorageUri(
                 uri="0",
