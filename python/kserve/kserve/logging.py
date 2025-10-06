@@ -31,8 +31,7 @@ KSERVE_LOGGER_FORMAT = (
     "trace_id=%(trace_id)s %(message)s"
 )
 KSERVE_TRACE_LOGGER_FORMAT = (
-    "%(asctime)s.%(msecs)03d %(process)s %(name)s "
-    "trace_id=%(trace_id)s %(message)s"
+    "%(asctime)s.%(msecs)03d %(process)s %(name)s " "trace_id=%(trace_id)s %(message)s"
 )
 KSERVE_LOGGER_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
@@ -49,6 +48,7 @@ class TraceIdFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         record.trace_id = getattr(record, "trace_id", None) or current_trace_id()
         return True
+
 
 KSERVE_LOG_CONFIG = {
     "version": 1,
