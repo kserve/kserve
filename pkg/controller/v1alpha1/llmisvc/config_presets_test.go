@@ -40,7 +40,7 @@ import (
 
 // TODO(webhook): re-use webhook logic to do the spec merge and validation
 func TestPresetFiles(t *testing.T) {
-	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvc")
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
 
 	llmSvc := llmisvc.LLMInferenceServiceSample()
 	kserveSystemConfig := llmisvc.Config{
@@ -100,12 +100,6 @@ func TestPresetFiles(t *testing.T) {
 										"--vllm-port=8001",
 										"--connector=nixlv2",
 										"--secure-proxy=true",
-										"--cert-path=/etc/ssl/certs",
-										"--decoder-use-tls=true",
-										"--decoder-tls-insecure-skip-verify=true",
-										"--prefiller-use-tls=true",
-										"--prefiller-tls-insecure-skip-verify=true",
-										"--enable-ssrf-protection=true",
 									},
 									Env: []corev1.EnvVar{
 										{
@@ -125,7 +119,7 @@ func TestPresetFiles(t *testing.T) {
 									},
 									SecurityContext: &corev1.SecurityContext{
 										AllowPrivilegeEscalation: ptr.To(false),
-										RunAsNonRoot:             ptr.To(true),
+										RunAsNonRoot:             ptr.To(false),
 										Capabilities: &corev1.Capabilities{
 											Drop: []corev1.Capability{"ALL"},
 										},
@@ -150,7 +144,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8000),
-												Scheme: corev1.URISchemeHTTPS,
+												Scheme: corev1.URISchemeHTTP,
 											},
 										},
 										InitialDelaySeconds: 10,
@@ -163,7 +157,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8000),
-												Scheme: corev1.URISchemeHTTPS,
+												Scheme: corev1.URISchemeHTTP,
 											},
 										},
 										InitialDelaySeconds: 10,
@@ -222,7 +216,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8001),
-												Scheme: corev1.URISchemeHTTPS,
+												Scheme: corev1.URISchemeHTTP,
 											},
 										},
 										InitialDelaySeconds: 300,
@@ -235,7 +229,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8001),
-												Scheme: corev1.URISchemeHTTPS,
+												Scheme: corev1.URISchemeHTTP,
 											},
 										},
 										InitialDelaySeconds: 200,
@@ -256,7 +250,7 @@ func TestPresetFiles(t *testing.T) {
 											Drop: []corev1.Capability{"ALL"},
 										},
 										AllowPrivilegeEscalation: ptr.To(false),
-										RunAsNonRoot:             ptr.To(true),
+										RunAsNonRoot:             ptr.To(false),
 										ReadOnlyRootFilesystem:   ptr.To(false),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
@@ -335,7 +329,7 @@ func TestPresetFiles(t *testing.T) {
 											Drop: []corev1.Capability{"ALL"},
 										},
 										AllowPrivilegeEscalation: ptr.To(false),
-										RunAsNonRoot:             ptr.To(true),
+										RunAsNonRoot:             ptr.To(false),
 										ReadOnlyRootFilesystem:   ptr.To(false),
 										SeccompProfile: &corev1.SeccompProfile{
 											Type: corev1.SeccompProfileTypeRuntimeDefault,
