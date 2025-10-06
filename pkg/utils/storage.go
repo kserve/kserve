@@ -275,60 +275,41 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 		storageInitializerImage = storageConfig.Image
 	}
 
-		initContainer = &corev1.Container{
-			Name:  constants.StorageInitializerContainerName,
-			Image: storageInitializerImage,
-			Args: []string{
-				srcURI,
-				constants.DefaultModelLocalMountPath,
+	return &corev1.Container{
+		Name:                     constants.StorageInitializerContainerName,
+		Image:                    storageInitializerImage,
+		Args:                     containerArgs,
+		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+		VolumeMounts: []corev1.VolumeMount{{
+			Name:      constants.StorageInitializerVolumeName,
+			MountPath: constants.DefaultModelLocalMountPath,
+			ReadOnly:  false,
+		}},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "HF_HUB_ENABLE_HF_TRANSFER",
+				Value: "1",
 			},
-			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-			VolumeMounts: []corev1.VolumeMount{{
-				Name:      constants.StorageInitializerVolumeName,
-				MountPath: constants.DefaultModelLocalMountPath,
-				ReadOnly:  false,
-			}},
-			Env: []corev1.EnvVar{
-				{
-					Name:  "HF_HUB_ENABLE_HF_TRANSFER",
-					Value: "1",
-				},
-				{
-					Name:  "HF_XET_HIGH_PERFORMANCE",
-					Value: "1",
-				},
-				{
-					Name:  "HF_XET_NUM_CONCURRENT_RANGE_GETS",
-					Value: "8",
-				},
+			{
+				Name:  "HF_XET_HIGH_PERFORMANCE",
+				Value: "1",
 			},
-			Resources: corev1.ResourceRequirements{
-				Limits: map[corev1.ResourceName]resource.Quantity{
-					corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),
-					corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryLimit),
-				},
-				Requests: map[corev1.ResourceName]resource.Quantity{
-					corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuRequest),
-					corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryRequest),
-				},
+			{
+				Name:  "HF_XET_NUM_CONCURRENT_RANGE_GETS",
+				Value: "8",
 			},
-		}
-		podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
-		initContainer = GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName)
+		},
+		Resources: corev1.ResourceRequirements{
+			Limits: map[corev1.ResourceName]resource.Quantity{
+				corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),
+				corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryLimit),
+			},
+			Requests: map[corev1.ResourceName]resource.Quantity{
+				corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuRequest),
+				corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryRequest),
+			},
+		},
 	}
-
-	// Mount the shared volume to the main container, if not present
-	if len(mainContainerName) != 0 {
-		if mainContainer := GetContainerWithName(podSpec, mainContainerName); mainContainer != nil {
-			AddVolumeMountIfNotPresent(
-				mainContainer,
-				constants.StorageInitializerVolumeName,
-				constants.DefaultModelLocalMountPath,
-				readOnlyMainContainerMount)
-		}
-	}
-
-	return initContainer
 }
 
 // CreateModelcarContainer creates the definition of a container holding a model intended to be used as a sidecar (modelcar).
