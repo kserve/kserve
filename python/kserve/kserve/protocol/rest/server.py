@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import logging
 from socket import socket
 import sys
@@ -22,48 +21,10 @@ import fastapi
 import uvicorn
 from fastapi import Request, Response
 from fastapi.routing import APIRouter
-from starlette.middleware.base import BaseHTTPMiddleware
 from prometheus_client import REGISTRY, exposition
 from timing_asgi import TimingClient, TimingMiddleware
 from timing_asgi.integrations import StarletteScopeToName
 from uvicorn.importer import import_from_string, ImportFromStringError
-
-from opentelemetry import trace
-from opentelemetry.trace import format_span_id, format_trace_id
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-
-tracer_provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "kserve"}))
-trace.set_tracer_provider(tracer_provider)
-
-# Read the endpoint from the environment variable
-otel_collector_endpoint = os.getenv("OTEL_COLLECTOR_ENDPOINT", "localhost:4317")
-
-TRACE_RESPONSE_HEADER_ENV = "TRACE_RESPONSE_HEADER_NAME"
-TRACE_RESPONSE_HEADER_NAME = os.getenv(TRACE_RESPONSE_HEADER_ENV, "traceparent")
-
-TRACE_RESPONSE_TRACESTATE_HEADER_ENV = "TRACE_RESPONSE_TRACESTATE_HEADER_NAME"
-TRACE_RESPONSE_TRACESTATE_HEADER_FALLBACK = "tracestate"
-TRACE_RESPONSE_TRACESTATE_HEADER_NAME = os.getenv(
-    TRACE_RESPONSE_TRACESTATE_HEADER_ENV, "tracestate"
-)
-
-# Set up the tracer provider and exporter
-ENABLE_OTEL_EXPORTER_ENV = "ENABLE_OTEL_EXPORTER"
-ENABLE_OTEL_EXPORTER = os.getenv(ENABLE_OTEL_EXPORTER_ENV, "true").lower() in {
-    "true",
-    "1",
-    "yes",
-    "on",
-}
-
-if ENABLE_OTEL_EXPORTER:
-    otlp_exporter = OTLPSpanExporter(endpoint=otel_collector_endpoint, insecure=True)
-    span_processor = BatchSpanProcessor(otlp_exporter)
-    tracer_provider.add_span_processor(span_processor)
 
 from kserve.errors import (
     InferenceError,
@@ -86,6 +47,10 @@ from kserve.errors import (
 from kserve.logging import trace_logger, logger
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.rest.timeseries.config import maybe_register_time_series_endpoints
+from kserve.protocol.rest.tracing import (
+    TraceResponseHeaderMiddleware,
+    instrument_app,
+)
 
 from .v1_endpoints import register_v1_endpoints
 from .v2_endpoints import register_v2_endpoints
@@ -100,49 +65,6 @@ async def metrics_handler(request: Request) -> Response:
 class PrintTimings(TimingClient):
     def timing(self, metric_name, timing, tags):
         trace_logger.info(f"{metric_name}: {timing} {tags}")
-
-
-class TraceResponseHeaderMiddleware(BaseHTTPMiddleware):
-    """ASGI middleware that adds W3C Trace Context headers to every response."""
-
-    def __init__(
-        self,
-        app: fastapi.FastAPI,
-        header_name: Optional[str] = None,
-        tracestate_header_name: Optional[str] = None,
-    ):
-        super().__init__(app)
-        self._header_name = header_name or TRACE_RESPONSE_HEADER_NAME
-        self._tracestate_header_name = (
-            tracestate_header_name or TRACE_RESPONSE_TRACESTATE_HEADER_NAME
-        )
-
-    async def dispatch(self, request: Request, call_next):
-        span = trace.get_current_span()
-        response = await call_next(request)
-
-        if span is None:
-            return response
-
-        span_context = span.get_span_context()
-        if not (span_context and span_context.is_valid):
-            return response
-
-        trace_id = format_trace_id(span_context.trace_id)
-        span_id = format_span_id(span_context.span_id)
-        trace_flags = f"{int(span_context.trace_flags):02x}"
-
-        if self._header_name and trace_id and span_id:
-            # Compose the W3C traceparent header from the span context
-            traceparent_value = f"00-{trace_id}-{span_id}-{trace_flags}"
-            response.headers[self._header_name] = traceparent_value
-
-        if self._tracestate_header_name and span_context.trace_state:
-            tracestate_value = str(span_context.trace_state)
-            if tracestate_value:
-                response.headers[self._tracestate_header_name] = tracestate_value
-
-        return response
 
 
 class RESTServer:
@@ -179,10 +101,7 @@ class RESTServer:
         app.include_router(root_router)
         register_v1_endpoints(app, self.dataplane, self.model_repository_extension)
         register_v2_endpoints(app, self.dataplane, self.model_repository_extension)
-        FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer_provider)
-        logger.info("Opentelemetry tracing enabled")
-        if ENABLE_OTEL_EXPORTER:
-            logger.info("OpenTelemetry exporter enabled. Exporting to %s", otel_collector_endpoint)
+        instrument_app(app)
         # Register OpenAI endpoints if any of the models in the registry implement the OpenAI interface
         # This adds /openai/v1/completions and /openai/v1/chat/completions routes to the
         # REST server.

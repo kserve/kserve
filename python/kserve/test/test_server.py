@@ -53,7 +53,7 @@ from kserve.utils.utils import generate_uuid, get_predict_input, get_predict_res
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 from kserve.protocol.rest.multiprocess.server import RESTServerMultiProcess
-from kserve.protocol.rest.server import TRACE_RESPONSE_HEADER_NAME
+from kserve.protocol.rest.tracing import TRACE_RESPONSE_HEADER_NAME
 from kserve.predictor_config import PredictorConfig
 from kserve import context as kserve_context
 
