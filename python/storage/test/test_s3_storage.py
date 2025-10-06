@@ -29,6 +29,7 @@ class MockPool:
     Mock multiprocessing.Pool that executes tasks synchronously in the same process.
     This allows boto3 mocks to work properly in tests.
     """
+
     def __init__(self, processes=None, initializer=None, initargs=(), **kwargs):
         self.processes = processes
         self.initializer = initializer
@@ -36,20 +37,20 @@ class MockPool:
         # Call initializer immediately if provided (simulating worker process initialization)
         if self.initializer:
             self.initializer(*self.initargs)
-    
+
     def __enter__(self):
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
-    
+
     def map(self, func, iterable):
         """Execute tasks synchronously instead of in parallel processes"""
         return [func(item) for item in iterable]
 
 
 # Mock multiprocessing.Pool globally for all S3 tests
-mock.patch('kserve_storage.kserve_storage.multiprocessing.Pool', MockPool).start()
+mock.patch("kserve_storage.kserve_storage.multiprocessing.Pool", MockPool).start()
 
 
 def create_mock_obj(path):

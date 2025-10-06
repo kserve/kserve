@@ -56,10 +56,11 @@ _HF_PREFIX = "hf://"
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
 
-# S3 parallel download configuration  
+# S3 parallel download configuration
 _S3_MAX_FILE_CONCURRENCY = int(os.getenv("S3_MAX_FILE_CONCURRENCY", "4"))
 # Global variable for S3 resource in worker processes
 _worker_s3_resource = None
+
 
 class Storage(object):
     @staticmethod
@@ -198,7 +199,7 @@ class Storage(object):
     def _get_s3_client_kwargs():
         """
         Get the standardized boto3 client kwargs for S3 operations.
-        
+
         Returns:
             dict: kwargs for creating boto3 S3 resource/client
         """
@@ -252,6 +253,7 @@ class Storage(object):
         global _worker_s3_resource
         try:
             import boto3
+
             kwargs = Storage._get_s3_client_kwargs()
             _worker_s3_resource = boto3.resource("s3", **kwargs)
         except Exception as e:
@@ -263,27 +265,27 @@ class Storage(object):
         """
         Worker function to download a single S3 object in a separate process.
         Uses pre-initialized S3 resource from _init_s3_worker().
-        
+
         Args:
             args: Tuple containing (bucket_name:str, obj_key:str, target_path:str)
-            
+
         Returns:
             Tuple of (success: bool, obj_key: str, error_message: str)
         """
         try:
             global _worker_s3_resource
-            
+
             if _worker_s3_resource is None:
                 return False, args[1], "S3 resource not initialized in worker process"
-            
+
             bucket_name, obj_key, target_path = args
             bucket = _worker_s3_resource.Bucket(bucket_name)
-            
+
             # Download the file
             bucket.download_file(obj_key, target_path)
-            
+
             return True, obj_key, ""
-            
+
         except Exception as e:
             return False, obj_key, str(e)
 
@@ -302,7 +304,7 @@ class Storage(object):
         download_tasks = []
         exact_obj_found = False
         bucket = s3.Bucket(bucket_name)
-        
+
         for obj in bucket.objects.filter(Prefix=bucket_path):
             if obj.key.endswith("/") or obj.size == 0:
                 logger.debug("Skipping: %s", obj.key)
@@ -317,7 +319,7 @@ class Storage(object):
                 target_key = obj.key.removeprefix(bucket_path).lstrip("/")
 
             target_path = f"{temp_dir}/{target_key}"
-            
+
             # Create target directory if it doesn't exist
             if not os.path.exists(dir_path := os.path.dirname(target_path)):
                 os.makedirs(dir_path, exist_ok=True)
@@ -327,21 +329,23 @@ class Storage(object):
             # If the exact object is found, then it is sufficient to download that and break the loop
             if exact_obj_found:
                 break
-                
+
         if len(download_tasks) == 0:
             raise RuntimeError(
                 "Failed to fetch model. No model found in %s." % bucket_path
             )
-        
+
         num_processes = min(_S3_MAX_FILE_CONCURRENCY, len(download_tasks))
-        
-        with multiprocessing.Pool(processes=num_processes, initializer=Storage._init_s3_worker) as pool:
+
+        with multiprocessing.Pool(
+            processes=num_processes, initializer=Storage._init_s3_worker
+        ) as pool:
             results = pool.map(Storage._download_s3_object, download_tasks)
-        
+
         # Process results and handle errors
         successful_downloads = []
         failed_downloads = []
-        
+
         for success, obj_key, error_msg in results:
             if success:
                 successful_downloads.append(obj_key)
@@ -349,14 +353,20 @@ class Storage(object):
             else:
                 failed_downloads.append((obj_key, error_msg))
                 logger.error("Failed to download object %s: %s" % (obj_key, error_msg))
-        
+
         if len(failed_downloads) > 0:
-            error_details = "; ".join([f"{obj}: {err}" for obj, err in failed_downloads])
-            raise RuntimeError(f"Failed to download {len(failed_downloads)} files: {error_details}")
-        
+            error_details = "; ".join(
+                [f"{obj}: {err}" for obj, err in failed_downloads]
+            )
+            raise RuntimeError(
+                f"Failed to download {len(failed_downloads)} files: {error_details}"
+            )
+
         # Unpack compressed file, supports .tgz, tar.gz and zip file formats.
         if len(successful_downloads) == 1:
-            target_path = download_tasks[0][2]  # target_path is the 3rd element in task_args
+            target_path = download_tasks[0][
+                2
+            ]  # target_path is the 3rd element in task_args
             mimetype, _ = mimetypes.guess_type(target_path)
             if mimetype in ["application/x-tar", "application/zip"]:
                 temp_dir = Storage._unpack_archive_file(target_path, mimetype, temp_dir)
