@@ -16,7 +16,7 @@ Help() {
 }
 
 export GATEWAY_API_VERSION=v1.2.1
-export GATEWAY_API_INFERENCE_EXT_VERSION=v0.5.0
+export GATEWAY_API_INFERENCE_EXT_VERSION=v0.5.1
 export KSERVE_VERSION=v0.16.0-rc0
 export LLMISVC_VERSION=v0.16.0-rc0
 export LWS_VERSION=0.7.0
@@ -107,7 +107,7 @@ echo "Installing Gateway API CRDs ..."
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
 
 echo "Installing Gateway API Inference Extension CRDs ..."
-kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GATEWAY_API_INFERENCE_EXT_VERSION}/install.yaml
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GATEWAY_API_INFERENCE_EXT_VERSION}/manifests.yaml
 echo "😀 Successfully installed Gateway API Inference Extension CRDs"
 
 # Install Envoy Gateway
