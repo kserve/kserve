@@ -378,7 +378,7 @@ func generateOauthProxyContainer(ctx context.Context, clientset kubernetes.Inter
 	oauthMemoryLimit := oauthProxyConfig.MemoryLimit
 	oauthCpuRequest := oauthProxyConfig.CpuRequest
 	oauthCpuLimit := oauthProxyConfig.CpuLimit
-	oauthUpstreamTimeout := oauthProxyConfig.TimeoutSeconds
+	oauthUpstreamTimeout := strings.TrimSpace(oauthProxyConfig.TimeoutSeconds)
 	if upstreamTimeout != "" {
 		oauthUpstreamTimeout = upstreamTimeout
 	}
@@ -401,6 +401,9 @@ func generateOauthProxyContainer(ctx context.Context, clientset kubernetes.Inter
 		`--openshift-sar={"namespace": "` + namespace + `", "resource": "inferenceservices", "group": "serving.kserve.io", "name": "` + isvc + `", "verb": "get"}`,
 	}
 	if oauthUpstreamTimeout != "" {
+		if _, err = strconv.ParseInt(oauthUpstreamTimeout, 10, 64); err != nil {
+			return nil, fmt.Errorf("invalid oauthProxy config timeoutSeconds value %q: %w", oauthUpstreamTimeout, err)
+		}
 		args = append(args, `--upstream-timeout=`+oauthUpstreamTimeout+`s`)
 	}
 
