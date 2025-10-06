@@ -150,12 +150,13 @@ spec:
               --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
               --data-parallel-start-rank $START_RANK \
               ${VLLM_ADDITIONAL_ARGS} \
-              --trust-remote-code \
-              --enable-ssl-refresh \
-              --ssl-certfile \
-              /etc/ssl/certs/tls.crt \
-              --ssl-keyfile \
-              /etc/ssl/certs/tls.key"
+              --trust-remote-code"
+              # BackendTLSPolicy is not implemented yet so disable SSL for now
+              # --enable-ssl-refresh \
+              # --ssl-certfile \
+              # /etc/ssl/certs/tls.crt \
+              # --ssl-keyfile \
+              # /etc/ssl/certs/tls.key"
         env:
           - name: HOME
             value: /home
@@ -166,7 +167,7 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: false
-          runAsNonRoot: true
+          runAsNonRoot: false
           capabilities:
             add:
               - "IPC_LOCK"
@@ -182,7 +183,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTPS
+            scheme: HTTP
           initialDelaySeconds: 300
           periodSeconds: 10
           timeoutSeconds: 10
@@ -191,7 +192,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTPS
+            scheme: HTTP
           initialDelaySeconds: 200
           periodSeconds: 30
           timeoutSeconds: 5
@@ -366,12 +367,13 @@ spec:
               --data-parallel-start-rank $START_RANK \
               ${VLLM_ADDITIONAL_ARGS} \
               --trust-remote-code \
-              --headless \
-              --enable-ssl-refresh \
-              --ssl-certfile \
-              /etc/ssl/certs/tls.crt \
-              --ssl-keyfile \
-              /etc/ssl/certs/tls.key"
+              --headless"
+              # BackendTLSPolicy is not implemented yet so disable SSL for now
+              # --enable-ssl-refresh \
+              # --ssl-certfile \
+              # /etc/ssl/certs/tls.crt \
+              # --ssl-keyfile \
+              # /etc/ssl/certs/tls.key
         env:
           - name: HOME
             value: /home
@@ -382,7 +384,7 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: false
-          runAsNonRoot: true
+          runAsNonRoot: false
           capabilities:
             add:
               - "IPC_LOCK"
