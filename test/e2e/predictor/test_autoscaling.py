@@ -578,7 +578,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     assert trigger_type == "prometheus"
     assert trigger_metadata["query"] == "http_requests_per_second"
     assert trigger_metadata["serverAddress"] == "https://thanos-querier.openshift-monitoring.svc.cluster.local:9092"
-    assert trigger_metadata["threshold"] == "50.000000"
+    assert trigger_metadata["threshold"] == "50"
     assert trigger_metadata["authModes"] == "bearer"
     assert authentication_ref["name"] == "inference-prometheus-auth"
     res = await predict_isvc(
