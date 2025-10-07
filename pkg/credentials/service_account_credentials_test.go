@@ -1562,7 +1562,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 		if err := c.Create(t.Context(), tc.secret); err != nil {
 			t.Errorf("Failed to create secret %s: %v", "storage-secret", err)
 		}
-		err := builder.CreateStorageSpecSecretEnvs(namespace, nil, tc.storageKey, tc.overrideParams, tc.container)
+		err := builder.CreateStorageSpecSecretEnvs(t.Context(), namespace, nil, tc.storageKey, tc.overrideParams, tc.container)
 		if !tc.shouldFail {
 			g.Expect(err).ShouldNot(gomega.HaveOccurred())
 			g.Expect(tc.container).Should(tc.matcher)
