@@ -42,6 +42,7 @@ import (
 const (
 	IsvcNameFmt                         string = "[a-z]([-a-z0-9]*[a-z0-9])?"
 	StorageUriPresentInTransformerError string = "storage uri should not be specified in transformer container"
+	InvalidStorageUriConfigError        string = "Setting both StorageURI and StorageURIs is not supported."
 )
 
 var (
@@ -126,6 +127,10 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 	}
 
 	if err := validatePredictor(isvc); err != nil {
+		return allWarnings, err
+	}
+
+	if err := validateMultipleStorageURIs(isvc); err != nil {
 		return allWarnings, err
 	}
 
@@ -494,5 +499,132 @@ func validateDeploymentMode(newIsvc *InferenceService, oldIsvc *InferenceService
 			return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, annotationDeploymentMode)
 		}
 	}
+	return nil
+}
+
+// ValidateStorageURISpec validates that paths are absolute
+func validateStorageURISpec(storageUri *StorageUri) error {
+	// Validate individual storage URI specification
+	if storageUri.Uri == "" {
+		return errors.New("storage URI cannot be empty")
+	}
+
+	if storageUri.MountPath == "/" {
+		return errors.New("storage path cannot be empty")
+	}
+
+	if !strings.HasPrefix(storageUri.MountPath, "/") {
+		return fmt.Errorf("storage path must be absolute: %s", storageUri.MountPath)
+	}
+
+	// Security validation: prevent directory traversal attacks
+	if strings.Contains(storageUri.MountPath, "..") {
+		return fmt.Errorf("storage path cannot contain '..' for security reasons: %s", storageUri.MountPath)
+	}
+
+	return nil
+}
+
+// ValidateMultipleStorageURISpecs validates a list of storage URI specifications.
+// It ensures that:
+// - Each individual URI specification is valid (non-empty URI, absolute path)
+// - All non-PVC paths share a common parent directory (not root)
+// - PVC paths are unique across the list
+//
+// Parameters:
+//   - storageURIs: List of storage URI specifications to validate
+//
+// Returns:
+//   - error: First validation error encountered, or nil if all validations pass
+func validateMultipleStorageURIsSpec(storageUris []StorageUri) error {
+	paths := make([]string, 0, len(storageUris))
+	pvcPaths := make([]string, 0, len(storageUris))
+
+	if len(storageUris) == 0 {
+		return nil
+	}
+
+	// Validate each individual StorageUrisSpec
+	for _, storageUri := range storageUris {
+		if err := validateStorageURISpec(&storageUri); err != nil {
+			return err
+		}
+		if strings.HasPrefix(storageUri.Uri, "pvc://") {
+			pvcPaths = append(pvcPaths, storageUri.MountPath)
+		} else {
+			paths = append(paths, storageUri.MountPath)
+		}
+	}
+
+	// If only one storage URI, no need to check common parent
+	if len(paths) <= 1 {
+		return nil
+	}
+
+	// Check that PVC paths are unique
+	if len(pvcPaths) > 1 {
+		pvcPathSet := make(map[string]bool)
+		for _, path := range pvcPaths {
+			if pvcPathSet[path] {
+				return errors.New("PVC storage paths must be unique")
+			}
+			pvcPathSet[path] = true
+		}
+	}
+
+	// Validate that paths have a common parent path
+	commonParent := utils.FindCommonParentPath(paths)
+	if commonParent == "/" {
+		return fmt.Errorf("storage paths must have a common parent directory. Current paths: %v have no common parent beyond root", paths)
+	}
+
+	return nil
+}
+
+func validateMultipleStorageURIs(isvc *InferenceService) error {
+	if isvc.Spec.Transformer != nil {
+		storageURIs := isvc.Spec.Transformer.StorageUris
+		var storageURI *string
+		if len(isvc.Spec.Transformer.GetImplementations()) > 0 {
+			storageURI = isvc.Spec.Transformer.GetImplementation().GetStorageUri()
+		}
+		if storageURI != nil && storageURIs != nil {
+			return errors.New(InvalidStorageUriConfigError)
+		}
+
+		if err := validateMultipleStorageURIsSpec(storageURIs); err != nil {
+			return err
+		}
+	}
+
+	if isvc.Spec.Explainer != nil {
+		storageURIs := isvc.Spec.Explainer.StorageUris
+		var storageURI *string
+		if len(isvc.Spec.Explainer.GetImplementations()) > 0 {
+			storageURI = isvc.Spec.Explainer.GetImplementation().GetStorageUri()
+		}
+		if storageURI != nil && storageURIs != nil {
+			return errors.New(InvalidStorageUriConfigError)
+		}
+
+		if err := validateMultipleStorageURIsSpec(storageURIs); err != nil {
+			return err
+		}
+	}
+
+	storageURIs := isvc.Spec.Predictor.StorageUris
+	var storageURI *string
+	if len(isvc.Spec.Predictor.GetImplementations()) > 0 {
+		storageURI = isvc.Spec.Predictor.GetImplementation().GetStorageUri()
+	}
+
+	if storageURI != nil && storageURIs != nil {
+		return errors.New(InvalidStorageUriConfigError)
+	}
+
+	if err := validateMultipleStorageURIsSpec(storageURIs); err != nil {
+		return err
+	}
+
 	return nil
 }

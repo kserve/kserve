@@ -54,6 +54,11 @@ type PredictorSpec struct {
 	// Model spec for any arbitrary framework.
 	Model *ModelSpec `json:"model,omitempty"`
 
+	// Spec for multiple storage uris.
+	// +listType=atomic
+	// +kubebuilder:validation:MinItems=1
+	StorageUris []StorageUri `json:"storageUris,omitempty"`
+
 	// WorkerSpec for enabling multi-node/multi-gpu
 	WorkerSpec *WorkerSpec `json:"workerSpec,omitempty"`
 
@@ -66,6 +71,22 @@ type PredictorSpec struct {
 	PodSpec `json:",inline"`
 	// Component extension defines the deployment configurations for a predictor
 	ComponentExtensionSpec `json:",inline"`
+}
+
+type StorageUri struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Uri string `json:"uri"`
+
+	// MountPath is the path where the model will be mounted inside the container.
+	// If not specified, it defaults to /mnt/models.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="/mnt/models"
+	// +kubebuilder:validation:Pattern="^/.*"
+	// +kubebuilder:validation:MaxLength=255
+	// +optional
+	MountPath string `json:"mountPath"`
 }
 
 type WorkerSpec struct {
