@@ -36,8 +36,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/googleapis/google-cloud-go-testing/storage/stiface"
-	"github.com/kserve/kserve/pkg/credentials/azure"
 	"google.golang.org/api/option"
+
+	"github.com/kserve/kserve/pkg/credentials/azure"
 
 	gcscredential "github.com/kserve/kserve/pkg/credentials/gcs"
 	s3credential "github.com/kserve/kserve/pkg/credentials/s3"
@@ -128,6 +129,9 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 			}
 			clientOptions := azblob.ClientOptions{}
 			azureClient, err = azblob.NewClient(serviceUrl, cred, &clientOptions)
+			if err != nil {
+				return nil, err
+			}
 		} else {
 			return nil, errors.New(azure.AzureStorageAccessKey + " could not be found")
 		}
