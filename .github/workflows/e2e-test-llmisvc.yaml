@@ -194,13 +194,12 @@ jobs:
       - name: Install UV
         run: ./test/scripts/gh-actions/setup-uv.sh
 
-      - name: Install Python dependencies
+      - name: Install KServe Python SDK
         run: |
           echo "🐍 Installing KServe Python SDK with test dependencies..."
-          cd python/kserve
-          source .venv/bin/activate
-          uv sync --group test --extra storage
-          uv pip install ../storage --no-cache
+          pushd python/kserve >/dev/null
+              uv sync --active --group test
+          popd
           echo "✅ Python dependencies installed!"
 
       - name: Run E2E tests
