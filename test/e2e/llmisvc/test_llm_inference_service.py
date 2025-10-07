@@ -27,13 +27,13 @@ from .diagnostic import (
     print_all_events_table,
     kinds_matching_by_labels,
 )
-from .fixtures import (
+from .fixtures import (  # noqa: F401
     create_router_resources,
     delete_router_resources,
     generate_test_id,
     inject_k8s_proxy,
     # Factory functions are not called explicitly, but they need to be imported to work
-    test_case,  # noqa: F401,F811
+    test_case,  # noqa: F811
 )
 from .test_resources import (
     ROUTER_GATEWAYS,
@@ -241,7 +241,7 @@ class TestCase:
     ids=generate_test_id,
 )
 @log_execution
-def test_llm_inference_service(test_case: TestCase):
+def test_llm_inference_service(test_case: TestCase):  # noqa: F811
     inject_k8s_proxy()
 
     kserve_client = KServeClient(
@@ -336,7 +336,7 @@ def get_llmisvc(
 @log_execution
 def wait_for_model_response(
     kserve_client: KServeClient,
-    test_case: TestCase,
+    test_case: TestCase,  # noqa: F811
     timeout_seconds: int = 600,
 ) -> str:
     def assert_model_responds():

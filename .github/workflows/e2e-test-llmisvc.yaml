@@ -213,7 +213,7 @@ jobs:
 
           # Run only CPU tests for now using pytest markers (cluster_)
           # Available GPU vendors: amd, nvidia, intel
-          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and cluster_cpu" 2 "envoy-gateway"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and cluster_cpu" 1 "envoy-gateway"
 
       - name: Check system status
         if: always()
