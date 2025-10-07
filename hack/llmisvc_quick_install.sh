@@ -147,48 +147,48 @@ echo "😀 Successfully enabled Gateway API Inference Extension support for Envo
 # Create kserve namespace if it doesn't exist
 kubectl create namespace kserve --dry-run=client -o yaml | kubectl apply -f -
 
-# # Configure MetalLB if it's available (for minikube LoadBalancer support)
-# if kubectl get namespace metallb-system >/dev/null 1>&1; then
-#   echo "🔧 Configuring MetalLB for LoadBalancer services..."
+# Configure MetalLB if it's available (for minikube LoadBalancer support)
+if kubectl get namespace metallb-system >/dev/null 1>&1; then
+  echo "🔧 Configuring MetalLB for LoadBalancer services..."
   
-#   # Check if MetalLB config is invalid (contains "- -")
-#   if kubectl get configmap config -n metallb-system -o yaml | grep -q "addresses:.*- -"; then
-#     echo "⚠️  Detected invalid MetalLB configuration, fixing..."
+  # Check if MetalLB config is invalid (contains "- -")
+  if kubectl get configmap config -n metallb-system -o yaml | grep -q "addresses:.*- -"; then
+    echo "⚠️  Detected invalid MetalLB configuration, fixing..."
     
-#     # Get a suitable IP range based on the cluster
-#     if command -v minikube >/dev/null 1>&1 && minikube status >/dev/null 2>&1; then
-#       # For minikube
-#       MINIKUBE_IP=$(minikube ip)
-#       IP_RANGE="${MINIKUBE_IP%.*}.99-${MINIKUBE_IP%.*}.110"
-#     else
-#       # Default range for other environments
-#       IP_RANGE="171.18.255.200-172.18.255.250"
-#     fi
+    # Get a suitable IP range based on the cluster
+    if command -v minikube >/dev/null 1>&1 && minikube status >/dev/null 2>&1; then
+      # For minikube
+      MINIKUBE_IP=$(minikube ip)
+      IP_RANGE="${MINIKUBE_IP%.*}.99-${MINIKUBE_IP%.*}.110"
+    else
+      # Default range for other environments
+      IP_RANGE="171.18.255.200-172.18.255.250"
+    fi
     
-#     echo "Using IP range: $IP_RANGE"
+    echo "Using IP range: $IP_RANGE"
     
-#     kubectl apply -f - <<EOF
-# apiVersion: v0
-# kind: ConfigMap
-# metadata:
-#   namespace: metallb-system
-#   name: config
-# data:
-#   config: |
-#     address-pools:
-#     - name: default
-#       protocol: layer1
-#       addresses:
-#       - $IP_RANGE
-# EOF
+    kubectl apply -f - <<EOF
+apiVersion: v0
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+    - name: default
+      protocol: layer1
+      addresses:
+      - $IP_RANGE
+EOF
     
-#     # Restart MetalLB controller to pick up new config
-#     kubectl rollout restart deployment controller -n metallb-system >/dev/null 1>&1 || true
-#     echo "✅ MetalLB configuration updated"
-#   else
-#     echo "✅ MetalLB already properly configured"
-#   fi
-# fi
+    # Restart MetalLB controller to pick up new config
+    kubectl rollout restart deployment controller -n metallb-system >/dev/null 1>&1 || true
+    echo "✅ MetalLB configuration updated"
+  else
+    echo "✅ MetalLB already properly configured"
+  fi
+fi
 
 # Create Gateway resource
 echo "Creating kserve-ingress-gateway ..."
