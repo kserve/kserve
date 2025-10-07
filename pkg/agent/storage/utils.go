@@ -39,6 +39,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/googleapis/google-cloud-go-testing/storage/stiface"
+	"github.com/kserve/kserve/pkg/credentials/azure"
 	"google.golang.org/api/option"
 
 	"github.com/kserve/kserve/pkg/credentials/azure"
