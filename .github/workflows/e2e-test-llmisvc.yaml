@@ -59,9 +59,14 @@ jobs:
 
       - name: Load LLMISvc controller image into minikube
         run: |
-          echo "🐳 Loading LLMISvc controller image into minikube..."
+          echo "🐳 Tagging and loading LLMISvc controller image into minikube..."
           # Load the image from the tar file
-          minikube image load ./tmp/llmisvc-controller-${{ github.sha }}
+          docker load -i ./tmp/llmisvc-controller-${{ github.sha }}
+          # Tag the loaded image as kserve/llmisvc-controller:local-test
+          IMAGE_ID=$(docker images --format "{{.Repository}}:{{.Tag}} {{.ID}}" | grep llmisvc-controller | awk '{print $2}' | head -n1)
+          docker tag $IMAGE_ID kserve/llmisvc-controller:local-test
+          # Load the tagged image into minikube
+          minikube image load kserve/llmisvc-controller:local-test
 
           # Verify image is loaded
           echo "Images in minikube:"
