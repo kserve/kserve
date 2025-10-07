@@ -35,6 +35,11 @@ type ExplainerSpec struct {
 	PodSpec `json:",inline"`
 	// Component extension defines the deployment configurations for explainer
 	ComponentExtensionSpec `json:",inline"`
+
+	// Spec for multiple storage uris.
+	// +listType=atomic
+	// +kubebuilder:validation:MinItems=1
+	StorageUris []StorageUri `json:"storageUris,omitempty"`
 }
 
 // ExplainerExtensionSpec defines configuration shared across all explainer frameworks
