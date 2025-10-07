@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -27,12 +28,15 @@ import (
 	"strings"
 
 	gstorage "cloud.google.com/go/storage"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/googleapis/google-cloud-go-testing/storage/stiface"
+	"github.com/kserve/kserve/pkg/credentials/azure"
 	"google.golang.org/api/option"
 
 	gcscredential "github.com/kserve/kserve/pkg/credentials/gcs"
@@ -110,6 +114,24 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 	}
 
 	switch protocol {
+	case AZURE:
+		var azureClient AzureClient
+		if _, ok := os.LookupEnv(azure.AzureStorageAccessKey); ok {
+			accountName, ok := os.LookupEnv("AZURE_STORAGE_ACCOUNT_NAME")
+			if !ok {
+				return nil, errors.New("AZURE_STORAGE_ACCOUNT_NAME could not be found")
+			}
+			serviceUrl := fmt.Sprintf("https://%s.blob.core.windows.net/", accountName)
+			cred, err := azidentity.NewDefaultAzureCredential(nil)
+			if err != nil {
+				return nil, err
+			}
+			clientOptions := azblob.ClientOptions{}
+			azureClient, err = azblob.NewClient(serviceUrl, cred, &clientOptions)
+		} else {
+			return nil, errors.New(azure.AzureStorageAccessKey + " could not be found")
+		}
+		providers[AZURE] = &AzureProvider{Client: azureClient}
 	case GCS:
 		var gcsClient *gstorage.Client
 		var err error
