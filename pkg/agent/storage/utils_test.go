@@ -111,6 +111,9 @@ func TestGetProvider(t *testing.T) {
 		GCS: &GCSProvider{
 			Client: mocks.NewMockClient(),
 		},
+		AZURE: &AzureProvider{
+			Client: mocks.NewMockAzureClient(),
+		},
 	}
 	for nextProtocol := range mockProviders {
 		provider, err := GetProvider(mockProviders, nextProtocol)
