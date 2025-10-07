@@ -1,72 +1,15 @@
 apiVersion: serving.kserve.io/v1alpha1
 kind: LLMInferenceServiceConfig
 metadata:
-  name: kserve-config-llm-decode-worker-data-parallel
+  name: kserve-config-llm-worker-data-parallel
 spec:
   template:
-    initContainers:
-      - name: llm-d-routing-sidecar
-        imagePullPolicy: IfNotPresent
-        image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.2.0
-        restartPolicy: Always
-        ports:
-          - containerPort: 8000
-            protocol: TCP
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-          capabilities:
-            drop:
-              - ALL
-          seccompProfile:
-            type: RuntimeDefault
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: FallbackToLogsOnError
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-            scheme: HTTPS
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          timeoutSeconds: 10
-          failureThreshold: 3
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-            scheme: HTTPS
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 10
-        args:
-          - "--port=8000"
-          - "--vllm-port=8001"
-          - "--connector=nixlv2"
-          - "--secure-proxy=true"
-          - "--cert-path=/etc/ssl/certs"
-          - "--decoder-use-tls=true"
-          - "--decoder-tls-insecure-skip-verify=true"
-          - "--prefiller-use-tls=true"
-          - "--prefiller-tls-insecure-skip-verify=true"
-          - "--enable-ssrf-protection=true"
-        volumeMounts:
-          - mountPath: /etc/ssl/certs
-            name: tls-certs
-            readOnly: true
-        env:
-          - name: INFERENCE_POOL_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
     containers:
       - image: ghcr.io/llm-d/llm-d-dev:v0.2.2
         imagePullPolicy: IfNotPresent
         name: main
         ports:
-          - containerPort: 8001
+          - containerPort: 8000
             protocol: TCP
         command:
           - "/bin/bash"
@@ -196,7 +139,7 @@ spec:
             eval "vllm serve \
               /mnt/models \
               --served-model-name "{{ .Spec.Model.Name }}" \
-              --port 8001 \
+              --port 8000 \
               --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
               --disable-log-requests \
               {{- if .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
@@ -207,12 +150,13 @@ spec:
               --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
               --data-parallel-start-rank $START_RANK \
               ${VLLM_ADDITIONAL_ARGS} \
-              --trust-remote-code \
-              --enable-ssl-refresh \
-              --ssl-certfile \
-              /etc/ssl/certs/tls.crt \
-              --ssl-keyfile \
-              /etc/ssl/certs/tls.key"
+              --trust-remote-code"
+              # BackendTLSPolicy is not implemented yet so disable SSL for now
+              # --enable-ssl-refresh \
+              # --ssl-certfile \
+              # /etc/ssl/certs/tls.crt \
+              # --ssl-keyfile \
+              # /etc/ssl/certs/tls.key"
         env:
           - name: HOME
             value: /home
@@ -223,7 +167,7 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: false
-          runAsNonRoot: true
+          runAsNonRoot: false
           capabilities:
             add:
               - "IPC_LOCK"
@@ -238,8 +182,8 @@ spec:
         livenessProbe:
           httpGet:
             path: /health
-            port: 8001
-            scheme: HTTPS
+            port: 8000
+            scheme: HTTP
           initialDelaySeconds: 300
           periodSeconds: 10
           timeoutSeconds: 10
@@ -247,8 +191,8 @@ spec:
         readinessProbe:
           httpGet:
             path: /health
-            port: 8001
-            scheme: HTTPS
+            port: 8000
+            scheme: HTTP
           initialDelaySeconds: 200
           periodSeconds: 30
           timeoutSeconds: 5
@@ -282,7 +226,7 @@ spec:
         imagePullPolicy: IfNotPresent
         name: main
         ports:
-          - containerPort: 8001
+          - containerPort: 8000
             protocol: TCP
         command:
           - "/bin/bash"
@@ -343,10 +287,10 @@ spec:
                   # For SR-IOV environments, find the most common IPv4 RoCE v2 GID index across all HCAs
                   declare -A gid_index_count
                   declare -A hca_gid_index
-            
+                  
                   for hca_name in "${active_hcas[@]}"; do
                       echo "[Infer RoCE] Processing HCA: ${hca_name}"
-            
+                      
                       # Find all RoCE v2 IPv4 GIDs for this HCA and count by index
                       for tpath in /sys/class/infiniband/${hca_name}/ports/1/gid_attrs/types/*; do
                           if grep -q "${KSERVE_INFER_IB_GID_INDEX_GREP}" "$tpath" 2>/dev/null; then
@@ -394,11 +338,11 @@ spec:
                       echo "[Infer RoCE] Using hardcoded GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
                   elif [ -n "$best_gid_index" ]; then
                       echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
-            
+                      
                       export NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX:-$best_gid_index}
                       export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$best_gid_index}
                       export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$best_gid_index}
-            
+                      
                       echo "[Infer RoCE] Exported GID_INDEX=${best_gid_index} for NCCL, NVSHMEM, and UCX"
                   else
                       echo "[Infer RoCE] ERROR: No valid IPv4 ${KSERVE_INFER_IB_GID_INDEX_GREP} GID_INDEX found on any HCA."
@@ -412,7 +356,7 @@ spec:
             eval "vllm serve \
               /mnt/models \
               --served-model-name "{{ .Spec.Model.Name }}" \
-              --port 8001 \
+              --port 8000 \
               --disable-log-requests \
               {{- if .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
               {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
@@ -423,12 +367,13 @@ spec:
               --data-parallel-start-rank $START_RANK \
               ${VLLM_ADDITIONAL_ARGS} \
               --trust-remote-code \
-              --headless \
-              --enable-ssl-refresh \
-              --ssl-certfile \
-              /etc/ssl/certs/tls.crt \
-              --ssl-keyfile \
-              /etc/ssl/certs/tls.key"
+              --headless"
+              # BackendTLSPolicy is not implemented yet so disable SSL for now
+              # --enable-ssl-refresh \
+              # --ssl-certfile \
+              # /etc/ssl/certs/tls.crt \
+              # --ssl-keyfile \
+              # /etc/ssl/certs/tls.key
         env:
           - name: HOME
             value: /home
@@ -436,12 +381,10 @@ spec:
             value: INFO
           - name: HF_HUB_CACHE
             value: /models
-          - name: VLLM_RANDOMIZE_DP_DUMMY_INPUTS
-            value: "1"
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: false
-          runAsNonRoot: true
+          runAsNonRoot: false
           capabilities:
             add:
               - "IPC_LOCK"

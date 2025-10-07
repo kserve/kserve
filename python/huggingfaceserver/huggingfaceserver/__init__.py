@@ -32,6 +32,9 @@ def __getattr__(name: str):
 
         return HuggingfaceGenerativeModel
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+from .encoder_model import HuggingfaceEncoderModel
+from .generative_model import HuggingfaceGenerativeModel
+from .time_series_model import HuggingFaceTimeSeriesModel
 
 
 class Backend(str, Enum):
@@ -49,4 +52,5 @@ __all__ = [
     "utils",
     "HuggingfaceEncoderModel",
     "HuggingfaceGenerativeModel",
+    "HuggingFaceTimeSeriesModel",
 ]
