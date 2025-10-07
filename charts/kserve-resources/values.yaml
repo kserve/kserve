@@ -138,6 +138,10 @@ kserve:
       seccompProfile:
           type: RuntimeDefault
 
+    # -- Priority Class Name for controller pods
+    # For more information, see [Pod Priority](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/#pod-priority).
+    priorityClassName: ""
+
     # -- Container Security Context to be set on the controller component container.
     # For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
     containerSecurityContext:
