@@ -47,7 +47,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					"annotation": "annotation-value",
 				},
 				Labels: map[string]string{
-					constants.DeploymentMode:  string(constants.RawDeployment),
+					constants.DeploymentMode:  string(constants.Standard),
 					constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
 				},
 			},
@@ -115,7 +115,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Namespace: "default-predictor-namespace",
 					Labels: map[string]string{
 						constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 					},
 					Annotations: map[string]string{
 						"annotation":                             "annotation-value",
