@@ -235,6 +235,11 @@ func handleSplitterORSwitchNode(route *v1alpha1.InferenceStep, graph v1alpha1.In
 	return responseBytes, statusCode, nil
 }
 
+type sequenceReqRes struct {
+	Predictions []interface{} `json:"predictions,omitempty"`
+	Instances   []interface{} `json:"instances,omitempty"`
+}
+
 func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte, headers http.Header) ([]byte, int, error) {
 	defer timeTrack(time.Now(), "node", nodeName)
 	currentNode := graph.Nodes[nodeName]
@@ -321,6 +326,19 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 			request := input
 			if step.Data == "$response" && i > 0 {
 				request = responseBytes
+			}
+
+			if step.MapPredictionsToInstances {
+				decoded := sequenceReqRes{}
+				err = json.Unmarshal(request, &decoded)
+
+				// If unmarshaling succeeds and Predictions is non-empty,
+				// move Predictions to Instances and re-marshal the request.
+				if err == nil && len(decoded.Predictions) > 0 {
+					decoded.Instances = decoded.Predictions
+					decoded.Predictions = []interface{}{}
+					request, _ = json.Marshal(decoded) // TODO check if you need err handling for Marshalling
+				}
 			}
 
 			if step.Condition != "" {

@@ -798,6 +798,13 @@ func schema_pkg_apis_serving_v1alpha1_InferenceStep(ref common.ReferenceCallback
 							Format:      "",
 						},
 					},
+					"mapPredictionsToInstances": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If true, maps the 'predictions' field from the previous step's response to the 'instances' field of this step's request. Useful in sequential inference graphs where one step's output becomes the input for the next.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"weight": {
 						SchemaProps: spec.SchemaProps{
 							Description: "the weight for split of the traffic, only used for Split Router when weight is specified all the routing targets should be sum to 100",

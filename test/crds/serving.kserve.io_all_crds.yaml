@@ -5295,6 +5295,8 @@ spec:
                             - Soft
                             - Hard
                             type: string
+                          mapPredictionsToInstances:
+                            type: boolean
                           name:
                             type: string
                           nodeName:
