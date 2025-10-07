@@ -53,9 +53,12 @@ spec:
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.kserve.controller.securityContext}}
+      {{- with .Values.kserve.controller.securityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.kserve.controller.priorityClassName }}
+      priorityClassName: {{ . }}
       {{- end }}
       containers:
       - name: kube-rbac-proxy
