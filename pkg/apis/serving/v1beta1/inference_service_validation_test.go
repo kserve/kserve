@@ -169,7 +169,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 										Resource: &ResourceMetricSource{
 											Name: ResourceMetricMemory,
 											Target: MetricTarget{
-												AverageValue: ptr.To(resource.MustParse("1Gi")),
+												AverageValue: NewMetricQuantity("1Gi"),
 											},
 										},
 									},
@@ -437,7 +437,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 											Name: ResourceMetricMemory,
 											Target: MetricTarget{
 												Type:         AverageValueMetricType,
-												AverageValue: ptr.To(resource.MustParse("1Gi")),
+												AverageValue: NewMetricQuantity("1Gi"),
 											},
 										},
 									},
@@ -511,7 +511,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 											},
 											Target: MetricTarget{
 												Type:  ValueMetricType,
-												Value: ptr.To(resource.MustParse("10")),
+												Value: NewMetricQuantity("10"),
 											},
 										},
 									},
@@ -553,7 +553,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 											},
 											Target: MetricTarget{
 												Type:  ValueMetricType,
-												Value: ptr.To(resource.MustParse("10")),
+												Value: NewMetricQuantity("10"),
 											},
 										},
 									},
@@ -1469,7 +1469,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 						Name: ResourceMetricMemory,
 						Target: MetricTarget{
 							Type:         AverageValueMetricType,
-							AverageValue: ptr.To(resource.MustParse("2Gi")),
+							AverageValue: NewMetricQuantity("2Gi"),
 						},
 					},
 				},
@@ -1527,7 +1527,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 						Name: ResourceMetricMemory,
 						Target: MetricTarget{
 							Type:         AverageValueMetricType,
-							AverageValue: ptr.To(resource.MustParse("512Ki")),
+							AverageValue: NewMetricQuantity("512Ki"),
 						},
 					},
 				},
@@ -1580,7 +1580,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 						},
 						Target: MetricTarget{
 							Type:  ValueMetricType,
-							Value: ptr.To(resource.MustParse("10")),
+							Value: NewMetricQuantity("10"),
 						},
 					},
 				},
@@ -1618,7 +1618,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 						},
 						Target: MetricTarget{
 							Type:  ValueMetricType,
-							Value: ptr.To(resource.MustParse("5")),
+							Value: NewMetricQuantity("5"),
 						},
 					},
 				},
