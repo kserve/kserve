@@ -1,0 +1,34 @@
+[project]
+authors = [
+    {name = "KServe Contributors", email = "kserve-technical-discuss@lists.lfaidata.foundation"},
+]
+license = {text = "Apache-2.0"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "kserve @ file:///${PROJECT_ROOT}/../kserve",
+    "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
+    "catboost~=1.2.7",
+]
+name = "catboostserver"
+version = "0.15.2"
+description = "Model Server implementation for CatBoost. Not intended for use outside KServe Frameworks Images."
+readme = "README.md"
+
+[dependency-groups]
+test = [
+    "scikit-learn~=1.5.1",
+    "pytest<8.0.0,>=7.4.4",
+    "pytest-cov<6.0.0,>=5.0.0",
+    "mypy<1.0,>=0.991",
+    "pytest-asyncio<1.0.0,>=0.23.4",
+]
+dev = [
+    "black[colorama]~=24.3.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+exclude = ["tests*", "example_model*"]
