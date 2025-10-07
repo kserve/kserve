@@ -156,10 +156,13 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, err
 	}
 	// resolve service urls
-	for node, router := range graph.Spec.Nodes {
-		for i, route := range router.Steps {
-			isvc := v1beta1.InferenceService{}
-			if route.ServiceName != "" {
+	if !forceStopRuntime {
+		for node, router := range graph.Spec.Nodes {
+			for i, route := range router.Steps {
+				isvc := v1beta1.InferenceService{}
+				if route.ServiceName == "" {
+					continue
+				}
 				err := r.Client.Get(ctx, types.NamespacedName{Namespace: graph.Namespace, Name: route.ServiceName}, &isvc)
 				if err == nil {
 					if graph.Spec.Nodes[node].Steps[i].ServiceURL == "" {
@@ -178,6 +181,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 		}
 	}
+
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
 	if err != nil {
 		r.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
@@ -190,7 +194,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	deploymentMode := isvcutils.GetDeploymentMode(graph.Status.DeploymentMode, graph.ObjectMeta.Annotations, deployConfig)
 	r.Log.Info("Inference graph deployment ", "deployment mode ", deploymentMode)
-	if deploymentMode == constants.RawDeployment {
+	if deploymentMode == constants.Standard {
 		// Create inference graph resources such as deployment, service, hpa in raw deployment mode
 		deployment, url, err := handleInferenceGraphRawDeployment(ctx, r.Client, r.Clientset, r.Scheme, graph, routerConfig)
 		if err != nil {
@@ -198,18 +202,22 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 
 		r.Log.Info("Inference graph raw", "deployment conditions", deployment.Status.Conditions)
-		igAvailable := false
-		for _, con := range deployment.Status.Conditions {
-			if con.Type == appsv1.DeploymentAvailable {
-				igAvailable = true
-				break
+		if !forceStopRuntime {
+			// Check if the deployment is ready. If not, requeue
+			igAvailable := false
+			for _, con := range deployment.Status.Conditions {
+				if con.Type == appsv1.DeploymentAvailable {
+					igAvailable = true
+					break
+				}
+			}
+			if !igAvailable {
+				// If Deployment resource not yet available, IG is not available as well. Reconcile again.
+				return reconcile.Result{Requeue: true}, errors.Wrapf(err,
+					"Failed to find inference graph deployment  %s", graph.Name)
 			}
 		}
-		if !igAvailable {
-			// If Deployment resource not yet available, IG is not available as well. Reconcile again.
-			return reconcile.Result{Requeue: true}, errors.Wrapf(err,
-				"Failed to find inference graph deployment  %s", graph.Name)
-		}
+
 		logger.Info("Inference graph raw before propagate status")
 		PropagateRawStatus(&graph.Status, deployment, url)
 	} else {
@@ -221,8 +229,8 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		if !ksvcAvailable {
 			r.Recorder.Event(graph, corev1.EventTypeWarning, "ServerlessModeRejected",
-				"It is not possible to use Serverless deployment mode when Knative Services are not available")
-			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Serverless, but Knative Serving is not available", graph.Name))
+				"It is not possible to use Knative deployment mode when Knative Services are not available")
+			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Knative, but Knative Serving is not available", graph.Name))
 		}
 
 		// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
@@ -271,8 +279,8 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			Status:             corev1.ConditionFalse,
 		}
 		graph.Status.Conditions = append(graph.Status.Conditions, defaultStoppedCondition)
+		existingStoppedCondition = &defaultStoppedCondition
 	}
-	existingStoppedCondition = graph.Status.GetCondition(v1beta1.Stopped)
 	if forceStopRuntime {
 		// If the graph's stopped condition is not set or
 		// If the graph is currently running, update its status to signal that it should be stopped

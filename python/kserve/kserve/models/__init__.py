@@ -69,6 +69,7 @@ from kserve.models.v1alpha1_trained_model_spec import V1alpha1TrainedModelSpec
 from kserve.models.v1beta1_art_explainer_spec import V1beta1ARTExplainerSpec
 from kserve.models.v1beta1_authentication_ref import V1beta1AuthenticationRef
 from kserve.models.v1beta1_auto_scaling_spec import V1beta1AutoScalingSpec
+from kserve.models.v1beta1_autoscaler_config import V1beta1AutoscalerConfig
 from kserve.models.v1beta1_batcher import V1beta1Batcher
 from kserve.models.v1beta1_component_extension_spec import V1beta1ComponentExtensionSpec
 from kserve.models.v1beta1_component_status_spec import V1beta1ComponentStatusSpec
@@ -76,6 +77,7 @@ from kserve.models.v1beta1_custom_explainer import V1beta1CustomExplainer
 from kserve.models.v1beta1_custom_predictor import V1beta1CustomPredictor
 from kserve.models.v1beta1_custom_transformer import V1beta1CustomTransformer
 from kserve.models.v1beta1_deploy_config import V1beta1DeployConfig
+from kserve.models.v1beta1_deployment_rollout_strategy import V1beta1DeploymentRolloutStrategy
 from kserve.models.v1beta1_explainer_config import V1beta1ExplainerConfig
 from kserve.models.v1beta1_explainer_extension_spec import V1beta1ExplainerExtensionSpec
 from kserve.models.v1beta1_explainer_spec import V1beta1ExplainerSpec
@@ -115,6 +117,7 @@ from kserve.models.v1beta1_predictor_extension_spec import V1beta1PredictorExten
 from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
 from kserve.models.v1beta1_resource_config import V1beta1ResourceConfig
 from kserve.models.v1beta1_resource_metric_source import V1beta1ResourceMetricSource
+from kserve.models.v1beta1_rollout_spec import V1beta1RolloutSpec
 from kserve.models.v1beta1_sk_learn_spec import V1beta1SKLearnSpec
 from kserve.models.v1beta1_security_config import V1beta1SecurityConfig
 from kserve.models.v1beta1_service_config import V1beta1ServiceConfig

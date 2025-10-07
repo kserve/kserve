@@ -68,7 +68,7 @@ func NewRawKubeReconciler(ctx context.Context,
 		return nil, err
 	}
 	// create OTel Collector if pod metrics is enabled for auto-scaling
-	if componentExt.AutoScaling != nil {
+	if componentExt != nil && componentExt.AutoScaling != nil {
 		var metricNames []string
 		metrics := componentExt.AutoScaling.Metrics
 		for _, metric := range metrics {
@@ -114,7 +114,14 @@ func NewRawKubeReconciler(ctx context.Context,
 		log.Error(err1, "failed to get service config")
 	}
 
-	deployment, err := deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
+	// Get deploy config
+	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
+	if err != nil {
+		log.Error(err, "failed to get deploy config")
+		deployConfig = nil // Use nil if config is not available
+	}
+
+	deployment, err := deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec, deployConfig)
 	if err != nil {
 		return nil, err
 	}

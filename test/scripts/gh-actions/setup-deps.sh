@@ -26,12 +26,15 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2
 DEPLOYMENT_MODE="${1:-'serverless'}"
 NETWORK_LAYER="${2:-'istio'}"
 ENABLE_KEDA="${3:-'false'}"
+ENABLE_LWS="${4:-'false'}"
 
-ISTIO_VERSION="1.23.2"
+ISTIO_VERSION="1.27.1"
 CERT_MANAGER_VERSION="v1.16.1"
 YQ_VERSION="v4.28.1"
 GATEWAY_API_VERSION="v1.2.1"
 ENVOY_GATEWAY_VERSION="v1.2.2"
+LWS_VERSION="v0.6.2"
+KEDA_VERSION="2.14.0"
 
 echo "Installing yq ..."
 wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
@@ -98,10 +101,14 @@ shopt -u nocasematch
 
 if [[ $DEPLOYMENT_MODE == "raw" ]]; then
   if [[ $ENABLE_KEDA == "true" ]]; then
-    echo "Installing KEDA ..."
-    kubectl apply -f ./test/overlays/keda/keda.yaml
-    kubectl apply -f ./test/overlays/opentelemetry/opentelemetry-operator.yaml
+    echo "KEDA and OpenTelemetry will be installed via Helm later in the script..."
   fi
+fi
+
+if [[ $ENABLE_LWS == "true" ]]; then
+  echo "Installing LWS ..."
+  kubectl apply --server-side -f https://github.com/kubernetes-sigs/lws/releases/download/$LWS_VERSION/manifests.yaml
+  kubectl wait deploy/lws-controller-manager -n lws-system --for=condition=available --timeout=5m
 fi
 
 echo "Installing cert-manager ..."
@@ -111,3 +118,25 @@ kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/relea
 
 echo "Waiting for cert-manager to be ready ..."
 kubectl wait --for=condition=ready pod -l 'app in (cert-manager,webhook)' --timeout=180s -n cert-manager
+
+if [[ $DEPLOYMENT_MODE == "raw" ]]; then
+  if [[ $ENABLE_KEDA == "true" ]]; then
+    echo "Installing KEDA using Helm ..."
+    helm repo add kedacore https://kedacore.github.io/charts --force-update
+    helm install keda kedacore/keda --version ${KEDA_VERSION} --namespace keda --create-namespace --wait
+    
+    echo "Installing OpenTelemetry operator ..."
+    helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts --force-update
+    helm install my-opentelemetry-operator open-telemetry/opentelemetry-operator -n opentelemetry-operator --create-namespace \
+    --set "manager.collectorImage.repository=otel/opentelemetry-collector-contrib"
+    kubectl wait --for=condition=Ready -n opentelemetry-operator pod -l "app.kubernetes.io/instance=my-opentelemetry-operator" --timeout=300s
+  
+    echo "Installing KEDA OTel add-on from kedify/otel-add-on ..."
+    # Install using Helm from the official OCI registry
+    helm upgrade -i keda-otel-scaler -n keda oci://ghcr.io/kedify/charts/otel-add-on --version=v0.0.12 --namespace keda --wait --set validatingAdmissionPolicy.enabled=false
+    
+    echo "Checking KEDA and OpenTelemetry operator status ..."
+    kubectl get pods -n keda
+    kubectl get pods -n opentelemetry-operator-system
+  fi
+fi

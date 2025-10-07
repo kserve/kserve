@@ -1,5 +1,5 @@
 kserve:
-  version: &defaultVersion v0.15.2
+  version: &defaultVersion v0.16.0-rc0
   agent:
     image: kserve/agent
     tag: *defaultVersion
@@ -91,8 +91,8 @@ kserve:
     # the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port.
     enablePrometheusScraping: "false"
   controller:
-    # -- KServe deployment mode: "Serverless", "RawDeployment".
-    deploymentMode: "Serverless"
+    # -- KServe deployment mode: "Standard", "Knative".
+    deploymentMode: "Knative"
 
     # -- KServe controller manager rbac proxy contrainer image
     rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.18.0
@@ -456,3 +456,15 @@ kserve:
       requests:
         cpu: "1"
         memory: "2Gi"
+  opentelemetryCollector:
+    scrapeInterval: "5s"
+    metricReceiverEndpoint: "keda-otel-scaler.keda.svc:4317"
+    metricScalerEndpoint: "keda-otel-scaler.keda.svc:4318"
+    resource:
+      cpuLimit: "1"
+      memoryLimit: "2Gi"
+      cpuRequest: "200m"
+      memoryRequest: "512Mi"
+  autoscaler:
+    scaleUpStabilizationWindowSeconds: "0"
+    scaleDownStabilizationWindowSeconds: "300"

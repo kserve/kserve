@@ -78,15 +78,14 @@ var _ = Describe("Inference Graph controller test", func() {
 			"cpuRequest": "100m",
 			"cpuLimit": "1",
 			"CaBundleConfigMapName": "",
-			"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-			"enableDirectPvcVolumeMount": false
+			"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
 		}`,
 	}
 
 	expectedReadinessProbe := constants.GetRouterReadinessProbe()
 
 	Context("with knative configured to not allow zero initial scale", func() {
-		When("a Serverless InferenceGraph is created with an initial scale annotation and value of zero", func() {
+		When("a Knative InferenceGraph is created with an initial scale annotation and value of zero", func() {
 			It("should ignore the annotation", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -110,7 +109,7 @@ var _ = Describe("Inference Graph controller test", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    string(constants.Serverless),
+							"serving.kserve.io/deploymentMode":    string(constants.Knative),
 							autoscaling.InitialScaleAnnotationKey: "0",
 						},
 					},
@@ -122,7 +121,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Steps: []v1alpha1.InferenceStep{
 									{
 										InferenceTarget: v1alpha1.InferenceTarget{
-											ServiceURL: "http://someservice.exmaple.com",
+											ServiceURL: "http://someservice.example.com",
 										},
 									},
 								},
@@ -142,7 +141,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(actualService.Spec.Template.Annotations).NotTo(HaveKey(autoscaling.InitialScaleAnnotationKey))
 			})
 		})
-		When("a Serverless InferenceGraph is created with an initial scale annotation and valid non-zero integer value", func() {
+		When("a Knative InferenceGraph is created with an initial scale annotation and valid non-zero integer value", func() {
 			It("should override the default initial scale value with the annotation value", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -166,7 +165,7 @@ var _ = Describe("Inference Graph controller test", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    string(constants.Serverless),
+							"serving.kserve.io/deploymentMode":    string(constants.Knative),
 							autoscaling.InitialScaleAnnotationKey: "3",
 						},
 					},
@@ -178,7 +177,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Steps: []v1alpha1.InferenceStep{
 									{
 										InferenceTarget: v1alpha1.InferenceTarget{
-											ServiceURL: "http://someservice.exmaple.com",
+											ServiceURL: "http://someservice.example.com",
 										},
 									},
 								},
@@ -198,7 +197,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("3"))
 			})
 		})
-		When("a Serverless InferenceGraph is created with an initial scale annotation and invalid non-integer value", func() {
+		When("a Knative InferenceGraph is created with an initial scale annotation and invalid non-integer value", func() {
 			It("should ignore the annotation", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -222,7 +221,7 @@ var _ = Describe("Inference Graph controller test", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    string(constants.Serverless),
+							"serving.kserve.io/deploymentMode":    string(constants.Knative),
 							autoscaling.InitialScaleAnnotationKey: "non-integer",
 						},
 					},
@@ -234,7 +233,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Steps: []v1alpha1.InferenceStep{
 									{
 										InferenceTarget: v1alpha1.InferenceTarget{
-											ServiceURL: "http://someservice.exmaple.com",
+											ServiceURL: "http://someservice.example.com",
 										},
 									},
 								},
@@ -284,7 +283,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				return k8sClient.Patch(context.TODO(), configAutoscaler, client.RawPatch(types.StrategicMergePatchType, configPatch))
 			}, timeout).Should(Succeed())
 		})
-		When("a Serverless InferenceGraph is created with an initial scale annotation and value of zero", func() {
+		When("a Knative InferenceGraph is created with an initial scale annotation and value of zero", func() {
 			It("should override the default initial scale value with the annotation value", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -307,7 +306,7 @@ var _ = Describe("Inference Graph controller test", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    string(constants.Serverless),
+							"serving.kserve.io/deploymentMode":    string(constants.Knative),
 							autoscaling.InitialScaleAnnotationKey: "0",
 						},
 					},
@@ -319,7 +318,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Steps: []v1alpha1.InferenceStep{
 									{
 										InferenceTarget: v1alpha1.InferenceTarget{
-											ServiceURL: "http://someservice.exmaple.com",
+											ServiceURL: "http://someservice.example.com",
 										},
 									},
 								},
@@ -339,7 +338,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
-		When("a Serverless InferenceGraph is created with an initial scale annotation and valid non-zero integer value", func() {
+		When("a Knative InferenceGraph is created with an initial scale annotation and valid non-zero integer value", func() {
 			It("should override the default initial scale value with the annotation value", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -362,7 +361,7 @@ var _ = Describe("Inference Graph controller test", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    string(constants.Serverless),
+							"serving.kserve.io/deploymentMode":    string(constants.Knative),
 							autoscaling.InitialScaleAnnotationKey: "3",
 						},
 					},
@@ -374,7 +373,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Steps: []v1alpha1.InferenceStep{
 									{
 										InferenceTarget: v1alpha1.InferenceTarget{
-											ServiceURL: "http://someservice.exmaple.com",
+											ServiceURL: "http://someservice.example.com",
 										},
 									},
 								},
@@ -394,7 +393,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("3"))
 			})
 		})
-		When("a Serverless InferenceGraph is created with an initial scale annotation and invalid non-integer value", func() {
+		When("a Knative InferenceGraph is created with an initial scale annotation and invalid non-integer value", func() {
 			It("should ignore the annotation", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -417,7 +416,7 @@ var _ = Describe("Inference Graph controller test", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    string(constants.Serverless),
+							"serving.kserve.io/deploymentMode":    string(constants.Knative),
 							autoscaling.InitialScaleAnnotationKey: "non-integer",
 						},
 					},
@@ -429,7 +428,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Steps: []v1alpha1.InferenceStep{
 									{
 										InferenceTarget: v1alpha1.InferenceTarget{
-											ServiceURL: "http://someservice.exmaple.com",
+											ServiceURL: "http://someservice.example.com",
 										},
 									},
 								},
@@ -472,7 +471,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": string(constants.Serverless),
+						"serving.kserve.io/deploymentMode": string(constants.Knative),
 					},
 				},
 				Spec: v1alpha1.InferenceGraphSpec{
@@ -482,7 +481,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							Steps: []v1alpha1.InferenceStep{
 								{
 									InferenceTarget: v1alpha1.InferenceTarget{
-										ServiceURL: "http://someservice.exmaple.com",
+										ServiceURL: "http://someservice.example.com",
 									},
 								},
 							},
@@ -520,7 +519,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/min-scale": "1",
 									"autoscaling.knative.dev/class":     "kpa.autoscaling.knative.dev",
-									"serving.kserve.io/deploymentMode":  "Serverless",
+									"serving.kserve.io/deploymentMode":  "Knative",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
@@ -538,7 +537,7 @@ var _ = Describe("Inference Graph controller test", func() {
 											},
 											Args: []string{
 												"--graph-json",
-												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{}}",
+												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{}}",
 											},
 											Resources: corev1.ResourceRequirements{
 												Limits: corev1.ResourceList{
@@ -600,7 +599,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": string(constants.Serverless),
+						"serving.kserve.io/deploymentMode": string(constants.Knative),
 					},
 				},
 				Spec: v1alpha1.InferenceGraphSpec{
@@ -620,7 +619,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							Steps: []v1alpha1.InferenceStep{
 								{
 									InferenceTarget: v1alpha1.InferenceTarget{
-										ServiceURL: "http://someservice.exmaple.com",
+										ServiceURL: "http://someservice.example.com",
 									},
 								},
 							},
@@ -658,7 +657,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/min-scale": "1",
 									"autoscaling.knative.dev/class":     "kpa.autoscaling.knative.dev",
-									"serving.kserve.io/deploymentMode":  "Serverless",
+									"serving.kserve.io/deploymentMode":  "Knative",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
@@ -676,7 +675,7 @@ var _ = Describe("Inference Graph controller test", func() {
 											},
 											Args: []string{
 												"--graph-json",
-												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{\"limits\":{\"cpu\":\"123m\",\"memory\":\"123Mi\"},\"requests\":{\"cpu\":\"123m\",\"memory\":\"123Mi\"}}}",
+												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{\"limits\":{\"cpu\":\"123m\",\"memory\":\"123Mi\"},\"requests\":{\"cpu\":\"123m\",\"memory\":\"123Mi\"}}}",
 											},
 											Resources: corev1.ResourceRequirements{
 												Limits: corev1.ResourceList{
@@ -738,7 +737,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": string(constants.Serverless),
+						"serving.kserve.io/deploymentMode": string(constants.Knative),
 					},
 				},
 
@@ -772,7 +771,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							Steps: []v1alpha1.InferenceStep{
 								{
 									InferenceTarget: v1alpha1.InferenceTarget{
-										ServiceURL: "http://someservice.exmaple.com",
+										ServiceURL: "http://someservice.example.com",
 									},
 								},
 							},
@@ -810,7 +809,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/min-scale": "1",
 									"autoscaling.knative.dev/class":     "kpa.autoscaling.knative.dev",
-									"serving.kserve.io/deploymentMode":  "Serverless",
+									"serving.kserve.io/deploymentMode":  "Knative",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
@@ -828,7 +827,7 @@ var _ = Describe("Inference Graph controller test", func() {
 											},
 											Args: []string{
 												"--graph-json",
-												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{},\"affinity\":{\"podAffinity\":{\"preferredDuringSchedulingIgnoredDuringExecution\":[{\"weight\":100,\"podAffinityTerm\":{\"labelSelector\":{\"matchExpressions\":[{\"key\":\"serving.kserve.io/inferencegraph\",\"operator\":\"In\",\"values\":[\"singlenode3\"]}]},\"topologyKey\":\"topology.kubernetes.io/zone\"}}]}}}",
+												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{},\"affinity\":{\"podAffinity\":{\"preferredDuringSchedulingIgnoredDuringExecution\":[{\"weight\":100,\"podAffinityTerm\":{\"labelSelector\":{\"matchExpressions\":[{\"key\":\"serving.kserve.io/inferencegraph\",\"operator\":\"In\",\"values\":[\"singlenode3\"]}]},\"topologyKey\":\"topology.kubernetes.io/zone\"}}]}}}",
 											},
 											Resources: corev1.ResourceRequirements{
 												Limits: corev1.ResourceList{
@@ -914,7 +913,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
+						"serving.kserve.io/deploymentMode": string(constants.Standard),
 					},
 				},
 				Spec: v1alpha1.InferenceGraphSpec{
@@ -924,7 +923,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							Steps: []v1alpha1.InferenceStep{
 								{
 									InferenceTarget: v1alpha1.InferenceTarget{
-										ServiceURL: "http://someservice.exmaple.com",
+										ServiceURL: "http://someservice.example.com",
 									},
 								},
 							},
@@ -962,11 +961,11 @@ var _ = Describe("Inference Graph controller test", func() {
 				return true
 			}, timeout, interval).Should(BeTrue())
 
-			// No KNative Service should get created in Raw deployment mode
+			// No Knative Service should get created in Raw deployment mode
 			actualKnServiceCreated := &knservingv1.Service{}
 			Eventually(func() bool {
 				if err := k8sClient.Get(context.TODO(), serviceKey, actualKnServiceCreated); err != nil {
-					By("KNative Service not retrieved")
+					By("Knative Service not retrieved")
 					return false
 				}
 				return true
@@ -992,7 +991,7 @@ var _ = Describe("Inference Graph controller test", func() {
 		})
 	})
 
-	Context("When creating an InferenceGraph in Serverless mode", func() {
+	Context("When creating an InferenceGraph in Knative mode", func() {
 		It("Should fail if Knative Serving is not installed", func() {
 			// Simulate Knative Serving is absent by setting to false the relevant item in utils.gvResourcesCache variable
 			servingResources, getServingResourcesErr := utils.GetAvailableResourcesForApi(cfg, knservingv1.SchemeGroupVersion.String())
@@ -1020,7 +1019,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": string(constants.Serverless),
+						"serving.kserve.io/deploymentMode": string(constants.Knative),
 					},
 				},
 				Spec: v1alpha1.InferenceGraphSpec{
@@ -1030,7 +1029,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							Steps: []v1alpha1.InferenceStep{
 								{
 									InferenceTarget: v1alpha1.InferenceTarget{
-										ServiceURL: "http://someservice.exmaple.com",
+										ServiceURL: "http://someservice.example.com",
 									},
 								},
 							},
@@ -1086,7 +1085,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			return *actualIG
 		}
 
-		// Waits for any Kubernestes object to be found
+		// Waits for any Kubernetes object to be found
 		expectResourceToExist := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, objKey, obj)
@@ -1099,7 +1098,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			Consistently(func() bool {
 				err := k8sClient.Get(ctx, objKey, obj)
 				return apierr.IsNotFound(err)
-			}, time.Second*10, interval).Should(BeTrue(), "%T %s should not be created", obj, objKey.Name)
+			}, timeout, interval).Should(BeTrue(), "%T %s should not be created", obj, objKey.Name)
 		}
 
 		// Wait for any Kubernetes object to be not found.
@@ -1128,7 +1127,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			}, timeout, interval).Should(BeTrue(), message)
 		}
 
-		Describe("in Serverless mode", func() {
+		Describe("in Knative mode", func() {
 			// --- Default values ---
 			defaultIG := func(serviceKey types.NamespacedName) *v1alpha1.InferenceGraph {
 				ig := &v1alpha1.InferenceGraph{
@@ -1136,7 +1135,7 @@ var _ = Describe("Inference Graph controller test", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode": string(constants.Serverless),
+							"serving.kserve.io/deploymentMode": string(constants.Knative),
 						},
 					},
 					Spec: v1alpha1.InferenceGraphSpec{
@@ -1146,7 +1145,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Steps: []v1alpha1.InferenceStep{
 									{
 										InferenceTarget: v1alpha1.InferenceTarget{
-											ServiceURL: "http://someservice.exmaple.com",
+											ServiceURL: "http://someservice.example.com",
 										},
 									},
 								},
@@ -1157,7 +1156,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				return ig
 			}
 
-			It("Should keep the knative service when the annotation is set to false", func() {
+			It("Should keep the knative service when the StopAnnotationKey annotation is set to false", func() {
 				ctx, cancel := context.WithCancel(context.Background())
 				DeferCleanup(cancel)
 
@@ -1183,7 +1182,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
 			})
 
-			It("Should not create the knative service when the annotation is set to true", func() {
+			It("Should not create the knative service when the StopAnnotationKey annotation is set to true", func() {
 				ctx, cancel := context.WithCancel(context.Background())
 				DeferCleanup(cancel)
 
@@ -1208,7 +1207,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionTrue)
 			})
 
-			It("Should delete the knative service when the annotation is updated to true on an existing IG", func() {
+			It("Should delete the knative service when the StopAnnotationKey annotation is updated to true on an existing IG", func() {
 				ctx, cancel := context.WithCancel(context.Background())
 				DeferCleanup(cancel)
 
@@ -1247,7 +1246,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionTrue)
 			})
 
-			It("Should create the knative service when the annotation is updated to false on an existing IG", func() {
+			It("Should create the knative service when the StopAnnotationKey annotation is updated to false on an existing IG", func() {
 				ctx, cancel := context.WithCancel(context.Background())
 				DeferCleanup(cancel)
 
@@ -1284,6 +1283,191 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
 			})
 		})
+
+		Describe("in Raw Deployment mode", func() {
+			// --- Default values ---
+			defaultRawIG := func(serviceKey types.NamespacedName) *v1alpha1.InferenceGraph {
+				ig := &v1alpha1.InferenceGraph{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      serviceKey.Name,
+						Namespace: serviceKey.Namespace,
+						Annotations: map[string]string{
+							"serving.kserve.io/deploymentMode": string(constants.Standard),
+						},
+					},
+					Spec: v1alpha1.InferenceGraphSpec{
+						Nodes: map[string]v1alpha1.InferenceRouter{
+							v1alpha1.GraphRootNodeName: {
+								RouterType: v1alpha1.Sequence,
+								Steps: []v1alpha1.InferenceStep{
+									{
+										InferenceTarget: v1alpha1.InferenceTarget{
+											ServiceURL: "http://someservice.example.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+				return ig
+			}
+
+			// --- Reusable Check Functions ---
+			// Updates the status of the deployment to Ready
+			// and applies the change to the Kubernetes API server.
+			expectDeploymentToBeReady := func(ctx context.Context, serviceKey types.NamespacedName) {
+				actualDeployment := &appsv1.Deployment{}
+				Eventually(func() error { return k8sClient.Get(ctx, serviceKey, actualDeployment) }, timeout).
+					Should(Succeed())
+
+				updatedDeployment := actualDeployment.DeepCopy()
+				updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
+					{
+						Type:   appsv1.DeploymentAvailable,
+						Status: corev1.ConditionTrue,
+					},
+				}
+				Expect(k8sClient.Status().Update(ctx, updatedDeployment)).NotTo(HaveOccurred())
+			}
+
+			It("Should keep the service/deployment when the StopAnnotationKey annotation is set to false", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
+
+				// Config map
+				configMap := createIGConfigMap()
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(context.TODO(), configMap)
+
+				// Define InferenceGraph
+				serviceNamespace := "default"
+				graphName := "stop-raw-false-ig"
+				graphExpectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: serviceNamespace}}
+				graphServiceKey := graphExpectedRequest.NamespacedName
+				ig := defaultRawIG(graphServiceKey)
+				ig.Annotations[constants.StopAnnotationKey] = "false"
+				Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
+				defer k8sClient.Delete(ctx, ig)
+
+				// Check the inference graph
+				expectResourceToExist(context.Background(), &appsv1.Deployment{}, graphServiceKey)
+				expectDeploymentToBeReady(context.Background(), graphServiceKey)
+
+				expectResourceToExist(context.Background(), &corev1.Service{}, graphServiceKey)
+				expectIGToExist(context.Background(), graphServiceKey)
+
+				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
+			})
+
+			It("Should not create the service/deployment when the StopAnnotationKey annotation is set to true", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
+
+				configMap := createIGConfigMap()
+				Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, configMap)
+
+				graphName := "stop-raw-true-ig"
+				serviceNamespace := "default"
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: serviceNamespace}}
+				graphServiceKey := expectedRequest.NamespacedName
+				ig := defaultRawIG(graphServiceKey)
+				ig.Annotations[constants.StopAnnotationKey] = "true"
+				Expect(k8sClient.Create(context.Background(), ig)).Should(Succeed())
+				defer k8sClient.Delete(context.Background(), ig)
+
+				// Check that the service and deployment were not created
+				expectResourceIsDeleted(context.Background(), &corev1.Service{}, graphServiceKey)
+				expectResourceIsDeleted(context.Background(), &appsv1.Deployment{}, graphServiceKey)
+
+				// Check the inference graph
+				expectIGToExist(context.Background(), graphServiceKey)
+				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionTrue)
+			})
+
+			It("Should delete the service/deployment when the StopAnnotationKey annotation is updated to true on an existing IG", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
+
+				// Config map
+				configMap := createIGConfigMap()
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(context.TODO(), configMap)
+
+				// Define InferenceGraph
+				serviceNamespace := "default"
+				graphName := "stop-raw-update-true-ig"
+				graphExpectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: serviceNamespace}}
+				graphServiceKey := graphExpectedRequest.NamespacedName
+				ig := defaultRawIG(graphServiceKey)
+				ig.Annotations[constants.StopAnnotationKey] = "false"
+				Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
+				defer k8sClient.Delete(ctx, ig)
+
+				// Check the inference graph
+				expectResourceToExist(context.Background(), &appsv1.Deployment{}, graphServiceKey)
+				expectDeploymentToBeReady(context.Background(), graphServiceKey)
+				expectResourceToExist(context.Background(), &corev1.Service{}, graphServiceKey)
+				expectIGToExist(context.Background(), graphServiceKey)
+
+				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
+
+				// Stop the inference graph
+				actualIG := expectIGToExist(ctx, graphServiceKey)
+				updatedIG := actualIG.DeepCopy()
+				updatedIG.Annotations[constants.StopAnnotationKey] = "true"
+				Expect(k8sClient.Update(ctx, updatedIG)).NotTo(HaveOccurred())
+
+				// Check that the service and deployment were deleted
+				expectResourceToBeDeleted(context.Background(), &corev1.Service{}, graphServiceKey)
+				expectResourceToBeDeleted(context.Background(), &appsv1.Deployment{}, graphServiceKey)
+
+				// Check the inference graph
+				expectIGToExist(context.Background(), graphServiceKey)
+				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionTrue)
+			})
+
+			It("Should create the service/deployment when the StopAnnotationKey annotation is updated to false on an existing IG", func() {
+				ctx, cancel := context.WithCancel(context.Background())
+				DeferCleanup(cancel)
+
+				configMap := createIGConfigMap()
+				Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(ctx, configMap)
+
+				graphName := "stop-raw-update-false-ig"
+				serviceNamespace := "default"
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: serviceNamespace}}
+				graphServiceKey := expectedRequest.NamespacedName
+				ig := defaultRawIG(graphServiceKey)
+				ig.Annotations[constants.StopAnnotationKey] = "true"
+				Expect(k8sClient.Create(context.Background(), ig)).Should(Succeed())
+				defer k8sClient.Delete(context.Background(), ig)
+
+				// Check that the service and deployment were not created
+				expectResourceIsDeleted(context.Background(), &corev1.Service{}, graphServiceKey)
+				expectResourceIsDeleted(context.Background(), &appsv1.Deployment{}, graphServiceKey)
+
+				// Check the inference graph
+				expectIGToExist(context.Background(), graphServiceKey)
+				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionTrue)
+
+				// Resume the inference graph
+				actualIG := expectIGToExist(ctx, graphServiceKey)
+				updatedIG := actualIG.DeepCopy()
+				updatedIG.Annotations[constants.StopAnnotationKey] = "false"
+				Expect(k8sClient.Update(ctx, updatedIG)).NotTo(HaveOccurred())
+
+				// Check the inference graph
+				expectResourceToExist(context.Background(), &appsv1.Deployment{}, graphServiceKey)
+				expectDeploymentToBeReady(context.Background(), graphServiceKey)
+				expectResourceToExist(context.Background(), &corev1.Service{}, graphServiceKey)
+				expectIGToExist(context.Background(), graphServiceKey)
+
+				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
+			})
+		})
 	})
 
 	Context("When creating an IG with tolerations in the spec", func() {
@@ -1306,7 +1490,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": string(constants.Serverless),
+						"serving.kserve.io/deploymentMode": string(constants.Knative),
 					},
 				},
 
@@ -1363,7 +1547,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/min-scale": "1",
 									"autoscaling.knative.dev/class":     "kpa.autoscaling.knative.dev",
-									"serving.kserve.io/deploymentMode":  "Serverless",
+									"serving.kserve.io/deploymentMode":  "Knative",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{

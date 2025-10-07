@@ -251,7 +251,7 @@ func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec
 	autoscalerClass := annotations[constants.AutoscalerClass]
 
 	switch deploymentMode {
-	case string(constants.RawDeployment):
+	case string(constants.Standard):
 		switch autoscalerClass {
 		case string(constants.AutoscalerClassHPA):
 			return validateScalingHPACompExtension(compExtSpec)
@@ -388,8 +388,11 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 					if metric.Resource.Target.Type != AverageValueMetricType && metric.Resource.Target.Type != UtilizationMetricType {
 						return errors.New("the memory target value type should be AverageValue or Utilization")
 					}
-					if metric.Resource.Target.Type == AverageValueMetricType && metric.Resource.Target.AverageValue.Cmp(resource.MustParse("1Mi")) < 0 {
-						return errors.New("the memory target value should be greater than 1 MiB")
+					if metric.Resource.Target.Type == AverageValueMetricType {
+						quantity := metric.Resource.Target.AverageValue.GetQuantity()
+						if quantity.Cmp(resource.MustParse("1Mi")) < 0 {
+							return errors.New("the memory target value should be greater than 1 MiB")
+						}
 					}
 				default:
 					return fmt.Errorf("resource type %s is not supported", metric.Resource.Name)

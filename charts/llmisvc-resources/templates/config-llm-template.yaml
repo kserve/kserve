@@ -5,7 +5,7 @@ metadata:
 spec:
   template:
     containers:
-      - image: ghcr.io/llm-d/llm-d:v0.2.0
+      - image: ghcr.io/llm-d/llm-d-dev:v0.2.2
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -14,9 +14,10 @@ spec:
         command:
           - vllm
           - serve
+          - /mnt/models
         args:
           - --served-model-name
-          - "{{ .Spec.Model.Name }}"
+          - "{{`{{ .Spec.Model.Name }}`}}"
           - --port
           - "8000"
           - --disable-log-requests
@@ -34,9 +35,13 @@ spec:
             value: /models
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
           capabilities:
             drop:
-              - MKNOD
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: FallbackToLogsOnError
         livenessProbe:
@@ -69,14 +74,14 @@ spec:
             readOnly: true
     terminationGracePeriodSeconds: 30
     volumes:
-      - emptyDir: { }
+      - emptyDir: {}
         name: home
       - emptyDir:
           medium: Memory
           sizeLimit: 1Gi
         name: dshm
-      - emptyDir: { }
+      - emptyDir: {}
         name: model-cache
       - name: tls-certs
         secret:
-          secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
+          secretName: '{{ "{{" }} ChildName .ObjectMeta.Name `-kserve-self-signed-certs` {{ "}}" }}'

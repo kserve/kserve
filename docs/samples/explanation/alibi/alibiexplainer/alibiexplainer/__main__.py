@@ -22,8 +22,8 @@ from alibiexplainer.parser import parse_args
 
 import kserve
 from kserve import logging
-from kserve.storage import Storage
 from kserve.logging import logger
+from kserve_storage import Storage
 
 EXPLAINER_FILENAME = "explainer.dill"
 

@@ -90,7 +90,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -117,7 +117,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -155,7 +155,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -169,7 +169,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 										Resource: &ResourceMetricSource{
 											Name: ResourceMetricMemory,
 											Target: MetricTarget{
-												AverageValue: ptr.To(resource.MustParse("1Gi")),
+												AverageValue: NewMetricQuantity("1Gi"),
 											},
 										},
 									},
@@ -193,7 +193,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -225,7 +225,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -257,7 +257,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -285,7 +285,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -313,7 +313,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -340,7 +340,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "test",
 					},
 				},
@@ -383,7 +383,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "keda",
 					},
 				},
@@ -422,7 +422,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "keda",
 					},
 				},
@@ -437,7 +437,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 											Name: ResourceMetricMemory,
 											Target: MetricTarget{
 												Type:         AverageValueMetricType,
-												AverageValue: ptr.To(resource.MustParse("1Gi")),
+												AverageValue: NewMetricQuantity("1Gi"),
 											},
 										},
 									},
@@ -461,7 +461,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "keda",
 					},
 				},
@@ -493,7 +493,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "keda",
 					},
 				},
@@ -511,7 +511,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 											},
 											Target: MetricTarget{
 												Type:  ValueMetricType,
-												Value: ptr.To(resource.MustParse("10")),
+												Value: NewMetricQuantity("10"),
 											},
 										},
 									},
@@ -535,7 +535,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "keda",
 					},
 				},
@@ -553,7 +553,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 											},
 											Target: MetricTarget{
 												Type:  ValueMetricType,
-												Value: ptr.To(resource.MustParse("10")),
+												Value: NewMetricQuantity("10"),
 											},
 										},
 									},
@@ -1399,11 +1399,11 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	oldIsvc := makeTestInferenceService()
 	oldIsvc.Status = InferenceServiceStatus{
-		DeploymentMode: "Serverless",
+		DeploymentMode: string(constants.Knative),
 	}
 	updatedIsvc := oldIsvc.DeepCopy()
 	updatedIsvc.Annotations = map[string]string{
-		constants.DeploymentMode: "RawDeployment",
+		constants.DeploymentMode: string(constants.Standard),
 	}
 	validator := InferenceServiceValidator{}
 	warnings, err := validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc)
@@ -1413,7 +1413,7 @@ func TestDeploymentModeUpdate(t *testing.T) {
 
 	updatedIsvc1 := oldIsvc.DeepCopy()
 	updatedIsvc1.Annotations = map[string]string{
-		constants.DeploymentMode: "Serverless",
+		constants.DeploymentMode: string(constants.Knative),
 	}
 	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc1)
 	// Annotation matches status, update is accepted
@@ -1469,7 +1469,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 						Name: ResourceMetricMemory,
 						Target: MetricTarget{
 							Type:         AverageValueMetricType,
-							AverageValue: ptr.To(resource.MustParse("2Gi")),
+							AverageValue: NewMetricQuantity("2Gi"),
 						},
 					},
 				},
@@ -1527,7 +1527,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 						Name: ResourceMetricMemory,
 						Target: MetricTarget{
 							Type:         AverageValueMetricType,
-							AverageValue: ptr.To(resource.MustParse("512Ki")),
+							AverageValue: NewMetricQuantity("512Ki"),
 						},
 					},
 				},
@@ -1580,7 +1580,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 						},
 						Target: MetricTarget{
 							Type:  ValueMetricType,
-							Value: ptr.To(resource.MustParse("10")),
+							Value: NewMetricQuantity("10"),
 						},
 					},
 				},
@@ -1618,7 +1618,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 						},
 						Target: MetricTarget{
 							Type:  ValueMetricType,
-							Value: ptr.To(resource.MustParse("5")),
+							Value: NewMetricQuantity("5"),
 						},
 					},
 				},
