@@ -6831,13 +6831,13 @@ func schema_pkg_apis_serving_v1beta1_MetricTarget(ref common.ReferenceCallback) 
 					"value": {
 						SchemaProps: spec.SchemaProps{
 							Description: "value is the target value of the metric (as a quantity).",
-							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricQuantity"),
 						},
 					},
 					"averageValue": {
 						SchemaProps: spec.SchemaProps{
 							Description: "averageValue is the target value of the average of the metric across all relevant pods (as a quantity)",
-							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricQuantity"),
 						},
 					},
 					"averageUtilization": {
@@ -6851,7 +6851,7 @@ func schema_pkg_apis_serving_v1beta1_MetricTarget(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricQuantity"},
 	}
 }
 
