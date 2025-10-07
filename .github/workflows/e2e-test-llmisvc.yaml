@@ -60,9 +60,12 @@ jobs:
       - name: Load LLMISvc controller image into minikube
         run: |
           echo "🐳 Loading LLMISvc controller image into minikube..."
+          # Load the image from the tar file
           minikube image load ./tmp/llmisvc-controller-${{ github.sha }}
+
           # Verify image is loaded
-          minikube image ls | grep llmisvc-controller || echo "Image not found in minikube"
+          echo "Images in minikube:"
+          minikube image ls | grep llmisvc-controller || echo "No llmisvc-controller images found"
 
       - name: Install Helm
         uses: azure/setup-helm@v4
@@ -97,19 +100,19 @@ jobs:
         run: |
           echo "🏗️ Installing LLMISvc dependencies and controller..."
 
-          # Set environment variable to use local charts with local image
+          # Set environment variable to use local charts
           export USE_LOCAL_CHARTS=true
-          export LLMISVC_CONTROLLER_IMG_TAG="${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${GITHUB_SHA}"
+          LLMISVC_CONTROLLER_IMG_TAG="${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${{ github.sha }}"
 
           # Use the quick install script to install all dependencies and LLMISvc
           ./hack/llmisvc_quick_install.sh
 
           # Update the deployment to use our built image with Never pull policy
-          kubectl patch deployment llmisvc-controller-manager -n kserve \
+          kubectl patch deployment kserve-llmisvc-controller-manager -n kserve \
             -p '{"spec":{"template":{"spec":{"containers":[{"name":"manager","image":"'${LLMISVC_CONTROLLER_IMG_TAG}'","imagePullPolicy":"Never"}]}}}}'
 
           # Wait for deployment to be ready
-          kubectl wait --for=condition=available --timeout=300s deployment/llmisvc-controller-manager -n kserve
+          kubectl wait --for=condition=available --timeout=300s deployment/kserve-llmisvc-controller-manager -n kserve
 
       - name: Verify LLMISvc setup
         run: |
