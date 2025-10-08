@@ -218,6 +218,122 @@ class V1beta1TransformerSpec(object):
         volumes=None,
         local_vars_configuration=None,
     ):  # noqa: E501
+        'active_deadline_seconds': 'int',
+        'affinity': 'V1Affinity',
+        'annotations': 'dict(str, str)',
+        'auto_scaling': 'V1beta1AutoScalingSpec',
+        'automount_service_account_token': 'bool',
+        'batcher': 'V1beta1Batcher',
+        'canary_traffic_percent': 'int',
+        'container_concurrency': 'int',
+        'containers': 'list[V1Container]',
+        'deployment_strategy': 'K8sIoApiAppsV1DeploymentStrategy',
+        'dns_config': 'V1PodDNSConfig',
+        'dns_policy': 'str',
+        'enable_service_links': 'bool',
+        'ephemeral_containers': 'list[V1EphemeralContainer]',
+        'host_aliases': 'list[V1HostAlias]',
+        'host_ipc': 'bool',
+        'host_network': 'bool',
+        'host_pid': 'bool',
+        'host_users': 'bool',
+        'hostname': 'str',
+        'image_pull_secrets': 'list[V1LocalObjectReference]',
+        'init_containers': 'list[V1Container]',
+        'labels': 'dict(str, str)',
+        'logger': 'V1beta1LoggerSpec',
+        'max_replicas': 'int',
+        'min_replicas': 'int',
+        'node_name': 'str',
+        'node_selector': 'dict(str, str)',
+        'os': 'V1PodOS',
+        'overhead': 'dict(str, ResourceQuantity)',
+        'preemption_policy': 'str',
+        'priority': 'int',
+        'priority_class_name': 'str',
+        'readiness_gates': 'list[V1PodReadinessGate]',
+        'resource_claims': 'list[V1PodResourceClaim]',
+        'resources': 'V1ResourceRequirements',
+        'restart_policy': 'str',
+        'runtime_class_name': 'str',
+        'scale_metric': 'str',
+        'scale_metric_type': 'str',
+        'scale_target': 'int',
+        'scheduler_name': 'str',
+        'scheduling_gates': 'list[V1PodSchedulingGate]',
+        'security_context': 'V1PodSecurityContext',
+        'service_account': 'str',
+        'service_account_name': 'str',
+        'set_hostname_as_fqdn': 'bool',
+        'share_process_namespace': 'bool',
+        'storage_uris': 'list[V1beta1StorageUri]',
+        'subdomain': 'str',
+        'termination_grace_period_seconds': 'int',
+        'timeout': 'int',
+        'tolerations': 'list[V1Toleration]',
+        'topology_spread_constraints': 'list[V1TopologySpreadConstraint]',
+        'volumes': 'list[V1Volume]'
+    }
+
+    attribute_map = {
+        'active_deadline_seconds': 'activeDeadlineSeconds',
+        'affinity': 'affinity',
+        'annotations': 'annotations',
+        'auto_scaling': 'autoScaling',
+        'automount_service_account_token': 'automountServiceAccountToken',
+        'batcher': 'batcher',
+        'canary_traffic_percent': 'canaryTrafficPercent',
+        'container_concurrency': 'containerConcurrency',
+        'containers': 'containers',
+        'deployment_strategy': 'deploymentStrategy',
+        'dns_config': 'dnsConfig',
+        'dns_policy': 'dnsPolicy',
+        'enable_service_links': 'enableServiceLinks',
+        'ephemeral_containers': 'ephemeralContainers',
+        'host_aliases': 'hostAliases',
+        'host_ipc': 'hostIPC',
+        'host_network': 'hostNetwork',
+        'host_pid': 'hostPID',
+        'host_users': 'hostUsers',
+        'hostname': 'hostname',
+        'image_pull_secrets': 'imagePullSecrets',
+        'init_containers': 'initContainers',
+        'labels': 'labels',
+        'logger': 'logger',
+        'max_replicas': 'maxReplicas',
+        'min_replicas': 'minReplicas',
+        'node_name': 'nodeName',
+        'node_selector': 'nodeSelector',
+        'os': 'os',
+        'overhead': 'overhead',
+        'preemption_policy': 'preemptionPolicy',
+        'priority': 'priority',
+        'priority_class_name': 'priorityClassName',
+        'readiness_gates': 'readinessGates',
+        'resource_claims': 'resourceClaims',
+        'resources': 'resources',
+        'restart_policy': 'restartPolicy',
+        'runtime_class_name': 'runtimeClassName',
+        'scale_metric': 'scaleMetric',
+        'scale_metric_type': 'scaleMetricType',
+        'scale_target': 'scaleTarget',
+        'scheduler_name': 'schedulerName',
+        'scheduling_gates': 'schedulingGates',
+        'security_context': 'securityContext',
+        'service_account': 'serviceAccount',
+        'service_account_name': 'serviceAccountName',
+        'set_hostname_as_fqdn': 'setHostnameAsFQDN',
+        'share_process_namespace': 'shareProcessNamespace',
+        'storage_uris': 'storageUris',
+        'subdomain': 'subdomain',
+        'termination_grace_period_seconds': 'terminationGracePeriodSeconds',
+        'timeout': 'timeout',
+        'tolerations': 'tolerations',
+        'topology_spread_constraints': 'topologySpreadConstraints',
+        'volumes': 'volumes'
+    }
+
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, storage_uris=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1TransformerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -271,6 +387,7 @@ class V1beta1TransformerSpec(object):
         self._service_account_name = None
         self._set_hostname_as_fqdn = None
         self._share_process_namespace = None
+        self._storage_uris = None
         self._subdomain = None
         self._termination_grace_period_seconds = None
         self._timeout = None
@@ -375,6 +492,8 @@ class V1beta1TransformerSpec(object):
             self.set_hostname_as_fqdn = set_hostname_as_fqdn
         if share_process_namespace is not None:
             self.share_process_namespace = share_process_namespace
+        if storage_uris is not None:
+            self.storage_uris = storage_uris
         if subdomain is not None:
             self.subdomain = subdomain
         if termination_grace_period_seconds is not None:
@@ -1473,6 +1592,29 @@ class V1beta1TransformerSpec(object):
         """
 
         self._share_process_namespace = share_process_namespace
+
+    @property
+    def storage_uris(self):
+        """Gets the storage_uris of this V1beta1TransformerSpec.  # noqa: E501
+
+        Spec for multiple storage uris.  # noqa: E501
+
+        :return: The storage_uris of this V1beta1TransformerSpec.  # noqa: E501
+        :rtype: list[V1beta1StorageUri]
+        """
+        return self._storage_uris
+
+    @storage_uris.setter
+    def storage_uris(self, storage_uris):
+        """Sets the storage_uris of this V1beta1TransformerSpec.
+
+        Spec for multiple storage uris.  # noqa: E501
+
+        :param storage_uris: The storage_uris of this V1beta1TransformerSpec.  # noqa: E501
+        :type: list[V1beta1StorageUri]
+        """
+
+        self._storage_uris = storage_uris
 
     @property
     def subdomain(self):
