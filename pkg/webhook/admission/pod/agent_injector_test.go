@@ -1787,7 +1787,7 @@ func TestGetLoggerConfigs(t *testing.T) {
 						"CpuRequest":    "100m",
 						"CpuLimit":      "1",
 						"MemoryRequest": "200Mi",
-						"MemoryLimit":   "1Gi",
+						"MemoryLimit":   "1Gi"
 					}`,
 				},
 				BinaryData: map[string][]byte{},
