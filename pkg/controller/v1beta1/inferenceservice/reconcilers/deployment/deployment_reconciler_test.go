@@ -895,7 +895,7 @@ func TestOauthProxyUpstreamTimeout(t *testing.T) {
 						constants.ODHKserveRawAuth: "true",
 					},
 					Labels: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
 					},
 				},
@@ -922,7 +922,7 @@ func TestOauthProxyUpstreamTimeout(t *testing.T) {
 						constants.ODHKserveRawAuth: "true",
 					},
 					Labels: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
 					},
 				},
@@ -949,7 +949,7 @@ func TestOauthProxyUpstreamTimeout(t *testing.T) {
 						constants.ODHKserveRawAuth: "true",
 					},
 					Labels: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
 					},
 				},
