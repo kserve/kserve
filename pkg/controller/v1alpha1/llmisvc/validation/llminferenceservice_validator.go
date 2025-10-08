@@ -174,6 +174,18 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 		))
 	}
 
+	// Ingress cannot be used with httpRoute, gateway and scheduler
+	if llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Ingress != nil && (len(httpRoute.Refs) > 0 || httpRoute.Spec != nil || (router.Gateway != nil && len(router.Gateway.Refs) > 0)) {
+		ingressPath := routerPath.Child("ingress")
+		allErrs = append(allErrs, field.Invalid(
+			ingressPath,
+			llmSvc.Spec.Router.Ingress,
+			fmt.Sprintf("unsupported configuration: Ingress ('%s') cannot be used with HTTPRoute ('%s') when scheduler is configured; "+
+				"either remove '%s' or '%s'",
+				ingressPath, httpRoutePath, ingressPath, httpRoutePath,
+			),
+		))
+	}
 	return allErrs
 }
 

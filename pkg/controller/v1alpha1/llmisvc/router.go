@@ -25,27 +25,24 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-
 	"k8s.io/apimachinery/pkg/types"
-
 	"k8s.io/utils/ptr"
-
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
-
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	netv1 "k8s.io/api/networking/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	v1b1ingress "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 )
 
 // reconcileRouter handles the networking and routing components for the LLM service
 // This includes schedulers, HTTP routes, and various validation checks
 func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService,
-	ingressConfig *v1beta1.IngressConfig,
+	config *Config,
 ) error {
 	logger := log.FromContext(ctx).WithName("reconcileRouter")
 	ctx = log.IntoContext(ctx, logger)
@@ -74,8 +71,9 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 		return fmt.Errorf("failed to reconcile HTTP routes: %w", err)
 	}
 
-	if err := r.reconcileIngress(ctx, llmSvc, ingressConfig); err != nil {
-		llmSvc.MarkRouterNotReady("IngressReconcileError", "Failed to reconcile Ingress: %v", err.Error())
+	// Reconcile Ingress resources if specified
+	if err := r.reconcileIngress(ctx, llmSvc, config); err != nil {
+		llmSvc.MarkIngressNotReady("IngressReconcileError", "Failed to reconcile Ingress: %v", err.Error())
 		return fmt.Errorf("failed to reconcile Ingress: %w", err)
 	}
 
@@ -90,6 +88,10 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 
 	if err := r.EvaluateHTTPRouteConditions(ctx, llmSvc); err != nil {
 		return fmt.Errorf("failed to evaluate HTTPRoute conditions: %w", err)
+	}
+
+	if err := r.EvaluateIngressConditions(ctx, llmSvc); err != nil {
+		return fmt.Errorf("failed to evaluate Ingress conditions: %w", err)
 	}
 
 	return nil
@@ -469,5 +471,182 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 
 	llmSvc.MarkInferencePoolReady()
 	logger.V(2).Info("Inference Pool is ready", "pool", curr)
+	return nil
+}
+
+func (r *LLMISVCReconciler) reconcileIngress(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, config *Config) error {
+	logger := log.FromContext(ctx)
+	logger.Info("Reconciling Ingress")
+
+	expectedIngress, err := r.expectedIngress(ctx, llmSvc, config)
+	if err != nil {
+		return fmt.Errorf("failed to construct expected ingress: %w", err)
+	}
+
+	if llmSvc.Spec.Router == nil || (llmSvc.Spec.Router.Route != nil && (llmSvc.Spec.Router.Route.HTTP != nil ||
+		llmSvc.Spec.Router.Ingress == nil || llmSvc.Spec.Router.Ingress.Refs != nil)) {
+		return Delete(ctx, r, llmSvc, expectedIngress)
+	}
+
+	referencedRoutes, err := r.collectReferencedIngresses(ctx, llmSvc)
+	if err != nil {
+		return fmt.Errorf("failed to collect referenced ingress: %w", err)
+	}
+
+	ingress := llmSvc.Spec.Router.Ingress
+
+	if ingress.HasRefs() {
+		return Delete(ctx, r, llmSvc, expectedIngress)
+	}
+
+	if ingress != nil && !ingress.HasRefs() {
+		if err := Reconcile(ctx, r, llmSvc, &netv1.Ingress{}, expectedIngress, semanticIngressIsEqual); err != nil {
+			return fmt.Errorf("failed to reconcile Ingress %s/%s: %w", expectedIngress.GetNamespace(), expectedIngress.GetName(), err)
+		}
+		referencedRoutes = append(referencedRoutes, expectedIngress)
+	}
+
+	return r.updateRoutingStatusFromIngress(ctx, llmSvc, config, referencedRoutes...)
+}
+
+func (r *LLMISVCReconciler) expectedIngress(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, config *Config) (*netv1.Ingress, error) {
+	host, err := v1b1ingress.GenerateDomainName(llmSvc.Name, llmSvc.ObjectMeta, config.IngressConfig)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "Failed to generate domain name for Ingress")
+		return nil, err
+	}
+
+	ingress := &netv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kmeta.ChildName(llmSvc.GetName(), "-ingress"),
+			Namespace: llmSvc.GetNamespace(),
+			Labels:    RouterLabels(llmSvc),
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha1.LLMInferenceServiceGVK),
+			},
+		},
+	}
+
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Ingress != nil && llmSvc.Spec.Router.Ingress.Refs == nil {
+		ingress.Spec = netv1.IngressSpec{
+			IngressClassName: config.IngressConfig.IngressClassName,
+			Rules: []netv1.IngressRule{
+				{
+					Host: host,
+					IngressRuleValue: netv1.IngressRuleValue{
+						HTTP: &netv1.HTTPIngressRuleValue{
+							Paths: []netv1.HTTPIngressPath{
+								{
+									Path:     "/",
+									PathType: ptr.To(netv1.PathTypePrefix),
+									Backend: netv1.IngressBackend{
+										Service: &netv1.IngressServiceBackend{
+											Name: getWorkloadServiceName(llmSvc),
+											Port: netv1.ServiceBackendPort{
+												Number: workloadServicePort,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	return ingress, nil
+}
+
+func (r *LLMISVCReconciler) collectReferencedIngresses(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) ([]*netv1.Ingress, error) {
+	var referencedIngress []*netv1.Ingress
+
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Ingress != nil {
+		for _, ingressRef := range llmSvc.Spec.Router.Ingress.Refs {
+			ingress := &netv1.Ingress{}
+			if err := r.Get(ctx, types.NamespacedName{Namespace: string(ingressRef.Namespace), Name: string(ingressRef.Name)}, ingress); err != nil {
+				if apierrors.IsNotFound(err) {
+					// TODO: mark condition if not found
+					continue
+				}
+				return referencedIngress, fmt.Errorf("failed to get Ingress %s/%s: %w", ingressRef.Namespace, ingressRef.Name, err)
+			}
+			referencedIngress = append(referencedIngress, ingress)
+		}
+	}
+
+	return referencedIngress, nil
+}
+
+func (r *LLMISVCReconciler) updateRoutingStatusFromIngress(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, config *Config, ingresses ...*netv1.Ingress) error {
+	logger := log.FromContext(ctx)
+	logger.V(1).Info("Updating routing status from ingress", "ingressCount", len(ingresses))
+
+	hosts := extractIngressHostNames(ingresses)
+	if len(hosts) == 0 {
+		return fmt.Errorf("no ingress hosts found for llmisvc %s/%s", llmSvc.GetNamespace(), llmSvc.GetName())
+	}
+	scheme := config.IngressConfig.UrlScheme
+	urls := make([]*apis.URL, 0, len(hosts))
+	for _, host := range hosts {
+		url := &apis.URL{
+			Scheme: scheme,
+			Host:   host,
+		}
+		urls = append(urls, url)
+	}
+
+	slices.SortStableFunc(urls, func(a, b *apis.URL) int {
+		return cmp.Compare(a.String(), b.String())
+	})
+	llmSvc.Status.URL = urls[0]
+
+	llmSvc.Status.Addresses = make([]duckv1.Addressable, 0, len(urls))
+	for _, url := range urls {
+		llmSvc.Status.Addresses = append(llmSvc.Status.Addresses, duckv1.Addressable{
+			URL: url,
+		})
+	}
+	return nil
+}
+
+func semanticIngressIsEqual(expected, actual *netv1.Ingress) bool {
+	return equality.Semantic.DeepDerivative(expected.Spec, actual.Spec) &&
+		equality.Semantic.DeepDerivative(expected.Labels, actual.Labels) &&
+		equality.Semantic.DeepDerivative(expected.Annotations, actual.Annotations)
+}
+
+func extractIngressHostNames(ingresses []*netv1.Ingress) []string {
+	var hostNames []string
+	seen := make(map[string]struct{})
+	for _, ingress := range ingresses {
+		if ingress == nil {
+			continue
+		}
+		for _, rule := range ingress.Spec.Rules {
+			if rule.Host == "" { // skip empty hosts
+				continue
+			}
+			if _, exists := seen[rule.Host]; exists {
+				continue
+			}
+			seen[rule.Host] = struct{}{}
+			hostNames = append(hostNames, rule.Host)
+		}
+	}
+	return hostNames
+}
+
+func (r *LLMISVCReconciler) EvaluateIngressConditions(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
+	logger := log.FromContext(ctx).WithName("EvaluateIngressConditions")
+
+	// If no router or ingress configuration, skip Ingress evaluation
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Ingress == nil {
+		return nil
+	}
+	// TODO: Figure out how to check for ingress readiness
+	llmSvc.MarkIngressReady()
+	logger.V(2).Info("Ingress is Ready")
 	return nil
 }

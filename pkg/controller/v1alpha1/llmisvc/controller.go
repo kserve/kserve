@@ -23,23 +23,17 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
-
 	"k8s.io/apimachinery/pkg/api/equality"
-
 	"github.com/kserve/kserve/pkg/constants"
-
 	"knative.dev/pkg/reconciler"
-
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
-
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,7 +45,6 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/utils"
-
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
@@ -188,7 +181,7 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha1.LLMI
 		return fmt.Errorf("failed to reconcile workload: %w", err)
 	}
 
-	if err := r.reconcileRouter(ctx, llmSvc); err != nil {
+	if err := r.reconcileRouter(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile networking: %w", err)
 	}
 
