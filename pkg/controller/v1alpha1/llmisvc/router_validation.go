@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 
+	netv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -56,7 +57,7 @@ func IsValidationError(err error) bool {
 }
 
 // validateRouterReferences performs comprehensive validation of all router-related references
-// including gateway references, HTTPRoute references, managed HTTPRoute specs, and route targets.
+// including gateway references, HTTPRoute references, managed HTTPRoute specs, route targets and ingress references.
 // It handles condition marking internally and returns validation or unexpected errors.
 func (r *LLMISVCReconciler) validateRouterReferences(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	logger := log.FromContext(ctx).WithName("validateRouterReferences")
@@ -101,6 +102,22 @@ func (r *LLMISVCReconciler) validateRouterReferences(ctx context.Context, llmSvc
 				return err
 			}
 			return fmt.Errorf("HTTPRoute target validation failed: %w", err)
+		}
+	}
+
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Ingress != nil {
+		referencedIngresses, err := r.collectReferencedIngresses(ctx, llmSvc)
+		if err != nil {
+			return fmt.Errorf("failed to collect referenced ingresses for validation: %w", err)
+		}
+
+		if err := r.validateIngressReferences(ctx, llmSvc, referencedIngresses); err != nil {
+			if IsValidationError(err) {
+				llmSvc.MarkIngressNotReady(RefsInvalidReason, err.Error())
+				logger.Info("Ingress reference validation failed", "error", err)
+				return err
+			}
+			return fmt.Errorf("ingress reference validation failed: %w", err)
 		}
 	}
 
@@ -262,3 +279,35 @@ func (r *LLMISVCReconciler) validateManagedHTTPRouteSpec(ctx context.Context, ll
 
 	return nil
 }
+
+func (r *LLMISVCReconciler) validateIngressReferences(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, ingresses []*netv1.Ingress) error {
+	logger := log.FromContext(ctx).WithName("validateIngressReferences")
+
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Ingress == nil || !llmSvc.Spec.Router.Ingress.HasRefs() {
+		return nil
+	}
+
+	var missingIngresses []string
+
+	for _, ingressRef := range llmSvc.Spec.Router.Ingress.Refs {
+		found := false
+		for _, ingress := range ingresses {
+			if ingress.Name == string(ingressRef.Name) && ingress.Namespace == string(ingressRef.Namespace) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			missingIngresses = append(missingIngresses, fmt.Sprintf("Ingress %s/%s does not exist", ingressRef.Namespace, ingressRef.Name))
+		}
+	}
+
+	if len(missingIngresses) > 0 {
+		message := strings.Join(missingIngresses, "; ")
+		logger.Info("Ingress reference validation failed", "error", message)
+		return NewValidationError(message)
+	}
+
+	return nil
+}
+
