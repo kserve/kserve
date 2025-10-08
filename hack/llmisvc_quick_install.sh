@@ -106,7 +106,7 @@ echo "Installing Gateway API CRDs ..."
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
 
 # Need to install before Envoy Gateway
-kubectl apply -f ${SCRIPT_DIR}/gateway-inference-extension.yaml
+kubectl apply -f ${SCRIPT_DIR}/../config/llmisvc/gateway-inference-extension.yaml
 
 # Install Envoy Gateway
 echo "Installing Envoy Gateway ..."
