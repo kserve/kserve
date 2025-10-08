@@ -510,12 +510,6 @@ func (r *LLMISVCReconciler) reconcileIngress(ctx context.Context, llmSvc *v1alph
 }
 
 func (r *LLMISVCReconciler) expectedIngress(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, config *Config) (*netv1.Ingress, error) {
-	host, err := v1b1ingress.GenerateDomainName(llmSvc.Name, llmSvc.ObjectMeta, config.IngressConfig)
-	if err != nil {
-		log.FromContext(ctx).Error(err, "Failed to generate domain name for Ingress")
-		return nil, err
-	}
-
 	ingress := &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-ingress"),
@@ -528,6 +522,11 @@ func (r *LLMISVCReconciler) expectedIngress(ctx context.Context, llmSvc *v1alpha
 	}
 
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Ingress != nil && llmSvc.Spec.Router.Ingress.Refs == nil {
+		host, err := v1b1ingress.GenerateDomainName(llmSvc.Name, llmSvc.ObjectMeta, config.IngressConfig)
+		if err != nil {
+			log.FromContext(ctx).Error(err, "Failed to generate domain name for Ingress")
+			return nil, err
+		}
 		ingress.Spec = netv1.IngressSpec{
 			IngressClassName: config.IngressConfig.IngressClassName,
 			Rules: []netv1.IngressRule{

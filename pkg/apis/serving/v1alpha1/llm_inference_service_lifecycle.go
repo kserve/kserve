@@ -162,7 +162,7 @@ func (in *LLMInferenceService) DetermineRouterReadiness() {
 	var subConditions []*apis.Condition
 	// If Ingress is configured, only consider IngressReady condition
 	// Otherwise, consider Gateways, HTTPRoutes, InferencePool, and SchedulerWorkload conditions
-	if in.Spec.Router.Ingress != nil {
+	if in.Spec.Router != nil && in.Spec.Router.Ingress != nil {
 		subConditions = []*apis.Condition{
 			in.GetStatus().GetCondition(IngressReady),
 		}
