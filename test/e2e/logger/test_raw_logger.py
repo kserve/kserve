@@ -33,7 +33,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-annotations = {"serving.kserve.io/deploymentMode": "Standard"}
+annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
 labels = {"networking.kserve.io/visibility": "exposed"}
 
 

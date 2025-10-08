@@ -72,7 +72,7 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	e.Log.Info("Reconciling Explainer", "ExplainerSpec", isvc.Spec.Explainer)
 	explainer := isvc.Spec.Explainer.GetImplementation()
 	var annotations map[string]string
-	if e.deploymentMode == constants.Standard {
+	if e.deploymentMode == constants.RawDeployment {
 		annotations = utils.Filter(isvc.Annotations, func(key string) bool {
 			// https://issues.redhat.com/browse/RHOAIENG-20326
 			// For RawDeployment, we allow the security.opendatahub.io/enable-auth annotation
@@ -102,7 +102,7 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	// Label filter will be handled in ksvc_reconciler and raw reconciler
 	explainerLabels := isvc.Spec.Explainer.Labels
 	var explainerAnnotations map[string]string
-	if e.deploymentMode == constants.Standard {
+	if e.deploymentMode == constants.RawDeployment {
 		explainerAnnotations = utils.Filter(isvc.Spec.Explainer.Annotations, func(key string) bool {
 			// https://issues.redhat.com/browse/RHOAIENG-20326
 			// For RawDeployment, we allow the security.opendatahub.io/enable-auth annotation
@@ -145,7 +145,7 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	podSpec := corev1.PodSpec(isvc.Spec.Explainer.PodSpec)
 
 	// Here we allow switch between knative and vanilla deployment
-	if e.deploymentMode == constants.Standard {
+	if e.deploymentMode == constants.RawDeployment {
 		if err := e.reconcileExplainerRawDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
 			return ctrl.Result{}, err
 		}

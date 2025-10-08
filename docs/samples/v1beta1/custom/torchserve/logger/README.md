@@ -1,6 +1,6 @@
 # Inference Logger Demo
 
-First let us create a message dumper Knative service which will print out the Cloud Events it receives.
+First let us create a message dumper KNative service which will print out the Cloud Events it receives.
 We will use the following resource yaml:
 
 ```yaml

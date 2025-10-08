@@ -43,20 +43,3 @@ wait_for_pod_ready() {
   fi
   echo "Pod(s) -l \"$podlabel\" in namespace \"$ns\" are ready."
 }
-
-# Usage: wait_for_crd <crd-name> [timeout]
-#   <crd-name> : the full CRD name (e.g. leaderworkersetoperators.operator.openshift.io)
-#   [timeout]  : oc wait timeout (default “60s”)
-wait_for_crd() {
-  local crd="$1"
-  local timeout="${2:-60s}"
-
-  echo "Waiting for CRD ${crd} to appear (timeout: ${timeout})…"
-  if ! timeout "$timeout" bash -c 'until oc get crd "$1" &>/dev/null; do sleep 2; done' _ "$crd"; then
-    echo "Timed out after $timeout waiting for CRD $crd to appear." >&2
-    return 1
-  fi
-
-  echo "CRD ${crd} detected — waiting for it to become Established (timeout: ${timeout})…"
-  oc wait --for=condition=Established --timeout="$timeout" "crd/$crd"
-}

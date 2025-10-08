@@ -202,7 +202,7 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
         ),
     )
 
-    annotations = {"serving.kserve.io/deploymentMode": "Standard"}
+    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
 
     labels = dict()
     labels["networking.kserve.io/visibility"] = "exposed"
@@ -259,7 +259,7 @@ async def test_sklearn_rolling_update():
         ),
     )
 
-    annotations = {"serving.kserve.io/deploymentMode": "Standard"}
+    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -277,7 +277,7 @@ async def test_sklearn_rolling_update():
     )
 
     updated_annotations = {
-        "serving.kserve.io/deploymentMode": "Standard",
+        "serving.kserve.io/deploymentMode": "RawDeployment",
         "serving.kserve.io/customAnnotation": "TestAnnotation",
     }
 
@@ -347,7 +347,7 @@ async def test_sklearn_env_update():
         ),
     )
 
-    annotations = {"serving.kserve.io/deploymentMode": "Standard"}
+    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -441,7 +441,7 @@ async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer)
     )
 
     annotations = {
-        "serving.kserve.io/deploymentMode": "Standard",
+        "serving.kserve.io/deploymentMode": "RawDeployment",
         "serving.kserve.io/autoscalerClass": "keda",
     }
 
@@ -532,7 +532,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     )
 
     annotations = {
-        "serving.kserve.io/deploymentMode": "Standard",
+        "serving.kserve.io/deploymentMode": "RawDeployment",
         "serving.kserve.io/autoscalerClass": "keda",
     }
 
@@ -621,7 +621,7 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
     )
 
     annotations = {
-        "serving.kserve.io/deploymentMode": "Standard",
+        "serving.kserve.io/deploymentMode": "RawDeployment",
         "serving.kserve.io/autoscalerClass": "keda",
         "sidecar.opentelemetry.io/inject": f"{service_name}-predictor",
     }

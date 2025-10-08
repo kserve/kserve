@@ -146,7 +146,7 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(k8sClient.Create(context.Background(), configAutoscaler)).Should(Succeed())
 
-	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Knative"}
+	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Serverless"}
 	ingressConfig := &v1beta1.IngressConfig{
 		IngressGateway:          constants.KnativeIngressGateway,
 		LocalGateway:            constants.KnativeLocalGateway,

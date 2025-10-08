@@ -98,7 +98,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		multiNodeEnabled = true
 	}
 	var annotations map[string]string
-	if p.deploymentMode == constants.Standard {
+	if p.deploymentMode == constants.RawDeployment {
 		annotations = utils.Filter(isvc.Annotations, func(key string) bool {
 			// https://issues.redhat.com/browse/RHOAIENG-20326
 			// For RawDeployment, we allow the security.opendatahub.io/enable-auth annotation
@@ -162,7 +162,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	// Label filter will be handled in ksvc_reconciler and raw reconciler
 	predictorLabels := isvc.Spec.Predictor.Labels
 	var predictorAnnotations map[string]string
-	if p.deploymentMode == constants.Standard {
+	if p.deploymentMode == constants.RawDeployment {
 		predictorAnnotations = utils.Filter(isvc.Spec.Predictor.Annotations, func(key string) bool {
 			// https://issues.redhat.com/browse/RHOAIENG-20326
 			// For RawDeployment, we allow the security.opendatahub.io/enable-auth annotation
@@ -199,7 +199,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 
 	// Here we allow switch between knative and vanilla deployment
 	kstatus := &knservingv1.ServiceStatus{}
-	if p.deploymentMode == constants.Standard {
+	if p.deploymentMode == constants.RawDeployment {
 		rawDeployment = true
 		podLabelKey = constants.RawDeploymentAppLabel
 		// This is main RawKubeReconciler to create objects (deployment, svc, scaler)

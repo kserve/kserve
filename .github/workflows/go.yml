@@ -3,12 +3,8 @@ name: Go Test
 on:
     push:
         branches: [master, release*]
-        paths-ignore:
-            - "**.md"
     pull_request:
         branches: []
-        paths-ignore:
-            - "**.md"
     workflow_dispatch:
 
 concurrency:
@@ -48,18 +44,23 @@ jobs:
                 make test
                 ./coverage.sh
                 echo ::set-output name=coverage::$(./coverage.sh | tr -s '\t' | cut -d$'\t' -f 3)
-            
+
             - name: Print coverage
               run: |
                 echo "Coverage output is ${{ steps.test.outputs.coverage }}"
 
-            - name: upload cover profile artifact
-              uses: actions/upload-artifact@v4
+            - name: Update coverage badge
+              # Disabling, because this tries to update a Gist owned by KServe.
+              # More info: https://github.com/opendatahub-io/kserve/issues/29
+              if: false # github.ref == 'refs/heads/master'
+              uses: schneegans/dynamic-badges-action@v1.7.0
               with:
-                name: coverage.out
-                path: coverage.out
-                if-no-files-found: error
-
+                auth: ${{ secrets.GIST_SECRET }}
+                gistID: 5174bd748ac63a6e4803afea902e9810
+                filename: coverage.json
+                label: coverage
+                message: ${{ steps.test.outputs.coverage }}
+                color: green
     check-coverage:
         needs: test
         runs-on: ubuntu-latest
@@ -150,6 +151,15 @@ jobs:
                 echo "Current Coverage ${{ steps.current-coverage.outputs.coverage }}"
 
             - name: post coverage report
+              if: github.event_name == 'pull_request'
+              uses: thollander/actions-comment-pull-request@v3
+              with:
+                github-token: ${{ secrets.GITHUB_TOKEN }}
+                comment-tag: coverage-report
+                pr-number: ${{ github.event.pull_request.number }}
+                message: |
+                  ## 📊 Go Test Coverage Report
+            - name: post coverage report
               # this has evalated permission to post back the coverage, only restricted to this step.
               if: github.event_name == 'pull_request_target'
               uses: thollander/actions-comment-pull-request@v3
@@ -160,27 +170,23 @@ jobs:
                 message: |
                   ## 📊 Go Test Coverage Report
 
-                  ${{ 
-                    steps.current-coverage.outputs.coverage > steps.master-coverage.outputs.coverage 
-                    && '✅ **Overall code coverage increased.**' 
-                    || steps.current-coverage.outputs.coverage < steps.master-coverage.outputs.coverage 
-                    && '❌ **Overall code coverage decreased.**' 
-                    || 'ℹ️ **Overall code coverage unchanged.**' 
-                  }}
+                    **🔍 Coverage Summary**
+                    - **Pull Request Coverage:** `${{ steps.current-coverage.outputs.coverage }}%`
+                    - **Main Branch Coverage:** `${{ steps.master-coverage.outputs.coverage }}%`
 
-                  **🔍 Coverage Summary**
-                  - **Pull Request Coverage:** `${{ steps.current-coverage.outputs.coverage }}%`
-                  - **Main Branch Coverage:** `${{ steps.master-coverage.outputs.coverage }}%`
+                    <details>
+                    <summary>📄 Click to expand full coverage breakdown</summary>
 
-                  <details>
-                  <summary>📄 Click to expand full coverage breakdown</summary>
+                    ```
+                    ${{ steps.full_coverage_report.outputs.report }}
+                    ```
 
-                  ```
-                  ${{ steps.full_coverage_report.outputs.report }}
-                  ```
+                    </details>
+            - name: Rename and upload master coverage
+              if: github.ref_name == 'master'
+              run: mv coverage.out master-coverage.out
 
-                  </details>
-
+                </details>
             - name: Rename and upload master coverage
               if: github.ref_name == 'master'
               run: mv coverage.out master-coverage.out

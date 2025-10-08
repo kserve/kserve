@@ -938,7 +938,7 @@ async def test_inference_graph_raw_mode(rest_v1_client, network_layer):
     graph_name = "model-chainer-raw-" + suffix
 
     annotations = dict()
-    annotations["serving.kserve.io/deploymentMode"] = "Standard"
+    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
     labels = dict()
     labels["networking.kserve.io/visibility"] = "exposed"
 
@@ -1098,7 +1098,7 @@ async def test_inference_graph_raw_mode_with_hpa(rest_v1_client, network_layer):
     graph_name = "model-chainer-raw-hpa-" + suffix
 
     annotations = dict()
-    annotations["serving.kserve.io/deploymentMode"] = "Standard"
+    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
     # annotations["serving.kserve.io/max-scale"] = '5'
     # annotations["serving.kserve.io/metric"] = 'rps'
     # annotations["serving.kserve.io/min-scale"] = '2'

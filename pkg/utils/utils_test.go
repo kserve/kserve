@@ -459,23 +459,6 @@ func TestIsGpuEnabled(t *testing.T) {
 			},
 			expected: true,
 		},
-		"MigGpuEnabled": {
-			resource: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					"cpu": resource.Quantity{
-						Format: "100",
-					},
-					corev1.ResourceName(constants.NvidiaMigGPUResourceTypePrefix + ".1g.5gb"): resource.MustParse("1"),
-				},
-				Requests: corev1.ResourceList{
-					"cpu": resource.Quantity{
-						Format: "90",
-					},
-					corev1.ResourceName(constants.NvidiaMigGPUResourceTypePrefix + ".1g.5gb"): resource.MustParse("1"),
-				},
-			},
-			expected: true,
-		},
 		"GPUDisabled": {
 			resource: corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
@@ -495,7 +478,7 @@ func TestIsGpuEnabled(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			res := IsGPUEnabled(scenario.resource)
-			g.Expect(res).To(gomega.BeComparableTo(scenario.expected))
+			g.Expect(res).To(gomega.Equal(scenario.expected))
 		})
 	}
 }

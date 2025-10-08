@@ -251,7 +251,7 @@ func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec
 	autoscalerClass := annotations[constants.AutoscalerClass]
 
 	switch deploymentMode {
-	case string(constants.Standard):
+	case string(constants.RawDeployment):
 		switch autoscalerClass {
 		case string(constants.AutoscalerClassHPA):
 			return validateScalingHPACompExtension(compExtSpec)

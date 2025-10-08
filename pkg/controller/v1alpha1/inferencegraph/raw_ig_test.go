@@ -91,7 +91,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				Name:      "resource-ig",
 				Namespace: "resource-ig-namespace",
 				Annotations: map[string]string{
-					"serving.kserve.io/deploymentMode": string(constants.Standard),
+					"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
 				},
 			},
 
@@ -126,7 +126,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				Name:      "env-ig",
 				Namespace: "env-ig-namespace",
 				Annotations: map[string]string{
-					"serving.kserve.io/deploymentMode": string(constants.Standard),
+					"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
 				},
 			},
 
@@ -151,7 +151,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				Name:      "resource-ig",
 				Namespace: "resource-ig-namespace",
 				Annotations: map[string]string{
-					"serving.kserve.io/deploymentMode": string(constants.Standard),
+					"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
 				},
 			},
 

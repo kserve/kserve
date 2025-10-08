@@ -56,16 +56,7 @@ func AppendVolumeIfNotExists(slice []corev1.Volume, volume corev1.Volume) []core
 
 func IsGPUEnabled(requirements corev1.ResourceRequirements) bool {
 	_, ok := requirements.Limits[constants.NvidiaGPUResourceType]
-	if ok {
-		return true
-	}
-	for resourceName := range requirements.Limits {
-		// Check if the resource name has the MIG prefix
-		if strings.HasPrefix(string(resourceName), constants.NvidiaMigGPUResourceTypePrefix) {
-			return true
-		}
-	}
-	return false
+	return ok
 }
 
 // FirstNonNilError returns the first non nil interface in the slice

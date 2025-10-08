@@ -46,7 +46,7 @@ async def test_raw_deployment_kserve(rest_v1_client, network_layer):
     suffix = str(uuid.uuid4())[1:6]
     service_name = "raw-sklearn-" + suffix
     annotations = dict()
-    annotations["serving.kserve.io/deploymentMode"] = "Standard"
+    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
     labels = dict()
     labels["networking.kserve.io/visibility"] = "exposed"
 
@@ -94,7 +94,7 @@ async def test_raw_deployment_runtime_kserve(rest_v1_client, network_layer):
     suffix = str(uuid.uuid4())[1:6]
     service_name = "raw-sklearn-runtime-" + suffix
     annotations = dict()
-    annotations["serving.kserve.io/deploymentMode"] = "Standard"
+    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
     labels = dict()
     labels["networking.kserve.io/visibility"] = "exposed"
 
@@ -176,7 +176,7 @@ async def test_isvc_with_multiple_container_port(network_layer):
         metadata=client.V1ObjectMeta(
             name=service_name,
             namespace=KSERVE_TEST_NAMESPACE,
-            annotations={"serving.kserve.io/deploymentMode": "Standard"},
+            annotations={"serving.kserve.io/deploymentMode": "RawDeployment"},
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )

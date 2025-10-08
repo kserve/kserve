@@ -74,7 +74,7 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 	p.Log.Info("Reconciling Transformer", "TransformerSpec", isvc.Spec.Transformer)
 	transformer := isvc.Spec.Transformer.GetImplementation()
 	var annotations map[string]string
-	if p.deploymentMode == constants.Standard {
+	if p.deploymentMode == constants.RawDeployment {
 		annotations = utils.Filter(isvc.Annotations, func(key string) bool {
 			// https://issues.redhat.com/browse/RHOAIENG-20326
 			// For RawDeployment, we allow the security.opendatahub.io/enable-auth annotation
@@ -104,7 +104,7 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 	// Label filter will be handled in ksvc_reconciler and raw reconciler
 	transformerLabels := isvc.Spec.Transformer.Labels
 	var transformerAnnotations map[string]string
-	if p.deploymentMode == constants.Standard {
+	if p.deploymentMode == constants.RawDeployment {
 		transformerAnnotations = utils.Filter(isvc.Spec.Transformer.Annotations, func(key string) bool {
 			// https://issues.redhat.com/browse/RHOAIENG-20326
 			// For RawDeployment, we allow the security.opendatahub.io/enable-auth annotation
@@ -173,7 +173,7 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 	podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)
 
 	// Here we allow switch between knative and vanilla deployment
-	if p.deploymentMode == constants.Standard {
+	if p.deploymentMode == constants.RawDeployment {
 		if err := p.reconcileTransformerRawDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
 			return ctrl.Result{}, err
 		}
