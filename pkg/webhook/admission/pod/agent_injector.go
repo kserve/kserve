@@ -129,6 +129,8 @@ func getLoggerConfigs(pod *corev1.Pod, configMap *corev1.ConfigMap, isvc *v1beta
 		}
 	}
 
+	log.Info("getLoggerConfig processing configuration", "loggerConfig", loggerConfig)
+
 	// Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := []string{
 		loggerConfig.MemoryRequest,
