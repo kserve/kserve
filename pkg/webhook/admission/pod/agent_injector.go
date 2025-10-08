@@ -117,7 +117,7 @@ func getLoggerConfigs(configMap *corev1.ConfigMap, isvc *v1beta1.InferenceServic
 			panic(fmt.Errorf("Unable to unmarshall logger json string due to %w ", err))
 		}
 	}
-	if isvc.Spec.Predictor.Logger != nil {
+	if isvc != nil && isvc.Spec.Predictor.Logger != nil {
 		// if the inference service spec includes a logger spec, use it instead
 		log.Info("isvc contains a logging spec.  This will be used as the logger configuration.")
 		loggerConfig.Store = isvc.Spec.Predictor.Logger.Storage
