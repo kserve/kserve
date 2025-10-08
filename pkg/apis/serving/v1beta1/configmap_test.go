@@ -386,8 +386,8 @@ func TestNewOtelCollectorConfig(t *testing.T) {
 func TestNewDeployConfig_WithValidConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	validModes := []string{
-		string(constants.Serverless),
-		string(constants.RawDeployment),
+		string(constants.Knative),
+		string(constants.Standard),
 		string(constants.ModelMeshDeployment),
 	}
 	for _, mode := range validModes {
@@ -427,6 +427,29 @@ func TestNewDeployConfig_InvalidDeploymentMode(t *testing.T) {
 	g.Expect(err).Should(gomega.HaveOccurred())
 	g.Expect(cfg).To(gomega.BeNil())
 	g.Expect(err.Error()).To(gomega.ContainSubstring("invalid deployment mode"))
+}
+
+func TestNewDeployConfig_LegacyDeploymentMode(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	validModes := []string{
+		string(constants.LegacyRawDeployment),
+		string(constants.LegacyServerless),
+	}
+	expected := []string{
+		string(constants.Standard),
+		string(constants.Knative),
+	}
+	for i, mode := range validModes {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				DeployConfigName: fmt.Sprintf(`{"defaultDeploymentMode":"%s"}`, mode),
+			},
+		}
+		cfg, err := NewDeployConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.DefaultDeploymentMode).To(gomega.Equal(expected[i]))
+	}
 }
 
 func TestNewDeployConfig_InvalidJSON(t *testing.T) {
