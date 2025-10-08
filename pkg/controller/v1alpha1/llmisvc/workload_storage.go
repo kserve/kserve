@@ -139,23 +139,18 @@ func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *cor
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha1.LLMInferenceService, modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) (s3ArtifactError error) {
+func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha1.LLMInferenceService, modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
 	if err := r.attachStorageInitializer(modelUri, podSpec, storageConfig); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
-		// Inject CA bundle if applicable
-		defer func() {
-			if s3ArtifactError == nil {
-				injectCaBundle(llmSvc.Namespace, podSpec, initContainer, storageConfig)
-			}
-		}()
 		// If service account is nil, fetch the default service account
 		if serviceAccount == nil {
 			serviceAccount = &corev1.ServiceAccount{}
 			err := r.Client.Get(ctx, types.NamespacedName{Name: "default", Namespace: llmSvc.Namespace}, serviceAccount)
 			if err != nil {
 				log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
+				injectCaBundle(llmSvc.Namespace, podSpec, initContainer, storageConfig)
 				return nil
 			}
 		}
@@ -170,6 +165,7 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 		); err != nil {
 			return err
 		}
+		injectCaBundle(llmSvc.Namespace, podSpec, initContainer, storageConfig)
 	}
 
 	return nil
@@ -237,7 +233,7 @@ func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, podSpec *c
 	return nil
 }
 
-func injectCaBundle(namespace string, podSpec *corev1.PodSpec, initContainer *corev1.Container, storageConfig *kserveTypes.StorageInitializerConfig) bool {
+func injectCaBundle(namespace string, podSpec *corev1.PodSpec, initContainer *corev1.Container, storageConfig *kserveTypes.StorageInitializerConfig) bool { //nolint:unparam
 	// Inject CA bundle configMap if caBundleConfigMapName or constants.DefaultGlobalCaBundleConfigMapName annotation is set
 	caBundleConfigMapName := storageConfig.CaBundleConfigMapName
 	if ok := needCaBundleMount(caBundleConfigMapName, initContainer); ok {
