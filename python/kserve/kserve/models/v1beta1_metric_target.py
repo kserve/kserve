@@ -47,10 +47,10 @@ class V1beta1MetricTarget(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        "average_utilization": "int",
-        "average_value": "ResourceQuantity",
-        "type": "str",
-        "value": "ResourceQuantity",
+        'average_utilization': 'int',
+        'average_value': 'V1beta1MetricQuantity',
+        'type': 'str',
+        'value': 'V1beta1MetricQuantity'
     }
 
     attribute_map = {
@@ -117,7 +117,7 @@ class V1beta1MetricTarget(object):
 
 
         :return: The average_value of this V1beta1MetricTarget.  # noqa: E501
-        :rtype: ResourceQuantity
+        :rtype: V1beta1MetricQuantity
         """
         return self._average_value
 
@@ -127,7 +127,7 @@ class V1beta1MetricTarget(object):
 
 
         :param average_value: The average_value of this V1beta1MetricTarget.  # noqa: E501
-        :type: ResourceQuantity
+        :type: V1beta1MetricQuantity
         """
 
         self._average_value = average_value
@@ -161,7 +161,7 @@ class V1beta1MetricTarget(object):
 
 
         :return: The value of this V1beta1MetricTarget.  # noqa: E501
-        :rtype: ResourceQuantity
+        :rtype: V1beta1MetricQuantity
         """
         return self._value
 
@@ -171,7 +171,7 @@ class V1beta1MetricTarget(object):
 
 
         :param value: The value of this V1beta1MetricTarget.  # noqa: E501
-        :type: ResourceQuantity
+        :type: V1beta1MetricQuantity
         """
 
         self._value = value

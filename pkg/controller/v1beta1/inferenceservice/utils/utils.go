@@ -65,12 +65,17 @@ func IsMMSPredictor(predictor *v1beta1.PredictorSpec) bool {
 		return false
 	} else {
 		impl := predictor.GetImplementation()
-		res := impl.GetStorageUri() == nil && impl.GetStorageSpec() == nil
+		hasStorageUri := impl.GetStorageUri() != nil
+		hasStorageSpec := impl.GetStorageSpec() != nil
+		hasStorageUris := len(predictor.StorageUris) > 0
+
 		// HuggingFace supports model ID without storage initializer, but it should not be a multi-model server.
 		if predictor.HuggingFace != nil || (predictor.Model != nil && predictor.Model.ModelFormat.Name == "huggingface") {
 			return false
 		}
-		return res
+
+		// Only consider MMS if there are no storage URIs (singular or plural) and no storage spec
+		return !hasStorageUri && !hasStorageSpec && !hasStorageUris
 	}
 }
 
