@@ -116,6 +116,7 @@ func NewStoreForScheme(scheme string, logStorePath string, logStoreFormat string
 		return nil, fmt.Errorf("failed to create S3 provider: %w", err)
 	}
 	if protocol == storage.S3 {
+		log.Infof("Using S3 Storage Provider")
 		return NewBlobStore(logStorePath, logStoreFormat, marshaller, provider, log), nil
 	}
 	return nil, fmt.Errorf("unsupported protocol %s", protocol)

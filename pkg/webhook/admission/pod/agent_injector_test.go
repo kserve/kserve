@@ -1761,9 +1761,19 @@ func TestAgentInjector(t *testing.T) {
 
 func TestGetLoggerConfigs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	url := "s3://bucket/logger"
+	mode := v1beta1.LogAll
+	serviceAccountName := "logger-sa"
+	path := "/logger"
+	parameters := map[string]string{
+		"type":   "s3",
+		"format": "json",
+	}
+
 	cases := []struct {
 		name      string
 		configMap *corev1.ConfigMap
+		isvc      *v1beta1.InferenceService
 		matchers  []types.GomegaMatcher
 	}{
 		{
@@ -1778,19 +1788,31 @@ func TestGetLoggerConfigs(t *testing.T) {
 						"CpuLimit":      "1",
 						"MemoryRequest": "200Mi",
 						"MemoryLimit":   "1Gi",
-						"Storage": {
-							"Path": "/logger",
-							"Parameters": {
-								"type": "s3",
-								"region": "us-west-2",
-								"format": "json"
-							},
-							"Key": "logger-credentials",
-							"ServiceAccountName": "logger-sa"
-						}
 					}`,
 				},
 				BinaryData: map[string][]byte{},
+			},
+			isvc: &v1beta1.InferenceService{
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							Logger: &v1beta1.LoggerSpec{
+								URL:                 &url,
+								Mode:                mode,
+								MetadataHeaders:     nil,
+								MetadataAnnotations: nil,
+								Storage: &v1beta1.LoggerStorageSpec{
+									StorageSpec: v1beta1.StorageSpec{
+										Path:       &path,
+										Parameters: &parameters,
+										StorageKey: &storageKey,
+									},
+									ServiceAccountName: &serviceAccountName,
+								},
+							},
+						},
+					},
+				},
 			},
 			matchers: []types.GomegaMatcher{
 				gomega.Equal(&LoggerConfig{
@@ -1841,7 +1863,7 @@ func TestGetLoggerConfigs(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		loggerConfigs, err := getLoggerConfigs(tc.configMap)
+		loggerConfigs, err := getLoggerConfigs(tc.configMap, tc.isvc)
 		g.Expect(err).Should(tc.matchers[1])
 		g.Expect(loggerConfigs).Should(tc.matchers[0])
 	}
