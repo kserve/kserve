@@ -939,7 +939,7 @@ func TestOauthProxyUpstreamTimeout(t *testing.T) {
 				clientset: fake.NewSimpleClientset(&corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 					Data: map[string]string{
-						oauthProxy: `{"image": "registry.redhat.io/openshift4/ose-oauth-proxy@sha256:8507daed246d4d367704f7d7193233724acf1072572e1226ca063c066b858ecf", "memoryRequest": "64Mi", "memoryLimit": "128Mi", "cpuRequest": "100m", "cpuLimit": "200m"}`,
+						oauthProxy: `{"image": "registry.redhat.io/openshift4/ose-oauth-proxy@sha256:8507daed246d4d367704f7d7193233724acf1072572e1226ca063c066b858ecf", "memoryRequest": "64Mi", "memoryLimit": "128Mi", "cpuRequest": "100m", "cpuLimit": "200m", "timeoutSeconds": "20"}`,
 					},
 				}),
 				objectMeta: metav1.ObjectMeta{
