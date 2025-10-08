@@ -29,9 +29,10 @@ import (
 type StorageStrategy string
 
 const (
-	S3Storage   StorageStrategy = "s3"
-	GCSStorage  StorageStrategy = "gcs"
-	HttpStorage StorageStrategy = "http"
+	S3Storage    StorageStrategy = "s3"
+	GCSStorage   StorageStrategy = "gcs"
+	AzureStorage StorageStrategy = "abfs"
+	HttpStorage  StorageStrategy = "http"
 )
 
 const DefaultStorage = HttpStorage
@@ -44,7 +45,10 @@ func GetStorageStrategy(url string) StorageStrategy {
 
 	case strings.HasPrefix(url, "s3"): // s3, s3a
 		return S3Storage
-
+	case strings.HasPrefix(url, "gs"): // gcs
+		return GCSStorage
+	case strings.HasPrefix(url, "abfs"):
+		return AzureStorage
 	default:
 		return DefaultStorage
 	}
@@ -198,14 +202,17 @@ func (s *BlobStore) getObjectKey(configPrefix string, request *LogRequest) (stri
 	return fmt.Sprintf("%s/%s-%s.%s", prefix, request.Id, reqType, s.storeFormat), nil
 }
 
+func isValidScheme(scheme string) bool {
+	return strings.HasPrefix(scheme, "s3") || strings.HasPrefix(scheme, "gs") || strings.HasPrefix(scheme, "abfs")
+}
+
 func parseBlobStoreURL(s3url string) (bucket, key string, err error) {
 	u, err := url.Parse(s3url)
 	if err != nil {
 		return "", "", err
 	}
 
-	if !strings.HasPrefix(u.Scheme, "s3") &&
-		!strings.HasPrefix(u.Scheme, "gcs") {
+	if !isValidScheme(u.Scheme) {
 		return "", "", fmt.Errorf("invalid scheme: %q", u.Scheme)
 	}
 
