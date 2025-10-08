@@ -108,13 +108,21 @@ func getAgentConfigs(configMap *corev1.ConfigMap) (*AgentConfig, error) {
 	return agentConfig, nil
 }
 
-func getLoggerConfigs(configMap *corev1.ConfigMap) (*LoggerConfig, error) {
+func getLoggerConfigs(configMap *corev1.ConfigMap, isvc *v1beta1.InferenceService) (*LoggerConfig, error) {
 	loggerConfig := &LoggerConfig{}
+	// default to the global inference service configmap
 	if loggerConfigValue, ok := configMap.Data[LoggerConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(loggerConfigValue), &loggerConfig)
 		if err != nil {
 			panic(fmt.Errorf("Unable to unmarshall logger json string due to %w ", err))
 		}
+	}
+	if isvc.Spec.Predictor.Logger != nil {
+		// if the inference service spec includes a logger spec, use it instead
+		log.Info("isvc contains a logging spec.  This will be used as the logger configuration.")
+		loggerConfig.Store = isvc.Spec.Predictor.Logger.Storage
+	} else {
+		log.Info("isvc does not contain a logging spec.  The global configmap will be used as the logger configuration.")
 	}
 
 	// Ensure that we set proper values for CPU/Memory Limit/Request
@@ -131,7 +139,6 @@ func getLoggerConfigs(configMap *corev1.ConfigMap) (*LoggerConfig, error) {
 		}
 	}
 	if loggerConfig.Store != nil {
-		log.Info("Using inference-service logger store configuration", "Store", loggerConfig.Store)
 		if loggerConfig.Store.StorageKey == nil || *loggerConfig.Store.StorageKey == "" {
 			storageKey := constants.LoggerDefaultStorageKey
 			loggerConfig.Store.StorageKey = &storageKey
@@ -238,10 +245,13 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			LoggerArgumentComponent,
 			component,
 		}
+		log.Info("Injecting logger configuration", "storagePath", storagePath)
 		if storagePath != "" {
 			loggerArgs = append(loggerArgs, LoggerArgumentStorePath)
 			loggerArgs = append(loggerArgs, storagePath)
 		}
+
+		log.Info("Injecting logger configuration", "storageFormat", storageFormat)
 		if storageFormat != "" {
 			loggerArgs = append(loggerArgs, LoggerArgumentStoreFormat)
 			loggerArgs = append(loggerArgs, storageFormat)
