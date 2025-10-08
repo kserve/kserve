@@ -67,8 +67,9 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 		Namespace: req.AdmissionRequest.Namespace,
 		Name:      isvcName,
 	}, isvc); err != nil {
-		log.Error(err, "Failed to get InferenceService", "name", isvcName)
-		return admission.Errored(http.StatusInternalServerError, err)
+		// failing to look up the inference service is not fatal, it only prevents accessing the embedded logging spec.
+		// log the error but allow the mutator to continue
+		log.Info("Failed to get InferenceService", "name", isvcName, "err", err.Error())
 	}
 
 	// For some reason pod namespace is always empty when coming to pod mutator, need to set from admission request

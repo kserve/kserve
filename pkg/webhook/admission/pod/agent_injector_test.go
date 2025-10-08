@@ -1763,10 +1763,12 @@ func TestGetLoggerConfigs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	url := "s3://bucket/logger"
 	mode := v1beta1.LogAll
-	serviceAccountName := "logger-sa"
+	serviceAccountName := "logger-service-account-name"
+	defaultServiceAccountName := constants.LoggerDefaultServiceAccountName
 	path := "/logger"
 	parameters := map[string]string{
 		"type":   "s3",
+		"region": "us-west-2",
 		"format": "json",
 	}
 
@@ -1776,6 +1778,162 @@ func TestGetLoggerConfigs(t *testing.T) {
 		isvc      *v1beta1.InferenceService
 		matchers  []types.GomegaMatcher
 	}{
+		{
+			name: "Logger storage nil",
+			configMap: &corev1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					LoggerConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/logger:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200Mi",
+						"MemoryLimit":   "1Gi"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			isvc: &v1beta1.InferenceService{
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							Logger: &v1beta1.LoggerSpec{
+								URL:                 &url,
+								Mode:                mode,
+								MetadataHeaders:     nil,
+								MetadataAnnotations: nil,
+								Storage:             nil,
+							},
+						},
+					},
+				},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&LoggerConfig{
+					Image:         "gcr.io/kfserving/logger:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200Mi",
+					MemoryLimit:   "1Gi",
+					Store:         nil,
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Logger storage service account nil",
+			configMap: &corev1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					LoggerConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/logger:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200Mi",
+						"MemoryLimit":   "1Gi"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			isvc: &v1beta1.InferenceService{
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							Logger: &v1beta1.LoggerSpec{
+								URL:                 &url,
+								Mode:                mode,
+								MetadataHeaders:     nil,
+								MetadataAnnotations: nil,
+								Storage: &v1beta1.LoggerStorageSpec{
+									StorageSpec: v1beta1.StorageSpec{
+										Path:       &path,
+										Parameters: &parameters,
+										StorageKey: &storageKey,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&LoggerConfig{
+					Image:         "gcr.io/kfserving/logger:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200Mi",
+					MemoryLimit:   "1Gi",
+					Store: &v1beta1.LoggerStorageSpec{
+						StorageSpec: v1beta1.StorageSpec{
+							Path:       &storagePath,
+							Parameters: &storageParameters,
+							StorageKey: &storageKey,
+						},
+						ServiceAccountName: &defaultServiceAccountName,
+					},
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Logger storage service account nil",
+			configMap: &corev1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					LoggerConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/logger:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200Mi",
+						"MemoryLimit":   "1Gi"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			isvc: &v1beta1.InferenceService{
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							Logger: &v1beta1.LoggerSpec{
+								URL:                 &url,
+								Mode:                mode,
+								MetadataHeaders:     nil,
+								MetadataAnnotations: nil,
+								Storage: &v1beta1.LoggerStorageSpec{
+									StorageSpec: v1beta1.StorageSpec{
+										Path:       &path,
+										Parameters: &parameters,
+										StorageKey: &storageKey,
+									},
+									ServiceAccountName: &serviceAccountName,
+								},
+							},
+						},
+					},
+				},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&LoggerConfig{
+					Image:         "gcr.io/kfserving/logger:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200Mi",
+					MemoryLimit:   "1Gi",
+					Store: &v1beta1.LoggerStorageSpec{
+						StorageSpec: v1beta1.StorageSpec{
+							Path:       &storagePath,
+							Parameters: &storageParameters,
+							StorageKey: &storageKey,
+						},
+						ServiceAccountName: &serviceAccountName,
+					},
+				}),
+				gomega.BeNil(),
+			},
+		},
 		{
 			name: "Valid Logger Config",
 			configMap: &corev1.ConfigMap{
@@ -1827,7 +1985,7 @@ func TestGetLoggerConfigs(t *testing.T) {
 							Parameters: &storageParameters,
 							StorageKey: &storageKey,
 						},
-						ServiceAccountName: &saName,
+						ServiceAccountName: &serviceAccountName,
 					},
 				}),
 				gomega.BeNil(),
@@ -1864,8 +2022,8 @@ func TestGetLoggerConfigs(t *testing.T) {
 
 	for _, tc := range cases {
 		loggerConfigs, err := getLoggerConfigs(tc.configMap, tc.isvc)
-		g.Expect(err).Should(tc.matchers[1])
-		g.Expect(loggerConfigs).Should(tc.matchers[0])
+		g.Expect(err).Should(tc.matchers[1], tc.name)
+		g.Expect(loggerConfigs).Should(tc.matchers[0], tc.name)
 	}
 }
 
@@ -1934,8 +2092,8 @@ func TestGetAgentConfigs(t *testing.T) {
 
 	for _, tc := range cases {
 		loggerConfigs, err := getAgentConfigs(tc.configMap)
-		g.Expect(err).Should(tc.matchers[1])
-		g.Expect(loggerConfigs).Should(tc.matchers[0])
+		g.Expect(err).Should(tc.matchers[1], tc.name)
+		g.Expect(loggerConfigs).Should(tc.matchers[0], tc.name)
 	}
 }
 
