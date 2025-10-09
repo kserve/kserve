@@ -125,7 +125,7 @@ func getLoggerConfigs(pod *corev1.Pod, configMap *corev1.ConfigMap, isvc *v1beta
 		if isvc == nil {
 			log.Info("isvc not found.  The global configmap will be used as the logger configuration.", "namespace", pod.Namespace)
 		} else {
-			log.Info("isvc does not contain a logging spec.  The global configmap will be used as the logger configuration.", "names", isvc.Name, "namespace", isvc.Namespace)
+			log.Info("The Inference Service does not contain a logging spec. The global ConfigMap will be used as the logger configuration", "name", isvc.Name, "namespace", isvc.Namespace)
 		}
 	}
 
