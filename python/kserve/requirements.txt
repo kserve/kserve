@@ -8,7 +8,7 @@ tornado>=6.0.0
 # AIP: Removing as it breaks Py3.10 pytest. argparse is also now in the standard library in >= Py3.2
 # argparse>=1.4.0
 minio>=4.0.9,<7.0.0
-google-cloud-storage==1.41.1
+google-cloud-storage==2.3.0
 adal>=1.2.2
 # AIP: we'll never use it (doesn't work with numpy 1.24+, as well as for some notebook use cases)
 # table_logger>=0.3.5
