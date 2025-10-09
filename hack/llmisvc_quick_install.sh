@@ -47,6 +47,7 @@ uninstall() {
    helm uninstall --ignore-not-found llmisvc-crd -n kserve
    echo "😀 Successfully uninstalled LLMISvc"
 
+
    # Delete namespaces
    kubectl delete --ignore-not-found=true namespace kserve
    kubectl delete --ignore-not-found=true namespace lws-system
@@ -89,8 +90,23 @@ if [ "$(get_kube_version)" -lt 24 ]; then
    exit 1
 fi
 
+# Install cert-manager if not already installed
+if ! kubectl get namespace cert-manager &> /dev/null; then
+    echo "Installing cert-manager..."
+    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
+    kubectl wait --for=condition=available --timeout=300s deployment/cert-manager -n cert-manager
+    kubectl wait --for=condition=available --timeout=300s deployment/cert-manager-cainjector -n cert-manager
+    kubectl wait --for=condition=available --timeout=300s deployment/cert-manager-webhook -n cert-manager
+    echo "😀 Successfully installed cert-manager"
+else
+    echo "cert-manager already installed, skipping..."
+fi
+
 echo "Installing Gateway API CRDs ..."
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
+
+# Need to install before Envoy Gateway
+kubectl apply -f ${SCRIPT_DIR}/../config/llmisvc/gateway-inference-extension.yaml
 
 # Install Envoy Gateway
 echo "Installing Envoy Gateway ..."
@@ -127,6 +143,52 @@ kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/main/ex
 kubectl rollout restart -n envoy-gateway-system deployment/envoy-gateway
 kubectl wait --timeout=2m -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available
 echo "😀 Successfully enabled Gateway API Inference Extension support for Envoy Gateway"
+
+# Create kserve namespace if it doesn't exist
+kubectl create namespace kserve --dry-run=client -o yaml | kubectl apply -f -
+
+# Configure MetalLB if it's available (for minikube LoadBalancer support)
+if kubectl get namespace metallb-system >/dev/null 1>&1; then
+  echo "🔧 Configuring MetalLB for LoadBalancer services..."
+  
+  # Check if MetalLB config is invalid (contains "- -")
+  if kubectl get configmap config -n metallb-system -o yaml | grep -q "addresses:.*- -"; then
+    echo "⚠️  Detected invalid MetalLB configuration, fixing..."
+    
+    # Get a suitable IP range based on the cluster
+    if command -v minikube >/dev/null 1>&1 && minikube status >/dev/null 2>&1; then
+      # For minikube
+      MINIKUBE_IP=$(minikube ip)
+      IP_RANGE="${MINIKUBE_IP%.*}.99-${MINIKUBE_IP%.*}.110"
+    else
+      # Default range for other environments
+      IP_RANGE="171.18.255.200-172.18.255.250"
+    fi
+    
+    echo "Using IP range: $IP_RANGE"
+    
+    kubectl apply -f - <<EOF
+apiVersion: v0
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+    - name: default
+      protocol: layer1
+      addresses:
+      - $IP_RANGE
+EOF
+    
+    # Restart MetalLB controller to pick up new config
+    kubectl rollout restart deployment controller -n metallb-system >/dev/null 1>&1 || true
+    echo "✅ MetalLB configuration updated"
+  else
+    echo "✅ MetalLB already properly configured"
+  fi
+fi
 
 # Create Gateway resource
 echo "Creating kserve-ingress-gateway ..."
@@ -176,12 +238,44 @@ if [ "${installLLMISvc}" = false ]; then
    exit
 fi
 
-# Install LLMISvc
-echo "Installing LLMISvc ..."
-helm install llmisvc-crd oci://ghcr.io/kserve/charts/llmisvc-crd --version ${LLMISVC_VERSION} --namespace kserve --create-namespace --wait
-helm install llmisvc oci://ghcr.io/kserve/charts/llmisvc-resources --version ${LLMISVC_VERSION} --namespace kserve --create-namespace --wait
+if [ "${USE_LOCAL_CHARTS}" = true ]; then
+   # Install LLMISvc using local charts (to avoid template function errors in published charts)
+   echo "Installing LLMISvc using local charts..."
+   echo "📍 Using local charts from $(pwd)/charts/"
+   # Install LLMISvc CRDs from local chart
+   helm install llmisvc-crd ./charts/llmisvc-crd --namespace kserve --create-namespace --wait
+
+   # Install LLMISvc resources from local chart  
+   helm install llmisvc ./charts/llmisvc-resources --namespace kserve --create-namespace --wait --set kserve.llmisvc.controller.tag=local-test --set kserve.llmisvc.controller.imagePullPolicy=Never
+   echo "😀 Successfully installed LLMISvc using local charts"
+
+else
+   echo "Installing LLMISvc ..."
+   helm install llmisvc-crd oci://ghcr.io/kserve/charts/llmisvc-crd --version ${LLMISVC_VERSION} --namespace kserve --create-namespace --wait
+   helm install llmisvc oci://ghcr.io/kserve/charts/llmisvc-resources --version ${LLMISVC_VERSION} --namespace kserve --create-namespace --wait
+
+fi
 echo "😀 Successfully installed LLMISvc"
 
-echo ""
-echo "🎉 LLMISvc installation completed successfully!"
-
+# Create Gateway resource
+echo "Creating kserve-ingress-gateway ..."
+kubectl apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: kserve-ingress-gateway
+  namespace: kserve
+spec:
+  gatewayClassName: envoy
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All
+  infrastructure:
+    labels:
+      serving.kserve.io/gateway: kserve-ingress-gateway
+EOF
+echo "😀 Successfully created kserve-ingress-gateway"
