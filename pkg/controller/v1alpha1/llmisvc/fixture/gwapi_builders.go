@@ -18,6 +18,7 @@ package fixture
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -603,6 +604,86 @@ func WithInferencePoolReadyStatus() InferencePoolOption {
 						LastTransitionTime: metav1.Now(),
 					},
 				},
+			},
+		}
+	}
+}
+
+// Ingress builders
+
+type IngressOption ObjectOption[*netv1.Ingress]
+
+func Ingress(name string, opts ...IngressOption) *netv1.Ingress {
+	ing := &netv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: netv1.IngressSpec{
+			Rules: []netv1.IngressRule{},
+		},
+	}
+
+	for _, opt := range opts {
+		opt(ing)
+	}
+
+	return ing
+}
+
+func WithIngressClassName(className string) IngressOption {
+	return func(ing *netv1.Ingress) {
+		ing.Spec.IngressClassName = ptr.To(className)
+	}
+}
+
+func WithIngressRule(host string, serviceName string, servicePort int32) IngressOption {
+	return func(ing *netv1.Ingress) {
+		rule := netv1.IngressRule{
+			Host: host,
+			IngressRuleValue: netv1.IngressRuleValue{
+				HTTP: &netv1.HTTPIngressRuleValue{
+					Paths: []netv1.HTTPIngressPath{
+						{
+							Path:     "/",
+							PathType: ptr.To(netv1.PathTypePrefix),
+							Backend: netv1.IngressBackend{
+								Service: &netv1.IngressServiceBackend{
+									Name: serviceName,
+									Port: netv1.ServiceBackendPort{
+										Number: servicePort,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		ing.Spec.Rules = append(ing.Spec.Rules, rule)
+	}
+}
+
+func WithIngressRules(rules ...netv1.IngressRule) IngressOption {
+	return func(ing *netv1.Ingress) {
+		ing.Spec.Rules = append(ing.Spec.Rules, rules...)
+	}
+}
+
+func WithIngressLoadBalancer(hostname string) IngressOption {
+	return func(ing *netv1.Ingress) {
+		ing.Status.LoadBalancer.Ingress = []netv1.IngressLoadBalancerIngress{
+			{
+				Hostname: hostname,
+			},
+		}
+	}
+}
+
+func WithIngressLoadBalancerIP(ip string) IngressOption {
+	return func(ing *netv1.Ingress) {
+		ing.Status.LoadBalancer.Ingress = []netv1.IngressLoadBalancerIngress{
+			{
+				IP: ip,
 			},
 		}
 	}
