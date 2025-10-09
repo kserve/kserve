@@ -483,8 +483,7 @@ func (r *LLMISVCReconciler) reconcileIngress(ctx context.Context, llmSvc *v1alph
 		return fmt.Errorf("failed to construct expected ingress: %w", err)
 	}
 
-	if llmSvc.Spec.Router == nil || (llmSvc.Spec.Router.Route != nil && (llmSvc.Spec.Router.Route.HTTP != nil ||
-		llmSvc.Spec.Router.Ingress == nil || llmSvc.Spec.Router.Ingress.Refs != nil)) {
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route != nil || llmSvc.Spec.Router.Ingress == nil {
 		return Delete(ctx, r, llmSvc, expectedIngress)
 	}
 
@@ -496,12 +495,14 @@ func (r *LLMISVCReconciler) reconcileIngress(ctx context.Context, llmSvc *v1alph
 	ingress := llmSvc.Spec.Router.Ingress
 
 	if ingress.HasRefs() {
-		return Delete(ctx, r, llmSvc, expectedIngress)
+		if err := Delete(ctx, r, llmSvc, expectedIngress); err != nil {
+			return fmt.Errorf("failed to delete managed ingress %s/%s: %w", expectedIngress.GetNamespace(), expectedIngress.GetName(), err)
+		}
 	}
 
 	if ingress != nil && !ingress.HasRefs() {
 		if err := Reconcile(ctx, r, llmSvc, &netv1.Ingress{}, expectedIngress, semanticIngressIsEqual); err != nil {
-			return fmt.Errorf("failed to reconcile Ingress %s/%s: %w", expectedIngress.GetNamespace(), expectedIngress.GetName(), err)
+			return fmt.Errorf("failed to reconcile ingress %s/%s: %w", expectedIngress.GetNamespace(), expectedIngress.GetName(), err)
 		}
 		referencedRoutes = append(referencedRoutes, expectedIngress)
 	}
