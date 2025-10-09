@@ -245,13 +245,10 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			LoggerArgumentComponent,
 			component,
 		}
-		log.Info("Injecting logger configuration", "storagePath", storagePath)
 		if storagePath != "" {
 			loggerArgs = append(loggerArgs, LoggerArgumentStorePath)
 			loggerArgs = append(loggerArgs, storagePath)
 		}
-
-		log.Info("Injecting logger configuration", "storageFormat", storageFormat)
 		if storageFormat != "" {
 			loggerArgs = append(loggerArgs, LoggerArgumentStoreFormat)
 			loggerArgs = append(loggerArgs, storageFormat)
