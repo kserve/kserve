@@ -101,11 +101,62 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *v1alp
 
 func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSvc *v1alpha1.LLMInferenceService) field.ErrorList {
 	router := llmSvc.Spec.Router
-	if router == nil || router.Route == nil {
+	if router == nil {
 		return field.ErrorList{}
 	}
 
+	var allErrs field.ErrorList
 	routerPath := field.NewPath("spec").Child("router")
+
+	// Validate Ingress constraints (independent of Route configuration)
+	if router.Ingress != nil {
+		ingressPath := routerPath.Child("ingress")
+
+		// Check if Scheduler is configured
+		if router.Scheduler != nil {
+			schedulerPath := routerPath.Child("scheduler")
+			allErrs = append(allErrs, field.Invalid(
+				ingressPath,
+				router.Ingress,
+				fmt.Sprintf("unsupported configuration: Ingress ('%s') cannot be used with Scheduler ('%s'); "+
+					"either remove '%s' or '%s'",
+					ingressPath, schedulerPath, ingressPath, schedulerPath,
+				),
+			))
+		}
+
+		// Check if Gateway is configured (either managed or refs)
+		if router.Gateway != nil {
+			gatewayPath := routerPath.Child("gateway")
+			gwRefsPath := gatewayPath.Child("refs")
+			if len(router.Gateway.Refs) > 0 {
+				allErrs = append(allErrs, field.Invalid(
+					ingressPath,
+					router.Ingress,
+					fmt.Sprintf("unsupported configuration: Ingress ('%s') cannot be used with Gateway refs ('%s'); "+
+						"either remove '%s' or '%s'",
+						ingressPath, gwRefsPath, ingressPath, gwRefsPath,
+					),
+				))
+			} else {
+				// Managed gateway (empty refs)
+				allErrs = append(allErrs, field.Invalid(
+					ingressPath,
+					router.Ingress,
+					fmt.Sprintf("unsupported configuration: Ingress ('%s') cannot be used with Gateway ('%s'); "+
+						"either remove '%s' or '%s'",
+						ingressPath, gatewayPath, ingressPath, gatewayPath,
+					),
+				))
+			}
+		}
+	}
+
+	// If no Route is configured, return early after checking Ingress constraints
+	if router.Route == nil {
+		return allErrs
+	}
+
 	gatewayPath := routerPath.Child("gateway")
 	gwRefsPath := gatewayPath.Child("refs")
 	routePath := routerPath.Child("route")
@@ -132,10 +183,8 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 
 	httpRoute := router.Route.HTTP
 	if httpRoute == nil {
-		return field.ErrorList{}
+		return allErrs
 	}
-
-	var allErrs field.ErrorList
 
 	// Both refs and spec cannot be used together
 	if len(httpRoute.Refs) > 0 && httpRoute.Spec != nil {
@@ -174,18 +223,35 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 		))
 	}
 
-	// Ingress cannot be used with httpRoute, gateway and scheduler
-	if llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Ingress != nil && (len(httpRoute.Refs) > 0 || httpRoute.Spec != nil || (router.Gateway != nil && len(router.Gateway.Refs) > 0)) {
+	// Check Ingress constraints related to HTTPRoute (if Ingress is configured)
+	if router.Ingress != nil {
 		ingressPath := routerPath.Child("ingress")
-		allErrs = append(allErrs, field.Invalid(
-			ingressPath,
-			llmSvc.Spec.Router.Ingress,
-			fmt.Sprintf("unsupported configuration: Ingress ('%s') cannot be used with HTTPRoute ('%s') when scheduler is configured; "+
-				"either remove '%s' or '%s'",
-				ingressPath, httpRoutePath, ingressPath, httpRoutePath,
-			),
-		))
+
+		// Check if HTTPRoute refs are configured
+		if len(httpRoute.Refs) > 0 {
+			allErrs = append(allErrs, field.Invalid(
+				ingressPath,
+				router.Ingress,
+				fmt.Sprintf("unsupported configuration: Ingress ('%s') cannot be used with HTTPRoute refs ('%s'); "+
+					"either remove '%s' or '%s'",
+					ingressPath, httpRouteRefs, ingressPath, httpRouteRefs,
+				),
+			))
+		}
+
+		// Check if HTTPRoute spec is configured
+		if httpRoute.Spec != nil {
+			allErrs = append(allErrs, field.Invalid(
+				ingressPath,
+				router.Ingress,
+				fmt.Sprintf("unsupported configuration: Ingress ('%s') cannot be used with HTTPRoute spec ('%s'); "+
+					"either remove '%s' or '%s'",
+					ingressPath, httpRouteSpec, ingressPath, httpRouteSpec,
+				),
+			))
+		}
 	}
+
 	return allErrs
 }
 
