@@ -119,13 +119,15 @@ func getLoggerConfigs(configMap *corev1.ConfigMap, isvc *v1beta1.InferenceServic
 	}
 	if isvc != nil && isvc.Spec.Predictor.Logger != nil {
 		// if the inference service spec includes a logger spec, use it instead
-		log.Info("isvc contains a logging spec.  This will be used as the logger configuration.")
+		log.Info("isvc contains a logging spec.  This will be used as the logger configuration.", "name", isvc.Name, "namespace", isvc.Namespace)
 		loggerConfig.Store = isvc.Spec.Predictor.Logger.Storage
 	} else {
-		log.Info("isvc does not contain a logging spec.  The global configmap will be used as the logger configuration.")
+		if isvc == nil {
+			log.Info("isvc not found.  The global configmap will be used as the logger configuration.", "namespace", isvc.Namespace)
+		} else {
+			log.Info("isvc does not contain a logging spec.  The global configmap will be used as the logger configuration.", "names", isvc.Name, "namespace", isvc.Namespace)
+		}
 	}
-
-	log.Info("getLoggerConfig processing configuration", "loggerConfig", loggerConfig)
 
 	// Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := []string{
@@ -141,6 +143,7 @@ func getLoggerConfigs(configMap *corev1.ConfigMap, isvc *v1beta1.InferenceServic
 		}
 	}
 	if loggerConfig.Store != nil {
+		log.Info("Using inference-service logger store configuration", "Store", loggerConfig.Store)
 		if loggerConfig.Store.StorageKey == nil || *loggerConfig.Store.StorageKey == "" {
 			storageKey := constants.LoggerDefaultStorageKey
 			loggerConfig.Store.StorageKey = &storageKey
@@ -247,13 +250,10 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			LoggerArgumentComponent,
 			component,
 		}
-		log.Info("Injecting logger configuration", "storagePath", storagePath)
 		if storagePath != "" {
 			loggerArgs = append(loggerArgs, LoggerArgumentStorePath)
 			loggerArgs = append(loggerArgs, storagePath)
 		}
-
-		log.Info("Injecting logger configuration", "storageFormat", storageFormat)
 		if storageFormat != "" {
 			loggerArgs = append(loggerArgs, LoggerArgumentStoreFormat)
 			loggerArgs = append(loggerArgs, storageFormat)
