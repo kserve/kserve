@@ -25,9 +25,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	gstorage "cloud.google.com/go/storage"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/aws/aws-sdk-go/aws"
@@ -109,6 +113,67 @@ func RemoveDir(dir string) error {
 	return nil
 }
 
+type azureStaticTokenCredential struct {
+	token      string
+	expiration time.Time
+}
+
+func (s *azureStaticTokenCredential) GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	return azcore.AccessToken{
+		Token:     s.token,
+		ExpiresOn: s.expiration,
+	}, nil
+}
+
+func initializeAzureClient() (AzureClient, error) {
+	var azureClient AzureClient
+	clientOptions := azblob.ClientOptions{}
+	serviceUrl, ok := os.LookupEnv(azure.AzureServiceUrl)
+	if !ok {
+		accountName, ok := os.LookupEnv(azure.AzureAccountName)
+		if !ok {
+			return nil, errors.New(fmt.Sprintf("one of %s or %s is required", azure.AzureAccountName, azure.AzureServiceUrl))
+		}
+		serviceUrl = fmt.Sprintf("https://%s.blob.core.windows.net/", accountName)
+	}
+	if _, ok := os.LookupEnv(azure.AzureStorageAccessKey); ok {
+		defaultCred, err := azidentity.NewDefaultAzureCredential(nil)
+		if err != nil {
+			return nil, err
+		}
+		client, err := azblob.NewClient(serviceUrl, defaultCred, &clientOptions)
+		if err != nil {
+			return nil, err
+		}
+		azureClient = client
+	} else if token, ok := os.LookupEnv(azure.AzureAccessToken); ok {
+		expiresOn := time.Now().Add(time.Minute * 5)
+		expiresOnStr, ok := os.LookupEnv(azure.AzureAccessTokenExpiresOnSeconds)
+		if !ok {
+			log.Info("%s not set, using default of 5 minutes", azure.AzureAccessTokenExpiresOnSeconds)
+			expiresOn = time.Now().Add(time.Minute * 5)
+		} else {
+			seconds, err := strconv.ParseInt(expiresOnStr, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			expiresOn = time.Unix(seconds, 0)
+		}
+		tokenCred := azureStaticTokenCredential{
+			token:      token,
+			expiration: expiresOn,
+		}
+		client, err := azblob.NewClient(serviceUrl, &tokenCred, &clientOptions)
+		if err != nil {
+			return nil, err
+		}
+		azureClient = client
+	} else {
+		return nil, errors.New(fmt.Sprintf("one of %s or %s must be provided", azure.AzureStorageAccessKey, azure.AzureAccessToken))
+	}
+	return azureClient, nil
+}
+
 func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, error) {
 	if provider, ok := providers[protocol]; ok {
 		return provider, nil
@@ -116,24 +181,9 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 
 	switch protocol {
 	case AZURE:
-		var azureClient AzureClient
-		if _, ok := os.LookupEnv(azure.AzureStorageAccessKey); ok {
-			accountName, ok := os.LookupEnv("AZURE_STORAGE_ACCOUNT_NAME")
-			if !ok {
-				return nil, errors.New("AZURE_STORAGE_ACCOUNT_NAME could not be found")
-			}
-			serviceUrl := fmt.Sprintf("https://%s.blob.core.windows.net/", accountName)
-			cred, err := azidentity.NewDefaultAzureCredential(nil)
-			if err != nil {
-				return nil, err
-			}
-			clientOptions := azblob.ClientOptions{}
-			azureClient, err = azblob.NewClient(serviceUrl, cred, &clientOptions)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, errors.New(azure.AzureStorageAccessKey + " could not be found")
+		azureClient, err := initializeAzureClient()
+		if err != nil {
+			return nil, err
 		}
 		providers[AZURE] = &AzureProvider{Client: azureClient}
 	case GCS:
