@@ -1771,12 +1771,18 @@ func TestGetLoggerConfigs(t *testing.T) {
 		"region": "us-west-2",
 		"format": "json",
 	}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "podname",
+		},
+	}
 
 	cases := []struct {
 		name      string
 		configMap *corev1.ConfigMap
 		isvc      *v1beta1.InferenceService
 		matchers  []types.GomegaMatcher
+		pod       *corev1.Pod
 	}{
 		{
 			name: "Logger storage nil",
@@ -1809,6 +1815,7 @@ func TestGetLoggerConfigs(t *testing.T) {
 					},
 				},
 			},
+			pod: pod,
 			matchers: []types.GomegaMatcher{
 				gomega.Equal(&LoggerConfig{
 					Image:         "gcr.io/kfserving/logger:latest",
@@ -1858,6 +1865,7 @@ func TestGetLoggerConfigs(t *testing.T) {
 					},
 				},
 			},
+			pod: pod,
 			matchers: []types.GomegaMatcher{
 				gomega.Equal(&LoggerConfig{
 					Image:         "gcr.io/kfserving/logger:latest",
@@ -1915,6 +1923,7 @@ func TestGetLoggerConfigs(t *testing.T) {
 					},
 				},
 			},
+			pod: pod,
 			matchers: []types.GomegaMatcher{
 				gomega.Equal(&LoggerConfig{
 					Image:         "gcr.io/kfserving/logger:latest",
@@ -1972,6 +1981,7 @@ func TestGetLoggerConfigs(t *testing.T) {
 					},
 				},
 			},
+			pod: pod,
 			matchers: []types.GomegaMatcher{
 				gomega.Equal(&LoggerConfig{
 					Image:         "gcr.io/kfserving/logger:latest",
@@ -2007,6 +2017,7 @@ func TestGetLoggerConfigs(t *testing.T) {
 				},
 				BinaryData: map[string][]byte{},
 			},
+			pod: pod,
 			matchers: []types.GomegaMatcher{
 				gomega.Equal(&LoggerConfig{
 					Image:         "gcr.io/kfserving/logger:latest",
@@ -2021,7 +2032,7 @@ func TestGetLoggerConfigs(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		loggerConfigs, err := getLoggerConfigs(tc.configMap, tc.isvc)
+		loggerConfigs, err := getLoggerConfigs(tc.pod, tc.configMap, tc.isvc)
 		g.Expect(err).Should(tc.matchers[1], tc.name)
 		g.Expect(loggerConfigs).Should(tc.matchers[0], tc.name)
 	}

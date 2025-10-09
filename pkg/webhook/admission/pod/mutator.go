@@ -103,7 +103,7 @@ func (mutator *Mutator) mutate(ctx context.Context, pod *corev1.Pod, configMap *
 		client:            mutator.Client,
 	}
 
-	loggerConfig, err := getLoggerConfigs(configMap, isvc)
+	loggerConfig, err := getLoggerConfigs(pod, configMap, isvc)
 	if err != nil {
 		return err
 	}

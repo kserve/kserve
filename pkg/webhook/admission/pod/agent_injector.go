@@ -108,7 +108,7 @@ func getAgentConfigs(configMap *corev1.ConfigMap) (*AgentConfig, error) {
 	return agentConfig, nil
 }
 
-func getLoggerConfigs(configMap *corev1.ConfigMap, isvc *v1beta1.InferenceService) (*LoggerConfig, error) {
+func getLoggerConfigs(pod *corev1.Pod, configMap *corev1.ConfigMap, isvc *v1beta1.InferenceService) (*LoggerConfig, error) {
 	loggerConfig := &LoggerConfig{}
 	// default to the global inference service configmap
 	if loggerConfigValue, ok := configMap.Data[LoggerConfigMapKeyName]; ok {
@@ -123,7 +123,7 @@ func getLoggerConfigs(configMap *corev1.ConfigMap, isvc *v1beta1.InferenceServic
 		loggerConfig.Store = isvc.Spec.Predictor.Logger.Storage
 	} else {
 		if isvc == nil {
-			log.Info("isvc not found.  The global configmap will be used as the logger configuration.", "namespace", isvc.Namespace)
+			log.Info("isvc not found.  The global configmap will be used as the logger configuration.", "namespace", pod.Namespace)
 		} else {
 			log.Info("isvc does not contain a logging spec.  The global configmap will be used as the logger configuration.", "names", isvc.Name, "namespace", isvc.Namespace)
 		}
