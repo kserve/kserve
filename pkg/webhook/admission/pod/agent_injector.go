@@ -143,6 +143,7 @@ func getLoggerConfigs(configMap *corev1.ConfigMap, isvc *v1beta1.InferenceServic
 		}
 	}
 	if loggerConfig.Store != nil {
+		log.Info("Using inference-service logger store configuration", "Store", loggerConfig.Store)
 		if loggerConfig.Store.StorageKey == nil || *loggerConfig.Store.StorageKey == "" {
 			storageKey := constants.LoggerDefaultStorageKey
 			loggerConfig.Store.StorageKey = &storageKey
