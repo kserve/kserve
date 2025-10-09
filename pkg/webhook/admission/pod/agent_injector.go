@@ -129,8 +129,6 @@ func getLoggerConfigs(configMap *corev1.ConfigMap, isvc *v1beta1.InferenceServic
 		}
 	}
 
-	log.Info("getLoggerConfig processing configuration", "loggerConfig", loggerConfig)
-
 	// Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := []string{
 		loggerConfig.MemoryRequest,
