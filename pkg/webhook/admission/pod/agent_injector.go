@@ -119,10 +119,14 @@ func getLoggerConfigs(configMap *corev1.ConfigMap, isvc *v1beta1.InferenceServic
 	}
 	if isvc != nil && isvc.Spec.Predictor.Logger != nil {
 		// if the inference service spec includes a logger spec, use it instead
-		log.Info("isvc contains a logging spec.  This will be used as the logger configuration.")
+		log.Info("isvc contains a logging spec.  This will be used as the logger configuration.", "name", isvc.Name, "namespace", isvc.Namespace)
 		loggerConfig.Store = isvc.Spec.Predictor.Logger.Storage
 	} else {
-		log.Info("isvc does not contain a logging spec.  The global configmap will be used as the logger configuration.")
+		if isvc == nil {
+			log.Info("isvc not found.  The global configmap will be used as the logger configuration.", "namespace", isvc.Namespace)
+		} else {
+			log.Info("isvc does not contain a logging spec.  The global configmap will be used as the logger configuration.", "names", isvc.Name, "namespace", isvc.Namespace)
+		}
 	}
 
 	// Ensure that we set proper values for CPU/Memory Limit/Request
