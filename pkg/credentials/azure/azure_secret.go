@@ -33,12 +33,16 @@ const (
 	AzureTenantId       = "AZURE_TENANT_ID"
 	AzureClientId       = "AZURE_CLIENT_ID"
 	AzureClientSecret   = "AZURE_CLIENT_SECRET" // #nosec G101
-	AzureAccessToken    = "AZURE_ACCESS_TOKEN"
+
+	AzureAccessToken                 = "AZURE_ACCESS_TOKEN"
+	AzureAccessTokenExpiresOnSeconds = "AZURE_ACCESS_EXPIRES_ON_SECONDS"
+	AzureAccountName                 = "AZURE_ACCOUNT_NAME"
+	AzureServiceUrl                  = "AZURE_SERVICE_URL"
 )
 
 var (
 	LegacyAzureEnvKeys        = []string{LegacyAzureSubscriptionId, LegacyAzureTenantId, LegacyAzureClientId, LegacyAzureClientSecret}
-	AzureEnvKeys              = []string{AzureSubscriptionId, AzureTenantId, AzureClientId, AzureClientSecret, AzureStorageAccessKey, AzureAccessToken}
+	AzureEnvKeys              = []string{AzureSubscriptionId, AzureTenantId, AzureClientId, AzureClientSecret, AzureStorageAccessKey, AzureAccessToken, AzureAccessTokenExpiresOnSeconds, AzureAccountName}
 	legacyAzureEnvKeyMappings = map[string]string{
 		AzureSubscriptionId: LegacyAzureSubscriptionId,
 		AzureTenantId:       LegacyAzureTenantId,

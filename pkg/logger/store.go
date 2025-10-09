@@ -113,9 +113,14 @@ func NewStoreForScheme(scheme string, logStorePath string, logStoreFormat string
 	protocol := storage.Protocol(scheme)
 	provider, err := storage.GetProvider(map[storage.Protocol]storage.Provider{}, protocol)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create S3 provider: %w", err)
+		return nil, fmt.Errorf("failed to create storage provider: %w", err)
 	}
-	if protocol == storage.S3 {
+	switch protocol {
+	case storage.AZURE:
+		fallthrough
+	case storage.GCS:
+		fallthrough
+	case storage.S3:
 		return NewBlobStore(logStorePath, logStoreFormat, marshaller, provider, log), nil
 	}
 	return nil, fmt.Errorf("unsupported protocol %s", protocol)
