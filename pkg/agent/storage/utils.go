@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -132,7 +131,7 @@ func initializeAzureClient() (AzureClient, error) {
 	if !ok {
 		accountName, ok := os.LookupEnv(azure.AzureAccountName)
 		if !ok {
-			return nil, errors.New(fmt.Sprintf("one of %s or %s is required", azure.AzureAccountName, azure.AzureServiceUrl))
+			return nil, fmt.Errorf("one of %s or %s is required", azure.AzureAccountName, azure.AzureServiceUrl)
 		}
 		serviceUrl = fmt.Sprintf("https://%s.blob.core.windows.net/", accountName)
 	}
@@ -149,15 +148,14 @@ func initializeAzureClient() (AzureClient, error) {
 	} else if token, ok := os.LookupEnv(azure.AzureAccessToken); ok {
 		expiresOn := time.Now().Add(time.Minute * 5)
 		expiresOnStr, ok := os.LookupEnv(azure.AzureAccessTokenExpiresOnSeconds)
-		if !ok {
-			log.Info("%s not set, using default of 5 minutes", azure.AzureAccessTokenExpiresOnSeconds)
-			expiresOn = time.Now().Add(time.Minute * 5)
-		} else {
+		if ok {
 			seconds, err := strconv.ParseInt(expiresOnStr, 10, 64)
 			if err != nil {
 				return nil, err
 			}
 			expiresOn = time.Unix(seconds, 0)
+		} else {
+			log.Info(azure.AzureAccessTokenExpiresOnSeconds + " not found, defaulting token expiration to 5 minutes")
 		}
 		tokenCred := azureStaticTokenCredential{
 			token:      token,
@@ -169,7 +167,7 @@ func initializeAzureClient() (AzureClient, error) {
 		}
 		azureClient = client
 	} else {
-		return nil, errors.New(fmt.Sprintf("one of %s or %s must be provided", azure.AzureStorageAccessKey, azure.AzureAccessToken))
+		return nil, fmt.Errorf("one of %s or %s must be provided", azure.AzureStorageAccessKey, azure.AzureAccessToken)
 	}
 	return azureClient, nil
 }
