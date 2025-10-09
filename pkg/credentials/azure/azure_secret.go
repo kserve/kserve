@@ -34,8 +34,8 @@ const (
 	AzureClientId       = "AZURE_CLIENT_ID"
 	AzureClientSecret   = "AZURE_CLIENT_SECRET" // #nosec G101
 
-	AzureAccessToken                 = "AZURE_ACCESS_TOKEN"
-	AzureAccessTokenExpiresOnSeconds = "AZURE_ACCESS_EXPIRES_ON_SECONDS"
+	AzureAccessToken                 = "AZURE_ACCESS_TOKEN"              // #nosec G101
+	AzureAccessTokenExpiresOnSeconds = "AZURE_ACCESS_EXPIRES_ON_SECONDS" // #nosec G101
 	AzureAccountName                 = "AZURE_ACCOUNT_NAME"
 	AzureServiceUrl                  = "AZURE_SERVICE_URL"
 )
