@@ -49,7 +49,17 @@ var (
 		AzureClientId:       LegacyAzureClientId,
 		AzureClientSecret:   LegacyAzureClientSecret,
 	}
+	EmptyKeysToIgnore = []string{AzureClientSecret, AzureStorageAccessKey, AzureAccessToken, AzureAccessTokenExpiresOnSeconds, AzureAccountName, AzureServiceUrl}
 )
+
+func ignoreEmptyKey(key string) bool {
+	for _, k := range EmptyKeysToIgnore {
+		if k == key {
+			return true
+		}
+	}
+	return false
+}
 
 func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
 	envs := make([]corev1.EnvVar, 0, len(AzureEnvKeys))
@@ -59,8 +69,7 @@ func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
 		if _, ok := secret.Data[legacyDataKey]; ok {
 			dataKey = legacyDataKey
 		}
-		// Leave out the AzureClientSecret, AzureStorageAccessKey, or AzureAccessToken env var if not defined as Data in the secret
-		if _, ok := secret.Data[dataKey]; !(!ok && (dataKey == AzureClientSecret || dataKey == AzureStorageAccessKey || dataKey == AzureAccessToken)) {
+		if _, ok := secret.Data[dataKey]; !(!ok && ignoreEmptyKey(dataKey)) {
 			envs = append(envs, corev1.EnvVar{
 				Name: k,
 				ValueFrom: &corev1.EnvVarSource{
