@@ -119,7 +119,7 @@ func getLoggerConfigs(pod *corev1.Pod, configMap *corev1.ConfigMap, isvc *v1beta
 	}
 	if isvc != nil && isvc.Spec.Predictor.Logger != nil {
 		// if the inference service spec includes a logger spec, use it instead
-		log.Info("isvc contains a logging spec.  This will be used as the logger configuration.", "name", isvc.Name, "namespace", isvc.Namespace)
+		log.Info("This Inference Service contains a logging spec. This will be used as the logger configuration.", "name", isvc.Name, "namespace", isvc.Namespace)
 		loggerConfig.Store = isvc.Spec.Predictor.Logger.Storage
 	} else {
 		if isvc == nil {
