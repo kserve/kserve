@@ -1657,6 +1657,7 @@ name = "kserve-storage"
 version = "0.16.0rc0"
 source = { directory = "../storage" }
 dependencies = [
+    { name = "aiohttp" },
     { name = "azure-identity" },
     { name = "azure-storage-blob" },
     { name = "azure-storage-file-share" },
@@ -1668,6 +1669,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiohttp", specifier = ">=3.10.0,<4.0.0" },
     { name = "azure-identity", specifier = ">=1.15.0,<2.0.0" },
     { name = "azure-storage-blob", specifier = ">=12.20.0,<13.0.0" },
     { name = "azure-storage-file-share", specifier = ">=12.16.0,<13.0.0" },
