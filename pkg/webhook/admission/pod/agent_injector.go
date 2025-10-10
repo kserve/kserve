@@ -108,12 +108,24 @@ func getAgentConfigs(configMap *corev1.ConfigMap) (*AgentConfig, error) {
 	return agentConfig, nil
 }
 
-func getLoggerConfigs(configMap *corev1.ConfigMap) (*LoggerConfig, error) {
+func getLoggerConfigs(pod *corev1.Pod, configMap *corev1.ConfigMap, isvc *v1beta1.InferenceService) (*LoggerConfig, error) {
 	loggerConfig := &LoggerConfig{}
+	// default to the global inference service configmap
 	if loggerConfigValue, ok := configMap.Data[LoggerConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(loggerConfigValue), &loggerConfig)
 		if err != nil {
 			panic(fmt.Errorf("Unable to unmarshall logger json string due to %w ", err))
+		}
+	}
+	if isvc != nil && isvc.Spec.Predictor.Logger != nil {
+		// if the inference service spec includes a logger spec, use it instead
+		log.Info("This Inference Service contains a logging spec. This will be used as the logger configuration.", "name", isvc.Name, "namespace", isvc.Namespace)
+		loggerConfig.Store = isvc.Spec.Predictor.Logger.Storage
+	} else {
+		if isvc == nil {
+			log.Info("The Inference Service is not found. The global ConfigMap will be used as the logger configuration", "name", pod.Name, "namespace", pod.Namespace)
+		} else {
+			log.Info("The Inference Service does not contain a logging spec. The global ConfigMap will be used as the logger configuration", "name", isvc.Name, "namespace", isvc.Namespace)
 		}
 	}
 
