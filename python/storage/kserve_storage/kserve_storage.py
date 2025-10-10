@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import base64
+from concurrent.futures import ThreadPoolExecutor
 import glob
 import gzip
 import json
@@ -24,6 +25,7 @@ import shutil
 import tarfile
 import tempfile
 import time
+from typing import Optional
 import zipfile
 from pathlib import Path
 from typing import Dict, Tuple
@@ -64,7 +66,13 @@ _worker_s3_resource = None
 
 class Storage(object):
     @staticmethod
-    def download(uri: str, out_dir: str = None) -> str:
+    def download_files(source_uris: list[str], out_dirs: list[str]) -> list[str]:
+        with ThreadPoolExecutor() as executor:
+            model_dirs = list(executor.map(Storage.download, source_uris, out_dirs))
+        return model_dirs
+
+    @staticmethod
+    def download(uri: str, out_dir: Optional[str] = None) -> str:
         start = time.monotonic()
         Storage._update_with_storage_spec()
         logger.info("Copying contents of %s to local", uri)
@@ -464,7 +472,7 @@ class Storage(object):
         return temp_dir
 
     @staticmethod
-    def _load_hdfs_configuration() -> Dict:
+    def _load_hdfs_configuration() -> dict:
         config = {
             "HDFS_NAMENODE": None,
             "USER_PROXY": None,
