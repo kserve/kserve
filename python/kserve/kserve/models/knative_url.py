@@ -47,30 +47,42 @@ class KnativeURL(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'force_query': 'bool',
-        'fragment': 'str',
-        'host': 'str',
-        'opaque': 'str',
-        'path': 'str',
-        'raw_path': 'str',
-        'raw_query': 'str',
-        'scheme': 'str',
-        'user': 'NetUrlUserinfo'
+        "force_query": "bool",
+        "fragment": "str",
+        "host": "str",
+        "opaque": "str",
+        "path": "str",
+        "raw_path": "str",
+        "raw_query": "str",
+        "scheme": "str",
+        "user": "NetUrlUserinfo",
     }
 
     attribute_map = {
-        'force_query': 'ForceQuery',
-        'fragment': 'Fragment',
-        'host': 'Host',
-        'opaque': 'Opaque',
-        'path': 'Path',
-        'raw_path': 'RawPath',
-        'raw_query': 'RawQuery',
-        'scheme': 'Scheme',
-        'user': 'User'
+        "force_query": "ForceQuery",
+        "fragment": "Fragment",
+        "host": "Host",
+        "opaque": "Opaque",
+        "path": "Path",
+        "raw_path": "RawPath",
+        "raw_query": "RawQuery",
+        "scheme": "Scheme",
+        "user": "User",
     }
 
-    def __init__(self, force_query=None, fragment=None, host=None, opaque=None, path=None, raw_path=None, raw_query=None, scheme=None, user=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        force_query=None,
+        fragment=None,
+        host=None,
+        opaque=None,
+        path=None,
+        raw_path=None,
+        raw_query=None,
+        scheme=None,
+        user=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """KnativeURL - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -117,8 +129,12 @@ class KnativeURL(object):
         :param force_query: The force_query of this KnativeURL.  # noqa: E501
         :type: bool
         """
-        if self.local_vars_configuration.client_side_validation and force_query is None:  # noqa: E501
-            raise ValueError("Invalid value for `force_query`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and force_query is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `force_query`, must not be `None`"
+            )  # noqa: E501
 
         self._force_query = force_query
 
@@ -142,8 +158,12 @@ class KnativeURL(object):
         :param fragment: The fragment of this KnativeURL.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and fragment is None:  # noqa: E501
-            raise ValueError("Invalid value for `fragment`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and fragment is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `fragment`, must not be `None`"
+            )  # noqa: E501
 
         self._fragment = fragment
 
@@ -167,8 +187,12 @@ class KnativeURL(object):
         :param host: The host of this KnativeURL.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and host is None:  # noqa: E501
-            raise ValueError("Invalid value for `host`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and host is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `host`, must not be `None`"
+            )  # noqa: E501
 
         self._host = host
 
@@ -190,8 +214,12 @@ class KnativeURL(object):
         :param opaque: The opaque of this KnativeURL.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and opaque is None:  # noqa: E501
-            raise ValueError("Invalid value for `opaque`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and opaque is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `opaque`, must not be `None`"
+            )  # noqa: E501
 
         self._opaque = opaque
 
@@ -215,8 +243,12 @@ class KnativeURL(object):
         :param path: The path of this KnativeURL.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and path is None:  # noqa: E501
-            raise ValueError("Invalid value for `path`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and path is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `path`, must not be `None`"
+            )  # noqa: E501
 
         self._path = path
 
@@ -240,8 +272,12 @@ class KnativeURL(object):
         :param raw_path: The raw_path of this KnativeURL.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and raw_path is None:  # noqa: E501
-            raise ValueError("Invalid value for `raw_path`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and raw_path is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `raw_path`, must not be `None`"
+            )  # noqa: E501
 
         self._raw_path = raw_path
 
@@ -265,8 +301,12 @@ class KnativeURL(object):
         :param raw_query: The raw_query of this KnativeURL.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and raw_query is None:  # noqa: E501
-            raise ValueError("Invalid value for `raw_query`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and raw_query is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `raw_query`, must not be `None`"
+            )  # noqa: E501
 
         self._raw_query = raw_query
 
@@ -288,8 +328,12 @@ class KnativeURL(object):
         :param scheme: The scheme of this KnativeURL.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and scheme is None:  # noqa: E501
-            raise ValueError("Invalid value for `scheme`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and scheme is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `scheme`, must not be `None`"
+            )  # noqa: E501
 
         self._scheme = scheme
 
@@ -311,8 +355,12 @@ class KnativeURL(object):
         :param user: The user of this KnativeURL.  # noqa: E501
         :type: NetUrlUserinfo
         """
-        if self.local_vars_configuration.client_side_validation and user is None:  # noqa: E501
-            raise ValueError("Invalid value for `user`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and user is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `user`, must not be `None`"
+            )  # noqa: E501
 
         self._user = user
 
@@ -323,18 +371,22 @@ class KnativeURL(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
