@@ -68,7 +68,7 @@ wheels = [
 
 [[package]]
 name = "artserver"
-version = "0.16.0rc0"
+version = "0.16.0rc1"
 source = { virtual = "." }
 dependencies = [
     { name = "adversarial-robustness-toolbox", extra = ["keras"] },
@@ -635,7 +635,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.16.0rc0"
+version = "0.16.0rc1"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "cloudevents" },

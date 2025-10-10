@@ -29,7 +29,7 @@ wheels = [
 
 [[package]]
 name = "aifserver"
-version = "0.16.0rc0"
+version = "0.16.0rc1"
 source = { virtual = "." }
 dependencies = [
     { name = "aif360" },
@@ -892,7 +892,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.16.0rc0"
+version = "0.16.0rc1"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "cloudevents" },
