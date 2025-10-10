@@ -65,12 +65,17 @@ func IsMMSPredictor(predictor *v1beta1.PredictorSpec) bool {
 		return false
 	} else {
 		impl := predictor.GetImplementation()
-		res := impl.GetStorageUri() == nil && impl.GetStorageSpec() == nil
+		hasStorageUri := impl.GetStorageUri() != nil
+		hasStorageSpec := impl.GetStorageSpec() != nil
+		hasStorageUris := len(predictor.StorageUris) > 0
+
 		// HuggingFace supports model ID without storage initializer, but it should not be a multi-model server.
 		if predictor.HuggingFace != nil || (predictor.Model != nil && predictor.Model.ModelFormat.Name == "huggingface") {
 			return false
 		}
-		return res
+
+		// Only consider MMS if there are no storage URIs (singular or plural) and no storage spec
+		return !hasStorageUri && !hasStorageSpec && !hasStorageUris
 	}
 }
 
@@ -203,14 +208,14 @@ func GetPredictorEndpoint(ctx context.Context, client client.Client, isvc *v1bet
 }
 
 /*
-GetDeploymentMode returns the current deployment mode, supports Serverless and RawDeployment
+GetDeploymentMode returns the current deployment mode, supports Knative and Standard
 case 1: no serving.kserve.org/deploymentMode annotation
 
 	return config.deploy.defaultDeploymentMode
 
 case 2: serving.kserve.org/deploymentMode is set
 
-	        if the mode is "RawDeployment", "Serverless" or "ModelMesh", return it.
+	        if the mode is "Standard", "Knative" or "ModelMesh", return it.
 			else return config.deploy.defaultDeploymentMode
 */
 func GetDeploymentMode(statusDeploymentMode string, annotations map[string]string, deployConfig *v1beta1.DeployConfig) constants.DeploymentModeType {
@@ -221,8 +226,17 @@ func GetDeploymentMode(statusDeploymentMode string, annotations map[string]strin
 
 	// Second priority, if the status doesn't have the deploymentMode recorded, is explicit annotations
 	deploymentMode, ok := annotations[constants.DeploymentMode]
-	if ok && (deploymentMode == string(constants.RawDeployment) || deploymentMode ==
-		string(constants.Serverless) || deploymentMode == string(constants.ModelMeshDeployment)) {
+	if deploymentMode == string(constants.LegacyRawDeployment) {
+		// LegacyRawDeployment is deprecated, so we treat it as Standard
+		deploymentMode = string(constants.Standard)
+	}
+	if deploymentMode == string(constants.LegacyServerless) {
+		// LegacyServerless is deprecated, so we treat it as Knative
+		deploymentMode = string(constants.Knative)
+	}
+	if ok && (deploymentMode == string(constants.Standard) ||
+		deploymentMode == string(constants.Knative) ||
+		deploymentMode == string(constants.ModelMeshDeployment)) {
 		return constants.DeploymentModeType(deploymentMode)
 	}
 
@@ -341,6 +355,12 @@ func ReplacePlaceholders(container *corev1.Container, meta metav1.ObjectMeta) er
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
 func UpdateImageTag(container *corev1.Container, runtimeVersion *string, servingRuntime *string) {
 	image := container.Image
+
+	// If image uses a digest (e.g. image@sha256:...), do not change it.
+	if strings.Contains(image, "@sha256:") {
+		return
+	}
+
 	if runtimeVersion != nil {
 		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
 		if len(re.FindString(image)) == 0 {

@@ -133,7 +133,7 @@ spec:
         - containerPort: 9443
           name: webhook-server
           protocol: TCP
-        - containerPort: 8443
+        - containerPort: {{ .Values.kserve.llmisvc.controller.metricsBindPort }}
           name: metrics
           protocol: TCP
         volumeMounts:
@@ -147,7 +147,7 @@ spec:
         - name: cert
           secret:
             defaultMode: 420
-            secretName: kserve-webhook-server-cert
+            secretName: llmisvc-webhook-server-cert
         {{- with .Values.kserve.llmisvc.controller.extraVolumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

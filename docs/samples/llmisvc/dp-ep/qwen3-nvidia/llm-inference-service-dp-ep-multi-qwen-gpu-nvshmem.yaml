@@ -1,0 +1,253 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: qwen3-coder-30b-a3b-instruct
+  annotations:
+    k8s.v1.cni.cncf.io/networks: |
+      [
+        {
+          "name": "multi-nic-compute",
+          "namespace": "openshift-sriov-network-operator"
+        }
+      ]
+spec:
+  model:
+    uri: hf://Qwen/Qwen3-Coder-30B-A3B-Instruct
+    name: Qwen/Qwen3-Coder-30B-A3B-Instruct
+  replicas: 1
+  parallelism:
+    data: 16
+    dataLocal: 8
+    expert: true
+    tensor: 1
+  router:
+    scheduler: { }
+    route: { }
+    gateway: { }
+  template:
+    nodeSelector:
+      kubernetes.io/hostname: pokprod-b93r38s0
+    serviceAccountName: hfsa
+    containers:
+      - name: main
+        env:
+          - name: VLLM_LOGGING_LEVEL
+            value: INFO
+          - name: KSERVE_INFER_ROCE
+            value: "true"
+          - name: CUDA_DEVICE_ORDER
+            value: "PCI_BUS_ID"
+          # Memory optimizations
+          - name: VLLM_ADDITIONAL_ARGS
+            value: "--gpu-memory-utilization 0.85 --max-model-len 8192 --enforce-eager"
+          - name: PYTORCH_CUDA_ALLOC_CONF
+            value: "expandable_segments:True"
+          # Essential NCCL configuration
+          - name: NCCL_IB_GID_INDEX
+            value: "3"
+          - name: NCCL_DEBUG
+            value: INFO
+          - name: NCCL_SOCKET_IFNAME
+            value: net1-0,net1-1,net1-2,net1-3,net1-4,net1-5,net1-6,net1-7,net1-8,net1-9,net1-10,net1-11,net1-12,net1-13,net1-14,net1-15
+          - name: NCCL_IB_TIMEOUT
+            value: "100"
+          # NVSHMEM configuration - optimized for stability
+          - name: NVSHMEM_REMOTE_TRANSPORT
+            value: ucx
+          - name: NVSHMEM_BOOTSTRAP_TWO_STAGE
+            value: "1"
+          - name: NVSHMEM_BOOTSTRAP_TIMEOUT
+            value: "300"
+          - name: NVSHMEM_BOOTSTRAP_UID_SOCK_IFNAME
+            value: net1-0,net1-1,net1-2,net1-3,net1-4,net1-5,net1-6,net1-7,net1-8,net1-9,net1-10,net1-11,net1-12,net1-13,net1-14,net1-15
+          - name: NVSHMEM_IB_GID_INDEX
+            value: "3"
+          - name: NVSHMEM_ENABLE_NIC_PE_MAPPING
+            value: "1"
+          - name: NVSHMEM_DEBUG
+            value: WARN
+          # UCX configuration for NVSHMEM
+          - name: UCX_TLS
+            value: "rc,sm,cuda_copy,cuda_ipc"
+          - name: UCX_IB_GID_INDEX
+            value: "3"
+          - name: UCX_RC_MLX5_TM_ENABLE
+            value: "n"
+          - name: UCX_UD_MLX5_RX_QUEUE_LEN
+            value: "1024"
+        resources:
+          limits:
+            cpu: 128
+            ephemeral-storage: 64Gi
+            memory: 512Gi
+            nvidia.com/gpu: "8"
+            rdma/roce_gdr: 8
+          requests:
+            cpu: 64
+            ephemeral-storage: 32Gi
+            memory: 256Gi
+            nvidia.com/gpu: "8"
+            rdma/roce_gdr: 8
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTPS
+          initialDelaySeconds: 700
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 3
+        volumeMounts:
+          - mountPath: /sys/class/infiniband
+            name: infiniband-devices
+            readOnly: true
+          - mountPath: /sys/devices
+            name: sys-devices
+            readOnly: true
+          - mountPath: /dev/infiniband
+            name: dev-infiniband
+          - mountPath: /sys/class/net
+            name: sys-class-net
+            readOnly: true
+          - mountPath: /proc/driver/nvidia
+            name: proc-driver-nvidia
+            readOnly: true
+    volumes:
+      - name: infiniband-devices
+        hostPath:
+          path: /sys/class/infiniband
+          type: Directory
+      - name: sys-devices
+        hostPath:
+          path: /sys/devices
+          type: Directory
+      - name: dev-infiniband
+        hostPath:
+          path: /dev/infiniband
+          type: Directory
+      - name: sys-class-net
+        hostPath:
+          path: /sys/class/net
+          type: Directory
+      - name: proc-driver-nvidia
+        hostPath:
+          path: /proc/driver/nvidia
+          type: Directory
+  worker:
+    nodeSelector:
+      kubernetes.io/hostname: pokprod-b93r38s2
+    serviceAccountName: hfsa
+    containers:
+      - name: main
+        env:
+          - name: VLLM_LOGGING_LEVEL
+            value: INFO
+          - name: KSERVE_INFER_ROCE
+            value: "true"
+          - name: CUDA_DEVICE_ORDER
+            value: "PCI_BUS_ID"
+          # Memory optimizations
+          - name: VLLM_ADDITIONAL_ARGS
+            value: "--gpu-memory-utilization 0.85 --max-model-len 8192 --enforce-eager"
+          - name: PYTORCH_CUDA_ALLOC_CONF
+            value: "expandable_segments:True"
+          # Essential NCCL configuration
+          - name: NCCL_IB_GID_INDEX
+            value: "3"
+          - name: NCCL_DEBUG
+            value: INFO
+          - name: NCCL_SOCKET_IFNAME
+            value: net1-0,net1-1,net1-2,net1-3,net1-4,net1-5,net1-6,net1-7,net1-8,net1-9,net1-10,net1-11,net1-12,net1-13,net1-14,net1-15
+          - name: NCCL_IB_TIMEOUT
+            value: "100"
+          # NVSHMEM configuration - optimized for stability
+          - name: NVSHMEM_REMOTE_TRANSPORT
+            value: ucx
+          - name: NVSHMEM_BOOTSTRAP_TWO_STAGE
+            value: "1"
+          - name: NVSHMEM_BOOTSTRAP_TIMEOUT
+            value: "300"
+          - name: NVSHMEM_BOOTSTRAP_UID_SOCK_IFNAME
+            value: net1-0,net1-1,net1-2,net1-3,net1-4,net1-5,net1-6,net1-7,net1-8,net1-9,net1-10,net1-11,net1-12,net1-13,net1-14,net1-15
+          - name: NVSHMEM_IB_GID_INDEX
+            value: "3"
+          - name: NVSHMEM_ENABLE_NIC_PE_MAPPING
+            value: "1"
+          - name: NVSHMEM_DEBUG
+            value: WARN
+          # UCX configuration for NVSHMEM
+          - name: UCX_TLS
+            value: "rc,sm,cuda_copy,cuda_ipc"
+          - name: UCX_IB_GID_INDEX
+            value: "3"
+          - name: UCX_RC_MLX5_TM_ENABLE
+            value: "n"
+          - name: UCX_UD_MLX5_RX_QUEUE_LEN
+            value: "1024"
+        resources:
+          limits:
+            cpu: 128
+            ephemeral-storage: 64Gi
+            memory: 512Gi
+            nvidia.com/gpu: "8"
+            rdma/roce_gdr: 8
+          requests:
+            cpu: 64
+            ephemeral-storage: 32Gi
+            memory: 256Gi
+            nvidia.com/gpu: "8"
+            rdma/roce_gdr: 8
+        volumeMounts:
+          - mountPath: /sys/class/infiniband
+            name: infiniband-devices
+            readOnly: true
+          - mountPath: /sys/devices
+            name: sys-devices
+            readOnly: true
+          - mountPath: /dev/infiniband
+            name: dev-infiniband
+          - mountPath: /sys/class/net
+            name: sys-class-net
+            readOnly: true
+          - mountPath: /proc/driver/nvidia
+            name: proc-driver-nvidia
+            readOnly: true
+    volumes:
+      - name: infiniband-devices
+        hostPath:
+          path: /sys/class/infiniband
+          type: Directory
+      - name: sys-devices
+        hostPath:
+          path: /sys/devices
+          type: Directory
+      - name: dev-infiniband
+        hostPath:
+          path: /dev/infiniband
+          type: Directory
+      - name: sys-class-net
+        hostPath:
+          path: /sys/class/net
+          type: Directory
+      - name: proc-driver-nvidia
+        hostPath:
+          path: /proc/driver/nvidia
+          type: Directory
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: qwen3-coder-30b-a3b-instruct-kserve-multi-node-scc
+  labels:
+    app.kubernetes.io/name: qwen3-coder-30b-a3b-instruct
+    app.kubernetes.io/part-of: llminferenceservice
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: openshift-ai-llminferenceservice-multi-node-scc
+subjects:
+- kind: ServiceAccount
+  name: qwen3-coder-30b-a3b-instruct-kserve-mn
+- kind: ServiceAccount
+  name: qwen3-coder-30b-a3b-instruct-kserve-mn-prefill

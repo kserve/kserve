@@ -158,7 +158,7 @@ type PodSpec struct {
 	// If not specified, the pod's hostname will be set to a system-defined value.
 	// +optional
 	Hostname string `json:"hostname,omitempty" protobuf:"bytes,16,opt,name=hostname"`
-	// If specified, the fully qualified Pod hostname will be "<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>".
+	// If specified, the fully qualified Pod hostname will be "&lt;hostname&gt;.&lt;subdomain&gt;.&lt;pod namespace&gt;.svc.&lt;cluster domain&gt;".
 	// If not specified, the pod will not have a domainname at all.
 	// +optional
 	Subdomain string `json:"subdomain,omitempty" protobuf:"bytes,17,opt,name=subdomain"`

@@ -47,24 +47,50 @@ class V1beta1AutoScalingSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'behavior': 'K8sIoApiAutoscalingV2HorizontalPodAutoscalerBehavior',
         'metrics': 'list[V1beta1MetricsSpec]'
     }
 
     attribute_map = {
+        'behavior': 'behavior',
         'metrics': 'metrics'
     }
 
-    def __init__(self, metrics=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, behavior=None, metrics=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1AutoScalingSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._behavior = None
         self._metrics = None
         self.discriminator = None
 
+        if behavior is not None:
+            self.behavior = behavior
         if metrics is not None:
             self.metrics = metrics
+
+    @property
+    def behavior(self):
+        """Gets the behavior of this V1beta1AutoScalingSpec.  # noqa: E501
+
+
+        :return: The behavior of this V1beta1AutoScalingSpec.  # noqa: E501
+        :rtype: K8sIoApiAutoscalingV2HorizontalPodAutoscalerBehavior
+        """
+        return self._behavior
+
+    @behavior.setter
+    def behavior(self, behavior):
+        """Sets the behavior of this V1beta1AutoScalingSpec.
+
+
+        :param behavior: The behavior of this V1beta1AutoScalingSpec.  # noqa: E501
+        :type: K8sIoApiAutoscalingV2HorizontalPodAutoscalerBehavior
+        """
+
+        self._behavior = behavior
 
     @property
     def metrics(self):

@@ -95,6 +95,7 @@ class V1beta1TransformerSpec(object):
         'service_account_name': 'str',
         'set_hostname_as_fqdn': 'bool',
         'share_process_namespace': 'bool',
+        'storage_uris': 'list[V1beta1StorageUri]',
         'subdomain': 'str',
         'termination_grace_period_seconds': 'int',
         'timeout': 'int',
@@ -152,6 +153,7 @@ class V1beta1TransformerSpec(object):
         'service_account_name': 'serviceAccountName',
         'set_hostname_as_fqdn': 'setHostnameAsFQDN',
         'share_process_namespace': 'shareProcessNamespace',
+        'storage_uris': 'storageUris',
         'subdomain': 'subdomain',
         'termination_grace_period_seconds': 'terminationGracePeriodSeconds',
         'timeout': 'timeout',
@@ -160,7 +162,7 @@ class V1beta1TransformerSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, storage_uris=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1TransformerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -214,6 +216,7 @@ class V1beta1TransformerSpec(object):
         self._service_account_name = None
         self._set_hostname_as_fqdn = None
         self._share_process_namespace = None
+        self._storage_uris = None
         self._subdomain = None
         self._termination_grace_period_seconds = None
         self._timeout = None
@@ -318,6 +321,8 @@ class V1beta1TransformerSpec(object):
             self.set_hostname_as_fqdn = set_hostname_as_fqdn
         if share_process_namespace is not None:
             self.share_process_namespace = share_process_namespace
+        if storage_uris is not None:
+            self.storage_uris = storage_uris
         if subdomain is not None:
             self.subdomain = subdomain
         if termination_grace_period_seconds is not None:
@@ -1418,10 +1423,33 @@ class V1beta1TransformerSpec(object):
         self._share_process_namespace = share_process_namespace
 
     @property
+    def storage_uris(self):
+        """Gets the storage_uris of this V1beta1TransformerSpec.  # noqa: E501
+
+        Spec for multiple storage uris.  # noqa: E501
+
+        :return: The storage_uris of this V1beta1TransformerSpec.  # noqa: E501
+        :rtype: list[V1beta1StorageUri]
+        """
+        return self._storage_uris
+
+    @storage_uris.setter
+    def storage_uris(self, storage_uris):
+        """Sets the storage_uris of this V1beta1TransformerSpec.
+
+        Spec for multiple storage uris.  # noqa: E501
+
+        :param storage_uris: The storage_uris of this V1beta1TransformerSpec.  # noqa: E501
+        :type: list[V1beta1StorageUri]
+        """
+
+        self._storage_uris = storage_uris
+
+    @property
     def subdomain(self):
         """Gets the subdomain of this V1beta1TransformerSpec.  # noqa: E501
 
-        If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.  # noqa: E501
+        If specified, the fully qualified Pod hostname will be \"&lt;hostname&gt;.&lt;subdomain&gt;.&lt;pod namespace&gt;.svc.&lt;cluster domain&gt;\". If not specified, the pod will not have a domainname at all.  # noqa: E501
 
         :return: The subdomain of this V1beta1TransformerSpec.  # noqa: E501
         :rtype: str
@@ -1432,7 +1460,7 @@ class V1beta1TransformerSpec(object):
     def subdomain(self, subdomain):
         """Sets the subdomain of this V1beta1TransformerSpec.
 
-        If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.  # noqa: E501
+        If specified, the fully qualified Pod hostname will be \"&lt;hostname&gt;.&lt;subdomain&gt;.&lt;pod namespace&gt;.svc.&lt;cluster domain&gt;\". If not specified, the pod will not have a domainname at all.  # noqa: E501
 
         :param subdomain: The subdomain of this V1beta1TransformerSpec.  # noqa: E501
         :type: str

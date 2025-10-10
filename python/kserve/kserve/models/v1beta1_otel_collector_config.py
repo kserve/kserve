@@ -49,16 +49,18 @@ class V1beta1OtelCollectorConfig(object):
     openapi_types = {
         'metric_receiver_endpoint': 'str',
         'metric_scaler_endpoint': 'str',
+        'resource': 'V1beta1ResourceConfig',
         'scrape_interval': 'str'
     }
 
     attribute_map = {
         'metric_receiver_endpoint': 'metricReceiverEndpoint',
         'metric_scaler_endpoint': 'metricScalerEndpoint',
+        'resource': 'resource',
         'scrape_interval': 'scrapeInterval'
     }
 
-    def __init__(self, metric_receiver_endpoint=None, metric_scaler_endpoint=None, scrape_interval=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, metric_receiver_endpoint=None, metric_scaler_endpoint=None, resource=None, scrape_interval=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1OtelCollectorConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -66,6 +68,7 @@ class V1beta1OtelCollectorConfig(object):
 
         self._metric_receiver_endpoint = None
         self._metric_scaler_endpoint = None
+        self._resource = None
         self._scrape_interval = None
         self.discriminator = None
 
@@ -73,6 +76,8 @@ class V1beta1OtelCollectorConfig(object):
             self.metric_receiver_endpoint = metric_receiver_endpoint
         if metric_scaler_endpoint is not None:
             self.metric_scaler_endpoint = metric_scaler_endpoint
+        if resource is not None:
+            self.resource = resource
         if scrape_interval is not None:
             self.scrape_interval = scrape_interval
 
@@ -117,6 +122,27 @@ class V1beta1OtelCollectorConfig(object):
         """
 
         self._metric_scaler_endpoint = metric_scaler_endpoint
+
+    @property
+    def resource(self):
+        """Gets the resource of this V1beta1OtelCollectorConfig.  # noqa: E501
+
+
+        :return: The resource of this V1beta1OtelCollectorConfig.  # noqa: E501
+        :rtype: V1beta1ResourceConfig
+        """
+        return self._resource
+
+    @resource.setter
+    def resource(self, resource):
+        """Sets the resource of this V1beta1OtelCollectorConfig.
+
+
+        :param resource: The resource of this V1beta1OtelCollectorConfig.  # noqa: E501
+        :type: V1beta1ResourceConfig
+        """
+
+        self._resource = resource
 
     @property
     def scrape_interval(self):

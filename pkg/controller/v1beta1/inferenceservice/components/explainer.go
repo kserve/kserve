@@ -31,12 +31,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
 
 var _ Component = &Explainer{}
@@ -71,15 +74,19 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(e.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
 	})
-	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
+
+	sourceURI := explainer.GetStorageUri()
+
+	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
-	if sourceURI := explainer.GetStorageUri(); sourceURI != nil {
+	if sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
 		err := isvcutils.ValidateStorageURI(ctx, sourceURI, e.client)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
 		}
 	}
+
 	addLoggerAnnotations(isvc.Spec.Explainer.Logger, annotations)
 
 	explainerName := constants.ExplainerServiceName(isvc.Name)
@@ -123,7 +130,7 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	podSpec := corev1.PodSpec(isvc.Spec.Explainer.PodSpec)
 
 	// Here we allow switch between knative and vanilla deployment
-	if e.deploymentMode == constants.RawDeployment {
+	if e.deploymentMode == constants.Standard {
 		if err := e.reconcileExplainerRawDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -151,8 +158,34 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 }
 
 func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta *metav1.ObjectMeta, podSpec *corev1.PodSpec) error {
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, e.clientset)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get InferenceService ConfigMap")
+	}
+
+	storageInitializerConfig, err := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get StorageInitializer config")
+	}
+
+	modelStorageSpec := isvc.Spec.Predictor.GetImplementation().GetStorageSpec()
+	credentialBuilder := credentials.NewCredentialBuilder(e.client, e.clientset, isvcConfigMap)
+
+	var storageContainerSpec *v1alpha1.StorageContainerSpec
+	if len(isvc.Spec.Explainer.StorageUris) > 0 {
+		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Spec.Explainer.StorageUris[0].Uri, e.client)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get storage container spec")
+		}
+	}
+
+	var storageSpec *v1beta1.StorageSpec
+	if modelStorageSpec != nil {
+		storageSpec = &modelStorageSpec.StorageSpec
+	}
+
 	r, err := raw.NewRawKubeReconciler(ctx, e.client, e.clientset, e.scheme, *objectMeta, metav1.ObjectMeta{},
-		&isvc.Spec.Explainer.ComponentExtensionSpec, podSpec, nil)
+		&isvc.Spec.Explainer.ComponentExtensionSpec, podSpec, nil, &isvc.Spec.Explainer.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec)
 	if err != nil {
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for explainer")
 	}
@@ -184,8 +217,34 @@ func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v
 }
 
 func (e *Explainer) reconcileExplainerKnativeDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta *metav1.ObjectMeta, podSpec *corev1.PodSpec) error {
-	r := knative.NewKsvcReconciler(e.client, e.scheme, *objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
-		podSpec, isvc.Status.Components[v1beta1.ExplainerComponent], e.inferenceServiceConfig.ServiceLabelDisallowedList)
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, e.clientset)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get InferenceService ConfigMap")
+	}
+
+	storageInitializerConfig, err := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get StorageInitializer config")
+	}
+
+	modelStorageSpec := isvc.Spec.Predictor.GetImplementation().GetStorageSpec()
+	credentialBuilder := credentials.NewCredentialBuilder(e.client, e.clientset, isvcConfigMap)
+
+	var storageContainerSpec *v1alpha1.StorageContainerSpec
+	if len(isvc.Spec.Explainer.StorageUris) > 0 {
+		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Spec.Explainer.StorageUris[0].Uri, e.client)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get storage container spec")
+		}
+	}
+
+	var storageSpec *v1beta1.StorageSpec
+	if modelStorageSpec != nil {
+		storageSpec = &modelStorageSpec.StorageSpec
+	}
+
+	r := knative.NewKsvcReconciler(ctx, e.client, e.scheme, *objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
+		podSpec, isvc.Status.Components[v1beta1.ExplainerComponent], e.inferenceServiceConfig.ServiceLabelDisallowedList, &isvc.Spec.Explainer.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec)
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, e.scheme); err != nil {
 		return errors.Wrapf(err, "fails to set owner reference for explainer")

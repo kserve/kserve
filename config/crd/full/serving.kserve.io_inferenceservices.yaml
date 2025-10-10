@@ -1193,6 +1193,73 @@ spec:
                       type: object
                     autoScaling:
                       properties:
+                        behavior:
+                          properties:
+                            scaleDown:
+                              properties:
+                                policies:
+                                  items:
+                                    properties:
+                                      periodSeconds:
+                                        format: int32
+                                        type: integer
+                                      type:
+                                        type: string
+                                      value:
+                                        format: int32
+                                        type: integer
+                                    required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                selectPolicy:
+                                  type: string
+                                stabilizationWindowSeconds:
+                                  format: int32
+                                  type: integer
+                                tolerance:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                            scaleUp:
+                              properties:
+                                policies:
+                                  items:
+                                    properties:
+                                      periodSeconds:
+                                        format: int32
+                                        type: integer
+                                      type:
+                                        type: string
+                                      value:
+                                        format: int32
+                                        type: integer
+                                    required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                selectPolicy:
+                                  type: string
+                                stabilizationWindowSeconds:
+                                  format: int32
+                                  type: integer
+                                tolerance:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                          type: object
                         metrics:
                           items:
                             properties:
@@ -3050,6 +3117,23 @@ spec:
                       type: boolean
                     shareProcessNamespace:
                       type: boolean
+                    storageUris:
+                      items:
+                        properties:
+                          mountPath:
+                            default: /mnt/models
+                            maxLength: 255
+                            pattern: ^/.*
+                            type: string
+                          uri:
+                            minLength: 1
+                            type: string
+                        required:
+                          - uri
+                        type: object
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: atomic
                     subdomain:
                       type: string
                     terminationGracePeriodSeconds:
@@ -4364,6 +4448,73 @@ spec:
                       type: object
                     autoScaling:
                       properties:
+                        behavior:
+                          properties:
+                            scaleDown:
+                              properties:
+                                policies:
+                                  items:
+                                    properties:
+                                      periodSeconds:
+                                        format: int32
+                                        type: integer
+                                      type:
+                                        type: string
+                                      value:
+                                        format: int32
+                                        type: integer
+                                    required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                selectPolicy:
+                                  type: string
+                                stabilizationWindowSeconds:
+                                  format: int32
+                                  type: integer
+                                tolerance:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                            scaleUp:
+                              properties:
+                                policies:
+                                  items:
+                                    properties:
+                                      periodSeconds:
+                                        format: int32
+                                        type: integer
+                                      type:
+                                        type: string
+                                      value:
+                                        format: int32
+                                        type: integer
+                                    required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                selectPolicy:
+                                  type: string
+                                stabilizationWindowSeconds:
+                                  format: int32
+                                  type: integer
+                                tolerance:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                          type: object
                         metrics:
                           items:
                             properties:
@@ -11744,6 +11895,23 @@ spec:
                         workingDir:
                           type: string
                       type: object
+                    storageUris:
+                      items:
+                        properties:
+                          mountPath:
+                            default: /mnt/models
+                            maxLength: 255
+                            pattern: ^/.*
+                            type: string
+                          uri:
+                            minLength: 1
+                            type: string
+                        required:
+                          - uri
+                        type: object
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: atomic
                     subdomain:
                       type: string
                     tensorflow:
@@ -18736,6 +18904,73 @@ spec:
                       type: object
                     autoScaling:
                       properties:
+                        behavior:
+                          properties:
+                            scaleDown:
+                              properties:
+                                policies:
+                                  items:
+                                    properties:
+                                      periodSeconds:
+                                        format: int32
+                                        type: integer
+                                      type:
+                                        type: string
+                                      value:
+                                        format: int32
+                                        type: integer
+                                    required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                selectPolicy:
+                                  type: string
+                                stabilizationWindowSeconds:
+                                  format: int32
+                                  type: integer
+                                tolerance:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                            scaleUp:
+                              properties:
+                                policies:
+                                  items:
+                                    properties:
+                                      periodSeconds:
+                                        format: int32
+                                        type: integer
+                                      type:
+                                        type: string
+                                      value:
+                                        format: int32
+                                        type: integer
+                                    required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                selectPolicy:
+                                  type: string
+                                stabilizationWindowSeconds:
+                                  format: int32
+                                  type: integer
+                                tolerance:
+                                  anyOf:
+                                    - type: integer
+                                    - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              type: object
+                          type: object
                         metrics:
                           items:
                             properties:
@@ -20593,6 +20828,23 @@ spec:
                       type: boolean
                     shareProcessNamespace:
                       type: boolean
+                    storageUris:
+                      items:
+                        properties:
+                          mountPath:
+                            default: /mnt/models
+                            maxLength: 255
+                            pattern: ^/.*
+                            type: string
+                          uri:
+                            minLength: 1
+                            type: string
+                        required:
+                          - uri
+                        type: object
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: atomic
                     subdomain:
                       type: string
                     terminationGracePeriodSeconds:

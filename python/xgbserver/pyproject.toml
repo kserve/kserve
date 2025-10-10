@@ -5,11 +5,12 @@ authors = [
 license = {text = "Apache-2.0"}
 requires-python = "<3.13,>=3.9"
 dependencies = [
-    "kserve[storage] @ file:///${PROJECT_ROOT}/../kserve",
+    "kserve @ file:///${PROJECT_ROOT}/../kserve",
+    "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
     "xgboost~=2.1.1",
 ]
 name = "xgbserver"
-version = "0.15.2"
+version = "0.16.0rc0"
 description = "Model Server implementation for XGBoost. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 

@@ -152,8 +152,21 @@ func TestCreateAutoscaler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			meta := baseMeta
 			meta.Annotations = tt.annotations
-			// Use nils for client, scheme, configMap as we only test type selection logic
-			as, err := createAutoscaler(nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, nil)
+
+			// Provide a dummy configMap for keda autoscalerClass to avoid nil pointer panic
+			var configMap *corev1.ConfigMap
+			if tt.annotations["serving.kserve.io/autoscalerClass"] == "keda" {
+				configMap = &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "dummy-config",
+						Namespace: "default",
+					},
+					Data: map[string]string{},
+				}
+			}
+
+			// Use nils for client, scheme as we only test type selection logic
+			as, err := createAutoscaler(nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, configMap)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("createAutoscaler() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -231,7 +244,20 @@ func TestNewAutoscalerReconciler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			meta := baseMeta
 			meta.Annotations = tt.annotations
-			ar, err := NewAutoscalerReconciler(nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, nil)
+
+			// Provide a dummy configMap for keda autoscalerClass to avoid nil pointer panic
+			var configMap *corev1.ConfigMap
+			if tt.annotations["serving.kserve.io/autoscalerClass"] == "keda" {
+				configMap = &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "dummy-config",
+						Namespace: "default",
+					},
+					Data: map[string]string{},
+				}
+			}
+
+			ar, err := NewAutoscalerReconciler(nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, configMap)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewAutoscalerReconciler() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -307,5 +333,75 @@ func TestAutoscalerReconciler_Reconcile(t *testing.T) {
 				t.Errorf("Expected Reconcile to be called on Autoscaler")
 			}
 		})
+	}
+}
+
+func TestNoOpAutoscaler(t *testing.T) {
+	noOp := &NoOpAutoscaler{}
+
+	// Test Reconcile method
+	err := noOp.Reconcile(t.Context())
+	if err != nil {
+		t.Errorf("NoOpAutoscaler.Reconcile() should not return error, got: %v", err)
+	}
+
+	// Test SetControllerReferences method
+	err = noOp.SetControllerReferences(nil, nil)
+	if err != nil {
+		t.Errorf("NoOpAutoscaler.SetControllerReferences() should not return error, got: %v", err)
+	}
+}
+
+func TestExternalAutoscalerWithNilComponentExt(t *testing.T) {
+	serviceName := "my-model"
+	namespace := "test"
+	meta := metav1.ObjectMeta{
+		Name:        serviceName,
+		Namespace:   namespace,
+		Annotations: map[string]string{"serving.kserve.io/autoscalerClass": "external"},
+	}
+
+	// Test with nil componentExt - this should not panic
+	as, err := createAutoscaler(nil, nil, meta, nil, nil)
+	if err != nil {
+		t.Errorf("createAutoscaler() with nil componentExt should not error for external class, got: %v", err)
+	}
+
+	if as == nil {
+		t.Errorf("Expected HPAReconciler, got nil")
+		return
+	}
+
+	gotType := fmt.Sprintf("%T", as)
+	expectedType := "*hpa.HPAReconciler"
+	if gotType != expectedType {
+		t.Errorf("Expected autoscaler type %s, got %s", expectedType, gotType)
+	}
+}
+
+func TestNoneAutoscalerWithNilComponentExt(t *testing.T) {
+	serviceName := "my-model"
+	namespace := "test"
+	meta := metav1.ObjectMeta{
+		Name:        serviceName,
+		Namespace:   namespace,
+		Annotations: map[string]string{"serving.kserve.io/autoscalerClass": "none"},
+	}
+
+	// Test with nil componentExt - this should not panic
+	as, err := createAutoscaler(nil, nil, meta, nil, nil)
+	if err != nil {
+		t.Errorf("createAutoscaler() with nil componentExt should not error for none class, got: %v", err)
+	}
+
+	if as == nil {
+		t.Errorf("Expected HPAReconciler, got nil")
+		return
+	}
+
+	gotType := fmt.Sprintf("%T", as)
+	expectedType := "*hpa.HPAReconciler"
+	if gotType != expectedType {
+		t.Errorf("Expected autoscaler type %s, got %s", expectedType, gotType)
 	}
 }

@@ -77,7 +77,7 @@ class V1alpha1ModelSpec(object):
     def framework(self):
         """Gets the framework of this V1alpha1ModelSpec.  # noqa: E501
 
-        Machine Learning <framework name> The values could be: \"tensorflow\",\"pytorch\",\"sklearn\",\"onnx\",\"xgboost\", \"myawesomeinternalframework\" etc.  # noqa: E501
+        Machine Learning &lt;framework name&gt; The values could be: \"tensorflow\",\"pytorch\",\"sklearn\",\"onnx\",\"xgboost\", \"myawesomeinternalframework\" etc.  # noqa: E501
 
         :return: The framework of this V1alpha1ModelSpec.  # noqa: E501
         :rtype: str
@@ -88,7 +88,7 @@ class V1alpha1ModelSpec(object):
     def framework(self, framework):
         """Sets the framework of this V1alpha1ModelSpec.
 
-        Machine Learning <framework name> The values could be: \"tensorflow\",\"pytorch\",\"sklearn\",\"onnx\",\"xgboost\", \"myawesomeinternalframework\" etc.  # noqa: E501
+        Machine Learning &lt;framework name&gt; The values could be: \"tensorflow\",\"pytorch\",\"sklearn\",\"onnx\",\"xgboost\", \"myawesomeinternalframework\" etc.  # noqa: E501
 
         :param framework: The framework of this V1alpha1ModelSpec.  # noqa: E501
         :type: str

@@ -1,0 +1,30 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: facebook-opt-125m-single
+spec:
+  model:
+    uri: hf://facebook/opt-125m
+    name: facebook/opt-125m
+  replicas: 1
+  router:
+    route: { }
+  template:
+    containers:
+      - name: main
+        image: quay.io/pierdipi/vllm-cpu:latest
+        env:
+          - name: VLLM_LOGGING_LEVEL
+            value: DEBUG
+        resources:
+          limits:
+            cpu: '1'
+            memory: 10Gi
+          requests:
+            cpu: '100m'
+            memory: 8Gi
+        livenessProbe:
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 30
+          failureThreshold: 5

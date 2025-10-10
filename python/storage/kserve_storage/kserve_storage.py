@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import base64
+from concurrent.futures import ThreadPoolExecutor
 import glob
 import gzip
 import json
@@ -23,13 +24,13 @@ import shutil
 import tarfile
 import tempfile
 import time
+from typing import Optional
 import zipfile
 from pathlib import Path
-from typing import Dict
 from urllib.parse import urlparse
 import requests
 
-from .logging import logger
+from kserve_storage.logging import logger
 
 MODEL_MOUNT_DIRS = "/mnt/models"
 
@@ -58,7 +59,13 @@ _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
 
 class Storage(object):
     @staticmethod
-    def download(uri: str, out_dir: str = None) -> str:
+    def download_files(source_uris: list[str], out_dirs: list[str]) -> list[str]:
+        with ThreadPoolExecutor() as executor:
+            model_dirs = list(executor.map(Storage.download, source_uris, out_dirs))
+        return model_dirs
+
+    @staticmethod
+    def download(uri: str, out_dir: Optional[str] = None) -> str:
         start = time.monotonic()
         Storage._update_with_storage_spec()
         logger.info("Copying contents of %s to local", uri)
@@ -103,8 +110,8 @@ class Storage(object):
                 raise Exception(
                     "Cannot recognize storage type for "
                     + uri
-                    + "\n'%s', '%s', '%s', and '%s' are the current available storage type."
-                    % (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX, _HTTP_PREFIX)
+                    + "\n'%s', '%s', '%s', '%s' and '%s' are the current available storage type."
+                    % (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX, _HTTP_PREFIX, _HF_PREFIX)
                 )
 
         logger.info("Successfully copied %s to %s", uri, out_dir)
@@ -211,19 +218,26 @@ class Storage(object):
             verify_ssl = True
 
         # If verify_ssl is true, then check there is custom ca bundle cert
+        # The CA bundle can be any local file in the container under the path
+        # set in the AWS_CA_BUNDLE environment variable.
+        # It can also be coming from a ConfigMap, in which case the filename
+        # is cabundle.crt.
         if verify_ssl:
             global_ca_bundle_configmap = os.getenv("CA_BUNDLE_CONFIGMAP_NAME")
-            if global_ca_bundle_configmap:
-                isvc_aws_ca_bundle_path = os.getenv("AWS_CA_BUNDLE")
-                if isvc_aws_ca_bundle_path and isvc_aws_ca_bundle_path != "":
-                    ca_bundle_full_path = isvc_aws_ca_bundle_path
-                else:
-                    global_ca_bundle_volume_mount_path = os.getenv(
-                        "CA_BUNDLE_VOLUME_MOUNT_POINT"
-                    )
-                    ca_bundle_full_path = os.path.join(
-                        global_ca_bundle_volume_mount_path, "cabundle.crt"
-                    )
+            isvc_aws_ca_bundle_path = os.getenv("AWS_CA_BUNDLE")
+            ca_bundle_set = False
+            if isvc_aws_ca_bundle_path and isvc_aws_ca_bundle_path != "":
+                ca_bundle_set = True
+                ca_bundle_full_path = isvc_aws_ca_bundle_path
+            elif global_ca_bundle_configmap:
+                ca_bundle_set = True
+                global_ca_bundle_volume_mount_path = os.getenv(
+                    "CA_BUNDLE_VOLUME_MOUNT_POINT"
+                )
+                ca_bundle_full_path = os.path.join(
+                    global_ca_bundle_volume_mount_path, "cabundle.crt"
+                )
+            if ca_bundle_set:
                 if os.path.exists(ca_bundle_full_path):
                     logger.info("ca bundle file(%s) exists." % (ca_bundle_full_path))
                     kwargs.update({"verify": ca_bundle_full_path})
@@ -381,7 +395,7 @@ class Storage(object):
         return temp_dir
 
     @staticmethod
-    def _load_hdfs_configuration() -> Dict:
+    def _load_hdfs_configuration() -> dict:
         config = {
             "HDFS_NAMENODE": None,
             "USER_PROXY": None,
@@ -778,15 +792,14 @@ class Storage(object):
         try:
             logger.info("Unpacking: %s", file_path)
             if mimetype == "application/x-tar":
-                archive = tarfile.open(file_path, "r", encoding="utf-8")
+                with tarfile.open(file_path, "r", encoding="utf-8") as archive:
+                    archive.extractall(target_dir, filter="data")
             else:
-                archive = zipfile.ZipFile(file_path, "r")
-            archive.extractall(target_dir)
-            archive.close()
-        except (tarfile.TarError, zipfile.BadZipfile):
+                with zipfile.ZipFile(file_path, "r") as archive:
+                    archive.extractall(target_dir)
+        except (tarfile.TarError, zipfile.BadZipfile) as e:
             raise RuntimeError(
-                "Failed to unpack archive file. \
-The file format is not valid."
-            )
+                "Failed to unpack archive file. The file format is not valid."
+            ) from e
         os.remove(file_path)
         return target_dir
