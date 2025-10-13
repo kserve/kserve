@@ -8,6 +8,8 @@ NAMESPACE=""
 SELECTED_ISVCS=()
 PRESERVE_FILES="" 
 DRY_RUN="false"
+DELETE_EXISTING="false"
+USE_ORIGINAL_NAMES="false"
 
 # Color codes for better output
 RED='\033[0;31m'
@@ -36,6 +38,9 @@ OPTIONS:
     --dry-run                  Generate transformation files without applying to cluster
                                Files are always preserved when using this option
     
+    --delete-existing          Delete existing InferenceServices and related resources
+                               after successful conversion (cannot be used with --dry-run)
+    
     -h, --help                 Show this help message and exit
 
 EXAMPLES:
@@ -49,16 +54,22 @@ EXAMPLES:
     # Generate files without applying to cluster
     $SCRIPT_NAME --dry-run
     $SCRIPT_NAME --dry-run -n my-models
+    
+    # Convert and delete existing resources after successful conversion
+    $SCRIPT_NAME --delete-existing
+    $SCRIPT_NAME --delete-existing -n my-models
 
 WHAT THIS SCRIPT DOES:
     1. Discovers InferenceServices with 'Serverless' deployment mode
     2. Allows interactive selection of which models to convert
-    3. For each selected InferenceService:
+    3. Prompts user to choose naming convention (original names vs -raw suffix)
+    4. For each selected InferenceService:
        • Exports original InferenceService and ServingRuntime configurations
-       • Creates new '-raw' versions with RawDeployment mode
+       • Creates raw deployment versions with chosen naming convention
        • Handles authentication resources (ServiceAccount, Role, RoleBinding, Secret)
        • Applies all transformed resources to the cluster (unless --dry-run is used)
-    4. Optionally preserves exported files for review
+       • Optionally deletes existing resources after successful conversion
+    5. Optionally preserves exported files for review
 
 PREREQUISITES:
     • OpenShift CLI (oc) - logged into target cluster
@@ -74,8 +85,9 @@ AUTHENTICATION SUPPORT:
 FILE ORGANIZATION:
     When preserving files, they are organized as:
     <inference-service-name>/
-    ├── original/          # Original exported resources
-    └── raw/              # Transformed resources for raw deployment
+    ├── original/              # Original exported resources
+    ├── raw/                   # Transformed resources for raw deployment (with -raw suffix)
+    └── raw-original-names/    # Transformed resources with original names (for in-place replacement)
 
 EXIT CODES:
     0    Success
@@ -149,6 +161,10 @@ parse_arguments() {
                 ;;
             --dry-run)
                 DRY_RUN="true"
+                shift
+                ;;
+            --delete-existing)
+                DELETE_EXISTING="true"
                 shift
                 ;;
             -h|--help)
@@ -239,6 +255,29 @@ validate_namespace() {
     fi
 
     log_info "Namespace validation successful"
+}
+
+# Function to validate arguments
+validate_arguments() {
+    local errors=()
+
+    # Check for conflicting options
+    if [ "$DRY_RUN" == "true" ] && [ "$DELETE_EXISTING" == "true" ]; then
+        errors+=("Cannot use --delete-existing with --dry-run")
+    fi
+
+    # Handle validation errors
+    if [ ${#errors[@]} -ne 0 ]; then
+        log_error "Argument validation failed:"
+        for error in "${errors[@]}"; do
+            echo -e "  ${RED}•${NC} $error"
+        done
+        echo ""
+        echo -e "${YELLOW}Use --help for usage information${NC}"
+        exit 1
+    fi
+
+    log_info "Argument validation successful"
 }
 
 
@@ -423,13 +462,20 @@ collect_preserve_file_response() {
   │   ├── <name>-view-role.yaml         # Original Role (if auth enabled)
   │   ├── <name>-view-rolebinding.yaml  # Original RoleBinding (if auth enabled)
   │   └── <name>-secret.yaml            # Original Secret (if auth enabled)
-  └── raw/
-      ├── <name>-raw-isvc.yaml          # Transformed InferenceService (YAML)
-      ├── <runtime>-raw-sr.yaml         # Transformed ServingRuntime (YAML)
-      ├── <name>-raw-sa.yaml            # Transformed ServiceAccount (if auth enabled)
-      ├── <name>-raw-view-role.yaml     # Transformed Role (if auth enabled)
-      ├── <name>-raw-view-rolebinding.yaml # Transformed RoleBinding (if auth enabled)
-      └── <name>-raw-secret.yaml        # Transformed Secret (if auth enabled)
+  ├── raw/
+  │   ├── <name>-raw-isvc.yaml          # Transformed InferenceService (renamed with -raw)
+  │   ├── <runtime>-raw-sr.yaml         # Transformed ServingRuntime (renamed with -raw)
+  │   ├── <name>-raw-sa.yaml            # Transformed ServiceAccount (renamed with -raw, if auth enabled)
+  │   ├── <name>-raw-view-role.yaml     # Transformed Role (renamed with -raw, if auth enabled)
+  │   ├── <name>-raw-view-rolebinding.yaml # Transformed RoleBinding (renamed with -raw, if auth enabled)
+  │   └── <name>-raw-secret.yaml        # Transformed Secret (renamed with -raw, if auth enabled)
+  └── raw-original-names/
+      ├── <name>-isvc.yaml              # Transformed InferenceService with original name
+      ├── <runtime>-sr.yaml             # Transformed ServingRuntime with original name
+      ├── <name>-sa.yaml                # Transformed ServiceAccount with original name (if auth enabled)
+      ├── <name>-view-role.yaml         # Transformed Role with original name (if auth enabled)
+      ├── <name>-view-rolebinding.yaml  # Transformed RoleBinding with original name (if auth enabled)
+      └── <name>-secret.yaml            # Transformed Secret with original name (if auth enabled)
 EOF
         echo ""
         return 0
@@ -447,13 +493,20 @@ EOF
   │   ├── <name>-view-role.yaml         # Original Role (if auth enabled)
   │   ├── <name>-view-rolebinding.yaml  # Original RoleBinding (if auth enabled)
   │   └── <name>-secret.yaml            # Original Secret (if auth enabled)
-  └── raw/
-      ├── <name>-raw-isvc.yaml          # Transformed InferenceService (YAML)
-      ├── <runtime>-raw-sr.yaml         # Transformed ServingRuntime (YAML)
-      ├── <name>-raw-sa.yaml            # Transformed ServiceAccount (if auth enabled)
-      ├── <name>-raw-view-role.yaml     # Transformed Role (if auth enabled)
-      ├── <name>-raw-view-rolebinding.yaml # Transformed RoleBinding (if auth enabled)
-      └── <name>-raw-secret.yaml        # Transformed Secret (if auth enabled)
+  ├── raw/
+  │   ├── <name>-raw-isvc.yaml          # Transformed InferenceService (renamed with -raw)
+  │   ├── <runtime>-raw-sr.yaml         # Transformed ServingRuntime (renamed with -raw)
+  │   ├── <name>-raw-sa.yaml            # Transformed ServiceAccount (renamed with -raw, if auth enabled)
+  │   ├── <name>-raw-view-role.yaml     # Transformed Role (renamed with -raw, if auth enabled)
+  │   ├── <name>-raw-view-rolebinding.yaml # Transformed RoleBinding (renamed with -raw, if auth enabled)
+  │   └── <name>-raw-secret.yaml        # Transformed Secret (renamed with -raw, if auth enabled)
+  └── raw-original-names/
+      ├── <name>-isvc.yaml              # Transformed InferenceService with original name
+      ├── <runtime>-sr.yaml             # Transformed ServingRuntime with original name
+      ├── <name>-sa.yaml                # Transformed ServiceAccount with original name (if auth enabled)
+      ├── <name>-view-role.yaml         # Transformed Role with original name (if auth enabled)
+      ├── <name>-view-rolebinding.yaml  # Transformed RoleBinding with original name (if auth enabled)
+      └── <name>-secret.yaml            # Transformed Secret with original name (if auth enabled)
 EOF
     echo ""
 
@@ -482,6 +535,255 @@ EOF
     esac
 }
 
+# Function to collect naming preference
+collect_naming_preference() {
+    echo ""
+    echo "🏷️  Resource Naming Options:"
+    echo "================================"
+    echo ""
+    echo "Choose how you want to name the converted resources:"
+    echo ""
+    echo "1) Use original names (for in-place replacement)"
+    echo "   - Replaces existing resources with same names"
+    echo "   - Example: 'my-model' stays 'my-model'"
+    echo ""
+    echo "2) Use -raw suffix (for side-by-side deployment)"
+    echo "   - Creates new resources alongside existing ones"
+    echo "   - Example: 'my-model' becomes 'my-model-raw'"
+    echo ""
+    
+    if [ "$DELETE_EXISTING" == "true" ]; then
+        echo -e "${YELLOW}⚠️  Note: --delete-existing flag is set. Original resources will be deleted after conversion.${NC}"
+        echo ""
+    fi
+    
+    local naming_choice=""
+    while true; do
+        read -p "Enter your choice (1 or 2): " naming_choice
+        case "$naming_choice" in
+            1)
+                echo ""
+                echo -e "${RED}⚠️  WARNING: IN-PLACE REPLACEMENT MODE${NC}"
+                echo -e "${RED}=================================${NC}"
+                echo ""
+                echo -e "${YELLOW}You have chosen to use original names. This means:${NC}"
+                echo ""
+                echo -e "${RED}• The converted resources will REPLACE the existing ones${NC}"
+                echo -e "${RED}• You MUST delete all existing resources associated with the original InferenceService${NC}"
+                echo -e "${RED}• There is NO TURNING BACK once the original resources are deleted${NC}"
+                echo -e "${RED}• If conversion fails, you may lose your original configuration${NC}"
+                echo ""
+                echo -e "${YELLOW}Recommendations:${NC}"
+                echo "• Use --dry-run first to test the conversion"
+                echo "• Backup your resources: oc get isvc,servingruntimes,sa,roles,rolebindings,secrets -n <namespace> -o yaml > backup.yaml"
+                echo "• Consider using --delete-existing flag to automate cleanup after successful conversion"
+                echo ""
+                
+                local confirm_choice=""
+                while true; do
+                    read -p "Are you sure you want to proceed with in-place replacement? (yes/no): " confirm_choice
+                    case "$confirm_choice" in
+                        yes|YES)
+                            USE_ORIGINAL_NAMES="true"
+                            log_info "Selected: Use original names (in-place replacement) - CONFIRMED"
+                            break 2
+                            ;;
+                        no|NO)
+                            echo ""
+                            echo -e "${GREEN}Returning to naming options...${NC}"
+                            echo ""
+                            break
+                            ;;
+                        *)
+                            echo -e "${RED}Please enter 'yes' or 'no'${NC}"
+                            ;;
+                    esac
+                done
+                ;;
+            2)
+                USE_ORIGINAL_NAMES="false"
+                log_info "Selected: Use -raw suffix (side-by-side deployment)"
+                break
+                ;;
+            *)
+                echo -e "${RED}Invalid choice. Please enter 1 or 2.${NC}"
+                ;;
+        esac
+    done
+    echo ""
+}
+
+# Function to delete existing resources
+delete_existing_resources() {
+    local name="$1"
+    
+    log_step "Deleting existing resources for InferenceService: $name"
+    
+    # Get the UID of the original InferenceService for finding owned resources BEFORE deleting it
+    local original_isvc_uid=$(oc get isvc -n "$NAMESPACE" "$name" -o yaml 2>/dev/null | yq eval '.metadata.uid // ""' -)
+    
+    # Delete InferenceService
+    if oc get isvc -n "$NAMESPACE" "$name" &>/dev/null; then
+        log_info "Deleting InferenceService: $name"
+        oc delete isvc -n "$NAMESPACE" "$name" --ignore-not-found=true
+    fi
+    
+    if [ -n "$original_isvc_uid" ] && [ "$original_isvc_uid" != "null" ]; then
+        # Find and delete owned resources
+        log_info "Looking for resources owned by InferenceService $name..."
+        
+        # Delete ServiceAccount
+        local sa_name=$(oc get serviceaccounts -n "$NAMESPACE" -o yaml 2>/dev/null | yq eval ".items[] | select(.metadata.ownerReferences[]?.uid == \"$original_isvc_uid\") | .metadata.name" -)
+        if [ -n "$sa_name" ] && [ "$sa_name" != "null" ]; then
+            log_info "Deleting ServiceAccount: $sa_name"
+            oc delete serviceaccount -n "$NAMESPACE" "$sa_name" --ignore-not-found=true
+        fi
+        
+        # Delete Role
+        local role_name=$(oc get roles -n "$NAMESPACE" -o yaml 2>/dev/null | yq eval ".items[] | select(.metadata.ownerReferences[]?.uid == \"$original_isvc_uid\") | .metadata.name" -)
+        if [ -n "$role_name" ] && [ "$role_name" != "null" ]; then
+            log_info "Deleting Role: $role_name"
+            oc delete role -n "$NAMESPACE" "$role_name" --ignore-not-found=true
+        fi
+        
+        # Delete RoleBinding
+        local rolebinding_name=$(oc get rolebindings -n "$NAMESPACE" -o yaml 2>/dev/null | yq eval ".items[] | select(.metadata.ownerReferences[]?.uid == \"$original_isvc_uid\") | .metadata.name" -)
+        if [ -n "$rolebinding_name" ] && [ "$rolebinding_name" != "null" ]; then
+            log_info "Deleting RoleBinding: $rolebinding_name"
+            oc delete rolebinding -n "$NAMESPACE" "$rolebinding_name" --ignore-not-found=true
+        fi
+        
+        # Delete Secrets associated with the service account
+        if [ -n "$sa_name" ] && [ "$sa_name" != "null" ]; then
+            local secret_names=$(oc get secrets -n "$NAMESPACE" -o json 2>/dev/null | jq -r --arg sa_name "$sa_name" '.items[] | select(.metadata.annotations."kubernetes.io/service-account.name" == $sa_name) | .metadata.name')
+            if [ -n "$secret_names" ]; then
+                echo "$secret_names" | while read -r secret_name; do
+                    if [ -n "$secret_name" ]; then
+                        log_info "Deleting Secret: $secret_name"
+                        oc delete secret -n "$NAMESPACE" "$secret_name" --ignore-not-found=true
+                    fi
+                done
+            fi
+        fi
+    fi
+    
+    # Delete Route in istio-system namespace (created by Istio/Knative for the original InferenceService)
+    local istio_route_name="${name}-${NAMESPACE}"
+    if oc get route -n "istio-system" "$istio_route_name" &>/dev/null; then
+        log_info "Deleting Route in istio-system: $istio_route_name"
+        oc delete route -n "istio-system" "$istio_route_name" --ignore-not-found=true
+    else
+        log_info "No Route found in istio-system for $istio_route_name"
+    fi
+    
+    # Verify all resources are deleted before proceeding
+    log_step "Verifying deletion of resources for $name..."
+    
+    local max_wait=60  # Maximum wait time in seconds
+    local wait_interval=2  # Check every 2 seconds
+    local elapsed=0
+    
+    while [ $elapsed -lt $max_wait ]; do
+        local all_deleted=true
+        
+        # Check if InferenceService still exists
+        if oc get isvc -n "$NAMESPACE" "$name" &>/dev/null; then
+            all_deleted=false
+            log_info "Waiting for InferenceService $name to be deleted... ($elapsed/${max_wait}s)"
+        fi
+        
+        # Check if Route in istio-system still exists
+        local istio_route_name="${name}-${NAMESPACE}"
+        if oc get route -n "istio-system" "$istio_route_name" &>/dev/null; then
+            all_deleted=false
+            log_info "Waiting for Route $istio_route_name in istio-system to be deleted... ($elapsed/${max_wait}s)"
+        fi
+        
+        # Check if owned resources still exist (if we had the UID)
+        if [ -n "$original_isvc_uid" ] && [ "$original_isvc_uid" != "null" ]; then
+            # Check ServiceAccount
+            local remaining_sa=$(oc get serviceaccounts -n "$NAMESPACE" -o yaml 2>/dev/null | yq eval ".items[] | select(.metadata.ownerReferences[]?.uid == \"$original_isvc_uid\") | .metadata.name" - 2>/dev/null)
+            if [ -n "$remaining_sa" ] && [ "$remaining_sa" != "null" ]; then
+                all_deleted=false
+                log_info "Waiting for ServiceAccount $remaining_sa to be deleted... ($elapsed/${max_wait}s)"
+            fi
+            
+            # Check Role
+            local remaining_role=$(oc get roles -n "$NAMESPACE" -o yaml 2>/dev/null | yq eval ".items[] | select(.metadata.ownerReferences[]?.uid == \"$original_isvc_uid\") | .metadata.name" - 2>/dev/null)
+            if [ -n "$remaining_role" ] && [ "$remaining_role" != "null" ]; then
+                all_deleted=false
+                log_info "Waiting for Role $remaining_role to be deleted... ($elapsed/${max_wait}s)"
+            fi
+            
+            # Check RoleBinding
+            local remaining_rb=$(oc get rolebindings -n "$NAMESPACE" -o yaml 2>/dev/null | yq eval ".items[] | select(.metadata.ownerReferences[]?.uid == \"$original_isvc_uid\") | .metadata.name" - 2>/dev/null)
+            if [ -n "$remaining_rb" ] && [ "$remaining_rb" != "null" ]; then
+                all_deleted=false
+                log_info "Waiting for RoleBinding $remaining_rb to be deleted... ($elapsed/${max_wait}s)"
+            fi
+        fi
+        
+        # If all resources are deleted, break out of the loop
+        if [ "$all_deleted" = true ]; then
+            log_info "✅ All resources successfully deleted for $name"
+            break
+        fi
+        
+        # Wait before checking again
+        sleep $wait_interval
+        elapsed=$((elapsed + wait_interval))
+    done
+    
+    # Final check - if we timed out, show what's still remaining
+    if [ $elapsed -ge $max_wait ]; then
+        log_warn "⚠️  Timeout waiting for resource deletion (${max_wait}s). Checking remaining resources..."
+        
+        # List any remaining resources
+        if oc get isvc -n "$NAMESPACE" "$name" &>/dev/null; then
+            log_warn "InferenceService $name still exists"
+        fi
+        
+        # Check Route in istio-system
+        local istio_route_name="${name}-${NAMESPACE}"
+        if oc get route -n "istio-system" "$istio_route_name" &>/dev/null; then
+            log_warn "Route $istio_route_name still exists in istio-system"
+        fi
+        
+        if [ -n "$original_isvc_uid" ] && [ "$original_isvc_uid" != "null" ]; then
+            local remaining_resources=$(oc get serviceaccounts,roles,rolebindings -n "$NAMESPACE" -o yaml 2>/dev/null | yq eval ".items[] | select(.metadata.ownerReferences[]?.uid == \"$original_isvc_uid\") | .kind + \"/\" + .metadata.name" - 2>/dev/null)
+            if [ -n "$remaining_resources" ]; then
+                log_warn "Remaining owned resources:"
+                echo "$remaining_resources" | while read -r resource; do
+                    if [ -n "$resource" ]; then
+                        log_warn "  - $resource"
+                    fi
+                done
+            fi
+        fi
+        
+        echo ""
+        local proceed_choice=""
+        while true; do
+            read -p "Some resources may still be deleting. Proceed with creation anyway? (yes/no): " proceed_choice
+            case "$proceed_choice" in
+                yes|YES)
+                    log_warn "Proceeding with creation despite remaining resources..."
+                    break
+                    ;;
+                no|NO)
+                    log_error "User chose not to proceed. Exiting..."
+                    exit 1
+                    ;;
+                *)
+                    echo -e "${RED}Please enter 'yes' or 'no'${NC}"
+                    ;;
+            esac
+        done
+    fi
+    
+    log_info "Completed deletion verification for $name"
+}
+
 convert_isvc(){
     # Set up variables using the validated parameters
     NAME="$1"
@@ -489,25 +791,41 @@ convert_isvc(){
     # Always create resource directories (we'll decide later whether to keep them)
     RESOURCE_DIR="$NAME"
     ORIGINAL_DIR="$RESOURCE_DIR/original"
-    RAW_DIR="$RESOURCE_DIR/raw"
     
-    log_step "Creating temporary resource directories..."
-    mkdir -p "$ORIGINAL_DIR" "$RAW_DIR"
+    if [ "$USE_ORIGINAL_NAMES" == "true" ]; then
+        RAW_DIR="$RESOURCE_DIR/raw-original-names"
+        log_step "Creating temporary resource directories (original names mode)..."
+        mkdir -p "$ORIGINAL_DIR" "$RAW_DIR"
+    else
+        RAW_DIR="$RESOURCE_DIR/raw"
+        log_step "Creating temporary resource directories (-raw suffix mode)..."
+        mkdir -p "$ORIGINAL_DIR" "$RAW_DIR"
+    fi
     
     # Define all variables at the top
-    export NAME_RAW="${NAME}-raw"
-    
-    # Service Account names
-    SA_NAME="${NAME}-sa"
-    SA_NAME_RAW="${NAME_RAW}-sa"
-    
-    # Role names
-    ROLE_NAME="${NAME}-view-role"
-    ROLE_NAME_RAW="${NAME_RAW}-view-role"
-    
-    # RoleBinding names
-    ROLEBINDING_NAME="${NAME}-view"
-    ROLEBINDING_NAME_RAW="${NAME_RAW}-view"
+    if [ "$USE_ORIGINAL_NAMES" == "true" ]; then
+        export NAME_RAW="${NAME}"
+        # Service Account names
+        SA_NAME="${NAME}-sa"
+        SA_NAME_RAW="${NAME}-sa"
+        # Role names
+        ROLE_NAME="${NAME}-view-role"
+        ROLE_NAME_RAW="${NAME}-view-role"
+        # RoleBinding names
+        ROLEBINDING_NAME="${NAME}-view"
+        ROLEBINDING_NAME_RAW="${NAME}-view"
+    else
+        export NAME_RAW="${NAME}-raw"
+        # Service Account names
+        SA_NAME="${NAME}-sa"
+        SA_NAME_RAW="${NAME_RAW}-sa"
+        # Role names
+        ROLE_NAME="${NAME}-view-role"
+        ROLE_NAME_RAW="${NAME_RAW}-view-role"
+        # RoleBinding names
+        ROLEBINDING_NAME="${NAME}-view"
+        ROLEBINDING_NAME_RAW="${NAME_RAW}-view"
+    fi
     
     # Knative route name
     KNATIVE_ROUTE_NAME="${NAME}-predictor"
@@ -519,11 +837,11 @@ convert_isvc(){
     ROLEBINDING_FILE="$ORIGINAL_DIR/${NAME}-view-rolebinding.yaml"
     SECRET_FILE="$ORIGINAL_DIR/${NAME}-secret.yaml"
     
-    # File names for raw resources (change ISVC extension to .yaml)
+    # File names for raw resources
     ISVC_RAW_FILE="$RAW_DIR/${NAME_RAW}-isvc.yaml"
-    SA_RAW_FILE="$RAW_DIR/${NAME_RAW}-sa.yaml"
-    ROLE_RAW_FILE="$RAW_DIR/${NAME_RAW}-view-role.yaml"
-    ROLEBINDING_RAW_FILE="$RAW_DIR/${NAME_RAW}-view-rolebinding.yaml"
+    SA_RAW_FILE="$RAW_DIR/${SA_NAME_RAW}.yaml"
+    ROLE_RAW_FILE="$RAW_DIR/${ROLE_NAME_RAW}.yaml"
+    ROLEBINDING_RAW_FILE="$RAW_DIR/${ROLEBINDING_NAME_RAW}.yaml"
     SECRET_RAW_FILE="$RAW_DIR/${NAME_RAW}-secret.yaml"
     
     # ServingRuntime variables (will be set after we get the runtime name)
@@ -555,14 +873,24 @@ convert_isvc(){
     # Step 2: Transform YAML to YAML using yq instead of jq
     log_step "Step 2: Creating $ISVC_RAW_FILE with raw deployment configuration..."
 
-    yq eval 'del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status) | 
-      .metadata.name += "-raw" | 
-      .metadata.annotations |= with_entries(select(.key | test("istio|knative") | not)) |
-      .metadata.labels |= with_entries(select(.key | test("istio|knative") | not)) |
-      .metadata.labels."networking.kserve.io/visibility" = "exposed" |
-      (.metadata.annotations."openshift.io/display-name" | select(. != null)) |= . + "-raw" |
-      .metadata.annotations."serving.kserve.io/deploymentMode" = "RawDeployment" |
-      .spec.predictor.model.runtime += "-raw"' "$ISVC_FILE" > "$ISVC_RAW_FILE"
+    if [ "$USE_ORIGINAL_NAMES" == "true" ]; then
+        # Use original names - no suffix changes
+        yq eval 'del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status) | 
+          .metadata.annotations |= with_entries(select(.key | test("istio|knative") | not)) |
+          .metadata.labels |= with_entries(select(.key | test("istio|knative") | not)) |
+          .metadata.labels."networking.kserve.io/visibility" = "exposed" |
+          .metadata.annotations."serving.kserve.io/deploymentMode" = "RawDeployment"' "$ISVC_FILE" > "$ISVC_RAW_FILE"
+    else
+        # Use -raw suffix
+        yq eval 'del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status) | 
+          .metadata.name += "-raw" | 
+          .metadata.annotations |= with_entries(select(.key | test("istio|knative") | not)) |
+          .metadata.labels |= with_entries(select(.key | test("istio|knative") | not)) |
+          .metadata.labels."networking.kserve.io/visibility" = "exposed" |
+          (.metadata.annotations."openshift.io/display-name" | select(. != null)) |= . + "-raw" |
+          .metadata.annotations."serving.kserve.io/deploymentMode" = "RawDeployment" |
+          .spec.predictor.model.runtime += "-raw"' "$ISVC_FILE" > "$ISVC_RAW_FILE"
+    fi
 
     if [ $? -ne 0 ]; then
         log_error "Failed to transform YAML file"
@@ -577,7 +905,11 @@ convert_isvc(){
     fi
     
     # Now set the ServingRuntime variables
-    SERVINGRUNTIME_NAME_RAW="${SERVINGRUNTIME_NAME}-raw"
+    if [ "$USE_ORIGINAL_NAMES" == "true" ]; then
+        SERVINGRUNTIME_NAME_RAW="${SERVINGRUNTIME_NAME}"
+    else
+        SERVINGRUNTIME_NAME_RAW="${SERVINGRUNTIME_NAME}-raw"
+    fi
     SERVINGRUNTIME_FILE="$ORIGINAL_DIR/${SERVINGRUNTIME_NAME}-sr.yaml"
     SERVINGRUNTIME_RAW_FILE="$RAW_DIR/${SERVINGRUNTIME_NAME_RAW}-sr.yaml"
     
@@ -596,11 +928,17 @@ convert_isvc(){
         exit 1
     fi
     
-    yq eval '
-    del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status) |
-    .metadata.name += "-raw" |
-    .metadata.annotations."openshift.io/display-name" = (.metadata.annotations."openshift.io/display-name" // "") + "-raw"
-    ' "$SERVINGRUNTIME_FILE" > "$SERVINGRUNTIME_RAW_FILE"
+    if [ "$USE_ORIGINAL_NAMES" == "true" ]; then
+        # Use original names - no suffix changes
+        yq eval 'del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status)' "$SERVINGRUNTIME_FILE" > "$SERVINGRUNTIME_RAW_FILE"
+    else
+        # Use -raw suffix
+        yq eval '
+        del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status) |
+        .metadata.name += "-raw" |
+        .metadata.annotations."openshift.io/display-name" = (.metadata.annotations."openshift.io/display-name" // "") + "-raw"
+        ' "$SERVINGRUNTIME_FILE" > "$SERVINGRUNTIME_RAW_FILE"
+    fi
     
     if [ $? -ne 0 ] || [ ! -s "$SERVINGRUNTIME_RAW_FILE" ]; then
         log_error "Failed to process serving runtime $SERVINGRUNTIME_NAME"
@@ -736,6 +1074,12 @@ convert_isvc(){
         yq eval '.metadata.labels."networking.kserve.io/visibility" = "exposed"' "$ISVC_RAW_FILE" > "${ISVC_RAW_FILE}.tmp" && mv "${ISVC_RAW_FILE}.tmp" "$ISVC_RAW_FILE"
     fi
     
+    # Delete existing resources if using original names (in-place replacement)
+    if [ "$USE_ORIGINAL_NAMES" == "true" ] && [ "$DRY_RUN" != "true" ]; then
+        log_step "Step 6a: Deleting existing resources for in-place replacement..."
+        delete_existing_resources "$NAME"
+    fi
+    
     # Final Step: Apply the transformed InferenceService first
     log_step "Step 6: Applying $ISVC_RAW_FILE..."
     oc apply -f "$ISVC_RAW_FILE" -n "$NAMESPACE"
@@ -770,6 +1114,7 @@ convert_isvc(){
             log_error "Failed to apply ServiceAccount"
             exit 1
         fi
+        
     fi
     
     if [ "$ROLE_EXISTS" == "true" ]; then
@@ -795,6 +1140,7 @@ convert_isvc(){
             log_error "Failed to apply Role"
             exit 1
         fi
+        
     fi
     
     if [ "$ROLE_BINDING_EXISTS" == "true" ]; then
@@ -821,6 +1167,7 @@ convert_isvc(){
             log_error "Failed to apply RoleBinding"
             exit 1
         fi
+        
     fi
     
     if [ "$SECRET_EXISTS" == "true" ]; then
@@ -878,6 +1225,7 @@ EOF
                 log_error "Failed to apply Secret"
                 exit 1
             fi
+            
         fi
     fi
     
@@ -898,6 +1246,16 @@ EOF
     
     echo ""
     log_info "✅ Completed conversion for ${NAME} → ${NAME_RAW}"
+    if [ "$USE_ORIGINAL_NAMES" == "true" ]; then
+        log_info "📁 Generated files with original names in: ${RESOURCE_DIR}/raw-original-names/"
+    else
+        log_info "📁 Generated files with -raw suffix in: ${RESOURCE_DIR}/raw/"
+    fi
+    
+    # Delete existing resources if requested (only for -raw suffix mode)
+    if [ "$DELETE_EXISTING" == "true" ] && [ "$DRY_RUN" != "true" ] && [ "$USE_ORIGINAL_NAMES" != "true" ]; then
+        delete_existing_resources "$NAME"
+    fi
 
     # Cleanup per PRESERVE_FILES
     if [[ "$PRESERVE_FILES" != "true" ]]; then
@@ -916,10 +1274,12 @@ main() {
 
     # Validate environment
     check_prerequisites
+    validate_arguments
     validate_namespace
     check_permissions
 
     list_and_select_inference_services
+    collect_naming_preference
     collect_preserve_file_response
 
     # Process each selected ISVC
