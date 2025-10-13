@@ -150,13 +150,13 @@ jobs:
           # Apply inferenceservice config
           kubectl apply -f config/configmap/inferenceservice.yaml
 
-          # Create kserve-ingress-gateway in test namespace
+          # Create kserve-ingress-gateway in kserve namespace (matches quick install)
           kubectl apply -f - <<EOF
           apiVersion: gateway.networking.k8s.io/v1
           kind: Gateway
           metadata:
             name: kserve-ingress-gateway
-            namespace: kserve-ci-e2e-test
+            namespace: kserve
           spec:
             gatewayClassName: envoy
             listeners:
@@ -177,9 +177,9 @@ jobs:
         run: |
           echo "🔍 Verifying Gateway and LoadBalancer configuration..."
 
-          # Wait for gateway to be programmed in test namespace
+          # Wait for gateway to be programmed in kserve namespace
           echo "Waiting for kserve-ingress-gateway to be programmed..."
-          timeout 120s bash -c 'until kubectl get gateway kserve-ingress-gateway -n kserve-ci-e2e-test -o jsonpath="{.status.conditions[?(@.type==\"Programmed\")].status}" | grep -q "True"; do echo "Gateway not ready yet..."; sleep 5; done'
+          timeout 120s bash -c 'until kubectl get gateway kserve-ingress-gateway -n kserve -o jsonpath="{.status.conditions[?(@.type==\"Programmed\")].status}" | grep -q "True"; do echo "Gateway not ready yet..."; sleep 5; done'
 
           # Verify LoadBalancer service has external IP
           echo "Checking LoadBalancer service..."
