@@ -22,9 +22,14 @@ export LWS_VERSION=0.7.0
 export ENVOY_GATEWAY_VERSION=v1.5.0
 export ENVOY_AI_GATEWAY_VERSION=v0.3.0
 SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
+export CERT_MANAGER_VERSION=v1.16.1
 export SCRIPT_DIR
 
 uninstall() {
+   # Uninstall Cert Manager
+   helm uninstall --ignore-not-found cert-manager -n cert-manager
+   echo "😀 Successfully uninstalled Cert Manager"
+   
     # Uninstall Envoy Gateway
    helm uninstall --ignore-not-found eg -n envoy-gateway-system
    echo "😀 Successfully uninstalled Envoy Gateway"
@@ -88,6 +93,16 @@ if [ "$(get_kube_version)" -lt 24 ]; then
    echo "😱 install requires at least Kubernetes 1.24"
    exit 1
 fi
+
+# Install Cert Manager
+helm repo add jetstack https://charts.jetstack.io --force-update
+helm install \
+   cert-manager jetstack/cert-manager \
+   --namespace cert-manager \
+   --create-namespace \
+   --version ${CERT_MANAGER_VERSION} \
+   --set crds.enabled=true
+echo "😀 Successfully installed Cert Manager"
 
 echo "Installing Gateway API CRDs ..."
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
