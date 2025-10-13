@@ -22,9 +22,14 @@ export LWS_VERSION=0.7.0
 export ENVOY_GATEWAY_VERSION=v1.5.0
 export ENVOY_AI_GATEWAY_VERSION=v0.3.0
 SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
+export CERT_MANAGER_VERSION=v1.16.1
 export SCRIPT_DIR
 
 uninstall() {
+   # Uninstall Cert Manager
+   helm uninstall --ignore-not-found cert-manager -n cert-manager
+   echo "😀 Successfully uninstalled Cert Manager"
+   
     # Uninstall Envoy Gateway
    helm uninstall --ignore-not-found eg -n envoy-gateway-system
    echo "😀 Successfully uninstalled Envoy Gateway"
@@ -90,17 +95,15 @@ if [ "$(get_kube_version)" -lt 24 ]; then
    exit 1
 fi
 
-# Install cert-manager if not already installed
-if ! kubectl get namespace cert-manager &> /dev/null; then
-    echo "Installing cert-manager..."
-    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
-    kubectl wait --for=condition=available --timeout=300s deployment/cert-manager -n cert-manager
-    kubectl wait --for=condition=available --timeout=300s deployment/cert-manager-cainjector -n cert-manager
-    kubectl wait --for=condition=available --timeout=300s deployment/cert-manager-webhook -n cert-manager
-    echo "😀 Successfully installed cert-manager"
-else
-    echo "cert-manager already installed, skipping..."
-fi
+# Install Cert Manager
+helm repo add jetstack https://charts.jetstack.io --force-update
+helm install \
+   cert-manager jetstack/cert-manager \
+   --namespace cert-manager \
+   --create-namespace \
+   --version ${CERT_MANAGER_VERSION} \
+   --set crds.enabled=true
+echo "😀 Successfully installed Cert Manager"
 
 echo "Installing Gateway API CRDs ..."
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml

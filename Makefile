@@ -314,7 +314,7 @@ bump-version:
 
 # Build the docker image
 docker-build:
-	${ENGINE} buildx build ${ARCH} . -t ${IMG}
+	${ENGINE} buildx build ${ARCH} . -t ${KO_DOCKER_REPO}/${IMG}
 	@echo "updating kustomize image patch file for manager resource"
 
 	# Use perl instead of sed to avoid OSX/Linux compatibility issue:
@@ -323,7 +323,7 @@ docker-build:
 
 # Push the docker image
 docker-push:
-	docker push ${IMG}
+	docker push ${KO_DOCKER_REPO}/${IMG}
 
 docker-build-llmisvc:
 	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${LLMISVC_IMG} -f llmisvc-controller.Dockerfile .
