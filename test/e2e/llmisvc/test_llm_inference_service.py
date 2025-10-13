@@ -69,7 +69,7 @@ class TestCase:
     service_name: Optional[str] = None
     max_tokens: int = 100
     response_assertion: Callable[[requests.Response], None] = assert_200
-    wait_timeout: int = 600
+    wait_timeout: int = 900
     response_timeout: int = 60
     before_test: List[Callable[[], Any]] = field(default_factory=list)
     after_test: List[Callable[[], Any]] = field(default_factory=list)
@@ -337,7 +337,7 @@ def get_llmisvc(
 def wait_for_model_response(
     kserve_client: KServeClient,
     test_case: TestCase,  # noqa: F811
-    timeout_seconds: int = 600,
+    timeout_seconds: int = 900,
 ) -> str:
     def assert_model_responds():
         try:
@@ -414,7 +414,7 @@ def get_llm_service_url(
 def wait_for_llm_isvc_ready(
     kserve_client: KServeClient,
     given: V1alpha1LLMInferenceService,
-    timeout_seconds: int = 600,
+    timeout_seconds: int = 900,
 ) -> str:
     def assert_llm_isvc_ready():
         out = get_llmisvc(

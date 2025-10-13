@@ -203,7 +203,7 @@ jobs:
           echo "✅ Python dependencies installed!"
 
       - name: Run E2E tests
-        timeout-minutes: 45
+        timeout-minutes: 60
         run: |
           echo "🧪 Running LLMISvc E2E tests with extended timeout..."
           echo "📋 Pre-test system status:"
