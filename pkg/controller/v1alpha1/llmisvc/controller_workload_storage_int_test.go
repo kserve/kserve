@@ -28,15 +28,60 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmeta"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
+	. "github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc/fixture"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/credentials/hf"
 	"github.com/kserve/kserve/pkg/credentials/s3"
 	"github.com/kserve/kserve/pkg/utils"
+)
+
+var (
+	isvcConfigPatch = map[string]string{
+		"ingress": `{
+			"enableGatewayApi": true,
+			"kserveIngressGateway": "kserve/kserve-ingress-gateway",
+			"ingressGateway": "knative-serving/knative-ingress-gateway",
+			"localGateway": "knative-serving/knative-local-gateway",
+			"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
+			"additionalIngressDomains": ["additional.example.com"]
+		}`,
+		"storageInitializer": `{
+			"memoryRequest": "100Mi",
+			"memoryLimit": "1Gi",
+			"cpuRequest": "100m",
+			"cpuLimit": "1",
+			"cpuModelcar": "10m",
+			"memoryModelcar": "15Mi",
+			"enableModelcar": true,
+			"caBundleConfigMapName": "global-s3-custom-certs",
+			"caBundleVolumeMountPath": "/path/to/globalcerts"
+		}`,
+	}
+	isvcConfigRestore = map[string]string{
+		"ingress": `{
+			"enableGatewayApi": true,
+			"kserveIngressGateway": "kserve/kserve-ingress-gateway",
+			"ingressGateway": "knative-serving/knative-ingress-gateway",
+			"localGateway": "knative-serving/knative-local-gateway",
+			"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
+			"additionalIngressDomains": ["additional.example.com"]
+		}`,
+		"storageInitializer": `{
+			"memoryRequest": "100Mi",
+			"memoryLimit": "1Gi",
+			"cpuRequest": "100m",
+			"cpuLimit": "1",
+			"cpuModelcar": "10m",
+			"memoryModelcar": "15Mi",
+			"enableModelcar": true,
+		}`,
+	}
 )
 
 var _ = Describe("LLMInferenceService Controller - Storage configuration", func() {
@@ -353,6 +398,32 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		})
 
 		It("should use storage-initializer to download model when uri starts with s3://", func(ctx SpecContext) {
+			// patch the infernceservice-config configmap
+			globalS3CaBundleconfigMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "global-s3-custom-certs",
+					Namespace: constants.KServeNamespace,
+				},
+				Data: map[string]string{
+					"cabundle.crt": "global-test-cert",
+				},
+			}
+			Expect(envTest.Client.Create(ctx, globalS3CaBundleconfigMap)).To(Succeed())
+
+			isvcConfigMap := &corev1.ConfigMap{}
+			Expect(envTest.Client.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, isvcConfigMap)).To(Succeed())
+			patchedIsvcConfigMap := client.MergeFrom(isvcConfigMap.DeepCopy())
+			isvcConfigMap.Data = isvcConfigPatch
+			Expect(envTest.Client.Patch(ctx, isvcConfigMap, patchedIsvcConfigMap)).To(Succeed())
+			defer func() {
+				isvcConfigMapRestored := &corev1.ConfigMap{}
+				Expect(envTest.Client.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, isvcConfigMapRestored)).To(Succeed())
+				patchedIsvcConfigMapRestored := client.MergeFrom(isvcConfigMapRestored.DeepCopy())
+				isvcConfigMap.Data = isvcConfigRestore
+				Expect(envTest.Client.Patch(ctx, isvcConfigMapRestored, patchedIsvcConfigMapRestored)).To(Succeed())
+				Expect(envTest.Client.Delete(ctx, globalS3CaBundleconfigMap)).To(Succeed())
+			}()
+
 			// given
 			svcName := "test-llm-storage-s3"
 			nsName := kmeta.ChildName(svcName, "-test")
@@ -414,9 +485,75 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			validateStorageInitializerIsConfigured(expectedMainDeployment, "s3://user-id/repo-id:tag")
 			validateStorageInitializerIsConfigured(expectedPrefillDeployment, "s3://user-id/repo-id:tag")
+
+			expectedEnvVars := []corev1.EnvVar{
+				{
+					Name:  constants.CaBundleConfigMapNameEnvVarKey,
+					Value: constants.DefaultGlobalCaBundleConfigMapName,
+				},
+				{
+					Name:  constants.CaBundleVolumeMountPathEnvVarKey,
+					Value: "/path/to/globalcerts",
+				},
+			}
+
+			validateStorageInitializerCredentials(expectedMainDeployment, expectedEnvVars)
+			validateStorageInitializerCredentials(expectedPrefillDeployment, expectedEnvVars)
+
+			var defaultMode int32 = 420
+			expectedCaBundleVolume := []corev1.Volume{
+				{
+					Name: CaBundleVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: constants.DefaultGlobalCaBundleConfigMapName,
+							},
+							DefaultMode: &defaultMode,
+						},
+					},
+				},
+			}
+			validateStorageInitializerVolumes(expectedMainDeployment, expectedCaBundleVolume)
+			validateStorageInitializerVolumes(expectedPrefillDeployment, expectedCaBundleVolume)
+
+			expectedCaBundleVolumeMount := []corev1.VolumeMount{
+				{
+					Name:      CaBundleVolumeName,
+					MountPath: "/path/to/globalcerts",
+					ReadOnly:  true,
+				},
+			}
+			validateStorageInitializerVolumeMounts(expectedMainDeployment, expectedCaBundleVolumeMount)
+			validateStorageInitializerVolumeMounts(expectedPrefillDeployment, expectedCaBundleVolumeMount)
 		})
 
 		It("should use storage-initializer and set proper env variables when uri starts with s3:// and credentials are configured", func(ctx SpecContext) {
+			// patch the infernceservice-config configmap
+			globalS3CaBundleconfigMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "global-s3-custom-certs",
+					Namespace: constants.KServeNamespace,
+				},
+				Data: map[string]string{
+					"cabundle.crt": "global-test-cert",
+				},
+			}
+			Expect(envTest.Client.Create(ctx, globalS3CaBundleconfigMap)).To(Succeed())
+			isvcConfigMap := &corev1.ConfigMap{}
+			Expect(envTest.Client.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, isvcConfigMap)).To(Succeed())
+			patchedIsvcConfigMap := client.MergeFrom(isvcConfigMap.DeepCopy())
+			isvcConfigMap.Data = isvcConfigPatch
+			Expect(envTest.Client.Patch(ctx, isvcConfigMap, patchedIsvcConfigMap)).To(Succeed())
+			defer func() {
+				isvcConfigMapRestored := &corev1.ConfigMap{}
+				Expect(envTest.Client.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, isvcConfigMapRestored)).To(Succeed())
+				patchedIsvcConfigMapRestored := client.MergeFrom(isvcConfigMapRestored.DeepCopy())
+				isvcConfigMap.Data = isvcConfigRestore
+				Expect(envTest.Client.Patch(ctx, isvcConfigMapRestored, patchedIsvcConfigMapRestored)).To(Succeed())
+				Expect(envTest.Client.Delete(ctx, globalS3CaBundleconfigMap)).To(Succeed())
+			}()
+
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-with-credentials"
 			nsName := kmeta.ChildName(svcName, "-test")
@@ -430,6 +567,18 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				envTest.DeleteAll(namespace)
 			}()
 
+			s3CaBundleConfigMapName := "s3-custom-certs"
+			s3CaBundleconfigMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      s3CaBundleConfigMapName,
+					Namespace: nsName,
+				},
+				Data: map[string]string{
+					"cabundle.crt": "test-cert",
+				},
+			}
+			Expect(envTest.Client.Create(ctx, s3CaBundleconfigMap)).To(Succeed())
+
 			secretName := kmeta.ChildName(svcName, "-secret")
 			s3Endpoint := "s3-credentials-test.kserve:9000"
 			s3UseHttps := "0"
@@ -440,10 +589,12 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 					Name:      secretName,
 					Namespace: nsName,
 					Annotations: map[string]string{
-						s3.InferenceServiceS3SecretEndpointAnnotation: s3Endpoint,
-						s3.InferenceServiceS3SecretHttpsAnnotation:    s3UseHttps,
-						s3.InferenceServiceS3SecretRegionAnnotation:   s3Region,
-						s3.InferenceServiceS3UseAnonymousCredential:   s3Anon,
+						s3.InferenceServiceS3SecretEndpointAnnotation:    s3Endpoint,
+						s3.InferenceServiceS3SecretHttpsAnnotation:       s3UseHttps,
+						s3.InferenceServiceS3SecretRegionAnnotation:      s3Region,
+						s3.InferenceServiceS3UseAnonymousCredential:      s3Anon,
+						s3.InferenceServiceS3CABundleConfigMapAnnotation: s3CaBundleConfigMapName,
+						s3.InferenceServiceS3CABundleAnnotation:          "/path/to/s3.crt",
 					},
 				},
 				StringData: map[string]string{
@@ -569,12 +720,81 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 					Name:  s3.AWSRegion,
 					Value: s3Region,
 				},
+				{
+					Name:  s3.AWSCABundleConfigMap,
+					Value: s3CaBundleConfigMapName,
+				},
+				{
+					Name:  s3.AWSCABundle,
+					Value: "/path/to/s3.crt",
+				},
+				{
+					Name:  constants.CaBundleConfigMapNameEnvVarKey,
+					Value: s3CaBundleConfigMapName,
+				},
+				{
+					Name:  constants.CaBundleVolumeMountPathEnvVarKey,
+					Value: "/path/to",
+				},
 			}
 			validateStorageInitializerCredentials(expectedMainDeployment, expectedEnvVars)
 			validateStorageInitializerCredentials(expectedPrefillDeployment, expectedEnvVars)
+
+			var defaultMode int32 = 420
+			expectedCaBundleVolume := []corev1.Volume{
+				{
+					Name: CaBundleVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: s3CaBundleConfigMapName,
+							},
+							DefaultMode: &defaultMode,
+						},
+					},
+				},
+			}
+			validateStorageInitializerVolumes(expectedMainDeployment, expectedCaBundleVolume)
+			validateStorageInitializerVolumes(expectedPrefillDeployment, expectedCaBundleVolume)
+
+			expectedCaBundleVolumeMount := []corev1.VolumeMount{
+				{
+					Name:      CaBundleVolumeName,
+					MountPath: "/path/to",
+					ReadOnly:  true,
+				},
+			}
+			validateStorageInitializerVolumeMounts(expectedMainDeployment, expectedCaBundleVolumeMount)
+			validateStorageInitializerVolumeMounts(expectedPrefillDeployment, expectedCaBundleVolumeMount)
 		})
 
 		It("should use storage-initializer and set proper env variables when uri starts with s3:// and credentials are configured for IAM", func(ctx SpecContext) {
+			// patch the infernceservice-config configmap
+			globalS3CaBundleconfigMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "global-s3-custom-certs",
+					Namespace: constants.KServeNamespace,
+				},
+				Data: map[string]string{
+					"cabundle.crt": "global-test-cert",
+				},
+			}
+			Expect(envTest.Client.Create(ctx, globalS3CaBundleconfigMap)).To(Succeed())
+
+			isvcConfigMap := &corev1.ConfigMap{}
+			Expect(envTest.Client.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, isvcConfigMap)).To(Succeed())
+			patchedIsvcConfigMap := client.MergeFrom(isvcConfigMap.DeepCopy())
+			isvcConfigMap.Data = isvcConfigPatch
+			Expect(envTest.Client.Patch(ctx, isvcConfigMap, patchedIsvcConfigMap)).To(Succeed())
+			defer func() {
+				isvcConfigMapRestored := &corev1.ConfigMap{}
+				Expect(envTest.Client.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, isvcConfigMapRestored)).To(Succeed())
+				patchedIsvcConfigMapRestored := client.MergeFrom(isvcConfigMapRestored.DeepCopy())
+				isvcConfigMap.Data = isvcConfigRestore
+				Expect(envTest.Client.Patch(ctx, isvcConfigMapRestored, patchedIsvcConfigMapRestored)).To(Succeed())
+				Expect(envTest.Client.Delete(ctx, globalS3CaBundleconfigMap)).To(Succeed())
+			}()
+
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-with-iam-credentials"
 			nsName := kmeta.ChildName(svcName, "-test")
@@ -588,6 +808,18 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				envTest.DeleteAll(namespace)
 			}()
 
+			s3CaBundleConfigMapName := "s3-custom-certs"
+			s3CaBundleconfigMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      s3CaBundleConfigMapName,
+					Namespace: nsName,
+				},
+				Data: map[string]string{
+					"cabundle.crt": "test-cert",
+				},
+			}
+			Expect(envTest.Client.Create(ctx, s3CaBundleconfigMap)).To(Succeed())
+
 			serviceAccountName := kmeta.ChildName(svcName, "-sa")
 			s3IamRole := "arn:aws:iam::123456789012:role/s3access"
 			s3Endpoint := "s3-credentials-test.kserve:9000"
@@ -599,11 +831,13 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 					Name:      serviceAccountName,
 					Namespace: nsName,
 					Annotations: map[string]string{
-						credentials.AwsIrsaAnnotationKey:              s3IamRole,
-						s3.InferenceServiceS3SecretEndpointAnnotation: s3Endpoint,
-						s3.InferenceServiceS3SecretHttpsAnnotation:    s3UseHttps,
-						s3.InferenceServiceS3SecretRegionAnnotation:   s3Region,
-						s3.InferenceServiceS3UseAnonymousCredential:   s3Anon,
+						credentials.AwsIrsaAnnotationKey:                 s3IamRole,
+						s3.InferenceServiceS3SecretEndpointAnnotation:    s3Endpoint,
+						s3.InferenceServiceS3SecretHttpsAnnotation:       s3UseHttps,
+						s3.InferenceServiceS3SecretRegionAnnotation:      s3Region,
+						s3.InferenceServiceS3UseAnonymousCredential:      s3Anon,
+						s3.InferenceServiceS3CABundleConfigMapAnnotation: s3CaBundleConfigMapName,
+						s3.InferenceServiceS3CABundleAnnotation:          "/path/to/s3.crt",
 					},
 				},
 			}
@@ -695,9 +929,52 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 					Name:  s3.AWSRegion,
 					Value: s3Region,
 				},
+				{
+					Name:  s3.AWSCABundleConfigMap,
+					Value: s3CaBundleConfigMapName,
+				},
+				{
+					Name:  s3.AWSCABundle,
+					Value: "/path/to/s3.crt",
+				},
+				{
+					Name:  constants.CaBundleConfigMapNameEnvVarKey,
+					Value: s3CaBundleConfigMapName,
+				},
+				{
+					Name:  constants.CaBundleVolumeMountPathEnvVarKey,
+					Value: "/path/to",
+				},
 			}
 			validateStorageInitializerCredentials(expectedMainDeployment, expectedEnvVars)
 			validateStorageInitializerCredentials(expectedPrefillDeployment, expectedEnvVars)
+
+			var defaultMode int32 = 420
+			expectedCaBundleVolume := []corev1.Volume{
+				{
+					Name: CaBundleVolumeName,
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: s3CaBundleConfigMapName,
+							},
+							DefaultMode: &defaultMode,
+						},
+					},
+				},
+			}
+			validateStorageInitializerVolumes(expectedMainDeployment, expectedCaBundleVolume)
+			validateStorageInitializerVolumes(expectedPrefillDeployment, expectedCaBundleVolume)
+
+			expectedCaBundleVolumeMount := []corev1.VolumeMount{
+				{
+					Name:      CaBundleVolumeName,
+					MountPath: "/path/to",
+					ReadOnly:  true,
+				},
+			}
+			validateStorageInitializerVolumeMounts(expectedMainDeployment, expectedCaBundleVolumeMount)
+			validateStorageInitializerVolumeMounts(expectedPrefillDeployment, expectedCaBundleVolumeMount)
 
 			// validate the role-arn annotation was properly propagated to the created service account
 			Expect(expectedServiceAccount.Annotations[credentials.AwsIrsaAnnotationKey]).To(BeEquivalentTo(s3IamRole))
@@ -1530,6 +1807,14 @@ func validateStorageInitializerCredentials(deployment *appsv1.Deployment, envVar
 	validatePodSpecEnvVars(&deployment.Spec.Template.Spec, envVars)
 }
 
+func validateStorageInitializerVolumes(deployment *appsv1.Deployment, volumes []corev1.Volume) {
+	validatePodSpecVolumes(&deployment.Spec.Template.Spec, volumes)
+}
+
+func validateStorageInitializerVolumeMounts(deployment *appsv1.Deployment, volumeMounts []corev1.VolumeMount) {
+	validatePodSpecVolumeMounts(&deployment.Spec.Template.Spec, volumeMounts)
+}
+
 func validatePvcStorageIsConfiguredForLWS(lws *lwsapi.LeaderWorkerSet) {
 	workerSpec := lws.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec
 	validatePvcStorageForPodSpec(&workerSpec)
@@ -1639,4 +1924,15 @@ func validatePodSpecEnvVars(podSpec *corev1.PodSpec, envVars []corev1.EnvVar) {
 	initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName)
 	Expect(initContainer).NotTo(BeNil())
 	Expect(initContainer.Env).To(ContainElements(envVars))
+}
+
+func validatePodSpecVolumes(podSpec *corev1.PodSpec, volumes []corev1.Volume) {
+	Expect(podSpec).NotTo(BeNil())
+	Expect(podSpec.Volumes).To(ContainElements(volumes))
+}
+
+func validatePodSpecVolumeMounts(podSpec *corev1.PodSpec, volumeMounts []corev1.VolumeMount) {
+	initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName)
+	Expect(initContainer).NotTo(BeNil())
+	Expect(initContainer.VolumeMounts).To(ContainElements(volumeMounts))
 }

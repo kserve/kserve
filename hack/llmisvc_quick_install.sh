@@ -22,9 +22,14 @@ export LWS_VERSION=0.7.0
 export ENVOY_GATEWAY_VERSION=v1.5.0
 export ENVOY_AI_GATEWAY_VERSION=v0.3.0
 SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
+export CERT_MANAGER_VERSION=v1.16.1
 export SCRIPT_DIR
 
 uninstall() {
+   # Uninstall Cert Manager
+   helm uninstall --ignore-not-found cert-manager -n cert-manager
+   echo "😀 Successfully uninstalled Cert Manager"
+   
     # Uninstall Envoy Gateway
    helm uninstall --ignore-not-found eg -n envoy-gateway-system
    echo "😀 Successfully uninstalled Envoy Gateway"
@@ -89,6 +94,16 @@ if [ "$(get_kube_version)" -lt 24 ]; then
    exit 1
 fi
 
+# Install Cert Manager
+helm repo add jetstack https://charts.jetstack.io --force-update
+helm install \
+   cert-manager jetstack/cert-manager \
+   --namespace cert-manager \
+   --create-namespace \
+   --version ${CERT_MANAGER_VERSION} \
+   --set crds.enabled=true
+echo "😀 Successfully installed Cert Manager"
+
 echo "Installing Gateway API CRDs ..."
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
 
@@ -128,6 +143,29 @@ kubectl rollout restart -n envoy-gateway-system deployment/envoy-gateway
 kubectl wait --timeout=2m -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available
 echo "😀 Successfully enabled Gateway API Inference Extension support for Envoy Gateway"
 
+# Create Gateway resource
+echo "Creating kserve-ingress-gateway ..."
+kubectl apply -f - <<EOF
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: kserve-ingress-gateway
+  namespace: kserve
+spec:
+  gatewayClassName: envoy
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All
+  infrastructure:
+    labels:
+      serving.kserve.io/gateway: kserve-ingress-gateway
+EOF
+echo "😀 Successfully created kserve-ingress-gateway"
+
 # Install Leader Worker Set (LWS)
 echo "Installing Leader Worker Set ..."
 helm install lws oci://registry.k8s.io/lws/charts/lws \
@@ -162,25 +200,3 @@ echo "😀 Successfully installed LLMISvc"
 echo ""
 echo "🎉 LLMISvc installation completed successfully!"
 
-# Create Gateway resource
-echo "Creating kserve-ingress-gateway ..."
-kubectl apply -f - <<EOF
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: kserve-ingress-gateway
-  namespace: kserve
-spec:
-  gatewayClassName: envoy
-  listeners:
-    - name: http
-      protocol: HTTP
-      port: 80
-      allowedRoutes:
-        namespaces:
-          from: All
-  infrastructure:
-    labels:
-      serving.kserve.io/gateway: kserve-ingress-gateway
-EOF
-echo "😀 Successfully created kserve-ingress-gateway"
