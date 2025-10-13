@@ -28,7 +28,7 @@ import time
 from typing import Optional
 import zipfile
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Tuple
 from urllib.parse import urlparse
 import requests
 
