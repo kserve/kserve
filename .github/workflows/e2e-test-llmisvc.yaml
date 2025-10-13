@@ -156,7 +156,7 @@ jobs:
           kind: Gateway
           metadata:
             name: kserve-ingress-gateway
-            namespace: kserve
+            namespace: kserve-ci-e2e-test
           spec:
             gatewayClassName: envoy
             listeners:
@@ -179,7 +179,7 @@ jobs:
 
           # Wait for gateway to be programmed in kserve namespace
           echo "Waiting for kserve-ingress-gateway to be programmed..."
-          timeout 120s bash -c 'until kubectl get gateway kserve-ingress-gateway -n kserve -o jsonpath="{.status.conditions[?(@.type==\"Programmed\")].status}" | grep -q "True"; do echo "Gateway not ready yet..."; sleep 5; done'
+          timeout 120s bash -c 'until kubectl get gateway kserve-ingress-gateway -n kserve-ci-e2e-test -o jsonpath="{.status.conditions[?(@.type==\"Programmed\")].status}" | grep -q "True"; do echo "Gateway not ready yet..."; sleep 5; done'
 
           # Verify LoadBalancer service has external IP
           echo "Checking LoadBalancer service..."
