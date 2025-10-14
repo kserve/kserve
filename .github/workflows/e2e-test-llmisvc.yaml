@@ -22,7 +22,7 @@ env:
 
 jobs:
   test-llmisvc:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4-cores # 4 vCPU, 16 GB RAM
     needs: [llmisvc-image-build]
     steps:
       - name: Checkout source
