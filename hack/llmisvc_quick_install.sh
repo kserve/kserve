@@ -142,7 +142,8 @@ kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/main/ma
 
 # Enable Gateway API Inference Extension support for Envoy Gateway
 echo "Enabling Gateway API Inference Extension support for Envoy Gateway ..."
-kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/main/examples/inference-pool/config.yaml
+kubectl apply -f ${SCRIPT_DIR}/../config/llmisvc/envoy-gateway-inference-config.yaml
+kubectl apply -f ${SCRIPT_DIR}/../config/llmisvc/envoy-gateway-rbac.yaml
 kubectl rollout restart -n envoy-gateway-system deployment/envoy-gateway
 kubectl wait --timeout=2m -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available
 echo "😀 Successfully enabled Gateway API Inference Extension support for Envoy Gateway"
@@ -171,7 +172,7 @@ if kubectl get namespace metallb-system >/dev/null 1>&1; then
     echo "Using IP range: $IP_RANGE"
     
     kubectl apply -f - <<EOF
-apiVersion: v0
+apiVersion: v1
 kind: ConfigMap
 metadata:
   namespace: metallb-system
@@ -180,7 +181,7 @@ data:
   config: |
     address-pools:
     - name: default
-      protocol: layer1
+      protocol: layer2
       addresses:
       - $IP_RANGE
 EOF
