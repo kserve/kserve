@@ -136,14 +136,13 @@ kubectl wait --timeout=2m -n envoy-ai-gateway-system deployment/ai-gateway-contr
 
 # Configure Envoy Gateway for AI Gateway integration
 echo "Configuring Envoy Gateway for AI Gateway integration ..."
-kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/main/manifests/envoy-gateway-config/redis.yaml
-kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/main/manifests/envoy-gateway-config/config.yaml
-kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/main/manifests/envoy-gateway-config/rbac.yaml
+kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${ENVOY_AI_GATEWAY_VERSION#v}/manifests/envoy-gateway-config/redis.yaml
+kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${ENVOY_AI_GATEWAY_VERSION#v}/manifests/envoy-gateway-config/config.yaml
+kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${ENVOY_AI_GATEWAY_VERSION#v}/manifests/envoy-gateway-config/rbac.yaml
 
 # Enable Gateway API Inference Extension support for Envoy Gateway
 echo "Enabling Gateway API Inference Extension support for Envoy Gateway ..."
-kubectl apply -f ${SCRIPT_DIR}/../config/llmisvc/envoy-gateway-inference-config.yaml
-kubectl apply -f ${SCRIPT_DIR}/../config/llmisvc/envoy-gateway-rbac.yaml
+kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${ENVOY_AI_GATEWAY_VERSION#v}/examples/inference-pool/config.yaml
 kubectl rollout restart -n envoy-gateway-system deployment/envoy-gateway
 kubectl wait --timeout=2m -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available
 echo "😀 Successfully enabled Gateway API Inference Extension support for Envoy Gateway"
