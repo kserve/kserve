@@ -90,7 +90,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -117,7 +117,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -155,7 +155,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -193,7 +193,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -225,7 +225,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -257,7 +257,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -285,7 +285,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -313,7 +313,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -340,7 +340,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "test",
 					},
 				},
@@ -383,7 +383,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "keda",
 					},
 				},
@@ -422,7 +422,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "keda",
 					},
 				},
@@ -461,7 +461,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "keda",
 					},
 				},
@@ -493,7 +493,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "keda",
 					},
 				},
@@ -535,7 +535,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "keda",
 					},
 				},
@@ -1399,11 +1399,11 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	oldIsvc := makeTestInferenceService()
 	oldIsvc.Status = InferenceServiceStatus{
-		DeploymentMode: "Serverless",
+		DeploymentMode: string(constants.Knative),
 	}
 	updatedIsvc := oldIsvc.DeepCopy()
 	updatedIsvc.Annotations = map[string]string{
-		constants.DeploymentMode: "RawDeployment",
+		constants.DeploymentMode: string(constants.Standard),
 	}
 	validator := InferenceServiceValidator{}
 	warnings, err := validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc)
@@ -1413,7 +1413,7 @@ func TestDeploymentModeUpdate(t *testing.T) {
 
 	updatedIsvc1 := oldIsvc.DeepCopy()
 	updatedIsvc1.Annotations = map[string]string{
-		constants.DeploymentMode: "Serverless",
+		constants.DeploymentMode: string(constants.Knative),
 	}
 	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc1)
 	// Annotation matches status, update is accepted

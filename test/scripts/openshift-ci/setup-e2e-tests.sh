@@ -22,6 +22,9 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
+
 : "${SKLEARN_IMAGE:=kserve/sklearnserver:latest}"
 : "${KSERVE_CONTROLLER_IMAGE:=quay.io/opendatahub/kserve-controller:latest}"
 : "${KSERVE_AGENT_IMAGE:=quay.io/opendatahub/kserve-agent:latest}"
@@ -76,6 +79,11 @@ if [ "$1" != "raw" ]; then
   echo "Installing Serverless"
   $MY_PATH/deploy.serverless.sh
 fi
+
+echo "⏳ Waiting for KServe CRDs"
+kustomize build $PROJECT_ROOT/config/crd | oc apply --server-side=true -f -
+
+wait_for_crd llminferenceserviceconfigs.serving.kserve.io 90s
 
 echo "Installing KServe with Minio"
 kustomize build $PROJECT_ROOT/config/overlays/test |
