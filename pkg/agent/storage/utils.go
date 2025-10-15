@@ -179,12 +179,14 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 
 	switch protocol {
 	case AZURE:
+		log.Info("Initializing Azure client")
 		azureClient, err := initializeAzureClient()
 		if err != nil {
 			return nil, err
 		}
 		providers[AZURE] = &AzureProvider{Client: azureClient}
 	case GCS:
+		log.Info("Initializing GCS client")
 		var gcsClient *gstorage.Client
 		var err error
 
@@ -205,6 +207,7 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 			Client: stiface.AdaptClient(gcsClient),
 		}
 	case S3:
+		log.Info("Initializing S3 client")
 		var sess *session.Session
 		var err error
 

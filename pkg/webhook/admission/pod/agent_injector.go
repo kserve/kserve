@@ -456,6 +456,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		); err != nil {
 			return err
 		}
+		log.Info("Successfully created secret volume and env", "secret", saName)
 	}
 
 	// Add container to the spec
