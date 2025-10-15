@@ -42,14 +42,14 @@ const (
 
 var (
 	LegacyAzureEnvKeys        = []string{LegacyAzureSubscriptionId, LegacyAzureTenantId, LegacyAzureClientId, LegacyAzureClientSecret}
-	AzureEnvKeys              = []string{AzureSubscriptionId, AzureTenantId, AzureClientId, AzureClientSecret, AzureStorageAccessKey, AzureAccessToken, AzureAccessTokenExpiresOnSeconds, AzureAccountName}
+	AzureEnvKeys              = []string{AzureSubscriptionId, AzureTenantId, AzureClientId, AzureClientSecret, AzureStorageAccessKey, AzureAccessToken, AzureAccessTokenExpiresOnSeconds, AzureAccountName, AzureServiceUrl}
 	legacyAzureEnvKeyMappings = map[string]string{
 		AzureSubscriptionId: LegacyAzureSubscriptionId,
 		AzureTenantId:       LegacyAzureTenantId,
 		AzureClientId:       LegacyAzureClientId,
 		AzureClientSecret:   LegacyAzureClientSecret,
 	}
-	EmptyKeysToIgnore = []string{AzureClientSecret, AzureStorageAccessKey, AzureAccessToken, AzureAccessTokenExpiresOnSeconds, AzureAccountName, AzureServiceUrl}
+	EmptyKeysToIgnore = []string{AzureClientId, AzureClientSecret, AzureSubscriptionId, AzureStorageAccessKey, AzureAccessToken, AzureAccessTokenExpiresOnSeconds, AzureAccountName, AzureServiceUrl}
 )
 
 func ignoreEmptyKey(key string) bool {

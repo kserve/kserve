@@ -137,14 +137,10 @@ func (s *BlobStore) Store(logUrl *url.URL, logRequest LogRequest) error {
 		return err
 	}
 
-	bucket, configPrefix, err := parseBlobStoreURL(logUrl.String())
+	bucket, configPrefix, err := parseBlobStoreURL(logUrl.String(), s.log)
 	if err != nil {
 		s.log.Error(err)
 		return err
-	}
-
-	if bucket == "" {
-		return errors.New("no bucket specified in url")
 	}
 
 	objectKey, err := s.getObjectKey(configPrefix, &logRequest)
@@ -211,8 +207,8 @@ func isValidScheme(scheme string) bool {
 	return strings.HasPrefix(scheme, "s3") || strings.HasPrefix(scheme, "gs") || strings.HasPrefix(scheme, "abfs")
 }
 
-func parseBlobStoreURL(s3url string) (bucket, key string, err error) {
-	u, err := url.Parse(s3url)
+func parseBlobStoreURL(blobStoreUrl string, log *zap.SugaredLogger) (bucket, key string, err error) {
+	u, err := url.Parse(blobStoreUrl)
 	if err != nil {
 		return "", "", err
 	}
@@ -222,7 +218,12 @@ func parseBlobStoreURL(s3url string) (bucket, key string, err error) {
 	}
 
 	bucket = u.Host
+	if u.User != nil {
+		// azure URLs follow the format https://user@host/path/to/file where user is the bucket name.
+		bucket = u.User.Username()
+	}
 	// u.Path starts with a "/" so trim it off.
 	key = strings.TrimPrefix(u.Path, "/")
+	log.Debugf("Returning bucket: %s", bucket)
 	return bucket, key, nil
 }
