@@ -39,7 +39,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "image": "quay.io/pierdipi/vllm-cpu:latest",
                     "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
                     "resources": {
-                        "limits": {"cpu": "2", "memory": "10Gi"},
+                        "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": ".5", "memory": "4Gi"},
                     },
                     "livenessProbe": {
@@ -71,7 +71,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "image": "quay.io/pierdipi/vllm-cpu:latest",
                     "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
                     "resources": {
-                        "limits": {"cpu": "2", "memory": "10Gi"},
+                        "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": ".5", "memory": "4Gi"},
                     },
                     "livenessProbe": {
@@ -103,7 +103,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "image": "quay.io/pierdipi/vllm-cpu:latest",
                         "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
                         "resources": {
-                            "limits": {"cpu": "2", "memory": "10Gi"},
+                            "limits": {"cpu": "2", "memory": "7Gi"},
                             "requests": {"cpu": ".5", "memory": "4Gi"},
                         },
                         "livenessProbe": {
@@ -343,7 +343,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         # "/etc/ssl/certs/tls.key",
                     ],
                     "resources": {
-                        "limits": {"cpu": "2", "memory": "16Gi"},
+                        "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": ".5", "memory": "4Gi"},
                     },
                     "livenessProbe": {
@@ -386,7 +386,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "/etc/ssl/certs/tls.key",
                     ],
                     "resources": {
-                        "limits": {"cpu": "2", "memory": "16Gi"},
+                        "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": ".5", "memory": "4Gi"},
                     },
                     "livenessProbe": {
