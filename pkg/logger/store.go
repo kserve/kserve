@@ -143,6 +143,10 @@ func (s *BlobStore) Store(logUrl *url.URL, logRequest LogRequest) error {
 		return err
 	}
 
+	if bucket == "" {
+		return errors.New("no bucket specified in url")
+	}
+
 	objectKey, err := s.getObjectKey(configPrefix, &logRequest)
 	if err != nil {
 		s.log.Error(err)
