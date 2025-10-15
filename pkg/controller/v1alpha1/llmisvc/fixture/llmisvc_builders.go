@@ -17,6 +17,8 @@ limitations under the License.
 package fixture
 
 import (
+	"maps"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
@@ -119,6 +121,24 @@ func WithManagedRoute() LLMInferenceServiceOption {
 		if llmSvc.Spec.Router.Route == nil {
 			llmSvc.Spec.Router.Route = &v1alpha1.GatewayRoutesSpec{}
 		}
+	}
+}
+
+func WithAnnotations(annotationsToAdd map[string]string) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha1.LLMInferenceService) {
+		if llmSvc.Annotations == nil {
+			llmSvc.Annotations = make(map[string]string)
+		}
+		maps.Copy(llmSvc.Annotations, annotationsToAdd)
+	}
+}
+
+func WithLabels(labelsToAdd map[string]string) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha1.LLMInferenceService) {
+		if llmSvc.Labels == nil {
+			llmSvc.Labels = make(map[string]string)
+		}
+		maps.Copy(llmSvc.Labels, labelsToAdd)
 	}
 }
 

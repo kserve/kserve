@@ -42,6 +42,11 @@ var (
 	AutoscalerConfigmapNamespace = GetEnvOrDefault("KNATIVE_CONFIG_AUTOSCALER_NAMESPACE", DefaultKnServingNamespace)
 )
 
+// Kueue Constants
+const (
+	KueueAPIGroupName = "kueue.x-k8s.io"
+)
+
 // InferenceService Constants
 var (
 	InferenceServiceName                  = "inferenceservice"

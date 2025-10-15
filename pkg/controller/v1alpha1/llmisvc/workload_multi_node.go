@@ -19,7 +19,6 @@ package llmisvc
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -34,6 +33,8 @@ import (
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 func (r *LLMISVCReconciler) reconcileMultiNodeWorkload(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, config *Config) error {
@@ -519,35 +520,47 @@ func (r *LLMISVCReconciler) expectedMultiNodeRoleBinding(llmSvc *v1alpha1.LLMInf
 }
 
 func (r *LLMISVCReconciler) propagateLeaderWorkerSetMetadata(llmSvc *v1alpha1.LLMInferenceService, expected *lwsapi.LeaderWorkerSet) {
-	ann := make(map[string]string, len(expected.Annotations))
-	for k, v := range llmSvc.GetAnnotations() {
-		if strings.HasPrefix(k, "leaderworkerset.sigs.k8s.io") ||
-			strings.HasPrefix(k, "k8s.v1.cni.cncf.io") {
-			ann[k] = v
-			if expected.Annotations == nil {
-				expected.Annotations = make(map[string]string, 1)
-			}
-			expected.Annotations[k] = v
-		}
+	// Define the prefixes to approve for annotations and labels
+	approvedAnnotationPrefixes := []string{
+		"leaderworkerset.sigs.k8s.io",
+		"k8s.v1.cni.cncf.io",
+		constants.KueueAPIGroupName,
 	}
+	approvedLabelPrefixes := []string{
+		constants.KueueAPIGroupName,
+	}
+
+	// Propagate approved annotations to the LeaderWorkerSet's top-level metadata
+	utils.PropagatePrefixedMap(llmSvc.GetAnnotations(), &expected.Annotations, approvedAnnotationPrefixes...)
 
 	if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
-		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations == nil {
-			expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations = ann
-		} else {
-			for k, v := range ann {
-				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations[k] = v
-			}
-		}
+		utils.PropagatePrefixedMap(
+			llmSvc.GetAnnotations(),
+			&expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations,
+			approvedAnnotationPrefixes...,
+		)
 	}
 
-	if expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations == nil {
-		expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations = ann
-	} else {
-		for k, v := range ann {
-			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations[k] = v
-		}
+	utils.PropagatePrefixedMap(
+		llmSvc.GetAnnotations(),
+		&expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations,
+		approvedAnnotationPrefixes...,
+	)
+
+	// Propagate approved labels
+	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &expected.Labels, approvedLabelPrefixes...)
+	if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+		utils.PropagatePrefixedMap(
+			llmSvc.GetLabels(),
+			&expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels,
+			approvedLabelPrefixes...,
+		)
 	}
+	utils.PropagatePrefixedMap(
+		llmSvc.GetLabels(),
+		&expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels,
+		approvedLabelPrefixes...,
+	)
 }
 
 func semanticLWSIsEqual(expected *lwsapi.LeaderWorkerSet, curr *lwsapi.LeaderWorkerSet) bool {

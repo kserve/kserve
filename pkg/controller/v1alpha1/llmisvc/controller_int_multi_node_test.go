@@ -403,8 +403,8 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		})
 	})
 
-	Context("Multi-Node Label Management", func() {
-		It("should set correct labels", func(ctx SpecContext) {
+	Context("Multi-Node Label and Annotation Management", func() {
+		It("should set correct labels and annotation", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-lws-labels"
 			nsName := kmeta.ChildName(svcName, "-test")
@@ -420,6 +420,10 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 				envTest.DeleteAll(namespace)
 			}()
 
+			localQueueName := "test-local-q"
+			preemptPriority := "0"
+			testValue := "test"
+
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha1.LLMInferenceService](nsName),
 				WithModelURI("hf://facebook/opt-125m"),
@@ -430,6 +434,16 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 				WithWorker(&corev1.PodSpec{}),
 				WithManagedRoute(),
 				WithManagedGateway(),
+				// Add a kueue label and annotation to ensure value propagation to the LWS
+				// the kueue functionality itself will not be tested here
+				WithAnnotations(map[string]string{
+					PreemptionReclaimAnnotationKey: preemptPriority,
+					testValue:                      testValue, // dummy value, should not be propagated
+				}),
+				WithLabels(map[string]string{
+					LocalQueueNameLabelKey: localQueueName,
+					testValue:              testValue, // dummy value, should not be propagated
+				}),
 			)
 
 			// safety check
@@ -451,11 +465,29 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 				}, expectedLWS)
 			}).WithContext(ctx).Should(Succeed())
 
+			By("checking the LeaderWorkerSet's top-level metadata")
 			Expect(expectedLWS).To(BeOwnedBy(llmSvc))
+			Expect(expectedLWS.Labels).To(HaveKeyWithValue(LocalQueueNameLabelKey, localQueueName))
+			Expect(expectedLWS.Labels).ToNot(HaveKeyWithValue(testValue, testValue))
+
+			Expect(expectedLWS.Annotations).To(HaveKeyWithValue(PreemptionReclaimAnnotationKey, preemptPriority))
+
+			By("checking the leader pod template metadata")
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.Size).To(Equal(ptr.To(int32(1))))
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate).To(Not(BeNil()))
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue("kserve.io/component", "workload"))
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue("llm-d.ai/role", "both"))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue(LocalQueueNameLabelKey, localQueueName))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).ToNot(HaveKeyWithValue(testValue, testValue))
+
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations).To(HaveKeyWithValue(PreemptionReclaimAnnotationKey, preemptPriority))
+
+			By("checking the worker pod template metadata")
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate).To(Not(BeNil()))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels).To(HaveKeyWithValue(LocalQueueNameLabelKey, localQueueName))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels).ToNot(HaveKeyWithValue(testValue, testValue))
+
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations).To(HaveKeyWithValue(PreemptionReclaimAnnotationKey, preemptPriority))
 		})
 	})
 })
