@@ -142,20 +142,21 @@ spec:
               --port 8000 \
               --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
               --disable-log-requests \
-              {{`{{- if .Spec.Parallelism.Expert -}}`}}--enable-expert-parallel{{`{{- end }}`}} \
-              {{`{{- if .Spec.Parallelism.Tensor -}}`}}--tensor-parallel-size {{`{{ .Spec.Parallelism.Tensor }}`}}{{`{{- end }}`}} \
+              {{`{{- if .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }}`}} \
+              {{`{{- if .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }}`}} \
               --data-parallel-size {{`{{ or .Spec.Parallelism.Data 1 }}`}} \
               --data-parallel-size-local {{`{{ or .Spec.Parallelism.DataLocal 1 }}`}} \
               --data-parallel-address $(LWS_LEADER_ADDRESS) \
-              --data-parallel-rpc-port {{`{{ if .Spec.Parallelism.DataRPCPort }}`}}{{`{{ .Spec.Parallelism.DataRPCPort }}`}}{{`{{ else }}`}}5555{{`{{- end }}`}} \
+              --data-parallel-rpc-port {{`{{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }}`}} \
               --data-parallel-start-rank $START_RANK \
               ${VLLM_ADDITIONAL_ARGS} \
-              --trust-remote-code \
-              --enable-ssl-refresh \
-              --ssl-certfile \
-              /etc/ssl/certs/tls.crt \
-              --ssl-keyfile \
-              /etc/ssl/certs/tls.key"
+              --trust-remote-code"
+              # BackendTLSPolicy is not implemented yet so disable SSL for now
+              # --enable-ssl-refresh \
+              # --ssl-certfile \
+              # /etc/ssl/certs/tls.crt \
+              # --ssl-keyfile \
+              # /etc/ssl/certs/tls.key"
         env:
           - name: HOME
             value: /home
@@ -166,7 +167,7 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: false
-          runAsNonRoot: true
+          runAsNonRoot: false
           capabilities:
             add:
               - "IPC_LOCK"
@@ -182,7 +183,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTPS
+            scheme: HTTP
           initialDelaySeconds: 300
           periodSeconds: 10
           timeoutSeconds: 10
@@ -191,7 +192,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTPS
+            scheme: HTTP
           initialDelaySeconds: 200
           periodSeconds: 30
           timeoutSeconds: 5
@@ -357,21 +358,22 @@ spec:
               --served-model-name "{{`{{ .Spec.Model.Name }}`}}" \
               --port 8000 \
               --disable-log-requests \
-              {{`{{- if .Spec.Parallelism.Expert }}`}}--enable-expert-parallel{{`{{- end }}`}} \
-              {{`{{- if .Spec.Parallelism.Tensor }}`}}--tensor-parallel-size {{`{{ .Spec.Parallelism.Tensor }}`}}{{`{{- end }}`}} \
+              {{`{{- if .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }}`}} \
+              {{`{{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }}`}} \
               --data-parallel-size {{`{{ or .Spec.Parallelism.Data 1 }}`}} \
               --data-parallel-size-local {{`{{ or .Spec.Parallelism.DataLocal 1 }}`}} \
               --data-parallel-address $(LWS_LEADER_ADDRESS) \
-              --data-parallel-rpc-port {{`{{ if .Spec.Parallelism.DataRPCPort }}`}}{{`{{ .Spec.Parallelism.DataRPCPort }}`}}{{`{{ else }}`}}5555{{`{{- end }}`}} \
+              --data-parallel-rpc-port {{`{{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }}`}} \
               --data-parallel-start-rank $START_RANK \
               ${VLLM_ADDITIONAL_ARGS} \
               --trust-remote-code \
-              --headless \
-              --enable-ssl-refresh \
-              --ssl-certfile \
-              /etc/ssl/certs/tls.crt \
-              --ssl-keyfile \
-              /etc/ssl/certs/tls.key"
+              --headless"
+              # BackendTLSPolicy is not implemented yet so disable SSL for now
+              # --enable-ssl-refresh \
+              # --ssl-certfile \
+              # /etc/ssl/certs/tls.crt \
+              # --ssl-keyfile \
+              # /etc/ssl/certs/tls.key
         env:
           - name: HOME
             value: /home
@@ -382,7 +384,7 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: false
-          runAsNonRoot: true
+          runAsNonRoot: false
           capabilities:
             add:
               - "IPC_LOCK"

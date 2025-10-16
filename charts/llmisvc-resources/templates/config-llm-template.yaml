@@ -21,11 +21,11 @@ spec:
           - --port
           - "8000"
           - --disable-log-requests
-          - --enable-ssl-refresh
-          - --ssl-certfile
-          - /etc/ssl/certs/tls.crt
-          - --ssl-keyfile
-          - /etc/ssl/certs/tls.key
+          # - --enable-ssl-refresh
+          # - --ssl-certfile
+          # - /etc/ssl/certs/tls.crt
+          # - --ssl-keyfile
+          # - /etc/ssl/certs/tls.key
         env:
           - name: HOME
             value: /home
@@ -48,7 +48,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTPS
+            scheme: HTTP
           initialDelaySeconds: 120
           periodSeconds: 10
           timeoutSeconds: 10
@@ -57,7 +57,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTPS
+            scheme: HTTP
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
