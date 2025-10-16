@@ -31,7 +31,7 @@ LLMISVC_IMG ?= kserve-llmisvc-controller:latest
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
 
-GIE_VERSION ?= v0.5.0
+GIE_VERSION ?= v0.5.1
 
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -120,9 +120,10 @@ manifests: controller-gen yq
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.worker.required)' -i config/crd/full/serving.kserve.io_llminferenceservices.yaml
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.template.required)' -i config/crd/full/serving.kserve.io_llminferenceservices.yaml
 
-	kubectl kustomize https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > charts/llmisvc-resources/templates/gateway-inference-extension.yaml
-	cp charts/llmisvc-resources/templates/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
-	cp charts/llmisvc-resources/templates/gateway-inference-extension.yaml config/llmisvc/gateway-inference-extension.yaml
+	# DO NOT COPY to helm chart. It needs to be created before the Envoy Gateway or you will need to restart the Envoy Gateway controller.
+	# The llmisvc helm chart needs to be installed after the Envoy Gateway as well, so it needs to be created before the llmisvc helm chart.
+	kubectl kustomize https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > config/llmisvc/gateway-inference-extension.yaml
+	cp config/llmisvc/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
 
 	#remove the required property on framework as name field needs to be optional
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
