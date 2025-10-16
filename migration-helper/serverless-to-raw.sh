@@ -16,6 +16,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Function to display help
@@ -27,6 +28,14 @@ DESCRIPTION:
     Converts KServe InferenceServices from Serverless deployment mode to Raw deployment mode.
     This script automates the process of migrating models from Knative-based serverless 
     deployments to standard Kubernetes deployments for better control and resource management.
+    
+    NOTE: In normal mode (not --dry-run), auth resources are created with ownerReferences
+    pointing to the InferenceService for automatic garbage collection. In --dry-run mode,
+    ownerReferences are omitted from saved files to ensure they can be applied independently.
+    Original files saved for rollback also have ownerReferences removed for portability.
+    
+    If you applied files from --dry-run and want to add ownerReferences later, use the
+    companion script: ./add-owner-references.sh -n <namespace> -i <inferenceservice-name>
 
 USAGE:
     $SCRIPT_NAME [OPTIONS]
@@ -690,25 +699,49 @@ delete_existing_resources() {
     fi
     
     if [ -n "$original_isvc_uid" ] && [ "$original_isvc_uid" != "null" ]; then
-        # Find and delete resources by naming convention
+        # Find and delete resources - try ownerReferences first, then fall back to naming convention
         log_info "Looking for resources associated with InferenceService $name..."
         
-        # Delete ServiceAccount
-        local sa_name="${name}-sa"
+        # Delete ServiceAccount - try by ownerReference first
+        local sa_name=$(oc get serviceaccounts -n "$NAMESPACE" -o json 2>/dev/null | jq -r ".items[] | select(.metadata.ownerReferences[]?.uid == \"$original_isvc_uid\") | .metadata.name" 2>/dev/null)
+        if [ -z "$sa_name" ] || [ "$sa_name" == "null" ]; then
+            # Fallback to naming convention
+            sa_name="${name}-sa"
+            log_info "No ServiceAccount found by ownerReference, trying naming convention: $sa_name"
+        else
+            log_info "Found ServiceAccount by ownerReference: $sa_name"
+        fi
+        
         if oc get serviceaccount "$sa_name" -n "$NAMESPACE" &>/dev/null; then
             log_info "Deleting ServiceAccount: $sa_name"
             oc delete serviceaccount -n "$NAMESPACE" "$sa_name" --ignore-not-found=true
         fi
         
-        # Delete Role
-        local role_name="${name}-view-role"
+        # Delete Role - try by ownerReference first
+        local role_name=$(oc get roles -n "$NAMESPACE" -o json 2>/dev/null | jq -r ".items[] | select(.metadata.ownerReferences[]?.uid == \"$original_isvc_uid\") | .metadata.name" 2>/dev/null)
+        if [ -z "$role_name" ] || [ "$role_name" == "null" ]; then
+            # Fallback to naming convention
+            role_name="${name}-view-role"
+            log_info "No Role found by ownerReference, trying naming convention: $role_name"
+        else
+            log_info "Found Role by ownerReference: $role_name"
+        fi
+        
         if oc get role "$role_name" -n "$NAMESPACE" &>/dev/null; then
             log_info "Deleting Role: $role_name"
             oc delete role -n "$NAMESPACE" "$role_name" --ignore-not-found=true
         fi
         
-        # Delete RoleBinding
-        local rolebinding_name="${name}-view"
+        # Delete RoleBinding - try by ownerReference first
+        local rolebinding_name=$(oc get rolebindings -n "$NAMESPACE" -o json 2>/dev/null | jq -r ".items[] | select(.metadata.ownerReferences[]?.uid == \"$original_isvc_uid\") | .metadata.name" 2>/dev/null)
+        if [ -z "$rolebinding_name" ] || [ "$rolebinding_name" == "null" ]; then
+            # Fallback to naming convention
+            rolebinding_name="${name}-view"
+            log_info "No RoleBinding found by ownerReference, trying naming convention: $rolebinding_name"
+        else
+            log_info "Found RoleBinding by ownerReference: $rolebinding_name"
+        fi
+        
         if oc get rolebinding "$rolebinding_name" -n "$NAMESPACE" &>/dev/null; then
             log_info "Deleting RoleBinding: $rolebinding_name"
             oc delete rolebinding -n "$NAMESPACE" "$rolebinding_name" --ignore-not-found=true
@@ -1069,40 +1102,82 @@ convert_isvc(){
         KNATIVE_ROUTE_EXISTS="false"
         SECRET_EXISTS="false"
         
-        # Find resources by naming convention
-        log_info "Searching for ServiceAccount: ${NAME}-sa"
-        if oc get serviceaccount "${NAME}-sa" -n "$NAMESPACE" &>/dev/null; then
-            oc get serviceaccount "${NAME}-sa" -n "$NAMESPACE" -o json 2>/dev/null | \
-                jq 'del(.metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .metadata.managedFields, .secrets, .imagePullSecrets, .metadata.annotations."openshift.io/internal-registry-pull-secret-ref")' | \
+        # Try to find resources by ownerReferences first, then fall back to naming convention
+        log_info "Searching for ServiceAccount with ownerReference UID: $ORIGINAL_ISVC_UID"
+        local sa_json=$(oc get serviceaccounts -n "$NAMESPACE" -o json 2>/dev/null | jq ".items[] | select(.metadata.ownerReferences[]?.uid == \"$ORIGINAL_ISVC_UID\")" 2>/dev/null)
+        if [ -n "$sa_json" ] && [ "$sa_json" != "null" ]; then
+            # Found by ownerReferences
+            echo "$sa_json" | jq 'del(.metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .metadata.managedFields, .metadata.ownerReferences, .secrets, .imagePullSecrets, .metadata.annotations."openshift.io/internal-registry-pull-secret-ref")' | \
                 yq eval -P - > "$SA_FILE" 2>/dev/null
             if [ -s "$SA_FILE" ]; then
                 SERVICE_ACCOUNT_EXISTS="true"
-                SA_NAME="${NAME}-sa"
-                log_info "Found ServiceAccount: $SA_NAME"
+                SA_NAME=$(echo "$sa_json" | jq -r '.metadata.name')
+                log_info "Found ServiceAccount by ownerReference: $SA_NAME"
+            fi
+        else
+            # Fallback to naming convention
+            log_info "No ownerReferences found, trying naming convention: ${NAME}-sa"
+            if oc get serviceaccount "${NAME}-sa" -n "$NAMESPACE" &>/dev/null; then
+                oc get serviceaccount "${NAME}-sa" -n "$NAMESPACE" -o json 2>/dev/null | \
+                    jq 'del(.metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .metadata.managedFields, .metadata.ownerReferences, .secrets, .imagePullSecrets, .metadata.annotations."openshift.io/internal-registry-pull-secret-ref")' | \
+                    yq eval -P - > "$SA_FILE" 2>/dev/null
+                if [ -s "$SA_FILE" ]; then
+                    SERVICE_ACCOUNT_EXISTS="true"
+                    SA_NAME="${NAME}-sa"
+                    log_info "Found ServiceAccount by naming convention: $SA_NAME"
+                fi
             fi
         fi
         
-        log_info "Searching for Role: ${NAME}-view-role"
-        if oc get role "${NAME}-view-role" -n "$NAMESPACE" &>/dev/null; then
-            oc get role "${NAME}-view-role" -n "$NAMESPACE" -o json 2>/dev/null | \
-                jq 'del(.metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .metadata.managedFields)' | \
+        log_info "Searching for Role with ownerReference UID: $ORIGINAL_ISVC_UID"
+        local role_json=$(oc get roles -n "$NAMESPACE" -o json 2>/dev/null | jq ".items[] | select(.metadata.ownerReferences[]?.uid == \"$ORIGINAL_ISVC_UID\")" 2>/dev/null)
+        if [ -n "$role_json" ] && [ "$role_json" != "null" ]; then
+            # Found by ownerReferences
+            echo "$role_json" | jq 'del(.metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .metadata.managedFields, .metadata.ownerReferences)' | \
                 yq eval -P - > "$ROLE_FILE" 2>/dev/null
             if [ -s "$ROLE_FILE" ]; then
                 ROLE_EXISTS="true"
-                ROLE_NAME="${NAME}-view-role"
-                log_info "Found Role: $ROLE_NAME"
+                ROLE_NAME=$(echo "$role_json" | jq -r '.metadata.name')
+                log_info "Found Role by ownerReference: $ROLE_NAME"
+            fi
+        else
+            # Fallback to naming convention
+            log_info "No ownerReferences found, trying naming convention: ${NAME}-view-role"
+            if oc get role "${NAME}-view-role" -n "$NAMESPACE" &>/dev/null; then
+                oc get role "${NAME}-view-role" -n "$NAMESPACE" -o json 2>/dev/null | \
+                    jq 'del(.metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .metadata.managedFields, .metadata.ownerReferences)' | \
+                    yq eval -P - > "$ROLE_FILE" 2>/dev/null
+                if [ -s "$ROLE_FILE" ]; then
+                    ROLE_EXISTS="true"
+                    ROLE_NAME="${NAME}-view-role"
+                    log_info "Found Role by naming convention: $ROLE_NAME"
+                fi
             fi
         fi
         
-        log_info "Searching for RoleBinding: ${NAME}-view"
-        if oc get rolebinding "${NAME}-view" -n "$NAMESPACE" &>/dev/null; then
-            oc get rolebinding "${NAME}-view" -n "$NAMESPACE" -o json 2>/dev/null | \
-                jq 'del(.metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .metadata.managedFields)' | \
+        log_info "Searching for RoleBinding with ownerReference UID: $ORIGINAL_ISVC_UID"
+        local rolebinding_json=$(oc get rolebindings -n "$NAMESPACE" -o json 2>/dev/null | jq ".items[] | select(.metadata.ownerReferences[]?.uid == \"$ORIGINAL_ISVC_UID\")" 2>/dev/null)
+        if [ -n "$rolebinding_json" ] && [ "$rolebinding_json" != "null" ]; then
+            # Found by ownerReferences
+            echo "$rolebinding_json" | jq 'del(.metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .metadata.managedFields, .metadata.ownerReferences)' | \
                 yq eval -P - > "$ROLEBINDING_FILE" 2>/dev/null
             if [ -s "$ROLEBINDING_FILE" ]; then
                 ROLE_BINDING_EXISTS="true"
-                ROLEBINDING_NAME="${NAME}-view"
-                log_info "Found RoleBinding: $ROLEBINDING_NAME"
+                ROLEBINDING_NAME=$(echo "$rolebinding_json" | jq -r '.metadata.name')
+                log_info "Found RoleBinding by ownerReference: $ROLEBINDING_NAME"
+            fi
+        else
+            # Fallback to naming convention
+            log_info "No ownerReferences found, trying naming convention: ${NAME}-view"
+            if oc get rolebinding "${NAME}-view" -n "$NAMESPACE" &>/dev/null; then
+                oc get rolebinding "${NAME}-view" -n "$NAMESPACE" -o json 2>/dev/null | \
+                    jq 'del(.metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation, .metadata.managedFields, .metadata.ownerReferences)' | \
+                    yq eval -P - > "$ROLEBINDING_FILE" 2>/dev/null
+                if [ -s "$ROLEBINDING_FILE" ]; then
+                    ROLE_BINDING_EXISTS="true"
+                    ROLEBINDING_NAME="${NAME}-view"
+                    log_info "Found RoleBinding by naming convention: $ROLEBINDING_NAME"
+                fi
             fi
         fi
         
@@ -1518,25 +1593,52 @@ main() {
         echo "• Backup your resources: oc get isvc,servingruntimes,sa,roles,rolebindings,secrets -n $NAMESPACE -o yaml > backup.yaml"
         echo "• Consider using --delete-existing flag with original names to automate cleanup"
         echo ""
-    fi
-    
-    if [ "$DRY_RUN" == "true" ]; then
-        echo -e "${YELLOW}Next steps (dry-run mode):${NC}"
-        echo "  1. Review the generated files in the respective directories"
-        if [ "$USE_ORIGINAL_NAMES" == "true" ]; then
-            echo "  2. Delete existing resources: oc delete isvc,servingruntimes,sa,roles,rolebindings,secrets -n $NAMESPACE -l <your-label-selector>"
-            echo "  3. Apply the raw resources manually: oc apply -f <inference-service-name>/raw-original-names/ -n $NAMESPACE"
-        else
-            echo "  2. Apply the raw resources manually: oc apply -f <inference-service-name>/raw/ -n $NAMESPACE"
-        fi
-        echo "  $(if [ "$USE_ORIGINAL_NAMES" == "true" ]; then echo "4"; else echo "3"; fi). Verify the deployment: oc get isvc -n $NAMESPACE <NAME_RAW>"
-        echo "  $(if [ "$USE_ORIGINAL_NAMES" == "true" ]; then echo "5"; else echo "4"; fi). Test the endpoint: oc get isvc -n $NAMESPACE <NAME_RAW> -o jsonpath='{.status.url}'"
-        echo "  $(if [ "$USE_ORIGINAL_NAMES" == "true" ]; then echo "6"; else echo "5"; fi). Monitor the deployment: oc get pods -n $NAMESPACE -l serving.kserve.io/inferenceservice=<NAME_RAW>"
-    else
-        echo -e "${YELLOW}Next steps:${NC}"
-        echo "  1. Verify the raw deployment: oc get isvc -n $NAMESPACE <NAME_RAW>"
-        echo "  2. Test the endpoint: oc get isvc -n $NAMESPACE <NAME_RAW> -o jsonpath='{.status.url}'"
-        echo "  3. Monitor the deployment: oc get pods -n $NAMESPACE -l serving.kserve.io/inferenceservice=<NAME_RAW>"
+        
+        echo -e "${YELLOW}Next steps for each InferenceService (dry-run mode):${NC}"
+        for name in "${SELECTED_ISVCS[@]}"; do
+            echo ""
+            echo -e "For InferenceService: ${CYAN}$name${NC}"
+            echo "  1. Review the generated files in: $name/"
+            echo -e "  2. Delete existing InferenceService: ${CYAN}oc delete isvc $name -n $NAMESPACE${NC}"
+            echo "  3. Delete existing ServingRuntime: Check $name/original/ for runtime name, then delete it"
+            echo -e "  4. Delete auth resources: ${CYAN}oc delete sa ${name}-sa role/${name}-view-role rolebinding/${name}-view -n $NAMESPACE${NC}"
+            echo -e "  5. ${RED}Delete Istio route: oc delete route ${name}-${NAMESPACE} -n istio-system${NC}"
+            echo -e "  6. Apply the raw resources: ${CYAN}oc apply -f $name/raw-original-names/ -n $NAMESPACE${NC}"
+            echo -e "  7. Verify: ${CYAN}oc get isvc $name -n $NAMESPACE${NC}"
+            echo -e "  8. Test endpoint: ${CYAN}oc get isvc $name -n $NAMESPACE -o jsonpath='{.status.url}'${NC}"
+            echo -e "  9. Monitor: ${CYAN}oc get pods -n $NAMESPACE -l serving.kserve.io/inferenceservice=$name${NC}"
+        done
+        
+        echo ""
+        echo -e "${YELLOW}Optional: Add ownerReferences for automatic garbage collection${NC}"
+        echo -e "After applying the resources, you can optionally add ownerReferences to enable"
+        echo -e "automatic cleanup when the InferenceService is deleted:"
+        echo ""
+        for name in "${SELECTED_ISVCS[@]}"; do
+            echo -e "  ${CYAN}./add-owner-references.sh -n $NAMESPACE -i $name${NC}"
+        done
+    elif [ "$DRY_RUN" == "true" ]; then
+        echo -e "${YELLOW}Next steps for each InferenceService (dry-run mode):${NC}"
+        for name in "${SELECTED_ISVCS[@]}"; do
+            local name_raw="${name}-raw"
+            echo ""
+            echo -e "For InferenceService: ${CYAN}$name${NC} → ${CYAN}$name_raw${NC}"
+            echo "  1. Review the generated files in: $name/"
+            echo -e "  2. Apply the raw resources: ${CYAN}oc apply -f $name/raw/ -n $NAMESPACE${NC}"
+            echo -e "  3. Verify: ${CYAN}oc get isvc $name_raw -n $NAMESPACE${NC}"
+            echo -e "  4. Test endpoint: ${CYAN}oc get isvc $name_raw -n $NAMESPACE -o jsonpath='{.status.url}'${NC}"
+            echo -e "  5. Monitor: ${CYAN}oc get pods -n $NAMESPACE -l serving.kserve.io/inferenceservice=$name_raw${NC}"
+        done
+        
+        echo ""
+        echo -e "${YELLOW}Optional: Add ownerReferences for automatic garbage collection${NC}"
+        echo -e "After applying the resources, you can optionally add ownerReferences to enable"
+        echo -e "automatic cleanup when the InferenceService is deleted:"
+        echo ""
+        for name in "${SELECTED_ISVCS[@]}"; do
+            local name_raw="${name}-raw"
+            echo -e "  ${CYAN}./add-owner-references.sh -n $NAMESPACE -i $name_raw${NC}"
+        done
     fi
 }
 
