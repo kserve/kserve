@@ -1195,19 +1195,31 @@ EOF
     
     if [ "$SERVICE_ACCOUNT_EXISTS" == "true" ]; then
         log_step "Processing ServiceAccount..."
-        if ! yq eval "
-            del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status) |
-            .metadata.name = \"$NAME_RAW-sa\" |
-            .metadata.ownerReferences = [{
-                \"apiVersion\": \"serving.kserve.io/v1beta1\",
-                \"kind\": \"InferenceService\",
-                \"name\": \"$NAME_RAW\",
-                \"uid\": \"$ISVC_RAW_UID\",
-                \"blockOwnerDeletion\": false
-            }]
-        " "$SA_FILE" > "$SA_RAW_FILE" 2>/dev/null; then
-            log_error "Failed to process ServiceAccount YAML"
-            exit 1
+        
+        if [ "$DRY_RUN" == "true" ]; then
+            if ! yq eval "
+                del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status, .metadata.ownerReferences) |
+                .metadata.name = \"$NAME_RAW-sa\"
+            " "$SA_FILE" > "$SA_RAW_FILE" 2>/dev/null; then
+                log_error "Failed to process ServiceAccount YAML"
+                exit 1
+            fi
+        else
+            # In normal mode, add ownerReferences to the InferenceService
+            if ! yq eval "
+                del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status) |
+                .metadata.name = \"$NAME_RAW-sa\" |
+                .metadata.ownerReferences = [{
+                    \"apiVersion\": \"serving.kserve.io/v1beta1\",
+                    \"kind\": \"InferenceService\",
+                    \"name\": \"$NAME_RAW\",
+                    \"uid\": \"$ISVC_RAW_UID\",
+                    \"blockOwnerDeletion\": false
+                }]
+            " "$SA_FILE" > "$SA_RAW_FILE" 2>/dev/null; then
+                log_error "Failed to process ServiceAccount YAML"
+                exit 1
+            fi
         fi
         
         if [ ! -s "$SA_RAW_FILE" ]; then
@@ -1230,20 +1242,33 @@ EOF
     
     if [ "$ROLE_EXISTS" == "true" ]; then
         log_step "Processing Role..."
-        if ! yq eval "
-            del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status) |
-            .metadata.name = \"$NAME_RAW-view-role\" |
-            .metadata.ownerReferences = [{
-                \"apiVersion\": \"serving.kserve.io/v1beta1\",
-                \"kind\": \"InferenceService\",
-                \"name\": \"$NAME_RAW\",
-                \"uid\": \"$ISVC_RAW_UID\",
-                \"blockOwnerDeletion\": false
-            }] |
-            .rules[0].resourceNames[0] = \"$NAME_RAW\"
-        " "$ROLE_FILE" > "$ROLE_RAW_FILE" 2>/dev/null; then
-            log_error "Failed to process Role YAML"
-            exit 1
+        
+        if [ "$DRY_RUN" == "true" ]; then
+            if ! yq eval "
+                del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status, .metadata.ownerReferences) |
+                .metadata.name = \"$NAME_RAW-view-role\" |
+                .rules[0].resourceNames[0] = \"$NAME_RAW\"
+            " "$ROLE_FILE" > "$ROLE_RAW_FILE" 2>/dev/null; then
+                log_error "Failed to process Role YAML"
+                exit 1
+            fi
+        else
+            # In normal mode, add ownerReferences to the InferenceService
+            if ! yq eval "
+                del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status) |
+                .metadata.name = \"$NAME_RAW-view-role\" |
+                .metadata.ownerReferences = [{
+                    \"apiVersion\": \"serving.kserve.io/v1beta1\",
+                    \"kind\": \"InferenceService\",
+                    \"name\": \"$NAME_RAW\",
+                    \"uid\": \"$ISVC_RAW_UID\",
+                    \"blockOwnerDeletion\": false
+                }] |
+                .rules[0].resourceNames[0] = \"$NAME_RAW\"
+            " "$ROLE_FILE" > "$ROLE_RAW_FILE" 2>/dev/null; then
+                log_error "Failed to process Role YAML"
+                exit 1
+            fi
         fi
         
         if [ ! -s "$ROLE_RAW_FILE" ]; then
@@ -1266,21 +1291,35 @@ EOF
     
     if [ "$ROLE_BINDING_EXISTS" == "true" ]; then
         log_step "Processing RoleBinding..."
-        if ! yq eval "
-            del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status) |
-            .metadata.name = \"$NAME_RAW-view\" |
-            .subjects[0].name = \"$NAME_RAW-sa\" |
-            .roleRef.name = \"$NAME_RAW-view-role\" |
-            .metadata.ownerReferences = [{
-                \"apiVersion\": \"serving.kserve.io/v1beta1\",
-                \"kind\": \"InferenceService\",
-                \"name\": \"$NAME_RAW\",
-                \"uid\": \"$ISVC_RAW_UID\",
-                \"blockOwnerDeletion\": false
-            }]
-        " "$ROLEBINDING_FILE" > "$ROLEBINDING_RAW_FILE" 2>/dev/null; then
-            log_error "Failed to process RoleBinding YAML"
-            exit 1
+        
+        if [ "$DRY_RUN" == "true" ]; then
+            if ! yq eval "
+                del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status, .metadata.ownerReferences) |
+                .metadata.name = \"$NAME_RAW-view\" |
+                .subjects[0].name = \"$NAME_RAW-sa\" |
+                .roleRef.name = \"$NAME_RAW-view-role\"
+            " "$ROLEBINDING_FILE" > "$ROLEBINDING_RAW_FILE" 2>/dev/null; then
+                log_error "Failed to process RoleBinding YAML"
+                exit 1
+            fi
+        else
+            # In normal mode, add ownerReferences to the InferenceService
+            if ! yq eval "
+                del(.metadata.finalizers, .metadata.resourceVersion, .metadata.uid, .status) |
+                .metadata.name = \"$NAME_RAW-view\" |
+                .subjects[0].name = \"$NAME_RAW-sa\" |
+                .roleRef.name = \"$NAME_RAW-view-role\" |
+                .metadata.ownerReferences = [{
+                    \"apiVersion\": \"serving.kserve.io/v1beta1\",
+                    \"kind\": \"InferenceService\",
+                    \"name\": \"$NAME_RAW\",
+                    \"uid\": \"$ISVC_RAW_UID\",
+                    \"blockOwnerDeletion\": false
+                }]
+            " "$ROLEBINDING_FILE" > "$ROLEBINDING_RAW_FILE" 2>/dev/null; then
+                log_error "Failed to process RoleBinding YAML"
+                exit 1
+            fi
         fi
         
         if [ ! -s "$ROLEBINDING_RAW_FILE" ]; then
@@ -1308,9 +1347,19 @@ EOF
         DISPLAY_NAME=$(yq eval '.metadata.annotations."openshift.io/display-name" // "default-name"' "$SECRET_FILE" 2>/dev/null || echo "default-name")
         
         if [ "$DRY_RUN" == "true" ]; then
-            # In dry-run mode, use a placeholder UID
-            SA_UID="dry-run-placeholder-uid"
-            log_info "Using placeholder UID for ServiceAccount in dry-run mode"
+            cat > "$SECRET_RAW_FILE" << EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ${DISPLAY_NAME}-${SA_NAME_RAW}
+  namespace: ${NAMESPACE}
+  labels:
+    opendatahub.io/dashboard: "true"
+  annotations:
+    kubernetes.io/service-account.name: ${SA_NAME_RAW}
+    openshift.io/display-name: ${DISPLAY_NAME}
+type: kubernetes.io/service-account-token
+EOF
         else
             # Wait for service account to be ready and get its UID
             log_step "Waiting for ServiceAccount to be ready..."
@@ -1328,10 +1377,8 @@ EOF
                 log_error "Could not get UID for service account $SA_NAME_RAW after waiting"
                 exit 1
             fi
-        fi
-        
-        # Create the secret manifest
-        cat > "$SECRET_RAW_FILE" << EOF
+            
+            cat > "$SECRET_RAW_FILE" << EOF
 apiVersion: v1
 kind: Secret
 metadata:
@@ -1345,6 +1392,7 @@ metadata:
     openshift.io/display-name: ${DISPLAY_NAME}
 type: kubernetes.io/service-account-token
 EOF
+        fi
         
         if [ ! -s "$SECRET_RAW_FILE" ]; then
             log_error "Failed to create secret YAML file"
