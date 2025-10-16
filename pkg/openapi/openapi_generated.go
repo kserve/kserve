@@ -125,6 +125,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SecurityConfig":                 schema_pkg_apis_serving_v1beta1_SecurityConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ServiceConfig":                  schema_pkg_apis_serving_v1beta1_ServiceConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec":                    schema_pkg_apis_serving_v1beta1_StorageSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageUri":                     schema_pkg_apis_serving_v1beta1_StorageUri(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec":                  schema_pkg_apis_serving_v1beta1_TFServingSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec":                 schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TransformerSpec":                schema_pkg_apis_serving_v1beta1_TransformerSpec(ref),
@@ -2005,6 +2006,12 @@ func schema_pkg_apis_serving_v1alpha1_StorageContainerSpec(ref common.ReferenceC
 					"workloadType": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"supportsMultiModelDownload": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},
@@ -5343,11 +5350,30 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
 						},
 					},
+					"storageUris": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec for multiple storage uris.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageUri"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageUri", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -6805,13 +6831,13 @@ func schema_pkg_apis_serving_v1beta1_MetricTarget(ref common.ReferenceCallback) 
 					"value": {
 						SchemaProps: spec.SchemaProps{
 							Description: "value is the target value of the metric (as a quantity).",
-							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricQuantity"),
 						},
 					},
 					"averageValue": {
 						SchemaProps: spec.SchemaProps{
 							Description: "averageValue is the target value of the average of the metric across all relevant pods (as a quantity)",
-							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricQuantity"),
 						},
 					},
 					"averageUtilization": {
@@ -6825,7 +6851,7 @@ func schema_pkg_apis_serving_v1beta1_MetricTarget(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricQuantity"},
 	}
 }
 
@@ -9365,6 +9391,25 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec"),
 						},
 					},
+					"storageUris": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec for multiple storage uris.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageUri"),
+									},
+								},
+							},
+						},
+					},
 					"workerSpec": {
 						SchemaProps: spec.SchemaProps{
 							Description: "WorkerSpec for enabling multi-node/multi-gpu",
@@ -9927,7 +9972,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.HuggingFaceRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.WorkerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.XGBoostSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.HuggingFaceRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageUri", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.WorkerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.XGBoostSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -10430,6 +10475,34 @@ func schema_pkg_apis_serving_v1beta1_StorageSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_StorageUri(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"uri": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"mountPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MountPath is the path where the model will be mounted inside the container. If not specified, it defaults to /mnt/models.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"uri"},
 			},
 		},
 	}
@@ -11646,11 +11719,30 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 							Ref:         ref("k8s.io/api/apps/v1.DeploymentStrategy"),
 						},
 					},
+					"storageUris": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec for multiple storage uris.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageUri"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageUri", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 

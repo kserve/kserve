@@ -689,13 +689,19 @@ data:
 
   opentelemetryCollector: |-
     {
-      "scrapeInterval": "5s",
-      "metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
-      "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
+      "scrapeInterval": "{{ .Values.kserve.opentelemetryCollector.scrapeInterval }}",
+      "metricReceiverEndpoint": "{{ .Values.kserve.opentelemetryCollector.metricReceiverEndpoint }}",
+      "metricScalerEndpoint": "{{ .Values.kserve.opentelemetryCollector.metricScalerEndpoint }}",
+      "resource": {
+          "cpuLimit": "{{ .Values.kserve.opentelemetryCollector.resource.cpuLimit }}",
+          "memoryLimit": "{{ .Values.kserve.opentelemetryCollector.resource.memoryLimit }}",
+          "cpuRequest": "{{ .Values.kserve.opentelemetryCollector.resource.cpuRequest }}",
+          "memoryRequest": "{{ .Values.kserve.opentelemetryCollector.resource.memoryRequest }}"
+      }
     }
 
   autoscaler: |-
     {
-      "scaleUpStabilizationWindowSeconds": "0",
-      "scaleDownStabilizationWindowSeconds": "300"
+      "scaleUpStabilizationWindowSeconds": "{{ .Values.kserve.autoscaler.scaleUpStabilizationWindowSeconds }}",
+      "scaleDownStabilizationWindowSeconds": "{{ .Values.kserve.autoscaler.scaleDownStabilizationWindowSeconds }}"
     }
