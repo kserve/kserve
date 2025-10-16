@@ -17,10 +17,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"path"
 	"strings"
+	"sync"
 
+	"github.com/xitongsys/parquet-go-source/mem"
+	"github.com/xitongsys/parquet-go/parquet"
+	"github.com/xitongsys/parquet-go/writer"
 	"go.uber.org/zap"
 
 	"github.com/kserve/kserve/pkg/agent/storage"
@@ -33,6 +38,9 @@ const (
 	GCSStorage   StorageStrategy = "gcs"
 	AzureStorage StorageStrategy = "abfs"
 	HttpStorage  StorageStrategy = "http"
+
+	LogStoreFormatJson    string = "json"
+	LogStoreFormatParquet string = "parquet"
 )
 
 const DefaultStorage = HttpStorage
@@ -66,11 +74,58 @@ func (j *JSONMarshaller) Marshal(v interface{}) ([]byte, error) {
 
 func getMarshaller(format string) (Marshaller, error) {
 	switch format {
-	case "json":
+	case LogStoreFormatJson:
 		return &JSONMarshaller{}, nil
+	case LogStoreFormatParquet:
+		return &ParquetMarshaller{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported format %s", format)
 	}
+}
+
+type ParquetMarshaller struct{}
+
+func (p *ParquetMarshaller) Marshal(v interface{}) ([]byte, error) {
+	var wg sync.WaitGroup
+	buffer := make([]byte, 0)
+	wg.Add(1)
+	var readErr error
+	memFile, err := mem.NewMemFileWriter("temp.parquet", func(name string, reader io.Reader) error {
+		defer wg.Done()
+		_, rErr := reader.Read(buffer)
+		if rErr != nil {
+			readErr = rErr
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if readErr != nil {
+		return nil, readErr
+	}
+
+	pw, err := writer.NewParquetWriter(memFile, v, 4)
+	if err != nil {
+		return nil, err
+	}
+	pw.RowGroupSize = 128 * 1024 * 1024
+	pw.CompressionType = parquet.CompressionCodec_SNAPPY
+
+	if err := pw.Write(v); err != nil {
+		return nil, err
+	}
+
+	if err := pw.WriteStop(); err != nil {
+		return nil, err
+	}
+
+	err = memFile.Close()
+	if err != nil {
+		return nil, err
+	}
+	wg.Wait()
+	return buffer, nil
 }
 
 type Store interface {
@@ -99,7 +154,7 @@ func NewBlobStore(logStorePath string, logStoreFormat string, marshaller Marshal
 
 func NewStoreForScheme(scheme string, logStorePath string, logStoreFormat string, log *zap.SugaredLogger) (Store, error) {
 	if logStoreFormat == "" {
-		logStoreFormat = "json"
+		logStoreFormat = LogStoreFormatJson
 	}
 	marshaller, err := getMarshaller(logStoreFormat)
 	if err != nil {
