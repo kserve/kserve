@@ -311,6 +311,10 @@ func (c *CredentialBuilder) mountSecretCredential(ctx context.Context, secretNam
 		log.Info("Setting secret envs for azure", "AzureSecret", secret.Name)
 		envs := azure.BuildSecretEnvs(secret)
 		container.Env = append(container.Env, envs...)
+	} else if _, ok := secret.Data[azure.AzureAccessToken]; ok {
+		log.Info("Setting secret envs with azure access token for azure", "AzureSecret", secret.Name)
+		envs := azure.BuildSecretEnvs(secret)
+		container.Env = append(container.Env, envs...)
 	} else if _, ok := secret.Data[azure.AzureStorageAccessKey]; ok {
 		log.Info("Setting secret envs with azure storage access key for azure", "AzureSecret", secret.Name)
 		envs := azure.BuildStorageAccessKeySecretEnv(secret)
