@@ -15,7 +15,7 @@ dependencies = [
     "huggingface-hub[hf-transfer]>=0.32.0",
 ]
 name = "kserve-storage"
-version = "0.16.0rc0"
+version = "0.16.0rc1"
 readme = "README.md"
 description = "KServe Storage Handler. This module is responsible to download the models from the provided source"
 classifiers = [
