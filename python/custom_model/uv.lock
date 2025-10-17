@@ -330,7 +330,7 @@ wheels = [
 
 [[package]]
 name = "custom-model"
-version = "0.16.0rc0"
+version = "0.16.0rc1"
 source = { virtual = "." }
 dependencies = [
     { name = "kserve", extra = ["ray"] },
@@ -781,7 +781,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.16.0rc0"
+version = "0.16.0rc1"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "cloudevents" },
