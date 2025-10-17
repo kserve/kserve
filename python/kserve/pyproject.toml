@@ -55,14 +55,7 @@ repository = "https://github.com/kserve/kserve/tree/master/python/kserve"
 
 [project.optional-dependencies]
 storage = [
-    "kserve-storage==2"
-#     "requests<3.0.0,>=2.32.2",
-#    "google-cloud-storage<3.0.0,>=2.14.0",
-#    "azure-storage-blob<13.0.0,>=12.20.0",
-#    "azure-storage-file-share<13.0.0,>=12.16.0",
-#    "azure-identity<2.0.0,>=1.15.0",
-#    "boto3<2.0.0,>=1.29.0",
-#    "huggingface-hub[hf-transfer]>=0.32.0",
+    "kserve-storage==0.16.0rc1"
 ]
 logging = [
     "asgi-logger<1.0.0,>=0.1.0",
