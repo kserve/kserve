@@ -214,7 +214,6 @@ func (s *BlobStore) getObjectKey(configPrefix string, request *LogRequest) (stri
 }
 
 func isValidScheme(scheme string) bool {
-
 	return strings.HasPrefix(scheme, S3Prefix) || strings.HasPrefix(scheme, GCSPrefix) || strings.HasPrefix(scheme, AzurePrefix)
 }
 
