@@ -35,9 +35,11 @@ const (
 	HttpStorage  StorageStrategy = "http"
 )
 
-const S3Prefix = "s3"
-const GCSPrefix = "gs"
-const AzurePrefix = "abfs"
+const (
+	S3Prefix    string = "s3"
+	GCSPrefix   string = "gs"
+	AzurePrefix string = "abfs"
+)
 
 const DefaultStorage = HttpStorage
 
