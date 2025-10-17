@@ -47,6 +47,10 @@ from kserve.errors import (
 from kserve.logging import trace_logger, logger
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.rest.timeseries.config import maybe_register_time_series_endpoints
+from kserve.protocol.rest.tracing import (
+    TraceResponseHeaderMiddleware,
+    instrument_app,
+)
 
 from .v1_endpoints import register_v1_endpoints
 from .v2_endpoints import register_v2_endpoints
@@ -97,6 +101,7 @@ class RESTServer:
         app.include_router(root_router)
         register_v1_endpoints(app, self.dataplane, self.model_repository_extension)
         register_v2_endpoints(app, self.dataplane, self.model_repository_extension)
+        instrument_app(app)
         # Register OpenAI endpoints if any of the models in the registry implement the OpenAI interface
         # This adds /openai/v1/completions and /openai/v1/chat/completions routes to the
         # REST server.
@@ -107,6 +112,7 @@ class RESTServer:
 
             maybe_register_openai_endpoints(app, self.dataplane.model_registry)
             logger.info("OpenAI endpoints registered")
+
         except ImportError:
             logger.info("OpenAI endpoints not registered")
 
@@ -137,6 +143,7 @@ class RESTServer:
             client=PrintTimings(),
             metric_namer=StarletteScopeToName(prefix="kserve.io", starlette_app=app),
         )
+        app.add_middleware(TraceResponseHeaderMiddleware)
 
         # More context in https://github.com/encode/uvicorn/pull/947
         # At the time of writing the ASGI specs are not clear when it comes
@@ -144,7 +151,7 @@ class RESTServer:
         # chose to create a custom middleware for this.
         # The allowed log format is specified in https://github.com/Kludex/asgi-logger#usage
         if self.access_log_format:
-            from asgi_logger import AccessLoggerMiddleware
+            from asgi_logger import AccessLoggerMiddleware  # type: ignore[import-not-found]
 
             # As indicated by the asgi-logger docs, we need to clear/unset
             # any setting for uvicorn.access to avoid log duplicates.

@@ -27,6 +27,14 @@ dependencies = [
     "pandas<3.0.0,>=2.2.0",
     "pydantic<3.0.0,>=2.5.0",
     "pyyaml<7.0.0,>=6.0.0",
+
+    # OpenTelemetry packages
+    "opentelemetry-instrumentation-fastapi<1.0.0,>=0.46b0",
+    "opentelemetry-instrumentation-logging>=0.54b1,<1.0.0",
+    "opentelemetry-api>=1.15.0,<2.0.0",
+    "opentelemetry-sdk>=1.15.0,<2.0.0",
+    "opentelemetry-exporter-otlp>=1.15.0,<2.0.0",
+
 ]
 name = "kserve"
 version = "0.16.0rc0"
