@@ -129,6 +129,8 @@ func getLoggerConfigs(pod *corev1.Pod, configMap *corev1.ConfigMap, isvc *v1beta
 		}
 	}
 
+	log.Info("getLoggerConfig processing configuration", "loggerConfig", loggerConfig)
+
 	// Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := []string{
 		loggerConfig.MemoryRequest,
@@ -454,6 +456,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		); err != nil {
 			return err
 		}
+		log.Info("Successfully created secret volume and env", "secret", saName)
 	}
 
 	// Add container to the spec
