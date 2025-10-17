@@ -30,7 +30,7 @@ func TestS3Secret(t *testing.T) {
 		secret   *corev1.Secret
 		expected []corev1.EnvVar
 	}{
-		"S3SecretEnvs": {
+		"S3SecretAnnotationEnvs": {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-secret",
@@ -73,7 +73,50 @@ func TestS3Secret(t *testing.T) {
 			},
 		},
 
-		"S3SecretHttpsOverrideEnvs": {
+		"S3SecretDataEnvs": {
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "s3-secret",
+				},
+				Data: map[string][]byte{
+					S3Endpoint: []byte("s3.aws.com"),
+				},
+			},
+			expected: []corev1.EnvVar{
+				{
+					Name: AWSAccessKeyId,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "s3-secret",
+							},
+							Key: AWSAccessKeyIdName,
+						},
+					},
+				},
+				{
+					Name: AWSSecretAccessKey,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "s3-secret",
+							},
+							Key: AWSSecretAccessKeyName,
+						},
+					},
+				},
+				{
+					Name:  S3Endpoint,
+					Value: "s3.aws.com",
+				},
+				{
+					Name:  AWSEndpointUrl,
+					Value: "https://s3.aws.com",
+				},
+			},
+		},
+
+		"S3SecretAnnotationHttpsOverrideEnvs": {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-secret",
@@ -127,7 +170,61 @@ func TestS3Secret(t *testing.T) {
 			},
 		},
 
-		"S3SecretEnvsWithAnonymousCredentials": {
+		"S3SecretDataHttpsOverrideEnvs": {
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "s3-secret",
+				},
+				Data: map[string][]byte{
+					S3Endpoint:  []byte("s3.aws.com"),
+					S3UseHttps:  []byte("0"),
+					S3VerifySSL: []byte("0"),
+				},
+			},
+
+			expected: []corev1.EnvVar{
+				{
+					Name: AWSAccessKeyId,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "s3-secret",
+							},
+							Key: AWSAccessKeyIdName,
+						},
+					},
+				},
+				{
+					Name: AWSSecretAccessKey,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "s3-secret",
+							},
+							Key: AWSSecretAccessKeyName,
+						},
+					},
+				},
+				{
+					Name:  S3UseHttps,
+					Value: "0",
+				},
+				{
+					Name:  S3Endpoint,
+					Value: "s3.aws.com",
+				},
+				{
+					Name:  AWSEndpointUrl,
+					Value: "http://s3.aws.com",
+				},
+				{
+					Name:  S3VerifySSL,
+					Value: "0",
+				},
+			},
+		},
+
+		"S3SecretAnnotationEnvsWithAnonymousCredentials": {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-secret",
@@ -135,6 +232,54 @@ func TestS3Secret(t *testing.T) {
 						InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
 						InferenceServiceS3UseAnonymousCredential:   "true",
 					},
+				},
+			},
+			expected: []corev1.EnvVar{
+				{
+					Name: AWSAccessKeyId,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "s3-secret",
+							},
+							Key: AWSAccessKeyIdName,
+						},
+					},
+				},
+				{
+					Name: AWSSecretAccessKey,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "s3-secret",
+							},
+							Key: AWSSecretAccessKeyName,
+						},
+					},
+				},
+				{
+					Name:  S3Endpoint,
+					Value: "s3.aws.com",
+				},
+				{
+					Name:  AWSEndpointUrl,
+					Value: "https://s3.aws.com",
+				},
+				{
+					Name:  AWSAnonymousCredential,
+					Value: "true",
+				},
+			},
+		},
+
+		"S3SecretDataEnvsWithAnonymousCredentials": {
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "s3-secret",
+				},
+				Data: map[string][]byte{
+					S3Endpoint:             []byte("s3.aws.com"),
+					AWSAnonymousCredential: []byte("true"),
 				},
 			},
 			expected: []corev1.EnvVar{
