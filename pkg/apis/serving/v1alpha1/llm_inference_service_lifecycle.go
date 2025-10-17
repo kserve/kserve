@@ -42,6 +42,7 @@ const (
 	GatewaysReady      apis.ConditionType = "GatewaysReady"
 	HTTPRoutesReady    apis.ConditionType = "HTTPRoutesReady"
 	InferencePoolReady apis.ConditionType = "InferencePoolReady"
+	IngressReady       apis.ConditionType = "IngressReady"
 )
 
 var llmInferenceServiceCondSet = apis.NewLivingConditionSet(
@@ -149,12 +150,29 @@ func (in *LLMInferenceService) MarkInferencePoolNotReady(reason, messageFormat s
 	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(InferencePoolReady, reason, messageFormat, messageA...)
 }
 
+func (in *LLMInferenceService) MarkIngressReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(IngressReady)
+}
+
+func (in *LLMInferenceService) MarkIngressNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(IngressReady, reason, messageFormat, messageA...)
+}
+
 func (in *LLMInferenceService) DetermineRouterReadiness() {
-	subConditions := []*apis.Condition{
-		in.GetStatus().GetCondition(GatewaysReady),
-		in.GetStatus().GetCondition(HTTPRoutesReady),
-		in.GetStatus().GetCondition(InferencePoolReady),
-		in.GetStatus().GetCondition(SchedulerWorkloadReady),
+	var subConditions []*apis.Condition
+	// If Ingress is configured, only consider IngressReady condition
+	// Otherwise, consider Gateways, HTTPRoutes, InferencePool, and SchedulerWorkload conditions
+	if in.Spec.Router != nil && in.Spec.Router.Ingress != nil {
+		subConditions = []*apis.Condition{
+			in.GetStatus().GetCondition(IngressReady),
+		}
+	} else {
+		subConditions = []*apis.Condition{
+			in.GetStatus().GetCondition(GatewaysReady),
+			in.GetStatus().GetCondition(HTTPRoutesReady),
+			in.GetStatus().GetCondition(InferencePoolReady),
+			in.GetStatus().GetCondition(SchedulerWorkloadReady),
+		}
 	}
 
 	for _, cond := range subConditions {
