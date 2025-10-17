@@ -129,11 +129,12 @@ type IngressConfig struct {
 
 // +kubebuilder:object:generate=false
 type OauthConfig struct {
-	Image         string `json:"image"`
-	CpuLimit      string `json:"cpuLimit"`
-	CpuRequest    string `json:"cpuRequest"`
-	MemoryLimit   string `json:"memoryLimit"`
-	MemoryRequest string `json:"memoryRequest"`
+	Image                  string `json:"image"`
+	CpuLimit               string `json:"cpuLimit"`
+	CpuRequest             string `json:"cpuRequest"`
+	MemoryLimit            string `json:"memoryLimit"`
+	MemoryRequest          string `json:"memoryRequest"`
+	UpstreamTimeoutSeconds string `json:"upstreamTimeoutSeconds,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
