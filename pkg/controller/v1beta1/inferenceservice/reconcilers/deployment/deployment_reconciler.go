@@ -378,7 +378,7 @@ func generateOauthProxyContainer(ctx context.Context, clientset kubernetes.Inter
 	oauthMemoryLimit := oauthProxyConfig.MemoryLimit
 	oauthCpuRequest := oauthProxyConfig.CpuRequest
 	oauthCpuLimit := oauthProxyConfig.CpuLimit
-	oauthUpstreamTimeout := strings.TrimSpace(oauthProxyConfig.TimeoutSeconds)
+	oauthUpstreamTimeout := strings.TrimSpace(oauthProxyConfig.UpstreamTimeoutSeconds)
 	if upstreamTimeout != "" {
 		oauthUpstreamTimeout = upstreamTimeout
 	}
@@ -402,7 +402,7 @@ func generateOauthProxyContainer(ctx context.Context, clientset kubernetes.Inter
 	}
 	if oauthUpstreamTimeout != "" {
 		if _, err = strconv.ParseInt(oauthUpstreamTimeout, 10, 64); err != nil {
-			return nil, fmt.Errorf("invalid oauthProxy config timeoutSeconds value %q: %w", oauthUpstreamTimeout, err)
+			return nil, fmt.Errorf("invalid oauthProxy config upstreamTimeoutSeconds value %q: %w", oauthUpstreamTimeout, err)
 		}
 		args = append(args, `--upstream-timeout=`+oauthUpstreamTimeout+`s`)
 	}

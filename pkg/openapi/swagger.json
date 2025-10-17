@@ -4292,7 +4292,7 @@
           "type": "string",
           "default": ""
         },
-        "timeoutSeconds": {
+        "upstreamTimeoutSeconds": {
           "type": "string"
         }
       }

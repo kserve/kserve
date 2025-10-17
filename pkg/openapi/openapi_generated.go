@@ -7748,7 +7748,7 @@ func schema_pkg_apis_serving_v1beta1_OauthConfig(ref common.ReferenceCallback) c
 							Format:  "",
 						},
 					},
-					"timeoutSeconds": {
+					"upstreamTimeoutSeconds": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
