@@ -35,6 +35,10 @@ const (
 	HttpStorage  StorageStrategy = "http"
 )
 
+const S3Prefix = "s3"
+const GCSPrefix = "gs"
+const AzurePrefix = "abfs"
+
 const DefaultStorage = HttpStorage
 
 func GetStorageStrategy(url string) StorageStrategy {
@@ -208,7 +212,8 @@ func (s *BlobStore) getObjectKey(configPrefix string, request *LogRequest) (stri
 }
 
 func isValidScheme(scheme string) bool {
-	return strings.HasPrefix(scheme, "s3") || strings.HasPrefix(scheme, "gs") || strings.HasPrefix(scheme, "abfs")
+
+	return strings.HasPrefix(scheme, S3Prefix) || strings.HasPrefix(scheme, GCSPrefix) || strings.HasPrefix(scheme, AzurePrefix)
 }
 
 func parseBlobStoreURL(blobStoreUrl string, log *zap.SugaredLogger) (bucket, key string, err error) {
