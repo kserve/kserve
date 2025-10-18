@@ -8,6 +8,7 @@ Name | Type | Description | Notes
 **image** | **str** |  | [default to '']
 **memory_limit** | **str** |  | [default to '']
 **memory_request** | **str** |  | [default to '']
+**upstream_timeout_seconds** | **str** |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

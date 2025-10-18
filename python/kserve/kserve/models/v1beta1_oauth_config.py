@@ -51,7 +51,8 @@ class V1beta1OauthConfig(object):
         'cpu_request': 'str',
         'image': 'str',
         'memory_limit': 'str',
-        'memory_request': 'str'
+        'memory_request': 'str',
+        'upstream_timeout_seconds': 'str'
     }
 
     attribute_map = {
@@ -59,10 +60,11 @@ class V1beta1OauthConfig(object):
         'cpu_request': 'cpuRequest',
         'image': 'image',
         'memory_limit': 'memoryLimit',
-        'memory_request': 'memoryRequest'
+        'memory_request': 'memoryRequest',
+        'upstream_timeout_seconds': 'upstreamTimeoutSeconds'
     }
 
-    def __init__(self, cpu_limit='', cpu_request='', image='', memory_limit='', memory_request='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cpu_limit='', cpu_request='', image='', memory_limit='', memory_request='', upstream_timeout_seconds=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1OauthConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -73,6 +75,7 @@ class V1beta1OauthConfig(object):
         self._image = None
         self._memory_limit = None
         self._memory_request = None
+        self._upstream_timeout_seconds = None
         self.discriminator = None
 
         self.cpu_limit = cpu_limit
@@ -80,6 +83,8 @@ class V1beta1OauthConfig(object):
         self.image = image
         self.memory_limit = memory_limit
         self.memory_request = memory_request
+        if upstream_timeout_seconds is not None:
+            self.upstream_timeout_seconds = upstream_timeout_seconds
 
     @property
     def cpu_limit(self):
@@ -195,6 +200,27 @@ class V1beta1OauthConfig(object):
             raise ValueError("Invalid value for `memory_request`, must not be `None`")  # noqa: E501
 
         self._memory_request = memory_request
+
+    @property
+    def upstream_timeout_seconds(self):
+        """Gets the upstream_timeout_seconds of this V1beta1OauthConfig.  # noqa: E501
+
+
+        :return: The upstream_timeout_seconds of this V1beta1OauthConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._upstream_timeout_seconds
+
+    @upstream_timeout_seconds.setter
+    def upstream_timeout_seconds(self, upstream_timeout_seconds):
+        """Sets the upstream_timeout_seconds of this V1beta1OauthConfig.
+
+
+        :param upstream_timeout_seconds: The upstream_timeout_seconds of this V1beta1OauthConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._upstream_timeout_seconds = upstream_timeout_seconds
 
     def to_dict(self):
         """Returns the model properties as a dict"""
