@@ -47,30 +47,42 @@ class V1beta1PredictorsConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'lightgbm': 'V1beta1PredictorConfig',
-        'onnx': 'V1beta1PredictorConfig',
-        'paddle': 'V1beta1PredictorConfig',
-        'pmml': 'V1beta1PredictorConfig',
-        'pytorch': 'V1beta1PredictorConfig',
-        'sklearn': 'V1beta1PredictorProtocols',
-        'tensorflow': 'V1beta1PredictorConfig',
-        'triton': 'V1beta1PredictorConfig',
-        'xgboost': 'V1beta1PredictorProtocols'
+        "lightgbm": "V1beta1PredictorConfig",
+        "onnx": "V1beta1PredictorConfig",
+        "paddle": "V1beta1PredictorConfig",
+        "pmml": "V1beta1PredictorConfig",
+        "pytorch": "V1beta1PredictorConfig",
+        "sklearn": "V1beta1PredictorProtocols",
+        "tensorflow": "V1beta1PredictorConfig",
+        "triton": "V1beta1PredictorConfig",
+        "xgboost": "V1beta1PredictorProtocols",
     }
 
     attribute_map = {
-        'lightgbm': 'lightgbm',
-        'onnx': 'onnx',
-        'paddle': 'paddle',
-        'pmml': 'pmml',
-        'pytorch': 'pytorch',
-        'sklearn': 'sklearn',
-        'tensorflow': 'tensorflow',
-        'triton': 'triton',
-        'xgboost': 'xgboost'
+        "lightgbm": "lightgbm",
+        "onnx": "onnx",
+        "paddle": "paddle",
+        "pmml": "pmml",
+        "pytorch": "pytorch",
+        "sklearn": "sklearn",
+        "tensorflow": "tensorflow",
+        "triton": "triton",
+        "xgboost": "xgboost",
     }
 
-    def __init__(self, lightgbm=None, onnx=None, paddle=None, pmml=None, pytorch=None, sklearn=None, tensorflow=None, triton=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        lightgbm=None,
+        onnx=None,
+        paddle=None,
+        pmml=None,
+        pytorch=None,
+        sklearn=None,
+        tensorflow=None,
+        triton=None,
+        xgboost=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1PredictorsConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -302,18 +314,22 @@ class V1beta1PredictorsConfig(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
