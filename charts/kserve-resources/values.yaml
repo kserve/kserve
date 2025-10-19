@@ -34,6 +34,9 @@ kserve:
     # -- Flag for enabling model sidecar feature.
     enableModelcar: true
 
+    # -- Model sidecar UID.
+    uidModelcar: 1010
+
     # -- Model sidecar cpu requirement.
     cpuModelcar: 10m
 
