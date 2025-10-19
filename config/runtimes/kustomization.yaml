@@ -2,70 +2,70 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - kserve-tensorflow-serving.yaml
-  - kserve-sklearnserver.yaml
-  - kserve-mlserver.yaml
-  - kserve-xgbserver.yaml
-  - kserve-tritonserver.yaml
-  - kserve-pmmlserver.yaml
-  - kserve-paddleserver.yaml
-  - kserve-lgbserver.yaml
-  - kserve-torchserve.yaml
-  - kserve-huggingfaceserver.yaml
-  - kserve-huggingfaceserver-multinode.yaml
+- kserve-tensorflow-serving.yaml
+- kserve-sklearnserver.yaml
+- kserve-mlserver.yaml
+- kserve-xgbserver.yaml
+- kserve-tritonserver.yaml
+- kserve-pmmlserver.yaml
+- kserve-paddleserver.yaml
+- kserve-lgbserver.yaml
+- kserve-torchserve.yaml
+- kserve-huggingfaceserver.yaml
+- kserve-huggingfaceserver-multinode.yaml
   - kserve-vllmserver.yaml
   - kserve-vllmserver-multinode.yaml
 
 images:
   # SMS Only Runtimes
-  - name: tensorflow-serving
-    newName: tensorflow/serving
-    newTag: 2.6.2
+- name: tensorflow-serving
+  newName: tensorflow/serving
+  newTag: 2.6.2
 
-  - name: kserve-sklearnserver
-    newName: kserve/sklearnserver
-    newTag: latest
+- name: kserve-sklearnserver
+  newName: kserve/sklearnserver
+  newTag: latest
 
-  - name: mlserver
-    newName: docker.io/seldonio/mlserver
-    newTag: 1.5.0
+- name: mlserver
+  newName: docker.io/seldonio/mlserver
+  newTag: 1.5.0
 
-  - name: kserve-xgbserver
-    newName: kserve/xgbserver
-    newTag: latest
+- name: kserve-xgbserver
+  newName: kserve/xgbserver
+  newTag: latest
 
-  - name: kserve-tritonserver
-    newName: nvcr.io/nvidia/tritonserver
-    newTag: 23.05-py3
+- name: kserve-tritonserver
+  newName: nvcr.io/nvidia/tritonserver
+  newTag: 23.05-py3
 
-  - name: kserve-pmmlserver
-    newName: kserve/pmmlserver
-    newTag: latest
+- name: kserve-pmmlserver
+  newName: kserve/pmmlserver
+  newTag: latest
 
-  - name: kserve-paddleserver
-    newName: kserve/paddleserver
-    newTag: latest
+- name: kserve-paddleserver
+  newName: kserve/paddleserver
+  newTag: latest
 
-  - name: kserve-lgbserver
-    newName: kserve/lgbserver
-    newTag: latest
+- name: kserve-lgbserver
+  newName: kserve/lgbserver
+  newTag: latest
 
-  - name: kserve-torchserve
-    newName: pytorch/torchserve-kfs
-    newTag: 0.9.0
+- name: kserve-torchserve
+  newName: pytorch/torchserve-kfs
+  newTag: 0.9.0
 
-  - name: huggingfaceserver
-    newName: kserve/huggingfaceserver
-    newTag: latest
+- name: huggingfaceserver
+  newName: kserve/huggingfaceserver
+  newTag: latest
 
-  - name: huggingfaceserver-gpu
-    newName: kserve/huggingfaceserver
-    newTag: latest-gpu
+- name: huggingfaceserver-gpu
+  newName: kserve/huggingfaceserver
+  newTag: latest-gpu
+  
+- name: vllmserver
+  newName: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo
+  newTag: latest
 
-  - name: vllmserver
-    newName: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo
-    newTag: latest
-
-  - name: vllmserver-gpu
-    newName: vllm/vllm-openai
-    newTag: latest
+- name: vllmserver-gpu
+  newName: vllm/vllm-openai
+  newTag: latest
