@@ -235,7 +235,7 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.raw
+@pytest.mark.autoscaling
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_rolling_update():
     suffix = str(uuid.uuid4())[1:6]
@@ -303,11 +303,11 @@ async def test_sklearn_rolling_update():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.raw
+@pytest.mark.autoscaling
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_env_update():
     suffix = str(uuid.uuid4())[1:6]
-    service_name = "isvc-sklearn-rolling-update-" + suffix
+    service_name = "isvc-sklearn-env-update-" + suffix
     min_replicas = 4
     envs = [
         {
@@ -398,7 +398,7 @@ async def test_sklearn_env_update():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.raw
+@pytest.mark.autoscaling
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer):
     """
@@ -472,7 +472,7 @@ async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.raw
+@pytest.mark.autoscaling
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_layer):
     """
@@ -540,7 +540,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     assert trigger_type == "prometheus"
     assert trigger_metadata["query"] == "http_requests_per_second"
     assert trigger_metadata["serverAddress"] == "http://localhost:9090"
-    assert trigger_metadata["threshold"] == "50.000000"
+    assert trigger_metadata["threshold"] == "50"
     res = await predict_isvc(
         rest_v1_client, service_name, INPUT, network_layer=network_layer
     )
@@ -548,7 +548,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.raw
+@pytest.mark.autoscaling
 @pytest.mark.asyncio(scope="session")
 async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_layer):
     """

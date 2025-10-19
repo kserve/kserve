@@ -35,8 +35,10 @@ from huggingfaceserver.task import (
 from . import (
     HuggingfaceGenerativeModel,
     HuggingfaceEncoderModel,
+    HuggingFaceTimeSeriesModel,
     Backend,
 )
+
 from .vllm.utils import (
     infer_vllm_supported_from_model_architecture,
     maybe_add_vllm_cli_parser,
@@ -264,7 +266,18 @@ def load_model():
         else:
             task = infer_task_from_model_architecture(model_config)
 
-        if is_generative_task(task):
+        if task == MLTask.time_series_forecast:
+            logger.info(f"Loading time series model for task '{task.name}' in {dtype}")
+
+            model = HuggingFaceTimeSeriesModel(
+                args.model_name,
+                model_id_or_path=model_id_or_path,
+                model_config=model_config,
+                model_revision=kwargs.get("model_revision", None),
+                dtype=dtype,
+            )
+
+        elif is_generative_task(task):
             logger.debug(f"Loading model in {dtype}")
 
             logger.info(f"Loading generative model for task '{task.name}' in {dtype}")

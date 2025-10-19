@@ -77,9 +77,10 @@ var _ = Describe("Inference Graph controller test", func() {
 			"memoryLimit": "1Gi",
 			"cpuRequest": "100m",
 			"cpuLimit": "1",
+			"cpuModelcar": "10m",
+			"memoryModelcar": "15Mi",
 			"CaBundleConfigMapName": "",
-			"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-			"enableDirectPvcVolumeMount": false
+			"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
 		}`,
 	}
 

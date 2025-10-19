@@ -88,9 +88,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"memoryLimit": "1Gi",
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
+				"cpuModelcar": "10m",
+				"memoryModelcar": "15Mi",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
 			}`,
 		}
 	)
@@ -4829,9 +4830,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"memoryLimit": "1Gi",
 							"cpuRequest": "100m",
 							"cpuLimit": "1",
+							"cpuModelcar": "10m",
+							"memoryModelcar": "15Mi",
 							"CaBundleConfigMapName": "not-exist-configmap",
-							"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-							"enableDirectPvcVolumeMount": false						
+							"caBundleVolumeMountPath": "/etc/ssl/custom-certs"						
 					}`
 				} else {
 					copiedConfigs[key] = value
@@ -4904,9 +4906,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"memoryLimit": "1Gi",
 							"cpuRequest": "100m",
 							"cpuLimit": "1",
+							"cpuModelcar": "10m",
+							"memoryModelcar": "15Mi",
 							"CaBundleConfigMapName": "test-cabundle-with-wrong-file-name",
-							"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-							"enableDirectPvcVolumeMount": false						
+							"caBundleVolumeMountPath": "/etc/ssl/custom-certs"						
 					}`
 				} else {
 					copiedConfigs[key] = value
@@ -4993,9 +4996,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					"memoryLimit": "1Gi",
 					"cpuRequest": "100m",
 					"cpuLimit": "1",
+					"cpuModelcar": "10m",
+					"memoryModelcar": "15Mi",
 					"CaBundleConfigMapName": "test-cabundle-with-right-file-name",
-					"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-					"enableDirectPvcVolumeMount": false						
+					"caBundleVolumeMountPath": "/etc/ssl/custom-certs"						
 			}`
 				} else {
 					copiedConfigs[key] = value

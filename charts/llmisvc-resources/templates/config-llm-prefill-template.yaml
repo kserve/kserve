@@ -18,15 +18,16 @@ spec:
             - /mnt/models
           args:
             - --served-model-name
-            - "{{ .Spec.Model.Name }}"
+            - "{{`{{ .Spec.Model.Name }}`}}"
             - --port
             - "8000"
             - --disable-log-requests
-            - --enable-ssl-refresh
-            - --ssl-certfile
-            - /etc/ssl/certs/tls.crt
-            - --ssl-keyfile
-            - /etc/ssl/certs/tls.key
+            # BackendTLSPolicy is not implemented yet so disable SSL for now
+            # - --enable-ssl-refresh
+            # - --ssl-certfile
+            # - /etc/ssl/certs/tls.crt
+            # - --ssl-keyfile
+            # - /etc/ssl/certs/tls.key
           env:
             - name: HOME
               value: /home
@@ -37,7 +38,7 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: false
-            runAsNonRoot: true
+            runAsNonRoot: false
             capabilities:
               drop:
                 - ALL
@@ -49,7 +50,7 @@ spec:
             httpGet:
               path: /health
               port: 8000
-              scheme: HTTPS
+              scheme: HTTP
             initialDelaySeconds: 120
             periodSeconds: 10
             timeoutSeconds: 10
@@ -58,7 +59,7 @@ spec:
             httpGet:
               path: /health
               port: 8000
-              scheme: HTTPS
+              scheme: HTTP
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5
@@ -75,14 +76,14 @@ spec:
               readOnly: true
       terminationGracePeriodSeconds: 30
       volumes:
-        - emptyDir: { }
+        - emptyDir: {}
           name: home
         - emptyDir:
             medium: Memory
             sizeLimit: 1Gi
           name: dshm
-        - emptyDir: { }
+        - emptyDir: {}
           name: model-cache
         - name: tls-certs
           secret:
-            secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
+            secretName: '{{ "{{" }} ChildName .ObjectMeta.Name `-kserve-self-signed-certs` {{ "}}" }}'

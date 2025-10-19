@@ -22,8 +22,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc/fixture"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
+)
+
+// Kueue Constants
+var (
+	LocalQueueNameLabelKey         = constants.KueueAPIGroupName + "/queue-name"
+	PreemptionReclaimAnnotationKey = constants.KueueAPIGroupName + "/preemption-reclaim-if-below-priority"
 )
 
 func TestLLMInferenceServiceController(t *testing.T) {
