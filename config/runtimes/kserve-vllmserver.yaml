@@ -1,0 +1,82 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-vllmserver
+spec:
+  annotations:
+    prometheus.kserve.io/port: "8000"
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: vllm
+      version: "1"
+      autoSelect: true
+      priority: 1
+  protocolVersions:
+    - v1
+    - v2
+  containers:
+    - name: kserve-container
+      image: vllmserver:replace
+      command:
+        - "bash"
+        - "-c"
+        - |
+          export MODEL=${MODEL_DIR}
+          if [[ -z ${MODEL_DIR} ]] && [[ ! -z ${MODEL_ID} ]]
+          then
+            export MODEL=${MODEL_ID}
+          fi
+
+          vllm serve ${MODEL} --host 0.0.0.0 --port 8000 $@
+        - "bash"
+      env:
+        - name: LMCACHE_USE_EXPERIMENTAL
+          value: "True"
+        - name: VLLM_GPU_IMAGE
+          value: vllmserver-gpu:replace
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        capabilities:
+          drop:
+            - ALL
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        failureThreshold: 2
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 15
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        failureThreshold: 2
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 15
+      startupProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        failureThreshold: 40
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 30
+        initialDelaySeconds: 60
+      volumeMounts:
+        - name: devshm
+          mountPath: /dev/shm
+  volumes:
+    - name: devshm
+      emptyDir:
+        medium: Memory
+  hostIPC: false

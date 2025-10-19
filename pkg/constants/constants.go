@@ -480,6 +480,7 @@ const (
 	LGBServer         = "kserve-lgbserver"
 	PaddleServer      = "kserve-paddleserver"
 	HuggingFaceServer = "kserve-huggingfaceserver"
+	VLLMServer        = "kserve-vllmserver"
 )
 
 const (

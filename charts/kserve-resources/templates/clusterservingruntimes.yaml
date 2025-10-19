@@ -708,3 +708,323 @@ spec:
     imagePullSecrets:
       {{- toYaml . | nindent 4 }}
     {{- end }}
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-vllmserver
+spec:
+  disabled: {{ .Values.kserve.servingruntime.vllmserver.disabled }}
+  annotations:
+    prometheus.kserve.io/port: '8000'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: vllm
+      version: "1"
+      autoSelect: true
+      priority: 1
+  protocolVersions:
+    - v1
+    - v2
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.vllmserver.image }}:{{ .Values.kserve.servingruntime.vllmserver.tag }}"
+      command:
+        - "bash"
+        - "-c"
+        - |
+          export MODEL=${MODEL_DIR}
+          if [[ -z ${MODEL_DIR} ]] && [[ ! -z ${MODEL_ID} ]]
+          then
+            export MODEL=${MODEL_ID}
+          fi
+          
+          vllm serve ${MODEL} --host 0.0.0.0 --port 8000 $@
+        - "bash"
+      env:
+        - name: LMCACHE_USE_EXPERIMENTAL
+          value: "{{ .Values.kserve.servingruntime.vllmserver.lmcacheUseExperimental }}"
+        - name: VLLM_GPU_IMAGE
+          value: "{{ .Values.kserve.servingruntime.vllmserver_multinode.image }}:{{ .Values.kserve.servingruntime.vllmserver_multinode.tag }}"
+      ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+      securityContext:
+          {{- with .Values.kserve.servingruntime.vllmserver.securityContext}}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        failureThreshold: 2
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 15
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        failureThreshold: 2
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 15
+      startupProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        failureThreshold: 40
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 30
+        initialDelaySeconds: 60
+      {{- if .Values.kserve.servingruntime.vllmserver.devShm.enabled }}
+      volumeMounts:
+        - name: devshm
+          mountPath: /dev/shm
+      {{- end }}
+  {{- if .Values.kserve.servingruntime.vllmserver.devShm.enabled }}
+  volumes:
+    - name: devshm
+      emptyDir:
+        medium: Memory
+        {{- with .Values.kserve.servingruntime.vllmserver.devShm.sizeLimit }}
+        sizeLimit: {{ . }}
+        {{- end }}
+  {{- end }}
+  {{- with .Values.kserve.servingruntime.vllmserver.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if .Values.kserve.servingruntime.vllmserver.hostIPC.enabled }}
+  hostIPC: true
+  {{- end }}
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-vllmserver-multinode
+spec:
+  disabled: {{ .Values.kserve.servingruntime.vllmserver_multinode.disabled }}
+  annotations:
+    prometheus.kserve.io/port: '8000'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: vllm
+      version: "1"
+      autoSelect: true
+      priority: 2
+  protocolVersions:
+    - v1
+    - v2
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.vllmserver_multinode.image }}:{{ .Values.kserve.servingruntime.vllmserver_multinode.tag }}"
+      command:
+        - "bash"
+        - "-c"
+        - |
+          export MODEL=${MODEL_DIR}
+          if [[ -z ${MODEL_DIR} ]] && [[ ! -z ${MODEL_ID} ]]
+          then
+            export MODEL=${MODEL_ID}
+          fi
+
+          # Start Ray head node
+          export RAY_ADDRESS=${POD_IP}:${RAY_PORT}
+          ray start --head --disable-usage-stats --include-dashboard false --port=${RAY_PORT}
+          
+          # Wait for Ray to be ready
+          timeout=60
+          elapsed=0
+          while ! ray health-check --address "${RAY_ADDRESS}" > /dev/null 2>&1; do
+            if [ $elapsed -ge $timeout ]; then
+              echo "Ray head node failed to start within ${timeout} seconds"
+              exit 1
+            fi
+            echo "Waiting for Ray head node to be ready..."
+            sleep 2
+            elapsed=$((elapsed + 2))
+          done
+          echo "Ray head node is ready"
+
+          # Start vLLM Server with multi-node configuration
+          vllm serve ${MODEL} --host 0.0.0.0 --port 8000 --tensor-parallel-size ${TENSOR_PARALLEL_SIZE:-1} --pipeline-parallel-size ${PIPELINE_PARALLEL_SIZE:-1} $@
+        - "bash"
+      ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+      securityContext:
+          {{- with .Values.kserve.servingruntime.vllmserver_multinode.securityContext}}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+      env:
+        - name: RAY_PORT
+          value: "6379"        
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP  
+        - name: VLLM_CONFIG_ROOT
+          value: /tmp      
+        - name: HF_HUB_CACHE
+          value: /tmp
+      resources:
+        requests:
+          cpu: "2"
+          memory: 6Gi
+        limits:
+          cpu: "4"
+          memory: 12Gi
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        failureThreshold: 2
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 15
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        failureThreshold: 2
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 15
+      startupProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        failureThreshold: 40
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 30
+        initialDelaySeconds: 60        
+      {{- if .Values.kserve.servingruntime.vllmserver_multinode.shm.enabled }}
+      volumeMounts:
+        - name: shm
+          mountPath: /dev/shm
+      {{- end }}
+  {{- if .Values.kserve.servingruntime.vllmserver_multinode.shm.enabled }}
+  volumes:
+    - name: shm
+      emptyDir:
+        medium: Memory
+        {{- with .Values.kserve.servingruntime.vllmserver_multinode.shm.sizeLimit }}
+        sizeLimit: {{ . }}
+        {{- end }}
+  {{- end }}
+  {{- with .Values.kserve.servingruntime.vllmserver_multinode.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  workerSpec:
+    pipelineParallelSize: 2
+    tensorParallelSize: 1
+    containers:
+      - name: worker-container
+        image: "{{ .Values.kserve.servingruntime.vllmserver_multinode.image }}:{{ .Values.kserve.servingruntime.vllmserver_multinode.tag }}"
+        command:
+        - "bash"
+        - "-c"
+        - |
+          export RAY_HEAD_ADDRESS=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379
+          SECONDS=0
+
+          while true; do              
+            if (( SECONDS <= 240 )); then
+              if ray health-check --address "${RAY_HEAD_ADDRESS}" > /dev/null 2>&1; then
+                echo "Ray Global Control Service(GCS) is ready."
+                break
+              fi
+              echo "$SECONDS seconds elapsed: Waiting for Ray Global Control Service(GCS) to be ready."
+            else
+              if ray health-check --address "${RAY_HEAD_ADDRESS}"; then
+                echo "Ray Global Control Service(GCS) is ready. Any error messages above can be safely ignored."
+                break
+              fi
+              echo "$SECONDS seconds elapsed: Still waiting for Ray Global Control Service(GCS) to be ready."
+            fi
+
+            sleep 5
+          done
+
+          echo "Attempting to connect to Ray cluster at $RAY_HEAD_ADDRESS ..."
+          ray start --address="${RAY_HEAD_ADDRESS}" --block
+        securityContext:
+            {{- with .Values.kserve.servingruntime.vllmserver_multinode.securityContext}}
+            {{- toYaml . | nindent 10 }}
+            {{- end }}          
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: "2"
+            memory: 6Gi
+          limits:
+            cpu: "4"
+            memory: 12Gi
+        {{- if .Values.kserve.servingruntime.vllmserver_multinode.shm.enabled }}
+        volumeMounts:
+          - name: shm
+            mountPath: /dev/shm
+        {{- end }}
+        livenessProbe:
+          exec:
+            command:
+              - bash
+              - -c
+              - |
+                export RAY_ADDRESS=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379
+                ray health-check --address "${RAY_ADDRESS}"
+          failureThreshold: 2
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 15
+        startupProbe:
+          exec:
+            command:
+              - bash
+              - -c
+              - |
+                export RAY_ADDRESS=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379
+                ray health-check --address "${RAY_ADDRESS}"
+          failureThreshold: 40
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 30
+          initialDelaySeconds: 60
+    {{- if .Values.kserve.servingruntime.vllmserver_multinode.shm.enabled }}
+    volumes:
+      - name: shm
+        emptyDir:
+          medium: Memory
+          {{- with .Values.kserve.servingruntime.vllmserver_multinode.shm.sizeLimit }}
+          sizeLimit: {{ . }}
+          {{- end }}
+    {{- end }}
+    {{- with .Values.kserve.servingruntime.vllmserver_multinode.imagePullSecrets }}
+    imagePullSecrets:
+      {{- toYaml . | nindent 4 }}
+    {{- end }}

@@ -1,0 +1,188 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-vllmserver-multinode
+spec:
+  annotations:
+    prometheus.kserve.io/port: "8000"
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: vllm
+      version: "1"
+      autoSelect: true
+      priority: 2
+  protocolVersions:
+    - v1
+    - v2
+  containers:
+    - name: kserve-container
+      image: vllmserver-gpu:replace
+      command:
+        - "bash"
+        - "-c"
+        - |
+          export MODEL=${MODEL_DIR}
+          if [[ -z ${MODEL_DIR} ]] && [[ ! -z ${MODEL_ID} ]]
+          then
+            export MODEL=${MODEL_ID}
+          fi
+
+          # Start Ray head node
+          export RAY_ADDRESS=${POD_IP}:${RAY_PORT}
+          ray start --head --disable-usage-stats --include-dashboard false --port=${RAY_PORT}
+
+          # Wait for Ray to be ready
+          timeout=60
+          elapsed=0
+          while ! ray health-check --address "${RAY_ADDRESS}" > /dev/null 2>&1; do
+            if [ $elapsed -ge $timeout ]; then
+              echo "Ray head node failed to start within ${timeout} seconds"
+              exit 1
+            fi
+            echo "Waiting for Ray head node to be ready..."
+            sleep 2
+            elapsed=$((elapsed + 2))
+          done
+          echo "Ray head node is ready"
+
+          # Start vLLM server with multi-node configuration
+          vllm serve ${MODEL} --host 0.0.0.0 --port 8000 --tensor-parallel-size ${TENSOR_PARALLEL_SIZE:-1} --pipeline-parallel-size ${PIPELINE_PARALLEL_SIZE:-1} $@
+        - "bash"
+      env:
+        - name: RAY_PORT
+          value: "6379"
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: VLLM_CONFIG_ROOT
+          value: /tmp
+        - name: HF_HUB_CACHE
+          value: /tmp
+      resources:
+        requests:
+          cpu: "2"
+          memory: 6Gi
+        limits:
+          cpu: "4"
+          memory: 12Gi
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        failureThreshold: 2
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 15
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        failureThreshold: 2
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 15
+      startupProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        failureThreshold: 40
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 30
+        initialDelaySeconds: 60
+      volumeMounts:
+        - name: shm
+          mountPath: /dev/shm
+  volumes:
+    - name: shm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 3Gi
+  workerSpec:
+    pipelineParallelSize: 1
+    tensorParallelSize: 1
+    containers:
+      - name: worker-container
+        image: vllmserver-gpu:replace
+        command:
+          - "bash"
+          - "-c"
+          - |
+            export RAY_HEAD_ADDRESS=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379
+            SECONDS=0
+
+            while true; do              
+              if (( SECONDS <= 240 )); then
+                if ray health-check --address "${RAY_HEAD_ADDRESS}" > /dev/null 2>&1; then
+                  echo "Ray Global Control Service(GCS) is ready."
+                  break
+                fi
+                echo "$SECONDS seconds elapsed: Waiting for Ray Global Control Service(GCS) to be ready."
+              else
+                if ray health-check --address "${RAY_HEAD_ADDRESS}"; then
+                  echo "Ray Global Control Service(GCS) is ready. Any error messages above can be safely ignored."
+                  break
+                fi
+                echo "$SECONDS seconds elapsed: Still waiting for Ray Global Control Service(GCS) to be ready."
+              fi
+
+              sleep 5
+            done
+
+            echo "Attempting to connect to Ray cluster at $RAY_HEAD_ADDRESS ..."
+            ray start --address="${RAY_HEAD_ADDRESS}" --block
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+
+        resources:
+          requests:
+            cpu: "2"
+            memory: 6Gi
+          limits:
+            cpu: "4"
+            memory: 12Gi
+        volumeMounts:
+          - name: shm
+            mountPath: /dev/shm
+        livenessProbe:
+          exec:
+            command:
+              - bash
+              - -c
+              - |
+                export RAY_ADDRESS=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379
+                ray health-check --address "${RAY_ADDRESS}"
+          failureThreshold: 2
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 15
+        startupProbe:
+          exec:
+            command:
+              - bash
+              - -c
+              - |
+                export RAY_ADDRESS=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379
+                ray health-check --address "${RAY_ADDRESS}"
+          failureThreshold: 40
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 30
+          initialDelaySeconds: 60
+    volumes:
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 3Gi
