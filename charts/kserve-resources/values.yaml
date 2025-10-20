@@ -1,5 +1,5 @@
 kserve:
-  version: &defaultVersion v0.16.0-rc0
+  version: &defaultVersion v0.16.0-rc1
   agent:
     image: kserve/agent
     tag: *defaultVersion
@@ -33,6 +33,9 @@ kserve:
 
     # -- Flag for enabling model sidecar feature.
     enableModelcar: true
+
+    # -- Model sidecar UID.
+    uidModelcar: 1010
 
     # -- Model sidecar cpu requirement.
     cpuModelcar: 10m

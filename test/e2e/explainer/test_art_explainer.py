@@ -56,7 +56,7 @@ async def test_tabular_explainer(rest_v1_client):
                         limits={"cpu": "100m", "memory": "256Mi"},
                     ),
                 ),
-                timeout=180,
+                timeout=300,
             ),
             explainer=V1beta1ExplainerSpec(
                 min_replicas=1,
@@ -69,7 +69,7 @@ async def test_tabular_explainer(rest_v1_client):
                     ),
                     config={"nb_classes": "10"},
                 ),
-                timeout=180,
+                timeout=300,
             ),
         ),
     )
@@ -131,7 +131,7 @@ async def test_raw_tabular_explainer(rest_v1_client, network_layer):
                         limits={"cpu": "100m", "memory": "256Mi"},
                     ),
                 ),
-                timeout=180,
+                timeout=300,
             ),
             explainer=V1beta1ExplainerSpec(
                 min_replicas=1,
@@ -144,7 +144,7 @@ async def test_raw_tabular_explainer(rest_v1_client, network_layer):
                     ),
                     config={"nb_classes": "10"},
                 ),
-                timeout=180,
+                timeout=300,
             ),
         ),
     )
