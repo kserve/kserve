@@ -20,5 +20,5 @@ spec:
     - $(webhookServiceName).$(kserveNamespace).svc
   issuerRef:
     kind: Issuer
-    name: selfsigned-issuer
+    name: llmisvc-selfsigned-issuer
   secretName: llmisvc-webhook-server-cert # this secret will not be prefixed, since it's not managed by kustomize
