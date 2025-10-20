@@ -215,37 +215,6 @@ func createHeadlessSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
 	return service
 }
 
-func (r *ServiceReconciler) cleanHeadSvc(ctx context.Context) error {
-	svcList := &corev1.ServiceList{}
-	if err := r.client.List(ctx, svcList, client.MatchingLabels{
-		constants.MultiNodeRoleLabelKey: constants.MultiNodeHead,
-	}); err != nil {
-		return err
-	}
-
-	sort.Slice(svcList.Items, func(i, j int) bool {
-		return svcList.Items[i].CreationTimestamp.Time.After(svcList.Items[j].CreationTimestamp.Time)
-	})
-
-	// Keep the 3 newest services and delete the rest
-	for i := 3; i < len(svcList.Items); i++ {
-		existingService := &corev1.Service{}
-		err := r.client.Get(ctx, types.NamespacedName{
-			Namespace: svcList.Items[i].Namespace,
-			Name:      svcList.Items[i].Name,
-		}, existingService)
-		if err == nil {
-			err := r.client.Delete(ctx, existingService)
-			if err != nil {
-				log.Error(err, "Failed to delete service", "name", existingService.Name)
-			} else {
-				log.Info("Deleted service", "name", existingService.Name, "namespace", existingService.Namespace)
-			}
-		}
-	}
-	return nil
-}
-
 // checkServiceExist checks if the service exists?
 func (r *ServiceReconciler) checkServiceExist(ctx context.Context, client client.Client, svc *corev1.Service) (constants.CheckResultType, *corev1.Service, error) {
 	forceStopRuntime := utils.GetForceStopRuntime(svc)
@@ -313,10 +282,6 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context) ([]*corev1.Service, e
 		if opErr != nil {
 			return nil, opErr
 		}
-	}
-	// Clean up head svc when head sevices are more than 3.
-	if len(r.ServiceList) > 1 {
-		r.cleanHeadSvc(ctx)
 	}
 	return r.ServiceList, nil
 }
