@@ -38,9 +38,12 @@ const (
 	GCSStorage   StorageStrategy = "gcs"
 	AzureStorage StorageStrategy = "abfs"
 	HttpStorage  StorageStrategy = "http"
+)
 
-	LogStoreFormatJson    string = "json"
-	LogStoreFormatParquet string = "parquet"
+const (
+	S3Prefix    string = "s3"
+	GCSPrefix   string = "gs"
+	AzurePrefix string = "abfs"
 )
 
 const DefaultStorage = HttpStorage
@@ -263,7 +266,7 @@ func (s *BlobStore) getObjectKey(configPrefix string, request *LogRequest) (stri
 }
 
 func isValidScheme(scheme string) bool {
-	return strings.HasPrefix(scheme, "s3") || strings.HasPrefix(scheme, "gs") || strings.HasPrefix(scheme, "abfs")
+	return strings.HasPrefix(scheme, S3Prefix) || strings.HasPrefix(scheme, GCSPrefix) || strings.HasPrefix(scheme, AzurePrefix)
 }
 
 func parseBlobStoreURL(blobStoreUrl string, log *zap.SugaredLogger) (bucket, key string, err error) {
