@@ -18,10 +18,13 @@ package marshaller
 
 import "fmt"
 
-var registeredMarshallers = map[string]Marshaller{
-	LogStoreFormatJson:    &JSONMarshaller{},
-	LogStoreFormatCSV:     &CSVMarshaller{},
-	LogStoreFormatParquet: &ParquetMarshaller{},
+var registeredMarshallers = map[string]Marshaller{}
+
+func initializeDefaultMarshallers() {
+	registeredMarshallers = make(map[string]Marshaller)
+	RegisterMarshaller(LogStoreFormatJson, &JSONMarshaller{})
+	RegisterMarshaller(LogStoreFormatCSV, &CSVMarshaller{})
+	RegisterMarshaller(LogStoreFormatParquet, &ParquetMarshaller{})
 }
 
 func RegisterMarshaller(logStoreFormat string, marshaller Marshaller) {
@@ -29,6 +32,9 @@ func RegisterMarshaller(logStoreFormat string, marshaller Marshaller) {
 }
 
 func GetMarshaller(logStoreFormat string) (Marshaller, error) {
+	if len(registeredMarshallers) == 0 {
+		initializeDefaultMarshallers()
+	}
 	if m, ok := registeredMarshallers[logStoreFormat]; ok {
 		return m, nil
 	}
