@@ -7,7 +7,7 @@ data:
   explainers: "{}"
   oauthProxy: |- 
     {
-      "image" : "$(oauth-proxy)",
+      "image" : "$(kube-rbac-proxy)",
       "memoryRequest": "64Mi",
       "memoryLimit": "128Mi",
       "cpuRequest": "100m",

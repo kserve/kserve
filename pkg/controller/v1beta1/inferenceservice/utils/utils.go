@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	routev1 "github.com/openshift/api/route/v1"
-	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis"
 
@@ -513,25 +512,7 @@ func MergeServingRuntimeAndInferenceServiceSpecs(srContainers []corev1.Container
 	return containerIndexInSR, mergedContainer, mergedPodSpec, nil
 }
 
-// Since the "cookie-secret" arg in the oauth proxy container is generated randomly,
-// we exclude that arg while comparing existing and desired deployment specs
-func RemoveCookieSecretArg(deployment appsv1.Deployment) *appsv1.Deployment {
-	dep := deployment.DeepCopy()
-	for i, container := range dep.Spec.Template.Spec.Containers {
-		if container.Name == "oauth-proxy" {
-			var newArgs []string
-			for _, arg := range container.Args {
-				if !strings.Contains(arg, "cookie-secret") {
-					newArgs = append(newArgs, arg)
-				}
-			}
-			dep.Spec.Template.Spec.Containers[i].Args = newArgs
-		}
-	}
-	return dep
-}
-
-// Check for route created by odh-model-controller. If the route is found, use it as the isvc URL
+// GetRouteURLIfExists Check for route created by odh-model-controller. If the route is found, use it as the isvc URL
 func GetRouteURLIfExists(ctx context.Context, cli client.Client, metadata metav1.ObjectMeta, isvcName string) (*apis.URL, error) {
 	foundRoute := false
 	routeReady := false
