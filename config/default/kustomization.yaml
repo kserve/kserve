@@ -16,6 +16,7 @@ resources:
 - ../certmanager
 - ../localmodels
 - ../localmodelnodes
+- ../llmisvc
 
 generatorOptions:
   disableNameSuffixHash: true

@@ -4,13 +4,12 @@ kind: Kustomization
 namespace: kserve
 
 resources:
-  - ../crd/full/llmisvc
   - service.yaml
   - manager.yaml
   - gateway-inference-extension.yaml
   - ../rbac/llmisvc
-  - ../llmisvcconfig
   - ../certmanager/llmisvc
+  - ../llmisvcconfig
   - ../webhook/llmisvc
 
 replacements:
