@@ -685,6 +685,7 @@ func (mi *StorageInitializerInjector) SetIstioCniSecurityContext(pod *corev1.Pod
 
 // Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch.
 // Use container name from defaultContainer spec, crdContainer takes precedence for other fields.
+// Environment variables are handled specially to prevent value/valueFrom conflicts.
 func mergeContainerSpecs(targetContainer *corev1.Container, crdContainer *corev1.Container) error {
 	if targetContainer == nil {
 		return errors.New("targetContainer is nil")
@@ -714,6 +715,20 @@ func mergeContainerSpecs(targetContainer *corev1.Container, crdContainer *corev1
 	if targetContainer.Name == "" {
 		targetContainer.Name = containerName
 	}
+
+	// Post-process environment variables to fix value/valueFrom conflicts
+	// Strategic merge patch may create invalid combinations where both value and valueFrom are set
+	cleanedEnvVars := make([]corev1.EnvVar, 0, len(targetContainer.Env))
+	for _, envVar := range targetContainer.Env {
+		cleanedEnvVar := envVar
+		// If both value and valueFrom are set (invalid K8s state), prefer value over valueFrom
+		// This matches the behavior of AppendEnvVarIfNotExists and prevents validation errors
+		if cleanedEnvVar.Value != "" && cleanedEnvVar.ValueFrom != nil {
+			cleanedEnvVar.ValueFrom = nil
+		}
+		cleanedEnvVars = append(cleanedEnvVars, cleanedEnvVar)
+	}
+	targetContainer.Env = cleanedEnvVars
 
 	return nil
 }

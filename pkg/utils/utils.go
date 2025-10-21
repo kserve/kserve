@@ -118,6 +118,7 @@ func PropagatePrefixedMap(source map[string]string, dest *map[string]string, pre
 // 1. If an EnvVar is present in B but not in O, value remains unchanged in the result
 // 2. If an EnvVar is present in `O` but not in `B`, appends to the result
 // 3. If an EnvVar is present in both O and B, uses the value from O in the result
+// Note: If the base environment variable has ValueFrom (e.g., fieldRef), it will not be overridden
 func MergeEnvs(baseEnvs []corev1.EnvVar, overrideEnvs []corev1.EnvVar) []corev1.EnvVar {
 	var extra []corev1.EnvVar
 
@@ -127,7 +128,11 @@ func MergeEnvs(baseEnvs []corev1.EnvVar, overrideEnvs []corev1.EnvVar) []corev1.
 		for i, base := range baseEnvs {
 			if override.Name == base.Name {
 				inBase = true
-				baseEnvs[i].Value = override.Value
+				// Only override if the base env var doesn't have ValueFrom set (e.g., fieldRef)
+				if base.ValueFrom == nil {
+					baseEnvs[i].Value = override.Value
+					baseEnvs[i].ValueFrom = override.ValueFrom
+				}
 				break
 			}
 		}
@@ -158,7 +163,7 @@ func AppendEnvVarIfNotExists(slice []corev1.EnvVar, elems ...corev1.EnvVar) []co
 
 // Add an environment variable with the given value to the environments
 // variables of the given container, potentially replacing an env var that already exists
-// with this name
+// with this name. Note: If the existing env var has ValueFrom (e.g., fieldRef), it will not be replaced
 func AddOrReplaceEnv(container *corev1.Container, envKey string, envValue string) {
 	if container.Env == nil {
 		container.Env = []corev1.EnvVar{}
@@ -166,7 +171,10 @@ func AddOrReplaceEnv(container *corev1.Container, envKey string, envValue string
 
 	for i, envVar := range container.Env {
 		if envVar.Name == envKey {
-			container.Env[i].Value = envValue
+			// Only replace if the existing env var doesn't have ValueFrom set (e.g., fieldRef)
+			if envVar.ValueFrom == nil {
+				container.Env[i].Value = envValue
+			}
 			return
 		}
 	}

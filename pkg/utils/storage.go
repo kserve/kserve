@@ -275,7 +275,7 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 		storageInitializerImage = storageConfig.Image
 	}
 
-	return &corev1.Container{
+	container := &corev1.Container{
 		Name:                     constants.StorageInitializerContainerName,
 		Image:                    storageInitializerImage,
 		Args:                     containerArgs,
@@ -285,20 +285,6 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 			MountPath: constants.DefaultModelLocalMountPath,
 			ReadOnly:  false,
 		}},
-		Env: []corev1.EnvVar{
-			{
-				Name:  "HF_HUB_ENABLE_HF_TRANSFER",
-				Value: "1",
-			},
-			{
-				Name:  "HF_XET_HIGH_PERFORMANCE",
-				Value: "1",
-			},
-			{
-				Name:  "HF_XET_NUM_CONCURRENT_RANGE_GETS",
-				Value: "8",
-			},
-		},
 		Resources: corev1.ResourceRequirements{
 			Limits: map[corev1.ResourceName]resource.Quantity{
 				corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),
@@ -310,6 +296,27 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 			},
 		},
 	}
+
+	// Add HuggingFace environment variables if they don't already exist
+	// This prevents conflicts with credential injection
+	huggingFaceEnvVars := []corev1.EnvVar{
+		{
+			Name:  "HF_HUB_ENABLE_HF_TRANSFER",
+			Value: "1",
+		},
+		{
+			Name:  "HF_XET_HIGH_PERFORMANCE",
+			Value: "1",
+		},
+		{
+			Name:  "HF_XET_NUM_CONCURRENT_RANGE_GETS",
+			Value: "8",
+		},
+	}
+
+	container.Env = AppendEnvVarIfNotExists(container.Env, huggingFaceEnvVars...)
+
+	return container
 }
 
 // CreateModelcarContainer creates the definition of a container holding a model intended to be used as a sidecar (modelcar).

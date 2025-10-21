@@ -445,15 +445,18 @@ func AddEnvVarToPodSpec(podSpec *corev1.PodSpec, containerName, envName, envValu
 		if container.Name == containerName {
 			updatedResult = true
 			if _, exists := utils.GetEnvVarValue(container.Env, envName); exists {
-				// Overwrite the environment variable
+				// Overwrite the environment variable only if it doesn't have ValueFrom set (e.g., fieldRef)
 				for j, envVar := range container.Env {
 					if envVar.Name == envName {
-						podSpec.Containers[i].Env[j].Value = envValue
+						// Only override if the existing env var doesn't have ValueFrom set (e.g., fieldRef)
+						if envVar.ValueFrom == nil {
+							podSpec.Containers[i].Env[j].Value = envValue
+						}
 						break
 					}
 				}
 			} else {
-				// Add the new environment variable to the Env field if it ooes not exist
+				// Add the new environment variable to the Env field if it does not exist
 				container.Env = append(container.Env, corev1.EnvVar{
 					Name:  envName,
 					Value: envValue,
