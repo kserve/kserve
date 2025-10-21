@@ -74,7 +74,7 @@ type Batch struct {
 
 type BlobStore struct {
 	mutex        sync.Mutex
-	buffer       map[url.URL][]interface{}
+	buffer       map[url.URL][]types.LogRequest
 	storePath    string
 	storeFormat  string
 	marshaller   marshaller.Marshaller
@@ -88,7 +88,7 @@ var _ Store = &BlobStore{}
 func NewBlobStore(logStorePath string, logStoreFormat string, marshaller marshaller.Marshaller, provider storage.Provider, batchSize int, log *zap.SugaredLogger) *BlobStore {
 	return &BlobStore{
 		mutex:        sync.Mutex{},
-		buffer:       make(map[url.URL][]interface{}),
+		buffer:       make(map[url.URL][]types.LogRequest),
 		storePath:    logStorePath,
 		storeFormat:  logStoreFormat,
 		marshaller:   marshaller,
@@ -139,7 +139,7 @@ func (s *BlobStore) Store(logUrl *url.URL, logRequest types.LogRequest) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if _, ok := s.buffer[*logUrl]; !ok {
-		s.buffer[*logUrl] = make([]interface{}, 0)
+		s.buffer[*logUrl] = make([]types.LogRequest, 0)
 	}
 	s.buffer[*logUrl] = append(s.buffer[*logUrl], logRequest)
 	size := 0
