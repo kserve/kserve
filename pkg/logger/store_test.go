@@ -14,14 +14,14 @@ limitations under the License.
 package logger
 
 import (
-	"context"
+	"encoding/json"
 	"io"
 	"net/url"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/cloudevents/sdk-go/v2/event/datacodec/json"
 	"github.com/kserve/kserve/pkg/logger/marshaller"
+	"github.com/kserve/kserve/pkg/logger/types"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	pkglogging "knative.dev/pkg/logging"
@@ -42,7 +42,7 @@ func mockStore(batchSize int) (*BlobStore, *MockS3Uploader) {
 func TestNilUrl(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	store, _ := mockStore(DefaultBatchSize)
-	err := store.Store(nil, LogRequest{})
+	err := store.Store(nil, types.LogRequest{})
 	g.Expect(err).To(gomega.HaveOccurred())
 	g.Expect(err.Error()).To(gomega.MatchRegexp("url|URL"))
 }
@@ -54,7 +54,7 @@ func TestMissingBucket(t *testing.T) {
 	logUrl, err := url.Parse("s3://")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	err = store.Store(logUrl, LogRequest{
+	err = store.Store(logUrl, types.LogRequest{
 		ReqType: CEInferenceRequest,
 	})
 	g.Expect(err).To(gomega.HaveOccurred())
@@ -68,7 +68,7 @@ func TestConfiguredPrefix(t *testing.T) {
 	logUrl, err := url.Parse("s3://bucket/prefix")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	err = store.Store(logUrl, LogRequest{
+	err = store.Store(logUrl, types.LogRequest{
 		Id:               "0123",
 		Namespace:        "ns",
 		InferenceService: "inference",
@@ -89,7 +89,7 @@ func TestBatchSize(t *testing.T) {
 	logUrl, err := url.Parse("s3://bucket/prefix")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	err = store.Store(logUrl, LogRequest{
+	err = store.Store(logUrl, types.LogRequest{
 		Id:               "0123",
 		Namespace:        "ns",
 		InferenceService: "inference",
@@ -98,7 +98,7 @@ func TestBatchSize(t *testing.T) {
 	})
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	err = store.Store(logUrl, LogRequest{
+	err = store.Store(logUrl, types.LogRequest{
 		Id:               "1234",
 		Namespace:        "ns",
 		InferenceService: "inference",
@@ -116,8 +116,8 @@ func TestBatchSize(t *testing.T) {
 		assert.Fail(t, err.Error())
 	}
 	assert.Greater(t, len(reqBytes), 0, "failed to read bytes")
-	result := make([]LogRequest, 0)
-	err = json.Decode(context.TODO(), reqBytes, &result)
+	result := make([]types.LogRequest, 0)
+	err = json.Unmarshal(reqBytes, &result)
 	if err != nil {
 		assert.Fail(t, err.Error())
 	}

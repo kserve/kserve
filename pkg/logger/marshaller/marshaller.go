@@ -16,6 +16,8 @@ limitations under the License.
 
 package marshaller
 
+import "github.com/kserve/kserve/pkg/logger/types"
+
 type Marshaller interface {
-	Marshal(v []interface{}) ([]byte, error)
+	Marshal(v []types.LogRequest) ([]byte, error)
 }

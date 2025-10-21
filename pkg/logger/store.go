@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/kserve/kserve/pkg/logger/marshaller"
+	"github.com/kserve/kserve/pkg/logger/types"
 	"go.uber.org/zap"
 
 	"github.com/kserve/kserve/pkg/agent/storage"
@@ -64,7 +65,7 @@ func GetStorageStrategy(url string) StorageStrategy {
 }
 
 type Store interface {
-	Store(logUrl *url.URL, logRequest LogRequest) error
+	Store(logUrl *url.URL, logRequest types.LogRequest) error
 }
 
 type Batch struct {
@@ -131,7 +132,7 @@ func NewStoreForScheme(scheme string, logStorePath string, logStoreFormat string
 	return nil, fmt.Errorf("unsupported protocol %s", protocol)
 }
 
-func (s *BlobStore) Store(logUrl *url.URL, logRequest LogRequest) error {
+func (s *BlobStore) Store(logUrl *url.URL, logRequest types.LogRequest) error {
 	if logUrl == nil {
 		return errors.New("log url is invalid")
 	}
@@ -184,7 +185,7 @@ func (s *BlobStore) Store(logUrl *url.URL, logRequest LogRequest) error {
 	return nil
 }
 
-func (s *BlobStore) getObjectPrefix(configPrefix string, request *LogRequest) (string, error) {
+func (s *BlobStore) getObjectPrefix(configPrefix string, request *types.LogRequest) (string, error) {
 	if request == nil {
 		return "", errors.New("log request is invalid")
 	}
@@ -209,7 +210,7 @@ func (s *BlobStore) getObjectPrefix(configPrefix string, request *LogRequest) (s
 	return path.Join(parts...), nil
 }
 
-func (s *BlobStore) getObjectKey(configPrefix string, request *LogRequest) (string, error) {
+func (s *BlobStore) getObjectKey(configPrefix string, request *types.LogRequest) (string, error) {
 	if request == nil {
 		return "", errors.New("log request is invalid")
 	}

@@ -16,13 +16,17 @@ limitations under the License.
 
 package marshaller
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/kserve/kserve/pkg/logger/types"
+)
 
 const LogStoreFormatJson = "json"
 
 type JSONMarshaller struct{}
 
-func (j *JSONMarshaller) Marshal(v []interface{}) ([]byte, error) {
+func (j *JSONMarshaller) Marshal(v []types.LogRequest) ([]byte, error) {
 	return json.Marshal(v)
 }
 

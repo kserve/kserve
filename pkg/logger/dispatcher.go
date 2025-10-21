@@ -17,14 +17,15 @@ limitations under the License.
 package logger
 
 import (
+	"github.com/kserve/kserve/pkg/logger/types"
 	"go.uber.org/zap"
 )
 
-var WorkerQueue chan chan LogRequest
+var WorkerQueue chan chan types.LogRequest
 
 func StartDispatcher(nworkers int, store Store, logger *zap.SugaredLogger) {
 	// First, initialize the channel we are going to but the workers' work channels into.
-	WorkerQueue = make(chan chan LogRequest, nworkers)
+	WorkerQueue = make(chan chan types.LogRequest, nworkers)
 
 	// Now, create all of our workers.
 	for i := range nworkers {
