@@ -104,7 +104,7 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 
 // InjectStorageInitializer injects an init container to provision model data
 // for the serving container in a unified way across storage tech by injecting
-// a provisioning INIT container. This is a workaround because KNative does not
+// a provisioning INIT container. This is a workaround because Knative does not
 // support INIT containers: https://github.com/knative/serving/issues/4307
 func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) error {
 	// Only inject if the required annotations are set

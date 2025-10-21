@@ -427,7 +427,7 @@ async def test_predictor_grpc_with_transformer_grpc_raw(network_layer):
         metadata=client.V1ObjectMeta(
             name=service_name,
             namespace=KSERVE_TEST_NAMESPACE,
-            annotations={"serving.kserve.io/deploymentMode": "RawDeployment"},
+            annotations={"serving.kserve.io/deploymentMode": "Standard"},
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer),
     )

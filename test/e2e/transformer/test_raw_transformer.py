@@ -70,7 +70,7 @@ async def test_transformer(rest_v1_client, network_layer):
     )
 
     annotations = dict()
-    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
+    annotations["serving.kserve.io/deploymentMode"] = "Standard"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
