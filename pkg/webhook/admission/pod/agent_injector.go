@@ -40,6 +40,7 @@ const (
 	LoggerArgumentMode                = "--log-mode"
 	LoggerArgumentStorePath           = "--log-store-path"
 	LoggerArgumentStoreFormat         = "--log-store-format"
+	LoggerArgumentStoreBatchSize      = "--log-store-batch-size"
 	LoggerArgumentInferenceService    = "--inference-service"
 	LoggerArgumentNamespace           = "--namespace"
 	LoggerArgumentEndpoint            = "--endpoint"
@@ -221,6 +222,14 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 				}
 			}
 		}
+		var storageBatchSize *string
+		if ag.loggerConfig.Store != nil {
+			if ag.loggerConfig.Store.Parameters != nil {
+				if batchSize, ok := (*ag.loggerConfig.Store.Parameters)[constants.LoggerBatchSizeKey]; ok {
+					storageBatchSize = &batchSize
+				}
+			}
+		}
 		loggerArgs := []string{
 			LoggerArgumentLogUrl,
 			logUrl,
@@ -244,6 +253,10 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		if storageFormat != "" {
 			loggerArgs = append(loggerArgs, LoggerArgumentStoreFormat)
 			loggerArgs = append(loggerArgs, storageFormat)
+		}
+		if storageBatchSize != nil {
+			loggerArgs = append(loggerArgs, LoggerArgumentStoreBatchSize)
+			loggerArgs = append(loggerArgs, *storageBatchSize)
 		}
 		logHeaderMetadata, ok := pod.ObjectMeta.Annotations[constants.LoggerMetadataHeadersInternalAnnotationKey]
 		if ok {

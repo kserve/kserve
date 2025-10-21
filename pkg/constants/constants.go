@@ -95,6 +95,8 @@ const (
 	LoggerFormatKey                 = "format"
 	LoggerDefaultStorageKey         = "credentials"
 	LoggerDefaultServiceAccountName = "logger-sa"
+	LoggerBatchSizeKey              = "batch-size"
+	LoggerDefaultBatchSize          = 1
 )
 
 // InferenceService Annotations
