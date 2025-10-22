@@ -27,20 +27,24 @@ import (
 const LogStoreFormatParquet = "parquet"
 
 type ParquetLogRequest struct {
-	Url              *string `parquet:"name=url, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Bytes            *[]byte `parquet:"name=bytes, type=LIST, type=MAP, convertedtype=LIST, valuetype=INT32"`
-	ContentType      *string `parquet:"name=content_type, type=BYTE_ARRAY, convertedtype=UTF8"`
-	ReqType          *string `parquet:"name=req_type, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Id               *string `parquet:"name=id, type=BYTE_ARRAY, convertedtype=UTF8"`
-	SourceUri        *string `parquet:"name=source_uri, type=BYTE_ARRAY, convertedtype=UTF8"`
-	InferenceService *string `parquet:"name=inference_service, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Namespace        *string `parquet:"name=namespace, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Component        *string `parquet:"name=component, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Endpoint         *string `parquet:"name=endpoint, type=BYTE_ARRAY, convertedtype=UTF8"`
-	//Metadata         *map[string][]string `parquet:"name=metadata, type=MAP, keytype=BYTE_ARRAY, keyconvertedtype=UTF8, valuetype=LIST, valueconvertedtype=LIST"`
-	Annotations   *map[string]string `parquet:"name=annotations, type=MAP, keytype=BYTE_ARRAY, keyconvertedtype=UTF8, valuetype=BYTE_ARRAY, valueconvertedtype=UTF8"`
-	CertName      *string            `parquet:"name=cert_name, type=BYTE_ARRAY, convertedtype=UTF8"`
-	TlsSkipVerify *bool              `parquet:"name=tls_skip_verify, type=BOOLEAN"`
+	Url              *string                           `parquet:"name=url, type=BYTE_ARRAY, convertedtype=UTF8"`
+	Bytes            *[]byte                           `parquet:"name=bytes, type=MAP, convertedtype=LIST, valuetype=INT32"`
+	ContentType      *string                           `parquet:"name=content_type, type=BYTE_ARRAY, convertedtype=UTF8"`
+	ReqType          *string                           `parquet:"name=req_type, type=BYTE_ARRAY, convertedtype=UTF8"`
+	Id               *string                           `parquet:"name=id, type=BYTE_ARRAY, convertedtype=UTF8"`
+	SourceUri        *string                           `parquet:"name=source_uri, type=BYTE_ARRAY, convertedtype=UTF8"`
+	InferenceService *string                           `parquet:"name=inference_service, type=BYTE_ARRAY, convertedtype=UTF8"`
+	Namespace        *string                           `parquet:"name=namespace, type=BYTE_ARRAY, convertedtype=UTF8"`
+	Component        *string                           `parquet:"name=component, type=BYTE_ARRAY, convertedtype=UTF8"`
+	Endpoint         *string                           `parquet:"name=endpoint, type=BYTE_ARRAY, convertedtype=UTF8"`
+	Metadata         *map[string]ParquetMetadataValues `parquet:"name=metadata, type=MAP, keytype=BYTE_ARRAY, keyconvertedtype=UTF8, valuetype=LIST, valueconvertedtype=LIST"`
+	Annotations      *map[string]string                `parquet:"name=annotations, type=MAP, keytype=BYTE_ARRAY, keyconvertedtype=UTF8, valuetype=BYTE_ARRAY, valueconvertedtype=UTF8"`
+	CertName         *string                           `parquet:"name=cert_name, type=BYTE_ARRAY, convertedtype=UTF8"`
+	TlsSkipVerify    *bool                             `parquet:"name=tls_skip_verify, type=BOOLEAN"`
+}
+
+type ParquetMetadataValues struct {
+	Values []string `parquet:"name=metadata_values, type=LIST, valuetype=BYTE_ARRAY, valueconvertedtype=UTF8"`
 }
 
 type ParquetLogMetadataValues struct {
@@ -93,9 +97,16 @@ func (p *ParquetMarshaller) Marshal(v []types.LogRequest) ([]byte, error) {
 		if record.Endpoint != "" {
 			parquetRecord.Endpoint = &record.Endpoint
 		}
-		//if record.Metadata != nil && len(record.Metadata) > 0 {
-		//	parquetRecord.Metadata = &record.Metadata
-		//}
+		if record.Metadata != nil && len(record.Metadata) > 0 {
+			metadata := make(map[string]ParquetMetadataValues)
+			for k, vals := range record.Metadata {
+				values := ParquetMetadataValues{
+					Values: vals,
+				}
+				metadata[k] = values
+			}
+			parquetRecord.Metadata = &metadata
+		}
 		if record.Annotations != nil && len(record.Annotations) > 0 {
 			parquetRecord.Annotations = &record.Annotations
 		}
