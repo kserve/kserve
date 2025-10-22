@@ -17,7 +17,6 @@ limitations under the License.
 package marshaller
 
 import (
-	"log"
 	"os"
 	"testing"
 
@@ -49,12 +48,10 @@ func TestParquetMarshalling(t *testing.T) {
 	})
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	assert.Greater(t, len(bytes), 0, "marshalled byte array is empty")
-
-	err = os.WriteFile("/tmp/test.parquet", bytes, 0644)
-	if err != nil {
-		// log.Fatalf will print the error message and exit the program
-		log.Fatalf("Error writing file: %v", err)
-	}
+	f, err := os.CreateTemp("/tmp", "test.parquet")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	_, err = f.Write(bytes)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	fr, err := local.NewLocalFileReader("/tmp/test.parquet")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
