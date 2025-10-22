@@ -54,7 +54,7 @@ func TestParquetMarshalling(t *testing.T) {
 	_, err = f.Write(bytes)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	fr, err := local.NewLocalFileReader("/tmp/test.parquet")
+	fr, err := local.NewLocalFileReader(f.Name())
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	parquetReader, err := reader.NewParquetReader(fr, new(ParquetLogRequest), 1)
