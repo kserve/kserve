@@ -20,11 +20,12 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/kserve/kserve/pkg/logger/marshaller"
-	"github.com/kserve/kserve/pkg/logger/types"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	pkglogging "knative.dev/pkg/logging"
+
+	"github.com/kserve/kserve/pkg/logger/marshaller"
+	"github.com/kserve/kserve/pkg/logger/types"
 
 	"github.com/kserve/kserve/pkg/agent/storage"
 )
@@ -115,11 +116,11 @@ func TestBatchSize(t *testing.T) {
 	if err != nil {
 		assert.Fail(t, err.Error())
 	}
-	assert.Greater(t, len(reqBytes), 0, "failed to read bytes")
+	assert.NotEmpty(t, reqBytes, "failed to read bytes")
 	result := make([]types.LogRequest, 0)
 	err = json.Unmarshal(reqBytes, &result)
 	if err != nil {
 		assert.Fail(t, err.Error())
 	}
-	g.Expect(len(result)).To(gomega.Equal(2))
+	g.Expect(result).To(gomega.HaveLen(2))
 }

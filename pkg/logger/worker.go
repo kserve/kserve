@@ -29,8 +29,9 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
-	"github.com/kserve/kserve/pkg/logger/types"
 	"go.uber.org/zap"
+
+	"github.com/kserve/kserve/pkg/logger/types"
 
 	"github.com/kserve/kserve/pkg/constants"
 )

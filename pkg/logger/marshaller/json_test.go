@@ -20,9 +20,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/kserve/kserve/pkg/logger/types"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/kserve/kserve/pkg/logger/types"
 )
 
 func TestJsonMarshalling(t *testing.T) {
@@ -46,13 +47,13 @@ func TestJsonMarshalling(t *testing.T) {
 		},
 	})
 	g.Expect(err).ToNot(gomega.HaveOccurred())
-	assert.Greater(t, len(bytes), 0, "marshalled byte array is empty")
+	assert.NotEmpty(t, bytes, "marshalled byte array is empty")
 	result := make([]types.LogRequest, 0)
 	err = json.Unmarshal(bytes, &result)
 	if err != nil {
 		assert.Fail(t, err.Error())
 	}
-	g.Expect(len(result)).To(gomega.Equal(2))
+	g.Expect(result).To(gomega.HaveLen(2))
 	g.Expect(result[0].Id).To(gomega.Equal("0123"))
 	g.Expect(result[1].Id).To(gomega.Equal("1234"))
 }

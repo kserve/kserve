@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
+
 	"github.com/kserve/kserve/pkg/logger/types"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"

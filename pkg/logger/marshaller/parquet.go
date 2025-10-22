@@ -19,9 +19,10 @@ package marshaller
 import (
 	"bytes"
 
-	"github.com/kserve/kserve/pkg/logger/types"
 	"github.com/xitongsys/parquet-go/parquet"
 	"github.com/xitongsys/parquet-go/writer"
+
+	"github.com/kserve/kserve/pkg/logger/types"
 )
 
 const LogStoreFormatParquet = "parquet"

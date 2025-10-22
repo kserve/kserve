@@ -17,8 +17,9 @@ limitations under the License.
 package logger
 
 import (
-	"github.com/kserve/kserve/pkg/logger/types"
 	"go.uber.org/zap"
+
+	"github.com/kserve/kserve/pkg/logger/types"
 )
 
 var WorkerQueue chan chan types.LogRequest

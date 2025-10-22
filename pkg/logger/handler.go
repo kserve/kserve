@@ -26,10 +26,11 @@ import (
 
 	"github.com/go-logr/logr"
 	guuid "github.com/google/uuid"
-	"github.com/kserve/kserve/pkg/logger/types"
 	"knative.dev/pkg/network"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/kserve/kserve/pkg/logger/types"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
