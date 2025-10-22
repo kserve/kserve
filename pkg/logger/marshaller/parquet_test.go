@@ -20,11 +20,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/kserve/kserve/pkg/logger/types"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/xitongsys/parquet-go-source/local"
 	"github.com/xitongsys/parquet-go/reader"
+
+	"github.com/kserve/kserve/pkg/logger/types"
 )
 
 func TestParquetMarshalling(t *testing.T) {
@@ -47,8 +48,8 @@ func TestParquetMarshalling(t *testing.T) {
 		},
 	})
 	g.Expect(err).ToNot(gomega.HaveOccurred())
-	assert.Greater(t, len(bytes), 0, "marshalled byte array is empty")
-	f, err := os.CreateTemp("/tmp", "test.parquet")
+	assert.NotEmpty(t, bytes, "marshalled byte array is empty")
+	f, err := os.CreateTemp("", "test.parquet")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	_, err = f.Write(bytes)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
