@@ -53,12 +53,21 @@ var registeredStrategies = map[string]StorageStrategy{
 	AzurePrefix: AzureStorage,
 }
 
+func uriPrefix(uri string) string {
+	parsed, err := url.Parse(uri)
+	if err != nil {
+		return "http"
+	}
+	return parsed.Scheme
+}
+
 func RegisterStorageStrategy(uriPrefix string, strategy StorageStrategy) {
 	registeredStrategies[uriPrefix] = strategy
 }
 
 func GetStorageStrategy(url string) StorageStrategy {
-	if str, ok := registeredStrategies[url]; ok {
+	prefix := uriPrefix(url)
+	if str, ok := registeredStrategies[prefix]; ok {
 		return str
 	}
 	return DefaultStorage
