@@ -4501,3 +4501,169 @@ func TestCommonStorageInitializationErrorCases(t *testing.T) {
 		})
 	}
 }
+
+// TestStorageInitializerWithUserDefinedHFEnvVars tests that user-defined HF environment variables
+// don't conflict with the default HF env vars. This is a regression test for issue #4761.
+func TestStorageInitializerWithUserDefinedHFEnvVars(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		original             *corev1.Pod
+		storageContainerSpec *v1alpha1.StorageContainerSpec
+		expectedEnvVars      []corev1.EnvVar
+	}{
+		"UserOverridesHFEnvVarWithValue": {
+			original: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			storageContainerSpec: &v1alpha1.StorageContainerSpec{
+				Container: corev1.Container{
+					Env: []corev1.EnvVar{
+						{
+							Name:  "HF_HUB_ENABLE_HF_TRANSFER",
+							Value: "0", // User overrides to disable
+						},
+					},
+				},
+			},
+			expectedEnvVars: []corev1.EnvVar{
+				{Name: "HF_HUB_ENABLE_HF_TRANSFER", Value: "0"},        // User value should be preserved
+				{Name: "HF_XET_HIGH_PERFORMANCE", Value: "1"},          // Default value added
+				{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"}, // Default value added
+			},
+		},
+		"UserDefinesHFEnvVarWithValueFrom": {
+			original: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			storageContainerSpec: &v1alpha1.StorageContainerSpec{
+				Container: corev1.Container{
+					Env: []corev1.EnvVar{
+						{
+							Name: "HF_HUB_ENABLE_HF_TRANSFER",
+							ValueFrom: &corev1.EnvVarSource{
+								ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{Name: "hf-config"},
+									Key:                  "transfer-enabled",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedEnvVars: []corev1.EnvVar{
+				{
+					Name: "HF_HUB_ENABLE_HF_TRANSFER",
+					ValueFrom: &corev1.EnvVarSource{
+						ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "hf-config"},
+							Key:                  "transfer-enabled",
+						},
+					},
+				},
+				{Name: "HF_XET_HIGH_PERFORMANCE", Value: "1"},
+				{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
+			},
+		},
+		"NoUserDefinedHFEnvVars": {
+			original: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			storageContainerSpec: nil,
+			expectedEnvVars: []corev1.EnvVar{
+				{Name: "HF_HUB_ENABLE_HF_TRANSFER", Value: "1"},
+				{Name: "HF_XET_HIGH_PERFORMANCE", Value: "1"},
+				{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			params := &StorageInitializerParams{
+				Namespace:            "default",
+				StorageURIs:          []v1beta1.StorageUri{{Uri: "gs://foo", MountPath: constants.DefaultModelLocalMountPath}},
+				IsReadOnly:           true,
+				IsLegacyURI:          true,
+				PodSpec:              &scenario.original.Spec,
+				CredentialBuilder:    credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
+				Client:               c,
+				Config:               storageInitializerConfig,
+				IsvcAnnotations:      map[string]string{},
+				StorageSpec:          nil,
+				StorageContainerSpec: scenario.storageContainerSpec,
+			}
+
+			err := CommonStorageInitialization(t.Context(), params)
+			require.NoError(t, err)
+
+			// Find the storage-initializer init container
+			var storageInitContainer *corev1.Container
+			for i := range scenario.original.Spec.InitContainers {
+				if scenario.original.Spec.InitContainers[i].Name == constants.StorageInitializerContainerName {
+					storageInitContainer = &scenario.original.Spec.InitContainers[i]
+					break
+				}
+			}
+
+			require.NotNil(t, storageInitContainer, "storage-initializer init container should exist")
+
+			// Verify that the expected environment variables are present
+			for _, expectedEnv := range scenario.expectedEnvVars {
+				found := false
+				for _, actualEnv := range storageInitContainer.Env {
+					if actualEnv.Name == expectedEnv.Name {
+						found = true
+						// Check that the value matches
+						if expectedEnv.Value != "" {
+							g.Expect(actualEnv.Value).To(gomega.Equal(expectedEnv.Value),
+								"Env var %s should have value %s", expectedEnv.Name, expectedEnv.Value)
+							g.Expect(actualEnv.ValueFrom).To(gomega.BeNil(),
+								"Env var %s should not have ValueFrom when Value is set", expectedEnv.Name)
+						} else if expectedEnv.ValueFrom != nil {
+							g.Expect(actualEnv.ValueFrom).To(gomega.Equal(expectedEnv.ValueFrom),
+								"Env var %s should have correct ValueFrom", expectedEnv.Name)
+							g.Expect(actualEnv.Value).To(gomega.BeEmpty(),
+								"Env var %s should not have Value when ValueFrom is set", expectedEnv.Name)
+						}
+						break
+					}
+				}
+				g.Expect(found).To(gomega.BeTrue(), "Expected env var %s not found", expectedEnv.Name)
+			}
+		})
+	}
+}

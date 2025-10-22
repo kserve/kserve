@@ -488,6 +488,11 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 				return err
 			}
 		}
+
+		// Add default HuggingFace optimization environment variables if they don't already exist.
+		// This is done after merging to avoid conflicts with user-defined environment variables.
+		// See https://github.com/kserve/kserve/issues/4761
+		utils.AddDefaultHuggingFaceEnvVars(initContainer)
 	}
 
 	return nil
