@@ -692,12 +692,24 @@ func mergeContainerSpecs(targetContainer *corev1.Container, crdContainer *corev1
 
 	containerName := targetContainer.Name
 
-	defaultContainerJson, err := json.Marshal(*targetContainer)
+	// Handle environment variables separately to avoid conflicts between Value and ValueFrom fields
+	// Strategic merge patch can cause both Value and ValueFrom to be set, which is invalid
+	baseEnvVars := targetContainer.Env
+	overrideEnvVars := crdContainer.Env
+
+	// Create a temporary container without Env for merging other fields
+	tempTarget := *targetContainer
+	tempTarget.Env = nil
+	tempOverride := *crdContainer
+	tempOverride.Env = nil
+
+	// Perform strategic merge on everything except environment variables
+	defaultContainerJson, err := json.Marshal(tempTarget)
 	if err != nil {
 		return err
 	}
 
-	overrides, err := json.Marshal(*crdContainer)
+	overrides, err := json.Marshal(tempOverride)
 	if err != nil {
 		return err
 	}
@@ -711,11 +723,41 @@ func mergeContainerSpecs(targetContainer *corev1.Container, crdContainer *corev1
 		return err
 	}
 
+	// Manually merge environment variables with proper conflict resolution
+	mergedEnvVars := mergeEnvironmentVariables(baseEnvVars, overrideEnvVars)
+	targetContainer.Env = mergedEnvVars
+
 	if targetContainer.Name == "" {
 		targetContainer.Name = containerName
 	}
 
 	return nil
+}
+
+// mergeEnvironmentVariables merges two slices of environment variables.
+// Override variables take precedence over base variables when they have the same name.
+// This prevents conflicts between Value and ValueFrom fields.
+func mergeEnvironmentVariables(baseEnvVars, overrideEnvVars []corev1.EnvVar) []corev1.EnvVar {
+	envMap := make(map[string]corev1.EnvVar)
+
+	// First, add all base environment variables
+	for _, env := range baseEnvVars {
+		envMap[env.Name] = env
+	}
+
+	// Then, override with any variables from the override list
+	// This ensures that override variables completely replace base variables
+	for _, env := range overrideEnvVars {
+		envMap[env.Name] = env
+	}
+
+	// Convert back to slice
+	var result []corev1.EnvVar
+	for _, env := range envMap {
+		result = append(result, env)
+	}
+
+	return result
 }
 
 func needCaBundleMount(caBundleConfigMapName string, initContainer *corev1.Container) bool {
