@@ -70,8 +70,8 @@ def test_vllm_openai_chat_completions():
                 "bfloat16",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "8Gi", "nvidia.com/gpu": "1"},
-                limits={"cpu": "4", "memory": "16Gi", "nvidia.com/gpu": "1"},
+                requests={"cpu": "2", "memory": "8Gi"},
+                limits={"cpu": "4", "memory": "16Gi"},
             ),
         ),
     )
@@ -125,8 +125,8 @@ def test_vllm_openai_chat_completions_streaming():
                 "bfloat16",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "8Gi", "nvidia.com/gpu": "1"},
-                limits={"cpu": "4", "memory": "16Gi", "nvidia.com/gpu": "1"},
+                requests={"cpu": "2", "memory": "8Gi"},
+                limits={"cpu": "4", "memory": "16Gi"},
             ),
         ),
     )
@@ -182,8 +182,8 @@ def test_vllm_openai_text_completion_qwen2():
                 "bfloat16",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "8Gi", "nvidia.com/gpu": "1"},
-                limits={"cpu": "4", "memory": "16Gi", "nvidia.com/gpu": "1"},
+                requests={"cpu": "2", "memory": "8Gi"},
+                limits={"cpu": "4", "memory": "16Gi"},
             ),
         ),
     )
@@ -233,8 +233,8 @@ def test_vllm_openai_text_completion_streaming():
                 "bfloat16",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "8Gi", "nvidia.com/gpu": "1"},
-                limits={"cpu": "4", "memory": "16Gi", "nvidia.com/gpu": "1"},
+                requests={"cpu": "2", "memory": "8Gi"},
+                limits={"cpu": "4", "memory": "16Gi"},
             ),
         ),
     )
@@ -290,8 +290,8 @@ async def test_vllm_v2_sequence_classification(rest_v2_client):
                 "vllm-bert-sequence-v2",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "8Gi", "nvidia.com/gpu": "1"},
-                limits={"cpu": "4", "memory": "16Gi", "nvidia.com/gpu": "1"},
+                requests={"cpu": "2", "memory": "8Gi"},
+                limits={"cpu": "4", "memory": "16Gi"},
             ),
         ),
     )
@@ -344,8 +344,8 @@ async def test_vllm_v1_fill_mask(rest_v1_client):
                 "vllm-bert-fill-mask-v1",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "8Gi", "nvidia.com/gpu": "1"},
-                limits={"cpu": "4", "memory": "16Gi", "nvidia.com/gpu": "1"},
+                requests={"cpu": "2", "memory": "8Gi"},
+                limits={"cpu": "4", "memory": "16Gi"},
             ),
         ),
     )
@@ -403,8 +403,8 @@ async def test_vllm_v2_token_classification(rest_v2_client):
                 "vllm-bert-token-classification-v2",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "8Gi", "nvidia.com/gpu": "1"},
-                limits={"cpu": "4", "memory": "16Gi", "nvidia.com/gpu": "1"},
+                requests={"cpu": "2", "memory": "8Gi"},
+                limits={"cpu": "4", "memory": "16Gi"},
             ),
         ),
     )
@@ -456,8 +456,8 @@ def test_vllm_openai_text_2_text():
                 "512",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "8Gi", "nvidia.com/gpu": "1"},
-                limits={"cpu": "4", "memory": "16Gi", "nvidia.com/gpu": "1"},
+                requests={"cpu": "2", "memory": "8Gi"},
+                limits={"cpu": "4", "memory": "16Gi"},
             ),
         ),
     )
@@ -516,8 +516,8 @@ async def test_vllm_v2_text_embedding(rest_v2_client):
                 "vllm-text-embedding-v2",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "8Gi", "nvidia.com/gpu": "1"},
-                limits={"cpu": "4", "memory": "16Gi", "nvidia.com/gpu": "1"},
+                requests={"cpu": "2", "memory": "8Gi"},
+                limits={"cpu": "4", "memory": "16Gi"},
             ),
         ),
     )
@@ -572,8 +572,8 @@ async def test_vllm_openai_text_embedding():
                 "vllm-text-embedding-openai",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "8Gi", "nvidia.com/gpu": "1"},
-                limits={"cpu": "4", "memory": "16Gi", "nvidia.com/gpu": "1"},
+                requests={"cpu": "2", "memory": "8Gi"},
+                limits={"cpu": "4", "memory": "16Gi"},
             ),
         ),
     )
@@ -643,8 +643,8 @@ async def test_vllm_v2_sequence_classification_with_raw_logits(
                 "vllm-bert-sequence-v2-prob",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "8Gi", "nvidia.com/gpu": "1"},
-                limits={"cpu": "4", "memory": "16Gi", "nvidia.com/gpu": "1"},
+                requests={"cpu": "2", "memory": "8Gi"},
+                limits={"cpu": "4", "memory": "16Gi"},
             ),
         ),
     )
@@ -713,8 +713,8 @@ async def test_vllm_v2_sequence_classification_with_probabilities(
                 "vllm-bert-sequence-v2-logits",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "8Gi", "nvidia.com/gpu": "1"},
-                limits={"cpu": "4", "memory": "16Gi", "nvidia.com/gpu": "1"},
+                requests={"cpu": "2", "memory": "8Gi"},
+                limits={"cpu": "4", "memory": "16Gi"},
             ),
         ),
     )
