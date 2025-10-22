@@ -97,7 +97,7 @@ func (p *ParquetMarshaller) Marshal(v []types.LogRequest) ([]byte, error) {
 		if record.Endpoint != "" {
 			parquetRecord.Endpoint = &record.Endpoint
 		}
-		if record.Metadata != nil && len(record.Metadata) > 0 {
+		if len(record.Metadata) > 0 {
 			metadata := make(map[string]ParquetMetadataValues)
 			for k, vals := range record.Metadata {
 				values := ParquetMetadataValues{
@@ -107,7 +107,7 @@ func (p *ParquetMarshaller) Marshal(v []types.LogRequest) ([]byte, error) {
 			}
 			parquetRecord.Metadata = &metadata
 		}
-		if record.Annotations != nil && len(record.Annotations) > 0 {
+		if len(record.Annotations) > 0 {
 			parquetRecord.Annotations = &record.Annotations
 		}
 		if record.CertName != "" {
