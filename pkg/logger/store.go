@@ -38,20 +38,19 @@ const (
 )
 
 const (
-	S3Prefix    string = string(S3Storage)
-	GCSPrefix   string = string(GCSStorage)
-	AzurePrefix string = string(AzureStorage)
+	S3Prefix       string = string(S3Storage)
+	S3APrefix      string = "s3a"
+	GCSPrefix      string = string(GCSStorage)
+	GSPrefix              = "gs"
+	AzurePrefix    string = string(AzureStorage)
+	AzureSSLPrefix string = "abfss"
 )
 
 const DefaultStorage = HttpStorage
 const DefaultFormat = marshaller.LogStoreFormatJson
 const DefaultBatchSize = 1
 
-var registeredStrategies = map[string]StorageStrategy{
-	S3Prefix:    S3Storage,
-	GCSPrefix:   GCSStorage,
-	AzurePrefix: AzureStorage,
-}
+var registeredStrategies = map[string]StorageStrategy{}
 
 func uriPrefix(uri string) string {
 	parsed, err := url.Parse(uri)
@@ -61,11 +60,23 @@ func uriPrefix(uri string) string {
 	return parsed.Scheme
 }
 
+func initializeStorageStrategies() {
+	RegisterStorageStrategy(S3Prefix, S3Storage)
+	RegisterStorageStrategy(S3APrefix, S3Storage)
+	RegisterStorageStrategy(GCSPrefix, GCSStorage)
+	RegisterStorageStrategy(GSPrefix, GCSStorage)
+	RegisterStorageStrategy(AzurePrefix, AzureStorage)
+	RegisterStorageStrategy(AzureSSLPrefix, AzureStorage)
+}
+
 func RegisterStorageStrategy(uriPrefix string, strategy StorageStrategy) {
 	registeredStrategies[uriPrefix] = strategy
 }
 
 func GetStorageStrategy(url string) StorageStrategy {
+	if len(registeredStrategies) == 0 {
+		initializeStorageStrategies()
+	}
 	prefix := uriPrefix(url)
 	if str, ok := registeredStrategies[prefix]; ok {
 		return str
