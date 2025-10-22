@@ -49,7 +49,7 @@ func TestParquetMarshalling(t *testing.T) {
 	})
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	assert.NotEmpty(t, bytes, "marshalled byte array is empty")
-	f, err := os.CreateTemp("", "test.parquet")
+	f, err := os.CreateTemp(t.TempDir(), "test.parquet")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	_, err = f.Write(bytes)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
