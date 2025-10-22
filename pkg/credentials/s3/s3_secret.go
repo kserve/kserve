@@ -105,7 +105,7 @@ func BuildSecretEnvs(secret *corev1.Secret, s3Config *S3Config) []corev1.EnvVar 
 		},
 	}
 
-	envs = append(envs, BuildS3EnvVars(secret.Annotations, s3Config)...)
+	envs = append(envs, BuildS3EnvVars(secret.Annotations, &secret.Data, s3Config)...)
 
 	return envs
 }

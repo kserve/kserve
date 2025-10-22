@@ -10,7 +10,7 @@ dependencies = [
     "xgboost~=2.1.1",
 ]
 name = "xgbserver"
-version = "0.16.0rc0"
+version = "0.16.0rc1"
 description = "Model Server implementation for XGBoost. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 

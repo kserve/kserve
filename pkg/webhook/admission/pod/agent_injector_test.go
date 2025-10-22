@@ -1761,13 +1761,31 @@ func TestAgentInjector(t *testing.T) {
 
 func TestGetLoggerConfigs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	url := "s3://bucket/logger"
+	mode := v1beta1.LogAll
+	serviceAccountName := "logger-service-account-name"
+	defaultServiceAccountName := constants.LoggerDefaultServiceAccountName
+	path := "/logger"
+	parameters := map[string]string{
+		"type":   "s3",
+		"region": "us-west-2",
+		"format": "json",
+	}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "podname",
+		},
+	}
+
 	cases := []struct {
 		name      string
 		configMap *corev1.ConfigMap
+		isvc      *v1beta1.InferenceService
 		matchers  []types.GomegaMatcher
+		pod       *corev1.Pod
 	}{
 		{
-			name: "Valid Logger Config",
+			name: "Logger storage nil",
 			configMap: &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{},
@@ -1777,21 +1795,77 @@ func TestGetLoggerConfigs(t *testing.T) {
 						"CpuRequest":    "100m",
 						"CpuLimit":      "1",
 						"MemoryRequest": "200Mi",
-						"MemoryLimit":   "1Gi",
-						"Storage": {
-							"Path": "/logger",
-							"Parameters": {
-								"type": "s3",
-								"region": "us-west-2",
-								"format": "json"
-							},
-							"Key": "logger-credentials",
-							"ServiceAccountName": "logger-sa"
-						}
+						"MemoryLimit":   "1Gi"
 					}`,
 				},
 				BinaryData: map[string][]byte{},
 			},
+			isvc: &v1beta1.InferenceService{
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							Logger: &v1beta1.LoggerSpec{
+								URL:                 &url,
+								Mode:                mode,
+								MetadataHeaders:     nil,
+								MetadataAnnotations: nil,
+								Storage:             nil,
+							},
+						},
+					},
+				},
+			},
+			pod: pod,
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&LoggerConfig{
+					Image:         "gcr.io/kfserving/logger:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200Mi",
+					MemoryLimit:   "1Gi",
+					Store:         nil,
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Logger storage service account nil",
+			configMap: &corev1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					LoggerConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/logger:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200Mi",
+						"MemoryLimit":   "1Gi"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			isvc: &v1beta1.InferenceService{
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							Logger: &v1beta1.LoggerSpec{
+								URL:                 &url,
+								Mode:                mode,
+								MetadataHeaders:     nil,
+								MetadataAnnotations: nil,
+								Storage: &v1beta1.LoggerStorageSpec{
+									StorageSpec: v1beta1.StorageSpec{
+										Path:       &path,
+										Parameters: &parameters,
+										StorageKey: &storageKey,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			pod: pod,
 			matchers: []types.GomegaMatcher{
 				gomega.Equal(&LoggerConfig{
 					Image:         "gcr.io/kfserving/logger:latest",
@@ -1805,7 +1879,123 @@ func TestGetLoggerConfigs(t *testing.T) {
 							Parameters: &storageParameters,
 							StorageKey: &storageKey,
 						},
-						ServiceAccountName: &saName,
+						ServiceAccountName: &defaultServiceAccountName,
+					},
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Logger storage service account nil",
+			configMap: &corev1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					LoggerConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/logger:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200Mi",
+						"MemoryLimit":   "1Gi"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			isvc: &v1beta1.InferenceService{
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							Logger: &v1beta1.LoggerSpec{
+								URL:                 &url,
+								Mode:                mode,
+								MetadataHeaders:     nil,
+								MetadataAnnotations: nil,
+								Storage: &v1beta1.LoggerStorageSpec{
+									StorageSpec: v1beta1.StorageSpec{
+										Path:       &path,
+										Parameters: &parameters,
+										StorageKey: &storageKey,
+									},
+									ServiceAccountName: &serviceAccountName,
+								},
+							},
+						},
+					},
+				},
+			},
+			pod: pod,
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&LoggerConfig{
+					Image:         "gcr.io/kfserving/logger:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200Mi",
+					MemoryLimit:   "1Gi",
+					Store: &v1beta1.LoggerStorageSpec{
+						StorageSpec: v1beta1.StorageSpec{
+							Path:       &storagePath,
+							Parameters: &storageParameters,
+							StorageKey: &storageKey,
+						},
+						ServiceAccountName: &serviceAccountName,
+					},
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Valid Logger Config",
+			configMap: &corev1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					LoggerConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/logger:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200Mi",
+						"MemoryLimit":   "1Gi"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			isvc: &v1beta1.InferenceService{
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							Logger: &v1beta1.LoggerSpec{
+								URL:                 &url,
+								Mode:                mode,
+								MetadataHeaders:     nil,
+								MetadataAnnotations: nil,
+								Storage: &v1beta1.LoggerStorageSpec{
+									StorageSpec: v1beta1.StorageSpec{
+										Path:       &path,
+										Parameters: &parameters,
+										StorageKey: &storageKey,
+									},
+									ServiceAccountName: &serviceAccountName,
+								},
+							},
+						},
+					},
+				},
+			},
+			pod: pod,
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&LoggerConfig{
+					Image:         "gcr.io/kfserving/logger:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200Mi",
+					MemoryLimit:   "1Gi",
+					Store: &v1beta1.LoggerStorageSpec{
+						StorageSpec: v1beta1.StorageSpec{
+							Path:       &storagePath,
+							Parameters: &storageParameters,
+							StorageKey: &storageKey,
+						},
+						ServiceAccountName: &serviceAccountName,
 					},
 				}),
 				gomega.BeNil(),
@@ -1827,6 +2017,7 @@ func TestGetLoggerConfigs(t *testing.T) {
 				},
 				BinaryData: map[string][]byte{},
 			},
+			pod: pod,
 			matchers: []types.GomegaMatcher{
 				gomega.Equal(&LoggerConfig{
 					Image:         "gcr.io/kfserving/logger:latest",
@@ -1841,9 +2032,9 @@ func TestGetLoggerConfigs(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		loggerConfigs, err := getLoggerConfigs(tc.configMap)
-		g.Expect(err).Should(tc.matchers[1])
-		g.Expect(loggerConfigs).Should(tc.matchers[0])
+		loggerConfigs, err := getLoggerConfigs(tc.pod, tc.configMap, tc.isvc)
+		g.Expect(err).Should(tc.matchers[1], tc.name)
+		g.Expect(loggerConfigs).Should(tc.matchers[0], tc.name)
 	}
 }
 
@@ -1912,8 +2103,8 @@ func TestGetAgentConfigs(t *testing.T) {
 
 	for _, tc := range cases {
 		loggerConfigs, err := getAgentConfigs(tc.configMap)
-		g.Expect(err).Should(tc.matchers[1])
-		g.Expect(loggerConfigs).Should(tc.matchers[0])
+		g.Expect(err).Should(tc.matchers[1], tc.name)
+		g.Expect(loggerConfigs).Should(tc.matchers[0], tc.name)
 	}
 }
 
