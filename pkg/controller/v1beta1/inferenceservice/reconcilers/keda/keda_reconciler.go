@@ -90,7 +90,7 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 			case v1beta1.ResourceMetricSourceType:
 				triggerType := string(metric.Resource.Name)
 				metricType := metric.Resource.Target.Type
-				targetValue := "0"
+				targetValue := ""
 				switch metricType {
 				case v1beta1.UtilizationMetricType:
 					averageUtil := metric.Resource.Target.AverageUtilization
@@ -103,9 +103,13 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 						targetValue = strconv.Itoa(int(*averageUtil))
 					}
 				case v1beta1.AverageValueMetricType:
-					targetValue = getOriginalStringMQ(metric.Resource.Target.AverageValue, "0")
+					targetValue = getOriginalStringMQ(metric.Resource.Target.AverageValue, "")
 				case v1beta1.ValueMetricType:
-					targetValue = getOriginalStringMQ(metric.Resource.Target.Value, "0")
+					targetValue = getOriginalStringMQ(metric.Resource.Target.Value, "")
+				}
+				// Validate that targetValue is set and not "0"
+				if targetValue == "" || targetValue == "0" {
+					return nil, fmt.Errorf("invalid resource metric configuration: target value for %s metric cannot be empty or zero", triggerType)
 				}
 				triggers = append(triggers, kedav1alpha1.ScaleTriggers{
 					Type:       triggerType,
@@ -116,13 +120,19 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 				triggerType := string(metric.External.Metric.Backend)
 				serverAddress := metric.External.Metric.ServerAddress
 				query := metric.External.Metric.Query
+				threshold := getOriginalStringMQ(metric.External.Target.Value, "")
+
+				// Validate that threshold is set and not "0"
+				if threshold == "" || threshold == "0" {
+					return nil, fmt.Errorf("invalid external metric configuration: threshold value for %s metric cannot be empty or zero", triggerType)
+				}
 
 				trigger := kedav1alpha1.ScaleTriggers{
 					Type: triggerType,
 					Metadata: map[string]string{
 						"serverAddress": serverAddress,
 						"query":         query,
-						"threshold":     getOriginalStringMQ(metric.External.Target.Value, "0"),
+						"threshold":     threshold,
 					},
 				}
 
@@ -155,7 +165,12 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 
 				triggerType := string(metric.PodMetric.Metric.Backend)
 				query := metric.PodMetric.Metric.Query
-				targetValue := getOriginalStringMQ(metric.PodMetric.Target.Value, "0")
+				targetValue := getOriginalStringMQ(metric.PodMetric.Target.Value, "")
+
+				// Validate that targetValue is set and not "0"
+				if targetValue == "" || targetValue == "0" {
+					return nil, fmt.Errorf("invalid pod metric configuration: target value for %s metric cannot be empty or zero", triggerType)
+				}
 
 				trigger := kedav1alpha1.ScaleTriggers{
 					Metadata: map[string]string{},
