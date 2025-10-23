@@ -7,8 +7,8 @@ resources:
   - service.yaml
   - manager.yaml
   - gateway-inference-extension.yaml
-  - ../rbac/llmisvc
   - ../certmanager/llmisvc
+  - ../rbac/llmisvc
   - ../llmisvcconfig
   - ../webhook/llmisvc
 
