@@ -164,6 +164,79 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				g.Expect(current.Status).To(HaveCondition(string(v1alpha1.HTTPRoutesReady), "True"))
 			})).WithContext(ctx).Should(Succeed())
 		})
+
+		It("should propagate kueue labels and annotations to the deployment", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-kueue"
+			nsName := kmeta.ChildName(svcName, "-test")
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(namespace)
+			}()
+
+			localQueueName := "test-local-q"
+			preemptPriority := "0"
+			testValue := "test"
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha1.LLMInferenceService](nsName),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				// Add a kueue label and annotation to ensure value propagation to the deployment
+				// the kueue functionality itself will not be tested here
+				WithAnnotations(map[string]string{
+					PreemptionReclaimAnnotationKey: preemptPriority,
+					testValue:                      testValue, // dummy value, should not be propagated
+				}),
+				WithLabels(map[string]string{
+					LocalQueueNameLabelKey: localQueueName,
+					testValue:              testValue, // dummy value, should not be propagated
+				}),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			// then
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: nsName,
+				}, expectedDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(expectedDeployment.Spec.Replicas).To(Equal(ptr.To[int32](1)))
+			Expect(expectedDeployment).To(BeOwnedBy(llmSvc))
+
+			By("checking the Deployment's top-level metadata")
+			// Check that the kueue label/annotation was propagated
+			Expect(expectedDeployment.Labels).To(HaveKeyWithValue(LocalQueueNameLabelKey, localQueueName))
+			Expect(expectedDeployment.Annotations).To(gomega.HaveKeyWithValue(PreemptionReclaimAnnotationKey, preemptPriority))
+			// Check that the test label/annotation was not propagated as it is not in the approved prefixes for propagation
+			Expect(expectedDeployment.Labels).ToNot(HaveKeyWithValue(testValue, testValue))
+			Expect(expectedDeployment.Annotations).ToNot(HaveKeyWithValue(testValue, testValue))
+
+			By("checking the Deployment's pod template metadata")
+			// Check that the kueue label/annotation was propagated
+			Expect(expectedDeployment.Spec.Template.Labels).To(HaveKeyWithValue(LocalQueueNameLabelKey, localQueueName))
+			Expect(expectedDeployment.Spec.Template.Annotations).To(gomega.HaveKeyWithValue(PreemptionReclaimAnnotationKey, preemptPriority))
+			// Check that the test label/annotation was not propagated as it is not in the approved prefixes for propagation
+			Expect(expectedDeployment.Spec.Template.Labels).ToNot(HaveKeyWithValue(testValue, testValue))
+			Expect(expectedDeployment.Spec.Template.Annotations).ToNot(HaveKeyWithValue(testValue, testValue))
+		})
 	})
 
 	Context("Routing reconciliation ", func() {

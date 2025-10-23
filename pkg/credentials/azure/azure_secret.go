@@ -33,18 +33,33 @@ const (
 	AzureTenantId       = "AZURE_TENANT_ID"
 	AzureClientId       = "AZURE_CLIENT_ID"
 	AzureClientSecret   = "AZURE_CLIENT_SECRET" // #nosec G101
+
+	AzureAccessToken                 = "AZURE_ACCESS_TOKEN"              // #nosec G101
+	AzureAccessTokenExpiresOnSeconds = "AZURE_ACCESS_EXPIRES_ON_SECONDS" // #nosec G101
+	AzureAccountName                 = "AZURE_ACCOUNT_NAME"
+	AzureServiceUrl                  = "AZURE_SERVICE_URL"
 )
 
 var (
 	LegacyAzureEnvKeys        = []string{LegacyAzureSubscriptionId, LegacyAzureTenantId, LegacyAzureClientId, LegacyAzureClientSecret}
-	AzureEnvKeys              = []string{AzureSubscriptionId, AzureTenantId, AzureClientId, AzureClientSecret, AzureStorageAccessKey}
+	AzureEnvKeys              = []string{AzureSubscriptionId, AzureTenantId, AzureClientId, AzureClientSecret, AzureStorageAccessKey, AzureAccessToken, AzureAccessTokenExpiresOnSeconds, AzureAccountName, AzureServiceUrl}
 	legacyAzureEnvKeyMappings = map[string]string{
 		AzureSubscriptionId: LegacyAzureSubscriptionId,
 		AzureTenantId:       LegacyAzureTenantId,
 		AzureClientId:       LegacyAzureClientId,
 		AzureClientSecret:   LegacyAzureClientSecret,
 	}
+	EmptyKeysToIgnore = []string{AzureClientId, AzureClientSecret, AzureSubscriptionId, AzureStorageAccessKey, AzureAccessToken, AzureAccessTokenExpiresOnSeconds, AzureAccountName, AzureServiceUrl}
 )
+
+func ignoreEmptyKey(key string) bool {
+	for _, k := range EmptyKeysToIgnore {
+		if k == key {
+			return true
+		}
+	}
+	return false
+}
 
 func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
 	envs := make([]corev1.EnvVar, 0, len(AzureEnvKeys))
@@ -54,8 +69,7 @@ func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
 		if _, ok := secret.Data[legacyDataKey]; ok {
 			dataKey = legacyDataKey
 		}
-		// Leave out the AzureClientSecret or AzureStorageAccessKey env var if not defined as Data in the secret
-		if _, ok := secret.Data[dataKey]; !(!ok && (dataKey == AzureClientSecret || dataKey == AzureStorageAccessKey)) {
+		if _, ok := secret.Data[dataKey]; !(!ok && ignoreEmptyKey(dataKey)) {
 			envs = append(envs, corev1.EnvVar{
 				Name: k,
 				ValueFrom: &corev1.EnvVarSource{

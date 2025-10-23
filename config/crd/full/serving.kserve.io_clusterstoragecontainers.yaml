@@ -717,6 +717,9 @@ spec:
                       type: string
                   type: object
                 type: array
+              supportsMultiModelDownload:
+                default: false
+                type: boolean
               workloadType:
                 default: initContainer
                 type: string

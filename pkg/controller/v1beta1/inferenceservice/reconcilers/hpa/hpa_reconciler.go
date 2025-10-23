@@ -59,8 +59,11 @@ func NewHPAReconciler(client client.Client,
 
 func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2.MetricSpec {
 	var metrics []autoscalingv2.MetricSpec
-	if componentExt.AutoScaling != nil {
+	if componentExt != nil && componentExt.AutoScaling != nil {
 		for _, metric := range componentExt.AutoScaling.Metrics {
+			if metric.Resource == nil {
+				continue
+			}
 			switch metric.Resource.Name {
 			case v1beta1.ResourceMetricCPU:
 				averageUtilization := &constants.DefaultCPUUtilization
@@ -90,19 +93,22 @@ func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2
 					ms.Resource.Target.AverageUtilization = metric.Resource.Target.AverageUtilization
 				} else if metric.Resource.Target.Type == v1beta1.AverageValueMetricType {
 					ms.Resource.Target.Type = autoscalingv2.AverageValueMetricType
-					ms.Resource.Target.AverageValue = metric.Resource.Target.AverageValue
+					if metric.Resource.Target.AverageValue != nil {
+						quantity := metric.Resource.Target.AverageValue.GetQuantity()
+						ms.Resource.Target.AverageValue = &quantity
+					}
 				}
 				metrics = append(metrics, ms)
 			}
 		}
 	} else {
 		resourceName := corev1.ResourceCPU
-		if componentExt.ScaleMetric != nil {
+		if componentExt != nil && componentExt.ScaleMetric != nil {
 			resourceName = corev1.ResourceName(*componentExt.ScaleMetric)
 		}
 		if resourceName == corev1.ResourceCPU {
 			var utilization int32
-			if componentExt.ScaleTarget != nil {
+			if componentExt != nil && componentExt.ScaleTarget != nil {
 				utilization = *componentExt.ScaleTarget
 			} else {
 				utilization = constants.DefaultCPUUtilization
@@ -120,7 +126,7 @@ func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2
 				Resource: resourceMetricSource,
 			}
 			metrics = append(metrics, ms)
-		} else if resourceName == corev1.ResourceMemory && componentExt.ScaleTarget != nil {
+		} else if resourceName == corev1.ResourceMemory && componentExt != nil && componentExt.ScaleTarget != nil {
 			// For memory, we do not set the default scale target.
 			metricTarget := autoscalingv2.MetricTarget{
 				Type:               autoscalingv2.UtilizationMetricType,
@@ -144,13 +150,16 @@ func createHPA(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 ) *autoscalingv2.HorizontalPodAutoscaler {
 	var minReplicas int32
-	if componentExt.MinReplicas == nil || (*componentExt.MinReplicas) < constants.DefaultMinReplicas {
+	if componentExt == nil || componentExt.MinReplicas == nil || (*componentExt.MinReplicas) < constants.DefaultMinReplicas {
 		minReplicas = constants.DefaultMinReplicas
 	} else {
 		minReplicas = *componentExt.MinReplicas
 	}
 
-	maxReplicas := componentExt.MaxReplicas
+	var maxReplicas int32
+	if componentExt != nil {
+		maxReplicas = componentExt.MaxReplicas
+	}
 	if maxReplicas < minReplicas {
 		maxReplicas = minReplicas
 	}

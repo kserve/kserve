@@ -24,9 +24,15 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	gstorage "cloud.google.com/go/storage"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -34,6 +40,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/googleapis/google-cloud-go-testing/storage/stiface"
 	"google.golang.org/api/option"
+
+	"github.com/kserve/kserve/pkg/credentials/azure"
 
 	gcscredential "github.com/kserve/kserve/pkg/credentials/gcs"
 	s3credential "github.com/kserve/kserve/pkg/credentials/s3"
@@ -104,13 +112,81 @@ func RemoveDir(dir string) error {
 	return nil
 }
 
+type azureStaticTokenCredential struct {
+	token      string
+	expiration time.Time
+}
+
+func (s *azureStaticTokenCredential) GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	return azcore.AccessToken{
+		Token:     s.token,
+		ExpiresOn: s.expiration,
+	}, nil
+}
+
+func initializeAzureClient() (AzureClient, error) {
+	var azureClient AzureClient
+	clientOptions := azblob.ClientOptions{}
+	serviceUrl, ok := os.LookupEnv(azure.AzureServiceUrl)
+	if !ok {
+		accountName, ok := os.LookupEnv(azure.AzureAccountName)
+		if !ok {
+			return nil, fmt.Errorf("one of %s or %s is required", azure.AzureAccountName, azure.AzureServiceUrl)
+		}
+		serviceUrl = fmt.Sprintf("https://%s.blob.core.windows.net/", accountName)
+	}
+	if _, ok := os.LookupEnv(azure.AzureStorageAccessKey); ok {
+		defaultCred, err := azidentity.NewDefaultAzureCredential(nil)
+		if err != nil {
+			return nil, err
+		}
+		client, err := azblob.NewClient(serviceUrl, defaultCred, &clientOptions)
+		if err != nil {
+			return nil, err
+		}
+		azureClient = client
+	} else if token, ok := os.LookupEnv(azure.AzureAccessToken); ok {
+		expiresOn := time.Now().Add(time.Minute * 5)
+		expiresOnStr, ok := os.LookupEnv(azure.AzureAccessTokenExpiresOnSeconds)
+		if ok {
+			seconds, err := strconv.ParseInt(expiresOnStr, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			expiresOn = time.Unix(seconds, 0)
+		} else {
+			log.Info(azure.AzureAccessTokenExpiresOnSeconds + " not found, defaulting token expiration to 5 minutes")
+		}
+		tokenCred := azureStaticTokenCredential{
+			token:      token,
+			expiration: expiresOn,
+		}
+		client, err := azblob.NewClient(serviceUrl, &tokenCred, &clientOptions)
+		if err != nil {
+			return nil, err
+		}
+		azureClient = client
+	} else {
+		return nil, fmt.Errorf("one of %s or %s must be provided", azure.AzureStorageAccessKey, azure.AzureAccessToken)
+	}
+	return azureClient, nil
+}
+
 func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, error) {
 	if provider, ok := providers[protocol]; ok {
 		return provider, nil
 	}
 
 	switch protocol {
+	case AZURE:
+		log.Info("Initializing Azure client")
+		azureClient, err := initializeAzureClient()
+		if err != nil {
+			return nil, err
+		}
+		providers[AZURE] = &AzureProvider{Client: azureClient}
 	case GCS:
+		log.Info("Initializing GCS client")
 		var gcsClient *gstorage.Client
 		var err error
 
@@ -131,6 +207,7 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 			Client: stiface.AdaptClient(gcsClient),
 		}
 	case S3:
+		log.Info("Initializing S3 client")
 		var sess *session.Session
 		var err error
 

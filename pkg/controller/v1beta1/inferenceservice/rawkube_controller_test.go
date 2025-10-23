@@ -95,7 +95,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 	}
 	Context("When creating inference service with raw kube predictor", func() {
@@ -150,7 +152,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			serviceKey := expectedRequest.NamespacedName
 			storageUri := "s3://test/mnist/export"
-			qty := resource.MustParse("10Gi")
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -175,7 +176,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Name: v1beta1.ResourceMetricMemory,
 											Target: v1beta1.MetricTarget{
 												Type:         v1beta1.AverageValueMetricType,
-												AverageValue: &qty,
+												AverageValue: v1beta1.NewMetricQuantity("10Gi"),
 											},
 										},
 									},
@@ -615,7 +616,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Name: corev1.ResourceMemory,
 								Target: autoscalingv2.MetricTarget{
 									Type:         autoscalingv2.AverageValueMetricType,
-									AverageValue: &qty,
+									AverageValue: &v1beta1.NewMetricQuantity("10Gi").Quantity,
 								},
 							},
 						},
@@ -1940,7 +1941,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -1992,7 +1995,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			return servingRuntime
 		}
 
-		defaultIsvc := func(serviceKey types.NamespacedName, storageUri string, autoscaler string, qty resource.Quantity) *v1beta1.InferenceService {
+		defaultIsvc := func(serviceKey types.NamespacedName, storageUri string, autoscaler string, qty *v1beta1.MetricQuantity) *v1beta1.InferenceService {
 			predictor := v1beta1.PredictorSpec{
 				ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 					MinReplicas:    ptr.To(int32(1)),
@@ -2006,7 +2009,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Name: v1beta1.ResourceMetricMemory,
 									Target: v1beta1.MetricTarget{
 										Type:         v1beta1.AverageValueMetricType,
-										AverageValue: &qty,
+										AverageValue: qty,
 									},
 								},
 							},
@@ -2236,7 +2239,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -2248,7 +2250,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -2305,7 +2307,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -2317,7 +2318,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassKeda), qty)
+				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassKeda), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				isvc.Annotations["sidecar.opentelemetry.io/inject"] = "true"
 				isvc.Spec.Predictor.ComponentExtensionSpec.AutoScaling = &v1beta1.AutoScalingSpec{
@@ -2332,7 +2333,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 								Target: v1beta1.MetricTarget{
 									Type:  v1beta1.ValueMetricType,
-									Value: &resource.Quantity{},
+									Value: v1beta1.NewMetricQuantity(""),
 								},
 							},
 						},
@@ -2383,7 +2384,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -2395,7 +2395,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -2466,7 +2466,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -2478,7 +2477,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassKeda), qty)
+				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassKeda), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				isvc.Annotations["sidecar.opentelemetry.io/inject"] = "true"
 				isvc.Spec.Predictor.ComponentExtensionSpec.AutoScaling = &v1beta1.AutoScalingSpec{
@@ -2493,7 +2492,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 								Target: v1beta1.MetricTarget{
 									Type:  v1beta1.ValueMetricType,
-									Value: &resource.Quantity{},
+									Value: v1beta1.NewMetricQuantity(""),
 								},
 							},
 						},
@@ -2541,7 +2540,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -2553,7 +2551,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -2638,7 +2636,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -2650,7 +2647,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassKeda), qty)
+				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassKeda), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				isvc.Annotations["sidecar.opentelemetry.io/inject"] = "true"
 				isvc.Spec.Predictor.ComponentExtensionSpec.AutoScaling = &v1beta1.AutoScalingSpec{
@@ -2665,7 +2662,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 								Target: v1beta1.MetricTarget{
 									Type:  v1beta1.ValueMetricType,
-									Value: &resource.Quantity{},
+									Value: v1beta1.NewMetricQuantity(""),
 								},
 							},
 						},
@@ -2743,7 +2740,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -2755,7 +2751,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -2839,7 +2835,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -2851,7 +2846,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassKeda), qty)
+				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassKeda), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				isvc.Annotations["sidecar.opentelemetry.io/inject"] = "true"
 				isvc.Spec.Predictor.ComponentExtensionSpec.AutoScaling = &v1beta1.AutoScalingSpec{
@@ -2866,7 +2861,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 								Target: v1beta1.MetricTarget{
 									Type:  v1beta1.ValueMetricType,
-									Value: &resource.Quantity{},
+									Value: v1beta1.NewMetricQuantity(""),
 								},
 							},
 						},
@@ -2932,7 +2927,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 		Describe("inference service with a transformer", func() {
 			// --- Default values ---
-			defaultTransformerIsvc := func(serviceKey types.NamespacedName, storageUri string, autoscaler string, qty resource.Quantity) *v1beta1.InferenceService {
+			defaultTransformerIsvc := func(serviceKey types.NamespacedName, storageUri string, autoscaler string, qty *v1beta1.MetricQuantity) *v1beta1.InferenceService {
 				predictor := v1beta1.PredictorSpec{
 					ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 						MinReplicas:    ptr.To(int32(1)),
@@ -2946,7 +2941,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Name: v1beta1.ResourceMetricMemory,
 										Target: v1beta1.MetricTarget{
 											Type:         v1beta1.AverageValueMetricType,
-											AverageValue: &qty,
+											AverageValue: qty,
 										},
 									},
 								},
@@ -3017,7 +3012,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -3033,7 +3027,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultTransformerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultTransformerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -3088,7 +3082,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -3104,7 +3097,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultTransformerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultTransformerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -3156,7 +3149,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -3172,7 +3164,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultTransformerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultTransformerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -3262,7 +3254,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -3278,7 +3269,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultTransformerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultTransformerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -3356,7 +3347,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 		Describe("inference service with an explainer", func() {
 			// --- Default values ---
-			defaultExplainerIsvc := func(serviceKey types.NamespacedName, storageUri string, autoscaler string, qty resource.Quantity) *v1beta1.InferenceService {
+			defaultExplainerIsvc := func(serviceKey types.NamespacedName, storageUri string, autoscaler string, qty *v1beta1.MetricQuantity) *v1beta1.InferenceService {
 				predictor := v1beta1.PredictorSpec{
 					ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 						MinReplicas:    ptr.To(int32(1)),
@@ -3370,7 +3361,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Name: v1beta1.ResourceMetricMemory,
 										Target: v1beta1.MetricTarget{
 											Type:         v1beta1.AverageValueMetricType,
-											AverageValue: &qty,
+											AverageValue: qty,
 										},
 									},
 								},
@@ -3441,7 +3432,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -3457,7 +3447,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultExplainerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultExplainerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -3512,7 +3502,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -3528,7 +3517,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultExplainerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultExplainerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -3580,7 +3569,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -3596,7 +3584,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultExplainerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultExplainerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -3686,7 +3674,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -3702,7 +3689,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultExplainerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultExplainerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -3801,7 +3788,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 		ctx := context.Background()
@@ -4502,6 +4491,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			   "additionalIngressDomains": ["additional.example.com"],
 			   "disableIngressCreation": true
             }`,
+			"storageInitializer": `{
+				"image" : "kserve/storage-initializer:latest",
+				"memoryRequest": "100Mi",
+				"memoryLimit": "1Gi",
+				"cpuRequest": "100m",
+				"cpuLimit": "1",
+				"cpuModelcar": "10m",
+				"memoryModelcar": "15Mi"
+			}`,
 		}
 
 		It("Should have service/deployment/hpa created and http route should not be created", func() {
@@ -4922,6 +4920,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
                "domainTemplate": "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}",
 			   "additionalIngressDomains": ["additional.example.com"]
             }`,
+			"storageInitializer": `{
+				"image" : "kserve/storage-initializer:latest",
+				"memoryRequest": "100Mi",
+				"memoryLimit": "1Gi",
+				"cpuRequest": "100m",
+				"cpuLimit": "1",
+				"cpuModelcar": "10m",
+				"memoryModelcar": "15Mi"
+			}`,
 		}
 
 		It("Should have httproute/service/deployment/hpa created", func() {
@@ -5504,7 +5511,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -6406,7 +6415,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -7359,7 +7370,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -7990,7 +8003,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -8942,7 +8957,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -9981,7 +9998,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuRequest": "100m",
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 			"opentelemetryCollector": `{
 				"scrapeInterval": "5s",
@@ -10040,7 +10059,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			serviceKey := expectedRequest.NamespacedName
 			storageUri := "s3://test/mnist/export"
-			qty := resource.MustParse("10Gi")
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -10064,7 +10082,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Name: v1beta1.ResourceMetricMemory,
 											Target: v1beta1.MetricTarget{
 												Type:         v1beta1.AverageValueMetricType,
-												AverageValue: &qty,
+												AverageValue: v1beta1.NewMetricQuantity("10Gi"),
 											},
 										},
 									},
@@ -10254,7 +10272,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											},
 											Target: v1beta1.MetricTarget{
 												Type:  v1beta1.ValueMetricType,
-												Value: &resource.Quantity{},
+												Value: v1beta1.NewMetricQuantity(""),
 											},
 										},
 									},
@@ -10835,7 +10853,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
             		"cpuRequest": "100m",
             		"cpuLimit": "1",
             		"CaBundleConfigMapName": "",
-            		"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
+            		"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+					"cpuModelcar": "10m",
+		           	"memoryModelcar": "15Mi"
         		}`,
 			}
 			configMap := &corev1.ConfigMap{
