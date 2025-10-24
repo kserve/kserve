@@ -1,14 +1,6 @@
 # The following manifests contain a self-signed issuer CR and a certificate CR.
 # More document can be found at https://docs.cert-manager.io
 apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: llmisvc-selfsigned-issuer
-  namespace: kserve
-spec:
-  selfSigned: {}
----
-apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   name: llmisvc-serving-cert  # this name should match the one appeared in kustomizeconfig.yaml
@@ -20,5 +12,5 @@ spec:
     - $(webhookServiceName).$(kserveNamespace).svc
   issuerRef:
     kind: Issuer
-    name: llmisvc-selfsigned-issuer
+    name: selfsigned-issuer
   secretName: llmisvc-webhook-server-cert # this secret will not be prefixed, since it's not managed by kustomize
