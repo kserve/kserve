@@ -28,12 +28,12 @@ install() {
     echo "Installing Kustomize ${KUSTOMIZE_VERSION} for ${os}/${arch}..."
 
     if command -v kustomize &>/dev/null; then
-        local current_version=$(kustomize version --short 2>/dev/null | grep -oP 'v[0-9.]+' || echo "unknown")
-        if [[ "$current_version" == "$KUSTOMIZE_VERSION" ]]; then
-            echo "Kustomize ${KUSTOMIZE_VERSION} is already installed"
+        local current_version=$(kustomize version --short 2>/dev/null | grep -oP 'v[0-9.]+')
+        if [[ -n "$current_version" ]] && version_gte "$current_version" "$KUSTOMIZE_VERSION"; then
+            echo "Kustomize ${current_version} is already installed (>= ${KUSTOMIZE_VERSION})"
             return 0
         fi
-        echo "Upgrading Kustomize from ${current_version} to ${KUSTOMIZE_VERSION}..."
+        [[ -n "$current_version" ]] && echo "Upgrading Kustomize from ${current_version} to ${KUSTOMIZE_VERSION}..."
     fi
 
     local temp_dir=$(mktemp -d)

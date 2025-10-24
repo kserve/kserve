@@ -23,6 +23,7 @@ set -o nounset
 set -o pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2>/dev/null)"
+source "${SCRIPT_DIR}/../../../hack/setup/common.sh"
 REPO_ROOT="$(find_repo_root "${SCRIPT_DIR}")"
 
 source "${REPO_ROOT}/kserve-deps.env"

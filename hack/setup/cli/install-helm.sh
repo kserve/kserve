@@ -28,12 +28,12 @@ install() {
     echo "Installing Helm ${HELM_VERSION} for ${os}/${arch}..."
 
     if command -v helm &>/dev/null; then
-        local current_version=$(helm version --template='{{.Version}}' 2>/dev/null || echo "unknown")
-        if [[ "$current_version" == "$HELM_VERSION" ]]; then
-            echo "Helm ${HELM_VERSION} is already installed"
+        local current_version=$(helm version --template='{{.Version}}' 2>/dev/null)
+        if [[ -n "$current_version" ]] && version_gte "$current_version" "$HELM_VERSION"; then
+            echo "Helm ${current_version} is already installed (>= ${HELM_VERSION})"
             return 0
         fi
-        echo "Upgrading Helm from ${current_version} to ${HELM_VERSION}..."
+        [[ -n "$current_version" ]] && echo "Upgrading Helm from ${current_version} to ${HELM_VERSION}..."
     fi
 
     local temp_dir=$(mktemp -d)

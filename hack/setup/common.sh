@@ -258,6 +258,13 @@ command_exists() {
     command -v "$1" &>/dev/null
 }
 
+# Compare semantic versions (returns 0 if v1 >= v2, 1 otherwise)
+# Usage: version_gte "v3.17.3" "v3.16.0"
+# Example: version_gte "$current_version" "$required_version" && echo "OK"
+version_gte() {
+    [ "$1" = "$(printf '%s\n' "$1" "$2" | sort -V | tail -1)" ]
+}
+
 # ============================================================================
 # Auto-initialization (runs when this file is sourced)
 # ============================================================================

@@ -63,7 +63,6 @@ GATEWAY_API_VERSION=$(extract_version "sigs.k8s.io/gateway-api" false)
 LWS_VERSION=$(extract_version "sigs.k8s.io/lws" false)
 GIE_VERSION=$(extract_version "sigs.k8s.io/gateway-api-inference-extension" false)
 OTEL_VERSION=$(extract_version "github.com/open-telemetry/opentelemetry-operator" true)
-KNATIVE_SERVING_VERSION=$(extract_version "knative.dev/serving" false)
 
 # Create temp file with new auto-generated content
 TEMP_FILE=$(mktemp)
@@ -71,7 +70,6 @@ cat > "$TEMP_FILE" <<EOF
 # START
 # Serverless dependencies
 ISTIO_VERSION=${ISTIO_VERSION}
-KNATIVE_SERVING_VERSION=${KNATIVE_SERVING_VERSION}
 
 # KEDA dependencies
 KEDA_VERSION=${KEDA_VERSION}
@@ -112,4 +110,3 @@ echo "  GATEWAY_API_VERSION=${GATEWAY_API_VERSION}"
 echo "  GIE_VERSION=${GIE_VERSION}"
 echo "  LWS_VERSION=${LWS_VERSION}"
 echo "  OPENTELEMETRY_OPERATOR_VERSION=${OTEL_VERSION}"
-echo "  KNATIVE_SERVING_VERSION=${KNATIVE_SERVING_VERSION}"

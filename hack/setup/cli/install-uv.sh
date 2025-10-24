@@ -47,12 +47,12 @@ install() {
     echo "Installing uv ${UV_VERSION} for ${os}/${arch}..."
 
     if command -v uv &>/dev/null; then
-        local current_version=$(uv version 2>/dev/null | awk '{print $2}' || echo "unknown")
-        if [[ "$current_version" == "${UV_VERSION}" ]]; then
-            echo "uv ${UV_VERSION} is already installed"
+        local current_version=$(uv --version 2>/dev/null | awk '{print $2}')
+        if [[ -n "$current_version" ]] && version_gte "$current_version" "$UV_VERSION"; then
+            echo "uv ${current_version} is already installed (>= ${UV_VERSION})"
             return 0
         fi
-        echo "Upgrading uv from ${current_version} to ${UV_VERSION}..."
+        [[ -n "$current_version" ]] && echo "Upgrading uv from ${current_version} to ${UV_VERSION}..."
     fi
 
     local temp_dir=$(mktemp -d)
