@@ -50,7 +50,15 @@ jobs:
         with:
           path: .venv
           key: uv-${{ runner.os }}-${{ hashFiles('**/uv.lock') }}
-        
+
+      - name: Verify and fix root venv if needed
+        run: |
+          if [ ! -e .venv/bin/python3 ]; then
+            echo "Cached venv is broken, recreating..."
+            rm -rf .venv
+            uv venv .venv
+          fi
+
       # ----------------------------------------Kserve Unit Tests--------------------------------------------------------
       # load cached kserve venv if cache exists
       - name: Load cached kserve venv
