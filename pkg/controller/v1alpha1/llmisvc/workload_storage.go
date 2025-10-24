@@ -283,15 +283,31 @@ func injectCaBundle(namespace string, podSpec *corev1.PodSpec, initContainer *co
 			}
 		}
 
-		initContainer.Env = append(initContainer.Env, corev1.EnvVar{
-			Name:  constants.CaBundleConfigMapNameEnvVarKey,
-			Value: caBundleConfigMapName,
-		})
+		// Add CA bundle env vars only if they don't already exist (could be customized by user)
+		caBundleEnvVarExists := false
+		caBundleMountPathEnvVarExists := false
+		for _, envVar := range initContainer.Env {
+			if envVar.Name == constants.CaBundleConfigMapNameEnvVarKey {
+				caBundleEnvVarExists = true
+			}
+			if envVar.Name == constants.CaBundleVolumeMountPathEnvVarKey {
+				caBundleMountPathEnvVarExists = true
+			}
+		}
 
-		initContainer.Env = append(initContainer.Env, corev1.EnvVar{
-			Name:  constants.CaBundleVolumeMountPathEnvVarKey,
-			Value: caBundleVolumeMountPath,
-		})
+		if !caBundleEnvVarExists {
+			initContainer.Env = append(initContainer.Env, corev1.EnvVar{
+				Name:  constants.CaBundleConfigMapNameEnvVarKey,
+				Value: caBundleConfigMapName,
+			})
+		}
+
+		if !caBundleMountPathEnvVarExists {
+			initContainer.Env = append(initContainer.Env, corev1.EnvVar{
+				Name:  constants.CaBundleVolumeMountPathEnvVarKey,
+				Value: caBundleVolumeMountPath,
+			})
+		}
 
 		caBundleVolume := corev1.Volume{
 			Name: CaBundleVolumeName,
