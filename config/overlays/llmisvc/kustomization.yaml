@@ -4,13 +4,14 @@ kind: Kustomization
 namespace: kserve
 
 resources:
-  - service.yaml
-  - manager.yaml
-  - gateway-inference-extension.yaml
-  - ../certmanager/llmisvc
-  - ../rbac/llmisvc
-  - ../llmisvcconfig
-  - ../webhook/llmisvc
+- namespace.yaml
+- certificate.yaml
+- ../../crd/full/llmisvc
+- ../../configmap
+- ../../llmisvc
+
+generatorOptions:
+  disableNameSuffixHash: true
 
 replacements:
 # Replace the namespace with the namespace of the controller manager.
@@ -19,7 +20,7 @@ replacements:
     kind: Deployment
     name: llmisvc-controller-manager
     version: v1
-  targets:  
+  targets:
   - fieldPaths:
     - webhooks.*.clientConfig.service.namespace
     select:
@@ -104,8 +105,4 @@ replacements:
     - spec.template.spec.serviceAccountName
     select:
       kind: Deployment
-      name: llmisvc-controller-manager    
-patches:
-- path: llmisvc_validatingwebhook_cainjection_patch.yaml
-- path: llmisvcconfig_validatingwebhook_cainjection_patch.yaml
-- path: llmisvc_manager_image_patch.yaml
+      name: llmisvc-controller-manager
