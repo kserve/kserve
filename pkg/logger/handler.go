@@ -189,6 +189,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				Namespace:        eh.namespace,
 				Endpoint:         eh.endpoint,
 				Annotations:      eh.annotations,
+				Metadata:         metadata,
 				Component:        eh.component,
 				CertName:         eh.certName,
 				TlsSkipVerify:    eh.tlsSkipVerify,
