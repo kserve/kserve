@@ -4,6 +4,108 @@ kind: Kustomization
 namespace: kserve
 
 resources:
-  - deployment.yaml
   - service.yaml
+  - manager.yaml
   - gateway-inference-extension.yaml
+  - ../certmanager/llmisvc
+  - ../rbac/llmisvc
+  - ../llmisvcconfig
+  - ../webhook/llmisvc
+
+replacements:
+# Replace the namespace with the namespace of the controller manager.
+- source:
+    fieldPath: metadata.namespace
+    kind: Deployment
+    name: llmisvc-controller-manager
+    version: v1
+  targets:  
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.namespace
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: llminferenceservice.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.namespace
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: llminferenceserviceconfig.serving.kserve.io
+  - fieldPaths:
+    - spec.commonName
+    - spec.dnsNames.0
+    options:
+      delimiter: '.'
+      index: 1
+    select:
+      kind: Certificate
+      name: llmisvc-serving-cert
+      namespace: kserve
+  - fieldPaths:
+      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: '/'
+      index: 0
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: llminferenceservice.serving.kserve.io
+  - fieldPaths:
+      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: '/'
+      index: 0
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: llminferenceserviceconfig.serving.kserve.io
+# Replace llmisvc webhook service name
+- source:
+    fieldPath: metadata.name
+    kind: Service
+    name: llmisvc-webhook-server-service
+    version: v1
+  targets:
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: llminferenceservice.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: llminferenceserviceconfig.serving.kserve.io
+  - fieldPaths:
+    - spec.commonName
+    - spec.dnsNames.0
+    options:
+      delimiter: '.'
+      index: 0
+    select:
+      kind: Certificate
+      name: llmisvc-serving-cert
+      namespace: kserve
+# Replace llmisvc service account name
+- source:
+    fieldPath: metadata.name
+    kind: ServiceAccount
+    name: llmisvc-controller-manager
+    version: v1
+  targets:
+  - fieldPaths:
+    - subjects.*.name
+    select:
+      kind: ClusterRoleBinding
+      name: llmisvc-manager-rolebinding
+  - fieldPaths:
+    - subjects.*.name
+    select:
+      kind: RoleBinding
+      name: llmisvc-leader-election-rolebinding
+  - fieldPaths:
+    - spec.template.spec.serviceAccountName
+    select:
+      kind: Deployment
+      name: llmisvc-controller-manager    
+patches:
+- path: llmisvc_validatingwebhook_cainjection_patch.yaml
+- path: llmisvcconfig_validatingwebhook_cainjection_patch.yaml
+- path: llmisvc_manager_image_patch.yaml
