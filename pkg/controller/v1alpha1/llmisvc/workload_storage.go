@@ -274,6 +274,9 @@ func injectCaBundle(namespace string, podSpec *corev1.PodSpec, initContainer *co
 			caBundleVolumeMountPath = constants.DefaultCaBundleVolumeMountPath
 		}
 
+		// Add CA bundle env vars only if they don't already exist (could be customized by user)
+		caBundleEnvVarExists := false
+		caBundleMountPathEnvVarExists := false
 		for _, envVar := range initContainer.Env {
 			if envVar.Name == s3.AWSCABundleConfigMap {
 				caBundleConfigMapName = envVar.Value
@@ -281,12 +284,6 @@ func injectCaBundle(namespace string, podSpec *corev1.PodSpec, initContainer *co
 			if envVar.Name == s3.AWSCABundle {
 				caBundleVolumeMountPath = filepath.Dir(envVar.Value)
 			}
-		}
-
-		// Add CA bundle env vars only if they don't already exist (could be customized by user)
-		caBundleEnvVarExists := false
-		caBundleMountPathEnvVarExists := false
-		for _, envVar := range initContainer.Env {
 			if envVar.Name == constants.CaBundleConfigMapNameEnvVarKey {
 				caBundleEnvVarExists = true
 			}
