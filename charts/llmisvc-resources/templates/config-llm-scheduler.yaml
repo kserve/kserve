@@ -49,7 +49,7 @@ spec:
               timeoutSeconds: 1
             args:
               - --poolName
-              - '{{ "{{" }} ChildName .ObjectMeta.Name `-inference-pool` {{ "}}" }}'
+              - "{{ "{{" }} ChildName .ObjectMeta.Name `-inference-pool` {{ "}}" }}"
               - --poolNamespace
               - "{{`{{ .ObjectMeta.Namespace }}`}}"
               - --zap-encoder
@@ -58,12 +58,13 @@ spec:
               - "9002"
               - --grpcHealthPort
               - "9003"
-              - --secureServing
-              - --modelServerMetricsScheme
-              - "https"
-              - --modelServerMetricsHttpsInsecureSkipVerify
-              - --certPath
-              - "/etc/ssl/certs"
+              # BackendTLSPolicy is not implemented yet so disable SSL for now
+              # - --secureServing
+              # - --modelServerMetricsScheme
+              # - "https"
+              # - --modelServerMetricsHttpsInsecureSkipVerify
+              # - --certPath
+              # - "/etc/ssl/certs"
             resources:
               requests:
                 cpu: 256m
