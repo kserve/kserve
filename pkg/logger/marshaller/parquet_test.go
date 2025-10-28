@@ -68,7 +68,6 @@ func TestParquetMarshalling(t *testing.T) {
 	rr := array.NewTableReader(tbl, -1)
 	defer rr.Release()
 
-	items := make([]types.LogRequest, 0, len(logRequests))
 	schema := rr.Schema() // Get schema to find column indices by name
 	indices := schema.FieldIndices("id")
 	g.Expect(indices).To(gomega.HaveLen(1), "Expected one index for field 'id'")
@@ -90,6 +89,5 @@ func TestParquetMarshalling(t *testing.T) {
 	}
 
 	// Verify the number of rows
-	g.Expect(totalRows).To(gomega.Equal(int64(2))) // Use totalRows from iteration
-	g.Expect(items).To(gomega.HaveLen(2))
+	g.Expect(totalRows).To(gomega.Equal(int64(2)))
 }

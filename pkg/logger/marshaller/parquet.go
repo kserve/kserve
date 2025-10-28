@@ -79,12 +79,19 @@ func (p *ParquetMarshaller) Marshal(v []types.LogRequest) ([]byte, error) {
 	tlsSkipVerifyB := builder.Field(13).(*array.BooleanBuilder)
 	for i := range v {
 		req := &v[i] // Use pointer to avoid copying large byte slices
-
-		urlB.Append(req.Url.String())
+		if req.Url != nil {
+			urlB.Append(req.Url.String())
+		} else {
+			urlB.AppendNull()
+		}
 		contentTypeB.Append(req.ContentType)
 		reqTypeB.Append(req.ReqType)
 		idB.Append(req.Id)
-		sourceUriB.Append(req.SourceUri.String())
+		if req.SourceUri != nil {
+			sourceUriB.Append(req.SourceUri.String())
+		} else {
+			sourceUriB.AppendNull()
+		}
 		inferenceServiceB.Append(req.InferenceService)
 		namespaceB.Append(req.Namespace)
 		componentB.Append(req.Component)
@@ -138,16 +145,19 @@ func (p *ParquetMarshaller) Marshal(v []types.LogRequest) ([]byte, error) {
 
 	buf := new(bytes.Buffer)
 	props := parquet.NewWriterProperties(parquet.WithCompression(compress.Codecs.Snappy))
-	arrProps := pqarrow.NewArrowWriterProperties() // Default properties
+	arrProps := pqarrow.NewArrowWriterProperties()
 
 	fw, err := pqarrow.NewFileWriter(schema, buf, props, arrProps)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create parquet writer: %w", err)
 	}
-	defer fw.Close()
 
 	if err := fw.Write(rec); err != nil {
 		return nil, fmt.Errorf("failed to write record to parquet: %w", err)
+	}
+	err = fw.Close()
+	if err != nil {
+		return nil, fmt.Errorf("failed to close parquet writer: %w", err)
 	}
 
 	return buf.Bytes(), nil
