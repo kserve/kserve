@@ -163,9 +163,7 @@ manifests: controller-gen yq
 	rm charts/llmisvc-crd-minimal/templates/kustomization.yaml
 	# Generate llmisvc rbac
 	@$(CONTROLLER_GEN) rbac:roleName=llmisvc-manager-role paths={./pkg/controller/v1alpha1/llmisvc} output:rbac:artifacts:config=config/rbac/llmisvc
-	# Copy the cluster role to the helm chart
-	cat config/rbac/llmisvc/role.yaml > charts/llmisvc-resources/templates/clusterrole.yaml
-	cat config/rbac/llmisvc/leader_election_role.yaml > charts/llmisvc-resources/templates/leader_election_role.yaml
+	# Note: RBAC Helm templates are now generated via helm-generate target (includes bindings)
 	# Copy llmisvc crd
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/llmisvc-crd/templates/
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/llmisvc-crd/templates/
@@ -177,9 +175,9 @@ helm-generate:
 	@echo "=========================================="
 	@mkdir -p build/helm-tmp
 
-	# Generate everything from Kustomize
-	@echo "Generating all templates from Kustomize..."
-	@kubectl kustomize config/llmisvc > build/helm-tmp/llmisvc.yaml
+	# Generate everything from Kustomize overlay (includes CRDs, ConfigMap, etc.)
+	@echo "Generating all templates from Kustomize overlay (standalone deployment)..."
+	@kubectl kustomize config/overlays/llmisvc > build/helm-tmp/llmisvc.yaml
 	@cat build/helm-tmp/llmisvc.yaml | helmify build/helm-tmp/llmisvc-chart
 
 	# Escape embedded Go templates
@@ -267,6 +265,66 @@ helm-generate:
 	@echo "✅ Helm chart fully generated (100% automated, 0% manual)"
 	
 	@echo "✅ Helm templates updated successfully"
+
+.PHONY: helm-generate-kserve
+helm-generate-kserve:
+	@echo "=========================================="
+	@echo "Generating KServe Helm chart (with llmisvc, 100% automated)"
+	@echo "=========================================="
+	@mkdir -p build/helm-tmp
+
+	# Generate everything from Kustomize (including llmisvc)
+	@echo "Generating all templates from Kustomize..."
+	@kubectl kustomize config/default > build/helm-tmp/kserve-all.yaml
+	@cat build/helm-tmp/kserve-all.yaml | helmify build/helm-tmp/kserve-chart
+
+	# Escape embedded Go templates (for LLMISvc ConfigMaps)
+	@echo "Escaping KServe-specific Go templates..."
+	@./hack/escape_helm_templates.py build/helm-tmp/kserve-chart/templates/*.yaml
+
+	# Fix chart references
+	@echo "Fixing chart references..."
+	@for file in build/helm-tmp/kserve-chart/templates/*.yaml build/helm-tmp/kserve-chart/templates/_helpers.tpl; do \
+		sed -i 's/kserve-chart\./kserve-resources./g' "$$file"; \
+	done
+
+	# Fix resource names (remove fullname prefix from ALL resources)
+	@echo "Fixing resource names (removing Helm fullname prefix)..."
+	@for file in build/helm-tmp/kserve-chart/templates/*.yaml; do \
+		sed -i "s/name: {{ include \"kserve-resources\.fullname\" \. }}-\(.*\)/name: \1/g" "$$file"; \
+		sed -i "s/name: '{{ include \"kserve-resources\.fullname\" \. }}-\(.*\)'/name: \1/g" "$$file"; \
+		sed -i "s/serviceAccountName: {{ include \"kserve-resources\.fullname\" \. }}-\(.*\)/serviceAccountName: \1/g" "$$file"; \
+		sed -i "s/{{ include \"kserve-resources\.fullname\" \. }}-\([a-z-]*\)\.{{/\1.{{/g" "$$file"; \
+		sed -i "s|{{ .Release.Namespace }}/{{ include \"kserve-resources\.fullname\" \. }}-\(.*\)|{{ .Release.Namespace }}/\1|g" "$$file"; \
+	done
+
+	# Copy EVERYTHING to actual chart (100% automated)
+	@echo "Copying all generated templates and values..."
+	@rm -rf charts/kserve-resources/templates/*
+	@mkdir -p charts/kserve-resources/templates/localmodel
+	@mkdir -p charts/kserve-resources/templates/localmodelnode
+	@cp -r build/helm-tmp/kserve-chart/templates/* charts/kserve-resources/templates/
+	@cp build/helm-tmp/kserve-chart/values.yaml charts/kserve-resources/values.yaml
+	@echo "Note: Chart.yaml is preserved (contains version and metadata)"
+
+	# Fix malformed Certificate dnsNames
+	@echo "Fixing Certificate templates..."
+	@./hack/fix_certificate_dnsnames.py
+
+	# Rename files to remove kserve- prefix
+	@echo "Renaming files to remove kserve- prefix..."
+	@for file in charts/kserve-resources/templates/kserve-*.yaml; do \
+		[ -f "$$file" ] || continue; \
+		newname=$$(basename "$$file" | sed 's/^kserve-//'); \
+		mv "$$file" "charts/kserve-resources/templates/$$newname"; \
+	done
+
+	# Validate
+	@echo "Validating Helm chart..."
+	@helm lint charts/kserve-resources
+	@helm template test charts/kserve-resources --dry-run > /dev/null
+
+	@echo "✅ KServe Helm chart fully generated (100% automated, 0% manual)"
 
 # Generate code
 generate: controller-gen helm-docs

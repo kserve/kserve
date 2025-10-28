@@ -1,17 +1,11 @@
-# The following manifests contain a self-signed issuer CR and a certificate CR.
+# Certificate for KServe webhook
+# Note: The shared Issuer (selfsigned-issuer) is created by llmisvc certmanager config
+# This allows llmisvc to be deployed standalone while sharing the issuer when deployed together
 # More document can be found at https://docs.cert-manager.io
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: selfsigned-issuer
-  namespace: kserve
-spec:
-  selfSigned: {}
----
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: serving-cert  # this name should match the one appeared in kustomizeconfig.yaml
+  name: serving-cert # this name should match the one appeared in kustomizeconfig.yaml
   namespace: kserve
 spec:
   # $(SERVICE_NAME) and $(SERVICE_NAMESPACE) will be substituted by kustomize

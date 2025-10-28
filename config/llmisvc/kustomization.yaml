@@ -12,7 +12,7 @@ resources:
   - ../rbac/llmisvc
   - ../llmisvcconfig
   - ../webhook/llmisvc
-  - ../configmap
+  # Note: ../configmap is a shared resource included at overlay level
 
 replacements:
   # Replace the namespace with the namespace of the controller manager.

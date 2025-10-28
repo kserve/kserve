@@ -1,4 +1,5 @@
-# The following manifests contain a self-signed issuer CR and a certificate CR.
+# The following manifests contain a self-signed issuer CR and a certificate CR for LLMISvc controller.
+# Note: This shared Issuer is used by both KServe and LLMISvc webhooks
 # More document can be found at https://docs.cert-manager.io
 apiVersion: cert-manager.io/v1
 kind: Issuer
