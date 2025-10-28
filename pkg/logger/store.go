@@ -21,9 +21,10 @@ import (
 	"strings"
 	"sync"
 
+	"go.uber.org/zap"
+
 	"github.com/kserve/kserve/pkg/logger/marshaller"
 	"github.com/kserve/kserve/pkg/logger/types"
-	"go.uber.org/zap"
 
 	"github.com/kserve/kserve/pkg/agent/storage"
 )
@@ -46,9 +47,11 @@ const (
 	AzureSSLPrefix string = "abfss"
 )
 
-const DefaultStorage = HttpStorage
-const DefaultFormat = marshaller.LogStoreFormatJson
-const DefaultBatchSize = 1
+const (
+	DefaultStorage   = HttpStorage
+	DefaultFormat    = marshaller.LogStoreFormatJson
+	DefaultBatchSize = 1
+)
 
 var registeredStrategies = map[string]StorageStrategy{}
 

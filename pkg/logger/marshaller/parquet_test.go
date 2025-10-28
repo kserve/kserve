@@ -18,16 +18,16 @@ package marshaller
 
 import (
 	"bytes"
-	"context"
 	"testing"
 
 	"github.com/apache/arrow/go/v17/arrow/array"
 	"github.com/apache/arrow/go/v17/arrow/memory"
 	"github.com/apache/arrow/go/v17/parquet"
 	"github.com/apache/arrow/go/v17/parquet/pqarrow"
-	"github.com/kserve/kserve/pkg/logger/types"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/kserve/kserve/pkg/logger/types"
 )
 
 func TestParquetMarshalling(t *testing.T) {
@@ -59,7 +59,7 @@ func TestParquetMarshalling(t *testing.T) {
 	alloc := memory.DefaultAllocator
 	props := parquet.NewReaderProperties(alloc)
 	arrProps := pqarrow.ArrowReadProperties{}
-	tbl, err := pqarrow.ReadTable(context.Background(), bytesReader, props, arrProps, alloc)
+	tbl, err := pqarrow.ReadTable(t.Context(), bytesReader, props, arrProps, alloc)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	defer tbl.Release()
 
@@ -83,7 +83,7 @@ func TestParquetMarshalling(t *testing.T) {
 		idCol := rec.Column(idIdx).(*array.String)
 		g.Expect(idCol).ToNot(gomega.BeNil())
 
-		for i := 0; i < int(rec.NumRows()); i++ {
+		for i := range rec.NumRows() {
 			val := idCol.Value(i)
 			g.Expect(val).To(gomega.Equal(logRequests[i].Id))
 		}
@@ -91,6 +91,5 @@ func TestParquetMarshalling(t *testing.T) {
 
 	// Verify the number of rows
 	g.Expect(totalRows).To(gomega.Equal(int64(2))) // Use totalRows from iteration
-	g.Expect(len(items)).To(gomega.Equal(2))
-
+	g.Expect(items).To(gomega.HaveLen(2))
 }

@@ -18,6 +18,7 @@ package marshaller
 
 import (
 	"github.com/gocarina/gocsv"
+
 	"github.com/kserve/kserve/pkg/logger/types"
 )
 

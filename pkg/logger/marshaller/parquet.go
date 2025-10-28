@@ -26,6 +26,7 @@ import (
 	"github.com/apache/arrow/go/v17/parquet"
 	"github.com/apache/arrow/go/v17/parquet/compress"
 	"github.com/apache/arrow/go/v17/parquet/pqarrow"
+
 	"github.com/kserve/kserve/pkg/logger/types"
 )
 
@@ -35,7 +36,6 @@ type ParquetMarshaller struct{}
 
 // buildArrowSchema defines the Arrow schema that matches ParquetLogRequest.
 func (p *ParquetMarshaller) buildArrowSchema() *arrow.Schema {
-
 	// Define the main schema
 	schema := arrow.NewSchema([]arrow.Field{
 		{Name: "url", Type: arrow.BinaryTypes.String, Nullable: true},
