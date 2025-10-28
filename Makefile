@@ -54,7 +54,7 @@ export GOFLAGS=-mod=mod
 all: test manager agent router
 
 .PHONY: setup-envtest
-setup-envtest: envtest
+setup-envtest:
 	@echo "Setting up envtest binaries for Kubernetes version $(ENVTEST_K8S_VERSION)..."
 	@$(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path || { \
 		echo "Error: Failed to set up envtest binaries for version $(ENVTEST_K8S_VERSION)."; \
@@ -214,7 +214,7 @@ clean:
 	rm -rf $(LOCALBIN)
 
 # Run tests
-test: fmt vet manifests envtest test-qpext
+test: fmt vet manifests setup-envtest test-qpext
 	KUBEBUILDER_ASSETS="$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test --timeout 20m $$(go list ./pkg/...) ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
 
 test-qpext:
