@@ -56,7 +56,16 @@ func AppendVolumeIfNotExists(slice []corev1.Volume, volume corev1.Volume) []core
 
 func IsGPUEnabled(requirements corev1.ResourceRequirements) bool {
 	_, ok := requirements.Limits[constants.NvidiaGPUResourceType]
-	return ok
+	if ok {
+		return true
+	}
+	for resourceName := range requirements.Limits {
+		// Check if the resource name has the MIG prefix
+		if strings.HasPrefix(string(resourceName), constants.NvidiaMigGPUResourceTypePrefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // FirstNonNilError returns the first non nil interface in the slice
@@ -88,6 +97,21 @@ func IsPrefixSupported(input string, prefixes []string) bool {
 		}
 	}
 	return false
+}
+
+// PropagatePrefixedMap filters keys in source by the provided prefixes and propagates matching key-value pairs to dest.
+// Initializes dest if nil.
+func PropagatePrefixedMap(source map[string]string, dest *map[string]string, prefixes ...string) {
+	for k, v := range source {
+		// The nested loop and if statement are replaced with a single, clear function call.
+		if IsPrefixSupported(k, prefixes) {
+			// Initialize the destination map if it's nil
+			if *dest == nil {
+				*dest = make(map[string]string)
+			}
+			(*dest)[k] = v
+		}
+	}
 }
 
 // MergeEnvs Merge a slice of EnvVars (`O`) into another slice of EnvVars (`B`), which does the following:

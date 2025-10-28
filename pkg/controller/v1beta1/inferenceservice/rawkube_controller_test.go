@@ -96,7 +96,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
 				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 	}
 	Context("When creating inference service with raw kube predictor", func() {
@@ -151,14 +152,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			serviceKey := expectedRequest.NamespacedName
 			storageUri := "s3://test/mnist/export"
-			qty := resource.MustParse("10Gi")
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
@@ -176,7 +176,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Name: v1beta1.ResourceMetricMemory,
 											Target: v1beta1.MetricTarget{
 												Type:         v1beta1.AverageValueMetricType,
-												AverageValue: &qty,
+												AverageValue: v1beta1.NewMetricQuantity("10Gi"),
 											},
 										},
 									},
@@ -241,7 +241,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.DeploymentMode:                                   string(constants.Standard),
 								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
@@ -575,8 +575,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				ModelStatus: v1beta1.ModelStatus{
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
 				},
-				DeploymentMode:     string(constants.RawDeployment),
+				DeploymentMode:     string(constants.Standard),
 				ServingRuntimeName: "tf-serving-raw",
 			}
 			Eventually(func() string {
@@ -615,7 +616,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Name: corev1.ResourceMemory,
 								Target: autoscalingv2.MetricTarget{
 									Type:         autoscalingv2.AverageValueMetricType,
-									AverageValue: &qty,
+									AverageValue: &v1beta1.NewMetricQuantity("10Gi").Quantity,
 								},
 							},
 						},
@@ -722,7 +723,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
@@ -799,7 +800,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.DeploymentMode:                                   string(constants.Standard),
 								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
@@ -1132,8 +1133,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				ModelStatus: v1beta1.ModelStatus{
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
 				},
-				DeploymentMode:     string(constants.RawDeployment),
+				DeploymentMode:     string(constants.Standard),
 				ServingRuntimeName: "tf-serving-raw",
 			}
 			// Check that the ISVC was updated
@@ -1285,7 +1287,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
@@ -1349,7 +1351,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.DeploymentMode:                                   string(constants.Standard),
 								constants.AutoscalerClass:                                  string(constants.AutoscalerClassNone),
 							},
 						},
@@ -1685,6 +1687,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				ModelStatus: v1beta1.ModelStatus{
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
 				},
 				ServingRuntimeName: "tf-serving-raw",
 			}
@@ -1801,7 +1804,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":              "RawDeployment",
+						"serving.kserve.io/deploymentMode":              "Standard",
 						"serving.kserve.io/autoscalerClass":             "hpa",
 						"serving.kserve.io/metrics":                     "cpu",
 						"serving.kserve.io/targetUtilizationPercentage": "75",
@@ -1939,7 +1942,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
 				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -1991,7 +1995,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			return servingRuntime
 		}
 
-		defaultIsvc := func(serviceKey types.NamespacedName, storageUri string, autoscaler string, qty resource.Quantity) *v1beta1.InferenceService {
+		defaultIsvc := func(serviceKey types.NamespacedName, storageUri string, autoscaler string, qty *v1beta1.MetricQuantity) *v1beta1.InferenceService {
 			predictor := v1beta1.PredictorSpec{
 				ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 					MinReplicas:    ptr.To(int32(1)),
@@ -2005,7 +2009,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Name: v1beta1.ResourceMetricMemory,
 									Target: v1beta1.MetricTarget{
 										Type:         v1beta1.AverageValueMetricType,
-										AverageValue: &qty,
+										AverageValue: qty,
 									},
 								},
 							},
@@ -2028,7 +2032,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: autoscaler,
 					},
 				},
@@ -2235,7 +2239,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -2247,7 +2250,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -2304,7 +2307,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -2316,7 +2318,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassKeda), qty)
+				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassKeda), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				isvc.Annotations["sidecar.opentelemetry.io/inject"] = "true"
 				isvc.Spec.Predictor.ComponentExtensionSpec.AutoScaling = &v1beta1.AutoScalingSpec{
@@ -2331,7 +2333,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 								Target: v1beta1.MetricTarget{
 									Type:  v1beta1.ValueMetricType,
-									Value: &resource.Quantity{},
+									Value: v1beta1.NewMetricQuantity(""),
 								},
 							},
 						},
@@ -2382,7 +2384,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -2394,7 +2395,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -2465,7 +2466,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -2477,7 +2477,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassKeda), qty)
+				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassKeda), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				isvc.Annotations["sidecar.opentelemetry.io/inject"] = "true"
 				isvc.Spec.Predictor.ComponentExtensionSpec.AutoScaling = &v1beta1.AutoScalingSpec{
@@ -2492,7 +2492,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 								Target: v1beta1.MetricTarget{
 									Type:  v1beta1.ValueMetricType,
-									Value: &resource.Quantity{},
+									Value: v1beta1.NewMetricQuantity(""),
 								},
 							},
 						},
@@ -2540,7 +2540,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -2552,7 +2551,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -2637,7 +2636,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -2649,7 +2647,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassKeda), qty)
+				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassKeda), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				isvc.Annotations["sidecar.opentelemetry.io/inject"] = "true"
 				isvc.Spec.Predictor.ComponentExtensionSpec.AutoScaling = &v1beta1.AutoScalingSpec{
@@ -2664,7 +2662,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 								Target: v1beta1.MetricTarget{
 									Type:  v1beta1.ValueMetricType,
-									Value: &resource.Quantity{},
+									Value: v1beta1.NewMetricQuantity(""),
 								},
 							},
 						},
@@ -2742,7 +2740,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -2754,7 +2751,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -2838,7 +2835,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -2850,7 +2846,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassKeda), qty)
+				isvc := defaultIsvc(serviceKey, storageUri, string(constants.AutoscalerClassKeda), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				isvc.Annotations["sidecar.opentelemetry.io/inject"] = "true"
 				isvc.Spec.Predictor.ComponentExtensionSpec.AutoScaling = &v1beta1.AutoScalingSpec{
@@ -2865,7 +2861,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 								Target: v1beta1.MetricTarget{
 									Type:  v1beta1.ValueMetricType,
-									Value: &resource.Quantity{},
+									Value: v1beta1.NewMetricQuantity(""),
 								},
 							},
 						},
@@ -2931,7 +2927,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 		Describe("inference service with a transformer", func() {
 			// --- Default values ---
-			defaultTransformerIsvc := func(serviceKey types.NamespacedName, storageUri string, autoscaler string, qty resource.Quantity) *v1beta1.InferenceService {
+			defaultTransformerIsvc := func(serviceKey types.NamespacedName, storageUri string, autoscaler string, qty *v1beta1.MetricQuantity) *v1beta1.InferenceService {
 				predictor := v1beta1.PredictorSpec{
 					ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 						MinReplicas:    ptr.To(int32(1)),
@@ -2945,7 +2941,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Name: v1beta1.ResourceMetricMemory,
 										Target: v1beta1.MetricTarget{
 											Type:         v1beta1.AverageValueMetricType,
-											AverageValue: &qty,
+											AverageValue: qty,
 										},
 									},
 								},
@@ -2987,7 +2983,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							constants.DeploymentMode:  string(constants.RawDeployment),
+							constants.DeploymentMode:  string(constants.Standard),
 							constants.AutoscalerClass: autoscaler,
 						},
 					},
@@ -3016,7 +3012,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -3032,7 +3027,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultTransformerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultTransformerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -3087,7 +3082,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -3103,7 +3097,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultTransformerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultTransformerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -3155,7 +3149,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -3171,7 +3164,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultTransformerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultTransformerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -3261,7 +3254,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -3277,7 +3269,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultTransformerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultTransformerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -3355,7 +3347,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 		Describe("inference service with an explainer", func() {
 			// --- Default values ---
-			defaultExplainerIsvc := func(serviceKey types.NamespacedName, storageUri string, autoscaler string, qty resource.Quantity) *v1beta1.InferenceService {
+			defaultExplainerIsvc := func(serviceKey types.NamespacedName, storageUri string, autoscaler string, qty *v1beta1.MetricQuantity) *v1beta1.InferenceService {
 				predictor := v1beta1.PredictorSpec{
 					ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 						MinReplicas:    ptr.To(int32(1)),
@@ -3369,7 +3361,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Name: v1beta1.ResourceMetricMemory,
 										Target: v1beta1.MetricTarget{
 											Type:         v1beta1.AverageValueMetricType,
-											AverageValue: &qty,
+											AverageValue: qty,
 										},
 									},
 								},
@@ -3411,7 +3403,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							constants.DeploymentMode:  string(constants.RawDeployment),
+							constants.DeploymentMode:  string(constants.Standard),
 							constants.AutoscalerClass: autoscaler,
 						},
 					},
@@ -3440,7 +3432,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -3456,7 +3447,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultExplainerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultExplainerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -3511,7 +3502,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -3527,7 +3517,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultExplainerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultExplainerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -3579,7 +3569,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -3595,7 +3584,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultExplainerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultExplainerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -3685,7 +3674,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
-				qty := resource.MustParse("10Gi")
 				predictorKey := types.NamespacedName{
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
@@ -3701,7 +3689,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(ctx, servingRuntime)
 
 				// Define InferenceService
-				isvc := defaultExplainerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), qty)
+				isvc := defaultExplainerIsvc(serviceKey, storageUri, string(constants.AutoscalerClassHPA), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(ctx, isvc)
@@ -3801,7 +3789,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
 				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 		ctx := context.Background()
@@ -3882,7 +3871,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":              "RawDeployment",
+						"serving.kserve.io/deploymentMode":              "Standard",
 						"serving.kserve.io/autoscalerClass":             "hpa",
 						"serving.kserve.io/metrics":                     "cpu",
 						"serving.kserve.io/targetUtilizationPercentage": "75",
@@ -4027,7 +4016,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":       "RawDeployment",
+						"serving.kserve.io/deploymentMode":       "Standard",
 						"serving.kserve.io/autoscalerClass":      "external",
 						constants.DisableAutoUpdateAnnotationKey: "false",
 					},
@@ -4169,7 +4158,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":       "RawDeployment",
+						"serving.kserve.io/deploymentMode":       "Standard",
 						"serving.kserve.io/autoscalerClass":      "external",
 						constants.DisableAutoUpdateAnnotationKey: "true",
 					},
@@ -4383,7 +4372,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKeyPytorch.Name,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":       "RawDeployment",
+						"serving.kserve.io/deploymentMode":       "Standard",
 						"serving.kserve.io/autoscalerClass":      "external",
 						constants.DisableAutoUpdateAnnotationKey: "false",
 					},
@@ -4419,7 +4408,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKeyTensorflow.Name,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":       "RawDeployment",
+						"serving.kserve.io/deploymentMode":       "Standard",
 						"serving.kserve.io/autoscalerClass":      "external",
 						constants.DisableAutoUpdateAnnotationKey: "false",
 					},
@@ -4502,6 +4491,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			   "additionalIngressDomains": ["additional.example.com"],
 			   "disableIngressCreation": true
             }`,
+			"storageInitializer": `{
+				"image" : "kserve/storage-initializer:latest",
+				"memoryRequest": "100Mi",
+				"memoryLimit": "1Gi",
+				"cpuRequest": "100m",
+				"cpuLimit": "1",
+				"cpuModelcar": "10m",
+				"memoryModelcar": "15Mi"
+			}`,
 		}
 
 		It("Should have service/deployment/hpa created and http route should not be created", func() {
@@ -4562,7 +4560,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
@@ -4644,7 +4642,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.DeploymentMode:                                   string(constants.Standard),
 								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
@@ -4823,8 +4821,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				ModelStatus: v1beta1.ModelStatus{
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
 				},
-				DeploymentMode:     string(constants.RawDeployment),
+				DeploymentMode:     string(constants.Standard),
 				ServingRuntimeName: "tf-serving-raw",
 			}
 			Eventually(func() string {
@@ -4921,6 +4920,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
                "domainTemplate": "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}",
 			   "additionalIngressDomains": ["additional.example.com"]
             }`,
+			"storageInitializer": `{
+				"image" : "kserve/storage-initializer:latest",
+				"memoryRequest": "100Mi",
+				"memoryLimit": "1Gi",
+				"cpuRequest": "100m",
+				"cpuLimit": "1",
+				"cpuModelcar": "10m",
+				"memoryModelcar": "15Mi"
+			}`,
 		}
 
 		It("Should have httproute/service/deployment/hpa created", func() {
@@ -4981,7 +4989,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
@@ -5063,7 +5071,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.DeploymentMode:                                   string(constants.Standard),
 								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
@@ -5399,8 +5407,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				ModelStatus: v1beta1.ModelStatus{
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
 				},
-				DeploymentMode:     string(constants.RawDeployment),
+				DeploymentMode:     string(constants.Standard),
 				ServingRuntimeName: "tf-serving-raw",
 			}
 			Eventually(func() string {
@@ -5503,7 +5512,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
 				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -5580,7 +5590,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
@@ -5682,7 +5692,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.DeploymentMode:                                   string(constants.Standard),
 								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
@@ -5783,7 +5793,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
-								constants.DeploymentMode:  string(constants.RawDeployment),
+								constants.DeploymentMode:  string(constants.Standard),
 								constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 							},
 						},
@@ -6241,8 +6251,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				ModelStatus: v1beta1.ModelStatus{
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
 				},
-				DeploymentMode:     string(constants.RawDeployment),
+				DeploymentMode:     string(constants.Standard),
 				ServingRuntimeName: "tf-serving-raw",
 			}
 			Eventually(func() string {
@@ -6405,7 +6416,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
 				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -6482,7 +6494,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
@@ -6587,7 +6599,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.DeploymentMode:                                   string(constants.Standard),
 								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
@@ -6688,7 +6700,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
-								constants.DeploymentMode:  string(constants.RawDeployment),
+								constants.DeploymentMode:  string(constants.Standard),
 								constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 							},
 						},
@@ -7192,8 +7204,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				ModelStatus: v1beta1.ModelStatus{
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
 				},
-				DeploymentMode:     string(constants.RawDeployment),
+				DeploymentMode:     string(constants.Standard),
 				ServingRuntimeName: "tf-serving-raw",
 			}
 			Eventually(func() string {
@@ -7358,7 +7371,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
 				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -7419,7 +7433,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
@@ -7502,7 +7516,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.DeploymentMode:                                   string(constants.Standard),
 								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
@@ -7883,8 +7897,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				ModelStatus: v1beta1.ModelStatus{
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
 				},
-				DeploymentMode:     string(constants.RawDeployment),
+				DeploymentMode:     string(constants.Standard),
 				ServingRuntimeName: "tf-serving-raw",
 			}
 			Eventually(func() string {
@@ -7989,7 +8004,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
 				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -8066,7 +8082,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
@@ -8171,7 +8187,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.DeploymentMode:                                   string(constants.Standard),
 								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
@@ -8272,7 +8288,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
-								constants.DeploymentMode:  string(constants.RawDeployment),
+								constants.DeploymentMode:  string(constants.Standard),
 								constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 							},
 						},
@@ -8775,8 +8791,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				ModelStatus: v1beta1.ModelStatus{
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
 				},
-				DeploymentMode:     string(constants.RawDeployment),
+				DeploymentMode:     string(constants.Standard),
 				ServingRuntimeName: "tf-serving-raw",
 			}
 			Eventually(func() string {
@@ -8941,7 +8958,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
 				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 		}
 
@@ -9018,7 +9036,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
@@ -9123,7 +9141,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.DeploymentMode:                                   string(constants.Standard),
 								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
@@ -9224,7 +9242,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
-								constants.DeploymentMode:  string(constants.RawDeployment),
+								constants.DeploymentMode:  string(constants.Standard),
 								constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 							},
 						},
@@ -9818,8 +9836,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				ModelStatus: v1beta1.ModelStatus{
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
 				},
-				DeploymentMode:     string(constants.RawDeployment),
+				DeploymentMode:     string(constants.Standard),
 				ServingRuntimeName: "tf-serving-raw",
 			}
 			Eventually(func() string {
@@ -9980,7 +9999,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"cpuLimit": "1",
 				"CaBundleConfigMapName": "",
 				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"enableDirectPvcVolumeMount": false
+				"cpuModelcar": "10m",
+	           	"memoryModelcar": "15Mi"
 			}`,
 			"opentelemetryCollector": `{
 				"scrapeInterval": "5s",
@@ -10039,14 +10059,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			serviceKey := expectedRequest.NamespacedName
 			storageUri := "s3://test/mnist/export"
-			qty := resource.MustParse("10Gi")
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassKeda),
 					},
 				},
@@ -10063,7 +10082,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Name: v1beta1.ResourceMetricMemory,
 											Target: v1beta1.MetricTarget{
 												Type:         v1beta1.AverageValueMetricType,
-												AverageValue: &qty,
+												AverageValue: v1beta1.NewMetricQuantity("10Gi"),
 											},
 										},
 									},
@@ -10231,7 +10250,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:          string(constants.RawDeployment),
+						constants.DeploymentMode:          string(constants.Standard),
 						constants.AutoscalerClass:         string(constants.AutoscalerClassKeda),
 						"sidecar.opentelemetry.io/inject": "true",
 					},
@@ -10253,7 +10272,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											},
 											Target: v1beta1.MetricTarget{
 												Type:  v1beta1.ValueMetricType,
-												Value: &resource.Quantity{},
+												Value: v1beta1.NewMetricQuantity(""),
 											},
 										},
 									},
@@ -10424,7 +10443,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
@@ -10505,7 +10524,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.DeploymentMode:                                   string(constants.Standard),
 								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
@@ -10724,8 +10743,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				ModelStatus: v1beta1.ModelStatus{
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+					ModelCopies:         &v1beta1.ModelCopies{},
 				},
-				DeploymentMode:     string(constants.RawDeployment),
+				DeploymentMode:     string(constants.Standard),
 				ServingRuntimeName: "tf-serving-raw",
 			}
 			Eventually(func() string {
@@ -10834,7 +10854,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
             		"cpuLimit": "1",
             		"CaBundleConfigMapName": "",
             		"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-            		"enableDirectPvcVolumeMount": false
+					"cpuModelcar": "10m",
+		           	"memoryModelcar": "15Mi"
         		}`,
 			}
 			configMap := &corev1.ConfigMap{
@@ -10920,7 +10941,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
@@ -11028,7 +11049,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
@@ -11098,7 +11119,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
@@ -11162,7 +11183,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
@@ -11238,7 +11259,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
@@ -11318,7 +11339,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
@@ -11410,7 +11431,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
@@ -11502,7 +11523,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
@@ -11593,7 +11614,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
@@ -11685,7 +11706,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.DeploymentMode:  string(constants.Standard),
 						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},

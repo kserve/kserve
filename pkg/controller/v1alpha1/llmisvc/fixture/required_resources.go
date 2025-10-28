@@ -25,6 +25,8 @@ import (
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/pkg/kmeta"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -57,6 +59,32 @@ func RequiredResources(ctx context.Context, c client.Client, ns string) {
 
 	gomega.Expect(c.Create(ctx, DefaultGateway(ns))).To(gomega.Succeed())
 	gomega.Expect(c.Create(ctx, DefaultGatewayClass())).To(gomega.Succeed())
+}
+
+func IstioShadowService(name, ns string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "istio-shadow",
+			Namespace: ns,
+			Labels: map[string]string{
+				"istio.io/inferencepool-name": kmeta.ChildName(name, "-inference-pool"),
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       80,
+					TargetPort: intstr.IntOrString{IntVal: 8000},
+				},
+				{
+					Name:       "https",
+					Port:       443,
+					TargetPort: intstr.IntOrString{IntVal: 8001},
+				},
+			},
+		},
+	}
 }
 
 func DefaultGateway(ns string) *gwapiv1.Gateway {
@@ -107,8 +135,7 @@ func InferenceServiceCfgMap(ns string) *corev1.ConfigMap {
 				"cpuLimit": "1",
 				"cpuModelcar": "10m",
 				"memoryModelcar": "15Mi",
-				"enableModelcar": true,
-				"uidModelcar": 1010
+				"enableModelcar": true
 			}`,
 	}
 	configMap := &corev1.ConfigMap{
@@ -125,7 +152,7 @@ func InferenceServiceCfgMap(ns string) *corev1.ConfigMap {
 // SharedConfigPresets loads preset files shared as kustomize manifests that are stored in projects config.
 // Every file prefixed with `config-` is treated as such
 func SharedConfigPresets(ns string) []*v1alpha1.LLMInferenceServiceConfig {
-	configDir := filepath.Join(testing.ProjectRoot(), "config", "llmisvc")
+	configDir := filepath.Join(testing.ProjectRoot(), "config", "llmisvcconfig")
 	var configs []*v1alpha1.LLMInferenceServiceConfig
 	err := filepath.Walk(configDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

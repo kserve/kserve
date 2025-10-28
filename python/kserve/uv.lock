@@ -1573,7 +1573,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.15.2"
+version = "0.16.0rc1"
 source = { editable = "." }
 dependencies = [
     { name = "cloudevents" },
@@ -1610,13 +1610,7 @@ ray = [
     { name = "ray", extra = ["serve"] },
 ]
 storage = [
-    { name = "azure-identity" },
-    { name = "azure-storage-blob" },
-    { name = "azure-storage-file-share" },
-    { name = "boto3" },
-    { name = "google-cloud-storage" },
-    { name = "huggingface-hub", extra = ["hf-transfer"] },
-    { name = "requests" },
+    { name = "kserve-storage" },
 ]
 
 [package.dev-dependencies]
@@ -1640,18 +1634,13 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "asgi-logger", marker = "extra == 'logging'", specifier = ">=0.1.0,<1.0.0" },
-    { name = "azure-identity", marker = "extra == 'storage'", specifier = ">=1.15.0,<2.0.0" },
-    { name = "azure-storage-blob", marker = "extra == 'storage'", specifier = ">=12.20.0,<13.0.0" },
-    { name = "azure-storage-file-share", marker = "extra == 'storage'", specifier = ">=12.16.0,<13.0.0" },
-    { name = "boto3", marker = "extra == 'storage'", specifier = ">=1.29.0,<2.0.0" },
     { name = "cloudevents", specifier = ">=1.6.2,<2.0.0" },
     { name = "fastapi", specifier = ">=0.115.3" },
-    { name = "google-cloud-storage", marker = "extra == 'storage'", specifier = ">=2.14.0,<3.0.0" },
     { name = "grpc-interceptor", specifier = ">=0.15.4,<1.0.0" },
     { name = "grpcio", specifier = ">=1.64.1,<2.0.0" },
     { name = "grpcio-tools", specifier = ">=1.64.1,<2.0.0" },
     { name = "httpx", specifier = ">=0.27.2,<1.0.0" },
-    { name = "huggingface-hub", extras = ["hf-transfer"], marker = "extra == 'storage'", specifier = ">=0.32.0" },
+    { name = "kserve-storage", marker = "extra == 'storage'", specifier = "==0.16.0rc1" },
     { name = "kubernetes", specifier = ">=23.3.0" },
     { name = "numpy", specifier = ">=1.26.0,<3.0.0" },
     { name = "orjson", specifier = ">=3.9.15,<4.0.0" },
@@ -1663,7 +1652,6 @@ requires-dist = [
     { name = "python-dateutil", specifier = ">=2.8.0,<3.0.0" },
     { name = "pyyaml", specifier = ">=6.0.0,<7.0.0" },
     { name = "ray", extras = ["serve"], marker = "extra == 'ray'", specifier = ">=2.43.0" },
-    { name = "requests", marker = "extra == 'storage'", specifier = ">=2.32.2,<3.0.0" },
     { name = "six", specifier = ">=1.16.0,<2.0.0" },
     { name = "tabulate", specifier = ">=0.9.0,<1.0.0" },
     { name = "timing-asgi", specifier = ">=0.3.0,<1.0.0" },
@@ -1686,6 +1674,24 @@ test = [
     { name = "pytest-httpx", specifier = ">=0.30.0,<1.0.0" },
     { name = "pytest-xdist", specifier = ">=3.0.2,<4.0.0" },
     { name = "tomlkit", specifier = ">=0.12.0,<1.0.0" },
+]
+
+[[package]]
+name = "kserve-storage"
+version = "0.16.0rc1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "azure-identity" },
+    { name = "azure-storage-blob" },
+    { name = "azure-storage-file-share" },
+    { name = "boto3" },
+    { name = "google-cloud-storage" },
+    { name = "huggingface-hub", extra = ["hf-transfer"] },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/78/cc/f71ffac4f0ae8fd7af9b5126d5f519110718460e0d7d09c2e96b2fb6cee4/kserve_storage-0.16.0rc1.tar.gz", hash = "sha256:2c374b82990359ff666c9c8aa5a6f5e6592fc551164cb416b40127986a72a8e1", size = 21906, upload-time = "2025-10-17T16:04:06.227Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/32/6e/c3f611b004efec8818d5a5493740dd92e7e58d5447c08ea468040ae30b3e/kserve_storage-0.16.0rc1-py3-none-any.whl", hash = "sha256:85c004295c500699a30e72e4821f7831f75766b9ea17a5d333535dd982f698b4", size = 13384, upload-time = "2025-10-17T16:04:04.948Z" },
 ]
 
 [[package]]

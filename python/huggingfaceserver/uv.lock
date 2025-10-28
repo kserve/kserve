@@ -1366,12 +1366,13 @@ hf-xet = [
 
 [[package]]
 name = "huggingfaceserver"
-version = "0.15.2"
+version = "0.16.0rc1"
 source = { virtual = "." }
 dependencies = [
     { name = "accelerate" },
     { name = "bitsandbytes" },
-    { name = "kserve", extra = ["llm", "storage"] },
+    { name = "kserve", extra = ["llm"] },
+    { name = "kserve-storage" },
     { name = "modelscope" },
     { name = "setuptools" },
     { name = "torch" },
@@ -1399,11 +1400,12 @@ test = [
 requires-dist = [
     { name = "accelerate", specifier = ">=1.6.0,<2.0.0" },
     { name = "bitsandbytes", specifier = ">=0.45.3" },
-    { name = "kserve", extras = ["llm", "storage"], directory = "../kserve" },
+    { name = "kserve", extras = ["llm"], directory = "../kserve" },
+    { name = "kserve-storage", directory = "../storage" },
     { name = "modelscope", specifier = ">=1.16.0,<2.0.0" },
     { name = "setuptools", specifier = ">=70.0.0" },
     { name = "torch", specifier = ">=2.7.0" },
-    { name = "transformers", specifier = ">=4.51.2" },
+    { name = "transformers", specifier = ">=4.53.2" },
     { name = "triton", specifier = ">=3.2.0" },
     { name = "vllm", specifier = "==0.9.2" },
 ]
@@ -1574,7 +1576,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.15.2"
+version = "0.16.0rc1"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "cloudevents" },
@@ -1604,31 +1606,17 @@ dependencies = [
 llm = [
     { name = "vllm" },
 ]
-storage = [
-    { name = "azure-identity" },
-    { name = "azure-storage-blob" },
-    { name = "azure-storage-file-share" },
-    { name = "boto3" },
-    { name = "google-cloud-storage" },
-    { name = "huggingface-hub", extra = ["hf-transfer"] },
-    { name = "requests" },
-]
 
 [package.metadata]
 requires-dist = [
     { name = "asgi-logger", marker = "extra == 'logging'", specifier = ">=0.1.0,<1.0.0" },
-    { name = "azure-identity", marker = "extra == 'storage'", specifier = ">=1.15.0,<2.0.0" },
-    { name = "azure-storage-blob", marker = "extra == 'storage'", specifier = ">=12.20.0,<13.0.0" },
-    { name = "azure-storage-file-share", marker = "extra == 'storage'", specifier = ">=12.16.0,<13.0.0" },
-    { name = "boto3", marker = "extra == 'storage'", specifier = ">=1.29.0,<2.0.0" },
     { name = "cloudevents", specifier = ">=1.6.2,<2.0.0" },
     { name = "fastapi", specifier = ">=0.115.3" },
-    { name = "google-cloud-storage", marker = "extra == 'storage'", specifier = ">=2.14.0,<3.0.0" },
     { name = "grpc-interceptor", specifier = ">=0.15.4,<1.0.0" },
     { name = "grpcio", specifier = ">=1.64.1,<2.0.0" },
     { name = "grpcio-tools", specifier = ">=1.64.1,<2.0.0" },
     { name = "httpx", specifier = ">=0.27.2,<1.0.0" },
-    { name = "huggingface-hub", extras = ["hf-transfer"], marker = "extra == 'storage'", specifier = ">=0.32.0" },
+    { name = "kserve-storage", marker = "extra == 'storage'", specifier = "==0.16.0rc1" },
     { name = "kubernetes", specifier = ">=23.3.0" },
     { name = "numpy", specifier = ">=1.26.0,<3.0.0" },
     { name = "orjson", specifier = ">=3.9.15,<4.0.0" },
@@ -1640,7 +1628,6 @@ requires-dist = [
     { name = "python-dateutil", specifier = ">=2.8.0,<3.0.0" },
     { name = "pyyaml", specifier = ">=6.0.0,<7.0.0" },
     { name = "ray", extras = ["serve"], marker = "extra == 'ray'", specifier = ">=2.43.0" },
-    { name = "requests", marker = "extra == 'storage'", specifier = ">=2.32.2,<3.0.0" },
     { name = "six", specifier = ">=1.16.0,<2.0.0" },
     { name = "tabulate", specifier = ">=0.9.0,<1.0.0" },
     { name = "timing-asgi", specifier = ">=0.3.0,<1.0.0" },
@@ -1663,6 +1650,31 @@ test = [
     { name = "pytest-httpx", specifier = ">=0.30.0,<1.0.0" },
     { name = "pytest-xdist", specifier = ">=3.0.2,<4.0.0" },
     { name = "tomlkit", specifier = ">=0.12.0,<1.0.0" },
+]
+
+[[package]]
+name = "kserve-storage"
+version = "0.16.0rc1"
+source = { directory = "../storage" }
+dependencies = [
+    { name = "azure-identity" },
+    { name = "azure-storage-blob" },
+    { name = "azure-storage-file-share" },
+    { name = "boto3" },
+    { name = "google-cloud-storage" },
+    { name = "huggingface-hub", extra = ["hf-transfer"] },
+    { name = "requests" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "azure-identity", specifier = ">=1.15.0,<2.0.0" },
+    { name = "azure-storage-blob", specifier = ">=12.20.0,<13.0.0" },
+    { name = "azure-storage-file-share", specifier = ">=12.16.0,<13.0.0" },
+    { name = "boto3", specifier = ">=1.29.0,<2.0.0" },
+    { name = "google-cloud-storage", specifier = ">=2.14.0,<3.0.0" },
+    { name = "huggingface-hub", extras = ["hf-transfer"], specifier = ">=0.32.0" },
+    { name = "requests", specifier = ">=2.32.2,<3.0.0" },
 ]
 
 [[package]]
@@ -4263,7 +4275,7 @@ wheels = [
 
 [[package]]
 name = "transformers"
-version = "4.51.3"
+version = "4.53.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
@@ -4278,9 +4290,9 @@ dependencies = [
     { name = "tokenizers" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f1/11/7414d5bc07690002ce4d7553602107bf969af85144bbd02830f9fb471236/transformers-4.51.3.tar.gz", hash = "sha256:e292fcab3990c6defe6328f0f7d2004283ca81a7a07b2de9a46d67fd81ea1409", size = 8941266, upload-time = "2025-04-14T08:15:00.485Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4c/67/80f51466ec447028fd84469b208eb742533ce06cc8fad2e3181380199e5c/transformers-4.53.2.tar.gz", hash = "sha256:6c3ed95edfb1cba71c4245758f1b4878c93bf8cde77d076307dacb2cbbd72be2", size = 9201233, upload-time = "2025-07-11T12:39:08.742Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a9/b6/5257d04ae327b44db31f15cce39e6020cc986333c715660b1315a9724d82/transformers-4.51.3-py3-none-any.whl", hash = "sha256:fd3279633ceb2b777013234bbf0b4f5c2d23c4626b05497691f00cfda55e8a83", size = 10383940, upload-time = "2025-04-14T08:13:43.023Z" },
+    { url = "https://files.pythonhosted.org/packages/96/88/beb33a79a382fcd2aed0be5222bdc47f41e4bfe7aaa90ae1374f1d8ea2af/transformers-4.53.2-py3-none-any.whl", hash = "sha256:db8f4819bb34f000029c73c3c557e7d06fc1b8e612ec142eecdae3947a9c78bf", size = 10826609, upload-time = "2025-07-11T12:39:05.461Z" },
 ]
 
 [[package]]

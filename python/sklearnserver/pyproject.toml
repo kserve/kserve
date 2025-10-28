@@ -5,13 +5,14 @@ authors = [
 license = {text = "Apache-2.0"}
 requires-python = "<3.13,>=3.9"
 dependencies = [
-    "kserve[storage] @ file:///${PROJECT_ROOT}/../kserve",
+    "kserve @ file:///${PROJECT_ROOT}/../kserve",
+    "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
     "scikit-learn~=1.5.1",
     "joblib<2.0.0,>=1.4.0",
     "pandas<3.0.0,>=2.2.0",
 ]
 name = "sklearnserver"
-version = "0.15.2"
+version = "0.16.0rc1"
 description = "Model Server implementation for scikit-learn. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 

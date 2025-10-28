@@ -3,8 +3,12 @@ name: Python package
 on:
   push:
     branches: [master, release*]
+    paths-ignore:
+      - "**.md"
   pull_request:
     branches: []
+    paths-ignore:
+      - "**.md"
   workflow_dispatch:
 
 concurrency:
@@ -46,7 +50,15 @@ jobs:
         with:
           path: .venv
           key: uv-${{ runner.os }}-${{ hashFiles('**/uv.lock') }}
-        
+
+      - name: Verify and fix root venv if needed
+        run: |
+          if [ ! -e .venv/bin/python3 ]; then
+            echo "Cached venv is broken, recreating..."
+            rm -rf .venv
+            uv venv .venv
+          fi
+
       # ----------------------------------------Kserve Unit Tests--------------------------------------------------------
       # load cached kserve venv if cache exists
       - name: Load cached kserve venv
@@ -70,6 +82,11 @@ jobs:
           cd python
           source kserve/.venv/bin/activate
           pytest --cov=kserve ./kserve
+      - name: Test kserve Storage
+        run: |
+          cd python
+          source kserve/.venv/bin/activate
+          pytest --cov=storage ./storage
 
       # ----------------------------------------Kserve Numpy 1.x Unit Tests--------------------------------------------
       - name: Setup kserve numpy 1-x directory

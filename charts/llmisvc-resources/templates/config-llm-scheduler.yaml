@@ -11,8 +11,8 @@ spec:
             failureMode: FailOpen
             kind: Service
             name: |-
-              {{ ChildName .ObjectMeta.Name `-epp-service` }}
-          selector: { }
+              {{ "{{" }} ChildName .ObjectMeta.Name `-epp-service` {{ "}}" }}
+          selector: {}
           targetPortNumber: 8000
       template:
         containers:
@@ -49,18 +49,22 @@ spec:
               timeoutSeconds: 1
             args:
               - --poolName
-              - "{{ ChildName .ObjectMeta.Name `-inference-pool` }}"
+              - "{{ "{{" }} ChildName .ObjectMeta.Name `-inference-pool` {{ "}}" }}"
               - --poolNamespace
-              - "{{ .ObjectMeta.Namespace }}"
+              - "{{`{{ .ObjectMeta.Namespace }}`}}"
               - --zap-encoder
               - json
               - --grpcPort
               - "9002"
               - --grpcHealthPort
               - "9003"
-              - --secureServing
-              - --certPath
-              - "/etc/ssl/certs"
+              # BackendTLSPolicy is not implemented yet so disable SSL for now
+              # - --secureServing
+              # - --modelServerMetricsScheme
+              # - "https"
+              # - --modelServerMetricsHttpsInsecureSkipVerify
+              # - --certPath
+              # - "/etc/ssl/certs"
             resources:
               requests:
                 cpu: 256m
@@ -83,7 +87,7 @@ spec:
         volumes:
           - name: tls-certs
             secret:
-              secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
+              secretName: '{{ "{{" }} ChildName .ObjectMeta.Name `-kserve-self-signed-certs` {{ "}}" }}'
         dnsPolicy: ClusterFirst
         restartPolicy: Always
         terminationGracePeriodSeconds: 30

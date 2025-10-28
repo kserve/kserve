@@ -77,16 +77,17 @@ var _ = Describe("Inference Graph controller test", func() {
 			"memoryLimit": "1Gi",
 			"cpuRequest": "100m",
 			"cpuLimit": "1",
+			"cpuModelcar": "10m",
+			"memoryModelcar": "15Mi",
 			"CaBundleConfigMapName": "",
-			"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-			"enableDirectPvcVolumeMount": false
+			"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
 		}`,
 	}
 
 	expectedReadinessProbe := constants.GetRouterReadinessProbe()
 
 	Context("with knative configured to not allow zero initial scale", func() {
-		When("a Serverless InferenceGraph is created with an initial scale annotation and value of zero", func() {
+		When("a Knative InferenceGraph is created with an initial scale annotation and value of zero", func() {
 			It("should ignore the annotation", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -110,7 +111,7 @@ var _ = Describe("Inference Graph controller test", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    string(constants.Serverless),
+							"serving.kserve.io/deploymentMode":    string(constants.Knative),
 							autoscaling.InitialScaleAnnotationKey: "0",
 						},
 					},
@@ -142,7 +143,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(actualService.Spec.Template.Annotations).NotTo(HaveKey(autoscaling.InitialScaleAnnotationKey))
 			})
 		})
-		When("a Serverless InferenceGraph is created with an initial scale annotation and valid non-zero integer value", func() {
+		When("a Knative InferenceGraph is created with an initial scale annotation and valid non-zero integer value", func() {
 			It("should override the default initial scale value with the annotation value", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -166,7 +167,7 @@ var _ = Describe("Inference Graph controller test", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    string(constants.Serverless),
+							"serving.kserve.io/deploymentMode":    string(constants.Knative),
 							autoscaling.InitialScaleAnnotationKey: "3",
 						},
 					},
@@ -198,7 +199,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("3"))
 			})
 		})
-		When("a Serverless InferenceGraph is created with an initial scale annotation and invalid non-integer value", func() {
+		When("a Knative InferenceGraph is created with an initial scale annotation and invalid non-integer value", func() {
 			It("should ignore the annotation", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -222,7 +223,7 @@ var _ = Describe("Inference Graph controller test", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    string(constants.Serverless),
+							"serving.kserve.io/deploymentMode":    string(constants.Knative),
 							autoscaling.InitialScaleAnnotationKey: "non-integer",
 						},
 					},
@@ -284,7 +285,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				return k8sClient.Patch(context.TODO(), configAutoscaler, client.RawPatch(types.StrategicMergePatchType, configPatch))
 			}, timeout).Should(Succeed())
 		})
-		When("a Serverless InferenceGraph is created with an initial scale annotation and value of zero", func() {
+		When("a Knative InferenceGraph is created with an initial scale annotation and value of zero", func() {
 			It("should override the default initial scale value with the annotation value", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -307,7 +308,7 @@ var _ = Describe("Inference Graph controller test", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    string(constants.Serverless),
+							"serving.kserve.io/deploymentMode":    string(constants.Knative),
 							autoscaling.InitialScaleAnnotationKey: "0",
 						},
 					},
@@ -339,7 +340,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
-		When("a Serverless InferenceGraph is created with an initial scale annotation and valid non-zero integer value", func() {
+		When("a Knative InferenceGraph is created with an initial scale annotation and valid non-zero integer value", func() {
 			It("should override the default initial scale value with the annotation value", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -362,7 +363,7 @@ var _ = Describe("Inference Graph controller test", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    string(constants.Serverless),
+							"serving.kserve.io/deploymentMode":    string(constants.Knative),
 							autoscaling.InitialScaleAnnotationKey: "3",
 						},
 					},
@@ -394,7 +395,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("3"))
 			})
 		})
-		When("a Serverless InferenceGraph is created with an initial scale annotation and invalid non-integer value", func() {
+		When("a Knative InferenceGraph is created with an initial scale annotation and invalid non-integer value", func() {
 			It("should ignore the annotation", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -417,7 +418,7 @@ var _ = Describe("Inference Graph controller test", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode":    string(constants.Serverless),
+							"serving.kserve.io/deploymentMode":    string(constants.Knative),
 							autoscaling.InitialScaleAnnotationKey: "non-integer",
 						},
 					},
@@ -472,7 +473,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": string(constants.Serverless),
+						"serving.kserve.io/deploymentMode": string(constants.Knative),
 					},
 				},
 				Spec: v1alpha1.InferenceGraphSpec{
@@ -520,7 +521,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/min-scale": "1",
 									"autoscaling.knative.dev/class":     "kpa.autoscaling.knative.dev",
-									"serving.kserve.io/deploymentMode":  "Serverless",
+									"serving.kserve.io/deploymentMode":  "Knative",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
@@ -600,7 +601,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": string(constants.Serverless),
+						"serving.kserve.io/deploymentMode": string(constants.Knative),
 					},
 				},
 				Spec: v1alpha1.InferenceGraphSpec{
@@ -658,7 +659,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/min-scale": "1",
 									"autoscaling.knative.dev/class":     "kpa.autoscaling.knative.dev",
-									"serving.kserve.io/deploymentMode":  "Serverless",
+									"serving.kserve.io/deploymentMode":  "Knative",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
@@ -738,7 +739,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": string(constants.Serverless),
+						"serving.kserve.io/deploymentMode": string(constants.Knative),
 					},
 				},
 
@@ -810,7 +811,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/min-scale": "1",
 									"autoscaling.knative.dev/class":     "kpa.autoscaling.knative.dev",
-									"serving.kserve.io/deploymentMode":  "Serverless",
+									"serving.kserve.io/deploymentMode":  "Knative",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{
@@ -914,7 +915,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
+						"serving.kserve.io/deploymentMode": string(constants.Standard),
 					},
 				},
 				Spec: v1alpha1.InferenceGraphSpec{
@@ -962,11 +963,11 @@ var _ = Describe("Inference Graph controller test", func() {
 				return true
 			}, timeout, interval).Should(BeTrue())
 
-			// No KNative Service should get created in Raw deployment mode
+			// No Knative Service should get created in Raw deployment mode
 			actualKnServiceCreated := &knservingv1.Service{}
 			Eventually(func() bool {
 				if err := k8sClient.Get(context.TODO(), serviceKey, actualKnServiceCreated); err != nil {
-					By("KNative Service not retrieved")
+					By("Knative Service not retrieved")
 					return false
 				}
 				return true
@@ -992,7 +993,7 @@ var _ = Describe("Inference Graph controller test", func() {
 		})
 	})
 
-	Context("When creating an InferenceGraph in Serverless mode", func() {
+	Context("When creating an InferenceGraph in Knative mode", func() {
 		It("Should fail if Knative Serving is not installed", func() {
 			// Simulate Knative Serving is absent by setting to false the relevant item in utils.gvResourcesCache variable
 			servingResources, getServingResourcesErr := utils.GetAvailableResourcesForApi(cfg, knservingv1.SchemeGroupVersion.String())
@@ -1020,7 +1021,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": string(constants.Serverless),
+						"serving.kserve.io/deploymentMode": string(constants.Knative),
 					},
 				},
 				Spec: v1alpha1.InferenceGraphSpec{
@@ -1128,7 +1129,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			}, timeout, interval).Should(BeTrue(), message)
 		}
 
-		Describe("in Serverless mode", func() {
+		Describe("in Knative mode", func() {
 			// --- Default values ---
 			defaultIG := func(serviceKey types.NamespacedName) *v1alpha1.InferenceGraph {
 				ig := &v1alpha1.InferenceGraph{
@@ -1136,7 +1137,7 @@ var _ = Describe("Inference Graph controller test", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode": string(constants.Serverless),
+							"serving.kserve.io/deploymentMode": string(constants.Knative),
 						},
 					},
 					Spec: v1alpha1.InferenceGraphSpec{
@@ -1293,7 +1294,7 @@ var _ = Describe("Inference Graph controller test", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
-							"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
+							"serving.kserve.io/deploymentMode": string(constants.Standard),
 						},
 					},
 					Spec: v1alpha1.InferenceGraphSpec{
@@ -1491,7 +1492,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": string(constants.Serverless),
+						"serving.kserve.io/deploymentMode": string(constants.Knative),
 					},
 				},
 
@@ -1548,7 +1549,7 @@ var _ = Describe("Inference Graph controller test", func() {
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/min-scale": "1",
 									"autoscaling.knative.dev/class":     "kpa.autoscaling.knative.dev",
-									"serving.kserve.io/deploymentMode":  "Serverless",
+									"serving.kserve.io/deploymentMode":  "Knative",
 								},
 							},
 							Spec: knservingv1.RevisionSpec{

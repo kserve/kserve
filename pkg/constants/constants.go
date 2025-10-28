@@ -38,8 +38,13 @@ const (
 )
 
 var (
-	KServeNamespace              = getEnvOrDefault("POD_NAMESPACE", "kserve")
-	AutoscalerConfigmapNamespace = getEnvOrDefault("KNATIVE_CONFIG_AUTOSCALER_NAMESPACE", DefaultKnServingNamespace)
+	KServeNamespace              = GetEnvOrDefault("POD_NAMESPACE", "kserve")
+	AutoscalerConfigmapNamespace = GetEnvOrDefault("KNATIVE_CONFIG_AUTOSCALER_NAMESPACE", DefaultKnServingNamespace)
+)
+
+// Kueue Constants
+const (
+	KueueAPIGroupName = "kueue.x-k8s.io"
 )
 
 // InferenceService Constants
@@ -277,10 +282,11 @@ var (
 
 // GPU Constants
 const (
-	NvidiaGPUResourceType = "nvidia.com/gpu"
-	AmdGPUResourceType    = "amd.com/gpu"
-	IntelGPUResourceType  = "intel.com/gpu"
-	GaudiGPUResourceType  = "habana.ai/gaudi"
+	NvidiaGPUResourceType          = "nvidia.com/gpu"
+	NvidiaMigGPUResourceTypePrefix = "nvidia.com/mig"
+	AmdGPUResourceType             = "amd.com/gpu"
+	IntelGPUResourceType           = "intel.com/gpu"
+	GaudiGPUResourceType           = "habana.ai/gaudi"
 )
 
 var CustomGPUResourceTypesAnnotationKey = KServeAPIGroupName + "/gpu-resource-types"
@@ -457,8 +463,11 @@ const (
 type DeploymentModeType string
 
 const (
-	Serverless          DeploymentModeType = "Serverless"
-	RawDeployment       DeploymentModeType = "RawDeployment"
+	LegacyServerless    DeploymentModeType = "Serverless" // deprecated: use Knative
+	Knative             DeploymentModeType = "Knative"
+	LegacyRawDeployment DeploymentModeType = "RawDeployment" // deprecated: use Standard
+	Standard            DeploymentModeType = "Standard"
+	DefaultDeployment   DeploymentModeType = Standard
 	ModelMeshDeployment DeploymentModeType = "ModelMesh"
 )
 
@@ -594,7 +603,7 @@ func (v InferenceServiceVerb) String() string {
 	return string(v)
 }
 
-func getEnvOrDefault(key string, fallback string) string {
+func GetEnvOrDefault(key string, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
 	}

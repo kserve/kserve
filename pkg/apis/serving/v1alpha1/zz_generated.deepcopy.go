@@ -731,7 +731,7 @@ func (in *LoRASpec) DeepCopyInto(out *LoRASpec) {
 	*out = *in
 	if in.Adapters != nil {
 		in, out := &in.Adapters, &out.Adapters
-		*out = make([]ModelSpec, len(*in))
+		*out = make([]LLMModelSpec, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
@@ -1438,6 +1438,11 @@ func (in *StorageContainerSpec) DeepCopyInto(out *StorageContainerSpec) {
 		in, out := &in.SupportedUriFormats, &out.SupportedUriFormats
 		*out = make([]SupportedUriFormat, len(*in))
 		copy(*out, *in)
+	}
+	if in.SupportsMultiModelDownload != nil {
+		in, out := &in.SupportsMultiModelDownload, &out.SupportsMultiModelDownload
+		*out = new(bool)
+		**out = **in
 	}
 }
 

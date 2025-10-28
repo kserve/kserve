@@ -5,8 +5,9 @@ authors = [
 license = {text = "Apache-2.0"}
 requires-python = "<3.13,>=3.9"
 dependencies = [
-    "kserve[llm,storage] @ file:///${PROJECT_ROOT}/../kserve",
-    "transformers>=4.51.2",
+    "kserve[llm] @ file:///${PROJECT_ROOT}/../kserve",
+    "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
+    "transformers>=4.53.2",
     "accelerate<2.0.0,>=1.6.0",
     "torch>=2.7.0",
     "triton>=3.2.0",
@@ -16,7 +17,7 @@ dependencies = [
     "setuptools>=70.0.0",
 ]
 name = "huggingfaceserver"
-version = "0.15.2"
+version = "0.16.0rc1"
 description = "Model Server implementation for huggingface. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 

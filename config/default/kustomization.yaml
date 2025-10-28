@@ -16,6 +16,7 @@ resources:
 - ../certmanager
 - ../localmodels
 - ../localmodelnodes
+- ../llmisvc
 
 generatorOptions:
   disableNameSuffixHash: true
@@ -23,6 +24,7 @@ generatorOptions:
 
 
 replacements:
+# Replace with the name of the webhook service.
 - source:
     fieldPath: metadata.name
     kind: Service
@@ -190,7 +192,6 @@ replacements:
     select:
       kind: ValidatingWebhookConfiguration
       name: localmodelcache.serving.kserve.io
-
     # Protect the /metrics endpoint by putting it behind auth.
     # Only one of manager_auth_proxy_patch.yaml and
     # manager_prometheus_metrics_patch.yaml should be enabled.

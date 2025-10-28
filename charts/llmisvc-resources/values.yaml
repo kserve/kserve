@@ -6,7 +6,7 @@ commonAnnotations: {}
 
 kserve:
   # -- Version of KServe LLM ISVC components
-  version: &defaultVersion v0.15.2
+  version: &defaultVersion v0.16.0-rc1
 
   llmisvc:
     controller:
