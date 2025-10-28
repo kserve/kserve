@@ -214,7 +214,7 @@ clean:
 	rm -rf $(LOCALBIN)
 
 # Run tests
-test: fmt vet manifests setup-envtest test-qpext
+test: fmt vet manifests test-qpext
 	KUBEBUILDER_ASSETS="$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test --timeout 20m $$(go list ./pkg/...) ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
 
 test-qpext:
