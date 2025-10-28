@@ -163,22 +163,28 @@ manifests: controller-gen yq
 	rm charts/llmisvc-crd-minimal/templates/kustomization.yaml
 	# Generate llmisvc rbac
 	@$(CONTROLLER_GEN) rbac:roleName=llmisvc-manager-role paths={./pkg/controller/v1alpha1/llmisvc} output:rbac:artifacts:config=config/rbac/llmisvc
-	# Note: RBAC Helm templates are now generated via helm-generate target (includes bindings)
+	# Note: RBAC Helm templates are now generated via helm-generate-llmisvc target (includes bindings)
 	# Copy llmisvc crd
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/llmisvc-crd/templates/
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/llmisvc-crd/templates/
 
-.PHONY: helm-generate
-helm-generate:
+.PHONY: helm-generate-llmisvc
+helm-generate-llmisvc:
 	@echo "=========================================="
-	@echo "Generating Helm charts (100% automated)"
+	@echo "Generating LLMISvc Helm chart (standalone, 100% automated)"
 	@echo "=========================================="
 	@mkdir -p build/helm-tmp
 
-	# Generate everything from Kustomize overlay (includes CRDs, ConfigMap, etc.)
-	@echo "Generating all templates from Kustomize overlay (standalone deployment)..."
+	# Generate standalone LLMISvc from overlay (excludes CRDs - they're in llmisvc-crd chart)
+	@echo "Generating standalone LLMISvc templates from Kustomize overlay..."
 	@kubectl kustomize config/overlays/llmisvc > build/helm-tmp/llmisvc.yaml
-	@cat build/helm-tmp/llmisvc.yaml | helmify build/helm-tmp/llmisvc-chart
+	# Filter out CRDs (they're managed by llmisvc-crd chart)
+	@yq eval 'select(.kind != "CustomResourceDefinition")' build/helm-tmp/llmisvc.yaml > build/helm-tmp/llmisvc-no-crds.yaml
+	@cat build/helm-tmp/llmisvc-no-crds.yaml | helmify build/helm-tmp/llmisvc-chart
+
+	# Remove CRDs from generated chart (they're managed by llmisvc-crd chart)
+	@echo "Removing CRDs from chart templates..."
+	@rm -f build/helm-tmp/llmisvc-chart/templates/*-crd.yaml
 
 	# Escape embedded Go templates
 	@echo "Escaping KServe-specific Go templates..."
@@ -262,19 +268,18 @@ helm-generate:
 	@helm lint charts/llmisvc-resources
 	@helm template test charts/llmisvc-resources --dry-run > /dev/null
 
-	@echo "✅ Helm chart fully generated (100% automated, 0% manual)"
-	
-	@echo "✅ Helm templates updated successfully"
+	@echo "✅ LLMISvc Helm chart fully generated (100% automated, 0% manual)"
+	@echo "   Output: charts/llmisvc-resources/"
 
 .PHONY: helm-generate-kserve
 helm-generate-kserve:
 	@echo "=========================================="
-	@echo "Generating KServe Helm chart (with llmisvc, 100% automated)"
+	@echo "Generating KServe Helm chart (includes LLMISvc, 100% automated)"
 	@echo "=========================================="
 	@mkdir -p build/helm-tmp
 
-	# Generate everything from Kustomize (including llmisvc)
-	@echo "Generating all templates from Kustomize..."
+	# Generate combined KServe + LLMISvc from config/default
+	@echo "Generating combined KServe+LLMISvc templates from config/default..."
 	@kubectl kustomize config/default > build/helm-tmp/kserve-all.yaml
 	@cat build/helm-tmp/kserve-all.yaml | helmify build/helm-tmp/kserve-chart
 
@@ -324,7 +329,8 @@ helm-generate-kserve:
 	@helm lint charts/kserve-resources
 	@helm template test charts/kserve-resources --dry-run > /dev/null
 
-	@echo "✅ KServe Helm chart fully generated (100% automated, 0% manual)"
+	@echo "✅ KServe Helm chart fully generated (includes LLMISvc, 100% automated, 0% manual)"
+	@echo "   Output: charts/kserve-resources/"
 
 # Generate code
 generate: controller-gen helm-docs
