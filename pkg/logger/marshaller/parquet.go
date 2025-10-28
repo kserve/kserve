@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,113 +18,139 @@ package marshaller
 
 import (
 	"bytes"
+	"fmt"
 
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/parquet"
+	"github.com/apache/arrow/go/v17/parquet/compress"
+	"github.com/apache/arrow/go/v17/parquet/pqarrow"
 	"github.com/kserve/kserve/pkg/logger/types"
-	"github.com/xitongsys/parquet-go/parquet"
-	"github.com/xitongsys/parquet-go/writer"
 )
 
 const LogStoreFormatParquet = "parquet"
 
-type ParquetLogRequest struct {
-	Url              *string                           `parquet:"name=url, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Bytes            *[]byte                           `parquet:"name=bytes, type=MAP, convertedtype=LIST, valuetype=INT32"`
-	ContentType      *string                           `parquet:"name=content_type, type=BYTE_ARRAY, convertedtype=UTF8"`
-	ReqType          *string                           `parquet:"name=req_type, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Id               *string                           `parquet:"name=id, type=BYTE_ARRAY, convertedtype=UTF8"`
-	SourceUri        *string                           `parquet:"name=source_uri, type=BYTE_ARRAY, convertedtype=UTF8"`
-	InferenceService *string                           `parquet:"name=inference_service, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Namespace        *string                           `parquet:"name=namespace, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Component        *string                           `parquet:"name=component, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Endpoint         *string                           `parquet:"name=endpoint, type=BYTE_ARRAY, convertedtype=UTF8"`
-	Metadata         *map[string]ParquetMetadataValues `parquet:"name=metadata, type=MAP, keytype=BYTE_ARRAY, keyconvertedtype=UTF8, valuetype=LIST, valueconvertedtype=LIST"`
-	Annotations      *map[string]string                `parquet:"name=annotations, type=MAP, keytype=BYTE_ARRAY, keyconvertedtype=UTF8, valuetype=BYTE_ARRAY, valueconvertedtype=UTF8"`
-	CertName         *string                           `parquet:"name=cert_name, type=BYTE_ARRAY, convertedtype=UTF8"`
-	TlsSkipVerify    *bool                             `parquet:"name=tls_skip_verify, type=BOOLEAN"`
-}
-
-type ParquetMetadataValues struct {
-	Values []string `parquet:"name=metadata_values, type=LIST, valuetype=BYTE_ARRAY, valueconvertedtype=UTF8"`
-}
-
-type ParquetLogMetadataValues struct {
-	Values []string `parquet:"name=bytes, type=LIST, type=MAP, convertedtype=LIST, valuetype=INT32"`
-}
-
 type ParquetMarshaller struct{}
 
+// buildArrowSchema defines the Arrow schema that matches ParquetLogRequest.
+func (p *ParquetMarshaller) buildArrowSchema() *arrow.Schema {
+
+	// Define the main schema
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "url", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "bytes", Type: arrow.BinaryTypes.Binary, Nullable: true},
+		{Name: "content_type", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "req_type", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "id", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "source_uri", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "inference_service", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "namespace", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "component", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "endpoint", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "metadata", Type: arrow.MapOf(arrow.BinaryTypes.String, arrow.ListOf(arrow.BinaryTypes.String)), Nullable: true},
+		{Name: "annotations", Type: arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String), Nullable: true},
+		{Name: "cert_name", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "tls_skip_verify", Type: arrow.FixedWidthTypes.Boolean, Nullable: true},
+	}, nil)
+
+	return schema
+}
+
+// Marshal converts a slice of LogRequest types into a byte slice of a Parquet file.
 func (p *ParquetMarshaller) Marshal(v []types.LogRequest) ([]byte, error) {
-	buffer := bytes.Buffer{}
+	schema := p.buildArrowSchema()
+	pool := memory.NewGoAllocator()
+	builder := array.NewRecordBuilder(pool, schema)
+	defer builder.Release()
+	urlB := builder.Field(0).(*array.StringBuilder)
+	bytesB := builder.Field(1).(*array.BinaryBuilder)
+	contentTypeB := builder.Field(2).(*array.StringBuilder)
+	reqTypeB := builder.Field(3).(*array.StringBuilder)
+	idB := builder.Field(4).(*array.StringBuilder)
+	sourceUriB := builder.Field(5).(*array.StringBuilder)
+	inferenceServiceB := builder.Field(6).(*array.StringBuilder)
+	namespaceB := builder.Field(7).(*array.StringBuilder)
+	componentB := builder.Field(8).(*array.StringBuilder)
+	endpointB := builder.Field(9).(*array.StringBuilder)
+	metadataB := builder.Field(10).(*array.MapBuilder)
+	annotationsB := builder.Field(11).(*array.MapBuilder)
+	certNameB := builder.Field(12).(*array.StringBuilder)
+	tlsSkipVerifyB := builder.Field(13).(*array.BooleanBuilder)
+	for i := range v {
+		req := &v[i] // Use pointer to avoid copying large byte slices
 
-	pw, err := writer.NewParquetWriterFromWriter(&buffer, new(ParquetLogRequest), 1)
-	if err != nil {
-		return nil, err
-	}
-	pw.RowGroupSize = 128 * 1024 * 1024
-	pw.CompressionType = parquet.CompressionCodec_SNAPPY
+		urlB.Append(req.Url.String())
+		contentTypeB.Append(req.ContentType)
+		reqTypeB.Append(req.ReqType)
+		idB.Append(req.Id)
+		sourceUriB.Append(req.SourceUri.String())
+		inferenceServiceB.Append(req.InferenceService)
+		namespaceB.Append(req.Namespace)
+		componentB.Append(req.Component)
+		endpointB.Append(req.Endpoint)
+		certNameB.Append(req.CertName)
 
-	for _, record := range v {
-		parquetRecord := ParquetLogRequest{}
-		if record.Url != nil {
-			u := record.Url.String()
-			parquetRecord.Url = &u
+		if req.Bytes != nil {
+			bytesB.Append(*req.Bytes)
+		} else {
+			bytesB.AppendNull()
 		}
-		if record.Bytes != nil {
-			parquetRecord.Bytes = record.Bytes
-		}
-		if record.ContentType != "" {
-			parquetRecord.ContentType = &record.ContentType
-		}
-		if record.ReqType != "" {
-			parquetRecord.ReqType = &record.ReqType
-		}
-		if record.Id != "" {
-			parquetRecord.Id = &record.Id
-		}
-		if record.SourceUri != nil {
-			u := record.SourceUri.String()
-			parquetRecord.SourceUri = &u
-		}
-		if record.InferenceService != "" {
-			parquetRecord.InferenceService = &record.InferenceService
-		}
-		if record.Namespace != "" {
-			parquetRecord.Namespace = &record.Namespace
-		}
-		if record.Component != "" {
-			parquetRecord.Component = &record.Component
-		}
-		if record.Endpoint != "" {
-			parquetRecord.Endpoint = &record.Endpoint
-		}
-		if len(record.Metadata) > 0 {
-			metadata := make(map[string]ParquetMetadataValues)
-			for k, vals := range record.Metadata {
-				values := ParquetMetadataValues{
-					Values: vals,
+
+		if req.Metadata != nil {
+			metadataB.Append(true)
+			keyBuilder := metadataB.KeyBuilder().(*array.StringBuilder)
+			listBuilder := metadataB.ItemBuilder().(*array.ListBuilder)
+			valueBuilder := listBuilder.ValueBuilder().(*array.StringBuilder)
+
+			for k, values := range req.Metadata {
+				keyBuilder.Append(k)
+				if values != nil {
+					listBuilder.Append(true)
+					for _, val := range values {
+						valueBuilder.Append(val)
+					}
+				} else {
+					listBuilder.AppendNull()
 				}
-				metadata[k] = values
 			}
-			parquetRecord.Metadata = &metadata
+		} else {
+			metadataB.AppendNull()
 		}
-		if len(record.Annotations) > 0 {
-			parquetRecord.Annotations = &record.Annotations
-		}
-		if record.CertName != "" {
-			parquetRecord.CertName = &record.CertName
-		}
-		parquetRecord.TlsSkipVerify = &record.TlsSkipVerify
 
-		if err := pw.Write(&parquetRecord); err != nil {
-			return nil, err
+		if req.Annotations != nil {
+			annotationsB.Append(true)
+			keyBuilder := annotationsB.KeyBuilder().(*array.StringBuilder)
+			valueBuilder := annotationsB.ItemBuilder().(*array.StringBuilder)
+			for k, vStr := range req.Annotations {
+				keyBuilder.Append(k)
+				valueBuilder.Append(vStr)
+			}
+		} else {
+			annotationsB.AppendNull()
 		}
+
+		tlsSkipVerifyB.Append(req.TlsSkipVerify)
 	}
 
-	if err := pw.WriteStop(); err != nil {
-		return nil, err
+	rec := builder.NewRecord()
+	defer rec.Release()
+
+	buf := new(bytes.Buffer)
+	props := parquet.NewWriterProperties(parquet.WithCompression(compress.Codecs.Snappy))
+	arrProps := pqarrow.NewArrowWriterProperties() // Default properties
+
+	fw, err := pqarrow.NewFileWriter(schema, buf, props, arrProps)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create parquet writer: %w", err)
+	}
+	defer fw.Close()
+
+	if err := fw.Write(rec); err != nil {
+		return nil, fmt.Errorf("failed to write record to parquet: %w", err)
 	}
 
-	return buffer.Bytes(), nil
+	return buf.Bytes(), nil
 }
 
 var _ Marshaller = &ParquetMarshaller{}

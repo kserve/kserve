@@ -18,13 +18,14 @@ package marshaller
 
 import (
 	"github.com/gocarina/gocsv"
+	"github.com/kserve/kserve/pkg/logger/types"
 )
 
 const LogStoreFormatCSV = "csv"
 
 type CSVMarshaller struct{}
 
-func (j *CSVMarshaller) Marshal(v []interface{}) ([]byte, error) {
+func (j *CSVMarshaller) Marshal(v []types.LogRequest) ([]byte, error) {
 	return gocsv.MarshalBytes(v)
 }
 
