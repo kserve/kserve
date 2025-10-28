@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: llmisvc-controller-manager
+  name: kserve-llmisvc-controller-manager
   labels:
     app.kubernetes.io/component: controller
     control-plane: llmisvc-controller-manager
     controller-tools.k8s.io: "1.0"
   {{- include "llm-isvc-resources.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.llmisvcControllerManager.replicas }}
+  replicas: {{ .Values.kserveLlmisvcControllerManager.replicas }}
   strategy:
     rollingUpdate:
-      maxSurge: {{ .Values.llmisvcControllerManager.strategy.rollingUpdate.maxSurge
+      maxSurge: {{ .Values.kserveLlmisvcControllerManager.strategy.rollingUpdate.maxSurge
         }}
-      maxUnavailable: {{ .Values.llmisvcControllerManager.strategy.rollingUpdate.maxUnavailable
+      maxUnavailable: {{ .Values.kserveLlmisvcControllerManager.strategy.rollingUpdate.maxUnavailable
         }}
-    type: {{ .Values.llmisvcControllerManager.strategy.type | quote }}
+    type: {{ .Values.kserveLlmisvcControllerManager.strategy.type | quote }}
   selector:
     matchLabels:
       control-plane: llmisvc-controller-manager
@@ -25,7 +25,7 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/component: controller
-        app.kubernetes.io/name: llmisvc-controller-manager
+        app.kubernetes.io/name: kserve-llmisvc-controller-manager
         control-plane: llmisvc-controller-manager
         controller-tools.k8s.io: "1.0"
       {{- include "llm-isvc-resources.selectorLabels" . | nindent 8 }}
@@ -33,7 +33,8 @@ spec:
         kubectl.kubernetes.io/default-container: manager
     spec:
       containers:
-      - args: {{- toYaml .Values.llmisvcControllerManager.manager.args | nindent 8 }}
+      - args: {{- toYaml .Values.kserveLlmisvcControllerManager.manager.args | nindent
+          8 }}
         command:
         - /manager
         env:
@@ -43,9 +44,11 @@ spec:
               fieldPath: metadata.namespace
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        image: {{ .Values.llmisvcControllerManager.manager.image.repository }}:{{ .Values.llmisvcControllerManager.manager.image.tag
-          | default .Chart.AppVersion }}
-        imagePullPolicy: {{ .Values.llmisvcControllerManager.manager.imagePullPolicy }}
+        image: '{{ .Values.kserveLlmisvcControllerManager.manager.image.repository }}:{{
+          .Values.kserveLlmisvcControllerManager.manager.image.tag | default .Chart.AppVersion
+          }}'
+        imagePullPolicy: {{ .Values.kserveLlmisvcControllerManager.manager.imagePullPolicy
+          }}
         livenessProbe:
           failureThreshold: 5
           httpGet:
@@ -70,16 +73,16 @@ spec:
           initialDelaySeconds: 30
           periodSeconds: 5
           timeoutSeconds: 5
-        resources: {{- toYaml .Values.llmisvcControllerManager.manager.resources | nindent
-          10 }}
-        securityContext: {{- toYaml .Values.llmisvcControllerManager.manager.containerSecurityContext
+        resources: {{- toYaml .Values.kserveLlmisvcControllerManager.manager.resources
+          | nindent 10 }}
+        securityContext: {{- toYaml .Values.kserveLlmisvcControllerManager.manager.containerSecurityContext
           | nindent 10 }}
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
-      securityContext: {{- toYaml .Values.llmisvcControllerManager.podSecurityContext |
-        nindent 8 }}
+      securityContext: {{- toYaml .Values.kserveLlmisvcControllerManager.podSecurityContext
+        | nindent 8 }}
       serviceAccountName: llmisvc-controller-manager
       terminationGracePeriodSeconds: 30
       volumes:

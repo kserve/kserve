@@ -2,10 +2,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: llmisvc-controller-manager
+  name: kserve-llmisvc-controller-manager
   namespace: kserve
   labels:
-    app.kubernetes.io/name: llmisvc-controller-manager
+    app.kubernetes.io/name: kserve-llmisvc-controller-manager
     app.kubernetes.io/component: controller
     control-plane: llmisvc-controller-manager
     controller-tools.k8s.io: "1.0"
@@ -23,7 +23,7 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: llmisvc-controller-manager
+        app.kubernetes.io/name: kserve-llmisvc-controller-manager
         app.kubernetes.io/component: controller
         control-plane: llmisvc-controller-manager
         controller-tools.k8s.io: "1.0"

@@ -672,8 +672,7 @@ inferenceserviceConfig:
         "memoryModelcar": "15Mi",
         "uidModelcar": 1010
     }
-kubernetesClusterDomain: cluster.local
-llmisvcControllerManager:
+kserveLlmisvcControllerManager:
   manager:
     args:
     - --metrics-addr=127.0.0.1:8443
@@ -705,13 +704,15 @@ llmisvcControllerManager:
     seccompProfile:
       type: RuntimeDefault
   replicas: 1
-  serviceAccount:
-    annotations: {}
   strategy:
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
     type: RollingUpdate
+kubernetesClusterDomain: cluster.local
+llmisvcControllerManager:
+  serviceAccount:
+    annotations: {}
 llmisvcControllerManagerService:
   ports:
   - name: https

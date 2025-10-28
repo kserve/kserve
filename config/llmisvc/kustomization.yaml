@@ -19,7 +19,7 @@ replacements:
   - source:
       fieldPath: metadata.namespace
       kind: Deployment
-      name: llmisvc-controller-manager
+      name: kserve-llmisvc-controller-manager
       version: v1
     targets:
       - fieldPaths:
@@ -106,7 +106,7 @@ replacements:
           - spec.template.spec.serviceAccountName
         select:
           kind: Deployment
-          name: llmisvc-controller-manager
+          name: kserve-llmisvc-controller-manager
 patches:
   - path: llmisvc_validatingwebhook_cainjection_patch.yaml
   - path: llmisvcconfig_validatingwebhook_cainjection_patch.yaml
