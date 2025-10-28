@@ -261,74 +261,90 @@ func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, podSpec *c
 	return nil
 }
 
+// caBundleConfig holds the configuration for CA bundle injection
+type caBundleConfig struct {
+	configMapName   string
+	volumeMountPath string
+	envVarExists    bool
+	mountPathExists bool
+}
+
+// extractCaBundleConfig extracts and processes CA bundle configuration from environment variables in a single pass
+func extractCaBundleConfig(initContainer *corev1.Container, storageConfig *kserveTypes.StorageInitializerConfig, namespace string) *caBundleConfig {
+	config := &caBundleConfig{
+		configMapName:   storageConfig.CaBundleConfigMapName,
+		volumeMountPath: storageConfig.CaBundleVolumeMountPath,
+	}
+
+	// Set defaults
+	if namespace != constants.KServeNamespace {
+		config.configMapName = constants.DefaultGlobalCaBundleConfigMapName
+	}
+	if config.volumeMountPath == "" {
+		config.volumeMountPath = constants.DefaultCaBundleVolumeMountPath
+	}
+
+	// Single pass through environment variables to extract values and check existence
+	for _, envVar := range initContainer.Env {
+		switch envVar.Name {
+		case s3.AWSCABundleConfigMap:
+			config.configMapName = envVar.Value
+		case s3.AWSCABundle:
+			config.volumeMountPath = filepath.Dir(envVar.Value)
+		case constants.CaBundleConfigMapNameEnvVarKey:
+			config.envVarExists = true
+		case constants.CaBundleVolumeMountPathEnvVarKey:
+			config.mountPathExists = true
+		}
+	}
+
+	return config
+}
+
 func injectCaBundle(namespace string, podSpec *corev1.PodSpec, initContainer *corev1.Container, storageConfig *kserveTypes.StorageInitializerConfig) bool { //nolint:unparam
 	// Inject CA bundle configMap if caBundleConfigMapName or constants.DefaultGlobalCaBundleConfigMapName annotation is set
-	caBundleConfigMapName := storageConfig.CaBundleConfigMapName
-	if ok := needCaBundleMount(caBundleConfigMapName, initContainer); ok {
-		if namespace != constants.KServeNamespace {
-			caBundleConfigMapName = constants.DefaultGlobalCaBundleConfigMapName
-		}
+	if !needCaBundleMount(storageConfig.CaBundleConfigMapName, initContainer) {
+		return false
+	}
 
-		caBundleVolumeMountPath := storageConfig.CaBundleVolumeMountPath
-		if caBundleVolumeMountPath == "" {
-			caBundleVolumeMountPath = constants.DefaultCaBundleVolumeMountPath
-		}
+	config := extractCaBundleConfig(initContainer, storageConfig, namespace)
 
-		// Add CA bundle env vars only if they don't already exist (could be customized by user)
-		caBundleEnvVarExists := false
-		caBundleMountPathEnvVarExists := false
-		for _, envVar := range initContainer.Env {
-			if envVar.Name == s3.AWSCABundleConfigMap {
-				caBundleConfigMapName = envVar.Value
-			}
-			if envVar.Name == s3.AWSCABundle {
-				caBundleVolumeMountPath = filepath.Dir(envVar.Value)
-			}
-			if envVar.Name == constants.CaBundleConfigMapNameEnvVarKey {
-				caBundleEnvVarExists = true
-			}
-			if envVar.Name == constants.CaBundleVolumeMountPathEnvVarKey {
-				caBundleMountPathEnvVarExists = true
-			}
-		}
+	// Add CA bundle env vars only if they don't already exist (could be customized by user)
+	if !config.envVarExists {
+		initContainer.Env = append(initContainer.Env, corev1.EnvVar{
+			Name:  constants.CaBundleConfigMapNameEnvVarKey,
+			Value: config.configMapName,
+		})
+	}
 
-		if !caBundleEnvVarExists {
-			initContainer.Env = append(initContainer.Env, corev1.EnvVar{
-				Name:  constants.CaBundleConfigMapNameEnvVarKey,
-				Value: caBundleConfigMapName,
-			})
-		}
+	if !config.mountPathExists {
+		initContainer.Env = append(initContainer.Env, corev1.EnvVar{
+			Name:  constants.CaBundleVolumeMountPathEnvVarKey,
+			Value: config.volumeMountPath,
+		})
+	}
 
-		if !caBundleMountPathEnvVarExists {
-			initContainer.Env = append(initContainer.Env, corev1.EnvVar{
-				Name:  constants.CaBundleVolumeMountPathEnvVarKey,
-				Value: caBundleVolumeMountPath,
-			})
-		}
-
-		caBundleVolume := corev1.Volume{
-			Name: CaBundleVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: caBundleConfigMapName,
-					},
+	caBundleVolume := corev1.Volume{
+		Name: CaBundleVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: config.configMapName,
 				},
 			},
-		}
-
-		caBundleVolumeMount := corev1.VolumeMount{
-			Name:      CaBundleVolumeName,
-			MountPath: caBundleVolumeMountPath,
-			ReadOnly:  true,
-		}
-
-		podSpec.Volumes = append(podSpec.Volumes, caBundleVolume)
-		initContainer.VolumeMounts = append(initContainer.VolumeMounts, caBundleVolumeMount)
-
-		return true
+		},
 	}
-	return false
+
+	caBundleVolumeMount := corev1.VolumeMount{
+		Name:      CaBundleVolumeName,
+		MountPath: config.volumeMountPath,
+		ReadOnly:  true,
+	}
+
+	podSpec.Volumes = append(podSpec.Volumes, caBundleVolume)
+	initContainer.VolumeMounts = append(initContainer.VolumeMounts, caBundleVolumeMount)
+
+	return true
 }
 
 func needCaBundleMount(caBundleConfigMapName string, initContainer *corev1.Container) bool {
