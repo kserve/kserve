@@ -1015,3 +1015,249 @@ func TestGetOriginalStringMQ(t *testing.T) {
 		})
 	}
 }
+
+// TestGetKedaMetrics_InvalidResourceMetricValue tests validation for resource metrics with invalid target values
+func TestGetKedaMetrics_InvalidResourceMetricValue(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
+	configMap := &corev1.ConfigMap{}
+
+	tests := []struct {
+		name         string
+		componentExt *v1beta1.ComponentExtensionSpec
+		expectedErr  string
+	}{
+		{
+			name: "Resource metric with zero averageUtilization",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Metrics: []v1beta1.MetricsSpec{
+						{
+							Type: v1beta1.ResourceMetricSourceType,
+							Resource: &v1beta1.ResourceMetricSource{
+								Name: v1beta1.ResourceMetricCPU,
+								Target: v1beta1.MetricTarget{
+									Type:               v1beta1.UtilizationMetricType,
+									AverageUtilization: ptr.To(int32(0)),
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "invalid resource metric configuration: target value for cpu metric cannot be empty or zero",
+		},
+		{
+			name: "Resource metric with nil averageValue",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Metrics: []v1beta1.MetricsSpec{
+						{
+							Type: v1beta1.ResourceMetricSourceType,
+							Resource: &v1beta1.ResourceMetricSource{
+								Name: v1beta1.ResourceMetricMemory,
+								Target: v1beta1.MetricTarget{
+									Type:         v1beta1.AverageValueMetricType,
+									AverageValue: nil,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "invalid resource metric configuration: target value for memory metric cannot be empty or zero",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := getKedaMetrics(componentMeta, tt.componentExt, configMap)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.expectedErr)
+		})
+	}
+}
+
+// TestGetKedaMetrics_InvalidExternalMetricValue tests validation for external metrics with invalid threshold values
+func TestGetKedaMetrics_InvalidExternalMetricValue(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
+	configMap := &corev1.ConfigMap{}
+
+	tests := []struct {
+		name         string
+		componentExt *v1beta1.ComponentExtensionSpec
+		expectedErr  string
+	}{
+		{
+			name: "External metric with zero threshold",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Metrics: []v1beta1.MetricsSpec{
+						{
+							Type: v1beta1.ExternalMetricSourceType,
+							External: &v1beta1.ExternalMetricSource{
+								Metric: v1beta1.ExternalMetrics{
+									Backend:       v1beta1.PrometheusBackend,
+									ServerAddress: "http://prometheus-server",
+									Query:         "http_requests_total",
+								},
+								Target: v1beta1.MetricTarget{
+									Value: v1beta1.NewMetricQuantity("0"),
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "invalid external metric configuration: threshold value for prometheus metric cannot be empty or zero",
+		},
+		{
+			name: "External metric with nil value",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Metrics: []v1beta1.MetricsSpec{
+						{
+							Type: v1beta1.ExternalMetricSourceType,
+							External: &v1beta1.ExternalMetricSource{
+								Metric: v1beta1.ExternalMetrics{
+									Backend:       v1beta1.PrometheusBackend,
+									ServerAddress: "http://prometheus-server",
+									Query:         "http_requests_total",
+								},
+								Target: v1beta1.MetricTarget{
+									Value: nil,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "invalid external metric configuration: threshold value for prometheus metric cannot be empty or zero",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := getKedaMetrics(componentMeta, tt.componentExt, configMap)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.expectedErr)
+		})
+	}
+}
+
+// TestGetKedaMetrics_InvalidPodMetricValue tests validation for pod metrics with invalid target values
+func TestGetKedaMetrics_InvalidPodMetricValue(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
+	configMap := &corev1.ConfigMap{
+		Data: map[string]string{
+			"opentelemetryCollector": `{"metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317", "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318"}`,
+		},
+	}
+
+	tests := []struct {
+		name         string
+		componentExt *v1beta1.ComponentExtensionSpec
+		expectedErr  string
+	}{
+		{
+			name: "Pod metric with zero target value",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Metrics: []v1beta1.MetricsSpec{
+						{
+							Type: v1beta1.PodMetricSourceType,
+							PodMetric: &v1beta1.PodMetricSource{
+								Metric: v1beta1.PodMetrics{
+									Backend:       v1beta1.OpenTelemetryBackend,
+									Query:         "cpu_usage",
+									ServerAddress: "http://otel-server",
+								},
+								Target: v1beta1.MetricTarget{
+									Value: v1beta1.NewMetricQuantity("0"),
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "invalid pod metric configuration: target value for opentelemetry metric cannot be empty or zero",
+		},
+		{
+			name: "Pod metric with nil target value",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Metrics: []v1beta1.MetricsSpec{
+						{
+							Type: v1beta1.PodMetricSourceType,
+							PodMetric: &v1beta1.PodMetricSource{
+								Metric: v1beta1.PodMetrics{
+									Backend:       v1beta1.OpenTelemetryBackend,
+									Query:         "cpu_usage",
+									ServerAddress: "http://otel-server",
+								},
+								Target: v1beta1.MetricTarget{
+									Value: nil,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "invalid pod metric configuration: target value for opentelemetry metric cannot be empty or zero",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := getKedaMetrics(componentMeta, tt.componentExt, configMap)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.expectedErr)
+		})
+	}
+}
+
+// TestGetKedaMetrics_ValidPrometheusOnly tests that only Prometheus metrics work without CPU metrics
+// This specifically addresses issue #4764
+func TestGetKedaMetrics_ValidPrometheusOnly(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		AutoScaling: &v1beta1.AutoScalingSpec{
+			Metrics: []v1beta1.MetricsSpec{
+				{
+					Type: v1beta1.ExternalMetricSourceType,
+					External: &v1beta1.ExternalMetricSource{
+						Metric: v1beta1.ExternalMetrics{
+							Backend:       v1beta1.PrometheusBackend,
+							ServerAddress: "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090",
+							Query:         "vllm:num_requests_running",
+						},
+						Target: v1beta1.MetricTarget{
+							Type:  v1beta1.ValueMetricType,
+							Value: v1beta1.NewMetricQuantity("2"),
+						},
+					},
+				},
+			},
+		},
+	}
+	configMap := &corev1.ConfigMap{}
+
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	assert.Len(t, triggers, 1, "Should have exactly 1 trigger (Prometheus only)")
+	assert.Equal(t, "prometheus", triggers[0].Type)
+	assert.Equal(t, "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090", triggers[0].Metadata["serverAddress"])
+	assert.Equal(t, "vllm:num_requests_running", triggers[0].Metadata["query"])
+	assert.Equal(t, "2", triggers[0].Metadata["threshold"])
+}
