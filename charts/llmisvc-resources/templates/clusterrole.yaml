@@ -1,9 +1,8 @@
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: llmisvc-manager-role
-  labels:
-  {{- include "llm-isvc-resources.labels" . | nindent 4 }}
 rules:
 - nonResourceURLs:
   - /metrics
@@ -171,18 +170,3 @@ rules:
   - get
   - patch
   - update
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: llmisvc-manager-rolebinding
-  labels:
-  {{- include "llm-isvc-resources.labels" . | nindent 4 }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: llmisvc-manager-role
-subjects:
-- kind: ServiceAccount
-  name: llmisvc-controller-manager
-  namespace: '{{ .Release.Namespace }}'
