@@ -84,7 +84,7 @@ func TestParquetMarshalling(t *testing.T) {
 		g.Expect(idCol).ToNot(gomega.BeNil())
 
 		for i := range rec.NumRows() {
-			val := idCol.Value(i)
+			val := idCol.Value(int(i))
 			g.Expect(val).To(gomega.Equal(logRequests[i].Id))
 		}
 	}
