@@ -63,12 +63,10 @@ func TestParquetMarshalling(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	defer tbl.Release()
 
-	// 3. Create a TableReader to iterate over the table as records
-	// We can use this instead of the file-based RecordReader
 	rr := array.NewTableReader(tbl, -1)
 	defer rr.Release()
 
-	schema := rr.Schema() // Get schema to find column indices by name
+	schema := rr.Schema()
 	indices := schema.FieldIndices("id")
 	g.Expect(indices).To(gomega.HaveLen(1), "Expected one index for field 'id'")
 	idIdx := indices[0]
@@ -76,7 +74,6 @@ func TestParquetMarshalling(t *testing.T) {
 	totalRows := int64(0)
 	for rr.Next() {
 		rec := rr.Record()
-		// We don't need to release rec, as it's owned by the TableReader
 		totalRows += rec.NumRows()
 
 		idCol := rec.Column(idIdx).(*array.String)
