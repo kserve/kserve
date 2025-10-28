@@ -1,153 +1,89 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "llm-isvc-resources.deploymentName" . }}
-  namespace: {{ .Release.Namespace }}
+  name: llmisvc-controller-manager
   labels:
-    {{- include "llm-isvc-resources.labels" . | nindent 4 }}
     app.kubernetes.io/component: controller
-    control-plane: {{ include "llm-isvc-resources.deploymentName" . }}
+    control-plane: llmisvc-controller-manager
     controller-tools.k8s.io: "1.0"
-    {{- with .Values.kserve.llmisvc.controller.labels }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-    {{- with .Values.commonLabels }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-  annotations:
-    prometheus.io/scrape: 'true'
-    {{- with .Values.kserve.llmisvc.controller.annotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-    {{- with .Values.commonAnnotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
+  {{- include "llm-isvc-resources.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.kserve.llmisvc.controller.replicas }}
-  {{- with .Values.kserve.llmisvc.controller.strategy }}
+  replicas: {{ .Values.llmisvcControllerManager.replicas }}
   strategy:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    rollingUpdate:
+      maxSurge: {{ .Values.llmisvcControllerManager.strategy.rollingUpdate.maxSurge
+        }}
+      maxUnavailable: {{ .Values.llmisvcControllerManager.strategy.rollingUpdate.maxUnavailable
+        }}
+    type: {{ .Values.llmisvcControllerManager.strategy.type | quote }}
   selector:
     matchLabels:
-      {{- include "llm-isvc-resources.selectorLabels" . | nindent 6 }}
-      control-plane: {{ include "llm-isvc-resources.deploymentName" . }}
+      control-plane: llmisvc-controller-manager
       controller-tools.k8s.io: "1.0"
+    {{- include "llm-isvc-resources.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "llm-isvc-resources.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: controller
-        control-plane: {{ include "llm-isvc-resources.deploymentName" . }}
+        app.kubernetes.io/name: llmisvc-controller-manager
+        control-plane: llmisvc-controller-manager
         controller-tools.k8s.io: "1.0"
-        {{- with .Values.kserve.llmisvc.controller.podLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
-        {{- with .Values.commonLabels }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+      {{- include "llm-isvc-resources.selectorLabels" . | nindent 8 }}
       annotations:
         kubectl.kubernetes.io/default-container: manager
-        {{- with .Values.kserve.llmisvc.controller.podAnnotations }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
-        {{- with .Values.commonAnnotations }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
     spec:
-      serviceAccountName: {{ include "llm-isvc-resources.serviceAccountName" . }}
-      {{- include "llm-isvc-resources.imagePullSecrets" . | nindent 6 }}
-      {{- with .Values.kserve.llmisvc.controller.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.kserve.llmisvc.controller.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.kserve.llmisvc.controller.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.kserve.llmisvc.controller.topologySpreadConstraints }}
-      topologySpreadConstraints:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.kserve.llmisvc.controller.securityContext }}
-      securityContext:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      terminationGracePeriodSeconds: {{ .Values.kserve.llmisvc.controller.terminationGracePeriodSeconds }}
       containers:
-      - name: manager
-        image: {{ include "llm-isvc-resources.image" . }}
-        imagePullPolicy: {{ include "llm-isvc-resources.imagePullPolicy" . }}
+      - args: {{- toYaml .Values.llmisvcControllerManager.manager.args | nindent 8 }}
         command:
-          - /manager
-        {{- with .Values.kserve.llmisvc.controller.containerSecurityContext }}
-        securityContext:
-          {{- toYaml . | nindent 10 }}
-        {{- end }}
-        args:
-        - "--metrics-addr={{ .Values.kserve.llmisvc.controller.metricsBindAddress }}:{{ .Values.kserve.llmisvc.controller.metricsBindPort }}"
-        - "--leader-elect"
-        {{- with .Values.kserve.llmisvc.controller.extraArgs }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+        - /manager
         env:
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          {{- with .Values.kserve.llmisvc.controller.env }}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
-        {{- if .Values.kserve.llmisvc.controller.livenessProbe.enabled }}
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.llmisvcControllerManager.manager.image.repository }}:{{ .Values.llmisvcControllerManager.manager.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.llmisvcControllerManager.manager.imagePullPolicy }}
         livenessProbe:
-          {{- with .Values.kserve.llmisvc.controller.livenessProbe.httpGet }}
+          failureThreshold: 5
           httpGet:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          initialDelaySeconds: {{ .Values.kserve.llmisvc.controller.livenessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.kserve.llmisvc.controller.livenessProbe.periodSeconds }}
-          timeoutSeconds: {{ .Values.kserve.llmisvc.controller.livenessProbe.timeoutSeconds }}
-          failureThreshold: {{ .Values.kserve.llmisvc.controller.livenessProbe.failureThreshold }}
-        {{- end }}
-        {{- if .Values.kserve.llmisvc.controller.readinessProbe.enabled }}
-        readinessProbe:
-          {{- with .Values.kserve.llmisvc.controller.readinessProbe.httpGet }}
-          httpGet:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          initialDelaySeconds: {{ .Values.kserve.llmisvc.controller.readinessProbe.initialDelaySeconds }}
-          periodSeconds: {{ .Values.kserve.llmisvc.controller.readinessProbe.periodSeconds }}
-          timeoutSeconds: {{ .Values.kserve.llmisvc.controller.readinessProbe.timeoutSeconds }}
-          failureThreshold: {{ .Values.kserve.llmisvc.controller.readinessProbe.failureThreshold }}
-        {{- end }}
-        {{- with .Values.kserve.llmisvc.controller.resources }}
-        resources:
-          {{- toYaml . | nindent 10 }}
-        {{- end }}
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        name: manager
         ports:
         - containerPort: 9443
           name: webhook-server
           protocol: TCP
-        - containerPort: {{ .Values.kserve.llmisvc.controller.metricsBindPort }}
+        - containerPort: 8443
           name: metrics
           protocol: TCP
+        readinessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 5
+        resources: {{- toYaml .Values.llmisvcControllerManager.manager.resources | nindent
+          10 }}
+        securityContext: {{- toYaml .Values.llmisvcControllerManager.manager.containerSecurityContext
+          | nindent 10 }}
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
-        {{- with .Values.kserve.llmisvc.controller.extraVolumeMounts }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+      securityContext: {{- toYaml .Values.llmisvcControllerManager.podSecurityContext |
+        nindent 8 }}
+      serviceAccountName: llmisvc-controller-manager
+      terminationGracePeriodSeconds: 30
       volumes:
-        - name: cert
-          secret:
-            defaultMode: 420
-            secretName: llmisvc-webhook-server-cert
-        {{- with .Values.kserve.llmisvc.controller.extraVolumes }}
-        {{- toYaml . | nindent 8 }}
-        {{- end }}
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: llmisvc-webhook-server-cert

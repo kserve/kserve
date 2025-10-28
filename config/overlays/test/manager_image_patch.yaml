@@ -9,7 +9,7 @@ spec:
       containers:
         - name: manager
           command:
-          image: kserve/kserve-controller:latest
+          image: kserve/kserve-controller:local-test
           imagePullPolicy: IfNotPresent
           resources:
             limits:

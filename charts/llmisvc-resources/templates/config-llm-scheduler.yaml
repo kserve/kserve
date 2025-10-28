@@ -2,6 +2,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-scheduler
+  labels:
+  {{- include "llm-isvc-resources.labels" . | nindent 4 }}
 spec:
   router:
     scheduler:
@@ -10,84 +12,76 @@ spec:
           extensionRef:
             failureMode: FailOpen
             kind: Service
-            name: |-
-              {{ "{{" }} ChildName .ObjectMeta.Name `-epp-service` {{ "}}" }}
+            name: '{{ "{{" }} ChildName .ObjectMeta.Name {{ "`" }}-epp-service{{ "`" }} {{ "}}" }}'
           selector: {}
           targetPortNumber: 8000
       template:
         containers:
-          - name: main
-            ports:
-              - containerPort: 9002
-                name: grpc
-                protocol: TCP
-              - containerPort: 9003
-                name: grpc-health
-                protocol: TCP
-              - containerPort: 9090
-                name: metrics
-                protocol: TCP
-            image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.2.0
-            imagePullPolicy: IfNotPresent
-            livenessProbe:
-              failureThreshold: 3
-              grpc:
-                port: 9003
-                service: envoy.service.ext_proc.v3.ExternalProcessor
-              initialDelaySeconds: 5
-              periodSeconds: 10
-              successThreshold: 1
-              timeoutSeconds: 1
-            readinessProbe:
-              failureThreshold: 3
-              grpc:
-                port: 9003
-                service: envoy.service.ext_proc.v3.ExternalProcessor
-              initialDelaySeconds: 30
-              periodSeconds: 10
-              successThreshold: 1
-              timeoutSeconds: 1
-            args:
-              - --poolName
-              - "{{ "{{" }} ChildName .ObjectMeta.Name `-inference-pool` {{ "}}" }}"
-              - --poolNamespace
-              - "{{`{{ .ObjectMeta.Namespace }}`}}"
-              - --zap-encoder
-              - json
-              - --grpcPort
-              - "9002"
-              - --grpcHealthPort
-              - "9003"
-              # BackendTLSPolicy is not implemented yet so disable SSL for now
-              # - --secureServing
-              # - --modelServerMetricsScheme
-              # - "https"
-              # - --modelServerMetricsHttpsInsecureSkipVerify
-              # - --certPath
-              # - "/etc/ssl/certs"
-            resources:
-              requests:
-                cpu: 256m
-                memory: 500Mi
-            terminationMessagePath: /dev/termination-log
-            terminationMessagePolicy: FallbackToLogsOnError
-            securityContext:
-              allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
-              runAsNonRoot: true
-              capabilities:
-                drop:
-                  - ALL
-              seccompProfile:
-                type: RuntimeDefault
-            volumeMounts:
-              - mountPath: /etc/ssl/certs
-                name: tls-certs
-                readOnly: true
-        volumes:
-          - name: tls-certs
-            secret:
-              secretName: '{{ "{{" }} ChildName .ObjectMeta.Name `-kserve-self-signed-certs` {{ "}}" }}'
+        - args:
+          - --poolName
+          - '{{ "{{" }} ChildName .ObjectMeta.Name {{ "`" }}-inference-pool{{ "`" }} {{ "}}" }}'
+          - --poolNamespace
+          - '{{ "{{" }} .ObjectMeta.Namespace {{ "}}" }}'
+          - --zap-encoder
+          - json
+          - --grpcPort
+          - "9002"
+          - --grpcHealthPort
+          - "9003"
+          image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.2.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            grpc:
+              port: 9003
+              service: envoy.service.ext_proc.v3.ExternalProcessor
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: main
+          ports:
+          - containerPort: 9002
+            name: grpc
+            protocol: TCP
+          - containerPort: 9003
+            name: grpc-health
+            protocol: TCP
+          - containerPort: 9090
+            name: metrics
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            grpc:
+              port: 9003
+              service: envoy.service.ext_proc.v3.ExternalProcessor
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            requests:
+              cpu: 256m
+              memory: 500Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+          - mountPath: /etc/ssl/certs
+            name: tls-certs
+            readOnly: true
         dnsPolicy: ClusterFirst
         restartPolicy: Always
         terminationGracePeriodSeconds: 30
+        volumes:
+        - name: tls-certs
+          secret:
+            secretName: '{{ "{{" }} ChildName .ObjectMeta.Name {{ "`" }}-kserve-self-signed-certs{{ "`" }} {{ "}}" }}'

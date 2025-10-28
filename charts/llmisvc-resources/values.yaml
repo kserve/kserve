@@ -1,200 +1,726 @@
-# -- Common labels to add to all resources
-commonLabels: {}
-
-# -- Common annotations to add to all resources
-commonAnnotations: {}
-
-kserve:
-  # -- Version of KServe LLM ISVC components
-  version: &defaultVersion v0.16.0-rc1
-
-  llmisvc:
-    controller:
-      # -- KServe LLM ISVC controller manager container image
-      image: kserve/llmisvc-controller
-
-      # -- KServe LLM ISVC controller container image tag
-      tag: *defaultVersion
-
-      # -- Specifies when to pull controller image from registry
-      imagePullPolicy: "IfNotPresent"
-
-      # -- Reference to one or more secrets to be used when pulling images
-      # For more information, see [Pull an Image from a Private Registry](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/)
-      #
-      # For example:
-      #  imagePullSecrets:
-      #    - name: "image-pull-secret"
-      imagePullSecrets: []
-
-      # -- Optional additional labels to add to the controller deployment
-      labels: {}
-
-      # -- Optional additional labels to add to the controller Pods
-      podLabels: {}
-
-      # -- Optional additional annotations to add to the controller deployment
-      annotations: {}
-
-      # -- Optional additional annotations to add to the controller Pods
-      podAnnotations: {}
-
-      # -- Optional additional annotations to add to the controller service
-      serviceAnnotations: {}
-
-      # -- Pod Security Context
-      # For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
-      securityContext:
-        runAsNonRoot: true
-        seccompProfile:
-          type: RuntimeDefault
-
-      # -- Container Security Context to be set on the controller component container
-      # For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/)
-      containerSecurityContext:
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-            - ALL
-        privileged: false
-        readOnlyRootFilesystem: true
-        runAsNonRoot: true
-        runAsUser: 1000
-        seccompProfile:
-          type: RuntimeDefault
-
-      # -- Metrics bind address
-      metricsBindAddress: "127.0.0.1"
-
-      # -- Metrics bind port
-      metricsBindPort: "8443"
-
-      # -- The nodeSelector on Pods tells Kubernetes to schedule Pods on the nodes with matching labels
-      # For more information, see [Assigning Pods to Nodes](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/)
-      #
-      # For example:
-      #   nodeSelector:
-      #     kubernetes.io/arch: amd64
-      nodeSelector: {}
-
-      # -- A list of Kubernetes Tolerations, if required
-      # For more information, see [Toleration v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#toleration-v1-core)
-      #
-      # For example:
-      #   tolerations:
-      #   - key: foo.bar.com/role
-      #     operator: Equal
-      #     value: master
-      #     effect: NoSchedule
-      tolerations: []
-
-      # -- A list of Kubernetes TopologySpreadConstraints, if required
-      # For more information, see [Topology spread constraint v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#topologyspreadconstraint-v1-core)
-      #
-      # For example:
-      #   topologySpreadConstraints:
-      #   - maxSkew: 2
-      #     topologyKey: topology.kubernetes.io/zone
-      #     whenUnsatisfiable: ScheduleAnyway
-      #     labelSelector:
-      #       matchLabels:
-      #         app.kubernetes.io/instance: llmisvc-controller-manager
-      #         app.kubernetes.io/component: controller
-      topologySpreadConstraints: []
-
-      # -- A Kubernetes Affinity, if required
-      # For more information, see [Affinity v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#affinity-v1-core)
-      #
-      # For example:
-      #   affinity:
-      #     nodeAffinity:
-      #      requiredDuringSchedulingIgnoredDuringExecution:
-      #        nodeSelectorTerms:
-      #        - matchExpressions:
-      #          - key: foo.bar.com/role
-      #            operator: In
-      #            values:
-      #            - master
-      affinity: {}
-
-      # -- Resources to provide to the llmisvc controller pod
-      #
-      # For example:
-      #  resources:
-      #    limits:
-      #      cpu: 100m
-      #      memory: 300Mi
-      #    requests:
-      #      cpu: 100m
-      #      memory: 300Mi
-      #
-      # For more information, see [Resource Management for Pods and Containers](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
-      resources:
-        limits:
-          cpu: 100m
-          memory: 300Mi
-        requests:
-          cpu: 100m
-          memory: 300Mi
-
-      # -- Number of replicas for the controller deployment
-      replicas: 1
-
-      # -- Deployment strategy
-      strategy:
-        type: RollingUpdate
-        rollingUpdate:
-          maxSurge: 1
-          maxUnavailable: 0
-
-      # -- Liveness probe configuration
-      livenessProbe:
-        enabled: true
-        initialDelaySeconds: 30
-        periodSeconds: 10
-        timeoutSeconds: 5
-        failureThreshold: 5
-        httpGet:
-          path: /healthz
-          port: 8081
-
-      # -- Readiness probe configuration
-      readinessProbe:
-        enabled: true
-        initialDelaySeconds: 30
-        periodSeconds: 5
-        timeoutSeconds: 5
-        failureThreshold: 5
-        httpGet:
-          path: /readyz
-          port: 8081
-
-      # -- Service configuration
-      service:
-        # -- Service type
-        type: ClusterIP
-        # -- Service port for metrics
-        port: 8443
-        # -- Service target port
-        targetPort: metrics
-
-      # -- Service account configuration
-      serviceAccount:
-        # -- Name of the service account to use
-        # If not set, a name is generated using the deployment name
-        name: ""
-
-      # -- Environment variables to be set on the controller container
-      env: []
-
-      # -- Additional volumes to be mounted
-      extraVolumes: []
-
-      # -- Additional volume mounts
-      extraVolumeMounts: []
-
-      # -- Additional command line arguments
-      extraArgs: []
-
-      # -- Termination grace period in seconds
-      terminationGracePeriodSeconds: 10
+inferenceserviceConfig:
+  Example: |-
+    ################################
+    #                              #
+    #    EXAMPLE CONFIGURATION     #
+    #                              #
+    ################################
+    # This block is not actually functional configuration,
+    # but serves to illustrate the available configuration
+    # options and document them in a way that is accessible
+    # to users that `kubectl edit` this config map.
+    #
+    # These sample configuration options may be copied out of
+    # this example block and unindented to be in the data block
+    # to actually change the configuration.
+    # ====================================== EXPLAINERS CONFIGURATION ======================================
+    # Example
+    explainers: |-
+      {
+          "art": {
+              "image" : "kserve/art-explainer",
+              "defaultImageVersion": "latest"
+          }
+      }
+    # Art Explainer runtime configuration
+     explainers: |-
+       {
+           # Art explainer runtime configuration
+           "art": {
+               # image contains the default Art explainer serving runtime image uri.
+               "image" : "kserve/art-explainer",
+               # defautltImageVersion contains the Art explainer serving runtime default image version.
+               "defaultImageVersion": "latest"
+           }
+       }
+    # ====================================== ISVC CONFIGURATION ======================================
+    # Example - setting custom annotation
+     inferenceService: |-
+       {
+         "serviceAnnotationDisallowedList": [
+            "my.custom.annotation/1"
+         ],
+         "serviceLabelDisallowedList": [
+            "my.custom.label.1"
+         ]
+       }
+    # Example - setting custom annotation
+    inferenceService: |-
+      {
+        # ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative
+        # revisions, which prevents the reconciliation loop to be triggered if the annotations is
+        # configured here are used.
+        # Default values are:
+        #  "autoscaling.knative.dev/min-scale",
+        #  "autoscaling.knative.dev/max-scale",
+        #  "internal.serving.kserve.io/storage-initializer-sourceuri",
+        #  "kubectl.kubernetes.io/last-applied-configuration"
+        # Any new value will be appended to the list.
+        "serviceAnnotationDisallowedList": [
+          "my.custom.annotation/1"
+        ],
+        # ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions
+        # which prevents the reconciliation loop to be triggered if the labels is configured here are used.
+        "serviceLabelDisallowedList": [
+          "my.custom.label.1"
+        ]
+      }
+    # Example - setting custom resource
+    inferenceService: |-
+      {
+        "resource": {
+          "cpuLimit": "1",
+          "memoryLimit": "2Gi",
+          "cpuRequest": "1",
+          "memoryRequest": "2Gi"
+        }
+      }
+    # Example - setting custom resource
+    inferenceService: |-
+      {
+        # resource contains the default resource configuration for the inference service.
+        # you can override this configuration by specifying the resources in the inference service yaml.
+        # If you want to unbound the resource (limits and requests), you can set the value to null or ""
+        # or just remove the specific field from the config.
+        "resource": {
+           # cpuLimit is the limits.cpu to set for the inference service.
+           "cpuLimit": "1",
+           # memoryLimit is the limits.memory to set for the inference service.
+           "memoryLimit": "2Gi",
+           # cpuRequest is the requests.cpu to set for the inference service.
+           "cpuRequest": "1",
+           # memoryRequest is the requests.memory to set for the inference service.
+           "memoryRequest": "2Gi"
+        }
+     }
+    # ====================================== MultiNode CONFIGURATION ======================================
+    # Example
+    multiNode: |-
+      {
+        "customGPUResourceTypeList": [
+          "custom.com/gpu"
+        ]
+      }
+    # Example of multinode configuration
+    multiNode: |-
+      {
+        # CustomGPUResourceTypeList is a list of custom GPU resource types intended to identify the GPU type of a resource,
+        # not to restrict the user from using a specific GPU type.
+        # The MultiNode runtime pod will dynamically add GPU resources based on the registered GPU types.
+        "customGPUResourceTypeList": [
+          "custom.com/gpu"
+        ]
+      }
+     # ====================================== OTelCollector CONFIGURATION ======================================
+     # Example
+     opentelemetryCollector: |-
+       {
+         # scrapeInterval is the interval at which the OpenTelemetry Collector will scrape the metrics.
+         "scrapeInterval": "5s",
+         # metricScalerEndpoint is the endpoint from which the KEDA's ScaledObject will scrape the metrics.
+         "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318",
+         # metricReceiverEndpoint is the endpoint from which the OpenTelemetry Collector will scrape the metrics.
+          "metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317"
+       }
+     # ====================================== AUTOSCALER CONFIGURATION ======================================
+     # Example
+     autoscaler: |-
+       {
+         # scaleUpStabilizationWindowSeconds is the stabilization window in seconds for scale up.
+         "scaleUpStabilizationWindowSeconds": "0",
+         # scaleDownStabilizationWindowSeconds is the stabilization window in seconds for scale down.
+         "scaleDownStabilizationWindowSeconds": "300"
+       }
+     # ====================================== STORAGE INITIALIZER CONFIGURATION ======================================
+     # Example
+     storageInitializer: |-
+       {
+           "image" : "kserve/storage-initializer:latest",
+           "memoryRequest": "100Mi",
+           "memoryLimit": "1Gi",
+           "cpuRequest": "100m",
+           "cpuLimit": "1",
+           "caBundleConfigMapName": "",
+           "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+           "enableModelcar": false,
+           "cpuModelcar": "10m",
+           "memoryModelcar": "15Mi"
+       }
+     storageInitializer: |-
+       {
+           # image contains the default storage initializer image uri.
+           "image" : "kserve/storage-initializer:latest",
+           # memoryRequest is the requests.memory to set for the storage initializer init container.
+           "memoryRequest": "100Mi",
+            # memoryLimit is the limits.memory to set for the storage initializer init container.
+           "memoryLimit": "1Gi",
+           # cpuRequest is the requests.cpu to set for the storage initializer init container.
+           "cpuRequest": "100m",
+           # cpuLimit is the limits.cpu to set for the storage initializer init container.
+           "cpuLimit": "1",
+           # caBundleConfigMapName is the ConfigMap will be copied to a user namespace for the storage initializer init container.
+           "caBundleConfigMapName": "",
+           # caBundleVolumeMountPath is the mount point for the configmap set by caBundleConfigMapName for the storage initializer init container.
+           "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+           # enableModelcar enabled allows you to directly access an OCI container image by
+           # using a source URL with an "oci://" schema.
+           "enableModelcar": false,
+           # cpuModelcar is the cpu request and limit that is used for the passive modelcar container. It can be
+           # set very low, but should be allowed by any Kubernetes LimitRange that might apply.
+           "cpuModelcar": "10m",
+           # cpuModelcar is the memory request and limit that is used for the passive modelcar container. It can be
+           # set very low, but should be allowed by any Kubernetes LimitRange that might apply.
+           "memoryModelcar": "15Mi",
+           # uidModelcar is the UID under with which the modelcar process and the main container is running.
+           # Some Kubernetes clusters might require this to be root (0). If not set the user id is left untouched (default)
+           "uidModelcar": 10
+       }
+     # ====================================== CREDENTIALS ======================================
+     # Example
+     credentials: |-
+       {
+          "storageSpecSecretName": "storage-config",
+          "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
+          "gcs": {
+              "gcsCredentialFileName": "gcloud-application-credentials.json"
+          },
+          "s3": {
+              "s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
+              "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY",
+              "s3Endpoint": "",
+              "s3UseHttps": "",
+              "s3Region": "",
+              "s3VerifySSL": "",
+              "s3UseVirtualBucket": "",
+              "s3UseAccelerate": "",
+              "s3UseAnonymousCredential": "",
+              "s3CABundle": ""
+          }
+       }
+     # This is a global configuration used for downloading models from the cloud storage.
+     # You can override this configuration by specifying the annotations on service account or static secret.
+     # https://kserve.github.io/website/master/modelserving/storage/s3/s3/
+     # For a quick reference about AWS ENV variables:
+     # AWS Cli: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
+     # Boto: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#using-environment-variables
+     #
+     # The `s3AccessKeyIDName` and `s3SecretAccessKeyName` fields are only used from this configmap when static credentials (IAM User Access Key Secret)
+     # are used as the authentication method for AWS S3.
+     # The rest of the fields are used in both authentication methods (IAM Role for Service Account & IAM User Access Key Secret) if a non-empty value is provided.
+     credentials: |-
+       {
+          # storageSpecSecretName contains the secret name which has the credentials for downloading the model.
+          # This option is used when specifying the storage spec on isvc yaml.
+          "storageSpecSecretName": "storage-config",
+          # The annotation can be specified on isvc yaml to allow overriding with the secret name reference from the annotation value.
+          # When using storageUri the order of the precedence is: secret name reference annotation > secret name references from service account
+          # When using storageSpec the order of the precedence is: secret name reference annotation > storageSpecSecretName in configmap
+          # Configuration for google cloud storage
+          "gcs": {
+              # gcsCredentialFileName specifies the filename of the gcs credential
+              "gcsCredentialFileName": "gcloud-application-credentials.json"
+          },
+          # Configuration for aws s3 storage. This add the corresponding environmental variables to the storage initializer init container.
+          # For more info on s3 storage see https://kserve.github.io/website/master/modelserving/storage/s3/s3/
+          "s3": {
+              # s3AccessKeyIDName specifies the s3 access key id name
+              "s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
+              # s3SecretAccessKeyName specifies the s3 secret access key name
+              "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY",
+              # s3Endpoint specifies the s3 endpoint
+              "s3Endpoint": "",
+              # s3UseHttps controls whether to use secure https or unsecure http to download models.
+              # Allowed values are 0 and 1.
+              "s3UseHttps": "",
+              # s3Region specifies the region of the bucket.
+              "s3Region": "",
+              # s3VerifySSL controls whether to verify the tls/ssl certificate.
+              "s3VerifySSL": "",
+              # s3UseVirtualBucket configures whether it is a virtual bucket or not.
+              "s3UseVirtualBucket": "",
+              # s3UseAccelerate configures whether to use transfer acceleration.
+              "s3UseAccelerate": "",
+              # s3UseAnonymousCredential configures whether to use anonymous credentials to download the model or not.
+              "s3UseAnonymousCredential": "",
+              # s3CABundle specifies the path to a certificate bundle to use for HTTPS certificate validation.
+              "s3CABundle": ""
+          }
+       }
+     # ====================================== INGRESS CONFIGURATION ======================================
+     # Example
+     ingress: |-
+       {
+           "enableGatewayApi": false,
+           "kserveIngressGateway": "kserve/kserve-ingress-gateway",
+           "ingressGateway" : "knative-serving/knative-ingress-gateway",
+           "localGateway" : "knative-serving/knative-local-gateway",
+           "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
+           "ingressDomain"  : "example.com",
+           "additionalIngressDomains": ["additional-example.com", "additional-example-1.com"],
+           "ingressClassName" : "istio",
+           "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+           "urlScheme": "http",
+           "disableIstioVirtualHost": false,
+           "disableIngressCreation": false
+       }
+     ingress: |-
+       {
+           # enableGatewayApi specifies whether to use Gateway API instead of Ingress to serve external traffic.
+           "enableGatewayApi": false,
+           # KServe implements [Gateway API](https://gateway-api.sigs.k8s.io/) to serve external traffic.
+           # By default, KServe configures a default gateway to serve external traffic.
+           # But, KServe can be configured to use a custom gateway by modifying this configuration.
+           # The gateway should be specified in format <gateway namespace>/<gateway name>
+           # NOTE: This configuration only applicable for raw deployment.
+           "kserveIngressGateway": "kserve/kserve-ingress-gateway",
+           # ingressGateway specifies the ingress gateway to serve external traffic.
+           # The gateway should be specified in format <gateway namespace>/<gateway name>
+           # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
+           "ingressGateway" : "knative-serving/knative-ingress-gateway",
+           # knativeLocalGatewayService specifies the hostname of the Knative's local gateway service.
+           # The default KServe configurations are re-using the Istio local gateways for Knative. In this case, this
+           # knativeLocalGatewayService field can be left unset. When unset, the value of "localGatewayService" will be used.
+           # However, sometimes it may be better to have local gateways specifically for KServe (e.g. when enabling strict mTLS in Istio).
+           # Under such setups where KServe is needed to have its own local gateways, the values of the "localGateway" and
+           # "localGatewayService" should point to the KServe local gateways. Then, this knativeLocalGatewayService field
+           # should point to the Knative's local gateway service.
+           # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
+           "knativeLocalGatewayService": "",
+           # localGateway specifies the gateway which handles the network traffic within the cluster.
+           # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
+           "localGateway" : "knative-serving/knative-local-gateway",
+           # localGatewayService specifies the hostname of the local gateway service.
+           # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
+           "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
+           # ingressDomain specifies the domain name which is used for creating the url.
+           # If ingressDomain is empty then example.com is used as default domain.
+           # NOTE: This configuration only applicable for raw deployment.
+           "ingressDomain"  : "example.com",
+           # additionalIngressDomains specifies the additional domain names which are used for creating the url.
+           "additionalIngressDomains": ["additional-example.com", "additional-example-1.com"]
+           # ingressClassName specifies the ingress controller to use for ingress traffic.
+           # This is optional and if omitted the default ingress in the cluster is used.
+           # https://kubernetes.io/docs/concepts/services-networking/ingress/#default-ingress-class
+           # NOTE: This configuration only applicable for raw deployment.
+           "ingressClassName" : "istio",
+           # domainTemplate specifies the template for generating domain/url for each inference service by combining variable from:
+           # Name of the inference service  ( {{ .Name}} )
+           # Namespace of the inference service ( {{ .Namespace }} )
+           # Annotation of the inference service ( {{ .Annotations.key }} )
+           # Label of the inference service ( {{ .Labels.key }} )
+           # IngressDomain ( {{ .IngressDomain }} )
+           # If domain template is empty the default template {{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }} is used.
+           # NOTE: This configuration only applicable for raw deployment.
+           "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+           # urlScheme specifies the url scheme to use for inference service and inference graph.
+           # If urlScheme is empty then by default http is used.
+           "urlScheme": "http",
+           # disableIstioVirtualHost controls whether to use istio as network layer.
+           # By default istio is used as the network layer. When DisableIstioVirtualHost is true, KServe does not
+           # create the top level virtual service thus Istio is no longer required for serverless mode.
+           # By setting this field to true, user can use other networking layers supported by knative.
+           # For more info https://github.com/kserve/kserve/pull/2380, https://kserve.github.io/website/master/admin/serverless/kourier_networking/.
+           # NOTE: This configuration is only applicable to serverless deployment.
+           "disableIstioVirtualHost": false,
+           # disableIngressCreation controls whether to disable ingress creation for raw deployment mode.
+           "disableIngressCreation": false,
+           # pathTemplate specifies the template for generating path based url for each inference service.
+           # The following variables can be used in the template for generating url.
+           # Name of the inference service  ( {{ .Name}} )
+           # Namespace of the inference service ( {{ .Namespace }} )
+           # For more info https://github.com/kserve/kserve/issues/2257.
+           # NOTE: This configuration only applicable to serverless deployment.
+           "pathTemplate": "/serving/{{ .Namespace }}/{{ .Name }}"
+       }
+     # ====================================== LOGGER CONFIGURATION ======================================
+     # Example
+     logger: |-
+       {
+           "image" : "kserve/agent:latest",
+           "memoryRequest": "100Mi",
+           "memoryLimit": "1Gi",
+           "cpuRequest": "100m",
+           "cpuLimit": "1",
+           "defaultUrl": "http://default-broker"
+       }
+     logger: |-
+       {
+           # image contains the default logger image uri.
+           "image" : "kserve/agent:latest",
+           # memoryRequest is the requests.memory to set for the logger container.
+           "memoryRequest": "100Mi",
+           # memoryLimit is the limits.memory to set for the logger container.
+           "memoryLimit": "1Gi",
+           # cpuRequest is the requests.cpu to set for the logger container.
+           "cpuRequest": "100m",
+           # cpuLimit is the limits.cpu to set for the logger container.
+           "cpuLimit": "1",
+           # defaultUrl specifies the default logger url. If logger is not specified in the resource this url is used.
+           "defaultUrl": "http://default-broker"
+       }
+     # ====================================== BATCHER CONFIGURATION ======================================
+     # Example
+     batcher: |-
+       {
+           "image" : "kserve/agent:latest",
+           "memoryRequest": "1Gi",
+           "memoryLimit": "1Gi",
+           "cpuRequest": "1",
+           "cpuLimit": "1",
+           "maxBatchSize": "32",
+           "maxLatency": "5000"
+       }
+     batcher: |-
+       {
+           # image contains the default batcher image uri.
+           "image" : "kserve/agent:latest",
+           # memoryRequest is the requests.memory to set for the batcher container.
+           "memoryRequest": "1Gi",
+           # memoryLimit is the limits.memory to set for the batcher container.
+           "memoryLimit": "1Gi",
+           # cpuRequest is the requests.cpu to set for the batcher container.
+           "cpuRequest": "1",
+           # cpuLimit is the limits.cpu to set for the batcher container.
+           "cpuLimit": "1"
+           # maxBatchSize is the default maximum batch size for batcher.
+           "maxBatchSize": "32",
+           # maxLatency is the default maximum latency in milliseconds for batcher to wait and collect the batch.
+           "maxLatency": "5000"
+       }
+     # ====================================== AGENT CONFIGURATION ======================================
+     # Example
+     agent: |-
+       {
+           "image" : "kserve/agent:latest",
+           "memoryRequest": "100Mi",
+           "memoryLimit": "1Gi",
+           "cpuRequest": "100m",
+           "cpuLimit": "1"
+       }
+     agent: |-
+       {
+           # image contains the default agent image uri.
+           "image" : "kserve/agent:latest",
+           # memoryRequest is the requests.memory to set for the agent container.
+           "memoryRequest": "100Mi",
+           # memoryLimit is the limits.memory to set for the agent container.
+           "memoryLimit": "1Gi",
+           # cpuRequest is the requests.cpu to set for the agent container.
+           "cpuRequest": "100m",
+           # cpuLimit is the limits.cpu to set for the agent container.
+           "cpuLimit": "1"
+       }
+     # ====================================== ROUTER CONFIGURATION ======================================
+     # Example
+     router: |-
+       {
+           "image" : "kserve/router:latest",
+           "memoryRequest": "100Mi",
+           "memoryLimit": "1Gi",
+           "cpuRequest": "100m",
+           "cpuLimit": "1",
+           "headers": {
+             "propagate": []
+           },
+           "imagePullPolicy": "IfNotPresent",
+           "imagePullSecrets": ["docker-secret"]
+       }
+     # router is the implementation of inference graph.
+     router: |-
+       {
+           # image contains the default router image uri.
+           "image" : "kserve/router:latest",
+           # memoryRequest is the requests.memory to set for the router container.
+           "memoryRequest": "100Mi",
+           # memoryLimit is the limits.memory to set for the router container.
+           "memoryLimit": "1Gi",
+           # cpuRequest is the requests.cpu to set for the router container.
+           "cpuRequest": "100m",
+           # cpuLimit is the limits.cpu to set for the router container.
+           "cpuLimit": "1",
+           # Propagate the specified headers to all the steps specified in an InferenceGraph.
+           # You can either specify the exact header names or use [Golang supported regex patterns]
+           # (https://pkg.go.dev/regexp/syntax@go1.21.3#hdr-Syntax) to propagate multiple headers.
+           "headers": {
+             "propagate": [
+                "Authorization",
+                "Test-Header-*",
+                "*Trace-Id*"
+             ]
+           }
+           # imagePullPolicy specifies when the router image should be pulled from registry.
+           "imagePullPolicy": "IfNotPresent",
+           # # imagePullSecrets specifies the list of secrets to be used for pulling the router image from registry.
+           # https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+           "imagePullSecrets": ["docker-secret"]
+       }
+    # ====================================== DEPLOYMENT CONFIGURATION ======================================
+    # Example
+    deploy: |-
+      {
+        "defaultDeploymentMode": "Serverless",
+        "deploymentRolloutStrategy": {
+          "defaultRollout": {
+            "maxSurge": "1",
+            "maxUnavailable": "1"
+          }
+        }
+      }
+    deploy: |-
+      {
+        # defaultDeploymentMode specifies the default deployment mode of the kserve. The supported values are
+        # Standard and Knative. Users can override the deployment mode at service level
+        # by adding the annotation serving.kserve.io/deploymentMode.
+        # "defaultDeploymentMode": "Standard",
+        # deploymentRolloutStrategy specifies the default rollout strategy for the Standard deployment mode
+        # "deploymentRolloutStrategy": {
+          # defaultRollout specifies the default rollout configuration using Kubernetes deployment strategy
+          # "defaultRollout": {
+            # maxSurge specifies the maximum number of pods that can be created above the desired replica count
+            # Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%)
+            # "maxSurge": "1",
+            # maxUnavailable specifies the maximum number of pods that can be unavailable during the update
+            # Can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%)
+            # "maxUnavailable": "1"
+          # }
+        # }
+      }
+     # ====================================== SERVICE CONFIGURATION ======================================
+     # Example
+     service: |-
+       {
+         "serviceClusterIPNone":  false
+       }
+     service: |-
+       {
+          # ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None.
+          # If the DeploymentMode is Raw, the default value for ServiceClusterIPNone if not set is false
+          # "serviceClusterIPNone":  false
+       }
+     # ====================================== METRICS CONFIGURATION ======================================
+     # Example
+     metricsAggregator: |-
+       {
+         "enableMetricAggregation": "false",
+         "enablePrometheusScraping" : "false"
+       }
+     # For more info see https://github.com/kserve/kserve/blob/master/qpext/README.md
+     metricsAggregator: |-
+       {
+         # enableMetricAggregation configures metric aggregation annotation. This adds the annotation serving.kserve.io/enable-metric-aggregation to every
+         # service with the specified boolean value. If true enables metric aggregation in queue-proxy by setting env vars in the queue proxy container
+         # to configure scraping ports.
+         "enableMetricAggregation": "false",
+         # enablePrometheusScraping configures metric aggregation annotation. This adds the annotation serving.kserve.io/enable-metric-aggregation to every
+         # service with the specified boolean value. If true, prometheus annotations are added to the pod. If serving.kserve.io/enable-metric-aggregation is false,
+         # the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port.
+         "enablePrometheusScraping" : "false"
+       }
+     # ====================================== LOCALMODEL CONFIGURATION ======================================
+     # Example
+     localModel: |-
+       {
+         "enabled": false,
+         # jobNamespace specifies the namespace where the download job will be created.
+         "jobNamespace": "kserve-localmodel-jobs",
+         # defaultJobImage specifies the default image used for the download job.
+         "defaultJobImage" : "kserve/storage-initializer:latest",
+         # Kubernetes modifies the filesystem group ID on the attached volume.
+         "fsGroup": 1000,
+         # TTL for the download job after it is finished.
+         "jobTTLSecondsAfterFinished": 3600,
+         # The frequency at which the local model agent reconciles the local models
+         # This is to detect if models are missing from local disk
+         "reconcilationFrequencyInSecs": 60,
+         # This is to disable localmodel pv and pvc management for namespaces without isvcs
+         "disableVolumeManagement": false
+       }
+  agent: |-
+    {
+        "image" : "kserve/agent:latest",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }
+  autoscaler: |-
+    {
+      "scaleUpStabilizationWindowSeconds": "0",
+      "scaleDownStabilizationWindowSeconds": "300"
+    }
+  batcher: |-
+    {
+        "image" : "kserve/agent:latest",
+        "memoryRequest": "1Gi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "1",
+        "cpuLimit": "1",
+        "maxBatchSize": "32",
+        "maxLatency": "5000"
+    }
+  credentials: |-
+    {
+       "storageSpecSecretName": "storage-config",
+       "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
+       "gcs": {
+           "gcsCredentialFileName": "gcloud-application-credentials.json"
+       },
+       "s3": {
+           "s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
+           "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY",
+           "s3Endpoint": "",
+           "s3UseHttps": "",
+           "s3Region": "",
+           "s3VerifySSL": "",
+           "s3UseVirtualBucket": "",
+           "s3UseAccelerate": "",
+           "s3UseAnonymousCredential": "",
+           "s3CABundle": ""
+       }
+    }
+  deploy: |-
+    {
+      "defaultDeploymentMode": "Serverless"
+    }
+  explainers: |-
+    {
+        "art": {
+            "image" : "kserve/art-explainer",
+            "defaultImageVersion": "latest"
+        }
+    }
+  inferenceService: |-
+    {
+      "resource": {
+          "cpuLimit": "1",
+          "memoryLimit": "2Gi",
+          "cpuRequest": "1",
+          "memoryRequest": "2Gi"
+        }
+    }
+  ingress: |-
+    {
+        "enableGatewayApi": false,
+        "kserveIngressGateway": "kserve/kserve-ingress-gateway",
+        "ingressGateway" : "knative-serving/knative-ingress-gateway",
+        "localGateway" : "knative-serving/knative-local-gateway",
+        "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
+        "ingressDomain"  : "example.com",
+        "ingressClassName" : "istio",
+        "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+        "urlScheme": "http",
+        "disableIstioVirtualHost": false,
+        "disableIngressCreation": false
+    }
+  localModel: |-
+    {
+      "enabled": false,
+      "jobNamespace": "kserve-localmodel-jobs",
+      "defaultJobImage" : "kserve/storage-initializer:latest",
+      "fsGroup": 1000
+    }
+  logger: |-
+    {
+        "image" : "kserve/agent:latest",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "defaultUrl": "http://default-broker"
+    }
+  metricsAggregator: |-
+    {
+      "enableMetricAggregation": "false",
+      "enablePrometheusScraping" : "false"
+    }
+  opentelemetryCollector: |-
+    {
+      "scrapeInterval": "5s",
+      "metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
+      "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318",
+      "resource": {
+          "cpuLimit": "1",
+          "memoryLimit": "2Gi",
+          "cpuRequest": "200m",
+          "memoryRequest": "512Mi"
+      }
+    }
+  router: |-
+    {
+        "image" : "kserve/router:latest",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "imagePullPolicy": "IfNotPresent"
+    }
+  security: |-
+    {
+      "autoMountServiceAccountToken": true
+    }
+  storageInitializer: |-
+    {
+        "image" : "kserve/storage-initializer:latest",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "caBundleConfigMapName": "",
+        "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+        "enableModelcar": true,
+        "cpuModelcar": "10m",
+        "memoryModelcar": "15Mi",
+        "uidModelcar": 1010
+    }
+kubernetesClusterDomain: cluster.local
+llmisvcControllerManager:
+  manager:
+    args:
+    - --metrics-addr=127.0.0.1:8443
+    - --leader-elect
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 1000
+      seccompProfile:
+        type: RuntimeDefault
+    image:
+      repository: kserve/llmisvc-controller
+      tag: latest
+    imagePullPolicy: Always
+    resources:
+      limits:
+        cpu: 100m
+        memory: 300Mi
+      requests:
+        cpu: 100m
+        memory: 300Mi
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  replicas: 1
+  serviceAccount:
+    annotations: {}
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+llmisvcControllerManagerService:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: metrics
+  type: ClusterIP
+llmisvcWebhookServerService:
+  ports:
+  - port: 443
+    targetPort: webhook-server
+  type: ClusterIP

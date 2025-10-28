@@ -8,12 +8,12 @@ data:
     {
         "art": {
             "image" : "kserve/art-explainer",
-            "defaultImageVersion": "latest"
+            "defaultImageVersion": ""
         }
     }
   storageInitializer: |-
     {
-        "image" : "kserve/storage-initializer:latest",
+        "image" : "kserve/storage-initializer:",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -45,7 +45,7 @@ data:
     }
   logger: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "kserve/agent:",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -54,7 +54,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "kserve/agent:",
         "memoryRequest": "100Mi",
         "memoryLimit": "500Mi",
         "cpuRequest": "100m",
@@ -62,7 +62,7 @@ data:
     }
   agent: |-
     {
-        "image" : "kserve/agent:latest",
+        "image" : "kserve/agent:",
         "memoryRequest": "100Mi",
         "memoryLimit": "500Mi",
         "cpuRequest": "100m",
@@ -75,7 +75,7 @@ data:
     }
   router: |-
     {
-        "image" : "kserve/router:latest",
+        "image" : "kserve/router:",
         "memoryRequest": "100Mi",
         "memoryLimit": "500Mi",
         "cpuRequest": "100m",

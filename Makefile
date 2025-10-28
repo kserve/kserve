@@ -170,6 +170,104 @@ manifests: controller-gen yq
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/llmisvc-crd/templates/
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/llmisvc-crd/templates/
 
+.PHONY: helm-generate
+helm-generate:
+	@echo "=========================================="
+	@echo "Generating Helm charts (100% automated)"
+	@echo "=========================================="
+	@mkdir -p build/helm-tmp
+
+	# Generate everything from Kustomize
+	@echo "Generating all templates from Kustomize..."
+	@kubectl kustomize config/llmisvc > build/helm-tmp/llmisvc.yaml
+	@cat build/helm-tmp/llmisvc.yaml | helmify build/helm-tmp/llmisvc-chart
+
+	# Escape embedded Go templates
+	@echo "Escaping KServe-specific Go templates..."
+	@./hack/escape_helm_templates.py build/helm-tmp/llmisvc-chart/templates/*.yaml
+
+	# Fix chart references
+	@echo "Fixing chart references..."
+	@for file in build/helm-tmp/llmisvc-chart/templates/*.yaml build/helm-tmp/llmisvc-chart/templates/_helpers.tpl; do \
+		sed -i 's/llmisvc-chart\./llm-isvc-resources./g' "$$file"; \
+	done
+
+	# Fix resource names (remove fullname prefix from ALL resources)
+	@echo "Fixing resource names (removing Helm fullname prefix)..."
+	@for file in build/helm-tmp/llmisvc-chart/templates/*.yaml; do \
+		sed -i "s/name: {{ include \"llm-isvc-resources\.fullname\" \. }}-\(.*\)/name: \1/g" "$$file"; \
+		sed -i "s/name: '{{ include \"llm-isvc-resources\.fullname\" \. }}-\(.*\)'/name: \1/g" "$$file"; \
+		sed -i "s/serviceAccountName: {{ include \"llm-isvc-resources\.fullname\" \. }}-\(.*\)/serviceAccountName: \1/g" "$$file"; \
+		sed -i "s/{{ include \"llm-isvc-resources\.fullname\" \. }}-\([a-z-]*\)\.{{/\1.{{/g" "$$file"; \
+		sed -i "s|{{ .Release.Namespace }}/{{ include \"llm-isvc-resources\.fullname\" \. }}-\(.*\)|{{ .Release.Namespace }}/\1|g" "$$file"; \
+	done
+
+	# Copy EVERYTHING to actual chart (100% automated)
+	@echo "Copying all generated templates and values..."
+	@rm -rf charts/llmisvc-resources/templates/*
+	@cp -r build/helm-tmp/llmisvc-chart/templates/* charts/llmisvc-resources/templates/
+	@cp build/helm-tmp/llmisvc-chart/values.yaml charts/llmisvc-resources/values.yaml
+	@echo "Note: Chart.yaml is preserved (contains version and metadata)"
+
+	# Rename files to original naming convention
+	@echo "Renaming files to original naming convention..."
+	
+	# 1. Remove "kserve-" prefix from config files
+	@for file in charts/llmisvc-resources/templates/kserve-config-llm-*.yaml; do \
+		[ -f "$$file" ] && mv "$$file" "$${file/kserve-config-llm-/config-llm-}" || true; \
+	done
+	
+	# 2. Rename llmisvc-serving-cert.yaml to certificate.yaml
+	@[ -f charts/llmisvc-resources/templates/llmisvc-serving-cert.yaml ] && \
+		mv charts/llmisvc-resources/templates/llmisvc-serving-cert.yaml \
+		   charts/llmisvc-resources/templates/certificate.yaml || true
+	
+	# 3. Rename llmisvc-leader-election-rbac.yaml to leader_election_role.yaml
+	@[ -f charts/llmisvc-resources/templates/llmisvc-leader-election-rbac.yaml ] && \
+		mv charts/llmisvc-resources/templates/llmisvc-leader-election-rbac.yaml \
+		   charts/llmisvc-resources/templates/leader_election_role.yaml || true
+	
+	# 4. Combine the two service files into service.yaml
+	@echo "Combining service files..."
+	@if [ -f charts/llmisvc-resources/templates/llmisvc-controller-manager-service.yaml ] && \
+	    [ -f charts/llmisvc-resources/templates/llmisvc-webhook-server-service.yaml ]; then \
+		cat charts/llmisvc-resources/templates/llmisvc-controller-manager-service.yaml > charts/llmisvc-resources/templates/service.yaml; \
+		echo "---" >> charts/llmisvc-resources/templates/service.yaml; \
+		cat charts/llmisvc-resources/templates/llmisvc-webhook-server-service.yaml >> charts/llmisvc-resources/templates/service.yaml; \
+		rm -f charts/llmisvc-resources/templates/llmisvc-controller-manager-service.yaml; \
+		rm -f charts/llmisvc-resources/templates/llmisvc-webhook-server-service.yaml; \
+	fi
+	
+	# 5. Combine the two webhook configuration files into webhookconfiguration.yaml
+	@echo "Combining webhook configuration files..."
+	@if [ -f charts/llmisvc-resources/templates/llminferenceservice.serving.kserve.io.yaml ] && \
+	    [ -f charts/llmisvc-resources/templates/llminferenceserviceconfig.serving.kserve.io.yaml ]; then \
+		cat charts/llmisvc-resources/templates/llminferenceservice.serving.kserve.io.yaml > charts/llmisvc-resources/templates/webhookconfiguration.yaml; \
+		echo "---" >> charts/llmisvc-resources/templates/webhookconfiguration.yaml; \
+		cat charts/llmisvc-resources/templates/llminferenceserviceconfig.serving.kserve.io.yaml >> charts/llmisvc-resources/templates/webhookconfiguration.yaml; \
+		rm -f charts/llmisvc-resources/templates/llminferenceservice.serving.kserve.io.yaml; \
+		rm -f charts/llmisvc-resources/templates/llminferenceserviceconfig.serving.kserve.io.yaml; \
+	fi
+	
+	# 6. Rename llmisvc-manager-rbac.yaml to clusterrole.yaml (contains ClusterRole + ClusterRoleBinding)
+	@[ -f charts/llmisvc-resources/templates/llmisvc-manager-rbac.yaml ] && \
+		mv charts/llmisvc-resources/templates/llmisvc-manager-rbac.yaml \
+		   charts/llmisvc-resources/templates/clusterrole.yaml || true
+	
+	# 7. Rename inferenceservice-config.yaml to inferenceservice.yaml
+	@[ -f charts/llmisvc-resources/templates/inferenceservice-config.yaml ] && \
+		mv charts/llmisvc-resources/templates/inferenceservice-config.yaml \
+		   charts/llmisvc-resources/templates/inferenceservice.yaml || true
+
+	# Validate
+	@echo "Validating Helm chart..."
+	@helm lint charts/llmisvc-resources
+	@helm template test charts/llmisvc-resources --dry-run > /dev/null
+
+	@echo "✅ Helm chart fully generated (100% automated, 0% manual)"
+	
+	@echo "✅ Helm templates updated successfully"
+
 # Generate code
 generate: controller-gen helm-docs
 	hack/update-codegen.sh
