@@ -36,7 +36,6 @@ type ParquetMarshaller struct{}
 
 // buildArrowSchema defines the Arrow schema that matches ParquetLogRequest.
 func (p *ParquetMarshaller) buildArrowSchema() *arrow.Schema {
-	// Define the main schema
 	schema := arrow.NewSchema([]arrow.Field{
 		{Name: "url", Type: arrow.BinaryTypes.String, Nullable: true},
 		{Name: "bytes", Type: arrow.BinaryTypes.Binary, Nullable: true},
@@ -57,7 +56,6 @@ func (p *ParquetMarshaller) buildArrowSchema() *arrow.Schema {
 	return schema
 }
 
-// Marshal converts a slice of LogRequest types into a byte slice of a Parquet file.
 func (p *ParquetMarshaller) Marshal(v []types.LogRequest) ([]byte, error) {
 	schema := p.buildArrowSchema()
 	pool := memory.NewGoAllocator()
@@ -78,7 +76,7 @@ func (p *ParquetMarshaller) Marshal(v []types.LogRequest) ([]byte, error) {
 	certNameB := builder.Field(12).(*array.StringBuilder)
 	tlsSkipVerifyB := builder.Field(13).(*array.BooleanBuilder)
 	for i := range v {
-		req := &v[i] // Use pointer to avoid copying large byte slices
+		req := &v[i]
 		if req.Url != nil {
 			urlB.Append(req.Url.String())
 		} else {
