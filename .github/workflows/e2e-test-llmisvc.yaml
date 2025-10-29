@@ -72,11 +72,6 @@ jobs:
           echo "Images in minikube:"
           minikube image ls | grep llmisvc-controller || echo "No llmisvc-controller images found"
 
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: "latest"
-
       - name: Configure MetalLB for LoadBalancer services
         run: |
           echo "🔧 Configuring MetalLB for LoadBalancer services..."
