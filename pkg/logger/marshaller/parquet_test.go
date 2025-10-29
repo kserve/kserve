@@ -85,6 +85,5 @@ func TestParquetMarshalling(t *testing.T) {
 		}
 	}
 
-	// Verify the number of rows
 	g.Expect(totalRows).To(gomega.Equal(int64(2)))
 }
