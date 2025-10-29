@@ -1,6 +1,6 @@
 # Script Guidelines
 
-Guidelines for writing infrastructure installation scripts.
+Guidelines for writing infrastructure installation scripts that integrate with the KServe installation script generator(TBD).
 
 ## Quick Reference
 
@@ -254,39 +254,3 @@ Run the validator to see detailed error messages with rule IDs (e.g., `TEMPLATE-
 # Custom args
 COMPONENT_EXTRA_ARGS="--set foo=bar" ./manage.component.sh
 ```
-
----
-
-## Generator Integration
-
-Scripts following these guidelines auto-generate into quick-install scripts.
-
-**Definition file** (`.definition`):
-```yaml
-FILE_NAME: llmisvc-quick-install
-DESCRIPTION: Install LLM InferenceService dependencies and components
-METHOD: helm
-RELEASE: true
-
-COMPONENTS:
-  - name: cert-manager
-  - name: kserve-helm
-    env:
-      LLMISVC: "true"
-```
-
-**Generate**:
-```bash
-./scripts/generate-install-script.py quick-install/definitions/llmisvc-install.definition
-```
-
-**What happens**:
-1. Extracts VARIABLES from each component script
-2. Extracts INCLUDE sections (placed before component functions)
-3. Renames `install()` → `install_<component>()`
-4. If `RELEASE: true`, embeds Kubernetes manifests from kustomize
-5. Creates single-file installer with all dependencies
-
-**Result**: Standalone installer that works without the repository.
-
----

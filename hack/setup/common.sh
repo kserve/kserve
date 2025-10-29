@@ -67,16 +67,35 @@ detect_arch() {
     echo "$arch"
 }
 
+# Color codes (disable if NO_COLOR is set or not a terminal)
+if [[ -z "${NO_COLOR:-}" ]] && [[ -t 1 ]]; then
+    BLUE='\033[94m'
+    GREEN='\033[92m'
+    RED='\033[91m'
+    YELLOW='\033[93m'
+    RESET='\033[0m'
+else
+    BLUE=''
+    GREEN=''
+    RED=''
+    YELLOW=''
+    RESET=''
+fi
+
 log_info() {
-    echo "[INFO] $*"
+    echo -e "${BLUE}[INFO]${RESET} $*"
 }
 
 log_error() {
-    echo "[ERROR] $*" >&2
+    echo -e "${RED}[ERROR]${RESET} $*" >&2
 }
 
 log_success() {
-    echo "[SUCCESS] $*"
+    echo -e "${GREEN}[SUCCESS]${RESET} $*"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${RESET} $*"
 }
 
 

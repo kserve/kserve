@@ -64,28 +64,34 @@ check_cli_exist kubectl
 # KSERVE_NAMESPACE is defined in global-vars.env
 KSERVE_CRD_DIR="${REPO_ROOT}/config/crd"
 KSERVE_CONFIG_DIR="${REPO_ROOT}/config/default"
+TARGET_POD_LABELS=(
+    "control-plane=kserve-controller-manager"
+    "app.kubernetes.io/name=kserve-localmodel-controller-manager"
+    "app.kubernetes.io/name=llmisvc-controller-manager"
+)
 DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-Knative}"
 LLMISVC="${LLMISVC:-false}"
-RELEASE="${RELEASE:-false}"
+EMBED_MANIFESTS="${EMBED_MANIFESTS:-false}"
 # VARIABLES END
 
 # INCLUDE_IN_GENERATED_SCRIPT_START
-# Set CRD/Config directories based on LLMISVC
+# Set CRD/Config directories and target pod labels based on LLMISVC
 if [ "${LLMISVC}" = "true" ]; then
     KSERVE_CRD_DIR="${REPO_ROOT}/config/crd/llmisvc"
     KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/llmisvc"
+    TARGET_POD_LABELS=("app.kubernetes.io/name=llmisvc-controller-manager")
 fi
 # INCLUDE_IN_GENERATED_SCRIPT_END
 
 uninstall() {
     log_info "Uninstalling KServe..."
 
-    # RELEASE mode: use embedded manifests
-    if [ "$RELEASE" = "true" ]; then
+    # EMBED_MANIFESTS: use embedded manifests
+    if [ "$EMBED_MANIFESTS" = "true" ]; then
         if type uninstall_kserve_manifest &>/dev/null; then
             uninstall_kserve_manifest
         else
-            log_error "RELEASE mode enabled but uninstall_kserve_manifest function not found"
+            log_error "EMBED_MANIFESTS enabled but uninstall_kserve_manifest function not found"
             log_error "This script should be called from a generated installation script"
             exit 1
         fi
@@ -114,15 +120,15 @@ install() {
         fi
     fi
 
-    # RELEASE mode: use embedded manifests from generated script
-    if [ "$RELEASE" = "true" ]; then
-        log_info "Installing KServe using embedded manifests (RELEASE mode)..."
+    # EMBED_MANIFESTS: use embedded manifests from generated script
+    if [ "$EMBED_MANIFESTS" = "true" ]; then
+        log_info "Installing KServe using embedded manifests..."
 
         # Call manifest functions (these should be available in generated script)
         if type install_kserve_manifest &>/dev/null; then
             install_kserve_manifest
         else
-            log_error "RELEASE mode enabled but install_kserve_manifest function not found"
+            log_error "EMBED_MANIFESTS enabled but install_kserve_manifest function not found"
             log_error "This script should be called from a generated installation script"
             exit 1
         fi
@@ -160,9 +166,9 @@ install() {
 
     # Wait for all controller managers to be ready
     log_info "Waiting for KServe controllers to be ready..."
-    wait_for_pods "${KSERVE_NAMESPACE}" "control-plane=kserve-controller-manager" "300s"
-    wait_for_pods "${KSERVE_NAMESPACE}" "app.kubernetes.io/name=kserve-localmodel-controller-manager" "300s"
-    wait_for_pods "${KSERVE_NAMESPACE}" "app.kubernetes.io/name=llmisvc-controller-manager" "300s"
+    for label in "${TARGET_POD_LABELS[@]}"; do
+        wait_for_pods "${KSERVE_NAMESPACE}" "${label}" "300s"
+    done
 
     log_success "KServe is ready!"
 }

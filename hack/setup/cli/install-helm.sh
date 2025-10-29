@@ -25,15 +25,15 @@ install() {
     local archive_name="helm-${HELM_VERSION}-${os}-${arch}.tar.gz"
     local download_url="https://get.helm.sh/${archive_name}"
 
-    echo "Installing Helm ${HELM_VERSION} for ${os}/${arch}..."
+    log_info "Installing Helm ${HELM_VERSION} for ${os}/${arch}..."
 
     if command -v helm &>/dev/null; then
         local current_version=$(helm version --template='{{.Version}}' 2>/dev/null)
         if [[ -n "$current_version" ]] && version_gte "$current_version" "$HELM_VERSION"; then
-            echo "Helm ${current_version} is already installed (>= ${HELM_VERSION})"
+            log_info "Helm ${current_version} is already installed (>= ${HELM_VERSION})"
             return 0
         fi
-        [[ -n "$current_version" ]] && echo "Upgrading Helm from ${current_version} to ${HELM_VERSION}..."
+        [[ -n "$current_version" ]] && log_info "Upgrading Helm from ${current_version} to ${HELM_VERSION}..."
     fi
 
     local temp_dir=$(mktemp -d)
@@ -44,7 +44,7 @@ install() {
     elif command -v curl &>/dev/null; then
         curl -sL "${download_url}" -o "${temp_file}"
     else
-        echo "Error: Neither wget nor curl is available" >&2
+        log_error "Neither wget nor curl is available" >&2
         rm -rf "${temp_dir}"
         exit 1
     fi
@@ -54,7 +54,7 @@ install() {
     local binary_path="${temp_dir}/${os}-${arch}/helm"
 
     if [[ ! -f "${binary_path}" ]]; then
-        echo "Error: helm binary not found in archive" >&2
+        log_error "helm binary not found in archive" >&2
         rm -rf "${temp_dir}"
         exit 1
     fi
@@ -69,7 +69,7 @@ install() {
 
     rm -rf "${temp_dir}"
 
-    echo "Successfully installed Helm ${HELM_VERSION} to ${BIN_DIR}/helm"
+    log_success "Successfully installed Helm ${HELM_VERSION} to ${BIN_DIR}/helm"
     helm version
 }
 
