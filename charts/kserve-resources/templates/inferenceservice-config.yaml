@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "kserve-resources.fullname" . }}-inferenceservice-config
+  name: inferenceservice-config
   labels:
   {{- include "kserve-resources.labels" . | nindent 4 }}
 data:

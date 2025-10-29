@@ -19,10 +19,17 @@ def fix_certificate_file(filepath, service_name):
     # Pattern 2: llmisvc-webhook-server-service (no namespace before -webhook)
     pattern2 = r"- '{{ include \"{{ .Release.Namespace }}-chart.fullname\" . }}-llmisvc-webhook-server-service.{{\s+.Release.Namespace }}.svc'"
 
-    replacement = f'- {service_name}.{{{{ .Release.Namespace }}}}.svc'
+    # Use fullname template for service name to match actual deployed service
+    replacement = f'- {{{{ include "kserve-resources.fullname" . }}}}-{service_name}.{{{{ .Release.Namespace }}}}.svc'
 
     content = re.sub(pattern1, replacement, content)
     content = re.sub(pattern2, replacement, content)
+
+    # Also fix commonName to match the fullname pattern
+    # Pattern matches hardcoded service names like "kserve-webhook-server-service.kserve.svc"
+    commonname_pattern = rf"commonName: {service_name}\.\w+\.svc"
+    commonname_replacement = f"commonName: {{{{ include \"kserve-resources.fullname\" . }}}}-{service_name}.{{{{ .Release.Namespace }}}}.svc"
+    content = re.sub(commonname_pattern, commonname_replacement, content)
 
     with open(filepath, 'w') as f:
         f.write(content)

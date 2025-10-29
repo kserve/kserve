@@ -5,9 +5,9 @@ metadata:
   labels:
   {{- include "kserve-resources.labels" . | nindent 4 }}
 spec:
-  commonName: llmisvc-webhook-server-service.kserve.svc
+  commonName: {{ include "kserve-resources.fullname" . }}-llmisvc-webhook-server-service.{{ .Release.Namespace }}.svc
   dnsNames:
-  - llmisvc-webhook-server-service.{{ .Release.Namespace }}.svc
+  - {{ include "kserve-resources.fullname" . }}-llmisvc-webhook-server-service.{{ .Release.Namespace }}.svc
   issuerRef:
     kind: Issuer
     name: '{{ include "kserve-resources.fullname" . }}-selfsigned-issuer'

@@ -32,6 +32,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0-rc1
 | inferenceserviceConfig.router | string | `"{\n    \"image\" : \"kserve/router:latest\",\n    \"memoryRequest\": \"100Mi\",\n    \"memoryLimit\": \"1Gi\",\n    \"cpuRequest\": \"100m\",\n    \"cpuLimit\": \"1\",\n    \"imagePullPolicy\": \"IfNotPresent\"\n}"` |  |
 | inferenceserviceConfig.security | string | `"{\n  \"autoMountServiceAccountToken\": true\n}"` |  |
 | inferenceserviceConfig.storageInitializer | string | `"{\n    \"image\" : \"kserve/storage-initializer:latest\",\n    \"memoryRequest\": \"100Mi\",\n    \"memoryLimit\": \"1Gi\",\n    \"cpuRequest\": \"100m\",\n    \"cpuLimit\": \"1\",\n    \"caBundleConfigMapName\": \"\",\n    \"caBundleVolumeMountPath\": \"/etc/ssl/custom-certs\",\n    \"enableModelcar\": true,\n    \"cpuModelcar\": \"10m\",\n    \"memoryModelcar\": \"15Mi\",\n    \"uidModelcar\": 1010\n}"` |  |
+| kserve.localmodel.enabled | bool | `false` |  |
 | kserveControllerManager.kubeRbacProxy.args[0] | string | `"--secure-listen-address=0.0.0.0:8443"` |  |
 | kserveControllerManager.kubeRbacProxy.args[1] | string | `"--upstream=http://127.0.0.1:8080/"` |  |
 | kserveControllerManager.kubeRbacProxy.args[2] | string | `"--logtostderr=true"` |  |

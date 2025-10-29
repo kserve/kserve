@@ -257,6 +257,18 @@ helm-generate-kserve:
 	@echo "Removing CRDs from chart templates..."
 	@rm -f charts/kserve-resources/templates/*-crd.yaml
 
+	# Fix hardcoded resource names that controllers expect
+	@echo "Fixing hardcoded resource names..."
+	@sed -i "s/name: {{ include \"kserve-resources\.fullname\" \. }}-inferenceservice-config/name: inferenceservice-config/g" charts/kserve-resources/templates/inferenceservice-config.yaml
+
+	# Add required values for conditional templates
+	@echo "Adding required Helm values..."
+	@echo "" >> charts/kserve-resources/values.yaml
+	@echo "# Local model configuration" >> charts/kserve-resources/values.yaml
+	@echo "kserve:" >> charts/kserve-resources/values.yaml
+	@echo "  localmodel:" >> charts/kserve-resources/values.yaml
+	@echo "    enabled: false" >> charts/kserve-resources/values.yaml
+
 	# Fix malformed Certificate dnsNames
 	@echo "Fixing Certificate templates..."
 	@./hack/fix_certificate_dnsnames.py

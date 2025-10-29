@@ -847,3 +847,8 @@ llmisvcWebhookServerService:
   - port: 443
     targetPort: webhook-server
   type: ClusterIP
+
+# Local model configuration
+kserve:
+  localmodel:
+    enabled: false
