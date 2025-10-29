@@ -1,0 +1,87 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "kserve-resources.fullname" . }}-inferenceservice.serving.kserve.io
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "kserve-resources.fullname" . }}-serving-cert
+  labels:
+  {{- include "kserve-resources.labels" . | nindent 4 }}
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: '{{ include "kserve-resources.fullname" . }}-kserve-webhook-server-service'
+      namespace: '{{ .Release.Namespace }}'
+      path: /mutate-serving-kserve-io-v1beta1-inferenceservice
+  failurePolicy: Fail
+  name: inferenceservice.kserve-webhook-server.defaulter
+  rules:
+  - apiGroups:
+    - serving.kserve.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - inferenceservices
+  sideEffects: None
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: '{{ include "kserve-resources.fullname" . }}-kserve-webhook-server-service'
+      namespace: '{{ .Release.Namespace }}'
+      path: /mutate-pods
+  failurePolicy: Fail
+  name: inferenceservice.kserve-webhook-server.pod-mutator
+  namespaceSelector:
+    matchExpressions:
+    - key: control-plane
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: serving.kserve.io/inferenceservice
+      operator: Exists
+  reinvocationPolicy: IfNeeded
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "kserve-resources.fullname" . }}-inferenceservice.serving.kserve.io
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "kserve-resources.fullname" . }}-serving-cert
+  labels:
+  {{- include "kserve-resources.labels" . | nindent 4 }}
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: '{{ include "kserve-resources.fullname" . }}-kserve-webhook-server-service'
+      namespace: '{{ .Release.Namespace }}'
+      path: /validate-serving-kserve-io-v1beta1-inferenceservice
+  failurePolicy: Fail
+  name: inferenceservice.kserve-webhook-server.validator
+  rules:
+  - apiGroups:
+    - serving.kserve.io
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - inferenceservices
+  sideEffects: None

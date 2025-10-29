@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kserve-resources.fullname" . }}-kserve-controller-manager-service
+  labels:
+    control-plane: kserve-controller-manager
+    controller-tools.k8s.io: "1.0"
+  {{- include "kserve-resources.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.kserveControllerManagerService.type }}
+  selector:
+    control-plane: kserve-controller-manager
+    controller-tools.k8s.io: "1.0"
+    {{- include "kserve-resources.selectorLabels" . | nindent 4 }}
+  ports:
+  {{- .Values.kserveControllerManagerService.ports | toYaml | nindent 2 }}

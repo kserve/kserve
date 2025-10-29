@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kserve-llmisvc-controller-manager
+  name: {{ include "llm-isvc-resources.fullname" . }}-kserve-llmisvc-controller-manager
   labels:
     app.kubernetes.io/component: controller
     control-plane: llmisvc-controller-manager
@@ -83,7 +83,7 @@ spec:
           readOnly: true
       securityContext: {{- toYaml .Values.kserveLlmisvcControllerManager.podSecurityContext
         | nindent 8 }}
-      serviceAccountName: llmisvc-controller-manager
+      serviceAccountName: {{ include "llm-isvc-resources.fullname" . }}-llmisvc-controller-manager
       terminationGracePeriodSeconds: 30
       volumes:
       - name: cert

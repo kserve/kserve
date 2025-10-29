@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kserve-resources.fullname" . }}-kserve-webhook-server-service
+  labels:
+  {{- include "kserve-resources.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.kserveWebhookServerService.type }}
+  selector:
+    control-plane: kserve-controller-manager
+    {{- include "kserve-resources.selectorLabels" . | nindent 4 }}
+  ports:
+  {{- .Values.kserveWebhookServerService.ports | toYaml | nindent 2 }}

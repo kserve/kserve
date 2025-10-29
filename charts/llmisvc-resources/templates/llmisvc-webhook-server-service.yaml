@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "llm-isvc-resources.fullname" . }}-llmisvc-webhook-server-service
+  labels:
+  {{- include "llm-isvc-resources.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.llmisvcWebhookServerService.type }}
+  selector:
+    control-plane: llmisvc-controller-manager
+    {{- include "llm-isvc-resources.selectorLabels" . | nindent 4 }}
+  ports:
+  {{- .Values.llmisvcWebhookServerService.ports | toYaml | nindent 2 }}

@@ -1,0 +1,14 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "kserve-resources.fullname" . }}-llmisvc-serving-cert
+  labels:
+  {{- include "kserve-resources.labels" . | nindent 4 }}
+spec:
+  commonName: llmisvc-webhook-server-service.kserve.svc
+  dnsNames:
+  - llmisvc-webhook-server-service.{{ .Release.Namespace }}.svc
+  issuerRef:
+    kind: Issuer
+    name: '{{ include "kserve-resources.fullname" . }}-selfsigned-issuer'
+  secretName: llmisvc-webhook-server-cert

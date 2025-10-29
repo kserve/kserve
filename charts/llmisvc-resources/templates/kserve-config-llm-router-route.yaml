@@ -1,0 +1,36 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: {{ include "llm-isvc-resources.fullname" . }}-kserve-config-llm-router-route
+  labels:
+  {{- include "llm-isvc-resources.labels" . | nindent 4 }}
+spec:
+  router:
+    route:
+      http:
+        spec:
+          parentRefs:
+          - group: gateway.networking.k8s.io
+            kind: Gateway
+            name: '{{ "{{" }} .GlobalConfig.IngressGatewayName {{ "}}" }}'
+            namespace: '{{ "{{" }} .GlobalConfig.IngressGatewayNamespace {{ "}}" }}'
+          rules:
+          - backendRefs:
+            - group: inference.networking.x-k8s.io
+              kind: InferencePool
+              name: '{{ "{{" }} ChildName .ObjectMeta.Name {{ "`" }}-inference-pool{{ "`" }} {{ "}}" }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /{{ "{{" }} .ObjectMeta.Namespace {{ "}}" }}/{{ "{{" }} .ObjectMeta.Name {{ "}}" }}
+            timeouts:
+              backendRequest: 0s
+              request: 0s
