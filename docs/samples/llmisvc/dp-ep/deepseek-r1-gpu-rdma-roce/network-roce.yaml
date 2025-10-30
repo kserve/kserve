@@ -1,0 +1,91 @@
+# Important: this is cluster and hardware dependent
+---
+apiVersion: sriovnetwork.openshift.io/v1
+kind: SriovNetworkNodePolicy
+metadata:
+  name: sriov-p2-policy
+  namespace: openshift-sriov-network-operator
+spec:
+  deviceType: netdevice
+  isRdma: true
+  linkType: eth
+  mtu: 9000
+  nicSelector:
+    deviceID: 101d
+    rootDevices:
+      - 0000:5c:00.0
+      - 0000:5c:00.1
+    pfNames:
+      - p2
+    vendor: 15b3
+  nodeSelector:
+    feature.node.kubernetes.io/pci-15b3.present: 'true'
+    feature.node.kubernetes.io/pci-15b3.sriov.capable: 'true'
+    feature.node.kubernetes.io/rdma.available: 'true'
+    feature.node.kubernetes.io/rdma.capable: 'true'
+  numVfs: 8
+  priority: 98
+  resourceName: p2rdma
+---
+apiVersion: sriovnetwork.openshift.io/v1
+kind: SriovNetwork
+metadata:
+  name: roce-p2
+  namespace: openshift-sriov-network-operator
+spec:
+  ipam: |-
+    {
+      "type": "whereabouts",
+      "range": "10.0.132.0/24"
+    }
+  logLevel: info
+  networkNamespace: 'llm-test'
+  resourceName: p2rdma
+  spoofChk: "off"
+  trust: "on"
+  linkState: "enable"
+---
+apiVersion: sriovnetwork.openshift.io/v1
+kind: SriovNetworkNodePolicy
+metadata:
+  name: sriov-p13-policy
+  namespace: openshift-sriov-network-operator
+spec:
+  deviceType: netdevice
+  isRdma: true
+  linkType: eth
+  mtu: 9000
+  nicSelector:
+    deviceID: 101d
+    rootDevices:
+      - 0000:bb:00.0
+      - 0000:bb:00.1
+    pfNames:
+      - p13
+    vendor: 15b3
+  nodeSelector:
+    feature.node.kubernetes.io/pci-15b3.present: 'true'
+    feature.node.kubernetes.io/pci-15b3.sriov.capable: 'true'
+    feature.node.kubernetes.io/rdma.available: 'true'
+    feature.node.kubernetes.io/rdma.capable: 'true'
+  numVfs: 8
+  priority: 98
+  resourceName: p13rdma
+---
+apiVersion: sriovnetwork.openshift.io/v1
+kind: SriovNetwork
+metadata:
+  name: roce-p13
+  namespace: openshift-sriov-network-operator
+spec:
+  ipam: |-
+    {
+      "type": "whereabouts",
+      "range": "10.0.132.0/24"
+    }
+  logLevel: info
+  networkNamespace: 'llm-test2'
+  resourceName: p13rdma
+  spoofChk: "off"
+  trust: "on"
+  linkState: "enable"
