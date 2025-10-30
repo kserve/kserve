@@ -11,7 +11,7 @@ dependencies = [
     "requests[security]<3.0.0,>=2.24.0",
 ]
 name = "aifserver"
-version = "0.16.0rc1"
+version = "0.16.0"
 description = "'Model Server implementation for AI fairness. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 
