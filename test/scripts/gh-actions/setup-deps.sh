@@ -90,10 +90,12 @@ shopt -s nocasematch
 if [[ $DEPLOYMENT_MODE == "serverless" ]]; then
   # Serverless mode
   source ./test/scripts/gh-actions/install-knative-operator.sh
+  echo "Waiting for Knative operator to be ready ..."
+  kubectl wait --for=condition=Available -n knative-operator deployment/knative-operator --timeout=300s || true
   echo "Installing Knative serving ..."
   kubectl apply -f ./test/overlays/knative/knative-serving-istio.yaml
   echo "Waiting for Knative to be ready ..."
-  kubectl wait --for=condition=Ready -n knative-serving KnativeServing knative-serving --timeout=300s
+  kubectl wait --for=condition=Ready -n knative-serving KnativeServing knative-serving --timeout=600s
   # echo "Add knative hpa..."
   # kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-hpa.yaml
 fi
