@@ -15,6 +15,9 @@ spec:
     containers:
       - name: main
         image: quay.io/pierdipi/vllm-cpu:latest
+        securityContext:
+          # The image is not built in a way that can run as non-root
+          runAsNonRoot: false
         env:
           - name: VLLM_LOGGING_LEVEL
             value: DEBUG
