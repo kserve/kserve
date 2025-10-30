@@ -30,6 +30,13 @@ shopt -s nocasematch
 if [[ $DEPLOYMENT_MODE == "raw" ]];then
   echo "Patching default deployment mode to raw deployment"
   kubectl patch cm -n kserve inferenceservice-config --patch='{"data": {"deploy": "{\"defaultDeploymentMode\": \"RawDeployment\"}"}}'
+  # Ensure CRDs are established before tests use the Python Kubernetes client
+  echo "Waiting for KServe CRDs to be established ..."
+  kubectl wait --for=condition=Established --timeout=120s crd/inferenceservices.serving.kserve.io || true
+  kubectl wait --for=condition=Established --timeout=120s crd/servingruntimes.serving.kserve.io || true
+  kubectl wait --for=condition=Established --timeout=120s crd/clusterservingruntimes.serving.kserve.io || true
+  kubectl wait --for=condition=Established --timeout=120s crd/trainedmodels.serving.kserve.io || true
+  kubectl wait --for=condition=Established --timeout=120s crd/inferencegraphs.serving.kserve.io || true
 
   if [[ $NETWORK_LAYER == "envoy-gatewayapi" ]]; then
     echo "Creating Envoy Gateway ..."

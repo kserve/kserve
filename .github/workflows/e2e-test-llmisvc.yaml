@@ -109,11 +109,11 @@ jobs:
 
           # Update the deployment to use our built image with Never pull policy
           # Note: deployment name is based on Helm release name (llmisvc) + chart name component
-          kubectl patch deployment llmisvc-llmisvc-controller-manager -n kserve \
+          kubectl patch deployment llmisvc-llmisvc-resources-kserve-llmisvc-controller-manager -n kserve \
             -p '{"spec":{"template":{"spec":{"containers":[{"name":"manager","image":"'${LLMISVC_CONTROLLER_IMG_TAG}'","imagePullPolicy":"Never"}]}}}}'
 
           # Wait for deployment to be ready
-          kubectl wait --for=condition=available --timeout=300s deployment/llmisvc-llmisvc-controller-manager -n kserve
+          kubectl wait --for=condition=available --timeout=300s deployment/llmisvc-llmisvc-resources-kserve-llmisvc-controller-manager -n kserve
 
       - name: Verify LLMISvc setup
         run: |
