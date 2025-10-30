@@ -31,6 +31,8 @@ import (
 	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
 	"go.uber.org/zap"
 
+	"github.com/kserve/kserve/pkg/logger/types"
+
 	"github.com/kserve/kserve/pkg/constants"
 )
 
@@ -53,9 +55,9 @@ const (
 )
 
 // A buffered channel that we can send work requests on.
-var WorkQueue = make(chan LogRequest, LoggerWorkerQueueSize)
+var WorkQueue = make(chan types.LogRequest, LoggerWorkerQueueSize)
 
-func QueueLogRequest(req LogRequest) error {
+func QueueLogRequest(req types.LogRequest) error {
 	WorkQueue <- req
 	return nil
 }
@@ -63,12 +65,12 @@ func QueueLogRequest(req LogRequest) error {
 // NewWorker creates, and returns a new Worker object. Its only argument
 // is a channel that the worker can add itself to whenever it is done its
 // work.
-func NewWorker(id int, workerQueue chan chan LogRequest, store Store, logger *zap.SugaredLogger) Worker {
+func NewWorker(id int, workerQueue chan chan types.LogRequest, store Store, logger *zap.SugaredLogger) Worker {
 	// Create, and return the worker.
 	return Worker{
 		Log:         logger,
 		ID:          id,
-		Work:        make(chan LogRequest),
+		Work:        make(chan types.LogRequest),
 		WorkerQueue: workerQueue,
 		QuitChan:    make(chan bool),
 		Store:       store,
@@ -78,13 +80,13 @@ func NewWorker(id int, workerQueue chan chan LogRequest, store Store, logger *za
 type Worker struct {
 	Log         *zap.SugaredLogger
 	ID          int
-	Work        chan LogRequest
-	WorkerQueue chan chan LogRequest
+	Work        chan types.LogRequest
+	WorkerQueue chan chan types.LogRequest
 	QuitChan    chan bool
 	Store       Store
 }
 
-func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
+func (w *Worker) sendHttpCloudEvent(logReq types.LogRequest) error {
 	t, err := cloudevents.NewHTTP(
 		cloudevents.WithTarget(logReq.Url.String()),
 	)
