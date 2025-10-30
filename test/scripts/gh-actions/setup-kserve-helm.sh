@@ -21,11 +21,12 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-sed -i -e "s/*defaultVersion/${GITHUB_SHA}/g" charts/kserve-resources/values.yaml
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2>/dev/null)"
+source "${SCRIPT_DIR}/../../../hack/setup/common.sh"
+
+SET_KSERVE_VERSION=${GITHUB_SHA} make deploy-helm
 
 cat ./charts/kserve-resources/values.yaml
-
-make deploy-helm
 
 echo "Get events of all pods ..."
 kubectl get events -A
@@ -33,8 +34,7 @@ kubectl get events -A
 echo "Creating a namespace kserve-ci-test ..."
 kubectl create namespace kserve-ci-e2e-test
 
-echo "Installing KServe Python SDK ..."
-python3 -m pip install --upgrade pip
+${REPO_ROOT}/hack/setup/cli/install-uv.sh
 pushd python/kserve >/dev/null
     uv sync --group test
 popd
