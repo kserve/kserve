@@ -29,7 +29,7 @@ make deploy-ci
 shopt -s nocasematch
 if [[ $DEPLOYMENT_MODE == "raw" ]];then
   echo "Patching default deployment mode to raw deployment"
-  kubectl patch cm -n kserve inferenceservice-config --patch='{"data": {"deploy": "{\"defaultDeploymentMode\": \"RawDeployment\"}"}}'
+  kubectl patch cm -n kserve inferenceservice-config --patch='{"data": {"deploy": "{\"defaultDeploymentMode\": \"Standard\"}"}}'
   echo "Verifying defaultDeploymentMode setting ..."
   kubectl get cm -n kserve inferenceservice-config -o jsonpath='{.data.deploy}' || true
   # Ensure CRDs are established before tests use the Python Kubernetes client
