@@ -30,6 +30,8 @@ shopt -s nocasematch
 if [[ $DEPLOYMENT_MODE == "raw" ]];then
   echo "Patching default deployment mode to raw deployment"
   kubectl patch cm -n kserve inferenceservice-config --patch='{"data": {"deploy": "{\"defaultDeploymentMode\": \"RawDeployment\"}"}}'
+  echo "Verifying defaultDeploymentMode setting ..."
+  kubectl get cm -n kserve inferenceservice-config -o jsonpath='{.data.deploy}' || true
   # Ensure CRDs are established before tests use the Python Kubernetes client
   echo "Waiting for KServe CRDs to be established ..."
   kubectl wait --for=condition=Established --timeout=120s crd/inferenceservices.serving.kserve.io || true
@@ -56,6 +58,17 @@ EOF
   fi
 fi
 shopt -u nocasematch
+
+echo "Ensuring agent image in inferenceservice-config has a valid tag ..."
+if [[ -n "${GITHUB_SHA:-}" ]]; then
+  kubectl get cm -n kserve inferenceservice-config -o yaml \
+    | sed "s#kserve/agent:#kserve/agent:${GITHUB_SHA}#g" \
+    | kubectl apply -f -
+  # Optional: also patch router image tag if present
+  kubectl get cm -n kserve inferenceservice-config -o yaml \
+    | sed "s#kserve/router:#kserve/router:${GITHUB_SHA}#g" \
+    | kubectl apply -f - || true
+fi
 
 echo "Waiting for KServe started ..."
 kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
