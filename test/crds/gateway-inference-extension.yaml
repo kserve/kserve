@@ -87,7 +87,7 @@ spec:
                   ModelNames must be unique for a referencing InferencePool
                   (names can be reused for a different pool in the same cluster).
                   The modelName with the oldest creation timestamp is retained, and the incoming
-                  InferenceModel's Ready status is set to false with a corresponding reason.
+                  InferenceModel is sets the Ready status to false with a corresponding reason.
                   In the rare case of a race condition, one Model will be selected randomly to be considered valid, and the other rejected.
                   Names can be reserved without an underlying model configured in the pool.
                   This can be done by specifying a target model and setting the weight to zero,
@@ -389,32 +389,16 @@ spec:
             - targetPortNumber
             type: object
           status:
-            default:
-              parent:
-              - conditions:
-                - lastTransitionTime: "1970-01-01T00:00:00Z"
-                  message: Waiting for controller
-                  reason: Pending
-                  status: Unknown
-                  type: Accepted
-                parentRef:
-                  kind: Status
-                  name: default
-            description: Status defines the observed state of InferencePool.
+            description: InferencePoolStatus defines the observed state of InferencePool
             properties:
               parent:
                 description: |-
                   Parents is a list of parent resources (usually Gateways) that are
-                  associated with the InferencePool, and the status of the InferencePool with respect to
+                  associated with the route, and the status of the InferencePool with respect to
                   each parent.
 
-                  A maximum of 32 Gateways will be represented in this list. When the list contains
-                  `kind: Status, name: default`, it indicates that the InferencePool is not
-                  associated with any Gateway and a controller must perform the following:
-
-                   - Remove the parent when setting the "Accepted" condition.
-                   - Add the parent when the controller will no longer manage the InferencePool
-                     and no other parents exist.
+                  A maximum of 32 Gateways will be represented in this list. An empty list
+                  means the route has not been attached to any Gateway.
                 items:
                   description: PoolStatus defines the observed state of InferencePool
                     from a Gateway.
@@ -497,36 +481,46 @@ spec:
                       description: GatewayRef indicates the gateway that observed
                         state of InferencePool.
                       properties:
-                        group:
-                          default: gateway.networking.k8s.io
-                          description: Group is the group of the referent.
-                          maxLength: 253
-                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        apiVersion:
+                          description: API version of the referent.
+                          type: string
+                        fieldPath:
+                          description: |-
+                            If referring to a piece of an object instead of an entire object, this string
+                            should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                            For example, if the object reference is to a container within a pod, this would take on a value like:
+                            "spec.containers{name}" (where "name" refers to the name of the container that triggered
+                            the event) or if no container name is specified "spec.containers[2]" (container with
+                            index 2 in this pod). This syntax is chosen only to have some well-defined way of
+                            referencing a part of an object.
                           type: string
                         kind:
-                          default: Gateway
-                          description: Kind is kind of the referent. For example "Gateway".
-                          maxLength: 63
-                          minLength: 1
-                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                          description: |-
+                            Kind of the referent.
+                            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
                           type: string
                         name:
-                          description: Name is the name of the referent.
-                          maxLength: 253
-                          minLength: 1
+                          description: |-
+                            Name of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                           type: string
                         namespace:
                           description: |-
-                            Namespace is the namespace of the referent.  If not present,
-                            the namespace of the referent is assumed to be the same as
-                            the namespace of the referring object.
-                          maxLength: 63
-                          minLength: 1
-                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                            Namespace of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
                           type: string
-                      required:
-                      - name
+                        resourceVersion:
+                          description: |-
+                            Specific resourceVersion to which this reference is made, if any.
+                            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+                          type: string
+                        uid:
+                          description: |-
+                            UID of the referent.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
+                          type: string
                       type: object
+                      x-kubernetes-map-type: atomic
                   required:
                   - parentRef
                   type: object

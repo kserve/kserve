@@ -1,0 +1,423 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: deepseek-r1-0528-pd
+  annotations:
+    # See network-roce-p2.yaml as an example (cluster and hardware specific)
+    k8s.v1.cni.cncf.io/networks: roce-p2
+spec:
+  model:
+    # Initialize PVC following the example in /docs/samples/storage/pvc-init (recommended) or use the HuggingFace
+    # alternative
+    uri: pvc://llm-test-pvc-deepseek
+    #    uri: hf://deepseek-ai/DeepSeek-R1-0528
+    name: deepseek-ai/DeepSeek-R1-0528
+  replicas: 1
+  parallelism:
+    data: 16
+    dataLocal: 8
+    expert: true
+    tensor: 1
+  router:
+    scheduler:
+      template:
+        containers:
+          - name: main
+            # ALWAYS DO PD IN THIS EXAMPLE (THRESHOLD 0)
+            args:
+              - -v=4 # Debug level
+              - --pool-name
+              - "{{ ChildName .ObjectMeta.Name `-inference-pool` }}"
+              - --pool-namespace
+              - "{{ .ObjectMeta.Namespace }}"
+              - --zap-encoder
+              - json
+              - --grpc-port
+              - "9002"
+              - --grpc-health-port
+              - "9003"
+              - --secure-serving
+              - --model-server-metrics-scheme
+              - https
+              - --model-server-metrics-https-insecure-skip-verify
+              - --cert-path
+              - /etc/ssl/certs
+              - --config-text
+              - |2
+              
+                apiVersion: inference.networking.x-k8s.io/v1alpha1
+                kind: EndpointPickerConfig
+                plugins:
+                - type: pd-profile-handler
+                  parameters:
+                    threshold: 0
+                - type: prefill-header-handler
+                - type: prefill-filter
+                - type: decode-filter
+                - type: prefix-cache-scorer
+                - type: load-aware-scorer
+                - type: max-score-picker
+                schedulingProfiles:
+                - name: prefill
+                  plugins:
+                  - pluginRef: prefill-filter
+                  - pluginRef: prefix-cache-scorer
+                    weight: 2.0
+                  - pluginRef: load-aware-scorer
+                    weight: 1.0
+                  - pluginRef: max-score-picker
+                - name: decode
+                  plugins:
+                  - pluginRef: decode-filter
+                  - pluginRef: prefix-cache-scorer
+                    weight: 2.0
+                  - pluginRef: load-aware-scorer
+                    weight: 1.0
+                  - pluginRef: max-score-picker
+    route: { }
+    gateway: { }
+  template:
+    serviceAccountName: hfsa
+    containers:
+      - name: main
+        env:
+          - name: VLLM_LOGGING_LEVEL
+            value: INFO
+          - name: KSERVE_INFER_ROCE
+            value: "true"
+          - name: CUDA_DEVICE_ORDER
+            value: "PCI_BUS_ID"
+          # Memory optimizations
+          - name: VLLM_ADDITIONAL_ARGS
+            value: "--gpu-memory-utilization 0.99 --max-model-len 4096 --enforce-eager --kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
+          - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: VLLM_ALL2ALL_BACKEND
+            value: pplx
+          - name: PYTORCH_CUDA_ALLOC_CONF
+            value: "expandable_segments:True"
+          # Essential NCCL configuration
+          - name: NCCL_IB_GID_INDEX
+            value: "3"
+          - name: NCCL_DEBUG
+            value: WARN
+          - name: NCCL_SOCKET_IFNAME
+            value: net1
+          - name: NCCL_IB_TIMEOUT
+            value: "100"
+          # NVSHMEM configuration - optimized for stability
+          - name: NVSHMEM_REMOTE_TRANSPORT
+            value: ibgda
+          - name: NVSHMEM_BOOTSTRAP_TWO_STAGE
+            value: "1"
+          - name: NVSHMEM_BOOTSTRAP_TIMEOUT
+            value: "300"
+          - name: NVSHMEM_BOOTSTRAP_UID_SOCK_IFNAME
+            value: net1
+          - name: NVSHMEM_IB_GID_INDEX
+            value: "3"
+          - name: NVSHMEM_USE_IBGDA
+            value: "1"
+          - name: NVSHMEM_ENABLE_NIC_PE_MAPPING
+            value: "1"
+          - name: NVSHMEM_IBGDA_SUPPORT
+            value: "1"
+          - name: NVSHMEM_IB_ENABLE_IBGDA
+            value: "1"
+          - name: NVSHMEM_IBGDA_NIC_HANDLER
+            value: "gpu"
+          - name: NVSHMEM_DEBUG
+            value: WARN
+          # UCX configuration for NVSHMEM
+          - name: UCX_TLS
+            value: "rc,sm,self,cuda_copy,cuda_ipc"
+          - name: UCX_IB_GID_INDEX
+            value: "3"
+          - name: UCX_RC_MLX5_TM_ENABLE
+            value: "n"
+          - name: UCX_UD_MLX5_RX_QUEUE_LEN
+            value: "1024"
+          - name: UCX_PROTO_INFO
+            value: "y"
+          - name: NVIDIA_GDRCOPY
+            value: enabled
+        resources:
+          limits:
+            cpu: 128
+            ephemeral-storage: 800Gi
+            memory: 512Gi
+            nvidia.com/gpu: "8"
+            rdma/roce_gdr: 1
+          requests:
+            cpu: 64
+            ephemeral-storage: 800Gi
+            memory: 256Gi
+            nvidia.com/gpu: "8"
+            rdma/roce_gdr: 1
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTPS
+          initialDelaySeconds: 4800
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 3
+  worker:
+    serviceAccountName: hfsa
+    containers:
+      - name: main
+        env:
+          - name: VLLM_LOGGING_LEVEL
+            value: INFO
+          - name: KSERVE_INFER_ROCE
+            value: "true"
+          - name: CUDA_DEVICE_ORDER
+            value: "PCI_BUS_ID"
+          # Memory optimizations
+          - name: VLLM_ADDITIONAL_ARGS
+            value: "--gpu-memory-utilization 0.99 --max-model-len 4096 --enforce-eager --kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
+          - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: VLLM_ALL2ALL_BACKEND
+            value: pplx
+          - name: PYTORCH_CUDA_ALLOC_CONF
+            value: "expandable_segments:True"
+          # Essential NCCL configuration
+          - name: NCCL_IB_GID_INDEX
+            value: "3"
+          - name: NCCL_DEBUG
+            value: WARN
+          - name: NCCL_SOCKET_IFNAME
+            value: net1
+          - name: NCCL_IB_TIMEOUT
+            value: "100"
+          # NVSHMEM configuration - optimized for stability
+          - name: NVSHMEM_REMOTE_TRANSPORT
+            value: ibgda
+          - name: NVSHMEM_BOOTSTRAP_TWO_STAGE
+            value: "1"
+          - name: NVSHMEM_BOOTSTRAP_TIMEOUT
+            value: "300"
+          - name: NVSHMEM_BOOTSTRAP_UID_SOCK_IFNAME
+            value: net1
+          - name: NVSHMEM_IB_GID_INDEX
+            value: "3"
+          - name: NVSHMEM_USE_IBGDA
+            value: "1"
+          - name: NVSHMEM_ENABLE_NIC_PE_MAPPING
+            value: "1"
+          - name: NVSHMEM_IBGDA_SUPPORT
+            value: "1"
+          - name: NVSHMEM_IB_ENABLE_IBGDA
+            value: "1"
+          - name: NVSHMEM_IBGDA_NIC_HANDLER
+            value: "gpu"
+          - name: NVSHMEM_DEBUG
+            value: WARN
+          # UCX configuration for NVSHMEM
+          - name: UCX_TLS
+            value: "rc,sm,self,cuda_copy,cuda_ipc"
+          - name: UCX_IB_GID_INDEX
+            value: "3"
+          - name: UCX_RC_MLX5_TM_ENABLE
+            value: "n"
+          - name: UCX_UD_MLX5_RX_QUEUE_LEN
+            value: "1024"
+          - name: UCX_PROTO_INFO
+            value: "y"
+          - name: NVIDIA_GDRCOPY
+            value: enabled
+        resources:
+          limits:
+            cpu: 128
+            ephemeral-storage: 800Gi
+            memory: 512Gi
+            nvidia.com/gpu: "8"
+            rdma/roce_gdr: 1
+          requests:
+            cpu: 64
+            ephemeral-storage: 800Gi
+            memory: 256Gi
+            nvidia.com/gpu: "8"
+            rdma/roce_gdr: 1
+  prefill:
+    replicas: 1
+    parallelism:
+      data: 16
+      dataLocal: 8
+      expert: true
+      tensor: 1
+    template:
+      serviceAccountName: hfsa
+      containers:
+        - name: main
+          env:
+            - name: VLLM_LOGGING_LEVEL
+              value: INFO
+            - name: KSERVE_INFER_ROCE
+              value: "true"
+            - name: CUDA_DEVICE_ORDER
+              value: "PCI_BUS_ID"
+            # Memory optimizations
+            - name: VLLM_ADDITIONAL_ARGS
+              value: "--gpu-memory-utilization 0.97 --max-model-len 4096 --enforce-eager --kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
+            - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: VLLM_ALL2ALL_BACKEND
+              value: deepep_high_throughput
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+            # Essential NCCL configuration
+            - name: NCCL_IB_GID_INDEX
+              value: "3"
+            - name: NCCL_DEBUG
+              value: WARN
+            - name: NCCL_SOCKET_IFNAME
+              value: net1
+            - name: NCCL_IB_TIMEOUT
+              value: "100"
+            # NVSHMEM configuration - optimized for stability
+            - name: NVSHMEM_REMOTE_TRANSPORT
+              value: ibgda
+            - name: NVSHMEM_BOOTSTRAP_TWO_STAGE
+              value: "1"
+            - name: NVSHMEM_BOOTSTRAP_TIMEOUT
+              value: "300"
+            - name: NVSHMEM_BOOTSTRAP_UID_SOCK_IFNAME
+              value: net1
+            - name: NVSHMEM_IB_GID_INDEX
+              value: "3"
+            - name: NVSHMEM_USE_IBGDA
+              value: "1"
+            - name: NVSHMEM_ENABLE_NIC_PE_MAPPING
+              value: "1"
+            - name: NVSHMEM_IBGDA_SUPPORT
+              value: "1"
+            - name: NVSHMEM_IB_ENABLE_IBGDA
+              value: "1"
+            - name: NVSHMEM_IBGDA_NIC_HANDLER
+              value: "gpu"
+            - name: NVSHMEM_DEBUG
+              value: WARN
+            # UCX configuration for NVSHMEM
+            - name: UCX_TLS
+              value: "rc,sm,self,cuda_copy,cuda_ipc"
+            - name: UCX_IB_GID_INDEX
+              value: "3"
+            - name: UCX_RC_MLX5_TM_ENABLE
+              value: "n"
+            - name: UCX_UD_MLX5_RX_QUEUE_LEN
+              value: "1024"
+            - name: UCX_PROTO_INFO
+              value: "y"
+            - name: NVIDIA_GDRCOPY
+              value: enabled
+          resources:
+            limits:
+              cpu: 128
+              ephemeral-storage: 800Gi
+              memory: 512Gi
+              nvidia.com/gpu: "8"
+              rdma/roce_gdr: 1
+            requests:
+              cpu: 64
+              ephemeral-storage: 800Gi
+              memory: 256Gi
+              nvidia.com/gpu: "8"
+              rdma/roce_gdr: 1
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTPS
+            initialDelaySeconds: 4800
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 3
+    worker:
+      serviceAccountName: hfsa
+      containers:
+        - name: main
+          env:
+            - name: VLLM_LOGGING_LEVEL
+              value: INFO
+            - name: KSERVE_INFER_ROCE
+              value: "true"
+            - name: CUDA_DEVICE_ORDER
+              value: "PCI_BUS_ID"
+            # Memory optimizations
+            - name: VLLM_ADDITIONAL_ARGS
+              value: "--gpu-memory-utilization 0.97 --max-model-len 4096 --enforce-eager --kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
+            - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: VLLM_ALL2ALL_BACKEND
+              value: deepep_high_throughput
+            - name: PYTORCH_CUDA_ALLOC_CONF
+              value: "expandable_segments:True"
+            # Essential NCCL configuration
+            - name: NCCL_IB_GID_INDEX
+              value: "3"
+            - name: NCCL_DEBUG
+              value: WARN
+            - name: NCCL_SOCKET_IFNAME
+              value: net1
+            - name: NCCL_IB_TIMEOUT
+              value: "100"
+            # NVSHMEM configuration - optimized for stability
+            - name: NVSHMEM_REMOTE_TRANSPORT
+              value: ibgda
+            - name: NVSHMEM_BOOTSTRAP_TWO_STAGE
+              value: "1"
+            - name: NVSHMEM_BOOTSTRAP_TIMEOUT
+              value: "300"
+            - name: NVSHMEM_BOOTSTRAP_UID_SOCK_IFNAME
+              value: net1
+            - name: NVSHMEM_IB_GID_INDEX
+              value: "3"
+            - name: NVSHMEM_USE_IBGDA
+              value: "1"
+            - name: NVSHMEM_ENABLE_NIC_PE_MAPPING
+              value: "1"
+            - name: NVSHMEM_IBGDA_SUPPORT
+              value: "1"
+            - name: NVSHMEM_IB_ENABLE_IBGDA
+              value: "1"
+            - name: NVSHMEM_IBGDA_NIC_HANDLER
+              value: "gpu"
+            - name: NVSHMEM_DEBUG
+              value: WARN
+            # UCX configuration for NVSHMEM
+            - name: UCX_TLS
+              value: "rc,sm,self,cuda_copy,cuda_ipc"
+            - name: UCX_IB_GID_INDEX
+              value: "3"
+            - name: UCX_RC_MLX5_TM_ENABLE
+              value: "n"
+            - name: UCX_UD_MLX5_RX_QUEUE_LEN
+              value: "1024"
+            - name: UCX_PROTO_INFO
+              value: "y"
+            - name: NVIDIA_GDRCOPY
+              value: enabled
+          resources:
+            limits:
+              cpu: 128
+              ephemeral-storage: 800Gi
+              memory: 512Gi
+              nvidia.com/gpu: "8"
+              rdma/roce_gdr: 1
+            requests:
+              cpu: 64
+              ephemeral-storage: 800Gi
+              memory: 256Gi
+              nvidia.com/gpu: "8"
+              rdma/roce_gdr: 1
