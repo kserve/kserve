@@ -311,6 +311,8 @@ func TestLoggerWithS3Store(t *testing.T) {
 	logger, _ := pkglogging.NewLogger("", "INFO")
 	logf.SetLogger(zap.New())
 
+	r.Header.Add("Foo", "bar")
+
 	sourceUri, err := url.Parse("http://localhost:9081/")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	targetUri, err := url.Parse(predictor.URL)
@@ -336,7 +338,7 @@ func TestLoggerWithS3Store(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
-		"default", httpProxy, nil, "", map[string]string{}, true)
+		"default", httpProxy, []string{"Foo"}, "", map[string]string{"test-annotation": "test-value"}, true)
 
 	oh.ServeHTTP(w, r)
 
@@ -346,7 +348,23 @@ func TestLoggerWithS3Store(t *testing.T) {
 	// get logRequest
 	req := <-store.ResponseChan
 	g.Expect(req.ReqType).To(gomega.Equal(CEInferenceRequest))
+	g.Expect(req.Metadata).ToNot(gomega.BeNil())
+	g.Expect(req.Metadata).ToNot(gomega.BeEmpty())
+	g.Expect(req.Metadata).To(gomega.HaveLen(1))
+	g.Expect(req.Metadata["Foo"]).To(gomega.Equal([]string{"bar"}))
+	g.Expect(req.Annotations).ToNot(gomega.BeNil())
+	g.Expect(req.Annotations).ToNot(gomega.BeEmpty())
+	g.Expect(req.Annotations).To(gomega.HaveLen(1))
+	g.Expect(req.Annotations["test-annotation"]).To(gomega.Equal("test-value"))
 	// get logResponse
 	res := <-store.ResponseChan
 	g.Expect(res.ReqType).To(gomega.Equal(CEInferenceResponse))
+	g.Expect(res.Metadata).ToNot(gomega.BeNil())
+	g.Expect(res.Metadata).ToNot(gomega.BeEmpty())
+	g.Expect(res.Metadata).To(gomega.HaveLen(1))
+	g.Expect(res.Metadata["Foo"]).To(gomega.Equal([]string{"bar"}))
+	g.Expect(res.Annotations).ToNot(gomega.BeNil())
+	g.Expect(res.Annotations).ToNot(gomega.BeEmpty())
+	g.Expect(res.Annotations).To(gomega.HaveLen(1))
+	g.Expect(res.Annotations["test-annotation"]).To(gomega.Equal("test-value"))
 }
