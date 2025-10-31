@@ -27,11 +27,13 @@ def to_np_dtype(dtype):
         "UINT32": np.uint32,
         "UINT64": np.uint64,
         "FP16": np.float16,
+        "BF16": np.float32,  # BF16 maps to float32 since numpy doesn't have native BF16
         "FP32": np.float32,
         "FP64": np.float64,
         "BYTES": np.object_,
     }
     return dtype_map.get(dtype, None)
+
 
 
 def from_np_dtype(np_dtype):
