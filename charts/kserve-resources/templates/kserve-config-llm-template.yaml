@@ -1,0 +1,84 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: {{ include "kserve-resources.fullname" . }}-kserve-config-llm-template
+  labels:
+  {{- include "kserve-resources.labels" . | nindent 4 }}
+spec:
+  template:
+    containers:
+    - args:
+      - --served-model-name
+      - '{{ "{{" }} .Spec.Model.Name {{ "}}" }}'
+      - --port
+      - "8000"
+      - --disable-log-requests
+      command:
+      - vllm
+      - serve
+      - /mnt/models
+      env:
+      - name: HOME
+        value: /home
+      - name: VLLM_LOGGING_LEVEL
+        value: INFO
+      - name: HF_HUB_CACHE
+        value: /models
+      image: ghcr.io/llm-d/llm-d-dev:v0.2.2
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        initialDelaySeconds: 120
+        periodSeconds: 10
+        timeoutSeconds: 10
+      name: main
+      ports:
+      - containerPort: 8000
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 5
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: false
+        runAsNonRoot: false
+        seccompProfile:
+          type: RuntimeDefault
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /home
+        name: home
+      - mountPath: /dev/shm
+        name: dshm
+      - mountPath: /models
+        name: model-cache
+      - mountPath: /etc/ssl/certs
+        name: tls-certs
+        readOnly: true
+    terminationGracePeriodSeconds: 30
+    volumes:
+    - emptyDir: {}
+      name: home
+    - emptyDir:
+        medium: Memory
+        sizeLimit: 1Gi
+      name: dshm
+    - emptyDir: {}
+      name: model-cache
+    - name: tls-certs
+      secret:
+        secretName: '{{ "{{" }} ChildName .ObjectMeta.Name {{ "`" }}-kserve-self-signed-certs{{ "`" }} {{ "}}" }}'

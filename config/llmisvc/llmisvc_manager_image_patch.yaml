@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: llmisvc-controller-manager
+  name: kserve-llmisvc-controller-manager
   namespace: kserve
 spec:
   template:

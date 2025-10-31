@@ -133,8 +133,14 @@ manifests: controller-gen yq
 
 	# DO NOT COPY to helm chart. It needs to be created before the Envoy Gateway or you will need to restart the Envoy Gateway controller.
 	# The llmisvc helm chart needs to be installed after the Envoy Gateway as well, so it needs to be created before the llmisvc helm chart.
-	kubectl kustomize https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > config/llmisvc/gateway-inference-extension.yaml
-	cp config/llmisvc/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
+	# Only fetch if file doesn't exist or is empty (avoid network timeout during precommit)
+	@if [ ! -s config/llmisvc/gateway-inference-extension.yaml ]; then \
+		echo "Fetching gateway-inference-extension CRD..."; \
+		kubectl kustomize https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > config/llmisvc/gateway-inference-extension.yaml; \
+	else \
+		echo "gateway-inference-extension.yaml already exists, skipping fetch"; \
+	fi
+	@cp config/llmisvc/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
 
 	#remove the required property on framework as name field needs to be optional
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
@@ -168,12 +174,117 @@ manifests: controller-gen yq
 	rm charts/llmisvc-crd-minimal/templates/kustomization.yaml
 	# Generate llmisvc rbac
 	@$(CONTROLLER_GEN) rbac:roleName=llmisvc-manager-role paths={./pkg/controller/v1alpha1/llmisvc} output:rbac:artifacts:config=config/rbac/llmisvc
-	# Copy the cluster role to the helm chart
-	cat config/rbac/llmisvc/role.yaml > charts/llmisvc-resources/templates/clusterrole.yaml
-	cat config/rbac/llmisvc/leader_election_role.yaml > charts/llmisvc-resources/templates/leader_election_role.yaml
-	# Copy llmisvc crd
+	# Note: RBAC Helm templates are now generated via helm-generate-llmisvc target (includes bindings)
+	# Copy llmisvc crd to llmisvc-crd chart
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/llmisvc-crd/templates/
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/llmisvc-crd/templates/
+	# Copy llmisvc crd to kserve-crd chart (for combined deployments)
+	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/kserve-crd/templates/
+	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/kserve-crd/templates/
+
+.PHONY: helm-generate-llmisvc
+helm-generate-llmisvc:
+	@echo "=========================================="
+	@echo "Generating LLMISvc Helm chart (standalone, 100% automated)"
+	@echo "=========================================="
+	@mkdir -p build/helm-tmp
+
+	# Generate standalone LLMISvc from overlay (excludes CRDs - they're in llmisvc-crd chart)
+	@echo "Generating standalone LLMISvc templates from Kustomize overlay..."
+	@kubectl kustomize config/overlays/llmisvc > build/helm-tmp/llmisvc.yaml
+	# Filter out CRDs (they're managed by llmisvc-crd chart)
+	@yq eval 'select(.kind != "CustomResourceDefinition")' build/helm-tmp/llmisvc.yaml > build/helm-tmp/llmisvc-no-crds.yaml
+	@cat build/helm-tmp/llmisvc-no-crds.yaml | helmify build/helm-tmp/llmisvc-chart
+
+	# Remove CRDs from generated chart (they're managed by llmisvc-crd chart)
+	@echo "Removing CRDs from chart templates..."
+	@rm -f build/helm-tmp/llmisvc-chart/templates/*-crd.yaml
+
+	# Escape embedded Go templates
+	@echo "Escaping KServe-specific Go templates..."
+	@./hack/escape_helm_templates.py build/helm-tmp/llmisvc-chart/templates/*.yaml
+
+	# Fix chart references
+	@echo "Fixing chart references..."
+	@for file in build/helm-tmp/llmisvc-chart/templates/*.yaml build/helm-tmp/llmisvc-chart/templates/_helpers.tpl; do \
+		sed -i 's/llmisvc-chart\./llm-isvc-resources./g' "$$file"; \
+	done
+
+	# Copy EVERYTHING to actual chart (100% automated)
+	@echo "Copying all generated templates and values..."
+	@rm -rf charts/llmisvc-resources/templates/*
+	@cp -r build/helm-tmp/llmisvc-chart/templates/* charts/llmisvc-resources/templates/
+	@cp build/helm-tmp/llmisvc-chart/values.yaml charts/llmisvc-resources/values.yaml
+	@echo "Note: Chart.yaml is preserved (contains version and metadata)"
+
+	# Validate
+	@echo "Validating Helm chart..."
+	@helm lint charts/llmisvc-resources
+	@helm template test charts/llmisvc-resources --dry-run > /dev/null
+
+	@echo "✅ LLMISvc Helm chart fully generated (100% automated, 0% manual)"
+	@echo "   Output: charts/llmisvc-resources/"
+
+.PHONY: helm-generate-kserve
+helm-generate-kserve:
+	@echo "=========================================="
+	@echo "Generating KServe Helm chart (includes LLMISvc, 100% automated)"
+	@echo "=========================================="
+	@mkdir -p build/helm-tmp
+
+	# Generate combined KServe + LLMISvc from config/default (excludes CRDs - they're in kserve-crd chart)
+	@echo "Generating combined KServe+LLMISvc templates from config/default..."
+	@kubectl kustomize config/default > build/helm-tmp/kserve-all.yaml
+	# Filter out CRDs (they're managed by kserve-crd/kserve-crd-minimal charts)
+	@yq eval 'select(.kind != "CustomResourceDefinition")' build/helm-tmp/kserve-all.yaml > build/helm-tmp/kserve-all-no-crds.yaml
+	@cat build/helm-tmp/kserve-all-no-crds.yaml | helmify build/helm-tmp/kserve-chart
+
+	# Escape embedded Go templates (for LLMISvc ConfigMaps)
+	@echo "Escaping KServe-specific Go templates..."
+	@./hack/escape_helm_templates.py build/helm-tmp/kserve-chart/templates/*.yaml
+
+	# Fix chart references
+	@echo "Fixing chart references..."
+	@for file in build/helm-tmp/kserve-chart/templates/*.yaml build/helm-tmp/kserve-chart/templates/_helpers.tpl; do \
+		sed -i 's/kserve-chart\./kserve-resources./g' "$$file"; \
+	done
+
+	# Copy EVERYTHING to actual chart (100% automated)
+	@echo "Copying all generated templates and values..."
+	@rm -rf charts/kserve-resources/templates/*
+	@mkdir -p charts/kserve-resources/templates/localmodel
+	@mkdir -p charts/kserve-resources/templates/localmodelnode
+	@cp -r build/helm-tmp/kserve-chart/templates/* charts/kserve-resources/templates/
+	@cp build/helm-tmp/kserve-chart/values.yaml charts/kserve-resources/values.yaml
+	@echo "Note: Chart.yaml is preserved (contains version and metadata)"
+
+	# Remove CRDs from generated chart (they're managed by kserve-crd/kserve-crd-minimal charts)
+	@echo "Removing CRDs from chart templates..."
+	@rm -f charts/kserve-resources/templates/*-crd.yaml
+
+	# Fix hardcoded resource names that controllers expect
+	@echo "Fixing hardcoded resource names..."
+	@sed -i "s/name: {{ include \"kserve-resources\.fullname\" \. }}-inferenceservice-config/name: inferenceservice-config/g" charts/kserve-resources/templates/inferenceservice-config.yaml
+
+	# Add required values for conditional templates
+	@echo "Adding required Helm values..."
+	@echo "" >> charts/kserve-resources/values.yaml
+	@echo "# Local model configuration" >> charts/kserve-resources/values.yaml
+	@echo "kserve:" >> charts/kserve-resources/values.yaml
+	@echo "  localmodel:" >> charts/kserve-resources/values.yaml
+	@echo "    enabled: false" >> charts/kserve-resources/values.yaml
+
+	# Fix malformed Certificate dnsNames
+	@echo "Fixing Certificate templates..."
+	@./hack/fix_certificate_dnsnames.py
+
+	# Validate
+	@echo "Validating Helm chart..."
+	@helm lint charts/kserve-resources
+	@helm template test charts/kserve-resources --dry-run > /dev/null
+
+	@echo "✅ KServe Helm chart fully generated (includes LLMISvc, 100% automated, 0% manual)"
+	@echo "   Output: charts/kserve-resources/"
 
 # Generate code
 generate: controller-gen helm-docs

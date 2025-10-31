@@ -1,133 +1,235 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kserve-controller-manager
-  namespace: {{ .Release.Namespace }}
+  name: {{ include "kserve-resources.fullname" . }}-kserve-controller-manager
   labels:
-    app.kubernetes.io/name: kserve-controller-manager
     control-plane: kserve-controller-manager
     controller-tools.k8s.io: "1.0"
-    {{- if .Values.kserve.controller.labels }}
-    {{- toYaml .Values.kserve.controller.labels | nindent 4 }}
-    {{- end }}
-  annotations:
-    prometheus.io/scrape: 'true'
-    {{- if .Values.kserve.controller.annotations }}
-    {{- toYaml .Values.kserve.controller.annotations | nindent 4 }}
-    {{- end }}
+  {{- include "kserve-resources.labels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:
       control-plane: kserve-controller-manager
       controller-tools.k8s.io: "1.0"
+    {{- include "kserve-resources.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
         app.kubernetes.io/name: kserve-controller-manager
         control-plane: kserve-controller-manager
         controller-tools.k8s.io: "1.0"
-        {{- if .Values.kserve.controller.podLabels }}
-        {{- toYaml .Values.kserve.controller.podLabels | nindent 8 }}
-        {{- end }}
+      {{- include "kserve-resources.selectorLabels" . | nindent 8 }}
       annotations:
         kubectl.kubernetes.io/default-container: manager
-        {{- if .Values.kserve.controller.podAnnotations }}
-        {{- toYaml .Values.kserve.controller.podAnnotations | nindent 8 }}
-        {{- end }}
     spec:
-      serviceAccountName: kserve-controller-manager
-      {{- with .Values.kserve.controller.nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.kserve.controller.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.kserve.controller.tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.kserve.controller.topologySpreadConstraints }}
-      topologySpreadConstraints:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.kserve.controller.securityContext}}
-      securityContext:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       containers:
-      - name: kube-rbac-proxy
-        image: "{{ .Values.kserve.controller.rbacProxyImage }}"
-        args:
-        - "--secure-listen-address=0.0.0.0:8443"
-        - "--upstream=http://127.0.0.1:8080/"
-        - "--logtostderr=true"
-        - "--v=10"
-        ports:
-        - containerPort: 8443
-          name: https
-        securityContext:
-          {{- with .Values.kserve.controller.rbacProxy.securityContext}}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
-        resources:
-          {{- with .Values.kserve.controller.rbacProxy.resources }}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
-      - command:
+      - args: {{- toYaml .Values.kserveControllerManager.manager.args | nindent 8 }}
+        command:
         - /manager
-        image: "{{ .Values.kserve.controller.image }}:{{ .Values.kserve.controller.tag }}"
-        imagePullPolicy: IfNotPresent
-        name: manager
-        securityContext:
-          {{- with .Values.kserve.controller.containerSecurityContext}}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
-        args:
-        - "--metrics-addr={{ .Values.kserve.controller.metricsBindAddress }}:{{ .Values.kserve.controller.metricsBindPort }}"
-        - "--leader-elect"
         env:
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: SECRET_NAME
-            value: kserve-webhook-server-cert
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: SECRET_NAME
+          value: {{ quote .Values.kserveControllerManager.manager.env.secretName }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.kserveControllerManager.manager.image.repository }}:{{ .Values.kserveControllerManager.manager.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.kserveControllerManager.manager.imagePullPolicy }}
         livenessProbe:
           failureThreshold: 5
-          initialDelaySeconds: 30
           httpGet:
             path: /healthz
             port: 8081
-          timeoutSeconds: 5
-        readinessProbe:
           initialDelaySeconds: 30
-          failureThreshold: 5
-          periodSeconds: 5
-          httpGet:
-            path: /readyz
-            port: 8081
           timeoutSeconds: 5
-        resources:
-{{- if .Values.kserve.controller.resources }}
-{{ toYaml .Values.kserve.controller.resources | trim | indent 12 }}
-{{- end }}
+        name: manager
         ports:
         - containerPort: 9443
           name: webhook-server
           protocol: TCP
-        - containerPort: 8080
-          name: metrics
-          protocol: TCP
+        readinessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 5
+        resources: {{- toYaml .Values.kserveControllerManager.manager.resources | nindent
+          10 }}
+        securityContext: {{- toYaml .Values.kserveControllerManager.manager.containerSecurityContext
+          | nindent 10 }}
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
+      - args: {{- toYaml .Values.kserveControllerManager.kubeRbacProxy.args | nindent 8
+          }}
+        env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: '{{ .Values.kserveControllerManager.kubeRbacProxy.image.repository }}:{{
+          .Values.kserveControllerManager.kubeRbacProxy.image.tag | default .Chart.AppVersion
+          }}'
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+          protocol: TCP
+        resources: {}
+        securityContext: {{- toYaml .Values.kserveControllerManager.kubeRbacProxy.containerSecurityContext
+          | nindent 10 }}
+      securityContext: {{- toYaml .Values.kserveControllerManager.podSecurityContext |
+        nindent 8 }}
+      serviceAccountName: {{ include "kserve-resources.fullname" . }}-kserve-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
       - name: cert
         secret:
           defaultMode: 420
           secretName: kserve-webhook-server-cert
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kserve-resources.fullname" . }}-kserve-llmisvc-controller-manager
+  labels:
+    app.kubernetes.io/component: controller
+    control-plane: llmisvc-controller-manager
+    controller-tools.k8s.io: "1.0"
+  {{- include "kserve-resources.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.kserveLlmisvcControllerManager.replicas }}
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ .Values.kserveLlmisvcControllerManager.strategy.rollingUpdate.maxSurge
+        }}
+      maxUnavailable: {{ .Values.kserveLlmisvcControllerManager.strategy.rollingUpdate.maxUnavailable
+        }}
+    type: {{ .Values.kserveLlmisvcControllerManager.strategy.type | quote }}
+  selector:
+    matchLabels:
+      control-plane: llmisvc-controller-manager
+      controller-tools.k8s.io: "1.0"
+    {{- include "kserve-resources.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: kserve-llmisvc-controller-manager
+        control-plane: llmisvc-controller-manager
+        controller-tools.k8s.io: "1.0"
+      {{- include "kserve-resources.selectorLabels" . | nindent 8 }}
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+    spec:
+      containers:
+      - args: {{- toYaml .Values.kserveLlmisvcControllerManager.manager.args | nindent
+          8 }}
+        command:
+        - /manager
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: '{{ .Values.kserveLlmisvcControllerManager.manager.image.repository }}:{{
+          .Values.kserveLlmisvcControllerManager.manager.image.tag | default .Chart.AppVersion
+          }}'
+        imagePullPolicy: {{ .Values.kserveLlmisvcControllerManager.manager.imagePullPolicy
+          }}
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        - containerPort: 8443
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 5
+        resources: {{- toYaml .Values.kserveLlmisvcControllerManager.manager.resources
+          | nindent 10 }}
+        securityContext: {{- toYaml .Values.kserveLlmisvcControllerManager.manager.containerSecurityContext
+          | nindent 10 }}
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+      securityContext: {{- toYaml .Values.kserveLlmisvcControllerManager.podSecurityContext
+        | nindent 8 }}
+      serviceAccountName: {{ include "kserve-resources.fullname" . }}-llmisvc-controller-manager
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: llmisvc-webhook-server-cert
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kserve-resources.fullname" . }}-kserve-localmodel-controller-manager
+  labels:
+    control-plane: kserve-localmodel-controller-manager
+    controller-tools.k8s.io: "1.0"
+  {{- include "kserve-resources.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      control-plane: kserve-localmodel-controller-manager
+      controller-tools.k8s.io: "1.0"
+    {{- include "kserve-resources.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kserve-localmodel-controller-manager
+        control-plane: kserve-localmodel-controller-manager
+        controller-tools.k8s.io: "1.0"
+      {{- include "kserve-resources.selectorLabels" . | nindent 8 }}
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+    spec:
+      containers:
+      - command:
+        - /manager
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: '{{ .Values.kserveLocalmodelControllerManager.manager.image.repository }}:{{
+          .Values.kserveLocalmodelControllerManager.manager.image.tag | default .Chart.AppVersion
+          }}'
+        imagePullPolicy: {{ .Values.kserveLocalmodelControllerManager.manager.imagePullPolicy
+          }}
+        name: manager
+        resources: {{- toYaml .Values.kserveLocalmodelControllerManager.manager.resources
+          | nindent 10 }}
+        securityContext: {{- toYaml .Values.kserveLocalmodelControllerManager.manager.containerSecurityContext
+          | nindent 10 }}
+      securityContext: {{- toYaml .Values.kserveLocalmodelControllerManager.podSecurityContext
+        | nindent 8 }}
+      serviceAccountName: {{ include "kserve-resources.fullname" . }}-kserve-localmodel-controller-manager
+      terminationGracePeriodSeconds: 10

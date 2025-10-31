@@ -2,7 +2,7 @@
 Expand the name of the chart.
 */}}
 {{- define "llm-isvc-resources.name" -}}
-{{- .Chart.Name | trunc 63 | trimSuffix "-" }}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
@@ -11,10 +11,15 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 If release name contains chart name it will be used as a full name.
 */}}
 {{- define "llm-isvc-resources.fullname" -}}
-{{- if contains .Chart.Name .Release.Name }}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
 {{- .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- else }}
-{{- printf "%s-%s" .Release.Name .Chart.Name | trunc 63 | trimSuffix "-" }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
 {{- end }}
 {{- end }}
 
@@ -41,48 +46,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 Selector labels
 */}}
 {{- define "llm-isvc-resources.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "llm-isvc-resources.deploymentName" . }}
+app.kubernetes.io/name: {{ include "llm-isvc-resources.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }}
-
-{{/*
-Create the deployment name
-*/}}
-{{- define "llm-isvc-resources.deploymentName" -}}
-kserve-llmisvc-controller-manager
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
 {{- define "llm-isvc-resources.serviceAccountName" -}}
-{{- default (include "llm-isvc-resources.deploymentName" .) .Values.kserve.llmisvc.controller.serviceAccount.name }}
-{{- end }}
-
-{{/*
-Return the proper image name
-*/}}
-{{- define "llm-isvc-resources.image" -}}
-{{- $repositoryName := .Values.kserve.llmisvc.controller.image -}}
-{{- $tag := .Values.kserve.llmisvc.controller.tag | toString -}}
-{{- printf "%s:%s" $repositoryName $tag -}}
-{{- end }}
-
-{{/*
-Return the proper image pull policy
-*/}}
-{{- define "llm-isvc-resources.imagePullPolicy" -}}
-{{- .Values.kserve.llmisvc.controller.imagePullPolicy | default "IfNotPresent" }}
-{{- end }}
-
-{{/*
-Return the proper image pull secrets
-*/}}
-{{- define "llm-isvc-resources.imagePullSecrets" -}}
-{{- if .Values.kserve.llmisvc.controller.imagePullSecrets }}
-imagePullSecrets:
-{{- range .Values.kserve.llmisvc.controller.imagePullSecrets }}
-  - name: {{ . }}
-{{- end }}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "llm-isvc-resources.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}

@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "llm-isvc-resources.fullname" . }}-inferenceservice-config
+  labels:
+  {{- include "llm-isvc-resources.labels" . | nindent 4 }}
+data:
+  _example: {{ .Values.inferenceserviceConfig.Example | toYaml | indent 1 }}
+  agent: {{ .Values.inferenceserviceConfig.agent | toYaml | indent 1 }}
+  autoscaler: {{ .Values.inferenceserviceConfig.autoscaler | toYaml | indent 1 }}
+  batcher: {{ .Values.inferenceserviceConfig.batcher | toYaml | indent 1 }}
+  credentials: {{ .Values.inferenceserviceConfig.credentials | toYaml | indent 1
+    }}
+  deploy: {{ .Values.inferenceserviceConfig.deploy | toYaml | indent 1 }}
+  explainers: {{ .Values.inferenceserviceConfig.explainers | toYaml | indent 1 }}
+  inferenceService: {{ .Values.inferenceserviceConfig.inferenceService | toYaml |
+    indent 1 }}
+  ingress: {{ .Values.inferenceserviceConfig.ingress | toYaml | indent 1 }}
+  localModel: {{ .Values.inferenceserviceConfig.localModel | toYaml | indent 1 }}
+  logger: {{ .Values.inferenceserviceConfig.logger | toYaml | indent 1 }}
+  metricsAggregator: {{ .Values.inferenceserviceConfig.metricsAggregator | toYaml
+    | indent 1 }}
+  opentelemetryCollector: {{ .Values.inferenceserviceConfig.opentelemetryCollector
+    | toYaml | indent 1 }}
+  router: {{ .Values.inferenceserviceConfig.router | toYaml | indent 1 }}
+  security: {{ .Values.inferenceserviceConfig.security | toYaml | indent 1 }}
+  storageInitializer: {{ .Values.inferenceserviceConfig.storageInitializer | toYaml
+    | indent 1 }}

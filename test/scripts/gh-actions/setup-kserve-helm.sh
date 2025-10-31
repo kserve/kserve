@@ -27,6 +27,9 @@ cat ./charts/kserve-resources/values.yaml
 
 make deploy-helm
 
+echo "Installing ClusterServingRuntime resources..."
+kubectl apply -k config/runtimes
+
 echo "Get events of all pods ..."
 kubectl get events -A
 
