@@ -24,18 +24,58 @@ STORAGE_MODULE = "kserve_storage.kserve_storage"
 def create_mock_item(path):
     mock_obj = mock.MagicMock()
     mock_obj.name = path
+    mock_obj.size = 1024  # Mock non-zero size for regular files
+
+    # For async streaming, we need to mock the chunks() method
+    async def mock_chunks():
+        yield b"test"
+
+    mock_stream = mock.MagicMock()
+    mock_stream.chunks = mock_chunks
     mock_obj.readall.return_value = b"test"
+    mock_obj.chunks = mock_chunks
     return mock_obj
 
 
 def create_mock_blob(mock_storage, paths):
     mock_objs = [create_mock_item(path) for path in paths]
     mock_container = mock.MagicMock()
-    mock_container.walk_blobs.return_value = mock_objs
-    mock_container.list_blobs.return_value = mock_objs
-    mock_container.download_blob.return_value = mock_objs[0]
+
+    # Mock async list_blobs (changed from walk_blobs)
+    async def mock_list_blobs(name_starts_with=None, include=None):
+        for obj in mock_objs:
+            yield obj
+
+    mock_container.list_blobs = mock_list_blobs
+
+    # Mock async download_blob returning a stream (no blob_name param needed)
+    async def mock_download_blob(max_concurrency=None):
+        # Return a stream-like object with chunks() method
+        stream = mock.MagicMock()
+
+        async def mock_chunks():
+            yield b"test"
+
+        stream.chunks = mock_chunks
+        return stream
+
+    mock_blob_client = mock.MagicMock()
+    mock_blob_client.download_blob = mock_download_blob
+    mock_container.get_blob_client.return_value = mock_blob_client
+
     mock_svc = mock.MagicMock()
     mock_svc.get_container_client.return_value = mock_container
+
+    # Make the service client work as an async context manager
+    async def mock_aenter(self):
+        return mock_svc
+
+    async def mock_aexit(self, exc_type, exc_val, exc_tb):
+        return None
+
+    mock_svc.__aenter__ = mock_aenter
+    mock_svc.__aexit__ = mock_aexit
+
     mock_storage.return_value = mock_svc
     return mock_storage, mock_container
 
@@ -57,12 +97,15 @@ def create_mock_file(name):
 def create_mock_objects_for_file_share(mock_storage, mock_file_items):
     mock_share = mock.MagicMock()
     mock_share.list_directories_and_files.side_effect = mock_file_items
+
     mock_file = mock.MagicMock()
     mock_share.get_file_client.return_value = mock_file
     mock_data = mock.MagicMock()
     mock_file.download_file.return_value = mock_data
+
     mock_svc = mock.MagicMock()
     mock_svc.get_share_client.return_value = mock_share
+
     mock_storage.return_value = mock_svc
     return mock_storage, mock_share, mock_data
 
@@ -85,7 +128,7 @@ def test_cleanup():
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
-@mock.patch("azure.storage.blob.BlobServiceClient")
+@mock.patch("azure.storage.blob.aio.BlobServiceClient")
 def test_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -97,7 +140,8 @@ def test_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
     Storage._download_azure_blob(blob_path, "dest_path")
 
     # then
-    arg_list = get_call_args(mock_container.download_blob.call_args_list)
+    # Check that get_blob_client was called for each blob
+    arg_list = get_call_args(mock_container.get_blob_client.call_args_list)
     assert set(arg_list) == set(
         [("simple_string/1/model.graphdef",), ("simple_string/config.pbtxt",)]
     )
@@ -108,7 +152,7 @@ def test_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
-@mock.patch("azure.storage.blob.BlobServiceClient")
+@mock.patch("azure.storage.blob.aio.BlobServiceClient")
 def test_blob_file_direct(
     mock_storage, mock_makedirs
 ):  # pylint: disable=unused-argument
@@ -122,7 +166,7 @@ def test_blob_file_direct(
     Storage._download_azure_blob(blob_path, "dest_path")
 
     # then
-    arg_list = get_call_args(mock_container.download_blob.call_args_list)
+    arg_list = get_call_args(mock_container.get_blob_client.call_args_list)
     assert arg_list == [("somefile.text",)]
     mock_storage.assert_called_with(
         "https://accountname.blob.core.windows.net", credential=None
@@ -131,7 +175,7 @@ def test_blob_file_direct(
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
 @mock.patch(STORAGE_MODULE + ".Storage._get_azure_storage_token")
-@mock.patch("azure.storage.blob.BlobServiceClient")
+@mock.patch("azure.storage.blob.aio.BlobServiceClient")
 def test_secure_blob(
     mock_storage, mock_get_token, mock_makedirs
 ):  # pylint: disable=unused-argument
@@ -139,6 +183,8 @@ def test_secure_blob(
     # given
     blob_path = "https://kfsecured.blob.core.windows.net/triton/simple_string/"
     mock_get_token.return_value = "some_token"
+    # Set up empty blob mock to trigger RuntimeError
+    mock_blob, mock_container = create_mock_blob(mock_storage, [])
 
     # when
     with pytest.raises(RuntimeError):
@@ -154,7 +200,7 @@ def test_secure_blob(
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
-@mock.patch("azure.storage.blob.BlobServiceClient")
+@mock.patch("azure.storage.blob.aio.BlobServiceClient")
 def test_deep_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -173,12 +219,12 @@ def test_deep_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argum
         pass
 
     # then
-    actual_calls = get_call_args(mock_container.download_blob.call_args_list)
+    actual_calls = get_call_args(mock_container.get_blob_client.call_args_list)
     assert set(actual_calls) == set(expected_calls)
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
-@mock.patch("azure.storage.blob.BlobServiceClient")
+@mock.patch("azure.storage.blob.aio.BlobServiceClient")
 def test_blob_file(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -192,12 +238,12 @@ def test_blob_file(mock_storage, mock_makedirs):  # pylint: disable=unused-argum
     Storage._download_azure_blob(blob_path, "some/dest/path")
 
     # then
-    actual_calls = get_call_args(mock_container.download_blob.call_args_list)
+    actual_calls = get_call_args(mock_container.get_blob_client.call_args_list)
     assert actual_calls == expected_calls
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
-@mock.patch("azure.storage.blob.BlobServiceClient")
+@mock.patch("azure.storage.blob.aio.BlobServiceClient")
 def test_blob_fq_file(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -213,12 +259,12 @@ def test_blob_fq_file(mock_storage, mock_makedirs):  # pylint: disable=unused-ar
     Storage._download_azure_blob(blob_path, "some/dest/path")
 
     # then
-    actual_calls = get_call_args(mock_container.download_blob.call_args_list)
+    actual_calls = get_call_args(mock_container.get_blob_client.call_args_list)
     assert actual_calls == expected_calls
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
-@mock.patch("azure.storage.blob.BlobServiceClient")
+@mock.patch("azure.storage.blob.aio.BlobServiceClient")
 def test_blob_no_prefix(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -232,7 +278,7 @@ def test_blob_no_prefix(mock_storage, mock_makedirs):  # pylint: disable=unused-
     Storage._download_azure_blob(blob_path, "some/dest/path")
 
     # then
-    actual_calls = get_call_args(mock_container.download_blob.call_args_list)
+    actual_calls = get_call_args(mock_container.get_blob_client.call_args_list)
     assert set(actual_calls) == set(expected_calls)
 
 
