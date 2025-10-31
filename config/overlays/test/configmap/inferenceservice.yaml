@@ -8,12 +8,12 @@ data:
     {
         "art": {
             "image" : "kserve/art-explainer",
-            "defaultImageVersion": ""
+            "defaultImageVersion": "latest"
         }
     }
   storageInitializer: |-
     {
-        "image" : "kserve/storage-initializer:",
+        "image" : "kserve/storage-initializer:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
