@@ -15,18 +15,7 @@ BLACK_FMT = $(PYTHON_BIN)/black
 FLAKE8_LINT = $(PYTHON_BIN)/flake8
 UV = $(PYTHON_BIN)/uv
 
-## Tool versions.
-GOLANGCI_LINT_VERSION ?= v1.64.8
-CONTROLLER_TOOLS_VERSION ?= v0.16.2
-ENVTEST_VERSION ?= latest
-YQ_VERSION ?= v4.28.1
-HELM_DOCS_VERSION ?= v1.12.0
-BLACK_FMT_VERSION ?= 24.3
-FLAKE8_LINT_VERSION ?= 7.1
-POETRY_VERSION ?= 1.8.3
-UV_VERSION ?= 0.7.8
-
-
+## Tool versions are defined in kserve-deps.env (included in main Makefile)
 
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT)
