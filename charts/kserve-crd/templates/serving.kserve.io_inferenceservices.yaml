@@ -3117,6 +3117,23 @@ spec:
                     type: boolean
                   shareProcessNamespace:
                     type: boolean
+                  storageUris:
+                    items:
+                      properties:
+                        mountPath:
+                          default: /mnt/models
+                          maxLength: 255
+                          pattern: ^/.*
+                          type: string
+                        uri:
+                          minLength: 1
+                          type: string
+                      required:
+                      - uri
+                      type: object
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
                   subdomain:
                     type: string
                   terminationGracePeriodSeconds:
@@ -11878,6 +11895,23 @@ spec:
                       workingDir:
                         type: string
                     type: object
+                  storageUris:
+                    items:
+                      properties:
+                        mountPath:
+                          default: /mnt/models
+                          maxLength: 255
+                          pattern: ^/.*
+                          type: string
+                        uri:
+                          minLength: 1
+                          type: string
+                      required:
+                      - uri
+                      type: object
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
                   subdomain:
                     type: string
                   tensorflow:
@@ -20794,6 +20828,23 @@ spec:
                     type: boolean
                   shareProcessNamespace:
                     type: boolean
+                  storageUris:
+                    items:
+                      properties:
+                        mountPath:
+                          default: /mnt/models
+                          maxLength: 255
+                          pattern: ^/.*
+                          type: string
+                        uri:
+                          minLength: 1
+                          type: string
+                      required:
+                      - uri
+                      type: object
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
                   subdomain:
                     type: string
                   terminationGracePeriodSeconds:
