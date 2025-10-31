@@ -237,6 +237,41 @@ func GetVolumeNameFromPath(path string) string {
 	return strings.ReplaceAll(strings.Trim(path, "/"), "/", "-")
 }
 
+// AddDefaultHuggingFaceEnvVars adds default HuggingFace optimization environment variables
+// to the container if they are not already present. This prevents conflicts when merging
+// container specs where users may have defined these variables with different configurations.
+func AddDefaultHuggingFaceEnvVars(container *corev1.Container) {
+	defaultHFEnvVars := []corev1.EnvVar{
+		{
+			Name:  "HF_HUB_ENABLE_HF_TRANSFER",
+			Value: "1",
+		},
+		{
+			Name:  "HF_XET_HIGH_PERFORMANCE",
+			Value: "1",
+		},
+		{
+			Name:  "HF_XET_NUM_CONCURRENT_RANGE_GETS",
+			Value: "8",
+		},
+	}
+
+	for _, defaultEnvVar := range defaultHFEnvVars {
+		// Check if the environment variable already exists
+		exists := false
+		for _, existingEnvVar := range container.Env {
+			if existingEnvVar.Name == defaultEnvVar.Name {
+				exists = true
+				break
+			}
+		}
+		// Only add if it doesn't already exist
+		if !exists {
+			container.Env = append(container.Env, defaultEnvVar)
+		}
+	}
+}
+
 func GetStorageResources(storageURIs []string, storagePaths []string) ([]corev1.VolumeMount, []corev1.Volume, []string, error) {
 	initContainerArgs := make([]string, 0, len(storageURIs)*2)
 	var volumeMounts []corev1.VolumeMount
@@ -285,20 +320,6 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 			MountPath: constants.DefaultModelLocalMountPath,
 			ReadOnly:  false,
 		}},
-		Env: []corev1.EnvVar{
-			{
-				Name:  "HF_HUB_ENABLE_HF_TRANSFER",
-				Value: "1",
-			},
-			{
-				Name:  "HF_XET_HIGH_PERFORMANCE",
-				Value: "1",
-			},
-			{
-				Name:  "HF_XET_NUM_CONCURRENT_RANGE_GETS",
-				Value: "8",
-			},
-		},
 		Resources: corev1.ResourceRequirements{
 			Limits: map[corev1.ResourceName]resource.Quantity{
 				corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),
