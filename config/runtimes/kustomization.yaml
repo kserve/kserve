@@ -13,8 +13,8 @@ resources:
 - kserve-torchserve.yaml
 - kserve-huggingfaceserver.yaml
 - kserve-huggingfaceserver-multinode.yaml
-  - kserve-vllmserver.yaml
-  - kserve-vllmserver-multinode.yaml
+- kserve-vllmserver.yaml
+- kserve-vllmserver-multinode.yaml
 
 images:
   # SMS Only Runtimes
