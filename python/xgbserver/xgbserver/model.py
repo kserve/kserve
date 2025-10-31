@@ -55,8 +55,10 @@ class XGBoostModel(Model):
                 f"Only one is allowed within model_dir: {model_files}"
             )
 
+        with open(model_files[0], "rb") as f:
+            model_bytes = f.read()
         self._booster = xgb.Booster(
-            params={"nthread": self.nthread}, model_file=model_files[0]
+            params={"nthread": self.nthread}, model_file=bytearray(model_bytes)
         )
         self.ready = True
         return self.ready
