@@ -1,6 +1,9 @@
 # The Go and Python based tools are defined in Makefile.tools.mk.
 include Makefile.tools.mk
 
+# Load dependency versions
+include kserve-deps.env
+
 # Base Image URL
 BASE_IMG ?= python:3.11-slim-bookworm
 PMML_BASE_IMG ?= openjdk:21-slim-bookworm
@@ -30,8 +33,6 @@ LLMISVC_IMG ?= kserve-llmisvc-controller:latest
 
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
-
-GIE_VERSION ?= v0.5.1
 
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -75,6 +76,10 @@ vet:
 tidy:
 	go mod tidy
 	cd qpext && go mod tidy
+
+.PHONY: sync-deps
+sync-deps:
+	@hack/setup/scripts/generate-versions-from-gomod.sh
 
 go-lint: golangci-lint
 	@$(GOLANGCI_LINT) run --fix
@@ -306,7 +311,7 @@ uv-lock: $(UV)
 
 
 # This runs all necessary steps to prepare for a commit.
-precommit: vet tidy go-lint py-fmt py-lint generate manifests uv-lock
+precommit: sync-deps vet tidy go-lint py-fmt py-lint generate manifests uv-lock
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit

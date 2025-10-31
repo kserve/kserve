@@ -1,0 +1,178 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: qwen2-7b-instruct-pd
+  annotations:
+    # RoCE network required for KV cache transfer via RDMA
+    k8s.v1.cni.cncf.io/networks: roce-p2
+spec:
+  # Main/decode pool replica count
+  replicas: 1
+  model:
+    uri: hf://Qwen/Qwen2.5-7B-Instruct
+    name: Qwen/Qwen2.5-7B-Instruct
+  router:
+    route: { }
+    gateway: { }
+    scheduler:
+      template:
+        containers:
+          - name: main
+            # Threshold 0 means always use prefill-decode separation
+            args:
+              - --pool-name
+              - "{{ ChildName .ObjectMeta.Name `-inference-pool` }}"
+              - --pool-namespace
+              - "{{ .ObjectMeta.Namespace }}"
+              - --zap-encoder
+              - json
+              - --grpc-port
+              - "9002"
+              - --grpc-health-port
+              - "9003"
+              - --secure-serving
+              - --model-server-metrics-scheme
+              - https
+              - --model-server-metrics-https-insecure-skip-verify
+              - --cert-path
+              - /etc/ssl/certs
+              - --config-text
+              - |
+                # Always do P/D in this example (threshold 0)
+                apiVersion: inference.networking.x-k8s.io/v1alpha1
+                kind: EndpointPickerConfig
+                plugins:
+                  - type: prefill-header-handler
+                  - type: prefill-filter
+                  - type: decode-filter
+                  - type: max-score-picker
+                  - type: queue-scorer
+                    parameters:
+                      hashBlockSize: 5
+                      maxPrefixBlocksToMatch: 256
+                      lruCapacityPerServer: 31250
+                  - type: pd-profile-handler
+                    parameters:
+                      threshold: 0
+                      hashBlockSize: 5
+                schedulingProfiles:
+                  - name: prefill
+                    plugins:
+                      - pluginRef: prefill-filter
+                      - pluginRef: queue-scorer
+                        weight: 1.0
+                      - pluginRef: max-score-picker
+                  - name: decode
+                    plugins:
+                      - pluginRef: decode-filter
+                      - pluginRef: queue-scorer
+                        weight: 1.0
+                      - pluginRef: max-score-picker
+
+  template:
+    # This affinity rule ensures that the KV transfer happens over the RDMA network because if the pods are placed
+    # on the same node it will go over NVLink.
+    #affinity:
+    #  podAntiAffinity:
+    #    preferredDuringSchedulingIgnoredDuringExecution:
+    #    - weight: 100
+    #      podAffinityTerm:
+    #        labelSelector:
+    #          matchExpressions:
+    #          - key: app.kubernetes.io/component
+    #            operator: In
+    #            values:
+    #            - llminferenceservice-workload-prefill
+    #        topologyKey: kubernetes.io/hostname
+    containers:
+      - name: main
+        env:
+          # Enable RDMA for KV cache transfer
+          - name: KSERVE_INFER_ROCE
+            value: "true"
+          # Pod IP for KV transfer side channel
+          - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          # Enable KV cache transfer via NixlConnector (RDMA-based)
+          - name: VLLM_ADDITIONAL_ARGS
+            value: "--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
+          # UCX configuration for RDMA transport
+          - name: UCX_PROTO_INFO
+            value: "y"
+          - name: UCX_TLS
+            value: "rc,sm,self,cuda_copy,cuda_ipc"
+        resources:
+          limits:
+            cpu: '4'
+            memory: 32Gi
+            nvidia.com/gpu: "1"
+            rdma/roce_gdr: 1
+          requests:
+            cpu: '2'
+            memory: 16Gi
+            nvidia.com/gpu: "1"
+            rdma/roce_gdr: 1
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTPS
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 30
+          failureThreshold: 5
+  prefill:
+    # Prefill pool replica count (higher for concurrent prefill requests)
+    replicas: 2
+    template:
+      # This affinity rule ensures that the KV transfer happens over the RDMA network because if the pods are placed
+      # on the same node it will go over NVLink
+      #affinity:
+      #  podAntiAffinity:
+      #    preferredDuringSchedulingIgnoredDuringExecution:
+      #    - weight: 100
+      #      podAffinityTerm:
+      #        labelSelector:
+      #          matchExpressions:
+      #          - key: app.kubernetes.io/component
+      #            operator: In
+      #            values:
+      #            - llminferenceservice-workload
+      #        topologyKey: kubernetes.io/hostname
+      containers:
+        - name: main
+          env:
+            - name: KSERVE_INFER_ROCE
+              value: "true"
+            - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: VLLM_ADDITIONAL_ARGS
+              value: "--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"
+            - name: UCX_PROTO_INFO
+              value: "y"
+            - name: UCX_TLS
+              value: "rc,sm,self,cuda_copy,cuda_ipc"
+          resources:
+            limits:
+              cpu: '4'
+              memory: 32Gi
+              nvidia.com/gpu: "1"
+              rdma/roce_gdr: 1
+            requests:
+              cpu: '2'
+              memory: 16Gi
+              nvidia.com/gpu: "1"
+              rdma/roce_gdr: 1
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTPS
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            timeoutSeconds: 30
+            failureThreshold: 5
