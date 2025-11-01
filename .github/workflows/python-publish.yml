@@ -26,18 +26,18 @@ jobs:
       - name: Install UV
         run: ./test/scripts/gh-actions/setup-uv.sh
 
-      - name: KServe - Build and publish
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
-        run: |
-          cd python/kserve
-          uv build
-          uv publish
-
       - name: KServe Storage - Build and publish
         env:
           UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
         run: |
           cd python/storage
+          uv build
+          uv publish
+
+      - name: KServe - Build and publish
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          cd python/kserve
           uv build
           uv publish
