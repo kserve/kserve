@@ -50,6 +50,7 @@ class V1alpha1InferenceStep(object):
         'condition': 'str',
         'data': 'str',
         'dependency': 'str',
+        'map_predictions_to_instances': 'bool',
         'name': 'str',
         'node_name': 'str',
         'service_name': 'str',
@@ -61,6 +62,7 @@ class V1alpha1InferenceStep(object):
         'condition': 'condition',
         'data': 'data',
         'dependency': 'dependency',
+        'map_predictions_to_instances': 'mapPredictionsToInstances',
         'name': 'name',
         'node_name': 'nodeName',
         'service_name': 'serviceName',
@@ -68,7 +70,7 @@ class V1alpha1InferenceStep(object):
         'weight': 'weight'
     }
 
-    def __init__(self, condition=None, data=None, dependency=None, name=None, node_name=None, service_name=None, service_url=None, weight=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, condition=None, data=None, dependency=None, map_predictions_to_instances=None, name=None, node_name=None, service_name=None, service_url=None, weight=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1InferenceStep - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -77,6 +79,7 @@ class V1alpha1InferenceStep(object):
         self._condition = None
         self._data = None
         self._dependency = None
+        self._map_predictions_to_instances = None
         self._name = None
         self._node_name = None
         self._service_name = None
@@ -90,6 +93,8 @@ class V1alpha1InferenceStep(object):
             self.data = data
         if dependency is not None:
             self.dependency = dependency
+        if map_predictions_to_instances is not None:
+            self.map_predictions_to_instances = map_predictions_to_instances
         if name is not None:
             self.name = name
         if node_name is not None:
@@ -169,6 +174,29 @@ class V1alpha1InferenceStep(object):
         """
 
         self._dependency = dependency
+
+    @property
+    def map_predictions_to_instances(self):
+        """Gets the map_predictions_to_instances of this V1alpha1InferenceStep.  # noqa: E501
+
+        If true, maps the 'predictions' field from the previous step's response to the 'instances' field of this step's request. Useful in sequential inference graphs where one step's output becomes the input for the next.  # noqa: E501
+
+        :return: The map_predictions_to_instances of this V1alpha1InferenceStep.  # noqa: E501
+        :rtype: bool
+        """
+        return self._map_predictions_to_instances
+
+    @map_predictions_to_instances.setter
+    def map_predictions_to_instances(self, map_predictions_to_instances):
+        """Sets the map_predictions_to_instances of this V1alpha1InferenceStep.
+
+        If true, maps the 'predictions' field from the previous step's response to the 'instances' field of this step's request. Useful in sequential inference graphs where one step's output becomes the input for the next.  # noqa: E501
+
+        :param map_predictions_to_instances: The map_predictions_to_instances of this V1alpha1InferenceStep.  # noqa: E501
+        :type: bool
+        """
+
+        self._map_predictions_to_instances = map_predictions_to_instances
 
     @property
     def name(self):

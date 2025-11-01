@@ -374,6 +374,10 @@
           "description": "to decide whether a step is a hard or a soft dependency in the Inference Graph",
           "type": "string"
         },
+        "mapPredictionsToInstances": {
+          "description": "If true, maps the 'predictions' field from the previous step's response to the 'instances' field of this step's request. Useful in sequential inference graphs where one step's output becomes the input for the next.",
+          "type": "boolean"
+        },
         "name": {
           "description": "Unique name for the step within this node",
           "type": "string"
