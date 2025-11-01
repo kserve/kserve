@@ -46,6 +46,7 @@ env:
   # Graph images
   SUCCESS_200_ISVC_IMG: "success-200-isvc"
   ERROR_404_ISVC_IMG: "error-404-isvc"
+  KSERVE_OVERYLAY_DIR: "test" 
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -486,8 +487,6 @@ jobs:
 
       - name: Install KServe
         run: |
-          # export VIRTUAL_ENV=python/kserve/.venv
-          # source $VIRTUAL_ENV/bin/activate
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
@@ -573,15 +572,12 @@ jobs:
 
       - name: Install KServe
         run: |
+          export KSERVE_CUSTOM_ISVC_CONFIGS='ingress.pathTemplate=/serving/{{ .Namespace }}/{{ .Name }}|ingress.ingressDomain=mydomain.com'
+          export NETWORK_LAYER='istio-ingress'
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
-
-      - name: Patch inferenceservice config
-        run: |
-          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-path-template.yaml
-          kubectl describe configmaps -n kserve inferenceservice-config
 
       - name: Run E2E tests with path-based routing
         timeout-minutes: 30
@@ -798,7 +794,7 @@ jobs:
 
       - name: Install KServe
         run: |
-          ./test/scripts/gh-actions/setup-kserve.sh "raw" ${{ matrix.network-layer }}
+          ./test/scripts/gh-actions/setup-kserve.sh "Standard" ${{ matrix.network-layer }}
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
@@ -806,11 +802,6 @@ jobs:
       - name: Log the config map
         run: |
           kubectl describe configmaps -n kserve inferenceservice-config
-
-      - name: Enable Gateway API
-        if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
-        run: |
-          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-enable-gateway-api.yaml
 
       - name: Run E2E tests
         timeout-minutes: 30
@@ -904,7 +895,7 @@ jobs:
 
       - name: Install KServe
         run: |
-          ./test/scripts/gh-actions/setup-kserve.sh "raw" "istio-ingress"
+          ./test/scripts/gh-actions/setup-kserve.sh "Standard" "istio-ingress"
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
@@ -984,15 +975,11 @@ jobs:
 
       - name: Install KServe
         run: |
+          export KSERVE_CUSTOM_ISVC_CONFIGS='ingress.disableIstioVirtualHost=true'
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
-
-      - name: Patch inferenceservice config to disable istio
-        run: |
-          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-disable-istio.yaml
-          kubectl describe configmaps -n kserve inferenceservice-config
 
       - name: Run E2E tests
         timeout-minutes: 30
@@ -1052,7 +1039,7 @@ jobs:
 
       - name: Install KServe
         run: |
-          ./test/scripts/gh-actions/setup-kserve.sh
+          ./test/scripts/gh-actions/setup-kserve.sh "Standard" "envoy-gatewayapi"
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
@@ -1110,7 +1097,7 @@ jobs:
         run: ./test/scripts/gh-actions/setup-uv.sh
 
       - name: Install KServe
-        run: |
+        run: |  
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
@@ -1214,17 +1201,12 @@ jobs:
 
       - name: Install KServe
         run: |
+          export KSERVE_CUSTOM_ISVC_CONFIGS="localModel.enabled=true|localModel.defaultJobImage=kserve/storage-initializer:${GITHUB_SHA}"
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
-
-      - name: Enable modelcache
-        run: |
-          sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice-enable-modelcache.yaml
-          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-enable-modelcache.yaml
           kubectl describe configmaps -n kserve inferenceservice-config
-
       - name: Create localmodel job namespace
         run: |
           kubectl create ns kserve-localmodel-jobs

@@ -31,7 +31,7 @@ source "${REPO_ROOT}/kserve-deps.env"
 DEPLOYMENT_MODE="${1:-'serverless'}"
 NETWORK_LAYER="${2:-'istio'}"
 ENABLE_KEDA="${3:-'false'}"
-ENABLE_LWS="${4:-'false'}"
+LLMISVC="${4:-'false'}"
 
 ${REPO_ROOT}/hack/setup/cli/install-yq.sh
 
@@ -68,7 +68,11 @@ if [[ $DEPLOYMENT_MODE == "raw" ]]; then
   fi
 fi
 
-if [[ $ENABLE_LWS == "true" ]]; then
+if [[ $LLMISVC == "true" ]]; then
+  export GATEWAY_NETWORK_LAYER="${NETWORK_LAYER%%-*}"
+  ${REPO_ROOT}/hack/setup/infra/manage.kserve-gateway.sh
+  ${REPO_ROOT}/hack/setup/infra/manage.cert-manager-helm.sh
+  ${REPO_ROOT}/hack/setup/infra/manage.envoy-ai-gateway-helm.sh
   ${REPO_ROOT}/hack/setup/infra/manage.lws-operator.sh
 fi
 
