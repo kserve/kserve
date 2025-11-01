@@ -185,7 +185,7 @@ wheels = [
 
 [[package]]
 name = "custom-transformer"
-version = "0.16.0rc1"
+version = "0.16.0"
 source = { virtual = "." }
 dependencies = [
     { name = "kserve" },
@@ -512,7 +512,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.16.0rc1"
+version = "0.16.0"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "cloudevents" },
@@ -547,7 +547,7 @@ requires-dist = [
     { name = "grpcio", specifier = ">=1.64.1,<2.0.0" },
     { name = "grpcio-tools", specifier = ">=1.64.1,<2.0.0" },
     { name = "httpx", specifier = ">=0.27.2,<1.0.0" },
-    { name = "kserve-storage", marker = "extra == 'storage'", specifier = "==0.16.0rc1" },
+    { name = "kserve-storage", marker = "extra == 'storage'", specifier = "==0.16.0" },
     { name = "kubernetes", specifier = ">=23.3.0" },
     { name = "numpy", specifier = ">=1.26.0,<3.0.0" },
     { name = "orjson", specifier = ">=3.9.15,<4.0.0" },

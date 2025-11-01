@@ -11,7 +11,7 @@ dependencies = [
     "pandas<3.0.0,>=2.2.0",
 ]
 name = "lgbserver"
-version = "0.16.0rc1"
+version = "0.16.0"
 description = "Model Server implementation for LightGBM. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 

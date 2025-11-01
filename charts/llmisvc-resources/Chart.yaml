@@ -1,7 +1,7 @@
 apiVersion: v2
 name: llmisvc-resources
-version: v0.16.0-rc1
-appVersion: v0.16.0-rc1
+version: v0.16.0
+appVersion: v0.16.0
 description: Helm chart for deploying KServe LLMInferenceService resources
 type: application
 keywords:

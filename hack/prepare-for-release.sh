@@ -84,27 +84,28 @@ echo "Normalized versions for the charts badge: prior: $pversion - new: $nversio
 echo -e "\033[32mUpdating charts...\033[0m"
 for readmeFile in `find charts -name README.md`; do
   echo -e "\033[32mUpdating ${readmeFile}...\033[0m"
-  sed -i "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" ${readmeFile}
-  sed -i "s/Version-v${pversion}/Version-v${nversion}/g" ${readmeFile}
+  sed -i '' "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" ${readmeFile}
+  sed -i '' "s/Version-v${pversion}/Version-v${nversion}/g" ${readmeFile}
   # sanity check, when doing final release update to the next rc version it might skip the double dash
-  sed -i "s/Version-v${NEW_VERSION}/Version-v${nversion}/g" ${readmeFile}
+  sed -i '' "s/Version-v${NEW_VERSION}/Version-v${nversion}/g" ${readmeFile}
 done
 
 for yaml in `find charts \( -name "Chart.yaml" -o -name "values.yaml" \)`; do
   # do not interact over empty files
   if [ ! -s "yaml" ]; then
      echo -e "\033[32mUpdating ${yaml}...\033[0m"
-     sed -i "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" ${yaml}
+     sed -i '' "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" ${yaml}
   fi
 done
 
 # Update hack/generate-install.sh
 echo -e "\033[32mUpdating hack/generate-install.sh...\033[0m"
-sed -i "/\"v${PRIOR_VERSION}\"/a \    \"v${NEW_VERSION}\"" hack/generate-install.sh
+sed -i '' "/\"v${PRIOR_VERSION}\"/a \\
+    \"v${NEW_VERSION}\"" hack/generate-install.sh
 
 # Update hack/quick_install.sh
 echo -e "\033[32mUpdating hack/quick_install.sh...\033[0m"
-sed -i "s/KSERVE_VERSION=v${PRIOR_VERSION}/KSERVE_VERSION=v${NEW_VERSION}/g" hack/quick_install.sh
+sed -i '' "s/KSERVE_VERSION=v${PRIOR_VERSION}/KSERVE_VERSION=v${NEW_VERSION}/g" hack/quick_install.sh
 
 
 # update python/kserve version
@@ -112,6 +113,9 @@ echo -e "\033[32mUpdating python/kserve version...\033[0m"
 ## if rcX release, it has no dash, e.g. 0.14.0rc1
 new_no_dash_version=$(echo ${NEW_VERSION} | sed 's/-//g')
 prior_no_dash_version=$(echo ${PRIOR_VERSION} | sed 's/-//g')
+# Escape dots for use in sed regex
+escaped_new_version=$(echo ${new_no_dash_version} | sed 's/\./\\./g')
+escaped_prior_version=$(echo ${prior_no_dash_version} | sed 's/\./\\./g')
 echo -e "\033[32mNo dash version updated to ${new_no_dash_version} and prior: ${prior_no_dash_version}...\033[0m"
 
 echo "${new_no_dash_version}" > python/VERSION
@@ -121,9 +125,9 @@ for file in $(find python \( -name 'pyproject.toml' -o -name 'uv.lock' \)); do
   if [[ ${file} == *"uv.lock" ]]; then
     # make sure the previous line is name = "kserve"
     # there is a chance that the version being update be the same than other dependencies
-    sed -i "/name = \"kserve\"/{N;s/${prior_no_dash_version}/${new_no_dash_version}/}" "${file}"
+    sed -i '' "/name = \"kserve\"/{N;s|${prior_no_dash_version}|${new_no_dash_version}|;}" "${file}"
   else
-    sed -i "s/${prior_no_dash_version}/${new_no_dash_version}/g" "${file}"
+    sed -i '' "s|${prior_no_dash_version}|${new_no_dash_version}|g" "${file}"
   fi
 done
 
@@ -133,9 +137,9 @@ for file in $(find docs \( -name 'pyproject.toml' -o -name 'uv.lock' \)); do
   if [[ ${file} == *"uv.lock" ]]; then
     # make sure the previous line is name = "kserve"
     # there is a chance that the version being update be the same than other dependencies
-    sed -i "/name = \"kserve\"/{N;s/${prior_no_dash_version}/${new_no_dash_version}/}" "${file}"
+    sed -i '' "/name = \"kserve\"/{N;s|${prior_no_dash_version}|${new_no_dash_version}|;}" "${file}"
   else
-    sed -i "s/${prior_no_dash_version}/${new_no_dash_version}/g" "${file}"
+    sed -i '' "s|${prior_no_dash_version}|${new_no_dash_version}|g" "${file}"
   fi
 done
 

@@ -29,7 +29,7 @@ dependencies = [
     "pyyaml<7.0.0,>=6.0.0",
 ]
 name = "kserve"
-version = "0.16.0rc1"
+version = "0.16.0"
 description = "KServe Python SDK"
 readme = "README.md"
 classifiers = [
@@ -55,7 +55,7 @@ repository = "https://github.com/kserve/kserve/tree/master/python/kserve"
 
 [project.optional-dependencies]
 storage = [
-    "kserve-storage==0.16.0rc1"
+    "kserve-storage==0.16.0"
 ]
 logging = [
     "asgi-logger<1.0.0,>=0.1.0",
@@ -89,6 +89,7 @@ dev = [
 # TODO remove later
 index-url = "https://test.pypi.org/simple/"
 extra-index-url = ["https://pypi.org/simple"]
+index-strategy = "unsafe-best-match"
 
 [build-system]
 requires = ["setuptools>=61.0"]
