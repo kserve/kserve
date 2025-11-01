@@ -33,10 +33,10 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -417,7 +417,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(svc.Spec.Selector).To(Equal(llmisvc.GetWorkloadLabelSelector(llmSvc.ObjectMeta, &llmSvc.Spec)))
 					return nil
-				})
+				}).WithContext(ctx).Should(Succeed())
 
 				ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
 
@@ -865,6 +865,395 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			})
 		})
 	})
+
+	Context("Ingress reconciliation", func() {
+		When("using managed Ingress", func() {
+			It("should create an Ingress with default configuration", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-managed-ingress"
+				nsName := kmeta.ChildName(svcName, "-test")
+				namespace := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nsName,
+					},
+				}
+				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+				Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+				defer func() {
+					envTest.DeleteAll(namespace)
+				}()
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha1.LLMInferenceService](nsName),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithManagedIngress(),
+				)
+
+				// when
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				}()
+
+				// then
+				expectedIngressName := kmeta.ChildName(svcName, "-ingress")
+				expectedIngress := &netv1.Ingress{}
+				Eventually(func(g Gomega, ctx context.Context) error {
+					err := envTest.Get(ctx, types.NamespacedName{Name: expectedIngressName, Namespace: nsName}, expectedIngress)
+					g.Expect(err).ToNot(HaveOccurred())
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+
+				Expect(expectedIngress).To(BeControlledBy(llmSvc))
+				Expect(expectedIngress.Spec.Rules).To(HaveLen(1))
+				Expect(expectedIngress.Spec.Rules[0].Host).ToNot(BeEmpty())
+				Expect(expectedIngress.Spec.Rules[0].HTTP.Paths).To(HaveLen(1))
+				Expect(expectedIngress.Spec.Rules[0].HTTP.Paths[0].Path).To(Equal("/"))
+				Expect(expectedIngress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name).To(Equal(kmeta.ChildName(svcName, "-kserve-workload-svc")))
+
+				Eventually(LLMInferenceServiceIsReady(llmSvc, func(g Gomega, current *v1alpha1.LLMInferenceService) {
+					g.Expect(current.Status).To(HaveCondition(string(v1alpha1.IngressReady), "True"))
+					g.Expect(current.Status.URL).ToNot(BeNil())
+				})).WithContext(ctx).Should(Succeed())
+			})
+		})
+
+		When("using referenced Ingress", func() {
+			It("should use the referenced Ingress for status URL", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-ingress-ref"
+				nsName := kmeta.ChildName(svcName, "-test")
+				namespace := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nsName,
+					},
+				}
+				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+				Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+				// Create default service account for the namespace
+				defaultSA := &corev1.ServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "default",
+						Namespace: nsName,
+					},
+				}
+				Expect(envTest.Client.Create(ctx, defaultSA)).To(Succeed())
+				defer func() {
+					envTest.DeleteAll(namespace)
+				}()
+
+				// Create a custom Ingress
+				customIngress := Ingress("my-custom-ingress",
+					InNamespace[*netv1.Ingress](nsName),
+					WithIngressRule("custom-host.example.com", kmeta.ChildName(svcName, "-kserve-workload-svc"), 8080),
+				)
+				Expect(envTest.Client.Create(ctx, customIngress)).To(Succeed())
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha1.LLMInferenceService](nsName),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithIngressRefs(LLMIngressRef("my-custom-ingress", nsName)),
+				)
+
+				// when
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+					Expect(envTest.Delete(ctx, customIngress)).To(Succeed())
+				}()
+
+				// then - should not create owned ingress
+				expectedIngressName := kmeta.ChildName(svcName, "-ingress")
+				Consistently(func(g Gomega, ctx context.Context) error {
+					ingress := &netv1.Ingress{}
+					return envTest.Get(ctx, types.NamespacedName{Name: expectedIngressName, Namespace: nsName}, ingress)
+				}).WithContext(ctx).
+					Within(2*time.Second).
+					WithPolling(300*time.Millisecond).
+					Should(HaveOccurred(), "Owned Ingress should not be created when using refs")
+
+				// Check that status URL is populated from referenced Ingress
+				Eventually(func(g Gomega, ctx context.Context) error {
+					current := &v1alpha1.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+					g.Expect(current.Status.URL).ToNot(BeNil())
+					g.Expect(current.Status.URL.Host).To(Equal("custom-host.example.com"))
+					g.Expect(current.Status).To(HaveCondition(string(v1alpha1.IngressReady), "True"))
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+			})
+
+			It("should handle multiple referenced Ingresses", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-multiple-ingress-refs"
+				nsName := kmeta.ChildName(svcName, "-test")
+				namespace := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nsName,
+					},
+				}
+				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+				Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+				defer func() {
+					envTest.DeleteAll(namespace)
+				}()
+
+				// Create multiple custom Ingresses
+				ingress1 := Ingress("ingress-1",
+					InNamespace[*netv1.Ingress](nsName),
+					WithIngressRule("host1.example.com", kmeta.ChildName(svcName, "-kserve-workload-svc"), 8080),
+				)
+				ingress2 := Ingress("ingress-2",
+					InNamespace[*netv1.Ingress](nsName),
+					WithIngressRule("host2.example.com", kmeta.ChildName(svcName, "-kserve-workload-svc"), 8080),
+				)
+				Expect(envTest.Client.Create(ctx, ingress1)).To(Succeed())
+				Expect(envTest.Client.Create(ctx, ingress2)).To(Succeed())
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha1.LLMInferenceService](nsName),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithIngressRefs(
+						LLMIngressRef("ingress-1", nsName),
+						LLMIngressRef("ingress-2", nsName),
+					),
+				)
+
+				// when
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+					Expect(envTest.Delete(ctx, ingress1)).To(Succeed())
+					Expect(envTest.Delete(ctx, ingress2)).To(Succeed())
+				}()
+
+				// then - should populate status with all hosts
+				Eventually(func(g Gomega, ctx context.Context) error {
+					current := &v1alpha1.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+					g.Expect(current.Status.URL).ToNot(BeNil())
+					g.Expect(current.Status.Addresses).To(HaveLen(2))
+					// URLs should be sorted
+					g.Expect(current.Status.Addresses[0].URL.Host).To(BeElementOf("host1.example.com", "host2.example.com"))
+					g.Expect(current.Status.Addresses[1].URL.Host).To(BeElementOf("host1.example.com", "host2.example.com"))
+					g.Expect(current.Status).To(HaveCondition(string(v1alpha1.IngressReady), "True"))
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+			})
+		})
+
+		When("transitioning from managed to referenced Ingress", func() {
+			It("should delete owned Ingress when switching to refs", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-ingress-transition"
+				nsName := kmeta.ChildName(svcName, "-test")
+				namespace := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nsName,
+					},
+				}
+				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+				Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+				defer func() {
+					envTest.DeleteAll(namespace)
+				}()
+
+				// Start with managed Ingress
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha1.LLMInferenceService](nsName),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithManagedIngress(),
+				)
+
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				}()
+
+				// Verify managed Ingress is created
+				expectedIngressName := kmeta.ChildName(svcName, "-ingress")
+				expectedIngress := &netv1.Ingress{}
+				Eventually(func(g Gomega, ctx context.Context) error {
+					err := envTest.Get(ctx, types.NamespacedName{Name: expectedIngressName, Namespace: nsName}, expectedIngress)
+					g.Expect(err).ToNot(HaveOccurred())
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+
+				// Create a custom Ingress for reference
+				customIngress := Ingress("my-ref-ingress",
+					InNamespace[*netv1.Ingress](nsName),
+					WithIngressRule("ref-host.example.com", kmeta.ChildName(svcName, "-kserve-workload-svc"), 8080),
+				)
+				Expect(envTest.Client.Create(ctx, customIngress)).To(Succeed())
+				defer func() {
+					Expect(envTest.Delete(ctx, customIngress)).To(Succeed())
+				}()
+
+				// when - update to use referenced Ingress
+				Eventually(func(g Gomega, ctx context.Context) error {
+					current := &v1alpha1.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+
+					current.Spec.Router.Ingress.Refs = []v1alpha1.UntypedObjectReference{
+						LLMIngressRef("my-ref-ingress", nsName),
+					}
+
+					return envTest.Update(ctx, current)
+				}).WithContext(ctx).Should(Succeed())
+
+				// then - owned Ingress should be deleted
+				Eventually(func(g Gomega, ctx context.Context) error {
+					ingress := &netv1.Ingress{}
+					return envTest.Get(ctx, types.NamespacedName{Name: expectedIngressName, Namespace: nsName}, ingress)
+				}).WithContext(ctx).Should(HaveOccurred(), "Owned Ingress should be deleted")
+
+				// Status should now use referenced Ingress
+				Eventually(func(g Gomega, ctx context.Context) error {
+					current := &v1alpha1.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+					g.Expect(current.Status.URL).ToNot(BeNil())
+					g.Expect(current.Status.URL.Host).To(Equal("ref-host.example.com"))
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+			})
+
+			It("should delete owned Ingress when switching to HTTPRoute", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-ingress-to-httproute"
+				nsName := "llm-ingress-test"
+				namespace := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nsName,
+					},
+				}
+				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+				Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+				defer func() {
+					envTest.DeleteAll(namespace)
+				}()
+
+				// Start with managed Ingress
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha1.LLMInferenceService](nsName),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithManagedIngress(),
+				)
+
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				}()
+
+				// Verify managed Ingress is created
+				expectedIngressName := kmeta.ChildName(svcName, "-ingress")
+				expectedIngress := &netv1.Ingress{}
+				Eventually(func(g Gomega, ctx context.Context) error {
+					err := envTest.Get(ctx, types.NamespacedName{Name: expectedIngressName, Namespace: nsName}, expectedIngress)
+					g.Expect(err).ToNot(HaveOccurred())
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+
+				// Verify IngressReady condition is set
+				Eventually(func(g Gomega, ctx context.Context) error {
+					current := &v1alpha1.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+					g.Expect(current.Status).To(HaveCondition(string(v1alpha1.IngressReady), "True"))
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+
+				// when - update to remove Ingress and use HTTPRoute instead
+				Eventually(func(g Gomega, ctx context.Context) error {
+					current := &v1alpha1.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+
+					// Remove Ingress and add HTTPRoute and Gateway
+					current.Spec.Router.Ingress = nil
+					current.Spec.Router.Route = &v1alpha1.GatewayRoutesSpec{
+						HTTP: &v1alpha1.HTTPRouteSpec{},
+					}
+					current.Spec.Router.Gateway = &v1alpha1.GatewaySpec{}
+
+					return envTest.Update(ctx, current)
+				}).WithContext(ctx).Should(Succeed())
+
+				// then - owned Ingress should be deleted
+				Eventually(func(g Gomega, ctx context.Context) error {
+					ingress := &netv1.Ingress{}
+					return envTest.Get(ctx, types.NamespacedName{Name: expectedIngressName, Namespace: nsName}, ingress)
+				}).WithContext(ctx).Should(HaveOccurred(), "Owned Ingress should be deleted when switching to HTTPRoute")
+
+				// HTTPRoute should be created
+				expectedHTTPRoute := &gwapiv1.HTTPRoute{}
+				Eventually(func(g Gomega, ctx context.Context) error {
+					routes, errList := managedRoutes(ctx, llmSvc)
+					g.Expect(errList).ToNot(HaveOccurred())
+					g.Expect(routes).To(HaveLen(1))
+					expectedHTTPRoute = &routes[0]
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+
+				Expect(expectedHTTPRoute).To(BeControlledBy(llmSvc))
+
+				// Status conditions should change from IngressReady to HTTPRoutesReady
+				Eventually(func(g Gomega, ctx context.Context) error {
+					current := &v1alpha1.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+
+					// IngressReady should not be set anymore (or should not affect RouterReady)
+					// HTTPRoutesReady should be the active condition
+					httpRouteCondition := current.Status.GetCondition(v1alpha1.HTTPRoutesReady)
+					g.Expect(httpRouteCondition).ToNot(BeNil(), "HTTPRoutesReady condition should be set")
+
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+			})
+		})
+
+		When("RouterReadiness determination with Ingress", func() {
+			It("should use only IngressReady condition when Ingress is configured", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-ingress-router-ready"
+				nsName := "llm-ingress-test"
+				namespace := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nsName,
+					},
+				}
+				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+				Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+				defer func() {
+					envTest.DeleteAll(namespace)
+				}()
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha1.LLMInferenceService](nsName),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithManagedIngress(),
+				)
+
+				// when
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				}()
+
+				// then - RouterReady should depend only on IngressReady
+				Eventually(func(g Gomega, ctx context.Context) error {
+					current := &v1alpha1.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+
+					// IngressReady should be True
+					g.Expect(current.Status).To(HaveCondition(string(v1alpha1.IngressReady), "True"))
+
+					// GatewaysReady and HTTPRoutesReady should not affect RouterReady when Ingress is used
+					// RouterReady should be True when IngressReady is True
+					g.Expect(current.Status).To(HaveCondition(string(v1alpha1.RouterReady), "True"))
+
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+			})
+		})
+	})
 })
 
 func LLMInferenceServiceIsReady(llmSvc *v1alpha1.LLMInferenceService, assertFns ...func(g Gomega, current *v1alpha1.LLMInferenceService)) func(g Gomega, ctx context.Context) error {
@@ -1024,7 +1413,7 @@ func ensureRouterManagedResourcesAreReady(ctx context.Context, c client.Client, 
 		return
 	}
 
-	gomega.Eventually(func(g gomega.Gomega, ctx context.Context) {
+	Eventually(func(g Gomega, ctx context.Context) {
 		// Get managed gateways and make them ready
 		gateways := &gwapiv1.GatewayList{}
 		listOpts := &client.ListOptions{
@@ -1033,7 +1422,7 @@ func ensureRouterManagedResourcesAreReady(ctx context.Context, c client.Client, 
 		}
 		err := c.List(ctx, gateways, listOpts)
 		if err != nil && !errors.IsNotFound(err) {
-			g.Expect(err).NotTo(gomega.HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 		}
 
 		logf.FromContext(ctx).Info("Marking Gateway resources ready", "gateways", gateways)
@@ -1041,14 +1430,14 @@ func ensureRouterManagedResourcesAreReady(ctx context.Context, c client.Client, 
 			// Update gateway status to ready
 			updatedGateway := gateway.DeepCopy()
 			WithGatewayReadyStatus()(updatedGateway)
-			g.Expect(c.Status().Update(ctx, updatedGateway)).To(gomega.Succeed())
+			g.Expect(c.Status().Update(ctx, updatedGateway)).To(Succeed())
 		}
 
 		// Get managed HTTPRoutes and make them ready
 		httpRoutes := &gwapiv1.HTTPRouteList{}
 		err = c.List(ctx, httpRoutes, listOpts)
 		if err != nil && !errors.IsNotFound(err) {
-			g.Expect(err).NotTo(gomega.HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 		}
 
 		logf.FromContext(ctx).Info("Marking HTTPRoute resources ready", "routes", httpRoutes)
@@ -1056,11 +1445,11 @@ func ensureRouterManagedResourcesAreReady(ctx context.Context, c client.Client, 
 			// Update HTTPRoute status to ready
 			updatedRoute := route.DeepCopy()
 			WithHTTPRouteReadyStatus(DefaultGatewayControllerName)(updatedRoute)
-			g.Expect(c.Status().Update(ctx, updatedRoute)).To(gomega.Succeed())
+			g.Expect(c.Status().Update(ctx, updatedRoute)).To(Succeed())
 		}
 
 		// Ensure at least one HTTPRoute was found and made ready
-		g.Expect(httpRoutes.Items).To(gomega.HaveLen(1), "Expected exactly one managed HTTPRoute")
+		g.Expect(httpRoutes.Items).To(HaveLen(1), "Expected exactly one managed HTTPRoute")
 
 		infPoolsListOpts := &client.ListOptions{
 			Namespace:     llmSvc.Namespace,
@@ -1070,17 +1459,17 @@ func ensureRouterManagedResourcesAreReady(ctx context.Context, c client.Client, 
 		infPools := &igwapi.InferencePoolList{}
 		err = c.List(ctx, infPools, infPoolsListOpts)
 		if err != nil && !errors.IsNotFound(err) {
-			g.Expect(err).NotTo(gomega.HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 		}
 		logf.FromContext(ctx).Info("Marking InferencePool resources ready", "inferencepools", infPools)
 		for _, pool := range infPools.Items {
 			updatedPool := pool.DeepCopy()
 			WithInferencePoolReadyStatus()(updatedPool)
-			g.Expect(c.Status().Update(ctx, updatedPool)).To(gomega.Succeed())
+			g.Expect(c.Status().Update(ctx, updatedPool)).To(Succeed())
 		}
 
 		ensureSchedulerDeploymentReady(ctx, c, llmSvc)
-	}).WithContext(ctx).Should(gomega.Succeed())
+	}).WithContext(ctx).Should(Succeed())
 }
 
 func ensureSchedulerDeploymentReady(ctx context.Context, c client.Client, llmSvc *v1alpha1.LLMInferenceService) {
@@ -1095,7 +1484,7 @@ func ensureSchedulerDeploymentReady(ctx context.Context, c client.Client, llmSvc
 	deployments := &appsv1.DeploymentList{}
 	err := c.List(ctx, deployments, schedulerListOpts)
 	if err != nil && !errors.IsNotFound(err) {
-		Expect(err).NotTo(gomega.HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 	}
 
 	logf.FromContext(ctx).Info("Marking scheduler ready (if any)", "deployments", deployments)
@@ -1105,7 +1494,7 @@ func ensureSchedulerDeploymentReady(ctx context.Context, c client.Client, llmSvc
 			Type:   appsv1.DeploymentAvailable,
 			Status: corev1.ConditionTrue,
 		})
-		Expect(c.Status().Update(ctx, dep)).To(gomega.Succeed())
+		Expect(c.Status().Update(ctx, dep)).To(Succeed())
 	}
 }
 
