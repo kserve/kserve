@@ -167,17 +167,34 @@ def get_min_sliding_window(sliding_window: Union[int, List[Optional[int]]]) -> i
     return sliding_window
 
 
-def _mean_pooling(token_embeddings, attention_mask):
-    """
-    Take attention mask into account for correct averaging.
+def _mean_pooling(outputs, attention_mask: "torch.Tensor|None") -> "torch.Tensor":
+    # Get token embeddings: [batch, seq_len, hidden]
+    if isinstance(outputs, torch.Tensor):
+        token_embeddings = outputs
+    elif hasattr(outputs, "last_hidden_state"):
+        token_embeddings = outputs.last_hidden_state
+    elif isinstance(outputs, (tuple, list)):
+        token_embeddings = outputs[0]
+    else:
+        raise TypeError(f"Unsupported outputs type for mean pooling: {type(outputs)}")
 
-    This implementation is taken from the sentence-transformers library:
-    https://github.com/UKPLab/sentence-transformers/blob/f012ab33189d23cef0dd00df7c5642ebb0bac2d4/sentence_transformers/model_card_templates.py#L136-L146
-    """
+    # If no attention_mask is provided, default to all ones (same device & dtype)
+    if attention_mask is None:
+        attention_mask = torch.ones(
+            token_embeddings.size()[:-1],
+            device=token_embeddings.device,
+            dtype=token_embeddings.dtype,
+        )
+    else:
+        # Align device and dtype with embeddings (avoid cuda/cpu mismatch and fp16 issues)
+        attention_mask = attention_mask.to(
+            device=token_embeddings.device, dtype=token_embeddings.dtype
+        )
 
-    input_mask_expanded = (
-        attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
-    ).to(token_embeddings.device)
-    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(
-        input_mask_expanded.sum(1), min=1e-9
-    )
+    # Expand mask dimensions to match token embeddings
+    input_mask_expanded = attention_mask.unsqueeze(-1).expand_as(token_embeddings)
+
+    # Weighted mean pooling (clamp denominator to avoid division by zero)
+    sum_embeddings = (token_embeddings * input_mask_expanded).sum(dim=1)
+    sum_mask = attention_mask.sum(dim=1).clamp(min=1e-9).unsqueeze(-1)
+    return sum_embeddings / sum_mask
