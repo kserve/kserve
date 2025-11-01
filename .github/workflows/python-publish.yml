@@ -28,7 +28,7 @@ jobs:
 
       - name: KServe Storage - Build and publish
         env:
-          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+          UV_PUBLISH_TOKEN: ${{ secrets.KSERVE_STORAGE_PYPI_TOKEN }}
         run: |
           cd python/storage
           uv build
