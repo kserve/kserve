@@ -144,7 +144,9 @@ wait_for_pods_created() {
     log_info "Waiting for pods with label '$label_selector' in namespace '$namespace' to be created..."
 
     while true; do
-        local pod_count=$(kubectl get pods -n "$namespace" -l "$label_selector" --no-headers 2>/dev/null | wc -l)
+        # Exclude terminating pods by filtering out pods with deletionTimestamp
+        local pod_count=$(kubectl get pods -n "$namespace" -l "$label_selector" \
+            --field-selector='metadata.deletionTimestamp!=' --no-headers 2>/dev/null | wc -l)
 
         if [ "$pod_count" -gt 0 ]; then
             log_info "Found $pod_count pod(s) with label '$label_selector'"
@@ -169,7 +171,9 @@ wait_for_pods_ready() {
     local timeout="${3:-180s}"
 
     log_info "Waiting for pods with label '$label_selector' in namespace '$namespace' to be ready..."
-    kubectl wait --for=condition=Ready pod -l "$label_selector" -n "$namespace" --timeout="$timeout"
+    kubectl wait --for=condition=Ready pod -l "$label_selector" \
+        --field-selector='metadata.deletionTimestamp!=' \
+        -n "$namespace" --timeout="$timeout"
 }
 
 # Wait for pods to be ready (combines both creation and ready checks)
