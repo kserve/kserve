@@ -26,5 +26,5 @@ source "${SCRIPT_DIR}/../../../hack/setup/common.sh"
 
 ${REPO_ROOT}/hack/setup/cli/install-yq.sh
 ${REPO_ROOT}/hack/setup/infra/manage.cert-manager-helm.sh
-${REPO_ROOT}/hack/setup/infra/manage.gateway-api-crd.sh
+${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-crd.sh
 NETWORK_LAYER=kourier ${REPO_ROOT}/hack/setup/infra/knative/manage.knative-operator-helm.sh

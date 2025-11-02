@@ -15,14 +15,14 @@
 # limitations under the License.
 
 # Create KServe GatewayClass resource
-# Usage: manage.kserve-gatewayclass.sh [--reinstall|--uninstall]
-#   or:  REINSTALL=true manage.kserve-gatewayclass.sh
-#   or:  UNINSTALL=true manage.kserve-gatewayclass.sh
+# Usage: manage.gateway-api-gwclass.sh [--reinstall|--uninstall]
+#   or:  REINSTALL=true manage.gateway-api-gwclass.sh
+#   or:  UNINSTALL=true manage.gateway-api-gwclass.sh
 
 # INIT
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
-source "${SCRIPT_DIR}/../common.sh"
+source "${SCRIPT_DIR}/../../common.sh"
 
 REINSTALL="${REINSTALL:-false}"
 UNINSTALL="${UNINSTALL:-false}"

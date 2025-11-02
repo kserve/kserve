@@ -62,7 +62,7 @@ esac
 
 # Install Gateway API CRDs if needed
 if [[ $USES_GATEWAY_API == true ]]; then
-  ${REPO_ROOT}/hack/setup/infra/manage.gateway-api-crd.sh
+  ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-crd.sh
 fi
 
 # Install Istio with minimal resources for CI/test environment
@@ -75,7 +75,7 @@ fi
 # Install Envoy Gateway
 if [[ $USES_ENVOY == true ]]; then
   ${REPO_ROOT}/hack/setup/infra/manage.envoy-gateway-helm.sh
-  ${REPO_ROOT}/hack/setup/infra/manage.kserve-gatewayclass.sh
+  ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-gwclass.sh
 fi
 
 # Install Istio IngressClass
@@ -93,7 +93,7 @@ fi
 # Install KServe Gateway for Gateway API or LLM use cases
 if [[ $USES_GATEWAY_API == true ]] || [[ $LLMISVC == "true" ]]; then
   export GATEWAYCLASS_NAME="${NETWORK_LAYER%%-*}"
-  ${REPO_ROOT}/hack/setup/infra/manage.kserve-gateway.sh
+  ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-gw.sh
 fi
 
 shopt -s nocasematch
