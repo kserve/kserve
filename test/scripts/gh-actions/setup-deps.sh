@@ -33,9 +33,6 @@ NETWORK_LAYER="${2:-'istio'}"
 ENABLE_KEDA="${3:-'false'}"
 LLMISVC="${4:-'false'}"
 
-${REPO_ROOT}/hack/setup/cli/install-yq.sh
-${REPO_ROOT}/hack/setup/infra/manage.cert-manager-helm.sh
-
 # Parse network layer configuration
 USES_GATEWAY_API=false
 USES_ISTIO=false
@@ -59,6 +56,9 @@ case "$NETWORK_LAYER" in
     USES_ISTIO=true
     ;;
 esac
+
+${REPO_ROOT}/hack/setup/cli/install-yq.sh
+${REPO_ROOT}/hack/setup/infra/manage.cert-manager-helm.sh
 
 # Install Gateway API CRDs if needed
 if [[ $USES_GATEWAY_API == true ]]; then
