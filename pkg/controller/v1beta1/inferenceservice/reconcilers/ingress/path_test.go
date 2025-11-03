@@ -43,7 +43,7 @@ func TestGenerateUrlPath(t *testing.T) {
 			args: args{
 				name:      "model",
 				obj: &metav1.ObjectMeta{
-					namespace: "user"
+					namespace: "user",
 				},
 				ingressConfig: &v1beta1.IngressConfig{
 					IngressDomain: "my.domain",
@@ -56,7 +56,7 @@ func TestGenerateUrlPath(t *testing.T) {
 			args: args{
 				name:      "model",
 				obj: &metav1.ObjectMeta{
-					namespace: "user"
+					namespace: "user",
 				},
 				ingressConfig: &v1beta1.IngressConfig{
 					PathTemplate: "/path/to/{{ .Namespace }}/{{ .Name }}",
@@ -69,7 +69,7 @@ func TestGenerateUrlPath(t *testing.T) {
 			args: args{
 				name:      "model",
 				obj: &metav1.ObjectMeta{
-					namespace: "user"
+					namespace: "user",
 				},
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
@@ -84,7 +84,7 @@ func TestGenerateUrlPath(t *testing.T) {
 			args: args{
 				name:      "model",
 				obj: &metav1.ObjectMeta{
-					namespace: "user"
+					namespace: "user",
 				},
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
@@ -99,7 +99,7 @@ func TestGenerateUrlPath(t *testing.T) {
 			args: args{
 				name:      "model",
 				obj: &metav1.ObjectMeta{
-					namespace: "user"
+					namespace: "user",
 				},
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
@@ -114,7 +114,7 @@ func TestGenerateUrlPath(t *testing.T) {
 			args: args{
 				name:      "model",
 				obj: &metav1.ObjectMeta{
-					namespace: "user"
+					namespace: "user",
 				},
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
