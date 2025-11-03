@@ -217,6 +217,32 @@ helm-generate-llmisvc:
 	@cp build/helm-tmp/llmisvc-chart/values.yaml charts/llmisvc-resources/values.yaml
 	@echo "Note: Chart.yaml is preserved (contains version and metadata)"
 
+	# Fix hardcoded resource names that controllers expect
+	@echo "Fixing hardcoded resource names..."
+	@sed -i "s/name: {{ include \"llm-isvc-resources\.fullname\" \. }}-inferenceservice-config/name: inferenceservice-config/g" charts/llmisvc-resources/templates/inferenceservice-config.yaml || true
+	
+	# Fix LLMInferenceServiceConfig names (remove Helm prefix - controllers expect original names)
+	@echo "Fixing LLMInferenceServiceConfig resource names..."
+	@for file in charts/llmisvc-resources/templates/kserve-config-llm-*.yaml; do \
+		if [ -f "$$file" ]; then \
+			sed -i "s/name: {{ include \"llm-isvc-resources\.fullname\" \. }}-kserve-config-llm-/name: kserve-config-llm-/g" "$$file"; \
+		fi; \
+	done
+
+	# Make inferenceservice-config conditional (only create if KServe doesn't already manage it)
+	@echo "Making inferenceservice-config conditional..."
+	@if [ -f charts/llmisvc-resources/templates/inferenceservice-config.yaml ]; then \
+		if ! grep -q "createInferenceServiceConfig" charts/llmisvc-resources/templates/inferenceservice-config.yaml; then \
+			sed -i '1s/^/{{- if and .Values.createInferenceServiceConfig (not (lookup "v1" "ConfigMap" "kserve" "inferenceservice-config")) }}\n/' charts/llmisvc-resources/templates/inferenceservice-config.yaml; \
+			echo '{{- end }}' >> charts/llmisvc-resources/templates/inferenceservice-config.yaml; \
+		fi; \
+	fi
+
+	# Ensure createInferenceServiceConfig value exists in values.yaml
+	@if ! grep -q "^createInferenceServiceConfig:" charts/llmisvc-resources/values.yaml; then \
+		sed -i '1i# Whether to create the inferenceservice-config ConfigMap\n# Set to false if KServe is already installed (KServe creates this ConfigMap)\ncreateInferenceServiceConfig: true\n' charts/llmisvc-resources/values.yaml; \
+	fi
+
 	# Validate
 	@echo "Validating Helm chart..."
 	@helm lint charts/llmisvc-resources
@@ -265,6 +291,14 @@ helm-generate-kserve:
 	# Fix hardcoded resource names that controllers expect
 	@echo "Fixing hardcoded resource names..."
 	@sed -i "s/name: {{ include \"kserve-resources\.fullname\" \. }}-inferenceservice-config/name: inferenceservice-config/g" charts/kserve-resources/templates/inferenceservice-config.yaml
+	
+	# Fix LLMInferenceServiceConfig names (remove Helm prefix - controllers expect original names)
+	@echo "Fixing LLMInferenceServiceConfig resource names..."
+	@for file in charts/kserve-resources/templates/kserve-config-llm-*.yaml; do \
+		if [ -f "$$file" ]; then \
+			sed -i "s/name: {{ include \"kserve-resources\.fullname\" \. }}-kserve-config-llm-/name: kserve-config-llm-/g" "$$file"; \
+		fi; \
+	done
 
 	# Add required values for conditional templates
 	@echo "Adding required Helm values..."

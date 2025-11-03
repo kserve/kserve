@@ -1,7 +1,8 @@
+{{- if and .Values.createInferenceServiceConfig (not (lookup "v1" "ConfigMap" "kserve" "inferenceservice-config")) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "llm-isvc-resources.fullname" . }}-inferenceservice-config
+  name: inferenceservice-config
   labels:
   {{- include "llm-isvc-resources.labels" . | nindent 4 }}
 data:
@@ -26,3 +27,4 @@ data:
   security: {{ .Values.inferenceserviceConfig.security | toYaml | indent 1 }}
   storageInitializer: {{ .Values.inferenceserviceConfig.storageInitializer | toYaml
     | indent 1 }}
+{{- end }}

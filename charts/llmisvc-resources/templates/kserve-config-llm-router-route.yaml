@@ -1,7 +1,7 @@
 apiVersion: serving.kserve.io/v1alpha1
 kind: LLMInferenceServiceConfig
 metadata:
-  name: {{ include "llm-isvc-resources.fullname" . }}-kserve-config-llm-router-route
+  name: kserve-config-llm-router-route
   labels:
   {{- include "llm-isvc-resources.labels" . | nindent 4 }}
 spec:

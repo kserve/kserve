@@ -1,3 +1,7 @@
+# Whether to create the inferenceservice-config ConfigMap
+# Set to false if KServe is already installed (KServe creates this ConfigMap)
+createInferenceServiceConfig: true
+
 inferenceserviceConfig:
   Example: |-
     ################################

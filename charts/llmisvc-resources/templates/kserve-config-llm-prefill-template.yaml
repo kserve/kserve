@@ -1,7 +1,7 @@
 apiVersion: serving.kserve.io/v1alpha1
 kind: LLMInferenceServiceConfig
 metadata:
-  name: {{ include "llm-isvc-resources.fullname" . }}-kserve-config-llm-prefill-template
+  name: kserve-config-llm-prefill-template
   labels:
   {{- include "llm-isvc-resources.labels" . | nindent 4 }}
 spec:
