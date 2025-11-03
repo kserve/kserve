@@ -87,8 +87,15 @@ go-lint: golangci-lint
 py-lint: $(FLAKE8_LINT)
 	$(FLAKE8_LINT) --config=.flake8 .
 
+validate-infra-scripts:
+	@python3 hack/setup/scripts/validate-install-scripts.py
+
+generate-quick-install-scripts: validate-infra-scripts $(PYTHON_VENV)
+	@$(PYTHON_BIN)/pip install -q -r hack/setup/scripts/install-script-generator/requirements.txt
+	@$(PYTHON_BIN)/python hack/setup/scripts/install-script-generator/generator.py
+
 # Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen yq
+manifests: controller-gen yq generate-quick-install-scripts
 	@$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full	
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths={./pkg/controller/v1alpha1/inferencegraph,./pkg/controller/v1alpha1/trainedmodel,./pkg/controller/v1beta1/...} output:rbac:artifacts:config=config/rbac
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
@@ -303,7 +310,7 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 	kubectl apply --server-side=true -k config/overlays/dev-image-config
 	
-deploy-helm: manifests
+deploy-helm:
 	USE_LOCAL_CHARTS=true ./hack/setup/infra/manage.kserve-helm.sh
 
 undeploy:
