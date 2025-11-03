@@ -77,10 +77,8 @@ KSERVE_CRD_RELEASE_NAME="kserve-crd"
 KSERVE_RELEASE_NAME="kserve"
 CRD_DIR_NAME="kserve-crd"
 CORE_DIR_NAME="kserve-resources"
-TARGET_POD_LABELS=(
-    "control-plane=kserve-controller-manager"
-    # "control-plane=kserve-localmodel-controller-manager"  TODO: LocalModel installation behavior is different between kustomize and helm. Need a new overlay
-    # "control-plane=llmisvc-controller-manager"  Dislike kustomize, kserve helm only install kserve controller.
+TARGET_DEPLOYMENT_NAMES=(
+    "kserve-controller-manager"
 )
 # DEPLOYMENT_MODE, GATEWAY_NETWORK_LAYER, LLMISVC, EMBED_MANIFESTS are defined in global-vars.env
 USE_LOCAL_CHARTS="${USE_LOCAL_CHARTS:-false}"
@@ -96,7 +94,7 @@ if [ "${LLMISVC}" = "true" ]; then
     CORE_DIR_NAME="llmisvc-resources"
     KSERVE_CRD_RELEASE_NAME="llmisvc-crd"
     KSERVE_RELEASE_NAME="llmisvc"
-    TARGET_POD_LABELS=("control-plane=llmisvc-controller-manager")
+    TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
 fi
 
 if [ "${SET_KSERVE_VERSION}" != "" ]; then
@@ -232,8 +230,8 @@ install() {
         log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
     fi
 
-    for label in "${TARGET_POD_LABELS[@]}"; do
-        wait_for_pods "${KSERVE_NAMESPACE}" "${label}" "300s"
+    for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
+        wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "300s"
     done
     log_success "KServe is ready!"
 }
