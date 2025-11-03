@@ -2,14 +2,14 @@
 
 Helm chart for deploying KServe LLMInferenceService resources
 
-![Version: v0.16.0-rc1](https://img.shields.io/badge/Version-v0.16.0--rc1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.16.0-rc1](https://img.shields.io/badge/AppVersion-v0.16.0--rc1-informational?style=flat-square)
+![Version: v0.16.0](https://img.shields.io/badge/Version-v0.16.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.16.0](https://img.shields.io/badge/AppVersion-v0.16.0-informational?style=flat-square)
 
 ## Installing the Chart
 
 To install the chart, run the following:
 
 ```console
-$ helm install llmisvc oci://ghcr.io/kserve/charts/llmisvc --version v0.16.0-rc1
+$ helm install llmisvc oci://ghcr.io/kserve/charts/llmisvc --version v0.16.0
 ```
 
 ## Values

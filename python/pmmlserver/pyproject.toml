@@ -11,7 +11,7 @@ dependencies = [
     "setuptools<71.0.0,>=70.0.0",
 ]
 name = "pmmlserver"
-version = "0.16.0rc1"
+version = "0.16.0"
 description = "Model Server implementation for PMML. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 
