@@ -28,7 +28,7 @@ import (
 func TestGenerateUrlPath(t *testing.T) {
 	type args struct {
 		name          string
-		obj     metav1.ObjectMeta
+		obj     *metav1.ObjectMeta
 		ingressConfig *v1beta1.IngressConfig
 	}
 
