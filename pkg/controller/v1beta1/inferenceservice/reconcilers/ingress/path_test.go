@@ -127,7 +127,7 @@ func TestGenerateUrlPath(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GenerateUrlPath(tt.args.name, tt.args.namespace, tt.args.ingressConfig)
+			got, err := GenerateUrlPath(tt.args.name, tt.args.obj, tt.args.ingressConfig)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GenerateUrlPath() error = %v, wantErr %v", err, tt.wantErr)
 				return
