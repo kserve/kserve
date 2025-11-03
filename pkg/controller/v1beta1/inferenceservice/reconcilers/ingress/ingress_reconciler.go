@@ -169,7 +169,7 @@ func getServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 }
 
 func getPathBasedServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) string {
-	path, err := GenerateUrlPath(isvc.Name, isvc.Namespace, config)
+	path, err := GenerateUrlPath(isvc.Name, isvc.ObjectMeta, config)
 	if err != nil {
 		log.Error(err, "Failed to generate URL path from pathTemplate")
 		return ""
@@ -566,7 +566,7 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 	}
 
 	if config.PathTemplate != "" {
-		path, err := GenerateUrlPath(isvc.Name, isvc.Namespace, config)
+		path, err := GenerateUrlPath(isvc.Name, isvc.ObjectMeta, config)
 		if err != nil {
 			log.Error(err, "Failed to generate URL from pathTemplate")
 			return nil
