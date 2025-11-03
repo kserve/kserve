@@ -221,10 +221,10 @@ helm-generate-llmisvc:
 	@echo "Fixing hardcoded resource names..."
 	@sed -i "s/name: {{ include \"llm-isvc-resources\.fullname\" \. }}-inferenceservice-config/name: inferenceservice-config/g" charts/llmisvc-resources/templates/inferenceservice-config.yaml || true
 	
-	# Fix JSON field rendering (remove toYaml for JSON strings - they're already strings, just need indentation)
+	# Fix JSON field rendering (remove toYaml for JSON strings - they're already strings, use |- for multi-line strings)
 	@echo "Fixing ConfigMap data field rendering..."
 	@if [ -f charts/llmisvc-resources/templates/inferenceservice-config.yaml ]; then \
-		sed -i 's/| toYaml | indent 1/| indent 2/g' charts/llmisvc-resources/templates/inferenceservice-config.yaml; \
+		python3 hack/fix_inferenceservice_config_template.py charts/llmisvc-resources/templates/inferenceservice-config.yaml; \
 	fi
 	
 	# Fix LLMInferenceServiceConfig names (remove Helm prefix - controllers expect original names)
@@ -298,10 +298,10 @@ helm-generate-kserve:
 	@echo "Fixing hardcoded resource names..."
 	@sed -i "s/name: {{ include \"kserve-resources\.fullname\" \. }}-inferenceservice-config/name: inferenceservice-config/g" charts/kserve-resources/templates/inferenceservice-config.yaml
 	
-	# Fix JSON field rendering (remove toYaml for JSON strings - they're already strings, just need indentation)
+	# Fix JSON field rendering (remove toYaml for JSON strings - they're already strings, use |- for multi-line strings)
 	@echo "Fixing ConfigMap data field rendering..."
 	@if [ -f charts/kserve-resources/templates/inferenceservice-config.yaml ]; then \
-		sed -i 's/| toYaml | indent 1/| indent 2/g' charts/kserve-resources/templates/inferenceservice-config.yaml; \
+		python3 hack/fix_inferenceservice_config_template.py charts/kserve-resources/templates/inferenceservice-config.yaml; \
 	fi
 	
 	# Fix LLMInferenceServiceConfig names (remove Helm prefix - controllers expect original names)
