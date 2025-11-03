@@ -61,6 +61,7 @@ _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
 _AZURE_MAX_FILE_CONCURRENCY = int(os.getenv("AZURE_MAX_FILE_CONCURRENCY", "4"))
 _AZURE_MAX_CHUNK_CONCURRENCY = int(os.getenv("AZURE_MAX_CHUNK_CONCURRENCY", "4"))
 
+
 class Storage(object):
     @staticmethod
     def download_files(source_uris: list[str], out_dirs: list[str]) -> list[str]:
