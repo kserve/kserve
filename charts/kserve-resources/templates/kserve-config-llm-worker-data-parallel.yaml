@@ -1,7 +1,7 @@
 apiVersion: serving.kserve.io/v1alpha1
 kind: LLMInferenceServiceConfig
 metadata:
-  name: {{ include "kserve-resources.fullname" . }}-kserve-config-llm-worker-data-parallel
+  name: kserve-config-llm-worker-data-parallel
   labels:
   {{- include "kserve-resources.labels" . | nindent 4 }}
 spec:

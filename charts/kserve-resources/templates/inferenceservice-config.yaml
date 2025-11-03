@@ -6,23 +6,18 @@ metadata:
   {{- include "kserve-resources.labels" . | nindent 4 }}
 data:
   _example: {{ .Values.inferenceserviceConfig.Example | toYaml | indent 1 }}
-  agent: {{ .Values.inferenceserviceConfig.agent | toYaml | indent 1 }}
-  autoscaler: {{ .Values.inferenceserviceConfig.autoscaler | toYaml | indent 1 }}
-  batcher: {{ .Values.inferenceserviceConfig.batcher | toYaml | indent 1 }}
-  credentials: {{ .Values.inferenceserviceConfig.credentials | toYaml | indent 1
-    }}
-  deploy: {{ .Values.inferenceserviceConfig.deploy | toYaml | indent 1 }}
-  explainers: {{ .Values.inferenceserviceConfig.explainers | toYaml | indent 1 }}
-  inferenceService: {{ .Values.inferenceserviceConfig.inferenceService | toYaml |
-    indent 1 }}
-  ingress: {{ .Values.inferenceserviceConfig.ingress | toYaml | indent 1 }}
-  localModel: {{ .Values.inferenceserviceConfig.localModel | toYaml | indent 1 }}
-  logger: {{ .Values.inferenceserviceConfig.logger | toYaml | indent 1 }}
-  metricsAggregator: {{ .Values.inferenceserviceConfig.metricsAggregator | toYaml
-    | indent 1 }}
-  opentelemetryCollector: {{ .Values.inferenceserviceConfig.opentelemetryCollector
-    | toYaml | indent 1 }}
-  router: {{ .Values.inferenceserviceConfig.router | toYaml | indent 1 }}
-  security: {{ .Values.inferenceserviceConfig.security | toYaml | indent 1 }}
-  storageInitializer: {{ .Values.inferenceserviceConfig.storageInitializer | toYaml
-    | indent 1 }}
+  agent: {{ .Values.inferenceserviceConfig.agent | indent 2 }}
+  autoscaler: {{ .Values.inferenceserviceConfig.autoscaler | indent 2 }}
+  batcher: {{ .Values.inferenceserviceConfig.batcher | indent 2 }}
+  credentials: {{ .Values.inferenceserviceConfig.credentials | indent 2 }}
+  deploy: {{ .Values.inferenceserviceConfig.deploy | indent 2 }}
+  explainers: {{ .Values.inferenceserviceConfig.explainers | indent 2 }}
+  inferenceService: {{ .Values.inferenceserviceConfig.inferenceService | indent 2 }}
+  ingress: {{ .Values.inferenceserviceConfig.ingress | indent 2 }}
+  localModel: {{ .Values.inferenceserviceConfig.localModel | indent 2 }}
+  logger: {{ .Values.inferenceserviceConfig.logger | indent 2 }}
+  metricsAggregator: {{ .Values.inferenceserviceConfig.metricsAggregator | indent 2 }}
+  opentelemetryCollector: {{ .Values.inferenceserviceConfig.opentelemetryCollector | indent 2 }}
+  router: {{ .Values.inferenceserviceConfig.router | indent 2 }}
+  security: {{ .Values.inferenceserviceConfig.security | indent 2 }}
+  storageInitializer: {{ .Values.inferenceserviceConfig.storageInitializer | indent 2 }}
