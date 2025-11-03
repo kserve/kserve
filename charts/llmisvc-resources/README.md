@@ -2,14 +2,14 @@
 
 Helm chart for deploying KServe LLMInferenceService resources
 
-![Version: v0.16.0-rc1](https://img.shields.io/badge/Version-v0.16.0--rc1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.16.0-rc1](https://img.shields.io/badge/AppVersion-v0.16.0--rc1-informational?style=flat-square)
+![Version: v0.16.0](https://img.shields.io/badge/Version-v0.16.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.16.0](https://img.shields.io/badge/AppVersion-v0.16.0-informational?style=flat-square)
 
 ## Installing the Chart
 
 To install the chart, run the following:
 
 ```console
-$ helm install llmisvc oci://ghcr.io/kserve/charts/llmisvc --version v0.16.0-rc1
+$ helm install llmisvc oci://ghcr.io/kserve/charts/llmisvc --version v0.16.0
 ```
 
 ## Values
@@ -47,8 +47,8 @@ $ helm install llmisvc oci://ghcr.io/kserve/charts/llmisvc --version v0.16.0-rc1
 | kserve.llmisvc.controller.serviceAccount.name | string | `""` | Name of the service account to use If not set, a name is generated using the deployment name |
 | kserve.llmisvc.controller.serviceAnnotations | object | `{}` | Optional additional annotations to add to the controller service |
 | kserve.llmisvc.controller.strategy | object | `{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}` | Deployment strategy |
-| kserve.llmisvc.controller.tag | string | `"v0.16.0-rc1"` | KServe LLM ISVC controller container image tag |
+| kserve.llmisvc.controller.tag | string | `"v0.16.0"` | KServe LLM ISVC controller container image tag |
 | kserve.llmisvc.controller.terminationGracePeriodSeconds | int | `10` | Termination grace period in seconds |
 | kserve.llmisvc.controller.tolerations | list | `[]` | A list of Kubernetes Tolerations, if required For more information, see [Toleration v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#toleration-v1-core)  For example:   tolerations:   - key: foo.bar.com/role     operator: Equal     value: master     effect: NoSchedule |
 | kserve.llmisvc.controller.topologySpreadConstraints | list | `[]` | A list of Kubernetes TopologySpreadConstraints, if required For more information, see [Topology spread constraint v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#topologyspreadconstraint-v1-core)  For example:   topologySpreadConstraints:   - maxSkew: 2     topologyKey: topology.kubernetes.io/zone     whenUnsatisfiable: ScheduleAnyway     labelSelector:       matchLabels:         app.kubernetes.io/instance: llmisvc-controller-manager         app.kubernetes.io/component: controller |
-| kserve.version | string | `"v0.16.0-rc1"` | Version of KServe LLM ISVC components |
+| kserve.version | string | `"v0.16.0"` | Version of KServe LLM ISVC components |
