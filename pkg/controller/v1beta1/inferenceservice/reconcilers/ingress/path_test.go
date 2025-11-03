@@ -28,8 +28,19 @@ import (
 func TestGenerateUrlPath(t *testing.T) {
 	type args struct {
 		name          string
-		obj     *metav1.ObjectMeta
+		obj     metav1.ObjectMeta
 		ingressConfig *v1beta1.IngressConfig
+	}
+
+	obj := metav1.ObjectMeta{
+		Name:      "model",
+		Namespace: "user",
+		Annotations: map[string]string{
+			"annotation": "annotation-value",
+		},
+		Labels: map[string]string{
+			"label": "label-value",
+		},
 	}
 
 	tests := []struct {
@@ -42,9 +53,7 @@ func TestGenerateUrlPath(t *testing.T) {
 			name: "empty path template",
 			args: args{
 				name:      "model",
-				obj: &metav1.ObjectMeta{
-					Namespace: "user",
-				},
+				obj: obj,
 				ingressConfig: &v1beta1.IngressConfig{
 					IngressDomain: "my.domain",
 				},
@@ -55,9 +64,7 @@ func TestGenerateUrlPath(t *testing.T) {
 			name: "valid path template",
 			args: args{
 				name:      "model",
-				obj: &metav1.ObjectMeta{
-					Namespace: "user",
-				},
+				obj: obj,
 				ingressConfig: &v1beta1.IngressConfig{
 					PathTemplate: "/path/to/{{ .Namespace }}/{{ .Name }}",
 				},
@@ -68,9 +75,7 @@ func TestGenerateUrlPath(t *testing.T) {
 			name: "invalid path template (not parsable)",
 			args: args{
 				name:      "model",
-				obj: &metav1.ObjectMeta{
-					Namespace: "user",
-				},
+				obj: obj,
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
 					IngressDomain: "my.domain",
@@ -83,9 +88,7 @@ func TestGenerateUrlPath(t *testing.T) {
 			name: "invalid path template (unknown keys)",
 			args: args{
 				name:      "model",
-				obj: &metav1.ObjectMeta{
-					Namespace: "user",
-				},
+				obj: obj,
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
 					IngressDomain: "my.domain",
@@ -98,9 +101,7 @@ func TestGenerateUrlPath(t *testing.T) {
 			name: "invalid path template (with host)",
 			args: args{
 				name:      "model",
-				obj: &metav1.ObjectMeta{
-					Namespace: "user",
-				},
+				obj: obj,
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
 					IngressDomain: "my.domain",
@@ -113,9 +114,7 @@ func TestGenerateUrlPath(t *testing.T) {
 			name: "invalid path template (with scheme)",
 			args: args{
 				name:      "model",
-				obj: &metav1.ObjectMeta{
-					Namespace: "user",
-				},
+				obj: obj,
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
 					IngressDomain: "my.domain",
