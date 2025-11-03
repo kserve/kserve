@@ -50,10 +50,18 @@ func Int64Ptr(i int64) *int64 {
 func TestSimpleModelChainer(t *testing.T) {
 	// Start a local HTTP server
 	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		_, err := io.ReadAll(req.Body)
+		var request map[string]interface{}
+		raw_request, err := io.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
+		err = json.Unmarshal(raw_request, &request)
+		if err != nil {
+			return
+		}
+		_, ok := request["instances"]
+		assert.True(t, ok)
+
 		response := map[string]interface{}{"predictions": "1"}
 		responseBytes, err := json.Marshal(response)
 		if err != nil {
@@ -70,10 +78,18 @@ func TestSimpleModelChainer(t *testing.T) {
 	}
 	defer model1.Close()
 	model2 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		_, err := io.ReadAll(req.Body)
+		var request map[string]interface{}
+		raw_request, err := io.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
+		err = json.Unmarshal(raw_request, &request)
+		if err != nil {
+			return
+		}
+		_, ok := request["predictions"]
+		assert.True(t, ok)
+
 		response := map[string]interface{}{"predictions": "2"}
 		responseBytes, err := json.Marshal(response)
 		if err != nil {
@@ -100,6 +116,7 @@ func TestSimpleModelChainer(t *testing.T) {
 						InferenceTarget: v1alpha1.InferenceTarget{
 							ServiceURL: model1Url.String(),
 						},
+						MapPredictionsToInstances: true,
 					},
 					{
 						StepName: "model2",
@@ -113,7 +130,7 @@ func TestSimpleModelChainer(t *testing.T) {
 		},
 	}
 	input := map[string]interface{}{
-		"instances": []string{
+		"predictions": []string{
 			"test",
 			"test2",
 		},
