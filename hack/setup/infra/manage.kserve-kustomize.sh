@@ -176,8 +176,8 @@ install() {
         config_updates+=("deploy.defaultDeploymentMode=\"${DEPLOYMENT_MODE}\"")
     fi
 
-    # Enable Gateway API if needed
-    if [ "${GATEWAY_NETWORK_LAYER}" != "false" ]; then
+    # Enable Gateway API for KServe(ISVC) if needed
+    if [ "${GATEWAY_NETWORK_LAYER}" != "false" ] && [ "${LLMISVC}" != "true" ]; then
         log_info "Adding Gateway API updates: enableGatewayApi=true, ingressClassName=${GATEWAY_NETWORK_LAYER}"
         config_updates+=("ingress.enableGatewayApi=true")
         config_updates+=("ingress.ingressClassName=\"${GATEWAY_NETWORK_LAYER}\"")

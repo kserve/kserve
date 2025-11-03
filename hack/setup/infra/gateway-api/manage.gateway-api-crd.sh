@@ -22,7 +22,7 @@
 # INIT
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
-source "${SCRIPT_DIR}/../common.sh"
+source "${SCRIPT_DIR}/../../common.sh"
 
 REINSTALL="${REINSTALL:-false}"
 UNINSTALL="${UNINSTALL:-false}"

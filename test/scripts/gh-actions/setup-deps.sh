@@ -74,6 +74,7 @@ fi
 
 # Install Envoy Gateway
 if [[ $USES_ENVOY == true ]]; then
+  export GATEWAY_NETWORK_LAYER="${NETWORK_LAYER%%-*}"
   ${REPO_ROOT}/hack/setup/infra/manage.envoy-gateway-helm.sh
   ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-gwclass.sh
 fi
@@ -85,8 +86,6 @@ fi
 
 # Install LLM-specific components
 if [[ $LLMISVC == "true" ]]; then
-  export GATEWAY_NETWORK_LAYER="${NETWORK_LAYER%%-*}"
-  ${REPO_ROOT}/hack/setup/infra/manage.envoy-ai-gateway-helm.sh
   ${REPO_ROOT}/hack/setup/infra/manage.lws-operator.sh
 fi
 

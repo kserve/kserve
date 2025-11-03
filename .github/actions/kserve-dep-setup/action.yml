@@ -13,6 +13,10 @@ inputs:
     description: 'Enable KEDA for autoscaling'
     required: false
     default: 'false'
+  deploy-llmisvc:
+    description: 'Deploy LLM Inference Service Controller'
+    required: false
+    default: 'false'    
 runs:
   using: "composite"
   steps:

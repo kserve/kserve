@@ -46,7 +46,6 @@ env:
   # Graph images
   SUCCESS_200_ISVC_IMG: "success-200-isvc"
   ERROR_404_ISVC_IMG: "error-404-isvc"
-  KSERVE_OVERYLAY_DIR: "test" 
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -1039,7 +1038,7 @@ jobs:
 
       - name: Install KServe
         run: |
-          ./test/scripts/gh-actions/setup-kserve.sh "Standard" "envoy-gatewayapi"
+          ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve

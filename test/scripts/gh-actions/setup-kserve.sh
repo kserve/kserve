@@ -37,7 +37,7 @@ if [[ $NETWORK_LAYER == *"-gatewayapi"* ]]; then
 fi
 
 echo "Installing KServe using Kustomize..."
-INSTALL_RUNTIMES=false ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh 
+KSERVE_OVERYLAY_DIR=test INSTALL_RUNTIMES=false ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh 
 
 echo "Show inferenceservice-config configmap..."
 kubectl get configmap inferenceservice-config -n kserve
