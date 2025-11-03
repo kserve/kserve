@@ -435,7 +435,7 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 
 	// Add path based routing rules
 	if ingressConfig.PathTemplate != "" {
-		path, err := GenerateUrlPath(isvc.Name, isvc.Namespace, ingressConfig)
+		path, err := GenerateUrlPath(isvc.Name, isvc.ObjectMeta, ingressConfig)
 		if err != nil {
 			log.Error(err, "Failed to generate URL from pathTemplate")
 			return nil, fmt.Errorf("failed to generate URL from pathTemplate: %w", err)

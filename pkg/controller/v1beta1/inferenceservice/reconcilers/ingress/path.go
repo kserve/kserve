@@ -22,23 +22,28 @@ import (
 	"net/url"
 	"text/template"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 type PathTemplateValues struct {
 	Name      string
 	Namespace string
+	Annotations   map[string]string
+	Labels        map[string]string
 }
 
 // GenerateUrlPath generates the path using the pathTemplate configured in IngressConfig
-func GenerateUrlPath(name string, namespace string, ingressConfig *v1beta1.IngressConfig) (string, error) {
+func GenerateUrlPath(name string, obj metav1.ObjectMeta, ingressConfig *v1beta1.IngressConfig) (string, error) {
 	if ingressConfig.PathTemplate == "" {
 		return "", nil
 	}
 
 	values := PathTemplateValues{
 		Name:      name,
-		Namespace: namespace,
+		Namespace: obj.Namespace,
+		Annotations:   obj.Annotations,
+		Labels:        obj.Labels,
 	}
 	tpl, err := template.New("url-template").Parse(ingressConfig.PathTemplate)
 	if err != nil {

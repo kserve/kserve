@@ -21,13 +21,14 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 func TestGenerateUrlPath(t *testing.T) {
 	type args struct {
 		name          string
-		namespace     string
+		obj     metav1.ObjectMeta
 		ingressConfig *v1beta1.IngressConfig
 	}
 
@@ -41,7 +42,9 @@ func TestGenerateUrlPath(t *testing.T) {
 			name: "empty path template",
 			args: args{
 				name:      "model",
-				namespace: "user",
+				obj: &metav1.ObjectMeta{
+					namespace: "user"
+				},
 				ingressConfig: &v1beta1.IngressConfig{
 					IngressDomain: "my.domain",
 				},
@@ -52,7 +55,9 @@ func TestGenerateUrlPath(t *testing.T) {
 			name: "valid path template",
 			args: args{
 				name:      "model",
-				namespace: "user",
+				obj: &metav1.ObjectMeta{
+					namespace: "user"
+				},
 				ingressConfig: &v1beta1.IngressConfig{
 					PathTemplate: "/path/to/{{ .Namespace }}/{{ .Name }}",
 				},
@@ -63,7 +68,9 @@ func TestGenerateUrlPath(t *testing.T) {
 			name: "invalid path template (not parsable)",
 			args: args{
 				name:      "model",
-				namespace: "user",
+				obj: &metav1.ObjectMeta{
+					namespace: "user"
+				},
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
 					IngressDomain: "my.domain",
@@ -76,7 +83,9 @@ func TestGenerateUrlPath(t *testing.T) {
 			name: "invalid path template (unknown keys)",
 			args: args{
 				name:      "model",
-				namespace: "user",
+				obj: &metav1.ObjectMeta{
+					namespace: "user"
+				},
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
 					IngressDomain: "my.domain",
@@ -89,7 +98,9 @@ func TestGenerateUrlPath(t *testing.T) {
 			name: "invalid path template (with host)",
 			args: args{
 				name:      "model",
-				namespace: "user",
+				obj: &metav1.ObjectMeta{
+					namespace: "user"
+				},
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
 					IngressDomain: "my.domain",
@@ -102,7 +113,9 @@ func TestGenerateUrlPath(t *testing.T) {
 			name: "invalid path template (with scheme)",
 			args: args{
 				name:      "model",
-				namespace: "user",
+				obj: &metav1.ObjectMeta{
+					namespace: "user"
+				},
 				ingressConfig: &v1beta1.IngressConfig{
 					UrlScheme:     "https",
 					IngressDomain: "my.domain",
