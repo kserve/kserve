@@ -735,6 +735,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -1191,11 +1193,92 @@ spec:
                     type: object
                   autoScaling:
                     properties:
+                      behavior:
+                        properties:
+                          scaleDown:
+                            properties:
+                              policies:
+                                items:
+                                  properties:
+                                    periodSeconds:
+                                      format: int32
+                                      type: integer
+                                    type:
+                                      type: string
+                                    value:
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - periodSeconds
+                                  - type
+                                  - value
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              selectPolicy:
+                                type: string
+                              stabilizationWindowSeconds:
+                                format: int32
+                                type: integer
+                              tolerance:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                            type: object
+                          scaleUp:
+                            properties:
+                              policies:
+                                items:
+                                  properties:
+                                    periodSeconds:
+                                      format: int32
+                                      type: integer
+                                    type:
+                                      type: string
+                                    value:
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - periodSeconds
+                                  - type
+                                  - value
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              selectPolicy:
+                                type: string
+                              stabilizationWindowSeconds:
+                                format: int32
+                                type: integer
+                              tolerance:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                            type: object
+                        type: object
                       metrics:
                         items:
                           properties:
                             external:
                               properties:
+                                authenticationRef:
+                                  properties:
+                                    authModes:
+                                      type: string
+                                    authenticationRef:
+                                      properties:
+                                        name:
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                  required:
+                                  - authenticationRef
+                                  type: object
                                 metric:
                                   properties:
                                     backend:
@@ -1582,6 +1665,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -2336,6 +2421,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -2802,6 +2889,19 @@ spec:
                         - request
                         - response
                         type: string
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          serviceAccountName:
+                            type: string
+                        type: object
                       url:
                         type: string
                     type: object
@@ -3017,6 +3117,23 @@ spec:
                     type: boolean
                   shareProcessNamespace:
                     type: boolean
+                  storageUris:
+                    items:
+                      properties:
+                        mountPath:
+                          default: /mnt/models
+                          maxLength: 255
+                          pattern: ^/.*
+                          type: string
+                        uri:
+                          minLength: 1
+                          type: string
+                      required:
+                      - uri
+                      type: object
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
                   subdomain:
                     type: string
                   terminationGracePeriodSeconds:
@@ -4331,11 +4448,92 @@ spec:
                     type: object
                   autoScaling:
                     properties:
+                      behavior:
+                        properties:
+                          scaleDown:
+                            properties:
+                              policies:
+                                items:
+                                  properties:
+                                    periodSeconds:
+                                      format: int32
+                                      type: integer
+                                    type:
+                                      type: string
+                                    value:
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - periodSeconds
+                                  - type
+                                  - value
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              selectPolicy:
+                                type: string
+                              stabilizationWindowSeconds:
+                                format: int32
+                                type: integer
+                              tolerance:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                            type: object
+                          scaleUp:
+                            properties:
+                              policies:
+                                items:
+                                  properties:
+                                    periodSeconds:
+                                      format: int32
+                                      type: integer
+                                    type:
+                                      type: string
+                                    value:
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - periodSeconds
+                                  - type
+                                  - value
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              selectPolicy:
+                                type: string
+                              stabilizationWindowSeconds:
+                                format: int32
+                                type: integer
+                              tolerance:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                            type: object
+                        type: object
                       metrics:
                         items:
                           properties:
                             external:
                               properties:
+                                authenticationRef:
+                                  properties:
+                                    authModes:
+                                      type: string
+                                    authenticationRef:
+                                      properties:
+                                        name:
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                  required:
+                                  - authenticationRef
+                                  type: object
                                 metric:
                                   properties:
                                     backend:
@@ -4722,6 +4920,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -5466,6 +5666,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -6163,6 +6365,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -6846,6 +7050,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -7316,6 +7522,19 @@ spec:
                         - request
                         - response
                         type: string
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          serviceAccountName:
+                            type: string
+                        type: object
                       url:
                         type: string
                     type: object
@@ -7558,6 +7777,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -8263,6 +8484,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -8963,6 +9186,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -9650,6 +9875,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -10344,6 +10571,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -11210,6 +11439,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -11664,6 +11895,23 @@ spec:
                       workingDir:
                         type: string
                     type: object
+                  storageUris:
+                    items:
+                      properties:
+                        mountPath:
+                          default: /mnt/models
+                          maxLength: 255
+                          pattern: ^/.*
+                          type: string
+                        uri:
+                          minLength: 1
+                          type: string
+                      required:
+                      - uri
+                      type: object
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
                   subdomain:
                     type: string
                   tensorflow:
@@ -11899,6 +12147,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -12666,6 +12916,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -14581,6 +14833,8 @@ spec:
                                       - port
                                       type: object
                                   type: object
+                                stopSignal:
+                                  type: string
                               type: object
                             livenessProbe:
                               properties:
@@ -15288,6 +15542,8 @@ spec:
                                       - port
                                       type: object
                                   type: object
+                                stopSignal:
+                                  type: string
                               type: object
                             livenessProbe:
                               properties:
@@ -16003,6 +16259,8 @@ spec:
                                       - port
                                       type: object
                                   type: object
+                                stopSignal:
+                                  type: string
                               type: object
                             livenessProbe:
                               properties:
@@ -17739,6 +17997,8 @@ spec:
                                 - port
                                 type: object
                             type: object
+                          stopSignal:
+                            type: string
                         type: object
                       livenessProbe:
                         properties:
@@ -18644,11 +18904,92 @@ spec:
                     type: object
                   autoScaling:
                     properties:
+                      behavior:
+                        properties:
+                          scaleDown:
+                            properties:
+                              policies:
+                                items:
+                                  properties:
+                                    periodSeconds:
+                                      format: int32
+                                      type: integer
+                                    type:
+                                      type: string
+                                    value:
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - periodSeconds
+                                  - type
+                                  - value
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              selectPolicy:
+                                type: string
+                              stabilizationWindowSeconds:
+                                format: int32
+                                type: integer
+                              tolerance:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                            type: object
+                          scaleUp:
+                            properties:
+                              policies:
+                                items:
+                                  properties:
+                                    periodSeconds:
+                                      format: int32
+                                      type: integer
+                                    type:
+                                      type: string
+                                    value:
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - periodSeconds
+                                  - type
+                                  - value
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              selectPolicy:
+                                type: string
+                              stabilizationWindowSeconds:
+                                format: int32
+                                type: integer
+                              tolerance:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                            type: object
+                        type: object
                       metrics:
                         items:
                           properties:
                             external:
                               properties:
+                                authenticationRef:
+                                  properties:
+                                    authModes:
+                                      type: string
+                                    authenticationRef:
+                                      properties:
+                                        name:
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                  required:
+                                  - authenticationRef
+                                  type: object
                                 metric:
                                   properties:
                                     backend:
@@ -19035,6 +19376,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -19789,6 +20132,8 @@ spec:
                                   - port
                                   type: object
                               type: object
+                            stopSignal:
+                              type: string
                           type: object
                         livenessProbe:
                           properties:
@@ -20255,6 +20600,19 @@ spec:
                         - request
                         - response
                         type: string
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                          serviceAccountName:
+                            type: string
+                        type: object
                       url:
                         type: string
                     type: object
@@ -20470,6 +20828,23 @@ spec:
                     type: boolean
                   shareProcessNamespace:
                     type: boolean
+                  storageUris:
+                    items:
+                      properties:
+                        mountPath:
+                          default: /mnt/models
+                          maxLength: 255
+                          pattern: ^/.*
+                          type: string
+                        uri:
+                          minLength: 1
+                          type: string
+                      required:
+                      - uri
+                      type: object
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
                   subdomain:
                     type: string
                   terminationGracePeriodSeconds:
@@ -21354,6 +21729,8 @@ spec:
                 additionalProperties:
                   type: string
                 type: object
+              clusterServingRuntimeName:
+                type: string
               components:
                 additionalProperties:
                   properties:
@@ -21500,6 +21877,8 @@ spec:
               observedGeneration:
                 format: int64
                 type: integer
+              servingRuntimeName:
+                type: string
               url:
                 type: string
             type: object

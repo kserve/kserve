@@ -23,10 +23,9 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -135,6 +134,9 @@ type ComponentExtensionSpec struct {
 type AutoScalingSpec struct {
 	// metrics is a list of metrics spec to be used for autoscaling
 	Metrics []MetricsSpec `json:"metrics,omitempty"`
+	// Behavior contains the scaling behavior configuration for the Horizontal Pod Autoscaler.
+	// +optional
+	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
 
 // MetricsSpec specifies how to scale based on a single metric
@@ -247,12 +249,12 @@ type MetricTarget struct {
 
 	// value is the target value of the metric (as a quantity).
 	// +optional
-	Value *resource.Quantity `json:"value,omitempty"`
+	Value *MetricQuantity `json:"value,omitempty"`
 
 	// averageValue is the target value of the average of the
 	// metric across all relevant pods (as a quantity)
 	// +optional
-	AverageValue *resource.Quantity `json:"averageValue,omitempty"`
+	AverageValue *MetricQuantity `json:"averageValue,omitempty"`
 
 	// averageUtilization is the target value of the average of the
 	// resource metric across all relevant pods, represented as a percentage of

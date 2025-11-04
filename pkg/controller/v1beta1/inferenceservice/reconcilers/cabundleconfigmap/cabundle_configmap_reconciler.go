@@ -34,7 +34,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/webhook/admission/pod"
+	"github.com/kserve/kserve/pkg/types"
 )
 
 var log = logf.Log.WithName("CaBundleConfigMapReconciler")
@@ -61,7 +61,7 @@ func (c *CaBundleConfigMapReconciler) Reconcile(ctx context.Context, isvc *v1bet
 		return err
 	}
 
-	storageInitializerConfig := &pod.StorageInitializerConfig{}
+	storageInitializerConfig := &types.StorageInitializerConfig{}
 	if storageInitializerConfigValue, ok := isvcConfigMap.Data["storageInitializer"]; ok {
 		err := json.Unmarshal([]byte(storageInitializerConfigValue), &storageInitializerConfig)
 		if err != nil {

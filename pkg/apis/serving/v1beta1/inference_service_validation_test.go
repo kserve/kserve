@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -31,6 +32,31 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
+
+func TestInvalidNameInSKLearnPredictor(t *testing.T) {
+	isvc := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-isvc",
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				SKLearn: &SKLearnSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						Container: corev1.Container{
+							Name:  "invalid-name",
+							Image: "dummy-image",
+						},
+						StorageURI: proto.String("gs://kfserving-examples/models/sklearn/1.0/model"),
+					},
+				},
+			},
+		},
+	}
+	err := validatePredictor(&isvc)
+	if err == nil || !strings.Contains(err.Error(), "not allowed") {
+		t.Errorf("Expected error for name field in SKLearn predictor, got: %v", err)
+	}
+}
 
 func makeTestInferenceService() InferenceService {
 	inferenceservice := InferenceService{
@@ -64,7 +90,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -91,7 +117,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -129,7 +155,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -143,7 +169,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 										Resource: &ResourceMetricSource{
 											Name: ResourceMetricMemory,
 											Target: MetricTarget{
-												AverageValue: ptr.To(resource.MustParse("1Gi")),
+												AverageValue: NewMetricQuantity("1Gi"),
 											},
 										},
 									},
@@ -167,7 +193,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -199,7 +225,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -231,7 +257,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -259,7 +285,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -287,7 +313,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
@@ -314,7 +340,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "test",
 					},
 				},
@@ -357,7 +383,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "keda",
 					},
 				},
@@ -396,7 +422,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "keda",
 					},
 				},
@@ -411,7 +437,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 											Name: ResourceMetricMemory,
 											Target: MetricTarget{
 												Type:         AverageValueMetricType,
-												AverageValue: ptr.To(resource.MustParse("1Gi")),
+												AverageValue: NewMetricQuantity("1Gi"),
 											},
 										},
 									},
@@ -435,7 +461,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "keda",
 					},
 				},
@@ -467,7 +493,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "keda",
 					},
 				},
@@ -485,7 +511,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 											},
 											Target: MetricTarget{
 												Type:  ValueMetricType,
-												Value: ptr.To(resource.MustParse("10")),
+												Value: NewMetricQuantity("10"),
 											},
 										},
 									},
@@ -509,7 +535,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "Standard",
 						"serving.kserve.io/autoscalerClass": "keda",
 					},
 				},
@@ -527,7 +553,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 											},
 											Target: MetricTarget{
 												Type:  ValueMetricType,
-												Value: ptr.To(resource.MustParse("10")),
+												Value: NewMetricQuantity("10"),
 											},
 										},
 									},
@@ -1373,11 +1399,11 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	oldIsvc := makeTestInferenceService()
 	oldIsvc.Status = InferenceServiceStatus{
-		DeploymentMode: "Serverless",
+		DeploymentMode: string(constants.Knative),
 	}
 	updatedIsvc := oldIsvc.DeepCopy()
 	updatedIsvc.Annotations = map[string]string{
-		constants.DeploymentMode: "RawDeployment",
+		constants.DeploymentMode: string(constants.Standard),
 	}
 	validator := InferenceServiceValidator{}
 	warnings, err := validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc)
@@ -1387,7 +1413,7 @@ func TestDeploymentModeUpdate(t *testing.T) {
 
 	updatedIsvc1 := oldIsvc.DeepCopy()
 	updatedIsvc1.Annotations = map[string]string{
-		constants.DeploymentMode: "Serverless",
+		constants.DeploymentMode: string(constants.Knative),
 	}
 	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc1)
 	// Annotation matches status, update is accepted
@@ -1443,7 +1469,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 						Name: ResourceMetricMemory,
 						Target: MetricTarget{
 							Type:         AverageValueMetricType,
-							AverageValue: ptr.To(resource.MustParse("2Gi")),
+							AverageValue: NewMetricQuantity("2Gi"),
 						},
 					},
 				},
@@ -1501,7 +1527,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 						Name: ResourceMetricMemory,
 						Target: MetricTarget{
 							Type:         AverageValueMetricType,
-							AverageValue: ptr.To(resource.MustParse("512Ki")),
+							AverageValue: NewMetricQuantity("512Ki"),
 						},
 					},
 				},
@@ -1554,7 +1580,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 						},
 						Target: MetricTarget{
 							Type:  ValueMetricType,
-							Value: ptr.To(resource.MustParse("10")),
+							Value: NewMetricQuantity("10"),
 						},
 					},
 				},
@@ -1592,7 +1618,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 						},
 						Target: MetricTarget{
 							Type:  ValueMetricType,
-							Value: ptr.To(resource.MustParse("5")),
+							Value: NewMetricQuantity("5"),
 						},
 					},
 				},
@@ -1643,4 +1669,131 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 
 func intPtr(i int) *int {
 	return &i
+}
+
+func TestValidateStorageUriSpec(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		storageUri *StorageUri
+		expected   gomega.OmegaMatcher
+	}{
+		"ValidStorageUriSpec": {
+			storageUri: &StorageUri{
+				Uri:       "gs://bucket/model",
+				MountPath: "/mnt/models",
+			},
+			expected: gomega.BeNil(),
+		},
+		"ValidStorageUriSpecWithRootPath": {
+			storageUri: &StorageUri{
+				Uri:       "s3://bucket/model",
+				MountPath: "/",
+			},
+			expected: gomega.MatchError("storage path cannot be empty"),
+		},
+		"EmptyUri": {
+			storageUri: &StorageUri{
+				Uri:       "",
+				MountPath: "/mnt/models",
+			},
+			expected: gomega.MatchError("storage URI cannot be empty"),
+		},
+		"RelativePath": {
+			storageUri: &StorageUri{
+				Uri:       "gs://bucket/model",
+				MountPath: "mnt/models",
+			},
+			expected: gomega.MatchError("storage path must be absolute: mnt/models"),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			err := validateStorageURISpec(scenario.storageUri)
+			g.Expect(err).To(scenario.expected)
+		})
+	}
+}
+
+func TestValidateStorageUri(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		storageUris []StorageUri
+		expected    gomega.OmegaMatcher
+	}{
+		"EmptyList": {
+			storageUris: []StorageUri{},
+			expected:    gomega.BeNil(),
+		},
+		"SingleValidStorageUri": {
+			storageUris: []StorageUri{
+				{
+					Uri:       "gs://bucket/model1",
+					MountPath: "/mnt/models",
+				},
+			},
+			expected: gomega.BeNil(),
+		},
+		"MultipleValidStorageUrisWithCommonParent": {
+			storageUris: []StorageUri{
+				{
+					Uri:       "gs://bucket/model1",
+					MountPath: "/mnt/models/model1",
+				},
+				{
+					Uri:       "s3://bucket/model2",
+					MountPath: "/mnt/models/model2",
+				},
+			},
+			expected: gomega.BeNil(),
+		},
+		"MultipleStorageUrisWithoutCommonParent": {
+			storageUris: []StorageUri{
+				{
+					Uri:       "gs://bucket/model1",
+					MountPath: "/mnt/models",
+				},
+				{
+					Uri:       "s3://bucket/model2",
+					MountPath: "/opt/models",
+				},
+			},
+			expected: gomega.MatchError(gomega.ContainSubstring("storage paths must have a common parent directory")),
+		},
+		"InvalidStorageUriInList": {
+			storageUris: []StorageUri{
+				{
+					Uri:       "gs://bucket/model1",
+					MountPath: "/mnt/models",
+				},
+				{
+					Uri:       "",
+					MountPath: "/mnt/models/model2",
+				},
+			},
+			expected: gomega.MatchError("storage URI cannot be empty"),
+		},
+		"RelativePathInList": {
+			storageUris: []StorageUri{
+				{
+					Uri:       "gs://bucket/model1",
+					MountPath: "/mnt/models",
+				},
+				{
+					Uri:       "s3://bucket/model2",
+					MountPath: "mnt/models/model2",
+				},
+			},
+			expected: gomega.MatchError("storage path must be absolute: mnt/models/model2"),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			err := validateMultipleStorageURIsSpec(scenario.storageUris)
+			g.Expect(err).To(scenario.expected)
+		})
+	}
 }

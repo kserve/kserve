@@ -210,8 +210,8 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	// Abort early if the resolved deployment mode is Serverless, but Knative Services are not available
-	if deploymentMode == constants.Serverless {
+	// Abort early if the resolved deployment mode is Knative, but Knative Services are not available
+	if deploymentMode == constants.Knative {
 		ksvcAvailable, checkKsvcErr := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
 		if checkKsvcErr != nil {
 			return reconcile.Result{}, checkKsvcErr
@@ -219,8 +219,8 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 		if !ksvcAvailable {
 			r.Recorder.Event(isvc, corev1.EventTypeWarning, "ServerlessModeRejected",
-				"It is not possible to use Serverless deployment mode when Knative Services are not available")
-			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceService '%s' is Serverless, but Knative Serving is not available", isvc.Name))
+				"It is not possible to use Knative deployment mode when Knative Services are not available")
+			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceService '%s' is Knative, but Knative Serving is not available", isvc.Name))
 		}
 
 		// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
@@ -268,12 +268,19 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 	// Handle InferenceService status updates based on the force stop annotation.
 	// If true, transition the service to a stopped and unready state; otherwise, ensure it's not marked as stopped.
+	existingStoppedCondition := isvc.Status.GetCondition(v1beta1.Stopped)
+	if existingStoppedCondition == nil {
+		defaultStoppedCondition := &apis.Condition{
+			Type:   v1beta1.Stopped,
+			Status: corev1.ConditionFalse,
+		}
+		isvc.Status.SetCondition(v1beta1.Stopped, defaultStoppedCondition)
+		existingStoppedCondition = defaultStoppedCondition
+	}
 	if forceStopRuntime {
-		// Exit early if we have already set the status to stopped
-		existingStoppedCondition := isvc.Status.GetCondition(v1beta1.Stopped)
-		if existingStoppedCondition != nil && existingStoppedCondition.Status == corev1.ConditionTrue {
-			// TODO: Set condition to stoppING
-		} else {
+		// If the inference service's stopped condition is not set or
+		// If the inference service is currently running, update its status to signal that it should be stopped
+		if existingStoppedCondition.Status == corev1.ConditionFalse {
 			// Add the stopped condition
 			stoppedCondition := &apis.Condition{
 				Type:   v1beta1.Stopped,
@@ -282,14 +289,18 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			isvc.Status.SetCondition(v1beta1.Stopped, stoppedCondition)
 		}
 	} else {
-		resumeCondition := &apis.Condition{
-			Type:   v1beta1.Stopped,
-			Status: corev1.ConditionFalse,
+		// If the inference service's stopped condition is not set or
+		// If the inference service is currently stopped, update its status to signal that it should resume
+		if existingStoppedCondition.Status == corev1.ConditionTrue {
+			resumeCondition := &apis.Condition{
+				Type:   v1beta1.Stopped,
+				Status: corev1.ConditionFalse,
+			}
+			isvc.Status.SetCondition(v1beta1.Stopped, resumeCondition)
 		}
-		isvc.Status.SetCondition(v1beta1.Stopped, resumeCondition)
 	}
 	// reconcile RoutesReady and LatestDeploymentReady conditions for serverless deployment
-	if deploymentMode == constants.Serverless {
+	if deploymentMode == constants.Knative {
 		componentList := []v1beta1.ComponentType{v1beta1.PredictorComponent}
 		if isvc.Spec.Transformer != nil {
 			componentList = append(componentList, v1beta1.TransformerComponent)
@@ -309,7 +320,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// check raw deployment
-	if deploymentMode == constants.RawDeployment {
+	if deploymentMode == constants.Standard {
 		if ingressConfig.EnableGatewayAPI {
 			reconciler := ingress.NewRawHTTPRouteReconciler(r.Client, r.Scheme, ingressConfig, isvcConfig)
 

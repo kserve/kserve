@@ -24,5 +24,5 @@ RUN go-licenses save --save_path third_party/library ./cmd/llmisvc
 # Copy the controller-manager into a thin image
 FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /go/src/github.com/kserve/kserve/third_party /third_party
-COPY --from=builder /go/src/github.com/kserve/kserve/llmisvc /
-ENTRYPOINT ["/llmisvc"]
+COPY --from=builder /go/src/github.com/kserve/kserve/manager /
+ENTRYPOINT ["/manager"]

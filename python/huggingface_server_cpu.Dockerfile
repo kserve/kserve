@@ -33,7 +33,7 @@ FROM base AS builder
 
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-ln -s /root/.local/bin/uv /usr/local/bin/uv
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
 # Install build dependencies
 RUN --mount=type=cache,target=/var/cache/apt \
@@ -63,6 +63,13 @@ RUN cd kserve && \
     uv sync --active --no-cache && \
     uv cache clean && \
     rm -rf ~/.cache/uv
+
+ # Copy and install dependencies for kserve-storage using uv
+COPY storage/pyproject.toml storage/uv.lock storage/
+RUN cd storage && uv sync --active --no-cache
+
+COPY storage storage
+RUN cd storage && uv pip install . --no-cache  
 
 # Install huggingfaceserver using UV
 COPY huggingfaceserver huggingfaceserver
@@ -134,6 +141,7 @@ COPY --from=builder --chown=kserve:kserve third_party third_party
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder --chown=kserve:kserve huggingfaceserver huggingfaceserver
 COPY --from=builder --chown=kserve:kserve kserve kserve
+COPY --from=builder --chown=kserve:kserve storage storage
 
 RUN df -hT
 

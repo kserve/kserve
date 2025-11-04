@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
 - manifests.yaml
 - service.yaml
+

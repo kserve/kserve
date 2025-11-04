@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: deepseek-r1-0528-storage-init-job
+spec:
+  parallelism: 1
+  completions: 1
+  template:
+    spec:
+      serviceAccountName: hfsa
+      restartPolicy: Never
+      volumes:
+        - name: pvc
+          persistentVolumeClaim:
+            claimName: llm-test-pvc-deepseek
+            readOnly: false
+      containers:
+        - image: quay.io/opendatahub/kserve-storage-initializer:v0.15-latest
+          name: storage-initializer
+          args:
+            - hf://deepseek-ai/DeepSeek-R1-0528
+            - /mnt/models
+          env:
+            - name: HF_HOME
+              value: /tmp/hf
+            - name: HF_XET_NUM_CONCURRENT_RANGE_GETS
+              value: "8"
+            - name: HF_XET_HIGH_PERFORMANCE
+              value: "True"
+            - name: HF_HUB_DISABLE_TELEMETRY
+              value: "1"
+          resources:
+            requests:
+              cpu: "1"
+              memory: "20Gi"
+            limits:
+              cpu: "1"
+              memory: "100Gi"
+          volumeMounts:
+            - name: pvc
+              mountPath: "/mnt/models"
+              readOnly: false

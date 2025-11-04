@@ -21,7 +21,7 @@ import kserve
 from huggingfaceserver.request_logger import RequestLogger
 from kserve import logging
 from kserve.logging import logger
-from kserve.storage import Storage
+from kserve_storage import Storage
 
 from transformers import AutoConfig
 
@@ -35,8 +35,10 @@ from huggingfaceserver.task import (
 from . import (
     HuggingfaceGenerativeModel,
     HuggingfaceEncoderModel,
+    HuggingFaceTimeSeriesModel,
     Backend,
 )
+
 from .vllm.utils import (
     infer_vllm_supported_from_model_architecture,
     maybe_add_vllm_cli_parser,
@@ -138,10 +140,19 @@ parser.add_argument(
 parser.add_argument(
     "--return_token_type_ids", action="store_true", help="Return token type ids"
 )
-parser.add_argument(
+
+# Create a mutually exclusive group for output format options
+# This group allows the user to choose between returning probabilities or disabling postprocessing.
+output_format_group = parser.add_mutually_exclusive_group()
+output_format_group.add_argument(
     "--return_probabilities",
     action="store_true",
-    help="Return all probabilities",
+    help="Return probabilities instead of logits for classification tasks such as token classification, text classification and fill-mask.",
+)
+output_format_group.add_argument(
+    "--return_raw_logits",
+    action="store_true",
+    help="Return raw logits without processing. Supported only classification tasks such as token classification, text classification and fill-mask.",
 )
 parser.add_argument(
     "--disable_log_requests", action="store_true", help="Disable logging requests"
@@ -255,7 +266,18 @@ def load_model():
         else:
             task = infer_task_from_model_architecture(model_config)
 
-        if is_generative_task(task):
+        if task == MLTask.time_series_forecast:
+            logger.info(f"Loading time series model for task '{task.name}' in {dtype}")
+
+            model = HuggingFaceTimeSeriesModel(
+                args.model_name,
+                model_id_or_path=model_id_or_path,
+                model_config=model_config,
+                model_revision=kwargs.get("model_revision", None),
+                dtype=dtype,
+            )
+
+        elif is_generative_task(task):
             logger.debug(f"Loading model in {dtype}")
 
             logger.info(f"Loading generative model for task '{task.name}' in {dtype}")
@@ -291,6 +313,7 @@ def load_model():
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
                 request_logger=request_logger,
                 return_probabilities=kwargs.get("return_probabilities", False),
+                return_raw_logits=kwargs.get("return_raw_logits", False),
             )
     model.load()
     return model

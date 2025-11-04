@@ -53,6 +53,16 @@ replacements:
           name: localmodelcache.serving.kserve.io 
         fieldPaths:
           - webhooks.*.clientConfig.service.namespace
+      - fieldPaths:
+        - webhooks.*.clientConfig.service.namespace
+        select:
+          kind: ValidatingWebhookConfiguration
+          name: llminferenceservice.serving.kserve.io
+      - fieldPaths:
+        - webhooks.*.clientConfig.service.namespace
+        select:
+          kind: ValidatingWebhookConfiguration
+          name: llminferenceserviceconfig.serving.kserve.io
       - select:
           kind: Certificate
           name: serving-cert
@@ -63,6 +73,16 @@ replacements:
         options:
           delimiter: '.'
           index: 1
+      - fieldPaths:
+        - spec.commonName
+        - spec.dnsNames.0
+        options:
+          delimiter: '.'
+          index: 1
+        select:
+          kind: Certificate
+          name: llmisvc-serving-cert
+          namespace: kserve
       - select:
           kind: CustomResourceDefinition
           name: inferenceservices.serving.kserve.io
@@ -127,6 +147,71 @@ replacements:
         options:
           delimiter: '/'
           index: 0
+      - fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+        select:
+          kind: ValidatingWebhookConfiguration
+          name: llminferenceservice.serving.kserve.io
+      - fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+        select:
+          kind: ValidatingWebhookConfiguration
+          name: llminferenceserviceconfig.serving.kserve.io
+# Replace llmisvc webhook service name
+  - source:
+      fieldPath: metadata.name
+      kind: Service
+      name: llmisvc-webhook-server-service
+      version: v1
+    targets:
+    - fieldPaths:
+      - webhooks.*.clientConfig.service.name
+      select:
+        kind: ValidatingWebhookConfiguration
+        name: llminferenceservice.serving.kserve.io
+    - fieldPaths:
+      - webhooks.*.clientConfig.service.name
+      select:
+        kind: ValidatingWebhookConfiguration
+        name: llminferenceserviceconfig.serving.kserve.io
+    - fieldPaths:
+      - spec.commonName
+      - spec.dnsNames.0
+      options:
+        delimiter: '.'
+        index: 0
+      select:
+        kind: Certificate
+        name: llmisvc-serving-cert
+        namespace: kserve
+  # Replace llmisvc service account name
+  - source:
+      fieldPath: metadata.name
+      kind: ServiceAccount
+      name: llmisvc-controller-manager
+      version: v1
+    targets:
+    - fieldPaths:
+      - subjects.*.name
+      select:
+        kind: ClusterRoleBinding
+        name: llmisvc-manager-rolebinding
+    - fieldPaths:
+      - subjects.*.name
+      select:
+        kind: RoleBinding
+        name: llmisvc-leader-election-rolebinding
+    - fieldPaths:
+      - spec.template.spec.serviceAccountName
+      select:
+        kind: Deployment
+        name: llmisvc-controller-manager
 patches:
 - path: patches/statefulset.yaml
 - path: patches/namespace.yaml

@@ -1,0 +1,274 @@
+name: LLMInferenceService E2E Tests
+
+on:
+  pull_request:
+    paths:
+      - "pkg/apis/serving/v1alpha1/llm*"
+      - "pkg/controller/v1alpha1/llmisvc/**"
+      - "config/llmisvc/**"
+      - "config/rbac/llmisvc/**"
+      - "cmd/llmisvc/**"
+      - "test/e2e/llmisvc/**"
+      - ".github/workflows/e2e-test-llmisvc.yaml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  DOCKER_REPO: "kserve"
+  LLMISVC_CONTROLLER_IMG: "llmisvc-controller"
+
+jobs:
+  test-llmisvc:
+    runs-on: ubuntu-latest
+    needs: [llmisvc-image-build]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Enable MetalLB addon
+        run: |
+          echo "🔧 Enabling MetalLB addon..."
+          minikube addons enable metallb
+          # Wait for MetalLB to be ready
+          kubectl wait --for=condition=ready pod -l app=metallb -n metallb-system --timeout=60s
+
+      - name: Download LLMISvc controller image
+        uses: actions/download-artifact@v4
+        with:
+          name: llmisvc-controller-${{ github.sha }}
+          path: ./tmp
+
+      - name: Load LLMISvc controller image into minikube
+        run: |
+          echo "🐳 Tagging and loading LLMISvc controller image into minikube..."
+          # Load the image from the tar file
+          docker load -i ./tmp/llmisvc-controller-${{ github.sha }}
+          # Tag the loaded image as kserve/llmisvc-controller:local-test
+          IMAGE_ID=$(docker images --format "{{.Repository}}:{{.Tag}} {{.ID}}" | grep llmisvc-controller | awk '{print $2}' | head -n1)
+          docker tag $IMAGE_ID kserve/llmisvc-controller:local-test
+          # Load the tagged image into minikube
+          minikube image load kserve/llmisvc-controller:local-test
+
+          # Verify image is loaded
+          echo "Images in minikube:"
+          minikube image ls | grep llmisvc-controller || echo "No llmisvc-controller images found"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "3.12.0"
+
+      - name: Configure MetalLB for LoadBalancer services
+        run: |
+          echo "🔧 Configuring MetalLB for LoadBalancer services..."
+          MINIKUBE_IP=$(minikube ip)
+          echo "Minikube IP: $MINIKUBE_IP"
+          # Configure MetalLB with a proper IP range
+          kubectl apply -f - <<EOF
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            namespace: metallb-system
+            name: config
+          data:
+            config: |
+              address-pools:
+              - name: default
+                protocol: layer2
+                addresses:
+                - ${MINIKUBE_IP%.*}.100-${MINIKUBE_IP%.*}.110
+          EOF
+          # Restart MetalLB controller to pick up new config
+          kubectl rollout restart deployment controller -n metallb-system
+          kubectl rollout status deployment controller -n metallb-system --timeout=60s
+
+      - name: Install LLMISvc dependencies and controller
+        run: |
+          echo "🏗️ Installing LLMISvc dependencies and controller..."
+
+          # Set environment variable to use local charts
+          export USE_LOCAL_CHARTS=true
+          LLMISVC_CONTROLLER_IMG_TAG="${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${{ github.sha }}"
+
+          # Use the quick install script to install all dependencies and LLMISvc
+          ./hack/llmisvc_quick_install.sh
+
+          # Update the deployment to use our built image with Never pull policy
+          kubectl patch deployment kserve-llmisvc-controller-manager -n kserve \
+            -p '{"spec":{"template":{"spec":{"containers":[{"name":"manager","image":"'${LLMISVC_CONTROLLER_IMG_TAG}'","imagePullPolicy":"Never"}]}}}}'
+
+          # Wait for deployment to be ready
+          kubectl wait --for=condition=available --timeout=300s deployment/kserve-llmisvc-controller-manager -n kserve
+
+      - name: Verify LLMISvc setup
+        run: |
+          echo "🔍 Verifying LLMISvc controller setup..."
+
+          echo "📋 LLMISvc Controller:"
+          kubectl get pods -n kserve -l app.kubernetes.io/component=controller || true
+
+          echo "📋 LLM Resources:"
+          kubectl get llminferenceserviceconfigs -A || true
+
+          echo "📋 Gateway API Resources:"
+          kubectl get crd | grep inference || true
+
+          echo "📋 Envoy Gateway:"
+          kubectl get pods -n envoy-gateway-system || true
+
+          echo "📋 AI Gateway:"
+          kubectl get pods -n envoy-ai-gateway-system || true
+
+          echo "✅ LLMISvc setup verification complete!"
+
+      - name: Create test namespace and gateway
+        run: |
+          echo "📦 Creating test namespace and gateway..."
+
+          # Create test namespace
+          kubectl create namespace kserve-ci-e2e-test --dry-run=client -o yaml | kubectl apply -f -
+
+          # Apply inferenceservice config
+          kubectl apply -f config/configmap/inferenceservice.yaml
+
+          # Create kserve-ingress-gateway in kserve namespace (matches quick install)
+          kubectl apply -f - <<EOF
+          apiVersion: gateway.networking.k8s.io/v1
+          kind: Gateway
+          metadata:
+            name: kserve-ingress-gateway
+            namespace: kserve-ci-e2e-test
+          spec:
+            gatewayClassName: envoy
+            listeners:
+              - name: http
+                protocol: HTTP
+                port: 80
+                allowedRoutes:
+                  namespaces:
+                    from: All
+            infrastructure:
+              labels:
+                serving.kserve.io/gateway: kserve-ingress-gateway
+          EOF
+
+          echo "✅ Test namespace and gateway created!"
+
+      - name: Verify Gateway Configuration
+        run: |
+          echo "🔍 Verifying Gateway and LoadBalancer configuration..."
+
+          # Wait for gateway to be programmed in kserve namespace
+          echo "Waiting for kserve-ingress-gateway to be programmed..."
+          timeout 120s bash -c 'until kubectl get gateway kserve-ingress-gateway -n kserve-ci-e2e-test -o jsonpath="{.status.conditions[?(@.type==\"Programmed\")].status}" | grep -q "True"; do echo "Gateway not ready yet..."; sleep 5; done'
+
+          # Verify LoadBalancer service has external IP
+          echo "Checking LoadBalancer service..."
+          kubectl get services -n envoy-gateway-system
+
+          # Show gateway status
+          echo "Gateway status:"
+          kubectl get gateways -A
+
+          echo "✅ Gateway configuration verified!"
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe Python SDK
+        run: |
+          echo "🐍 Installing KServe Python SDK with test dependencies..."
+          pushd python/kserve >/dev/null
+              uv sync --active --group test
+          popd
+          echo "✅ Python dependencies installed!"
+
+      - name: Run E2E tests
+        timeout-minutes: 60
+        run: |
+          echo "🧪 Running LLMISvc E2E tests with extended timeout..."
+          echo "📋 Pre-test system status:"
+          kubectl get pods -n kserve
+          kubectl get llminferenceserviceconfigs -A
+          kubectl get inferencepools -A || echo "No InferencePools yet"
+
+          # Run only CPU tests for now using pytest markers (cluster_)
+          # Available GPU vendors: amd, nvidia, intel
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and cluster_cpu" 1 "envoy-gateway"
+
+      - name: Check system status
+        if: always()
+        run: |
+          echo "🔍 Enhanced LLMISvc system status check..."
+
+          echo "📋 LLMISvc Controller:"
+          kubectl get pods -n kserve -l app.kubernetes.io/component=controller || true
+          kubectl describe pods -n kserve -l app.kubernetes.io/component=controller || true
+
+          echo "📋 LLM Resources:"
+          kubectl get llminferenceservices -A || true
+          kubectl get llminferenceserviceconfigs -A || true
+          kubectl get inferencepools -A || true
+          kubectl get inferencemodels -A || true
+
+          echo "📋 Gateway API Resources:"
+          kubectl get gateways -A || true
+          kubectl get httproutes -A || true
+
+          echo "📋 Webhook Configurations:"
+          kubectl get validatingwebhookconfiguration | grep llm || true
+
+          echo "📋 Recent Events:"
+          kubectl get events -A --sort-by='.lastTimestamp' | tail -20 || true
+
+          echo "📋 Controller Logs:"
+          kubectl logs -n kserve -l app.kubernetes.io/component=controller --tail=50 || true
+
+  llmisvc-image-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build LLMISvc controller image
+        run: |
+          echo "🏗️ Building LLMISvc controller image..."
+          LLMISVC_CONTROLLER_IMG_TAG=${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${GITHUB_SHA}
+
+          # Build the image and save it as a tar file
+          docker buildx build -f llmisvc-controller.Dockerfile . \
+            -t "${LLMISVC_CONTROLLER_IMG_TAG}" \
+            -o type=docker,dest=llmisvc-controller-${GITHUB_SHA}
+
+          echo "✅ Successfully built LLMISvc controller image: ${LLMISVC_CONTROLLER_IMG_TAG}"
+          docker image ls
+
+      - name: Upload LLMISvc controller image
+        uses: actions/upload-artifact@v4
+        with:
+          name: llmisvc-controller-${{ github.sha }}
+          path: llmisvc-controller-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error

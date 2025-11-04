@@ -25,8 +25,11 @@ from httpx import HTTPStatusError
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_ig
 
-SUCCESS_ISVC_IMAGE = "kserve/success-200-isvc:" + os.environ.get("GITHUB_SHA")
-ERROR_ISVC_IMAGE = "kserve/error-404-isvc:" + os.environ.get("GITHUB_SHA")
+img_version = os.environ.get("GITHUB_SHA", "latest")
+
+SUCCESS_ISVC_IMAGE = f"kserve/success-200-isvc:{img_version}"
+ERROR_ISVC_IMAGE = f"kserve/error-404-isvc:{img_version}"
+
 IG_TEST_RESOURCES_BASE_LOCATION = "graph/test-resources"
 
 
@@ -932,7 +935,7 @@ async def test_inference_graph_raw_mode(rest_v1_client, network_layer):
     graph_name = "model-chainer-raw-" + suffix
 
     annotations = dict()
-    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
+    annotations["serving.kserve.io/deploymentMode"] = "Standard"
 
     sklearn_predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -1088,7 +1091,7 @@ async def test_inference_graph_raw_mode_with_hpa(rest_v1_client, network_layer):
     graph_name = "model-chainer-raw-hpa-" + suffix
 
     annotations = dict()
-    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
+    annotations["serving.kserve.io/deploymentMode"] = "Standard"
     # annotations["serving.kserve.io/max-scale"] = '5'
     # annotations["serving.kserve.io/metric"] = 'rps'
     # annotations["serving.kserve.io/min-scale"] = '2'

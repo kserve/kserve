@@ -25,7 +25,6 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	corev1 "k8s.io/api/core/v1"
@@ -33,78 +32,90 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/credentials/s3"
+	"github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
 const (
-	StorageInitializerContainerName         = "storage-initializer"
-	StorageInitializerConfigMapKeyName      = "storageInitializer"
-	StorageInitializerVolumeName            = "kserve-provision-location"
-	StorageInitializerContainerImage        = "kserve/storage-initializer"
-	StorageInitializerContainerImageVersion = "latest"
-	PvcURIPrefix                            = "pvc://"
-	OciURIPrefix                            = "oci://"
-	PvcSourceMountName                      = "kserve-pvc-source"
-	PvcSourceMountPath                      = "/mnt/pvc"
-	CaBundleVolumeName                      = "cabundle-cert"
-	ModelcarContainerName                   = "modelcar"
-	ModelcarInitContainerName               = "modelcar-init"
-	ModelInitModeEnv                        = "MODEL_INIT_MODE"
-	CpuModelcarDefault                      = "10m"
-	MemoryModelcarDefault                   = "15Mi"
-	RemoteStorageEnvVarName                 = "REMOTE_STORAGE_URI"
+	PvcSourceMountPath = "/mnt/pvc"
+	CaBundleVolumeName = "cabundle-cert"
 )
-
-type StorageInitializerConfig struct {
-	Image                      string `json:"image"`
-	CpuRequest                 string `json:"cpuRequest"`
-	CpuLimit                   string `json:"cpuLimit"`
-	CpuModelcar                string `json:"cpuModelcar"`
-	MemoryRequest              string `json:"memoryRequest"`
-	MemoryLimit                string `json:"memoryLimit"`
-	CaBundleConfigMapName      string `json:"caBundleConfigMapName"`
-	CaBundleVolumeMountPath    string `json:"caBundleVolumeMountPath"`
-	MemoryModelcar             string `json:"memoryModelcar"`
-	EnableDirectPvcVolumeMount bool   `json:"enableDirectPvcVolumeMount"`
-	EnableOciImageSource       bool   `json:"enableModelcar"`
-	UidModelcar                *int64 `json:"uidModelcar"`
-}
 
 type StorageInitializerInjector struct {
 	credentialBuilder *credentials.CredentialBuilder
-	config            *StorageInitializerConfig
+	config            *types.StorageInitializerConfig
 	client            client.Client
 }
 
-func getStorageInitializerConfigs(configMap *corev1.ConfigMap) (*StorageInitializerConfig, error) {
-	storageInitializerConfig := &StorageInitializerConfig{}
-	if initializerConfig, ok := configMap.Data[StorageInitializerConfigMapKeyName]; ok {
-		err := json.Unmarshal([]byte(initializerConfig), &storageInitializerConfig)
-		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall %v json string due to %w ", StorageInitializerConfigMapKeyName, err))
-		}
-	}
-	// Ensure that we set proper values for CPU/Memory Limit/Request
-	resourceDefaults := []string{
-		storageInitializerConfig.MemoryRequest,
-		storageInitializerConfig.MemoryLimit,
-		storageInitializerConfig.CpuRequest,
-		storageInitializerConfig.CpuLimit,
-	}
-	for _, key := range resourceDefaults {
-		_, err := resource.ParseQuantity(key)
-		if err != nil {
-			return storageInitializerConfig, fmt.Errorf("Failed to parse resource configuration for %q: %q", StorageInitializerConfigMapKeyName, err.Error())
-		}
-	}
+// StorageInitializerParams contains all the parameters needed for storage initialization
+// across both single and multiple storage URI scenarios. This struct encapsulates
+// the configuration, context, and resources required to set up model downloading.
+type StorageInitializerParams struct {
+	// Namespace is the Kubernetes namespace where the InferenceService is deployed
+	Namespace string
 
-	return storageInitializerConfig, nil
+	// StorageURIs is a slice of storage URIs with their corresponding mount paths.
+	// Supports multiple URIs for complex scenarios like base models with adapters.
+	// Each StorageUri contains both the source URI and the target mount path.
+	StorageURIs []v1beta1.StorageUri
+
+	// IsReadOnly indicates whether the mounted storage should be read-only.
+	// When true, volumes are mounted with read-only permissions.
+	IsReadOnly bool
+
+	// PodSpec is the pod specification that will be modified to include
+	// init containers and volume mounts for model downloading.
+	PodSpec *corev1.PodSpec
+
+	// CredentialBuilder provides access to storage credentials for authentication
+	// with cloud storage providers (S3, GCS, Azure, etc.).
+	CredentialBuilder *credentials.CredentialBuilder
+
+	// Client is the Kubernetes client used for reading ClusterStorageContainer
+	// specifications and other cluster resources.
+	Client client.Client
+
+	// Config contains the storage initializer configuration including
+	// container image, resource limits, and feature flags.
+	Config *types.StorageInitializerConfig
+
+	// IsvcAnnotations contains InferenceService annotations that may affect
+	// storage initialization behavior (e.g., agent injection flags).
+	IsvcAnnotations map[string]string
+
+	// StorageSpec contains legacy storage configuration for backward compatibility.
+	// May be nil when using the newer StorageURIs field.
+	StorageSpec *v1beta1.StorageSpec
+
+	// StorageContainerSpec specifies a custom storage container for downloading
+	// models. When nil, the default storage initializer is used.
+	StorageContainerSpec *v1alpha1.StorageContainerSpec
+
+	// Indicates whether to use the legacy logic for storage initialization.
+	IsLegacyURI bool
 }
 
-func GetContainerSpecForStorageUri(ctx context.Context, storageUri string, client client.Client) (*corev1.Container, error) {
+// GetStorageContainerSpec finds and returns a ClusterStorageContainer specification
+// that supports the given storage URI. This function searches through all available
+// ClusterStorageContainer resources in the cluster and returns the first one that
+// can handle the specified URI format.
+//
+// Parameters:
+//   - ctx: Context for the Kubernetes API call
+//   - storageUri: The storage URI to find a compatible container for (e.g., "s3://bucket/path")
+//   - client: Kubernetes client for listing ClusterStorageContainer resources
+//
+// Returns:
+//   - *v1alpha1.StorageContainerSpec: The container specification that supports the URI, or nil if none found
+//   - error: Error if the Kubernetes API call fails or URI format checking fails
+//
+// The function iterates through ClusterStorageContainer resources and uses their
+// IsStorageUriSupported method to determine compatibility with the provided URI.
+func GetStorageContainerSpec(ctx context.Context, storageUri string, client client.Client) (*v1alpha1.StorageContainerSpec, error) {
 	storageContainers := &v1alpha1.ClusterStorageContainerList{}
 	if err := client.List(ctx, storageContainers); err != nil {
 		return nil, err
@@ -122,10 +133,21 @@ func GetContainerSpecForStorageUri(ctx context.Context, storageUri string, clien
 			return nil, fmt.Errorf("error checking storage container %s: %w", sc.Name, err)
 		}
 		if supported {
-			return &sc.Spec.Container, nil
+			return &sc.Spec, nil
 		}
 	}
 
+	return nil, nil
+}
+
+func GetContainerSpecForStorageUri(ctx context.Context, storageUri string, client client.Client) (*corev1.Container, error) {
+	supported, err := GetStorageContainerSpec(ctx, storageUri, client)
+	if err != nil {
+		return nil, fmt.Errorf("error checking storage container %s: %w", supported.Container.Name, err)
+	}
+	if supported != nil {
+		return &supported.Container, nil
+	}
 	return nil, nil
 }
 
@@ -141,126 +163,382 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 	}
 
 	// Only inject modelcar if requested
-	if !strings.HasPrefix(srcURI, OciURIPrefix) {
+	if !strings.HasPrefix(srcURI, constants.OciURIPrefix) {
 		return nil
 	}
 
-	// Add an emptyDir Volume to Pod
-	addEmptyDirVolumeIfNotPresent(pod, StorageInitializerVolumeName)
+	if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.InferenceServiceContainerName, mi.config); err != nil {
+		return err
+	}
 
-	// Extract image reference for modelcar from URI
-	image := strings.TrimPrefix(srcURI, OciURIPrefix)
+	if utils.GetContainerWithName(&pod.Spec, constants.TransformerContainerName) != nil {
+		return utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.TransformerContainerName, mi.config)
+	}
 
-	userContainer := getContainerWithName(pod, constants.InferenceServiceContainerName)
+	return nil
+}
+
+func GetStorageInitializerReadOnlyFlag(annotations map[string]string) bool {
+	isvcReadonlyStringFlag := true
+	isvcReadonlyString, ok := annotations[constants.StorageReadonlyAnnotationKey]
+	if ok {
+		if isvcReadonlyString == "false" {
+			isvcReadonlyStringFlag = false
+		}
+	}
+	return isvcReadonlyStringFlag
+}
+
+// CommonStorageInitialization handles the injection of storage initialization logic for both single and multiple storage URIs.
+// This function consolidates the shared logic for setting up init containers and volume mounts to download model artifacts
+// from various storage backends (S3, GCS, Azure Blob, PVC, etc.) before the main inference container starts.
+//
+// The function supports:
+//   - Multiple storage URIs with custom mount paths for complex use cases (e.g., base model + LoRA adapters)
+//   - Backward compatibility with single storage URI scenarios
+//   - Mixed PVC and cloud storage URI handling
+//   - Automatic volume mounting and path management
+//   - Storage container specification for custom downloaders
+//
+// Parameters:
+//   - params: A StorageInitializerParams struct containing all necessary configuration including
+//     storage URIs, pod spec, credentials, and storage container specifications;
+//     podSpec is modified in place to include init containers and volume mounts
+//
+// Returns:
+//   - error: nil on success, or an error if injection fails due to invalid configuration,
+//     unsupported storage containers, or volume mounting issues
+//
+// The function will skip injection in the following cases:
+//   - Model agent is already injected (annotation present)
+//   - Modelcar (OCI container) is being used instead of init containers
+//   - Storage initializer container is already present in the pod
+func CommonStorageInitialization(ctx context.Context, params *StorageInitializerParams) error {
+	// Don't inject if model agent is injected
+	if _, ok := params.IsvcAnnotations[constants.AgentShouldInjectAnnotationKey]; ok {
+		return nil
+	}
+
+	// Don't inject init-containers if a modelcar is used
+	if params.Config.EnableOciImageSource && len(params.StorageURIs) > 0 && strings.HasPrefix(params.StorageURIs[0].Uri, constants.OciURIPrefix) {
+		return nil
+	}
+
+	// Don't inject if InitContainer already injected
+	for _, container := range params.PodSpec.InitContainers {
+		if strings.Compare(container.Name, constants.StorageInitializerContainerName) == 0 {
+			return nil
+		}
+	}
+
+	if len(params.StorageURIs) == 0 {
+		// No storage URIs provided - noop
+		return nil
+	}
+
+	var initContainer *corev1.Container
+	numStorageURIs := len(params.StorageURIs)
+	initContainerArgs := make([]string, 0, numStorageURIs*2) // Each URI needs 2 args: URI and path
+	mountContainerNames := make([]string, 0, 3)              // Containers that need volume mounts (userContainer, transformerContainer, initContainer)
+
+	// Identify target containers for volume mounting
+	// Priority: kserve-container > worker-container (fallback for some deployment modes)
+	userContainer := utils.GetContainerWithName(params.PodSpec, constants.InferenceServiceContainerName)
+	transformerContainer := utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName)
+	workerContainer := utils.GetContainerWithName(params.PodSpec, constants.WorkerContainerName)
+
 	if userContainer == nil {
-		userContainer = getContainerWithName(pod, constants.WorkerContainerName)
-		if userContainer == nil {
-			return fmt.Errorf("no container found with name %s or %s", constants.InferenceServiceContainerName, constants.WorkerContainerName)
+		if workerContainer == nil {
+			return errors.New("Invalid configuration: cannot find container")
+		}
+		// Use worker container as fallback for certain deployment scenarios
+		userContainer = workerContainer
+	}
+
+	// Handle multiple storage URIs (new functionality)
+	// This has to be enabled via the feature flag for Knative deployments
+	if len(params.StorageURIs) > 0 && !params.IsLegacyURI {
+		// Validate that the storage container supports multiple downloads
+		if params.StorageContainerSpec != nil && !*params.StorageContainerSpec.SupportsMultiModelDownload {
+			return fmt.Errorf("storage container %q does not support multi-model download; use the default kserve storage initializer or a compatible storage container",
+				params.StorageContainerSpec.Container.Name)
+		}
+
+		nonPVCMountPaths := make([]string, 0, numStorageURIs)              // Paths for URIs that require init container download
+		pvcStorageURIs := make([]v1beta1.StorageUri, 0, numStorageURIs)    // URIs that point to existing PVCs
+		nonPVCStorageURIs := make([]v1beta1.StorageUri, 0, numStorageURIs) // URIs that require downloading (S3, GCS, etc.)
+
+		// Separate PVC URIs from other storage URIs since they have different handling:
+		// - PVC URIs are mounted directly as volumes (no download needed)
+		// - Other URIs require init container to download artifacts first
+		for _, storageUri := range params.StorageURIs {
+			if strings.HasPrefix(storageUri.Uri, constants.PvcURIPrefix) {
+				pvcStorageURIs = append(pvcStorageURIs, storageUri)
+			} else {
+				nonPVCStorageURIs = append(nonPVCStorageURIs, storageUri)
+				nonPVCMountPaths = append(nonPVCMountPaths, storageUri.MountPath)
+			}
+		}
+
+		mountContainerNames = append(mountContainerNames, userContainer.Name)
+		if transformerContainer != nil {
+			mountContainerNames = append(mountContainerNames, transformerContainer.Name)
+		}
+
+		// Mount PVC storage URIs directly as volumes (no init container needed)
+		for _, storageURI := range pvcStorageURIs {
+			for _, containerName := range mountContainerNames {
+				pvcName, _, err := utils.ParsePvcURI(storageURI.Uri)
+				if err != nil {
+					return fmt.Errorf("failed to parse PVC URI %q: %w", storageURI.Uri, err)
+				}
+
+				storageMountParams := utils.StorageMountParams{
+					MountPath:  storageURI.MountPath,
+					SubPath:    "",
+					VolumeName: utils.GetVolumeNameFromPath(storageURI.MountPath),
+					PVCName:    pvcName,
+					ReadOnly:   params.IsReadOnly,
+				}
+
+				if mountErr := utils.AddModelMount(storageMountParams, containerName, params.PodSpec); mountErr != nil {
+					return fmt.Errorf("failed to add PVC mount for container %q: %w", containerName, mountErr)
+				}
+			}
+		}
+
+		if len(nonPVCStorageURIs) > 0 {
+			// Find common parent path for non-PVC storage URIs
+			nonPVCMountPath := utils.FindCommonParentPath(nonPVCMountPaths)
+
+			// Build init container arguments: alternating pairs of source URI and target path
+			for _, storageUri := range nonPVCStorageURIs {
+				initContainerArgs = append(initContainerArgs, storageUri.Uri, storageUri.MountPath)
+			}
+
+			initContainer = utils.CreateInitContainerWithConfig(params.Config, initContainerArgs)
+
+			// Append the init container to the pod spec
+			params.PodSpec.InitContainers = append(params.PodSpec.InitContainers, *initContainer)
+			// Get a pointer to the actual container in the slice for subsequent modifications
+			initContainer = &params.PodSpec.InitContainers[len(params.PodSpec.InitContainers)-1]
+			mountContainerNames = append(mountContainerNames, initContainer.Name)
+
+			// Create shared volume mount for non-PVC storage URIs
+			storageMountParams := utils.StorageMountParams{
+				MountPath:  nonPVCMountPath,
+				SubPath:    "",
+				VolumeName: utils.GetVolumeNameFromPath(nonPVCMountPath),
+				PVCName:    "",
+				ReadOnly:   params.IsReadOnly,
+			}
+
+			// Apply volume mount to all relevant containers
+			for _, containerName := range mountContainerNames {
+				if mountErr := utils.AddModelMount(storageMountParams, containerName, params.PodSpec); mountErr != nil {
+					return fmt.Errorf("failed to add volume mount for container %q: %w", containerName, mountErr)
+				}
+			}
+		}
+	} else if len(params.StorageURIs) == 1 {
+		// Handle single storage URI (backward compatibility)
+		storageURI := params.StorageURIs[0]
+
+		storageMountParams := utils.StorageMountParams{
+			MountPath:  constants.DefaultModelLocalMountPath,
+			SubPath:    "",
+			VolumeName: constants.StorageInitializerVolumeName,
+			PVCName:    "",
+			ReadOnly:   params.IsReadOnly,
+		}
+
+		mountContainerNames = append(mountContainerNames, userContainer.Name)
+		if transformerContainer != nil {
+			mountContainerNames = append(mountContainerNames, transformerContainer.Name)
+		}
+
+		// For PVC source URIs we need to mount the source to be able to access it
+		// See design and discussion here: https://github.com/kserve/kserve/issues/148
+		if strings.HasPrefix(storageURI.Uri, constants.PvcURIPrefix) {
+			// Add a corresponding pvc volume mount to the userContainer and transformerContainer.
+			// Pvc will be mount to /mnt/models rather than /mnt/pvc.
+			// PvcPath will be injected via SubPath, pvcPath must be a root or Dir.
+			// It is user responsibility to ensure it is a root or Dir
+			pvcName, pvcPath, err := utils.ParsePvcURI(storageURI.Uri)
+			if err != nil {
+				return err
+			}
+
+			storageMountParams.SubPath = pvcPath
+			storageMountParams.PVCName = pvcName
+			storageMountParams.VolumeName = constants.PvcSourceMountName
+		} else {
+			initContainerArgs = append(initContainerArgs, storageURI.Uri, storageURI.MountPath)
+			initContainer = utils.CreateInitContainerWithConfig(params.Config, initContainerArgs)
+
+			// Append the init container to the pod spec
+			params.PodSpec.InitContainers = append(params.PodSpec.InitContainers, *initContainer)
+			// Get a pointer to the actual container in the slice for subsequent modifications
+			initContainer = &params.PodSpec.InitContainers[len(params.PodSpec.InitContainers)-1]
+
+			mountContainerNames = append(mountContainerNames, initContainer.Name)
+		}
+
+		for _, containerName := range mountContainerNames {
+			mountErr := utils.AddModelMount(storageMountParams, containerName, params.PodSpec)
+			if mountErr != nil {
+				return mountErr
+			}
+		}
+
+		// Set or update the CustomSpecStorageUri env variable value
+		// Use the provided storageURIEnvVar value instead of always defaulting to DefaultModelLocalMountPath
+		for index, envVar := range userContainer.Env {
+			if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
+				userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
+			}
 		}
 	}
-	transformerContainer := getContainerWithName(pod, constants.TransformerContainerName)
-	// Indicate to the runtime that it the model directory could be
-	// available a bit later only so that it should wait and retry when
-	// starting up
-	addOrReplaceEnv(userContainer, ModelInitModeEnv, "async")
 
-	// Mount volume initialized by the modelcar container to the user container and transformer (if exists)
-	modelParentDir := getParentDirectory(constants.DefaultModelLocalMountPath)
-	addVolumeMountIfNotPresent(userContainer, StorageInitializerVolumeName, modelParentDir)
-	if transformerContainer != nil {
-		addVolumeMountIfNotPresent(transformerContainer, StorageInitializerVolumeName, modelParentDir)
-	}
-
-	// If configured, run as the given user. There might be certain installations
-	// of Kubernetes where sharing the filesystem via the process namespace only works
-	// when both containers are running as root
-	if mi.config.UidModelcar != nil {
-		userContainer.SecurityContext = &corev1.SecurityContext{
-			RunAsUser: mi.config.UidModelcar,
+	// Inject credentials only if we have an init container (not for PVC only sources)
+	if initContainer != nil {
+		if params.StorageSpec != nil && params.StorageSpec.StorageKey != nil && params.StorageSpec.Parameters != nil {
+			// initContainer.Args (storageURI.URI) is modified up in CreateStorageSpecSecretEnvs
+			if err := params.CredentialBuilder.CreateStorageSpecSecretEnvs(
+				ctx,
+				params.Namespace,
+				params.IsvcAnnotations,
+				*params.StorageSpec.StorageKey,
+				*params.StorageSpec.Parameters,
+				initContainer,
+			); err != nil {
+				return err
+			}
+		} else {
+			// Inject service account credentials if storage spec doesn't exist
+			err := params.CredentialBuilder.CreateSecretVolumeAndEnv(
+				ctx,
+				params.Namespace,
+				params.IsvcAnnotations,
+				params.PodSpec.ServiceAccountName,
+				initContainer,
+				&params.PodSpec.Volumes,
+			)
+			if err != nil {
+				return err
+			}
 		}
+
+		// Inject CA bundle configMap if caBundleConfigMapName or constants.DefaultGlobalCaBundleConfigMapName annotation is set
+		// Store the CA bundle configuration to be applied after merge to avoid conflicts
+		var caBundleConfigMapName string
+		var caBundleVolumeMountPath string
+		var needsCABundle bool
+		if ok := needCaBundleMount(params.Config.CaBundleConfigMapName, initContainer); ok {
+			needsCABundle = true
+			caBundleConfigMapName = params.Config.CaBundleConfigMapName
+			if params.Namespace != constants.KServeNamespace {
+				caBundleConfigMapName = constants.DefaultGlobalCaBundleConfigMapName
+			}
+
+			caBundleVolumeMountPath = params.Config.CaBundleVolumeMountPath
+			if caBundleVolumeMountPath == "" {
+				caBundleVolumeMountPath = constants.DefaultCaBundleVolumeMountPath
+			}
+
+			for _, envVar := range initContainer.Env {
+				if envVar.Name == s3.AWSCABundleConfigMap {
+					caBundleConfigMapName = envVar.Value
+				}
+				if envVar.Name == s3.AWSCABundle {
+					caBundleVolumeMountPath = filepath.Dir(envVar.Value)
+				}
+			}
+		}
+
+		// Merge any customizations from the storage container spec into the init container
+		if params.StorageContainerSpec != nil {
+			err := mergeContainerSpecs(initContainer, &params.StorageContainerSpec.Container)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Add CA bundle env vars and volume mount after merge to avoid conflicts with user-defined env vars
+		// This applies the same defensive pattern as HF env vars (issue #4761)
+		if needsCABundle {
+			// Only add CA bundle env vars if they don't already exist (could be customized by user)
+			caBundleEnvVarExists := false
+			caBundleMountPathEnvVarExists := false
+			for _, envVar := range initContainer.Env {
+				if envVar.Name == constants.CaBundleConfigMapNameEnvVarKey {
+					caBundleEnvVarExists = true
+				}
+				if envVar.Name == constants.CaBundleVolumeMountPathEnvVarKey {
+					caBundleMountPathEnvVarExists = true
+				}
+			}
+
+			if !caBundleEnvVarExists {
+				initContainer.Env = append(initContainer.Env, corev1.EnvVar{
+					Name:  constants.CaBundleConfigMapNameEnvVarKey,
+					Value: caBundleConfigMapName,
+				})
+			}
+
+			if !caBundleMountPathEnvVarExists {
+				initContainer.Env = append(initContainer.Env, corev1.EnvVar{
+					Name:  constants.CaBundleVolumeMountPathEnvVarKey,
+					Value: caBundleVolumeMountPath,
+				})
+			}
+
+			caBundleVolume := corev1.Volume{
+				Name: CaBundleVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: caBundleConfigMapName,
+						},
+					},
+				},
+			}
+
+			caBundleVolumeMount := corev1.VolumeMount{
+				Name:      CaBundleVolumeName,
+				MountPath: caBundleVolumeMountPath,
+				ReadOnly:  true,
+			}
+
+			params.PodSpec.Volumes = append(params.PodSpec.Volumes, caBundleVolume)
+			initContainer.VolumeMounts = append(initContainer.VolumeMounts, caBundleVolumeMount)
+		}
+
+		// Add default HuggingFace optimization environment variables if they don't already exist.
+		// This is done after merging to avoid conflicts with user-defined environment variables.
+		// See https://github.com/kserve/kserve/issues/4761
+		utils.AddDefaultHuggingFaceEnvVars(initContainer)
 	}
-
-	// Create the modelcar that is used as a sidecar in Pod and add it to the end
-	// of the containers (but only if not already have been added)
-	if getContainerWithName(pod, ModelcarContainerName) == nil {
-		modelContainer := mi.createModelContainer(image, constants.DefaultModelLocalMountPath)
-		pod.Spec.Containers = append(pod.Spec.Containers, *modelContainer)
-
-		// Add the model container as an init-container to pre-fetch the model before
-		// the runtimes starts.
-		modelInitContainer := mi.createModelInitContainer(image)
-		pod.Spec.InitContainers = append(pod.Spec.InitContainers, *modelInitContainer)
-	}
-
-	// Enable process namespace sharing so that the modelcar's root filesystem
-	// can be reached by the user container
-	shareProcessNamespace := true
-	pod.Spec.ShareProcessNamespace = &shareProcessNamespace
 
 	return nil
 }
 
 // InjectStorageInitializer injects an init container to provision model data
 // for the serving container in a unified way across storage tech by injecting
-// a provisioning INIT container. This is a workaround because KNative does not
+// a provisioning INIT container. This is a workaround because Knative does not
 // support INIT containers: https://github.com/knative/serving/issues/4307
-func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) error {
+// This method handles old single storage URI scenario for backward compatibility;
+// Knative supports init containers so storage initializer is added as init container directly
+// in the controller for new multiple storage URI scenarios.
+func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Context, pod *corev1.Pod) error {
 	// Only inject if the required annotations are set
 	srcURI, ok := pod.ObjectMeta.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
 	if !ok {
 		return nil
 	}
 
-	// Don't inject if model agent is injected
-	if _, ok := pod.ObjectMeta.Annotations[constants.AgentShouldInjectAnnotationKey]; ok {
-		return nil
-	}
-
-	// Don't inject init-containers if a modelcar is used
-	if mi.config.EnableOciImageSource && strings.HasPrefix(srcURI, OciURIPrefix) {
-		return nil
-	}
-
-	// Don't inject if InitContainer already injected
-	for _, container := range pod.Spec.InitContainers {
-		if strings.Compare(container.Name, StorageInitializerContainerName) == 0 {
-			return nil
-		}
-	}
-
-	// Update volume mount's readonly annotation based on the ISVC annotation
-	isvcReadonlyStringFlag := true
-	isvcReadonlyString, ok := pod.ObjectMeta.Annotations[constants.StorageReadonlyAnnotationKey]
-	if ok {
-		if isvcReadonlyString == "false" {
-			isvcReadonlyStringFlag = false
-		}
-	}
-
-	// Find the kserve-container (this is the model inference server) and transformer container and the worker-container
-	userContainer := getContainerWithName(pod, constants.InferenceServiceContainerName)
-	transformerContainer := getContainerWithName(pod, constants.TransformerContainerName)
-	workerContainer := getContainerWithName(pod, constants.WorkerContainerName)
-
-	if userContainer == nil {
-		if workerContainer == nil {
-			return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
-		} else {
-			userContainer = workerContainer
-		}
-	}
-
-	if _, exists := utils.GetEnvVarValue(userContainer.Env, RemoteStorageEnvVarName); !exists {
-		addOrReplaceEnv(userContainer, RemoteStorageEnvVarName, srcURI)
-	}
-
-	if transformerContainer != nil {
-		if _, exists := utils.GetEnvVarValue(transformerContainer.Env, RemoteStorageEnvVarName); !exists {
-			addOrReplaceEnv(transformerContainer, RemoteStorageEnvVarName, srcURI)
-		}
-	}
-
 	// Mount pvc directly if local model label exists
+	// Not supported with multiple storage URIs
 	if modelName, ok := pod.ObjectMeta.Labels[constants.LocalModelLabel]; ok {
 		subPath, _ := strings.CutPrefix(srcURI, pod.ObjectMeta.Annotations[constants.LocalModelSourceUriAnnotationKey])
 		if !strings.HasPrefix(subPath, "/") {
@@ -273,167 +551,9 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 		}
 	}
 
-	podVolumes := []corev1.Volume{}
-	storageInitializerMounts := []corev1.VolumeMount{}
-
-	// For PVC source URIs we need to mount the source to be able to access it
-	// See design and discussion here: https://github.com/kserve/kserve/issues/148
-	if strings.HasPrefix(srcURI, PvcURIPrefix) {
-		pvcName, pvcPath, err := parsePvcURI(srcURI)
-		if err != nil {
-			return err
-		}
-
-		// add the PVC volume on the pod
-		pvcSourceVolume := corev1.Volume{
-			Name: PvcSourceMountName,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: pvcName,
-				},
-			},
-		}
-		podVolumes = append(podVolumes, pvcSourceVolume)
-
-		// check if using direct volume mount to mount the pvc
-		// if yes, mount the pvc to model local mount path and return
-		if mi.config.EnableDirectPvcVolumeMount {
-			// add a corresponding pvc volume mount to the userContainer
-			// pvc will be mount to /mnt/models rather than /mnt/pvc
-			// pvcPath will be injected via SubPath, pvcPath must be a root or Dir
-			// it is user responsibility to ensure it is a root or Dir
-			pvcSourceVolumeMount := corev1.VolumeMount{
-				Name:      PvcSourceMountName,
-				MountPath: constants.DefaultModelLocalMountPath,
-				// only path to volume's root ("") or folder is supported
-				SubPath:  pvcPath,
-				ReadOnly: isvcReadonlyStringFlag,
-			}
-
-			// Check if PVC source URIs is already mounted
-			// this may occur when mutator is triggered more than once
-			if userContainer.VolumeMounts != nil {
-				for _, volumeMount := range userContainer.VolumeMounts {
-					if strings.Compare(volumeMount.Name, PvcSourceMountName) == 0 {
-						return nil
-					}
-				}
-			}
-
-			userContainer.VolumeMounts = append(userContainer.VolumeMounts, pvcSourceVolumeMount)
-			if transformerContainer != nil {
-				// Check if PVC source URIs is already mounted
-				if transformerContainer.VolumeMounts != nil {
-					for _, volumeMount := range transformerContainer.VolumeMounts {
-						if strings.Compare(volumeMount.Name, PvcSourceMountName) == 0 {
-							return nil
-						}
-					}
-				}
-
-				transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, pvcSourceVolumeMount)
-			}
-			// change the CustomSpecStorageUri env variable value
-			// to the default model path if present
-			for index, envVar := range userContainer.Env {
-				if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
-					userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
-				}
-			}
-
-			// add volumes to the PodSpec
-			pod.Spec.Volumes = append(pod.Spec.Volumes, podVolumes...)
-
-			// not inject the storage initializer
-			return nil
-		}
-
-		// below use storage initializer to handle the pvc
-		// add a corresponding PVC volume mount to the INIT container
-		pvcSourceVolumeMount := corev1.VolumeMount{
-			Name:      PvcSourceMountName,
-			MountPath: PvcSourceMountPath,
-			ReadOnly:  isvcReadonlyStringFlag,
-		}
-		storageInitializerMounts = append(storageInitializerMounts, pvcSourceVolumeMount)
-
-		// Since the model path is linked from source pvc, userContainer also need to mount the pvc.
-		userContainer.VolumeMounts = append(userContainer.VolumeMounts, pvcSourceVolumeMount)
-		if transformerContainer != nil {
-			transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, pvcSourceVolumeMount)
-		}
-		// modify the sourceURI to point to the PVC path
-		srcURI = PvcSourceMountPath + "/" + pvcPath
-	}
-
-	// Create a volume that is shared between the storage-initializer and kserve-container
-	sharedVolume := corev1.Volume{
-		Name: StorageInitializerVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	}
-	podVolumes = append(podVolumes, sharedVolume)
-
-	// Create a write mount into the shared volume
-	sharedVolumeWriteMount := corev1.VolumeMount{
-		Name:      StorageInitializerVolumeName,
-		MountPath: constants.DefaultModelLocalMountPath,
-		ReadOnly:  false,
-	}
-	storageInitializerMounts = append(storageInitializerMounts, sharedVolumeWriteMount)
-
-	storageInitializerImage := StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion
-	if mi.config != nil && mi.config.Image != "" {
-		storageInitializerImage = mi.config.Image
-	}
-
-	// Add an init container to run provisioning logic to the PodSpec
-	initContainer := &corev1.Container{
-		Name:  StorageInitializerContainerName,
-		Image: storageInitializerImage,
-		Args: []string{
-			srcURI,
-			constants.DefaultModelLocalMountPath,
-		},
-		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-		VolumeMounts:             storageInitializerMounts,
-		Resources: corev1.ResourceRequirements{
-			Limits: map[corev1.ResourceName]resource.Quantity{
-				corev1.ResourceCPU:    resource.MustParse(mi.config.CpuLimit),
-				corev1.ResourceMemory: resource.MustParse(mi.config.MemoryLimit),
-			},
-			Requests: map[corev1.ResourceName]resource.Quantity{
-				corev1.ResourceCPU:    resource.MustParse(mi.config.CpuRequest),
-				corev1.ResourceMemory: resource.MustParse(mi.config.MemoryRequest),
-			},
-		},
-	}
-
-	// Add a mount the shared volume on the kserve-container, update the PodSpec
-	sharedVolumeReadMount := corev1.VolumeMount{
-		Name:      StorageInitializerVolumeName,
-		MountPath: constants.DefaultModelLocalMountPath,
-		ReadOnly:  isvcReadonlyStringFlag,
-	}
-	userContainer.VolumeMounts = append(userContainer.VolumeMounts, sharedVolumeReadMount)
-	if transformerContainer != nil {
-		transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, sharedVolumeReadMount)
-	}
-	// Change the CustomSpecStorageUri env variable value to the default model path if present
-	for index, envVar := range userContainer.Env {
-		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
-			userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
-		}
-	}
-
-	// Add volumes to the PodSpec
-	pod.Spec.Volumes = append(pod.Spec.Volumes, podVolumes...)
-
-	// Inject credentials
 	hasStorageSpec := pod.ObjectMeta.Annotations[constants.StorageSpecAnnotationKey]
-	storageKey := pod.ObjectMeta.Annotations[constants.StorageSpecKeyAnnotationKey]
-	// Inject Storage Spec credentials if exist
+	var storageSpec v1beta1.StorageSpec = v1beta1.StorageSpec{}
+
 	if hasStorageSpec == "true" {
 		var overrideParams map[string]string
 		if storageSpecParam, ok := pod.ObjectMeta.Annotations[constants.StorageSpecParamAnnotationKey]; ok {
@@ -441,103 +561,37 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 				return err
 			}
 		}
-		if err := mi.credentialBuilder.CreateStorageSpecSecretEnvs(
-			pod.Namespace,
-			pod.Annotations,
-			storageKey,
-			nil,
-			nil,
-			overrideParams,
-			initContainer,
-		); err != nil {
-			return err
-		}
-		// initContainer.Args[0] is set up in CreateStorageSpecSecretEnvs
-		// srcURI is updated here to match storage container CRs below
-		srcURI = initContainer.Args[0]
-	} else {
-		// Inject service account credentials if storage spec doesn't exist
-		if err := mi.credentialBuilder.CreateSecretVolumeAndEnv(
-			pod.Namespace,
-			pod.Annotations,
-			pod.Spec.ServiceAccountName,
-			initContainer,
-			&pod.Spec.Volumes,
-		); err != nil {
-			return err
-		}
+		storageKey := pod.ObjectMeta.Annotations[constants.StorageSpecKeyAnnotationKey]
+
+		storageSpec.StorageKey = &storageKey
+		storageSpec.Parameters = &overrideParams
 	}
 
-	// Inject CA bundle configMap if caBundleConfigMapName or constants.DefaultGlobalCaBundleConfigMapName annotation is set
-	caBundleConfigMapName := mi.config.CaBundleConfigMapName
-	if ok := needCaBundleMount(caBundleConfigMapName, initContainer); ok {
-		if pod.Namespace != constants.KServeNamespace {
-			caBundleConfigMapName = constants.DefaultGlobalCaBundleConfigMapName
-		}
+	isvcReadonlyStringFlag := GetStorageInitializerReadOnlyFlag(pod.ObjectMeta.Annotations)
 
-		caBundleVolumeMountPath := mi.config.CaBundleVolumeMountPath
-		if caBundleVolumeMountPath == "" {
-			caBundleVolumeMountPath = constants.DefaultCaBundleVolumeMountPath
-		}
+	storageURIs := []v1beta1.StorageUri{{Uri: srcURI, MountPath: constants.DefaultModelLocalMountPath}}
 
-		for _, envVar := range initContainer.Env {
-			if envVar.Name == s3.AWSCABundleConfigMap {
-				caBundleConfigMapName = envVar.Value
-			}
-			if envVar.Name == s3.AWSCABundle {
-				caBundleVolumeMountPath = filepath.Dir(envVar.Value)
-			}
-		}
-
-		initContainer.Env = append(initContainer.Env, corev1.EnvVar{
-			Name:  constants.CaBundleConfigMapNameEnvVarKey,
-			Value: caBundleConfigMapName,
-		})
-
-		initContainer.Env = append(initContainer.Env, corev1.EnvVar{
-			Name:  constants.CaBundleVolumeMountPathEnvVarKey,
-			Value: caBundleVolumeMountPath,
-		})
-
-		caBundleVolume := corev1.Volume{
-			Name: CaBundleVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: caBundleConfigMapName,
-					},
-				},
-			},
-		}
-
-		caBundleVolumeMount := corev1.VolumeMount{
-			Name:      CaBundleVolumeName,
-			MountPath: caBundleVolumeMountPath,
-			ReadOnly:  true,
-		}
-
-		pod.Spec.Volumes = append(pod.Spec.Volumes, caBundleVolume)
-		initContainer.VolumeMounts = append(initContainer.VolumeMounts, caBundleVolumeMount)
-	}
-
-	// Update initContainer (container spec) from a storage container CR if there is a match,
-	// otherwise initContainer is not updated.
-	// Priority: CR > configMap
-	storageContainerSpec, err := GetContainerSpecForStorageUri(context.Background(), srcURI, mi.client)
+	// Get storage container spec for the URI
+	storageContainerSpec, err := GetStorageContainerSpec(ctx, srcURI, mi.client)
 	if err != nil {
 		return err
 	}
-	if storageContainerSpec != nil {
-		initContainer, err = mergeContainerSpecs(initContainer, storageContainerSpec)
-		if err != nil {
-			return err
-		}
+
+	storageInitializerParams := &StorageInitializerParams{
+		Namespace:            pod.Namespace,
+		StorageURIs:          storageURIs,
+		IsReadOnly:           isvcReadonlyStringFlag,
+		PodSpec:              &pod.Spec,
+		CredentialBuilder:    mi.credentialBuilder,
+		Client:               mi.client,
+		Config:               mi.config,
+		IsvcAnnotations:      pod.ObjectMeta.Annotations,
+		StorageSpec:          &storageSpec,
+		StorageContainerSpec: storageContainerSpec,
+		IsLegacyURI:          true,
 	}
 
-	// Add init container to the spec
-	pod.Spec.InitContainers = append(pod.Spec.InitContainers, *initContainer)
-
-	return nil
+	return CommonStorageInitialization(ctx, storageInitializerParams)
 }
 
 // SetIstioCniSecurityContext determines if Istio is installed in using the CNI plugin. If so,
@@ -547,7 +601,7 @@ func (mi *StorageInitializerInjector) SetIstioCniSecurityContext(pod *corev1.Pod
 	// Find storage initializer container
 	var storageInitializerContainer *corev1.Container
 	for idx, c := range pod.Spec.InitContainers {
-		if c.Name == StorageInitializerContainerName {
+		if c.Name == constants.StorageInitializerContainerName {
 			storageInitializerContainer = &pod.Spec.InitContainers[idx]
 		}
 	}
@@ -601,15 +655,15 @@ func (mi *StorageInitializerInjector) SetIstioCniSecurityContext(pod *corev1.Pod
 		}
 
 		// Decode the Istio status JSON document
-		var istioStatusDecoded interface{}
+		var istioStatusDecoded any
 		if err := json.Unmarshal([]byte(istioStatus), &istioStatusDecoded); err != nil {
 			return err
 		}
 
 		// Get the Istio sidecar container name.
 		istioSidecarContainerName := ""
-		istioStatusMap := istioStatusDecoded.(map[string]interface{})
-		if istioContainers, istioContainersOk := istioStatusMap["containers"].([]interface{}); istioContainersOk {
+		istioStatusMap := istioStatusDecoded.(map[string]any)
+		if istioContainers, istioContainersOk := istioStatusMap["containers"].([]any); istioContainersOk {
 			if len(istioContainers) > 0 {
 				istioSidecarContainerName = istioContainers[0].(string)
 			}
@@ -659,217 +713,39 @@ func (mi *StorageInitializerInjector) SetIstioCniSecurityContext(pod *corev1.Pod
 	return nil
 }
 
-func getContainerWithName(pod *corev1.Pod, name string) *corev1.Container {
-	for idx, container := range pod.Spec.Containers {
-		if strings.Compare(container.Name, name) == 0 {
-			return &pod.Spec.Containers[idx]
-		}
-	}
-	return nil
-}
-
-// Add an environment variable with the given value to the environments
-// variables of the given container, potentially replacing an env var that already exists
-// with this name
-func addOrReplaceEnv(container *corev1.Container, envKey string, envValue string) {
-	if container.Env == nil {
-		container.Env = []corev1.EnvVar{}
-	}
-
-	for i, envVar := range container.Env {
-		if envVar.Name == envKey {
-			container.Env[i].Value = envValue
-			return
-		}
-	}
-
-	container.Env = append(container.Env, corev1.EnvVar{
-		Name:  envKey,
-		Value: envValue,
-	})
-}
-
-func (mi *StorageInitializerInjector) createModelContainer(image string, modelPath string) *corev1.Container {
-	cpu := mi.config.CpuModelcar
-	if cpu == "" {
-		cpu = CpuModelcarDefault
-	}
-	memory := mi.config.MemoryModelcar
-	if memory == "" {
-		memory = MemoryModelcarDefault
-	}
-
-	modelContainer := &corev1.Container{
-		Name:  ModelcarContainerName,
-		Image: image,
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      StorageInitializerVolumeName,
-				MountPath: getParentDirectory(modelPath),
-				ReadOnly:  false,
-			},
-		},
-		Args: []string{
-			"sh",
-			"-c",
-			// $$$$ gets escaped by YAML to $$, which is the current PID
-			fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity", modelPath),
-		},
-		Resources: corev1.ResourceRequirements{
-			Limits: map[corev1.ResourceName]resource.Quantity{
-				// Could possibly be reduced to even less
-				corev1.ResourceCPU:    resource.MustParse(cpu),
-				corev1.ResourceMemory: resource.MustParse(memory),
-			},
-			Requests: map[corev1.ResourceName]resource.Quantity{
-				corev1.ResourceCPU:    resource.MustParse(cpu),
-				corev1.ResourceMemory: resource.MustParse(memory),
-			},
-		},
-		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-	}
-
-	if mi.config.UidModelcar != nil {
-		modelContainer.SecurityContext = &corev1.SecurityContext{
-			RunAsUser: mi.config.UidModelcar,
-		}
-	}
-
-	return modelContainer
-}
-
-func (mi *StorageInitializerInjector) createModelInitContainer(image string) *corev1.Container {
-	cpu := mi.config.CpuModelcar
-	if cpu == "" {
-		cpu = CpuModelcarDefault
-	}
-	memory := mi.config.MemoryModelcar
-	if memory == "" {
-		memory = MemoryModelcarDefault
-	}
-
-	modelContainer := &corev1.Container{
-		Name:  ModelcarInitContainerName,
-		Image: image,
-		Args: []string{
-			"sh",
-			"-c",
-			// Check that the expected models directory exists
-			"echo 'Pre-fetching modelcar " + image + ": ' && [ -d /models ] && [ \"$$(ls -A /models)\" ] && echo 'OK ... Prefetched and valid (/models exists)' || (echo 'NOK ... Prefetched but modelcar is invalid (/models does not exist or is empty)' && exit 1)",
-		},
-		Resources: corev1.ResourceRequirements{
-			Limits: map[corev1.ResourceName]resource.Quantity{
-				// Could possibly be reduced to even less
-				corev1.ResourceCPU:    resource.MustParse(cpu),
-				corev1.ResourceMemory: resource.MustParse(memory),
-			},
-			Requests: map[corev1.ResourceName]resource.Quantity{
-				corev1.ResourceCPU:    resource.MustParse(cpu),
-				corev1.ResourceMemory: resource.MustParse(memory),
-			},
-		},
-		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-	}
-
-	return modelContainer
-}
-
-// addEmptyDirVolumeIfNotPresent adds an emptyDir volume only if not present in the
-// list. pod and pod.Spec must not be nil
-func addEmptyDirVolumeIfNotPresent(pod *corev1.Pod, name string) {
-	for _, v := range pod.Spec.Volumes {
-		if v.Name == name {
-			return
-		}
-	}
-	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-		Name: name,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	})
-}
-
-// addVolumeMountIfNotPresent adds a volume mount to a given container but only if no volumemoun
-// with this name has been already added. container must not be nil
-func addVolumeMountIfNotPresent(container *corev1.Container, mountName string, mountPath string) {
-	for _, v := range container.VolumeMounts {
-		if v.Name == mountName {
-			return
-		}
-	}
-	modelMount := corev1.VolumeMount{
-		Name:      mountName,
-		MountPath: mountPath,
-		ReadOnly:  false,
-	}
-	container.VolumeMounts = append(container.VolumeMounts, modelMount)
-}
-
-// getParentDirectory returns the parent directory of the given path,
-// or "/" if the path is a top-level directory.
-func getParentDirectory(path string) string {
-	// Get the parent directory
-	parentDir := filepath.Dir(path)
-
-	// Check if it's a top-level directory
-	if parentDir == "." || parentDir == "/" {
-		return "/"
-	}
-
-	return parentDir
-}
-
 // Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch.
 // Use container name from defaultContainer spec, crdContainer takes precedence for other fields.
-func mergeContainerSpecs(defaultContainer *corev1.Container, crdContainer *corev1.Container) (*corev1.Container, error) {
-	if defaultContainer == nil {
-		return nil, errors.New("defaultContainer is nil")
+func mergeContainerSpecs(targetContainer *corev1.Container, crdContainer *corev1.Container) error {
+	if targetContainer == nil {
+		return errors.New("targetContainer is nil")
 	}
 
-	containerName := defaultContainer.Name
+	containerName := targetContainer.Name
 
-	defaultContainerJson, err := json.Marshal(*defaultContainer)
+	defaultContainerJson, err := json.Marshal(*targetContainer)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	overrides, err := json.Marshal(*crdContainer)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	mergedContainer := corev1.Container{}
-	jsonResult, err := strategicpatch.StrategicMergePatch(defaultContainerJson, overrides, mergedContainer)
+	jsonResult, err := strategicpatch.StrategicMergePatch(defaultContainerJson, overrides, corev1.Container{})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	if err := json.Unmarshal(jsonResult, &mergedContainer); err != nil {
-		return nil, err
+	if err := json.Unmarshal(jsonResult, targetContainer); err != nil {
+		return err
 	}
 
-	if mergedContainer.Name == "" {
-		mergedContainer.Name = containerName
+	if targetContainer.Name == "" {
+		targetContainer.Name = containerName
 	}
 
-	return &mergedContainer, nil
-}
-
-func parsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {
-	parts := strings.Split(strings.TrimPrefix(srcURI, PvcURIPrefix), "/")
-	switch len(parts) {
-	case 0:
-		return "", "", fmt.Errorf("Invalid URI must be pvc://<pvcname>/[path]: %s", srcURI)
-	case 1:
-		pvcName = parts[0]
-		pvcPath = ""
-	default:
-		pvcName = parts[0]
-		pvcPath = strings.Join(parts[1:], "/")
-	}
-
-	return pvcName, pvcPath, nil
+	return nil
 }
 
 func needCaBundleMount(caBundleConfigMapName string, initContainer *corev1.Container) bool {

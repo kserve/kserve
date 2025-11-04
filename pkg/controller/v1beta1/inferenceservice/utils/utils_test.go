@@ -1254,6 +1254,25 @@ func TestUpdateImageTag(t *testing.T) {
 			servingRuntime: constants.TFServing,
 			expected:       "localhost:8888/tfserving:2.6.2",
 		},
+		"DoNotUpdateWhenDigestSpecified": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "huggingfaceserver@sha256:abcdef1234567890",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []corev1.EnvVar{
+					{Name: "PORT", Value: "8080"},
+					{Name: "MODELS_DIR", Value: "/mnt/models"},
+				},
+				Resources: corev1.ResourceRequirements{},
+			},
+			runtimeVersion: proto.String("2.6.2"),
+			servingRuntime: constants.TFServing,
+			expected:       "huggingfaceserver@sha256:abcdef1234567890",
+		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
@@ -1272,19 +1291,19 @@ func TestGetDeploymentMode(t *testing.T) {
 		deployConfig *DeployConfig
 		expected     constants.DeploymentModeType
 	}{
-		"RawDeployment": {
+		"Standard": {
 			annotations: map[string]string{
-				constants.DeploymentMode: string(constants.RawDeployment),
+				constants.DeploymentMode: string(constants.Standard),
 			},
 			deployConfig: &DeployConfig{},
-			expected:     constants.RawDeployment,
+			expected:     constants.Standard,
 		},
 		"ServerlessDeployment": {
 			annotations: map[string]string{
-				constants.DeploymentMode: string(constants.Serverless),
+				constants.DeploymentMode: string(constants.Knative),
 			},
 			deployConfig: &DeployConfig{},
-			expected:     constants.Serverless,
+			expected:     constants.Knative,
 		},
 		"ModelMeshDeployment": {
 			annotations: map[string]string{
@@ -1296,9 +1315,9 @@ func TestGetDeploymentMode(t *testing.T) {
 		"DefaultDeploymentMode": {
 			annotations: map[string]string{},
 			deployConfig: &DeployConfig{
-				DefaultDeploymentMode: string(constants.Serverless),
+				DefaultDeploymentMode: string(constants.Knative),
 			},
-			expected: constants.Serverless,
+			expected: constants.Knative,
 		},
 	}
 

@@ -23,6 +23,7 @@ import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,10 +56,14 @@ func TestNewKedaReconciler(t *testing.T) {
 }
 
 func TestGetKedaMetrics_ResourceMetricSourceType(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
 	componentExt := createComponentExtensionWithResourceMetric()
 	configMap := &corev1.ConfigMap{}
 
-	triggers, err := getKedaMetrics(componentExt, configMap)
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "cpu", triggers[0].Type)
@@ -66,29 +71,38 @@ func TestGetKedaMetrics_ResourceMetricSourceType(t *testing.T) {
 }
 
 func TestGetKedaMetrics_ExternalMetricSourceType(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
 	componentExt := createComponentExtensionWithExternalMetric()
 	configMap := &corev1.ConfigMap{}
 
-	triggers, err := getKedaMetrics(componentExt, configMap)
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "prometheus", triggers[0].Type)
 	assert.Equal(t, "http://prometheus-server", triggers[0].Metadata["serverAddress"])
 	assert.Equal(t, "http_requests_total", triggers[0].Metadata["query"])
-	assert.Equal(t, "100.000000", triggers[0].Metadata["threshold"])
+	assert.Equal(t, "100.9", triggers[0].Metadata["threshold"])
 }
 
 func TestGetKedaMetrics_PodMetricSourceType(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
 	componentExt := createComponentExtensionWithPodMetric()
 	configMap := &corev1.ConfigMap{}
 
-	triggers, err := getKedaMetrics(componentExt, configMap)
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "external", triggers[0].Type)
 	assert.Equal(t, "http://otel-server", triggers[0].Metadata["scalerAddress"])
-	assert.Equal(t, "otel_query", triggers[0].Metadata["metricQuery"])
-	assert.Equal(t, "200.000000", triggers[0].Metadata["targetValue"])
+	// The metricQuery should now include namespace and deployment selectors
+	assert.Equal(t, "sum(otel_query{namespace=\"test-namespace\", deployment=\"test-component\"})", triggers[0].Metadata["metricQuery"])
+	assert.Equal(t, "200", triggers[0].Metadata["targetValue"])
 }
 
 func TestCreateKedaScaledObject(t *testing.T) {
@@ -242,6 +256,10 @@ func TestReconcile_UpdateScaledObject(t *testing.T) {
 }
 
 func TestGetKedaMetrics_AverageValueMetricSourceType(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
 	componentExt := &v1beta1.ComponentExtensionSpec{
 		AutoScaling: &v1beta1.AutoScalingSpec{
 			Metrics: []v1beta1.MetricsSpec{
@@ -251,7 +269,7 @@ func TestGetKedaMetrics_AverageValueMetricSourceType(t *testing.T) {
 						Name: v1beta1.ResourceMetricCPU,
 						Target: v1beta1.MetricTarget{
 							Type:         v1beta1.AverageValueMetricType,
-							AverageValue: ptr.To(resource.MustParse("150m")),
+							AverageValue: v1beta1.NewMetricQuantity("150m"),
 						},
 					},
 				},
@@ -260,7 +278,7 @@ func TestGetKedaMetrics_AverageValueMetricSourceType(t *testing.T) {
 	}
 	configMap := &corev1.ConfigMap{}
 
-	triggers, err := getKedaMetrics(componentExt, configMap)
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "cpu", triggers[0].Type)
@@ -268,6 +286,10 @@ func TestGetKedaMetrics_AverageValueMetricSourceType(t *testing.T) {
 }
 
 func TestGetKedaMetrics_ValueMetricSourceType(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
 	componentExt := &v1beta1.ComponentExtensionSpec{
 		AutoScaling: &v1beta1.AutoScalingSpec{
 			Metrics: []v1beta1.MetricsSpec{
@@ -277,7 +299,7 @@ func TestGetKedaMetrics_ValueMetricSourceType(t *testing.T) {
 						Name: v1beta1.ResourceMetricMemory,
 						Target: v1beta1.MetricTarget{
 							Type:  v1beta1.ValueMetricType,
-							Value: ptr.To(resource.MustParse("512Mi")),
+							Value: v1beta1.NewMetricQuantity("512Mi"),
 						},
 					},
 				},
@@ -286,7 +308,7 @@ func TestGetKedaMetrics_ValueMetricSourceType(t *testing.T) {
 	}
 	configMap := &corev1.ConfigMap{}
 
-	triggers, err := getKedaMetrics(componentExt, configMap)
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "memory", triggers[0].Type)
@@ -294,6 +316,10 @@ func TestGetKedaMetrics_ValueMetricSourceType(t *testing.T) {
 }
 
 func TestGetKedaMetrics_DefaultCPUUtilization(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
 	componentExt := &v1beta1.ComponentExtensionSpec{
 		AutoScaling: &v1beta1.AutoScalingSpec{
 			Metrics: []v1beta1.MetricsSpec{
@@ -311,7 +337,7 @@ func TestGetKedaMetrics_DefaultCPUUtilization(t *testing.T) {
 	}
 	configMap := &corev1.ConfigMap{}
 
-	triggers, err := getKedaMetrics(componentExt, configMap)
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "cpu", triggers[0].Type)
@@ -381,17 +407,25 @@ func TestCreateKedaScaledObject_MaxReplicasLessThanMinReplicas(t *testing.T) {
 }
 
 func TestGetKedaMetrics_NilAutoScaling(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
 	componentExt := &v1beta1.ComponentExtensionSpec{
 		AutoScaling: nil,
 	}
 	configMap := &corev1.ConfigMap{}
 
-	triggers, err := getKedaMetrics(componentExt, configMap)
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 	assert.Empty(t, triggers)
 }
 
 func TestGetKedaMetrics_ResourceMetricSourceType_Utilization(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
 	componentExt := &v1beta1.ComponentExtensionSpec{
 		AutoScaling: &v1beta1.AutoScalingSpec{
 			Metrics: []v1beta1.MetricsSpec{
@@ -409,7 +443,7 @@ func TestGetKedaMetrics_ResourceMetricSourceType_Utilization(t *testing.T) {
 		},
 	}
 	configMap := &corev1.ConfigMap{}
-	triggers, err := getKedaMetrics(componentExt, configMap)
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "cpu", triggers[0].Type)
@@ -417,6 +451,10 @@ func TestGetKedaMetrics_ResourceMetricSourceType_Utilization(t *testing.T) {
 }
 
 func TestGetKedaMetrics_ResourceMetricSourceType_Utilization_DefaultCPU(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
 	componentExt := &v1beta1.ComponentExtensionSpec{
 		AutoScaling: &v1beta1.AutoScalingSpec{
 			Metrics: []v1beta1.MetricsSpec{
@@ -433,7 +471,7 @@ func TestGetKedaMetrics_ResourceMetricSourceType_Utilization_DefaultCPU(t *testi
 		},
 	}
 	configMap := &corev1.ConfigMap{}
-	triggers, err := getKedaMetrics(componentExt, configMap)
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "cpu", triggers[0].Type)
@@ -441,6 +479,10 @@ func TestGetKedaMetrics_ResourceMetricSourceType_Utilization_DefaultCPU(t *testi
 }
 
 func TestGetKedaMetrics_ResourceMetricSourceType_AverageValue(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
 	componentExt := &v1beta1.ComponentExtensionSpec{
 		AutoScaling: &v1beta1.AutoScalingSpec{
 			Metrics: []v1beta1.MetricsSpec{
@@ -450,7 +492,7 @@ func TestGetKedaMetrics_ResourceMetricSourceType_AverageValue(t *testing.T) {
 						Name: v1beta1.ResourceMetricMemory,
 						Target: v1beta1.MetricTarget{
 							Type:         v1beta1.AverageValueMetricType,
-							AverageValue: ptr.To(resource.MustParse("256Mi")),
+							AverageValue: v1beta1.NewMetricQuantity("256Mi"),
 						},
 					},
 				},
@@ -458,7 +500,7 @@ func TestGetKedaMetrics_ResourceMetricSourceType_AverageValue(t *testing.T) {
 		},
 	}
 	configMap := &corev1.ConfigMap{}
-	triggers, err := getKedaMetrics(componentExt, configMap)
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "memory", triggers[0].Type)
@@ -466,6 +508,10 @@ func TestGetKedaMetrics_ResourceMetricSourceType_AverageValue(t *testing.T) {
 }
 
 func TestGetKedaMetrics_ResourceMetricSourceType_Value(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
 	componentExt := &v1beta1.ComponentExtensionSpec{
 		AutoScaling: &v1beta1.AutoScalingSpec{
 			Metrics: []v1beta1.MetricsSpec{
@@ -475,7 +521,7 @@ func TestGetKedaMetrics_ResourceMetricSourceType_Value(t *testing.T) {
 						Name: v1beta1.ResourceMetricMemory,
 						Target: v1beta1.MetricTarget{
 							Type:  v1beta1.ValueMetricType,
-							Value: ptr.To(resource.MustParse("512Mi")),
+							Value: v1beta1.NewMetricQuantity("512Mi"),
 						},
 					},
 				},
@@ -483,7 +529,7 @@ func TestGetKedaMetrics_ResourceMetricSourceType_Value(t *testing.T) {
 		},
 	}
 	configMap := &corev1.ConfigMap{}
-	triggers, err := getKedaMetrics(componentExt, configMap)
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	assert.Equal(t, "memory", triggers[0].Type)
@@ -491,6 +537,10 @@ func TestGetKedaMetrics_ResourceMetricSourceType_Value(t *testing.T) {
 }
 
 func TestGetKedaMetrics_ExternalMetricSourceType_WithNamespaceAndAuth(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
 	componentExt := &v1beta1.ComponentExtensionSpec{
 		AutoScaling: &v1beta1.AutoScalingSpec{
 			Metrics: []v1beta1.MetricsSpec{
@@ -504,7 +554,7 @@ func TestGetKedaMetrics_ExternalMetricSourceType_WithNamespaceAndAuth(t *testing
 							Namespace:     "test-ns",
 						},
 						Target: v1beta1.MetricTarget{
-							Value: ptr.To(resource.MustParse("123")),
+							Value: v1beta1.NewMetricQuantity("123"),
 						},
 						Authentication: &v1beta1.ExtMetricAuthentication{
 							AuthModes: "bearer",
@@ -518,14 +568,14 @@ func TestGetKedaMetrics_ExternalMetricSourceType_WithNamespaceAndAuth(t *testing
 		},
 	}
 	configMap := &corev1.ConfigMap{}
-	triggers, err := getKedaMetrics(componentExt, configMap)
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	trigger := triggers[0]
 	assert.Equal(t, "prometheus", trigger.Type)
 	assert.Equal(t, "http://prometheus-server", trigger.Metadata["serverAddress"])
 	assert.Equal(t, "http_requests_total", trigger.Metadata["query"])
-	assert.Equal(t, "123.000000", trigger.Metadata["threshold"])
+	assert.Equal(t, "123", trigger.Metadata["threshold"])
 	assert.Equal(t, "test-ns", trigger.Metadata["namespace"])
 	assert.Equal(t, "bearer", trigger.Metadata["authModes"])
 	assert.NotNil(t, trigger.AuthenticationRef)
@@ -533,6 +583,10 @@ func TestGetKedaMetrics_ExternalMetricSourceType_WithNamespaceAndAuth(t *testing
 }
 
 func TestGetKedaMetrics_ExternalMetricSourceType_WithoutNamespaceOrAuth(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
 	componentExt := &v1beta1.ComponentExtensionSpec{
 		AutoScaling: &v1beta1.AutoScalingSpec{
 			Metrics: []v1beta1.MetricsSpec{
@@ -545,7 +599,7 @@ func TestGetKedaMetrics_ExternalMetricSourceType_WithoutNamespaceOrAuth(t *testi
 							Query:         "http_requests_total",
 						},
 						Target: v1beta1.MetricTarget{
-							Value: ptr.To(resource.MustParse("99")),
+							Value: v1beta1.NewMetricQuantity("99"),
 						},
 					},
 				},
@@ -553,18 +607,22 @@ func TestGetKedaMetrics_ExternalMetricSourceType_WithoutNamespaceOrAuth(t *testi
 		},
 	}
 	configMap := &corev1.ConfigMap{}
-	triggers, err := getKedaMetrics(componentExt, configMap)
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	trigger := triggers[0]
 	assert.Equal(t, "prometheus", trigger.Type)
 	assert.Equal(t, "http://prometheus-server", trigger.Metadata["serverAddress"])
 	assert.Equal(t, "http_requests_total", trigger.Metadata["query"])
-	assert.Equal(t, "99.000000", trigger.Metadata["threshold"])
+	assert.Equal(t, "99", trigger.Metadata["threshold"])
 	assert.Nil(t, trigger.AuthenticationRef)
 }
 
 func TestGetKedaMetrics_PodMetricSourceType_Success(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
 	componentExt := &v1beta1.ComponentExtensionSpec{
 		AutoScaling: &v1beta1.AutoScalingSpec{
 			Metrics: []v1beta1.MetricsSpec{
@@ -578,7 +636,7 @@ func TestGetKedaMetrics_PodMetricSourceType_Success(t *testing.T) {
 							OperationOverTime: "sum",
 						},
 						Target: v1beta1.MetricTarget{
-							Value: ptr.To(resource.MustParse("200")),
+							Value: v1beta1.NewMetricQuantity("200"),
 						},
 					},
 				},
@@ -586,15 +644,129 @@ func TestGetKedaMetrics_PodMetricSourceType_Success(t *testing.T) {
 		},
 	}
 	configMap := &corev1.ConfigMap{}
-	triggers, err := getKedaMetrics(componentExt, configMap)
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
 	require.NoError(t, err)
 	assert.Len(t, triggers, 1)
 	trigger := triggers[0]
 	assert.Equal(t, "external", trigger.Type)
-	assert.Equal(t, "otel_query", trigger.Metadata["metricQuery"])
-	assert.Equal(t, "200.000000", trigger.Metadata["targetValue"])
+	assert.Equal(t, "sum(otel_query{namespace=\"test-namespace\", deployment=\"test-component\"})", trigger.Metadata["metricQuery"])
+	assert.Equal(t, "200", trigger.Metadata["targetValue"])
 	assert.Equal(t, "http://otel-server", trigger.Metadata["scalerAddress"])
 	assert.Equal(t, "sum", trigger.Metadata["operationOverTime"])
+}
+
+func TestCreateKedaScaledObject_SetsBasicFields(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:        "basic-component",
+		Namespace:   "basic-namespace",
+		Labels:      map[string]string{"foo": "bar"},
+		Annotations: map[string]string{"anno": "val"},
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		MinReplicas: ptr.To(int32(2)),
+		MaxReplicas: 5,
+	}
+	configMap := &corev1.ConfigMap{}
+
+	scaledObject, err := createKedaScaledObject(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	assert.Equal(t, "basic-component", scaledObject.Name)
+	assert.Equal(t, "basic-namespace", scaledObject.Namespace)
+	assert.Equal(t, map[string]string{"foo": "bar"}, scaledObject.Labels)
+	assert.Equal(t, map[string]string{"anno": "val"}, scaledObject.Annotations)
+	assert.Equal(t, int32(2), *scaledObject.Spec.MinReplicaCount)
+	assert.Equal(t, int32(5), *scaledObject.Spec.MaxReplicaCount)
+	assert.Equal(t, "basic-component", scaledObject.Spec.ScaleTargetRef.Name)
+}
+
+func TestCreateKedaScaledObject_SetsTriggers(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "trigger-component",
+		Namespace: "trigger-namespace",
+	}
+	componentExt := createComponentExtensionWithResourceMetric()
+	configMap := &corev1.ConfigMap{}
+
+	scaledObject, err := createKedaScaledObject(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	assert.Len(t, scaledObject.Spec.Triggers, 1)
+	assert.Equal(t, "cpu", scaledObject.Spec.Triggers[0].Type)
+}
+
+func TestCreateKedaScaledObject_UsesDefaultMinReplicas(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "default-min",
+		Namespace: "default-ns",
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		MaxReplicas: 4,
+	}
+	configMap := &corev1.ConfigMap{}
+
+	scaledObject, err := createKedaScaledObject(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	assert.Equal(t, constants.DefaultMinReplicas, *scaledObject.Spec.MinReplicaCount)
+	assert.Equal(t, int32(4), *scaledObject.Spec.MaxReplicaCount)
+}
+
+func TestCreateKedaScaledObject_AdvancedConfigFromComponentExt(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "advanced",
+		Namespace: "ns",
+	}
+	sdWin := int32(60)
+	suWin := int32(30)
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		MinReplicas: ptr.To(int32(1)),
+		MaxReplicas: 3,
+		AutoScaling: &v1beta1.AutoScalingSpec{
+			Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+				ScaleDown: &autoscalingv2.HPAScalingRules{
+					StabilizationWindowSeconds: &sdWin,
+				},
+				ScaleUp: &autoscalingv2.HPAScalingRules{
+					StabilizationWindowSeconds: &suWin,
+				},
+			},
+		},
+	}
+	configMap := &corev1.ConfigMap{}
+
+	scaledObject, err := createKedaScaledObject(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	require.NotNil(t, scaledObject.Spec.Advanced)
+	require.NotNil(t, scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig)
+	require.NotNil(t, scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior)
+	assert.Equal(t, &sdWin, scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior.ScaleDown.StabilizationWindowSeconds)
+	assert.Equal(t, &suWin, scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior.ScaleUp.StabilizationWindowSeconds)
+}
+
+func TestCreateKedaScaledObject_AdvancedConfigFromConfigMap(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "from-cm",
+		Namespace: "ns",
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		MinReplicas: ptr.To(int32(1)),
+		MaxReplicas: 2,
+		AutoScaling: &v1beta1.AutoScalingSpec{},
+	}
+	configMap := &corev1.ConfigMap{
+		Data: map[string]string{
+			"autoscaler": `{
+				"scaleUpStabilizationWindowSeconds": "15",
+				"scaleDownStabilizationWindowSeconds": "45"
+			}`,
+		},
+	}
+
+	scaledObject, err := createKedaScaledObject(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	require.NotNil(t, scaledObject.Spec.Advanced)
+	require.NotNil(t, scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig)
+	require.NotNil(t, scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior)
+	assert.Equal(t, ptr.To(int32(45)), scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior.ScaleDown.StabilizationWindowSeconds)
+	assert.Equal(t, ptr.To(int32(15)), scaledObject.Spec.Advanced.HorizontalPodAutoscalerConfig.Behavior.ScaleUp.StabilizationWindowSeconds)
 }
 
 // Helper functions for creating test data
@@ -631,7 +803,7 @@ func createComponentExtensionWithExternalMetric() *v1beta1.ComponentExtensionSpe
 							Namespace:     "test-namespace",
 						},
 						Target: v1beta1.MetricTarget{
-							Value: ptr.To(resource.MustParse("100")),
+							Value: v1beta1.NewMetricQuantity("100.9"),
 						},
 					},
 				},
@@ -654,7 +826,7 @@ func createComponentExtensionWithPodMetric() *v1beta1.ComponentExtensionSpec {
 							OperationOverTime: "sum",
 						},
 						Target: v1beta1.MetricTarget{
-							Value: ptr.To(resource.MustParse("200")),
+							Value: v1beta1.NewMetricQuantity("200"),
 						},
 					},
 				},
@@ -669,5 +841,177 @@ func createScaledObject(minReplicas, maxReplicas int32) *kedav1alpha1.ScaledObje
 			MinReplicaCount: ptr.To(minReplicas),
 			MaxReplicaCount: ptr.To(maxReplicas),
 		},
+	}
+}
+
+func TestGetKedaMetrics_StringPreservation(t *testing.T) {
+	tests := []struct {
+		name           string
+		metricType     v1beta1.MetricSourceType
+		targetType     v1beta1.MetricTargetType
+		inputValue     string
+		expectedOutput string
+		setupMetric    func(string) *v1beta1.MetricsSpec
+	}{
+		{
+			name:           "Resource AverageValue preserves decimal",
+			metricType:     v1beta1.ResourceMetricSourceType,
+			targetType:     v1beta1.AverageValueMetricType,
+			inputValue:     "0.6",
+			expectedOutput: "0.6",
+			setupMetric: func(value string) *v1beta1.MetricsSpec {
+				mq := &v1beta1.MetricQuantity{
+					Original: value,
+					Quantity: resource.MustParse("600m"),
+				}
+				return &v1beta1.MetricsSpec{
+					Type: v1beta1.ResourceMetricSourceType,
+					Resource: &v1beta1.ResourceMetricSource{
+						Name: v1beta1.ResourceMetricCPU,
+						Target: v1beta1.MetricTarget{
+							Type:         v1beta1.AverageValueMetricType,
+							AverageValue: mq,
+						},
+					},
+				}
+			},
+		},
+		{
+			name:           "Resource Value preserves memory unit",
+			metricType:     v1beta1.ResourceMetricSourceType,
+			targetType:     v1beta1.ValueMetricType,
+			inputValue:     "50Gi",
+			expectedOutput: "50Gi",
+			setupMetric: func(value string) *v1beta1.MetricsSpec {
+				mq := &v1beta1.MetricQuantity{
+					Original: value,
+					Quantity: resource.MustParse("50Gi"),
+				}
+				return &v1beta1.MetricsSpec{
+					Type: v1beta1.ResourceMetricSourceType,
+					Resource: &v1beta1.ResourceMetricSource{
+						Name: v1beta1.ResourceMetricMemory,
+						Target: v1beta1.MetricTarget{
+							Type:  v1beta1.ValueMetricType,
+							Value: mq,
+						},
+					},
+				}
+			},
+		},
+		{
+			name:           "Milli values preserved as-is",
+			metricType:     v1beta1.ResourceMetricSourceType,
+			targetType:     v1beta1.AverageValueMetricType,
+			inputValue:     "900m",
+			expectedOutput: "900m",
+			setupMetric: func(value string) *v1beta1.MetricsSpec {
+				mq := &v1beta1.MetricQuantity{
+					Original: value,
+					Quantity: resource.MustParse("900m"),
+				}
+				return &v1beta1.MetricsSpec{
+					Type: v1beta1.ResourceMetricSourceType,
+					Resource: &v1beta1.ResourceMetricSource{
+						Name: v1beta1.ResourceMetricCPU,
+						Target: v1beta1.MetricTarget{
+							Type:         v1beta1.AverageValueMetricType,
+							AverageValue: mq,
+						},
+					},
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			componentMeta := metav1.ObjectMeta{
+				Name:      "test-component",
+				Namespace: "test-namespace",
+			}
+
+			metric := tt.setupMetric(tt.inputValue)
+			componentExt := &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Metrics: []v1beta1.MetricsSpec{*metric},
+				},
+			}
+
+			configMap := &corev1.ConfigMap{
+				Data: map[string]string{
+					"otelCollector": `{"endpoint": "http://otlp:4317"}`,
+				},
+			}
+
+			triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
+			require.NoError(t, err)
+			require.Len(t, triggers, 1)
+
+			trigger := triggers[0]
+
+			// Verify the original string value is preserved in metadata
+			switch tt.metricType {
+			case v1beta1.ResourceMetricSourceType:
+				assert.Equal(t, tt.expectedOutput, trigger.Metadata["value"],
+					"Resource metric should preserve original string value")
+			case v1beta1.PodMetricSourceType:
+				assert.Equal(t, tt.expectedOutput, trigger.Metadata["threshold"],
+					"PodMetric should preserve original string value")
+			case v1beta1.ExternalMetricSourceType:
+				assert.Equal(t, tt.expectedOutput, trigger.Metadata["threshold"],
+					"External metric should preserve original string value")
+			}
+		})
+	}
+}
+
+func TestGetOriginalStringMQ(t *testing.T) {
+	tests := []struct {
+		name        string
+		mq          *v1beta1.MetricQuantity
+		fallback    string
+		expectedOut string
+	}{
+		{
+			name: "Valid MetricQuantity with raw value",
+			mq: &v1beta1.MetricQuantity{
+				Original: "0.6",
+				Quantity: resource.MustParse("600m"),
+			},
+			fallback:    "default",
+			expectedOut: "0.6",
+		},
+		{
+			name:        "Nil MetricQuantity returns fallback",
+			mq:          nil,
+			fallback:    "fallback",
+			expectedOut: "fallback",
+		},
+		{
+			name: "Empty raw value returns fallback",
+			mq: &v1beta1.MetricQuantity{
+				Original: "",
+				Quantity: resource.MustParse("1"),
+			},
+			fallback:    "fallback",
+			expectedOut: "fallback",
+		},
+		{
+			name: "Memory unit preserved",
+			mq: &v1beta1.MetricQuantity{
+				Original: "50Gi",
+				Quantity: resource.MustParse("50Gi"),
+			},
+			fallback:    "default",
+			expectedOut: "50Gi",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getOriginalStringMQ(tt.mq, tt.fallback)
+			assert.Equal(t, tt.expectedOut, result)
+		})
 	}
 }

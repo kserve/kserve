@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
 
@@ -73,12 +74,14 @@ func TestMutator_Handle(t *testing.T) {
 				},
 				Immutable: nil,
 				Data: map[string]string{
-					StorageInitializerConfigMapKeyName: `{
+					v1beta1.StorageInitializerConfigMapKeyName: `{
 						"image" : "kserve/storage-initializer:latest",
 						"memoryRequest": "100Mi",
 						"memoryLimit": "1Gi",
 						"cpuRequest": "100m",
 						"cpuLimit": "1",
+						"cpuModelcar": "100m",
+						"memoryModelcar": "50Mi",
 						"storageSpecSecretName": "storage-config"
 					}`,
 					LoggerConfigMapKeyName: `{
@@ -179,12 +182,14 @@ func TestMutator_Handle(t *testing.T) {
 				},
 				Immutable: nil,
 				Data: map[string]string{
-					StorageInitializerConfigMapKeyName: `{
+					v1beta1.StorageInitializerConfigMapKeyName: `{
 						"image" : "kserve/storage-initializer:latest",
 						"memoryRequest": "100Mi",
 						"memoryLimit": "1Gi",
 						"cpuRequest": "100m",
 						"cpuLimit": "1",
+						"cpuModelcar": "100m",
+						"memoryModelcar": "50Mi",
 						"storageSpecSecretName": "storage-config"
 					}`,
 					LoggerConfigMapKeyName: `{
@@ -305,7 +310,7 @@ func TestMutator_Handle(t *testing.T) {
 			tc.request.Object.Raw = byteData
 			res := mutator.Handle(t.Context(), tc.request)
 			sortPatches(res.Patches)
-			g.Expect(res).Should(tc.matcher)
+			g.Expect(res).Should(tc.matcher, name)
 			if err := c.Delete(t.Context(), &tc.configMap); err != nil {
 				t.Errorf("failed to delete configmap %v", err)
 			}
