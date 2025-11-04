@@ -98,8 +98,8 @@ fi
 shopt -s nocasematch
 if [[ $DEPLOYMENT_MODE == "serverless" ]] || [[ $DEPLOYMENT_MODE == "Knative" ]]; then
   # Serverless mode - Install Knative Operator and Serving (Istio network layer)
-  echo "Installing Knative Operator and Serving..."
-  ${REPO_ROOT}/hack/setup/infra/knative/manage.knative-operator-helm.sh
+  echo "Installing Knative Operator and Serving...(NETWORK_LAYER: ${NETWORK_LAYER})"  
+  NETWORK_LAYER="${NETWORK_LAYER}" ${REPO_ROOT}/hack/setup/infra/knative/manage.knative-operator-helm.sh
 fi
 shopt -u nocasematch
 

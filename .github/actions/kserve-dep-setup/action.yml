@@ -23,15 +23,10 @@ runs:
     - name: Setup KServe dependencies
       shell: bash
       run: |
-        shopt -s nocasematch 
-
-        if [[ "${{ inputs.network-layer }}" == "kourier" ]]; then
-          echo "Selected network layer ${{ inputs.network-layer }}"
-          ./test/scripts/gh-actions/setup-kourier.sh
-        else
-          echo "Selected network layer ${{ inputs.network-layer }}"
-          ./test/scripts/gh-actions/setup-deps.sh ${{ inputs.deployment-mode }} "${{ inputs.network-layer }}" "${{ inputs.enable-keda }}"
-        fi
+        shopt -s nocasematch         
+        echo "Selected network layer ${{ inputs.network-layer }}"
+        ./test/scripts/gh-actions/setup-deps.sh ${{ inputs.deployment-mode }} "${{ inputs.network-layer }}" "${{ inputs.enable-keda }}"
+      
 
     - name: Update test overlays
       shell: bash
