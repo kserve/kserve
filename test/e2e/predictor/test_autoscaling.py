@@ -540,7 +540,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     assert trigger_type == "prometheus"
     assert trigger_metadata["query"] == "http_requests_per_second"
     assert trigger_metadata["serverAddress"] == "http://localhost:9090"
-    assert trigger_metadata["threshold"] == "50.000000"
+    assert trigger_metadata["threshold"] == "50"
     res = await predict_isvc(
         rest_v1_client, service_name, INPUT, network_layer=network_layer
     )

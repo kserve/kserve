@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -30,9 +31,12 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/kserve/kserve/pkg/credentials/s3"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
+
+const CaBundleVolumeName = "cabundle-cert"
 
 // attachModelArtifacts configures a PodSpec to fetch and use a model from a provided URI in the LLMInferenceService.
 // The storage backend (PVC, OCI, Hugging Face, or S3) is determined from the URI schema and the appropriate helper function
@@ -113,7 +117,20 @@ func (r *LLMISVCReconciler) attachOciModelArtifact(modelUri string, podSpec *cor
 //
 // TODO: For now, this supports only direct mount. Copying from PVC would come later (if it makes sense at all).
 func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *corev1.PodSpec) error {
-	if err := utils.AddModelPvcMount(modelUri, "main", true, podSpec); err != nil {
+	pvcName, pvcPath, err := utils.ParsePvcURI(modelUri)
+	if err != nil {
+		return err
+	}
+
+	storageMountParams := utils.StorageMountParams{
+		MountPath:  constants.DefaultModelLocalMountPath,
+		VolumeName: constants.PvcSourceMountName,
+		ReadOnly:   true,
+		PVCName:    pvcName,
+		SubPath:    pvcPath,
+	}
+
+	if err := utils.AddModelMount(storageMountParams, "main", podSpec); err != nil {
 		return err
 	}
 
@@ -146,6 +163,7 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 			err := r.Client.Get(ctx, types.NamespacedName{Name: "default", Namespace: llmSvc.Namespace}, serviceAccount)
 			if err != nil {
 				log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
+				injectCaBundle(llmSvc.Namespace, podSpec, initContainer, storageConfig)
 				return nil
 			}
 		}
@@ -160,6 +178,7 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 		); err != nil {
 			return err
 		}
+		injectCaBundle(llmSvc.Namespace, podSpec, initContainer, storageConfig)
 	}
 
 	return nil
@@ -222,7 +241,122 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig) error {
-	utils.AddStorageInitializerContainer(podSpec, "main", modelUri, true, storageConfig)
+	containerArgs := []string{
+		modelUri,
+		constants.DefaultModelLocalMountPath,
+	}
+	storageMountParams := utils.StorageMountParams{
+		MountPath:  constants.DefaultModelLocalMountPath,
+		VolumeName: constants.StorageInitializerVolumeName,
+		ReadOnly:   false,
+	}
+	initContainer := utils.CreateInitContainerWithConfig(storageConfig, containerArgs)
+	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
+
+	utils.AddModelMount(storageMountParams, initContainer.Name, podSpec)
+
+	storageMountParams.ReadOnly = true
+	utils.AddModelMount(storageMountParams, "main", podSpec)
 
 	return nil
+}
+
+// caBundleConfig holds the configuration for CA bundle injection
+type caBundleConfig struct {
+	configMapName   string
+	volumeMountPath string
+	envVarExists    bool
+	mountPathExists bool
+}
+
+// extractCaBundleConfig extracts and processes CA bundle configuration from environment variables in a single pass
+func extractCaBundleConfig(initContainer *corev1.Container, storageConfig *kserveTypes.StorageInitializerConfig, namespace string) *caBundleConfig {
+	config := &caBundleConfig{
+		configMapName:   storageConfig.CaBundleConfigMapName,
+		volumeMountPath: storageConfig.CaBundleVolumeMountPath,
+	}
+
+	// Set defaults
+	if namespace != constants.KServeNamespace {
+		config.configMapName = constants.DefaultGlobalCaBundleConfigMapName
+	}
+	if config.volumeMountPath == "" {
+		config.volumeMountPath = constants.DefaultCaBundleVolumeMountPath
+	}
+
+	// Single pass through environment variables to extract values and check existence
+	for _, envVar := range initContainer.Env {
+		switch envVar.Name {
+		case s3.AWSCABundleConfigMap:
+			config.configMapName = envVar.Value
+		case s3.AWSCABundle:
+			config.volumeMountPath = filepath.Dir(envVar.Value)
+		case constants.CaBundleConfigMapNameEnvVarKey:
+			config.envVarExists = true
+		case constants.CaBundleVolumeMountPathEnvVarKey:
+			config.mountPathExists = true
+		}
+	}
+
+	return config
+}
+
+func injectCaBundle(namespace string, podSpec *corev1.PodSpec, initContainer *corev1.Container, storageConfig *kserveTypes.StorageInitializerConfig) bool { //nolint:unparam
+	// Inject CA bundle configMap if caBundleConfigMapName or constants.DefaultGlobalCaBundleConfigMapName annotation is set
+	if !needCaBundleMount(storageConfig.CaBundleConfigMapName, initContainer) {
+		return false
+	}
+
+	config := extractCaBundleConfig(initContainer, storageConfig, namespace)
+
+	// Add CA bundle env vars only if they don't already exist (could be customized by user)
+	if !config.envVarExists {
+		initContainer.Env = append(initContainer.Env, corev1.EnvVar{
+			Name:  constants.CaBundleConfigMapNameEnvVarKey,
+			Value: config.configMapName,
+		})
+	}
+
+	if !config.mountPathExists {
+		initContainer.Env = append(initContainer.Env, corev1.EnvVar{
+			Name:  constants.CaBundleVolumeMountPathEnvVarKey,
+			Value: config.volumeMountPath,
+		})
+	}
+
+	caBundleVolume := corev1.Volume{
+		Name: CaBundleVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: config.configMapName,
+				},
+			},
+		},
+	}
+
+	caBundleVolumeMount := corev1.VolumeMount{
+		Name:      CaBundleVolumeName,
+		MountPath: config.volumeMountPath,
+		ReadOnly:  true,
+	}
+
+	podSpec.Volumes = append(podSpec.Volumes, caBundleVolume)
+	initContainer.VolumeMounts = append(initContainer.VolumeMounts, caBundleVolumeMount)
+
+	return true
+}
+
+func needCaBundleMount(caBundleConfigMapName string, initContainer *corev1.Container) bool {
+	result := false
+	if caBundleConfigMapName != "" {
+		result = true
+	}
+	for _, envVar := range initContainer.Env {
+		if envVar.Name == s3.AWSCABundleConfigMap {
+			result = true
+			break
+		}
+	}
+	return result
 }

@@ -30,3 +30,34 @@ spec:
     targetPort: {{ .Values.kserve.llmisvc.controller.service.targetPort }}
     protocol: TCP
     name: https
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llmisvc-webhook-server-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "llm-isvc-resources.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller
+    control-plane: {{ include "llm-isvc-resources.deploymentName" . }}
+    controller-tools.k8s.io: "1.0"
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- with .Values.kserve.llmisvc.controller.serviceAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.commonAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    {{- include "llm-isvc-resources.selectorLabels" . | nindent 4 }}
+    control-plane: {{ include "llm-isvc-resources.deploymentName" . }}
+    controller-tools.k8s.io: "1.0"
+  ports:
+  - port: 443
+    targetPort: webhook-server
+    protocol: TCP
+    name: https

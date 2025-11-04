@@ -24,8 +24,9 @@ type Provider interface {
 type Protocol string
 
 const (
-	S3  Protocol = "s3://"
-	GCS Protocol = "gs://"
+	S3    Protocol = "s3://"
+	GCS   Protocol = "gs://"
+	AZURE Protocol = "abfs://"
 	// PVC   Protocol = "pvc://"
 	// File  Protocol = "file://"
 	HTTPS Protocol = "https://"

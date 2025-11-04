@@ -115,6 +115,7 @@ data:
            "cpuRequest": "100m",
            "cpuLimit": "1",
            "enableModelcar": false,
+           "uidModelcar": 10,
            "cpuModelcar": "10m",
            "memoryModelcar": "15Mi"
        }
@@ -652,6 +653,7 @@ data:
         "caBundleConfigMapName": "{{ .Values.kserve.storage.caBundleConfigMapName }}",
         "caBundleVolumeMountPath": "{{ .Values.kserve.storage.caBundleVolumeMountPath }}",
         "enableModelcar": {{ .Values.kserve.storage.enableModelcar }},
+        "uidModelcar": {{ .Values.kserve.storage.uidModelcar }},
         "cpuModelcar": "{{ .Values.kserve.storage.cpuModelcar }}",
         "memoryModelcar": "{{ .Values.kserve.storage.memoryModelcar }}"
     }
@@ -687,13 +689,19 @@ data:
 
   opentelemetryCollector: |-
     {
-      "scrapeInterval": "5s",
-      "metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
-      "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
+      "scrapeInterval": "{{ .Values.kserve.opentelemetryCollector.scrapeInterval }}",
+      "metricReceiverEndpoint": "{{ .Values.kserve.opentelemetryCollector.metricReceiverEndpoint }}",
+      "metricScalerEndpoint": "{{ .Values.kserve.opentelemetryCollector.metricScalerEndpoint }}",
+      "resource": {
+          "cpuLimit": "{{ .Values.kserve.opentelemetryCollector.resource.cpuLimit }}",
+          "memoryLimit": "{{ .Values.kserve.opentelemetryCollector.resource.memoryLimit }}",
+          "cpuRequest": "{{ .Values.kserve.opentelemetryCollector.resource.cpuRequest }}",
+          "memoryRequest": "{{ .Values.kserve.opentelemetryCollector.resource.memoryRequest }}"
+      }
     }
 
   autoscaler: |-
     {
-      "scaleUpStabilizationWindowSeconds": "0",
-      "scaleDownStabilizationWindowSeconds": "300"
+      "scaleUpStabilizationWindowSeconds": "{{ .Values.kserve.autoscaler.scaleUpStabilizationWindowSeconds }}",
+      "scaleDownStabilizationWindowSeconds": "{{ .Values.kserve.autoscaler.scaleDownStabilizationWindowSeconds }}"
     }

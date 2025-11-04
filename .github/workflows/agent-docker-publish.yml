@@ -29,6 +29,9 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+      
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
 
       - name: Run tests
         run: |
@@ -51,6 +54,9 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+      
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
