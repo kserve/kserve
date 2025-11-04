@@ -28,6 +28,10 @@ spec:
 
           vllm serve ${MODEL} --host 0.0.0.0 --port 8000 $@
         - "bash"
+      ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
       env:
         - name: LMCACHE_USE_EXPERIMENTAL
           value: "True"

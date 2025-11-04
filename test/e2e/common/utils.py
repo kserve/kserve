@@ -360,6 +360,68 @@ def rerank(
     return _process_non_streaming_response(res)
 
 
+def classify(
+    service_name,
+    input_json,
+    version=constants.KSERVE_V1BETA1_VERSION,
+):
+    """Call vLLM's /classify endpoint for classification tasks"""
+    res = _vllm_request(service_name, input_json, version, "classify")
+    return _process_non_streaming_response(res)
+
+
+def _get_vllm_endpoint_and_host(
+    service_name, url_suffix, version=constants.KSERVE_V1BETA1_VERSION
+):
+    """
+    Get the vLLM endpoint for the given service name (without /openai prefix).
+    Args:
+        service_name: The name of the inference service
+        url_suffix: The suffix for the vLLM endpoint (e.g., "classify")
+        version: The version of the inference service. Defaults to v1beta1
+    Returns:
+        A tuple containing the vLLM endpoint URL and the host name
+    """
+    kfs_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    isvc = kfs_client.get(
+        service_name, namespace=KSERVE_TEST_NAMESPACE, version=version
+    )
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
+    return f"{scheme}://{cluster_ip}{path}/{url_suffix}", host
+
+
+def _vllm_request(
+    service_name,
+    input_json,
+    version=constants.KSERVE_V1BETA1_VERSION,
+    url_suffix="",
+):
+    """Make a request to vLLM's /classify endpoint"""
+    with open(input_json) as json_file:
+        data = json.load(json_file)
+
+        # If input is in v2 format, convert to vLLM classify endpoint format. Classify endpoint expects 'input' (not 'inputs') as a list of texts
+        if "inputs" in data and isinstance(data["inputs"], list):
+            text = data["inputs"][0]["data"][0]
+            data = {"input": [text]}
+
+        url, host = _get_vllm_endpoint_and_host(service_name, url_suffix, version)
+        headers = {"Host": host, "Content-Type": "application/json"}
+
+        logger.info("Sending Header = %s", headers)
+        logger.info("Sending url = %s", url)
+        logger.info("Sending request data: %s", data)
+        # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
+        time.sleep(10)
+        response = requests.post(url, json.dumps(data), headers=headers)
+        logger.info("Got response code %s", response.status_code)
+        if not response.status_code == 200:
+            response.raise_for_status()
+        return response
+
+
 def _get_openai_endpoint_and_host(
     service_name, url_suffix, version=constants.KSERVE_V1BETA1_VERSION
 ):
@@ -379,7 +441,19 @@ def _get_openai_endpoint_and_host(
         service_name, namespace=KSERVE_TEST_NAMESPACE, version=version
     )
     scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
-    return f"{scheme}://{cluster_ip}{path}/openai/{url_suffix}", host
+
+    # vLLM runtime does not use /openai prefix, others do
+    model_format = (
+        isvc.get("spec", {})
+        .get("predictor", {})
+        .get("model", {})
+        .get("modelFormat", {})
+        .get("name", "")
+    )
+    if model_format == "vllm":
+        return f"{scheme}://{cluster_ip}{path}/{url_suffix}", host
+    else:
+        return f"{scheme}://{cluster_ip}{path}/openai/{url_suffix}", host
 
 
 def _openai_request(

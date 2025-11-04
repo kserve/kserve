@@ -365,6 +365,8 @@ kserve:
       disabled: false
       image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo
       tag: latest
+      gpuImage: vllm/vllm-openai
+      gpuImageTag: latest
       imagePullSecrets: []
       securityContext:
         allowPrivilegeEscalation: false
@@ -377,20 +379,6 @@ kserve:
         sizeLimit: ""
       hostIPC:
         enabled: false
-    vllmserver_multinode:
-      disabled: false
-      image: vllm/vllm-openai
-      tag: latest
-      imagePullSecrets: []
-      securityContext:
-        allowPrivilegeEscalation: false
-        privileged: false
-        capabilities:
-          drop:
-            - ALL
-      shm:
-        enabled: true
-        sizeLimit: "3Gi"
     tritonserver:
       disabled: false
       image: nvcr.io/nvidia/tritonserver

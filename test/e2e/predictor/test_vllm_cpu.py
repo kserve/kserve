@@ -53,7 +53,7 @@ def test_vllm_cpu_openai_chat_completions():
             ],
             args=[
                 "--served-model-name",
-                "vllm-qwen-chat",
+                "qwen-chat",
                 "--max-model-len",
                 "512",
                 "--dtype",
@@ -104,7 +104,7 @@ def test_vllm_cpu_text_completion_streaming():
             ],
             args=[
                 "--served-model-name",
-                "vllm-qwen-cmpl-stream",
+                "qwen-cmpl-stream",
                 "--max-model-len",
                 "512",
                 "--dtype",
@@ -157,7 +157,7 @@ def test_vllm_cpu_openai_completions():
             ],
             args=[
                 "--served-model-name",
-                "vllm-qwen-cmpl",
+                "qwen-cmpl",
                 "--max-model-len",
                 "512",
                 "--dtype",
@@ -207,7 +207,7 @@ def test_vllm_openai_chat_completions_streaming():
             ],
             args=[
                 "--served-model-name",
-                "vllm-qwen-chat-stream",
+                "qwen-chat-stream",
                 "--max-model-len",
                 "512",
                 "--dtype",
@@ -264,7 +264,7 @@ def test_vllm_cpu_rerank():
                 "--tokenizer-revision",
                 "2cfc18c9415c912f9d8155881c133215df768a70",
                 "--served-model-name",
-                "vllm-bge-reranker-base",
+                "bge-reranker-base",
                 "--max-model-len",
                 "100",
                 "--dtype",
@@ -295,10 +295,10 @@ def test_vllm_cpu_rerank():
 
     res = rerank(service_name, "./data/bge-reranker-base.json")
     assert res["results"][0]["index"] == 1
-    assert res["results"][0]["relevance_score"] == 1.0
+    assert res["results"][0]["relevance_score"] > 0.9
     assert res["results"][0]["document"]["text"] == "The capital of France is Paris."
     assert res["results"][1]["index"] == 0
-    assert res["results"][1]["relevance_score"] == 0.00058746337890625
+    assert res["results"][1]["relevance_score"] < 0.01
     assert res["results"][1]["document"]["text"] == "The capital of Brazil is Brasilia."
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

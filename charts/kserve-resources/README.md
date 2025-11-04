@@ -196,6 +196,8 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | kserve.servingruntime.vllmserver.devShm.enabled | bool | `false` |  |
 | kserve.servingruntime.vllmserver.devShm.sizeLimit | string | `""` |  |
 | kserve.servingruntime.vllmserver.disabled | bool | `false` |  |
+| kserve.servingruntime.vllmserver.gpuImage | string | `"vllm/vllm-openai"` |  |
+| kserve.servingruntime.vllmserver.gpuImageTag | string | `"latest"` |  |
 | kserve.servingruntime.vllmserver.hostIPC.enabled | bool | `false` |  |
 | kserve.servingruntime.vllmserver.image | string | `"public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo"` |  |
 | kserve.servingruntime.vllmserver.imagePullSecrets | list | `[]` |  |
@@ -203,15 +205,6 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | kserve.servingruntime.vllmserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.vllmserver.securityContext.privileged | bool | `false` |  |
 | kserve.servingruntime.vllmserver.tag | string | `"latest"` |  |
-| kserve.servingruntime.vllmserver_multinode.disabled | bool | `false` |  |
-| kserve.servingruntime.vllmserver_multinode.image | string | `"vllm/vllm-openai"` |  |
-| kserve.servingruntime.vllmserver_multinode.imagePullSecrets | list | `[]` |  |
-| kserve.servingruntime.vllmserver_multinode.securityContext.allowPrivilegeEscalation | bool | `false` |  |
-| kserve.servingruntime.vllmserver_multinode.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
-| kserve.servingruntime.vllmserver_multinode.securityContext.privileged | bool | `false` |  |
-| kserve.servingruntime.vllmserver_multinode.shm.enabled | bool | `true` |  |
-| kserve.servingruntime.vllmserver_multinode.shm.sizeLimit | string | `"3Gi"` |  |
-| kserve.servingruntime.vllmserver_multinode.tag | string | `"latest"` |  |
 | kserve.servingruntime.xgbserver.disabled | bool | `false` |  |
 | kserve.servingruntime.xgbserver.image | string | `"kserve/xgbserver"` |  |
 | kserve.servingruntime.xgbserver.imagePullSecrets | list | `[]` |  |
