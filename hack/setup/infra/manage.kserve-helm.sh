@@ -90,11 +90,11 @@ SET_KSERVE_VERSION="${SET_KSERVE_VERSION:-}"
 # Set Helm release names and target pod labels based on LLMISVC
 if [ "${LLMISVC}" = "true" ]; then
     log_info "LLMISVC is enabled"
-    CRD_DIR_NAME="llmisvc-crd"
-    CORE_DIR_NAME="llmisvc-resources"
-    KSERVE_CRD_RELEASE_NAME="llmisvc-crd"
-    KSERVE_RELEASE_NAME="llmisvc"
-    TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
+    CRD_DIR_NAME="kserve-llmisvc-crd"
+    CORE_DIR_NAME="kserve-llmisvc-resources"
+    KSERVE_CRD_RELEASE_NAME="kserve-llmisvc-crd"
+    KSERVE_RELEASE_NAME="kserve-llmisvc"
+    TARGET_POD_LABELS=("control-plane=llmisvc-controller-manager")
 fi
 
 if [ "${SET_KSERVE_VERSION}" != "" ]; then
