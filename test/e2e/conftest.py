@@ -16,6 +16,7 @@ import asyncio
 
 import pytest
 import pytest_asyncio
+from httpx_retries import Retry, RetryTransport
 
 import kserve
 from kserve import InferenceRESTClient, RESTConfig
@@ -38,8 +39,14 @@ def event_loop():
 
 @pytest_asyncio.fixture(scope="session")
 async def rest_v1_client():
+    transport = RetryTransport(
+        retry=Retry(
+            total=3, backoff_factor=0.5, status_forcelist=[404, 429, 502, 503, 504]
+        )
+    )
     v1_client = InferenceRESTClient(
         config=RESTConfig(
+            transport=transport,
             timeout=180,
             verbose=True,
             protocol=PredictorProtocol.REST_V1,
@@ -51,8 +58,14 @@ async def rest_v1_client():
 
 @pytest_asyncio.fixture(scope="session")
 async def rest_v2_client():
+    transport = RetryTransport(
+        retry=Retry(
+            total=3, backoff_factor=0.5, status_forcelist=[404, 429, 502, 503, 504]
+        )
+    )
     v2_client = InferenceRESTClient(
         config=RESTConfig(
+            transport=transport,
             timeout=180,
             verbose=True,
             protocol=PredictorProtocol.REST_V2,
