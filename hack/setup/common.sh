@@ -226,6 +226,25 @@ wait_for_crd() {
     local timeout="${2:-60s}"
 
     log_info "Waiting for CRD '$crd_name' to be established..."
+
+    # Add small delay to allow CRD status to be initialized
+    sleep 2
+
+    # Retry logic to handle race condition where .status.conditions may not be initialized yet
+    local max_retries=3
+    local retry=0
+    while [ $retry -lt $max_retries ]; do
+        if kubectl wait --for=condition=Established --timeout="$timeout" crd/"$crd_name" 2>/dev/null; then
+            return 0
+        fi
+        retry=$((retry + 1))
+        if [ $retry -lt $max_retries ]; then
+            log_info "Retry $retry/$max_retries: Waiting for CRD status to be initialized..."
+            sleep 3
+        fi
+    done
+
+    # Final attempt with error output
     kubectl wait --for=condition=Established --timeout="$timeout" crd/"$crd_name"
 }
 
@@ -240,6 +259,92 @@ wait_for_crds() {
     done
 
     log_success "All CRDs are established!"
+}
+
+# Update multiple fields in KServe inferenceservice-config ConfigMap
+# Usage: update_isvc_config "ingress.enableGatewayApi=true" "deploy.defaultDeploymentMode=Standard"
+# Example:
+#   update_isvc_config "ingress.enableGatewayApi=true"
+#   update_isvc_config "ingress.enableGatewayApi=true" "ingress.className=\"envoy\""
+update_isvc_config() {
+    if [ $# -eq 0 ]; then
+        log_error "No update parameters provided"
+        return 1
+    fi
+
+    log_info "Updating inferenceservice-config..."
+
+    local temp=$(mktemp)
+    kubectl get configmap inferenceservice-config -n "${KSERVE_NAMESPACE}" -o json > "$temp"
+
+    # Group updates by data_key to avoid multiple updates to the same key
+    declare -A data_key_updates
+
+    for arg in "$@"; do
+        local key="${arg%%=*}"
+        local value="${arg#*=}"
+
+        # Split "ingress.enableGatewayApi" -> data_key="ingress", json_path="enableGatewayApi"
+        local data_key="${key%%.*}"
+        local json_path="${key#*.}"
+
+        # Append to the list of updates for this data_key
+        if [ -z "${data_key_updates[$data_key]:-}" ]; then
+            data_key_updates[$data_key]="$json_path=$value"
+        else
+            data_key_updates[$data_key]="${data_key_updates[$data_key]}|$json_path=$value"
+        fi
+    done
+
+    # Process each data_key once with all its updates
+    for data_key in "${!data_key_updates[@]}"; do
+        # Get current JSON from data field (stored as string)
+        local current=$(jq -r ".data.\"$data_key\"" "$temp")
+
+        # Skip if the key doesn't exist or is null
+        if [ "$current" = "null" ] || [ -z "$current" ]; then
+            log_info "  ⊘ Skipping all updates for '$data_key' (not found in ConfigMap)"
+            continue
+        fi
+
+        # Apply all updates for this data_key
+        local updated="$current"
+        IFS='|' read -ra updates <<< "${data_key_updates[$data_key]}"
+        for update in "${updates[@]}"; do
+            local json_path="${update%%=*}"
+            local value="${update#*=}"
+
+            # Smart quote handling for string values
+            # If value doesn't start with " and is not a number/boolean, add double quotes
+            if [[ ! $value =~ ^\" ]] && [[ ! $value =~ ^[0-9]+(\.[0-9]+)?$ ]] && [[ ! $value =~ ^(true|false|null)$ ]]; then
+                value="\"$value\""
+            fi
+
+            # Check if the nested path exists, create if missing
+            local parent_path="${json_path%.*}"
+            if [ "$parent_path" != "$json_path" ]; then
+                # There's a parent path, check if it exists
+                if ! echo "$updated" | jq -e ".$parent_path" >/dev/null 2>&1; then
+                    log_info "  + Creating nested path '$parent_path' in $data_key"
+                    # Create all intermediate paths as empty objects
+                    updated=$(echo "$updated" | jq ".$parent_path = {}")
+                fi
+            fi
+
+            # Update the nested field
+            updated=$(echo "$updated" | jq ".$json_path = $value")
+            log_info "  ✓ $data_key.$json_path = $value"
+        done
+
+        # Put it back as JSON string (preserve pretty-print format like original ConfigMap)
+        pretty_json=$(echo "$updated" | jq '.')
+        jq --arg updated "$pretty_json" ".data.\"$data_key\" = \$updated" "$temp" > "$temp.new" && mv "$temp.new" "$temp"
+    done
+
+    kubectl apply -f "$temp"
+    rm -f "$temp"
+
+    log_success "ConfigMap updated successfully"
 }
 
 # Create namespace if it does not exist (skip if already exists)

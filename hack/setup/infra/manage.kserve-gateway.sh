@@ -37,9 +37,7 @@ fi
 # VARIABLES
 GATEWAY_NAME="kserve-ingress-gateway"
 # GATEWAY_NAMESPACE is defined in global-vars.env (defaults to "kserve")
-# Note: For this gateway, GATEWAY_NAMESPACE uses KSERVE_NAMESPACE from global-vars.env
-GATEWAY_NAMESPACE="${KSERVE_NAMESPACE}"
-GATEWAYCLASS_NAME="envoy"
+GATEWAYCLASS_NAME="${GATEWAY_NETWORK_LAYER:-envoy}"
 # VARIABLES END
 
 uninstall() {

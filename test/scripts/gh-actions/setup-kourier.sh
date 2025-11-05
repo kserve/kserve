@@ -21,28 +21,10 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-CERT_MANAGER_VERSION="v1.15.1"
-YQ_VERSION="v4.28.1"
-GATEWAY_API_VERSION="v1.2.1"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2>/dev/null)"
+source "${SCRIPT_DIR}/../../../hack/setup/common.sh"
 
-echo "Installing yq ..."
-wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
-
-echo "Installing Gateway CRDs ..."
-kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
-
-source  ./test/scripts/gh-actions/install-knative-operator.sh
-
-echo "Installing Knative serving and Kourier..."
-kubectl apply -f ./test/overlays/knative/knative-serving-kourier.yaml
-
-echo "Waiting for Knative and Kourier to be ready ..."
-kubectl wait --for=condition=Ready -n knative-serving KnativeServing knative-serving --timeout=300s
-
-echo "Installing cert-manager ..."
-kubectl create namespace cert-manager
-sleep 2
-kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml
-
-echo "Waiting for cert-manager to be ready ..."
-kubectl wait --for=condition=ready pod -l 'app in (cert-manager,webhook)' --timeout=180s -n cert-manager
+${REPO_ROOT}/hack/setup/cli/install-yq.sh
+${REPO_ROOT}/hack/setup/infra/manage.cert-manager-helm.sh
+${REPO_ROOT}/hack/setup/infra/manage.gateway-api-crd.sh
+NETWORK_LAYER=kourier ${REPO_ROOT}/hack/setup/infra/knative/manage.knative-operator-helm.sh
