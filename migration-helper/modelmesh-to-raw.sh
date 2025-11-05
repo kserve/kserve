@@ -118,6 +118,17 @@ parse_arguments() {
         esac
     done
 
+    # Validate conflicting parameters
+    if [[ "$DRY_RUN" == "true" && "$PRESERVE_NAMESPACE" == "true" ]]; then
+        echo -e "${ERROR_SYMBOL} Error: --dry-run and --preserve-namespace cannot be used together"
+        echo "  💡 --dry-run is for safe testing without making changes"
+        echo "  💡 --preserve-namespace performs destructive in-place migration"
+        echo "  💡 Use either:"
+        echo "     • --dry-run with --target-ns for safe preview"
+        echo "     • --preserve-namespace alone for destructive migration"
+        exit 1
+    fi
+
     # Validate required parameters
     if [[ -z "$FROM_NS" ]]; then
         echo -e "${ERROR_SYMBOL} Error: --from-ns parameter is required"
@@ -191,9 +202,15 @@ PARAMETERS:
     --ignore-existing-ns       Skip check if target namespace already exists
     --debug                    Show complete processed resources and wait for user confirmation
     --dry-run                  Save all YAML resources to local directory without applying them
+    --preserve-namespace       Perform destructive in-place migration (migrates within same namespace)
     --odh                      Use OpenDataHub template namespace (opendatahub) instead of RHOAI (redhat-ods-applications)
     --page-size <number>       Number of InferenceServices to display per page (default: 10)
     -h, --help                 Show this help message
+
+IMPORTANT:
+    --dry-run and --preserve-namespace cannot be used together:
+    • --dry-run is for safe testing without making changes
+    • --preserve-namespace performs destructive in-place migration
 
 DESCRIPTION:
     This script migrates InferenceServices from ModelMesh to KServe Raw deployment.
@@ -207,6 +224,7 @@ EXAMPLES:
     $0 --from-ns my-models --target-ns my-models-raw --page-size 5
     $0 --from-ns modelmesh-serving --target-ns kserve-raw --ignore-existing-ns --page-size 20
     $0 --from-ns large-ns --target-ns kserve-raw --dry-run --page-size 50
+    $0 --from-ns modelmesh-serving --preserve-namespace
     $0 --from-ns modelmesh-serving --target-ns kserve-raw --odh
 
 REQUIREMENTS:
@@ -221,7 +239,7 @@ EOF
 check_openshift_login() {
     echo "🔍 Checking OpenShift login status..."
 
-    if ! oc whoami &> /dev/null; then
+    if ! timeout 20 oc whoami &> /dev/null; then
         echo -e "${ERROR_SYMBOL} Error: You are not logged into an OpenShift cluster."
         echo "  Please login using 'oc login' and try again."
         echo "  Example: oc login https://your-cluster-url:6443"
@@ -266,7 +284,7 @@ initialize_backup_directory() {
         echo "📁 Initializing preserve-namespace backup directory: $BACKUP_DIR"
     fi
 
-    mkdir -p "$BACKUP_DIR"/{original-resources,new-resources}/{namespace,servingruntime,inferenceservice,secret,role,rolebinding,serviceaccount}
+    mkdir -p "$BACKUP_DIR"/{original-resources,new-resources}/{namespace,servingruntime,inferenceservice,secret,role,rolebinding,serviceaccount,template}
 
     if [[ "$PRESERVE_NAMESPACE" == "true" ]]; then
         # Create additional rollback-scripts directory for preserve-namespace mode
@@ -552,8 +570,8 @@ list_and_select_inference_services() {
     local index=0
     local isvc_count=0
 
-    # Get all InferenceServices in the source namespace
-    if ! local isvc_list=$(oc get inferenceservice -n "$FROM_NS" -o yaml 2>/dev/null); then
+    # Get ModelMesh InferenceServices in the source namespace (filter by deploymentMode annotation)
+    if ! local isvc_list=$(oc get inferenceservice -n "$FROM_NS" -o yaml 2>/dev/null | yq '.items |= map(select(.metadata.annotations."serving.kserve.io/deploymentMode" == "ModelMesh"))'); then
         echo -e "${ERROR_SYMBOL} Failed to retrieve InferenceServices from namespace '$FROM_NS'"
         echo "  📋 Please ensure you have access to the namespace and InferenceServices exist."
         exit 1
@@ -563,8 +581,10 @@ list_and_select_inference_services() {
     local isvc_count=$(echo "$isvc_list" | yq '.items | length')
 
     if [[ "$isvc_count" -eq 0 ]]; then
-        echo -e "${ERROR_SYMBOL} No InferenceServices found in namespace '$FROM_NS'"
-        echo "  📭 There are no models to migrate."
+        echo -e "${ERROR_SYMBOL} No ModelMesh InferenceServices found in namespace '$FROM_NS'"
+        echo "  📭 This script migrates InferenceServices with deploymentMode 'ModelMesh'"
+        echo "  💡 Check if you have ModelMesh InferenceServices with:"
+        echo "      oc get inferenceservice -n $FROM_NS -o jsonpath='{range .items[*]}{.metadata.name}{\"\\t\"}{.metadata.annotations.serving\\.kserve\\.io/deploymentMode}{\"\\n\"}{end}'"
         exit 1
     fi
 
@@ -940,6 +960,9 @@ create_serving_runtimes() {
     # Initialize arrays to avoid unset variable errors with set -u
     local runtime_templates=()
     local runtime_names=()
+    # Make opset1 arrays global so they can be accessed in process_inference_services
+    opset1_support_needed=()
+    opset_version_migration=()
 
     # Analyze each selected InferenceService to determine required runtime
     local index=0
@@ -956,6 +979,70 @@ create_serving_runtimes() {
 
         # Get the runtime name from the InferenceService spec
         local runtime_name=$(echo "$original_isvc" | yq '.spec.predictor.model.runtime // ""')
+
+        # Check for OpenVINO opset1 models and get user preference
+        echo "    🔍 Checking for OpenVINO opset1 compatibility requirements..."
+        local model_format_name=$(echo "$original_isvc" | yq '.spec.predictor.model.modelFormat.name // ""')
+        local model_format_version=$(echo "$original_isvc" | yq '.spec.predictor.model.modelFormat.version // ""')
+        local add_opset1_support=false
+        local migrate_opset_version=false
+
+        if [[ "$model_format_name" == "openvino_ir" && "$model_format_version" == "opset1" ]]; then
+            echo ""
+            echo "    🚨 OpenVINO Opset1 Model Detected for '$isvc_name'!"
+            echo "    ======================================================="
+            echo ""
+            echo "    ⚠️  Your model '$isvc_name' uses OpenVINO IR format with Opset1:"
+            echo "       • ModelMesh format: openvino_ir (opset1)"
+            echo "       • KServe Raw format: openvino_ir (opset13+)"
+            echo ""
+            echo "    📋 RECOMMENDED: Upgrade your model to a newer opset for better performance and compatibility."
+            echo ""
+            echo "    🔧 Model Upgrade Steps:"
+            echo "       1. Retrieve Original Model: Get your original model file (ONNX, TensorFlow, PyTorch, etc.)"
+            echo "       2. Use Current OpenVINO Toolkit: Run the model through the latest OpenVINO Model Converter"
+            echo "       3. Run Validation: Test the new IR model produces the same results as the original"
+            echo "       4. Retry Migration: Run this migration helper again with the upgraded model"
+            echo ""
+            echo "    🤔 Migration Options for '$isvc_name':"
+            echo "       1) Continue migration with Opset1 compatibility (adds opset1 support to ServingRuntime)"
+            echo "       2) Upgrade to newer Opset (recommended - changes model format to opset13). This is a manual step"
+            echo "       3) Abort migration to upgrade model manually first"
+            echo ""
+            read -p "    Your choice (1/2/3): " opset_choice
+
+            case "$opset_choice" in
+                "1")
+                    echo "    ✅ Continuing migration with Opset1 compatibility"
+                    echo "       ⚠️  Note: Opset1 support will be added to the ServingRuntime"
+                    add_opset1_support=true
+                    ;;
+                "2")
+                    echo "    ✅ Upgrading model format to Opset13"
+                    echo "       📝 Model format will be changed from opset1 to opset13 in the inference service only."
+                    migrate_opset_version=true
+                    ;;
+                "3")
+                    echo "    🛑 Aborting migration for model '$isvc_name'"
+                    echo "       💡 Please upgrade your model using the steps above and retry migration"
+                    index=$((index+1))
+                    continue
+                    ;;
+                *)
+                    echo "    ⚠️  Invalid choice, aborting migration for safety"
+                    echo "       💡 Please upgrade your model using the steps above and retry migration"
+                    index=$((index+1))
+                    continue
+                    ;;
+            esac
+            echo ""
+        else
+            echo "    ✅ No opset1 compatibility issues detected for '$isvc_name'"
+        fi
+
+        # Store opset1 decisions for later use in ServingRuntime creation
+        opset1_support_needed+=("$add_opset1_support")
+        opset_version_migration+=("$migrate_opset_version")
 
         # Query the actual ServingRuntime in the namespace to get its template display name
         local original_runtime=""
@@ -996,8 +1083,8 @@ create_serving_runtimes() {
 
         echo "🏗️ Processing serving runtime for '$isvc_name' using template '$template_name'..."
 
-        # Step 1: Backup original serving runtime (if preserve-namespace mode)
-        if [[ "$PRESERVE_NAMESPACE" == "true" ]]; then
+        # Step 1: Backup original serving runtime (for both dry-run and preserve-namespace modes)
+        if [[ "$DRY_RUN" == "true" || "$PRESERVE_NAMESPACE" == "true" ]]; then
             echo "  💾 Backing up original serving runtime..."
             # Get the runtime name from the InferenceService
             if ! local original_isvc=$(oc get inferenceservice "$isvc_name" -n "$FROM_NS" -o yaml 2>/dev/null); then
@@ -1025,21 +1112,79 @@ create_serving_runtimes() {
         # Get template display name from the template
         local template_display=$(echo "$runtime_template" | yq '.objects[0].metadata.annotations."opendatahub.io/template-display-name" // "Custom Runtime"')
 
-        # Prepare the template to be applied
-        local modified_runtime=$(echo "$runtime_template" | \
-            yq '.objects[0].metadata.name = "'$isvc_name'"' | \
-            yq '.objects[0].metadata.annotations."opendatahub.io/template-name" = "'$template_name'"' | \
-            yq '.objects[0].metadata.annotations."opendatahub.io/serving-runtime-scope" = "global"' | \
-            yq '.objects[0].metadata.annotations."openshift.io/display-name" = "'$isvc_name'"' | \
-            yq '.objects[0].metadata.annotations."opendatahub.io/apiProtocol" = "REST"' | \
-            yq '.objects[0].metadata.annotations."opendatahub.io/hardware-profile-name" = "small-serving-1bmle"' | \
+        # Step 2.1: Backup the selected template (for dry-run and preserve-namespace modes)
+        if [[ "$DRY_RUN" == "true" || "$PRESERVE_NAMESPACE" == "true" ]]; then
+            echo "  💾 Backing up selected template '$template_name'..."
+            save_backup_resource "template" "$template_name" "$runtime_template" "original-resources"
+        fi
+
+        # Step 2.2: Process the template first to generate the ServingRuntime
+        echo "  ⚙️  Processing template '$template_name' to generate ServingRuntime..."
+        if ! local base_runtime=$(echo "$runtime_template" | oc process -f - -o yaml 2>/dev/null); then
+            echo -e "${ERROR_SYMBOL} Failed to process template '$template_name'"
+            echo "    📋 Template processing error. Check template parameters and namespace."
+            exit 1
+        fi
+
+        # Step 2.3: Extract and modify the ServingRuntime from the processed result
+        echo "  🔧 Customizing ServingRuntime for migration..."
+
+        # Extract the ServingRuntime from the processed result (simple approach)
+        local servingruntime_yaml=$(echo "$base_runtime" | yq '.items[0]')
+
+        if [[ -z "$servingruntime_yaml" || "$servingruntime_yaml" == "null" ]]; then
+            echo -e "${ERROR_SYMBOL} No ServingRuntime found in processed template '$template_name'"
+            echo "    📋 Template processing might have failed or template structure is unexpected"
+            exit 1
+        fi
+
+        # Modify the extracted ServingRuntime with migration-specific settings
+        local processed_runtime=$(echo "$servingruntime_yaml" | \
             yq '.metadata.name = "'$isvc_name'"' | \
             yq '.metadata.namespace = "'$TARGET_NS'"' | \
+            yq '.metadata.annotations."opendatahub.io/template-name" = "'$template_name'"' | \
+            yq '.metadata.annotations."opendatahub.io/serving-runtime-scope" = "global"' | \
+            yq '.metadata.annotations."opendatahub.io/apiProtocol" = "REST"' | \
+            yq '.metadata.annotations."opendatahub.io/hardware-profile-name" = "small-serving-1bmle"' | \
             yq '.metadata.labels."opendatahub.io/dashboard" = "true"' | \
-            yq '.metadata.annotations."migration.kserve.io/source" = "modelmesh"' )
+            yq '.metadata.annotations."migration.kserve.io/source" = "modelmesh"' | \
+            yq '.metadata.annotations."migration.kserve.io/original-namespace" = "'$FROM_NS'"' )
 
-        # Step 3: Save new serving runtime (for dry-run and preserve-namespace backup)
-        local processed_runtime=$(echo "$modified_runtime" | oc process -f - -o yaml)
+        # Add OpenVINO opset1 support if needed
+        local need_opset1_support="${opset1_support_needed[$index]}"
+        if [[ "$need_opset1_support" == "true" ]]; then
+            echo "  🔧 Adding OpenVINO opset1 compatibility to ServingRuntime..."
+
+            # Check if this is an OpenVINO/OVMS ServingRuntime and add opset1 support
+            local supports_ovms=$(echo "$processed_runtime" | yq '.spec.supportedModelFormats[] | select(.name == "openvino_ir") | .name' 2>/dev/null || echo "")
+
+            if [[ -n "$supports_ovms" ]]; then
+                # Add a new openvino_ir format entry with opset1 support
+                processed_runtime=$(echo "$processed_runtime" | yq '
+                    .spec.supportedModelFormats += [{
+                        "name": "openvino_ir",
+                        "version": "opset1",
+                        "autoSelect": true
+                    }]
+                ')
+                echo "    ✅ Added new openvino_ir format entry with opset1 support"
+            else
+                # Add openvino_ir format with opset1 support if it doesn't exist
+                processed_runtime=$(echo "$processed_runtime" | yq '
+                    .spec.supportedModelFormats += [{
+                        "name": "openvino_ir",
+                        "version": ["opset1", "opset13"],
+                        "autoSelect": true
+                    }]
+                ')
+                echo "    ✅ Added OpenVINO IR format with opset1 and opset13 support"
+            fi
+
+            # Add migration annotation to track opset1 compatibility
+            processed_runtime=$(echo "$processed_runtime" | yq '.metadata.annotations."migration.kserve.io/opset1-compatibility" = "enabled"')
+            echo "    📝 Added opset1 compatibility annotation to ServingRuntime"
+        fi
+
         save_backup_resource "servingruntime" "$isvc_name" "$processed_runtime" "new-resources"
 
         # Step 4: Deploy new serving runtime (old ServingRuntime deletion moved to after authentication resources are created)
@@ -1313,19 +1458,23 @@ copy_authentication_resources() {
     local target_role_name="${isvc_name}-view-role"
     local target_rolebinding_name="${isvc_name}-view"
 
-    # Get InferenceService UID for owner reference
-    local isvc_uid=$(oc get inferenceservice "$isvc_name" -n "$TARGET_NS" -o jsonpath='{.metadata.uid}' 2>/dev/null)
-    if [[ -z "$isvc_uid" ]]; then
-        echo "    ⚠️  Warning: Could not get UID for InferenceService '$isvc_name', creating resources without owner reference"
-        local owner_ref_yaml=""
+    # Get InferenceService UID for owner reference (skip in dry-run mode)
+    local owner_ref_yaml=""
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo "    💾 [DRY-RUN] Skipping owner reference creation (InferenceService not yet applied to cluster)"
     else
-        # used by the role, role_binding and service account
-        local owner_ref_yaml="  ownerReferences:
+        local isvc_uid=$(oc get inferenceservice "$isvc_name" -n "$TARGET_NS" -o jsonpath='{.metadata.uid}' 2>/dev/null)
+        if [[ -z "$isvc_uid" ]]; then
+            echo "    ⚠️  Warning: Could not get UID for InferenceService '$isvc_name', creating resources without owner reference"
+        else
+            # used by the role, role_binding and service account
+            owner_ref_yaml="  ownerReferences:
         - apiVersion: serving.kserve.io/v1beta1
           kind: InferenceService
           name: ${isvc_name}
           uid: ${isvc_uid}
           blockOwnerDeletion: false"
+        fi
     fi
 
     # Create new ServiceAccount (not copied from source namespace)
@@ -1774,10 +1923,11 @@ process_inference_services() {
             fi
         fi
 
-        # Add OpenVINO auto-versioning annotation when keeping current configuration
-        if [[ "$keep_current_config" == "true" ]]; then
-            transformed_isvc=$(echo "$transformed_isvc" | yq '.metadata.annotations."storage.kserve.io/ovms-auto-versioning" = "1"')
-            echo "  🔧 Applied OpenVINO auto-versioning annotation: storage.kserve.io/ovms-auto-versioning=1"
+        # Handle OpenVINO opset version migration (get decision from global array)
+        local migrate_opset_version="${opset_version_migration[$index]}"
+        if [[ "$migrate_opset_version" == "true" ]]; then
+            transformed_isvc=$(echo "$transformed_isvc" | yq '.spec.predictor.model.modelFormat.version = "opset13"')
+            echo "  🔄 Updated model format version from opset1 to opset13"
         fi
 
         # Save original InferenceService for review (both dry-run and preserve-namespace modes)
@@ -1815,6 +1965,41 @@ process_inference_services() {
             fi
 
             echo -e "  ${SUCCESS_SYMBOL} Authentication resources backed up"
+        fi
+
+        # Delete old InferenceService first in preserve-namespace mode
+        if [[ "$PRESERVE_NAMESPACE" == "true" ]]; then
+            echo "🗑️  Deleting old InferenceService '$isvc_name' before creating new one..."
+            if oc get inferenceservice "$isvc_name" -n "$FROM_NS" &> /dev/null; then
+                if oc delete inferenceservice "$isvc_name" -n "$FROM_NS" --timeout=60s; then
+                    echo -e "  ${SUCCESS_SYMBOL} Initiated deletion of old InferenceService '$isvc_name'"
+
+                    # Wait for complete deletion
+                    echo "  ⏳ Waiting for old InferenceService to be completely deleted..."
+                    local max_wait=120
+                    local wait_time=0
+                    while oc get inferenceservice "$isvc_name" -n "$FROM_NS" &> /dev/null; do
+                        if [[ $wait_time -ge $max_wait ]]; then
+                            echo -e "  ${ERROR_SYMBOL} Timeout waiting for old InferenceService deletion"
+                            ERRORS+=("Timeout waiting for old InferenceService '$isvc_name' deletion in namespace '$FROM_NS'")
+                            break
+                        fi
+                        sleep 5
+                        wait_time=$((wait_time + 5))
+                        echo "    ⏳ Still waiting... ($wait_time/${max_wait}s)"
+                    done
+
+                    if ! oc get inferenceservice "$isvc_name" -n "$FROM_NS" &> /dev/null; then
+                        echo -e "  ${SUCCESS_SYMBOL} Old InferenceService '$isvc_name' completely deleted"
+                    fi
+                else
+                    echo -e "  ${ERROR_SYMBOL} Failed to delete old InferenceService '$isvc_name'"
+                    ERRORS+=("Failed to delete old InferenceService '$isvc_name' in namespace '$FROM_NS'")
+                fi
+            else
+                echo "  ℹ️  Old InferenceService '$isvc_name' not found (may already be deleted)"
+            fi
+            echo ""
         fi
 
         # Apply the transformed InferenceService to the target namespace
@@ -1884,51 +2069,6 @@ process_inference_services() {
     echo -e "${SUCCESS_SYMBOL} All InferenceServices migrated successfully to Raw Deployment"
     echo ""
 }
-
-
-echo "ModelMesh to KServe Raw Deployment Migration Helper"
-echo "=================================================="
-echo ""
-echo "Source namespace (ModelMesh): $FROM_NS"
-echo "Target namespace (KServe Raw): $TARGET_NS"
-echo ""
-
-# Migration logic here
-
-# Initialize backup directory if needed (for dry-run or preserve-namespace)
-initialize_backup_directory
-
-# Verify ModelMesh configuration
-verify_modelmesh_namespace
-
-# Create and configure target namespace (skip in preserve-namespace mode)
-if [[ "$PRESERVE_NAMESPACE" != "true" ]]; then
-    create_target_namespace
-else
-    # In preserve-namespace mode, we still need to update the modelmesh-enabled label
-    echo "🏷️  Updating namespace labels for preserve-namespace mode..."
-    if oc label namespace "$TARGET_NS" modelmesh-enabled="false" --overwrite >/dev/null 2>&1; then
-        echo -e "  ${SUCCESS_SYMBOL} ModelMesh disabled in '$TARGET_NS'"
-    else
-        echo -e "  ${ERROR_SYMBOL} Failed to set modelmesh-enabled=false in '$TARGET_NS'"
-        exit 1
-    fi
-    echo ""
-fi
-
-# List InferenceServices and get user selection
-list_and_select_inference_services
-
-# Cache available templates early to avoid repeated API calls
-cache_available_templates
-# Create serving runtimes for migration
-create_serving_runtimes
-
-# Process the models for migration, prepare the InferenceService manifests
-process_inference_services
-
-# Clean up any empty directories that may have been created
-cleanup_empty_directories
 
 # Clean up empty directories in backup directory
 cleanup_empty_directories() {
@@ -2009,6 +2149,56 @@ generate_dry_run_summary() {
     echo ""
 }
 
+############################################################################################
+# Function definitions ends here.
+############################################################################################
+
+echo "ModelMesh to KServe Raw Deployment Migration Helper"
+echo "=================================================="
+echo ""
+echo "Source namespace (ModelMesh): $FROM_NS"
+echo "Target namespace (KServe Raw): $TARGET_NS"
+echo ""
+
+# Migration logic here
+
+# Initialize backup directory if needed (for dry-run or preserve-namespace)
+initialize_backup_directory
+
+# Verify ModelMesh configuration
+verify_modelmesh_namespace
+
+# Create and configure target namespace (skip in preserve-namespace mode)
+if [[ "$PRESERVE_NAMESPACE" != "true" ]]; then
+    create_target_namespace
+else
+    # In preserve-namespace mode, we still need to update the modelmesh-enabled label
+    echo "🏷️  Updating namespace labels for preserve-namespace mode..."
+    if oc label namespace "$TARGET_NS" modelmesh-enabled="false" --overwrite >/dev/null 2>&1; then
+        echo -e "  ${SUCCESS_SYMBOL} ModelMesh disabled in '$TARGET_NS'"
+    else
+        echo -e "  ${ERROR_SYMBOL} Failed to set modelmesh-enabled=false in '$TARGET_NS'"
+        exit 1
+    fi
+    echo ""
+fi
+
+# List InferenceServices and get user selection
+list_and_select_inference_services
+
+# Cache available templates early to avoid repeated API calls
+cache_available_templates
+
+# Create serving runtimes for migration
+create_serving_runtimes
+
+# Process the models for migration, prepare the InferenceService manifests
+process_inference_services
+
+# Clean up any empty directories that may have been created
+cleanup_empty_directories
+
+# generate the dry-run summary
 generate_dry_run_summary
 
 echo ""
@@ -2028,6 +2218,7 @@ else
     echo "  • Verify your migrated models are working: oc get inferenceservice -n $TARGET_NS"
     echo "  • Check ServingRuntimes: oc get servingruntime -n $TARGET_NS"
     echo "  • Test model endpoints for functionality"
+    echo "  • Deprecate the ModelMesh model"
     echo ""
     echo "🏁 Migration helper completed!"
 fi
