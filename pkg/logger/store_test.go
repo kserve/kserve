@@ -24,13 +24,13 @@ import (
 	"github.com/kserve/kserve/pkg/agent/storage"
 )
 
-func mockStore() (*S3Store, *MockS3Uploader) {
+func mockStore() (*BlobStore, *MockS3Uploader) {
 	uploader := &MockS3Uploader{
 		ReceivedUploadObjectsChan: make(chan s3manager.BatchUploadObject),
 	}
 
 	log, _ := pkglogging.NewLogger("", "INFO")
-	store := NewS3Store("/logger", "json", &JSONMarshaller{}, &storage.S3Provider{Uploader: uploader}, log)
+	store := NewBlobStore("/logger", "json", &JSONMarshaller{}, &storage.S3Provider{Uploader: uploader}, log)
 	return store, uploader
 }
 
