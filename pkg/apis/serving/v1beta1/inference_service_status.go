@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 
@@ -367,7 +366,6 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 			Message: availableCondition.Message,
 		}
 	}
-	fmt.Printf("availableCondition %v\n", componentReadyCondition)
 
 	progressingCondition := getDeploymentCondition(deploymentList, appsv1.DeploymentProgressing)
 	if progressingCondition != nil {
@@ -427,7 +425,6 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 	if componentReadyCondition != nil && componentReadyCondition.Status == corev1.ConditionTrue {
 		statusSpec.URL = url
 	}
-	fmt.Printf("availableCondition2 %v", componentReadyCondition)
 
 	ss.SetCondition(readyCondition, componentReadyCondition)
 	ss.Components[component] = statusSpec

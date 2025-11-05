@@ -1,0 +1,105 @@
+# kv-cache
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: qwen2-7b-kv-cache-routing
+spec:
+  model:
+    uri: hf://Qwen/Qwen2.5-7B-Instruct
+    name: Qwen/Qwen2.5-7B-Instruct
+  # Two replicas to demonstrate KV cache routing across instances
+  replicas: 2
+  router:
+    scheduler:
+      template:
+        volumes:
+        - emptyDir: { }
+          name: tokenizers
+        containers:
+          - name: main
+            volumeMounts:
+              - mountPath: /mnt/tokenizers
+                name: tokenizers
+                readOnly: false
+            args:
+              - --pool-name
+              - "{{ ChildName .ObjectMeta.Name `-inference-pool` }}"
+              - --pool-namespace
+              - "{{ .ObjectMeta.Namespace }}"
+              - --zap-encoder
+              - json
+              - --grpc-port
+              - "9002"
+              - --grpc-health-port
+              - "9003"
+              - --secure-serving
+              - --model-server-metrics-scheme
+              - https
+              - --model-server-metrics-https-insecure-skip-verify
+              - --cert-path
+              - /etc/ssl/certs
+              - --config-text
+              - |2
+              
+                apiVersion: inference.networking.x-k8s.io/v1alpha1
+                kind: EndpointPickerConfig
+                plugins:
+                - type: single-profile-handler
+                - type: prefix-cache-scorer
+                  parameters:
+                    mode: cache_tracking  # Real-time KV cache tracking via ZMQ events
+                    indexerConfig:
+                      tokenProcessorConfig:
+                        blockSize: 64       # Must match vLLM --block-size (default is 16)
+                        hashSeed: "42"      # Must match PYTHONHASHSEED in vLLM pods
+                      kvBlockIndexConfig:
+                        enableMetrics: true                   # Enable Prometheus metrics for KV cache index
+                        metricsLoggingInterval: 60000000000   # Log metrics every 60 seconds (in nanoseconds)
+                      tokenizersPoolConfig:
+                        tokenizersCacheDir: /mnt/tokenizers
+                - type: load-aware-scorer
+                - type: max-score-picker
+                schedulingProfiles:
+                  - name: default
+                    plugins:
+                      - pluginRef: prefix-cache-scorer
+                        weight: 2.0
+                      - pluginRef: load-aware-scorer
+                        weight: 1.0
+                      - pluginRef: max-score-picker
+    route: { }
+    gateway: { }
+  template:
+    containers:
+      - name: main
+        env:
+          # Configure vLLM for prefix caching with KV cache event publishing
+          - name: VLLM_ADDITIONAL_ARGS
+            value: "--prefix-caching-hash-algo sha256 --block-size 64 --kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}' --kv-events-config '{\"enable_kv_cache_events\":true,\"publisher\":\"zmq\",\"endpoint\":\"tcp://{{ ChildName .ObjectMeta.Name `-epp-service` }}:5557\",\"topic\":\"kv@${POD_IP}@Qwen/Qwen2.5-7B-Instruct\"}'"
+          # Pod IP used in KV cache event topic
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          # Hash seed must match scheduler configuration
+          - name: PYTHONHASHSEED
+            value: "42"
+        resources:
+          limits:
+            cpu: '4'
+            memory: 32Gi
+            nvidia.com/gpu: "1"
+          requests:
+            cpu: '2'
+            memory: 16Gi
+            nvidia.com/gpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTPS
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 30
+          failureThreshold: 5

@@ -1,9 +1,12 @@
 # The Go and Python based tools are defined in Makefile.tools.mk.
 include Makefile.tools.mk
 
+# Load dependency versions
+include kserve-deps.env
+
 # Base Image URL
 BASE_IMG ?= python:3.11-slim-bookworm
-PMML_BASE_IMG ?= openjdk:21-slim-bookworm
+PMML_BASE_IMG ?= eclipse-temurin:21-jdk-noble
 
 # Image URL to use all building/pushing image targets
 IMG ?= kserve-controller:latest
@@ -30,8 +33,6 @@ LLMISVC_IMG ?= kserve-llmisvc-controller:latest
 
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
-
-GIE_VERSION ?= v0.5.1
 
 ENVTEST ?= $(LOCALBIN)/setup-envtest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -75,6 +76,10 @@ vet:
 tidy:
 	go mod tidy
 	cd qpext && go mod tidy
+
+.PHONY: sync-deps
+sync-deps:
+	@hack/setup/scripts/generate-versions-from-gomod.sh
 
 go-lint: golangci-lint
 	@$(GOLANGCI_LINT) run --fix
@@ -158,17 +163,17 @@ manifests: controller-gen yq
 	kubectl kustomize config/crd/full/llmisvc >> test/crds/serving.kserve.io_all_crds.yaml
 	# Copy the minimal crd to the helm chart
 	cp config/crd/minimal/*.yaml charts/kserve-crd-minimal/templates/
-	cp config/crd/minimal/llmisvc/*.yaml charts/llmisvc-crd-minimal/templates/
+	cp config/crd/minimal/llmisvc/*.yaml charts/kserve-llmisvc-crd-minimal/templates/
 	rm charts/kserve-crd-minimal/templates/kustomization.yaml
-	rm charts/llmisvc-crd-minimal/templates/kustomization.yaml
+	rm charts/kserve-llmisvc-crd-minimal/templates/kustomization.yaml
 	# Generate llmisvc rbac
 	@$(CONTROLLER_GEN) rbac:roleName=llmisvc-manager-role paths={./pkg/controller/v1alpha1/llmisvc} output:rbac:artifacts:config=config/rbac/llmisvc
 	# Copy the cluster role to the helm chart
-	cat config/rbac/llmisvc/role.yaml > charts/llmisvc-resources/templates/clusterrole.yaml
-	cat config/rbac/llmisvc/leader_election_role.yaml > charts/llmisvc-resources/templates/leader_election_role.yaml
+	cat config/rbac/llmisvc/role.yaml > charts/kserve-llmisvc-resources/templates/clusterrole.yaml
+	cat config/rbac/llmisvc/leader_election_role.yaml > charts/kserve-llmisvc-resources/templates/leader_election_role.yaml
 	# Copy llmisvc crd
-	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/llmisvc-crd/templates/
-	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/llmisvc-crd/templates/
+	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/kserve-llmisvc-crd/templates/
+	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/kserve-llmisvc-crd/templates/
 
 # Generate code
 generate: controller-gen helm-docs
@@ -195,7 +200,7 @@ uv-lock: $(UV)
 
 
 # This runs all necessary steps to prepare for a commit.
-precommit: vet tidy go-lint py-fmt py-lint generate manifests uv-lock
+precommit: sync-deps vet tidy go-lint py-fmt py-lint generate manifests uv-lock
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit
