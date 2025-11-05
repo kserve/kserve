@@ -1,4 +1,4 @@
-# llmisvc-resources
+# kserve-llmisvc-resources
 
 Helm chart for deploying KServe LLMInferenceService resources
 
