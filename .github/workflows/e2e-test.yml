@@ -1096,7 +1096,7 @@ jobs:
         run: ./test/scripts/gh-actions/setup-uv.sh
 
       - name: Install KServe
-        run: |  
+        run: |
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve

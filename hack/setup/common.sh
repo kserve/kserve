@@ -245,7 +245,7 @@ wait_for_crd() {
     sleep 2
 
     # Retry logic to handle race condition where .status.conditions may not be initialized yet
-    local max_retries=3
+    local max_retries=10
     local retry=0
     while [ $retry -lt $max_retries ]; do
         if kubectl wait --for=condition=Established --timeout="$timeout" crd/"$crd_name" 2>/dev/null; then
