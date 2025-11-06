@@ -715,12 +715,13 @@ kserveControllerManager:
       requests:
         cpu: 100m
         memory: 200Mi
+  nodeSelector: {}
   podSecurityContext:
     runAsNonRoot: true
     seccompProfile:
       type: RuntimeDefault
-  serviceAccount:
-    annotations: {}
+  tolerations: []
+  topologySpreadConstraints: []
 kserveControllerManagerMetricsService:
   ports:
   - name: https
@@ -760,6 +761,7 @@ kserveLlmisvcControllerManager:
       requests:
         cpu: 100m
         memory: 300Mi
+  nodeSelector: {}
   podSecurityContext:
     runAsNonRoot: true
     seccompProfile:
@@ -770,6 +772,8 @@ kserveLlmisvcControllerManager:
       maxSurge: 1
       maxUnavailable: 0
     type: RollingUpdate
+  tolerations: []
+  topologySpreadConstraints: []
 kserveLocalmodelControllerManager:
   manager:
     containerSecurityContext:
@@ -791,12 +795,13 @@ kserveLocalmodelControllerManager:
       requests:
         cpu: 100m
         memory: 200Mi
+  nodeSelector: {}
   podSecurityContext:
     runAsNonRoot: true
     seccompProfile:
       type: RuntimeDefault
-  serviceAccount:
-    annotations: {}
+  tolerations: []
+  topologySpreadConstraints: []
 kserveLocalmodelnodeAgent:
   manager:
     containerSecurityContext:
@@ -824,17 +829,14 @@ kserveLocalmodelnodeAgent:
     runAsNonRoot: true
     seccompProfile:
       type: RuntimeDefault
-  serviceAccount:
-    annotations: {}
+  tolerations: []
+  topologySpreadConstraints: []
 kserveWebhookServerService:
   ports:
   - port: 443
     targetPort: webhook-server
   type: ClusterIP
 kubernetesClusterDomain: cluster.local
-llmisvcControllerManager:
-  serviceAccount:
-    annotations: {}
 llmisvcControllerManagerService:
   ports:
   - name: https
@@ -847,6 +849,11 @@ llmisvcWebhookServerService:
   - port: 443
     targetPort: webhook-server
   type: ClusterIP
+serviceAccount:
+  annotations: {}
+  automount: true
+  create: true
+  name: ""
 
 # Local model configuration
 kserve:

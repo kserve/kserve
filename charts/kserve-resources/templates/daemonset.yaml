@@ -51,8 +51,12 @@ spec:
         8 }}
       securityContext: {{- toYaml .Values.kserveLocalmodelnodeAgent.podSecurityContext
         | nindent 8 }}
-      serviceAccountName: {{ include "kserve-resources.fullname" . }}-kserve-localmodelnode-agent
+      serviceAccountName: {{ include "kserve-resources.serviceAccountName" . }}
       terminationGracePeriodSeconds: 10
+      tolerations: {{- toYaml .Values.kserveLocalmodelnodeAgent.tolerations | nindent 8
+        }}
+      topologySpreadConstraints: {{- toYaml .Values.kserveLocalmodelnodeAgent.topologySpreadConstraints
+        | nindent 8 }}
       volumes:
       - hostPath:
           path: /models

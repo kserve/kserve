@@ -226,6 +226,12 @@ helm-generate-llmisvc: helmify yq
 	@echo "Copying all generated templates and values..."
 	@rm -rf charts/kserve-llmisvc-resources/templates/*
 	@cp -r build/helm-tmp/llmisvc-chart/templates/* charts/kserve-llmisvc-resources/templates/
+	# Fix helmify output: ensure {{- if }} syntax is correct (helmify sometimes generates {{ if instead of {{- if)
+	@for file in charts/kserve-llmisvc-resources/templates/*.yaml; do \
+		if [ -f "$$file" ]; then \
+			sed -i 's/{{ if /{{- if /g' "$$file"; \
+		fi; \
+	done
 	@cp build/helm-tmp/llmisvc-chart/values.yaml charts/kserve-llmisvc-resources/values.yaml
 	# Copy Chart.yaml if it doesn't exist, or preserve existing one
 	@if [ ! -f charts/kserve-llmisvc-resources/Chart.yaml ]; then \
@@ -312,6 +318,12 @@ helm-generate-kserve: helmify yq
 	@mkdir -p charts/kserve-resources/templates/localmodel
 	@mkdir -p charts/kserve-resources/templates/localmodelnode
 	@cp -r build/helm-tmp/kserve-chart/templates/* charts/kserve-resources/templates/
+	# Fix helmify output: ensure {{- if }} syntax is correct (helmify sometimes generates {{ if instead of {{- if)
+	@for file in charts/kserve-resources/templates/*.yaml; do \
+		if [ -f "$$file" ]; then \
+			sed -i 's/{{ if /{{- if /g' "$$file"; \
+		fi; \
+	done
 	@cp build/helm-tmp/kserve-chart/values.yaml charts/kserve-resources/values.yaml
 	@echo "Note: Chart.yaml is preserved (contains version and metadata)"
 

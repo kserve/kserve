@@ -53,5 +53,5 @@ roleRef:
   name: '{{ include "kserve-resources.fullname" . }}-kserve-leader-election-role'
 subjects:
 - kind: ServiceAccount
-  name: '{{ include "kserve-resources.fullname" . }}-kserve-controller-manager'
+  name: '{{ include "kserve-resources.serviceAccountName" . }}'
   namespace: '{{ .Release.Namespace }}'

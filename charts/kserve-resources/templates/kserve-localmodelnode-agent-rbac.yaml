@@ -86,5 +86,5 @@ roleRef:
   name: '{{ include "kserve-resources.fullname" . }}-kserve-localmodelnode-agent-role'
 subjects:
 - kind: ServiceAccount
-  name: '{{ include "kserve-resources.fullname" . }}-kserve-localmodelnode-agent'
+  name: '{{ include "kserve-resources.serviceAccountName" . }}'
   namespace: '{{ .Release.Namespace }}'

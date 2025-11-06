@@ -82,10 +82,15 @@ spec:
         resources: {}
         securityContext: {{- toYaml .Values.kserveControllerManager.kubeRbacProxy.containerSecurityContext
           | nindent 10 }}
+      nodeSelector: {{- toYaml .Values.kserveControllerManager.nodeSelector | nindent 8
+        }}
       securityContext: {{- toYaml .Values.kserveControllerManager.podSecurityContext |
         nindent 8 }}
-      serviceAccountName: {{ include "kserve-resources.fullname" . }}-kserve-controller-manager
+      serviceAccountName: {{ include "kserve-resources.serviceAccountName" . }}
       terminationGracePeriodSeconds: 10
+      tolerations: {{- toYaml .Values.kserveControllerManager.tolerations | nindent 8 }}
+      topologySpreadConstraints: {{- toYaml .Values.kserveControllerManager.topologySpreadConstraints
+        | nindent 8 }}
       volumes:
       - name: cert
         secret:
@@ -175,10 +180,16 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
+      nodeSelector: {{- toYaml .Values.kserveLlmisvcControllerManager.nodeSelector | nindent
+        8 }}
       securityContext: {{- toYaml .Values.kserveLlmisvcControllerManager.podSecurityContext
         | nindent 8 }}
-      serviceAccountName: {{ include "kserve-resources.fullname" . }}-llmisvc-controller-manager
+      serviceAccountName: {{ include "kserve-resources.serviceAccountName" . }}
       terminationGracePeriodSeconds: 30
+      tolerations: {{- toYaml .Values.kserveLlmisvcControllerManager.tolerations | nindent
+        8 }}
+      topologySpreadConstraints: {{- toYaml .Values.kserveLlmisvcControllerManager.topologySpreadConstraints
+        | nindent 8 }}
       volumes:
       - name: cert
         secret:
@@ -229,7 +240,13 @@ spec:
           | nindent 10 }}
         securityContext: {{- toYaml .Values.kserveLocalmodelControllerManager.manager.containerSecurityContext
           | nindent 10 }}
+      nodeSelector: {{- toYaml .Values.kserveLocalmodelControllerManager.nodeSelector |
+        nindent 8 }}
       securityContext: {{- toYaml .Values.kserveLocalmodelControllerManager.podSecurityContext
         | nindent 8 }}
-      serviceAccountName: {{ include "kserve-resources.fullname" . }}-kserve-localmodel-controller-manager
+      serviceAccountName: {{ include "kserve-resources.serviceAccountName" . }}
       terminationGracePeriodSeconds: 10
+      tolerations: {{- toYaml .Values.kserveLocalmodelControllerManager.tolerations | nindent
+        8 }}
+      topologySpreadConstraints: {{- toYaml .Values.kserveLocalmodelControllerManager.topologySpreadConstraints
+        | nindent 8 }}

@@ -79,16 +79,17 @@ def escape_embedded_templates(content: str) -> str:
 
     kserve_patterns = [
         # Match template expressions with KServe CRD references
+        # Only escape templates that reference KServe-specific fields, not standard Helm directives
         r'\{\{-?\s*\.Spec\.[^}]+\}\}',                    # {{ .Spec.Model.Name }}
         r'\{\{-?\s*\.ObjectMeta\.[^}]+\}\}',              # {{ .ObjectMeta.Name }}
         r'\{\{-?\s*\.Status\.[^}]+\}\}',                  # {{ .Status.* }}
         r'\{\{-?\s*\.GlobalConfig\.[^}]+\}\}',            # {{ .GlobalConfig.* }}
         r'\{\{-?\s*if\s+\.Spec\.[^}]+\}\}',               # {{- if .Spec.* -}}
         r'\{\{-?\s*if\s+\.GlobalConfig\.[^}]+\}\}',       # {{- if .GlobalConfig.* -}}
-        r'\{\{-?\s*end\s*-?\}\}',                          # {{- end }} or {{ end }}
-        r'\{\{-?\s*else\s*-?\}\}',                         # {{- else }} or {{ else }}
         r'\{\{-?\s*or\s+\.Spec\.[^}]+\}\}',               # {{ or .Spec.* default }}
         r'\{\{\s*ChildName\s+[^}]+\}\}',                  # {{ ChildName ... }}
+        # Note: We do NOT escape {{- end }}, {{- else }}, {{- with }}, etc. as these are
+        # legitimate Helm template directives that should remain as-is
     ]
 
     def replace_match(match):
@@ -104,8 +105,35 @@ def escape_embedded_templates(content: str) -> str:
         # Return escaped version
         return '{{ "{{" }} ' + inner + ' {{ "}}" }}'
 
+    # First pass: Escape KServe-specific template patterns
     for pattern in kserve_patterns:
         content = re.sub(pattern, replace_match, content, flags=re.DOTALL)
+
+    # Second pass: Escape {{- end }} and {{- else }} that follow escaped KServe templates
+    # Look for {{- end }} or {{- else }} that appears after an escaped template (within reasonable distance)
+    # This handles cases like: {{ "{{" }} - if .Spec.* - {{ "}}" }}...{{- else }}...{{- end }}
+    # We need to escape the {{- end }} and {{- else }} that are part of KServe template blocks
+    def escape_control_after_kserve(match):
+        # Check if this {{- end }} or {{- else }} is part of a KServe template block
+        # by looking backwards for escaped KServe patterns
+        before = content[:match.start()]
+        # Look for escaped KServe if/with statements in the last 500 chars
+        recent = before[-500:] if len(before) > 500 else before
+        # Check if there's an escaped KServe template before this control structure
+        if re.search(r'\{\{\s*"\{\{"\s*\}\}\s*-?\s*if\s+\.Spec\.', recent) or \
+           re.search(r'\{\{\s*"\{\{"\s*\}\}\s*-?\s*if\s+\.GlobalConfig\.', recent) or \
+           re.search(r'\{\{\s*"\{\{"\s*\}\}\s*-?\s*with\s+\.Spec\.', recent):
+            # This {{- end }} or {{- else }} is part of a KServe template block, escape it
+            matched = match.group(0)
+            if '"{{" }}' not in matched and '{{ "}}" }}' not in matched:
+                inner = matched[2:-2].strip()
+                return '{{ "{{" }} ' + inner + ' {{ "}}" }}'
+        return match.group(0)
+
+    # Match {{- end }} or {{ end }} that might close KServe templates
+    content = re.sub(r'\{\{-?\s*end\s*-?\}\}', escape_control_after_kserve, content)
+    # Match {{- else }} or {{ else }} that might be in KServe templates
+    content = re.sub(r'\{\{-?\s*else\s*-?\}\}', escape_control_after_kserve, content)
 
     return content
 

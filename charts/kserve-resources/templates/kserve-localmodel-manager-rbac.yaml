@@ -88,5 +88,5 @@ roleRef:
   name: '{{ include "kserve-resources.fullname" . }}-kserve-localmodel-manager-role'
 subjects:
 - kind: ServiceAccount
-  name: '{{ include "kserve-resources.fullname" . }}-kserve-localmodel-controller-manager'
+  name: '{{ include "kserve-resources.serviceAccountName" . }}'
   namespace: '{{ .Release.Namespace }}'
