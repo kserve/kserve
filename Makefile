@@ -188,11 +188,6 @@ manifests: controller-gen yq
 	# Copy llmisvc crd to kserve-crd chart (for combined deployments)
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/kserve-crd/templates/
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/kserve-crd/templates/
-	
-	# Generate Helm charts from Kustomize configs
-	@echo "Generating Helm charts..."
-	@$(MAKE) helm-generate-llmisvc
-	@$(MAKE) helm-generate-kserve
 
 .PHONY: helm-generate-llmisvc
 helm-generate-llmisvc: helmify yq
@@ -378,11 +373,15 @@ helm-generate-kserve: helmify yq
 	@echo "   Output: charts/kserve-resources/"
 
 # Generate code
-generate: controller-gen helm-docs
+generate: controller-gen helm-docs manifests
 	hack/update-codegen.sh
 	hack/update-openapigen.sh
 	hack/python-sdk/client-gen.sh
 	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md
+	# Generate Helm charts from Kustomize configs
+	@echo "Generating Helm charts..."
+	@$(MAKE) helm-generate-llmisvc
+	@$(MAKE) helm-generate-kserve
 
 # Update uv.lock files
 uv-lock: $(UV)
