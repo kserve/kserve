@@ -17,6 +17,7 @@ import asyncio
 import pytest
 import pytest_asyncio
 from httpx_retries import Retry, RetryTransport
+import httpx
 
 import kserve
 from kserve import InferenceRESTClient, RESTConfig
@@ -41,7 +42,15 @@ def event_loop():
 async def rest_v1_client():
     transport = RetryTransport(
         retry=Retry(
-            total=3, backoff_factor=0.5, status_forcelist=[404, 429, 502, 503, 504]
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[404, 429, 502, 503, 504],
+            retry_on_exceptions=[
+                httpx.HTTPStatusError,
+                httpx.TimeoutException,
+                httpx.NetworkError,
+                httpx.RemoteProtocolError,
+            ],
         )
     )
     v1_client = InferenceRESTClient(
@@ -60,7 +69,15 @@ async def rest_v1_client():
 async def rest_v2_client():
     transport = RetryTransport(
         retry=Retry(
-            total=3, backoff_factor=0.5, status_forcelist=[404, 429, 502, 503, 504]
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[404, 429, 502, 503, 504],
+            retry_on_exceptions=[
+                httpx.HTTPStatusError,
+                httpx.TimeoutException,
+                httpx.NetworkError,
+                httpx.RemoteProtocolError,
+            ],
         )
     )
     v2_client = InferenceRESTClient(
