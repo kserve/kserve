@@ -837,14 +837,14 @@ kserveWebhookServerService:
     targetPort: webhook-server
   type: ClusterIP
 kubernetesClusterDomain: cluster.local
-llmisvcControllerManagerService:
+llmisvcMgrSvc:
   ports:
   - name: https
     port: 8443
     protocol: TCP
     targetPort: metrics
   type: ClusterIP
-llmisvcWebhookServerService:
+llmisvcWebhookSvc:
   ports:
   - port: 443
     targetPort: webhook-server

@@ -71,9 +71,17 @@ def restore_worker_initcontainers(chart_file: Path, kustomize_file: Path) -> boo
     initcontainers_yaml = ''.join(c for c in initcontainers_yaml if ord(c) >= 32 or c in '\n\r\t')
 
     # Add proper indentation (4 spaces for worker section)
-    # The YAML dump already has 'initContainers:' with 2-space indent, we need 4-space
-    initcontainers_content = '\n'.join('  ' + line if line.strip() else line
-                                       for line in initcontainers_yaml.split('\n'))
+    # The YAML dump creates: initContainers:\n- args:\n  - --port=8000\n  env:\n  - name: ...\n    valueFrom:\n      fieldRef:\n        fieldPath: ...
+    # worker: is at 2 spaces, so initContainers: should be at 4 spaces
+    # We need to add 4 spaces to every non-empty line to preserve relative indentation
+    lines = initcontainers_yaml.split('\n')
+    indented_lines = []
+    for line in lines:
+        if line.strip():  # Non-empty line - add 4 spaces
+            indented_lines.append('    ' + line)
+        else:  # Empty line - keep as is
+            indented_lines.append(line)
+    initcontainers_content = '\n'.join(indented_lines)
 
     # Find the worker: section and insert initContainers before containers:
     # Pattern: worker:\n    containers:

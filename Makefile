@@ -195,6 +195,7 @@ helm-generate-llmisvc: helmify yq
 	@echo "Generating LLMISvc Helm chart (standalone, 100% automated)"
 	@echo "=========================================="
 	@mkdir -p build/helm-tmp
+	@rm -rf build/helm-tmp/llmisvc-chart
 
 	# Generate standalone LLMISvc from overlay (excludes CRDs - they're in kserve-llmisvc-crd chart)
 	@echo "Generating standalone LLMISvc templates from Kustomize overlay..."
@@ -216,6 +217,14 @@ helm-generate-llmisvc: helmify yq
 	@for file in build/helm-tmp/llmisvc-chart/templates/*.yaml build/helm-tmp/llmisvc-chart/templates/_helpers.tpl; do \
 		sed -i 's/llmisvc-chart\./llm-isvc-resources./g' "$$file"; \
 	done
+
+	# Fix worker.initContainers BEFORE copying (helmify removes it - restore from Kustomize source)
+	@echo "Restoring worker.initContainers from Kustomize source..."
+	@if [ -f build/helm-tmp/llmisvc-chart/templates/kserve-config-llm-decode-worker-data-parallel.yaml ]; then \
+		python3 hack/fix_worker_initcontainers.py \
+			build/helm-tmp/llmisvc-chart/templates/kserve-config-llm-decode-worker-data-parallel.yaml \
+			build/helm-tmp/llmisvc-no-crds.yaml || true; \
+	fi
 
 	# Copy EVERYTHING to actual chart (100% automated)
 	@echo "Copying all generated templates and values..."
@@ -253,13 +262,6 @@ helm-generate-llmisvc: helmify yq
 		fi; \
 	done
 
-	# Fix worker.initContainers (helmify removes it - restore from Kustomize source)
-	@echo "Restoring worker.initContainers from Kustomize source..."
-	@if [ -f charts/kserve-llmisvc-resources/templates/kserve-config-llm-decode-worker-data-parallel.yaml ]; then \
-		python3 hack/fix_worker_initcontainers.py \
-			charts/kserve-llmisvc-resources/templates/kserve-config-llm-decode-worker-data-parallel.yaml \
-			build/helm-tmp/llmisvc-no-crds.yaml || true; \
-	fi
 
 	# Make inferenceservice-config conditional (only create if KServe doesn't already manage it)
 	@echo "Making inferenceservice-config conditional..."
@@ -275,6 +277,7 @@ helm-generate-llmisvc: helmify yq
 		sed -i '1i# Whether to create the inferenceservice-config ConfigMap\n# Set to false if KServe is already installed (KServe creates this ConfigMap)\ncreateInferenceServiceConfig: true\n' charts/kserve-llmisvc-resources/values.yaml; \
 	fi
 
+
 	# Validate
 	@echo "Validating Helm chart..."
 	@helm lint charts/kserve-llmisvc-resources
@@ -289,6 +292,7 @@ helm-generate-kserve: helmify yq
 	@echo "Generating KServe Helm chart (includes LLMISvc, 100% automated)"
 	@echo "=========================================="
 	@mkdir -p build/helm-tmp
+	@rm -rf build/helm-tmp/kserve-chart
 
 	# Generate combined KServe + LLMISvc from config/default (excludes CRDs - they're in kserve-crd chart)
 	@echo "Generating combined KServe+LLMISvc templates from config/default..."
@@ -307,6 +311,14 @@ helm-generate-kserve: helmify yq
 		sed -i 's/kserve-chart\./kserve-resources./g' "$$file"; \
 	done
 
+	# Fix worker.initContainers BEFORE copying (helmify removes it - restore from Kustomize source)
+	@echo "Restoring worker.initContainers from Kustomize source..."
+	@if [ -f build/helm-tmp/kserve-chart/templates/kserve-config-llm-decode-worker-data-parallel.yaml ]; then \
+		python3 hack/fix_worker_initcontainers.py \
+			build/helm-tmp/kserve-chart/templates/kserve-config-llm-decode-worker-data-parallel.yaml \
+			build/helm-tmp/kserve-all-no-crds.yaml || true; \
+	fi
+
 	# Copy EVERYTHING to actual chart (100% automated)
 	@echo "Copying all generated templates and values..."
 	@rm -rf charts/kserve-resources/templates/*
@@ -320,6 +332,11 @@ helm-generate-kserve: helmify yq
 		fi; \
 	done
 	@cp build/helm-tmp/kserve-chart/values.yaml charts/kserve-resources/values.yaml
+	# Copy Chart.yaml if it doesn't exist, or preserve existing one
+	@if [ ! -f charts/kserve-resources/Chart.yaml ]; then \
+		cp build/helm-tmp/kserve-chart/Chart.yaml charts/kserve-resources/Chart.yaml; \
+		sed -i 's/name: kserve-chart/name: kserve-resources/g' charts/kserve-resources/Chart.yaml; \
+	fi
 	@echo "Note: Chart.yaml is preserved (contains version and metadata)"
 
 	# Remove CRDs from generated chart (they're managed by kserve-crd/kserve-crd-minimal charts)
@@ -343,14 +360,6 @@ helm-generate-kserve: helmify yq
 			sed -i "s/name: {{ include \"kserve-resources\.fullname\" \. }}-kserve-config-llm-/name: kserve-config-llm-/g" "$$file"; \
 		fi; \
 	done
-
-	# Fix worker.initContainers (helmify removes it - restore from Kustomize source)
-	@echo "Restoring worker.initContainers from Kustomize source..."
-	@if [ -f charts/kserve-resources/templates/kserve-config-llm-decode-worker-data-parallel.yaml ]; then \
-		python3 hack/fix_worker_initcontainers.py \
-			charts/kserve-resources/templates/kserve-config-llm-decode-worker-data-parallel.yaml \
-			build/helm-tmp/kserve-all-no-crds.yaml || true; \
-	fi
 
 	# Add required values for conditional templates
 	@echo "Adding required Helm values..."
