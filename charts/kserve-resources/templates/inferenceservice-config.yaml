@@ -12,27 +12,27 @@ data:
 {{ .Values.inferenceserviceConfig.autoscaler | indent 4 }}
   batcher: |-
 {{ .Values.inferenceserviceConfig.batcher | indent 4 }}
-  credentials: |-
-{{ .Values.inferenceserviceConfig.credentials | indent 4 }}
+  credentials: {{ .Values.inferenceserviceConfig.credentials | toYaml | indent 1
+    }}
   deploy: |-
 {{ .Values.inferenceserviceConfig.deploy | indent 4 }}
   explainers: |-
 {{ .Values.inferenceserviceConfig.explainers | indent 4 }}
-  inferenceService: |-
-{{ .Values.inferenceserviceConfig.inferenceService | indent 4 }}
+  inferenceService: {{ .Values.inferenceserviceConfig.inferenceService | toYaml |
+    indent 1 }}
   ingress: |-
 {{ .Values.inferenceserviceConfig.ingress | indent 4 }}
   localModel: |-
 {{ .Values.inferenceserviceConfig.localModel | indent 4 }}
   logger: |-
 {{ .Values.inferenceserviceConfig.logger | indent 4 }}
-  metricsAggregator: |-
-{{ .Values.inferenceserviceConfig.metricsAggregator | indent 4 }}
-  opentelemetryCollector: |-
-{{ .Values.inferenceserviceConfig.opentelemetryCollector | indent 4 }}
+  metricsAggregator: {{ .Values.inferenceserviceConfig.metricsAggregator | toYaml
+    | indent 1 }}
+  opentelemetryCollector: {{ .Values.inferenceserviceConfig.opentelemetryCollector
+    | toYaml | indent 1 }}
   router: |-
 {{ .Values.inferenceserviceConfig.router | indent 4 }}
   security: |-
 {{ .Values.inferenceserviceConfig.security | indent 4 }}
-  storageInitializer: |-
-{{ .Values.inferenceserviceConfig.storageInitializer | indent 4 }}
+  storageInitializer: {{ .Values.inferenceserviceConfig.storageInitializer | toYaml
+    | indent 1 }}
