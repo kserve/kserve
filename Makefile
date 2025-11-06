@@ -194,52 +194,55 @@ helm-generate-llmisvc: helmify yq
 	@echo "=========================================="
 	@echo "Generating LLMISvc Helm chart (standalone, 100% automated)"
 	@echo "=========================================="
-	@mkdir -p build/helm-tmp
-	@rm -rf build/helm-tmp/llmisvc-chart
 
 	# Generate standalone LLMISvc from overlay (excludes CRDs - they're in kserve-llmisvc-crd chart)
 	@echo "Generating standalone LLMISvc templates from Kustomize overlay..."
-	@kubectl kustomize config/overlays/llmisvc > build/helm-tmp/llmisvc.yaml
+	@mkdir -p build-helm
+	@rm -rf build-helm/llmisvc-chart
+	@kubectl kustomize config/overlays/llmisvc > build-helm/llmisvc.yaml
 	# Filter out CRDs (they're managed by kserve-llmisvc-crd chart)
-	@$(YQ) eval 'select(.kind != "CustomResourceDefinition")' build/helm-tmp/llmisvc.yaml > build/helm-tmp/llmisvc-no-crds.yaml
-	@cat build/helm-tmp/llmisvc-no-crds.yaml | $(HELMIFY) build/helm-tmp/llmisvc-chart
+	@$(YQ) eval 'select(.kind != "CustomResourceDefinition")' build-helm/llmisvc.yaml > build-helm/llmisvc-no-crds.yaml
+	@cat build-helm/llmisvc-no-crds.yaml | $(HELMIFY) build-helm/llmisvc-chart
 
 	# Remove CRDs from generated chart (they're managed by kserve-llmisvc-crd chart)
 	@echo "Removing CRDs from chart templates..."
-	@rm -f build/helm-tmp/llmisvc-chart/templates/*-crd.yaml
+	@rm -f build-helm/llmisvc-chart/templates/*-crd.yaml
 
 	# Escape embedded Go templates
 	@echo "Escaping KServe-specific Go templates..."
-	@./hack/escape_helm_templates.py build/helm-tmp/llmisvc-chart/templates/*.yaml
+	@./hack/escape_helm_templates.py build-helm/llmisvc-chart/templates/*.yaml
 
 	# Fix chart references
 	@echo "Fixing chart references..."
-	@for file in build/helm-tmp/llmisvc-chart/templates/*.yaml build/helm-tmp/llmisvc-chart/templates/_helpers.tpl; do \
-		sed -i 's/llmisvc-chart\./llm-isvc-resources./g' "$$file"; \
+	@for file in build-helm/llmisvc-chart/templates/*.yaml build-helm/llmisvc-chart/templates/_helpers.tpl; do \
+		if [ -f "$$file" ]; then \
+			sed -i 's/llmisvc-chart\./llm-isvc-resources./g' "$$file"; \
+		fi; \
 	done
 
 	# Fix worker.initContainers BEFORE copying (helmify removes it - restore from Kustomize source)
 	@echo "Restoring worker.initContainers from Kustomize source..."
-	@if [ -f build/helm-tmp/llmisvc-chart/templates/kserve-config-llm-decode-worker-data-parallel.yaml ]; then \
+	@if [ -f build-helm/llmisvc-chart/templates/kserve-config-llm-decode-worker-data-parallel.yaml ]; then \
 		python3 hack/fix_worker_initcontainers.py \
-			build/helm-tmp/llmisvc-chart/templates/kserve-config-llm-decode-worker-data-parallel.yaml \
-			build/helm-tmp/llmisvc-no-crds.yaml || true; \
+			build-helm/llmisvc-chart/templates/kserve-config-llm-decode-worker-data-parallel.yaml \
+			build-helm/llmisvc-no-crds.yaml || true; \
 	fi
 
 	# Copy EVERYTHING to actual chart (100% automated)
 	@echo "Copying all generated templates and values..."
-	@rm -rf charts/kserve-llmisvc-resources/templates/*
-	@cp -r build/helm-tmp/llmisvc-chart/templates/* charts/kserve-llmisvc-resources/templates/
+	@mkdir -p charts/kserve-llmisvc-resources/templates
+	@cp -r build-helm/llmisvc-chart/templates/* charts/kserve-llmisvc-resources/templates/
 	# Fix helmify output: ensure {{- if }} syntax is correct (helmify sometimes generates {{ if instead of {{- if)
 	@for file in charts/kserve-llmisvc-resources/templates/*.yaml; do \
 		if [ -f "$$file" ]; then \
 			sed -i 's/{{ if /{{- if /g' "$$file"; \
 		fi; \
 	done
-	@cp build/helm-tmp/llmisvc-chart/values.yaml charts/kserve-llmisvc-resources/values.yaml
+	@mkdir -p charts/kserve-llmisvc-resources
+	@cp build-helm/llmisvc-chart/values.yaml charts/kserve-llmisvc-resources/values.yaml
 	# Copy Chart.yaml if it doesn't exist, or preserve existing one
 	@if [ ! -f charts/kserve-llmisvc-resources/Chart.yaml ]; then \
-		cp build/helm-tmp/llmisvc-chart/Chart.yaml charts/kserve-llmisvc-resources/Chart.yaml; \
+		cp build-helm/llmisvc-chart/Chart.yaml charts/kserve-llmisvc-resources/Chart.yaml; \
 		sed -i 's/name: llmisvc-chart/name: kserve-llmisvc-resources/g' charts/kserve-llmisvc-resources/Chart.yaml; \
 	fi
 	@echo "Note: Chart.yaml is preserved (contains version and metadata)"
@@ -291,50 +294,52 @@ helm-generate-kserve: helmify yq
 	@echo "=========================================="
 	@echo "Generating KServe Helm chart (includes LLMISvc, 100% automated)"
 	@echo "=========================================="
-	@mkdir -p build/helm-tmp
-	@rm -rf build/helm-tmp/kserve-chart
 
 	# Generate combined KServe + LLMISvc from config/default (excludes CRDs - they're in kserve-crd chart)
 	@echo "Generating combined KServe+LLMISvc templates from config/default..."
-	@kubectl kustomize config/default > build/helm-tmp/kserve-all.yaml
+	@mkdir -p build-helm
+	@rm -rf build-helm/kserve-chart
+	@kubectl kustomize config/default > build-helm/kserve-all.yaml
 	# Filter out CRDs (they're managed by kserve-crd/kserve-crd-minimal charts)
-	@$(YQ) eval 'select(.kind != "CustomResourceDefinition")' build/helm-tmp/kserve-all.yaml > build/helm-tmp/kserve-all-no-crds.yaml
-	@cat build/helm-tmp/kserve-all-no-crds.yaml | $(HELMIFY) build/helm-tmp/kserve-chart
+	@$(YQ) eval 'select(.kind != "CustomResourceDefinition")' build-helm/kserve-all.yaml > build-helm/kserve-all-no-crds.yaml
+	@cat build-helm/kserve-all-no-crds.yaml | $(HELMIFY) build-helm/kserve-chart
 
 	# Escape embedded Go templates (for LLMISvc ConfigMaps)
 	@echo "Escaping KServe-specific Go templates..."
-	@./hack/escape_helm_templates.py build/helm-tmp/kserve-chart/templates/*.yaml
+	@./hack/escape_helm_templates.py build-helm/kserve-chart/templates/*.yaml
 
 	# Fix chart references
 	@echo "Fixing chart references..."
-	@for file in build/helm-tmp/kserve-chart/templates/*.yaml build/helm-tmp/kserve-chart/templates/_helpers.tpl; do \
-		sed -i 's/kserve-chart\./kserve-resources./g' "$$file"; \
+	@for file in build-helm/kserve-chart/templates/*.yaml build-helm/kserve-chart/templates/_helpers.tpl; do \
+		if [ -f "$$file" ]; then \
+			sed -i 's/kserve-chart\./kserve-resources./g' "$$file"; \
+		fi; \
 	done
 
 	# Fix worker.initContainers BEFORE copying (helmify removes it - restore from Kustomize source)
 	@echo "Restoring worker.initContainers from Kustomize source..."
-	@if [ -f build/helm-tmp/kserve-chart/templates/kserve-config-llm-decode-worker-data-parallel.yaml ]; then \
+	@if [ -f build-helm/kserve-chart/templates/kserve-config-llm-decode-worker-data-parallel.yaml ]; then \
 		python3 hack/fix_worker_initcontainers.py \
-			build/helm-tmp/kserve-chart/templates/kserve-config-llm-decode-worker-data-parallel.yaml \
-			build/helm-tmp/kserve-all-no-crds.yaml || true; \
+			build-helm/kserve-chart/templates/kserve-config-llm-decode-worker-data-parallel.yaml \
+			build-helm/kserve-all-no-crds.yaml || true; \
 	fi
 
 	# Copy EVERYTHING to actual chart (100% automated)
 	@echo "Copying all generated templates and values..."
-	@rm -rf charts/kserve-resources/templates/*
 	@mkdir -p charts/kserve-resources/templates/localmodel
 	@mkdir -p charts/kserve-resources/templates/localmodelnode
-	@cp -r build/helm-tmp/kserve-chart/templates/* charts/kserve-resources/templates/
+	@cp -r build-helm/kserve-chart/templates/* charts/kserve-resources/templates/
 	# Fix helmify output: ensure {{- if }} syntax is correct (helmify sometimes generates {{ if instead of {{- if)
 	@for file in charts/kserve-resources/templates/*.yaml; do \
 		if [ -f "$$file" ]; then \
 			sed -i 's/{{ if /{{- if /g' "$$file"; \
 		fi; \
 	done
-	@cp build/helm-tmp/kserve-chart/values.yaml charts/kserve-resources/values.yaml
+	@mkdir -p charts/kserve-resources
+	@cp build-helm/kserve-chart/values.yaml charts/kserve-resources/values.yaml
 	# Copy Chart.yaml if it doesn't exist, or preserve existing one
 	@if [ ! -f charts/kserve-resources/Chart.yaml ]; then \
-		cp build/helm-tmp/kserve-chart/Chart.yaml charts/kserve-resources/Chart.yaml; \
+		cp build-helm/kserve-chart/Chart.yaml charts/kserve-resources/Chart.yaml; \
 		sed -i 's/name: kserve-chart/name: kserve-resources/g' charts/kserve-resources/Chart.yaml; \
 	fi
 	@echo "Note: Chart.yaml is preserved (contains version and metadata)"
