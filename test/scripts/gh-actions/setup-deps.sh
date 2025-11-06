@@ -31,51 +31,81 @@ source "${REPO_ROOT}/kserve-deps.env"
 DEPLOYMENT_MODE="${1:-'serverless'}"
 NETWORK_LAYER="${2:-'istio'}"
 ENABLE_KEDA="${3:-'false'}"
-ENABLE_LWS="${4:-'false'}"
+LLMISVC="${4:-'false'}"
+
+# Parse network layer configuration
+USES_GATEWAY_API=false
+USES_ISTIO=false
+USES_ENVOY=false
+USES_ISTIO_INGRESS=false
+
+case "$NETWORK_LAYER" in
+  istio-gatewayapi)
+    USES_GATEWAY_API=true
+    USES_ISTIO=true
+    ;;
+  envoy-gatewayapi)
+    USES_GATEWAY_API=true
+    USES_ENVOY=true
+    ;;
+  istio-ingress)
+    USES_ISTIO=true
+    USES_ISTIO_INGRESS=true
+    ;;
+  istio)
+    USES_ISTIO=true
+    ;;
+esac
 
 ${REPO_ROOT}/hack/setup/cli/install-yq.sh
+${REPO_ROOT}/hack/setup/infra/manage.cert-manager-helm.sh
 
-if [[ $NETWORK_LAYER == "istio-gatewayapi" || $NETWORK_LAYER == "envoy-gatewayapi" ]]; then
-  ${REPO_ROOT}/hack/setup/infra/manage.gateway-api-crd.sh
+# Install Gateway API CRDs if needed
+if [[ $USES_GATEWAY_API == true ]]; then
+  ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-crd.sh
 fi
 
-if [[ $NETWORK_LAYER == "istio-ingress" || $NETWORK_LAYER == "istio-gatewayapi" || $NETWORK_LAYER == "istio" ]]; then
-  # Set minimal resources for CI/test environment (matching previous overlays)
+# Install Istio with minimal resources for CI/test environment
+if [[ $USES_ISTIO == true ]]; then
   export ISTIOD_EXTRA_ARGS="--set resources.requests.cpu=5m --set resources.requests.memory=32Mi --set meshConfig.accessLogFile=/dev/stdout"
   export ISTIO_GATEWAY_EXTRA_ARGS="--set resources.requests.cpu=5m --set resources.requests.memory=32Mi --set resources.limits.cpu=100m --set resources.limits.memory=128Mi"
-
-  # Use the new helm-based installation script
   ${REPO_ROOT}/hack/setup/infra/manage.istio-helm.sh
-elif [[ $NETWORK_LAYER == "envoy-gatewayapi" ]]; then
-  ${REPO_ROOT}/hack/setup/infra/manage.envoy-gateway-helm.sh
 fi
 
-if [[ $NETWORK_LAYER == "istio-ingress" ]]; then
+# Install Envoy Gateway
+if [[ $USES_ENVOY == true ]]; then
+  export GATEWAY_NETWORK_LAYER="${NETWORK_LAYER%%-*}"
+  ${REPO_ROOT}/hack/setup/infra/manage.envoy-gateway-helm.sh
+  ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-gwclass.sh
+fi
+
+# Install Istio IngressClass
+if [[ $USES_ISTIO_INGRESS == true ]]; then
   ${REPO_ROOT}/hack/setup/infra/manage.istio-ingress-class.sh
 fi
 
+# Install LLM-specific components
+if [[ $LLMISVC == "true" ]]; then
+  ${REPO_ROOT}/hack/setup/infra/manage.lws-operator.sh
+fi
+
+# Install KServe Gateway for Gateway API or LLM use cases
+if [[ $USES_GATEWAY_API == true ]] || [[ $LLMISVC == "true" ]]; then
+  export GATEWAYCLASS_NAME="${NETWORK_LAYER%%-*}"
+  ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-gw.sh
+fi
+
 shopt -s nocasematch
-if [[ $DEPLOYMENT_MODE == "serverless" ]]; then
+if [[ $DEPLOYMENT_MODE == "serverless" ]] || [[ $DEPLOYMENT_MODE == "Knative" ]]; then
   # Serverless mode - Install Knative Operator and Serving (Istio network layer)
-  echo "Installing Knative Operator and Serving..."
-  ${REPO_ROOT}/hack/setup/infra/knative/manage.knative-operator-helm.sh
+  echo "Installing Knative Operator and Serving...(NETWORK_LAYER: ${NETWORK_LAYER})"  
+  NETWORK_LAYER="${NETWORK_LAYER}" ${REPO_ROOT}/hack/setup/infra/knative/manage.knative-operator-helm.sh
 fi
 shopt -u nocasematch
 
 if [[ $DEPLOYMENT_MODE == "raw" ]]; then
   if [[ $ENABLE_KEDA == "true" ]]; then
     echo "KEDA and OpenTelemetry will be installed via Helm later in the script..."
-  fi
-fi
-
-if [[ $ENABLE_LWS == "true" ]]; then
-  ${REPO_ROOT}/hack/setup/infra/manage.lws-operator.sh
-fi
-
-${REPO_ROOT}/hack/setup/infra/manage.cert-manager-helm.sh
-
-if [[ $DEPLOYMENT_MODE == "raw" ]]; then
-  if [[ $ENABLE_KEDA == "true" ]]; then
     echo "Installing KEDA and OpenTelemetry components..."
 
     # Install KEDA
