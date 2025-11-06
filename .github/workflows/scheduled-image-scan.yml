@@ -3,6 +3,9 @@ name: Twice a week image scan
 on:
   schedule:
     - cron: "0 0 * * 0,3"
+
+  # REMOVEME
+  pull_request:
   workflow_dispatch: {}
 
 concurrency:
@@ -107,6 +110,15 @@ jobs:
         with:
           sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
           category: ${{ matrix.image.name }}
+
+      # hugging face scheduled snyk scan failing with:
+      # ENOSPC: no space left on device, mkdtemp '/tmp/XXXXXX'
+      # try to clean images
+      - name: Clean up Docker resources (if applicable)
+        run: sudo docker system prune -af
+
+      - name: Check disk usage after cleanup
+        run: df -h
 
   explainer-image-scan:
     name: scan explainer images
