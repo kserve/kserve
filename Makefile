@@ -6,7 +6,7 @@ include kserve-deps.env
 
 # Base Image URL
 BASE_IMG ?= python:3.11-slim-bookworm
-PMML_BASE_IMG ?= openjdk:21-slim-bookworm
+PMML_BASE_IMG ?= eclipse-temurin:21-jdk-noble
 
 # Image URL to use all building/pushing image targets
 IMG ?= kserve-controller:latest
@@ -169,9 +169,9 @@ manifests: controller-gen yq
 	kubectl kustomize config/crd/full/llmisvc >> test/crds/serving.kserve.io_all_crds.yaml
 	# Copy the minimal crd to the helm chart
 	cp config/crd/minimal/*.yaml charts/kserve-crd-minimal/templates/
-	cp config/crd/minimal/llmisvc/*.yaml charts/llmisvc-crd-minimal/templates/
+	cp config/crd/minimal/llmisvc/*.yaml charts/kserve-llmisvc-crd-minimal/templates/
 	rm charts/kserve-crd-minimal/templates/kustomization.yaml
-	rm charts/llmisvc-crd-minimal/templates/kustomization.yaml
+	rm charts/kserve-llmisvc-crd-minimal/templates/kustomization.yaml
 	# Generate llmisvc rbac
 	@$(CONTROLLER_GEN) rbac:roleName=llmisvc-manager-role paths={./pkg/controller/v1alpha1/llmisvc} output:rbac:artifacts:config=config/rbac/llmisvc
 	# Note: RBAC Helm templates are now generated via helm-generate-llmisvc target (includes bindings)
