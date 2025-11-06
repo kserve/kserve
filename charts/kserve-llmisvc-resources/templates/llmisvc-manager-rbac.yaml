@@ -184,5 +184,5 @@ roleRef:
   name: '{{ include "llm-isvc-resources.fullname" . }}-llmisvc-manager-role'
 subjects:
 - kind: ServiceAccount
-  name: '{{ include "llm-isvc-resources.fullname" . }}-llmisvc-controller-manager'
+  name: '{{ include "llm-isvc-resources.serviceAccountName" . }}'
   namespace: '{{ .Release.Namespace }}'

@@ -195,7 +195,7 @@ manifests: controller-gen yq
 	@$(MAKE) helm-generate-kserve
 
 .PHONY: helm-generate-llmisvc
-helm-generate-llmisvc:
+helm-generate-llmisvc: helmify yq
 	@echo "=========================================="
 	@echo "Generating LLMISvc Helm chart (standalone, 100% automated)"
 	@echo "=========================================="
@@ -205,8 +205,8 @@ helm-generate-llmisvc:
 	@echo "Generating standalone LLMISvc templates from Kustomize overlay..."
 	@kubectl kustomize config/overlays/llmisvc > build/helm-tmp/llmisvc.yaml
 	# Filter out CRDs (they're managed by kserve-llmisvc-crd chart)
-	@yq eval 'select(.kind != "CustomResourceDefinition")' build/helm-tmp/llmisvc.yaml > build/helm-tmp/llmisvc-no-crds.yaml
-	@cat build/helm-tmp/llmisvc-no-crds.yaml | helmify build/helm-tmp/llmisvc-chart
+	@$(YQ) eval 'select(.kind != "CustomResourceDefinition")' build/helm-tmp/llmisvc.yaml > build/helm-tmp/llmisvc-no-crds.yaml
+	@cat build/helm-tmp/llmisvc-no-crds.yaml | $(HELMIFY) build/helm-tmp/llmisvc-chart
 
 	# Remove CRDs from generated chart (they're managed by kserve-llmisvc-crd chart)
 	@echo "Removing CRDs from chart templates..."
@@ -283,7 +283,7 @@ helm-generate-llmisvc:
 	@echo "   Output: charts/kserve-llmisvc-resources/"
 
 .PHONY: helm-generate-kserve
-helm-generate-kserve:
+helm-generate-kserve: helmify yq
 	@echo "=========================================="
 	@echo "Generating KServe Helm chart (includes LLMISvc, 100% automated)"
 	@echo "=========================================="
@@ -293,8 +293,8 @@ helm-generate-kserve:
 	@echo "Generating combined KServe+LLMISvc templates from config/default..."
 	@kubectl kustomize config/default > build/helm-tmp/kserve-all.yaml
 	# Filter out CRDs (they're managed by kserve-crd/kserve-crd-minimal charts)
-	@yq eval 'select(.kind != "CustomResourceDefinition")' build/helm-tmp/kserve-all.yaml > build/helm-tmp/kserve-all-no-crds.yaml
-	@cat build/helm-tmp/kserve-all-no-crds.yaml | helmify build/helm-tmp/kserve-chart
+	@$(YQ) eval 'select(.kind != "CustomResourceDefinition")' build/helm-tmp/kserve-all.yaml > build/helm-tmp/kserve-all-no-crds.yaml
+	@cat build/helm-tmp/kserve-all-no-crds.yaml | $(HELMIFY) build/helm-tmp/kserve-chart
 
 	# Escape embedded Go templates (for LLMISvc ConfigMaps)
 	@echo "Escaping KServe-specific Go templates..."

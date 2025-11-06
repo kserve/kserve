@@ -81,10 +81,16 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
+      nodeSelector: {{- toYaml .Values.kserveLlmisvcControllerManager.nodeSelector | nindent
+        8 }}
       securityContext: {{- toYaml .Values.kserveLlmisvcControllerManager.podSecurityContext
         | nindent 8 }}
-      serviceAccountName: {{ include "llm-isvc-resources.fullname" . }}-llmisvc-controller-manager
+      serviceAccountName: {{ include "llm-isvc-resources.serviceAccountName" . }}
       terminationGracePeriodSeconds: 30
+      tolerations: {{- toYaml .Values.kserveLlmisvcControllerManager.tolerations | nindent
+        8 }}
+      topologySpreadConstraints: {{- toYaml .Values.kserveLlmisvcControllerManager.topologySpreadConstraints
+        | nindent 8 }}
       volumes:
       - name: cert
         secret:

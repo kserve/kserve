@@ -80,8 +80,8 @@ EMBED_MANIFESTS="${EMBED_MANIFESTS:-false}"
 # INCLUDE_IN_GENERATED_SCRIPT_START
 # Set Helm release names and target pod labels based on LLMISVC
 if [ "${LLMISVC}" = "true" ]; then
-    CRD_DIR_NAME="llmisvc-crd"
-    CORE_DIR_NAME="llmisvc-resources"
+    CRD_DIR_NAME="kserve-llmisvc-crd"
+    CORE_DIR_NAME="kserve-llmisvc-resources"
     KSERVE_CRD_RELEASE_NAME="llmisvc-crd"
     KSERVE_RELEASE_NAME="llmisvc"
     TARGET_POD_LABELS=("control-plane=llmisvc-controller-manager")
