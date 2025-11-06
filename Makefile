@@ -181,6 +181,11 @@ manifests: controller-gen yq
 	# Copy llmisvc crd to kserve-crd chart (for combined deployments)
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/kserve-crd/templates/
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/kserve-crd/templates/
+	
+	# Generate Helm charts from Kustomize configs
+	@echo "Generating Helm charts..."
+	@$(MAKE) helm-generate-llmisvc
+	@$(MAKE) helm-generate-kserve
 
 .PHONY: helm-generate-llmisvc
 helm-generate-llmisvc:
@@ -234,6 +239,14 @@ helm-generate-llmisvc:
 			sed -i "s/name: {{ include \"llm-isvc-resources\.fullname\" \. }}-kserve-config-llm-/name: kserve-config-llm-/g" "$$file"; \
 		fi; \
 	done
+
+	# Fix worker.initContainers (helmify removes it - restore from Kustomize source)
+	@echo "Restoring worker.initContainers from Kustomize source..."
+	@if [ -f charts/llmisvc-resources/templates/kserve-config-llm-decode-worker-data-parallel.yaml ]; then \
+		python3 hack/fix_worker_initcontainers.py \
+			charts/llmisvc-resources/templates/kserve-config-llm-decode-worker-data-parallel.yaml \
+			build/helm-tmp/llmisvc-no-crds.yaml || true; \
+	fi
 
 	# Make inferenceservice-config conditional (only create if KServe doesn't already manage it)
 	@echo "Making inferenceservice-config conditional..."
@@ -311,6 +324,14 @@ helm-generate-kserve:
 			sed -i "s/name: {{ include \"kserve-resources\.fullname\" \. }}-kserve-config-llm-/name: kserve-config-llm-/g" "$$file"; \
 		fi; \
 	done
+
+	# Fix worker.initContainers (helmify removes it - restore from Kustomize source)
+	@echo "Restoring worker.initContainers from Kustomize source..."
+	@if [ -f charts/kserve-resources/templates/kserve-config-llm-decode-worker-data-parallel.yaml ]; then \
+		python3 hack/fix_worker_initcontainers.py \
+			charts/kserve-resources/templates/kserve-config-llm-decode-worker-data-parallel.yaml \
+			build/helm-tmp/kserve-all-no-crds.yaml || true; \
+	fi
 
 	# Add required values for conditional templates
 	@echo "Adding required Helm values..."

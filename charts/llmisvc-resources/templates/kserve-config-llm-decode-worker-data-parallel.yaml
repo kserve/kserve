@@ -210,58 +210,58 @@ spec:
       secret:
         secretName: '{{ "{{" }} ChildName .ObjectMeta.Name {{ "`" }}-kserve-self-signed-certs{{ "`" }} {{ "}}" }}'
   worker:
-    initContainers:
-    - args:
-      - --port=8000
-      - --vllm-port=8001
-      - --connector=nixlv2
-      - --secure-proxy=false
-      env:
-      - name: INFERENCE_POOL_NAMESPACE
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.namespace
-      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.2.0
-      imagePullPolicy: IfNotPresent
-      livenessProbe:
-        failureThreshold: 3
-        httpGet:
-          path: /health
-          port: 8000
-          scheme: HTTP
-        initialDelaySeconds: 10
-        periodSeconds: 10
-        timeoutSeconds: 10
-      name: llm-d-routing-sidecar
-      ports:
-      - containerPort: 8000
-        protocol: TCP
-      readinessProbe:
-        failureThreshold: 10
-        httpGet:
-          path: /health
-          port: 8000
-          scheme: HTTP
-        initialDelaySeconds: 10
-        periodSeconds: 10
-        timeoutSeconds: 5
-      restartPolicy: Always
-      securityContext:
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
-        readOnlyRootFilesystem: true
-        runAsNonRoot: false
-        seccompProfile:
-          type: RuntimeDefault
-      terminationMessagePath: /dev/termination-log
-      terminationMessagePolicy: FallbackToLogsOnError
-      volumeMounts:
-      - mountPath: /etc/ssl/certs
-        name: tls-certs
-        readOnly: true
-    containers:
+  initContainers:
+  - args:
+    - --port=8000
+    - --vllm-port=8001
+    - --connector=nixlv2
+    - --secure-proxy=false
+    env:
+    - name: INFERENCE_POOL_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.2.0
+    imagePullPolicy: IfNotPresent
+    livenessProbe:
+      failureThreshold: 3
+      httpGet:
+        path: /health
+        port: 8000
+        scheme: HTTP
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 10
+    name: llm-d-routing-sidecar
+    ports:
+    - containerPort: 8000
+      protocol: TCP
+    readinessProbe:
+      failureThreshold: 10
+      httpGet:
+        path: /health
+        port: 8000
+        scheme: HTTP
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+    restartPolicy: Always
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+      runAsNonRoot: false
+      seccompProfile:
+        type: RuntimeDefault
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: FallbackToLogsOnError
+    volumeMounts:
+    - mountPath: /etc/ssl/certs
+      name: tls-certs
+      readOnly: true
+
     - args:
       - "\nif [ \"$KSERVE_INFER_ROCE\" = \"true\" ]; then\n  echo \"Trying to infer
         RoCE configs ... \"\n  grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null\n
@@ -380,6 +380,57 @@ spec:
         name: dshm
       - mountPath: /models
         name: model-cache
+      - mountPath: /etc/ssl/certs
+        name: tls-certs
+        readOnly: true
+    initContainers:
+    - args:
+      - --port=8000
+      - --vllm-port=8001
+      - --connector=nixlv2
+      - --secure-proxy=false
+      env:
+      - name: INFERENCE_POOL_NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.2.0
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 10
+      name: llm-d-routing-sidecar
+      ports:
+      - containerPort: 8000
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 10
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 5
+      restartPolicy: Always
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: false
+        seccompProfile:
+          type: RuntimeDefault
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
       - mountPath: /etc/ssl/certs
         name: tls-certs
         readOnly: true
