@@ -27,13 +27,13 @@ def restore_worker_initcontainers(chart_file: Path, kustomize_file: Path) -> boo
     with open(chart_file, 'r', encoding='utf-8') as f:
         chart_content = f.read()
 
-    # Check if worker.initContainers already exists
+    # Check if worker.initContainers already exists - if so, we'll replace it
+    worker_initcontainers_exists = False
     if 'worker:' in chart_content and 'initContainers:' in chart_content:
         # Check if it's in the worker section
         worker_match = re.search(r'worker:\s*\n\s*initContainers:', chart_content)
         if worker_match:
-            print(f"✅ worker.initContainers already exists in {chart_file.name}")
-            return True
+            worker_initcontainers_exists = True
 
     # Load Kustomize source (this is valid YAML, no templates)
     with open(kustomize_file, 'r', encoding='utf-8') as f:
@@ -83,27 +83,68 @@ def restore_worker_initcontainers(chart_file: Path, kustomize_file: Path) -> boo
             indented_lines.append(line)
     initcontainers_content = '\n'.join(indented_lines)
 
-    # Find the worker: section and insert initContainers before containers:
-    # Pattern: worker:\n    containers:
-    pattern = r'(worker:\s*\n)(\s+containers:)'
+    # Find the worker: section and insert/replace initContainers before containers:
+    if worker_initcontainers_exists:
+        # Replace existing worker.initContainers section
+        # Find the worker: section first, then find initContainers within it
+        # Pattern: worker:\n    initContainers: ... (until we hit containers: or end of worker section)
+        # We need to match from worker: initContainers: to just before containers: (or end of worker section)
+        # First, find where worker: starts
+        worker_start = chart_content.find('worker:')
+        if worker_start == -1:
+            print(f"Warning: Could not find 'worker:' section in {chart_file.name}")
+            return False
 
-    if re.search(pattern, chart_content):
+        # Find the next top-level key after worker: (containers: or another key at same indentation)
+        # Look for containers: at 4 spaces indentation (same as initContainers)
+        worker_section_end = chart_content.find('\n    containers:', worker_start)
+        if worker_section_end == -1:
+            # Try to find end of worker section (next key at 2 spaces or end of file)
+            worker_section_end = len(chart_content)
+
+        # Extract worker section
+        worker_section = chart_content[worker_start:worker_section_end]
+
+        # Find initContainers: in worker section
+        initcontainers_start = worker_section.find('    initContainers:')
+        if initcontainers_start == -1:
+            print(f"Warning: Could not find 'initContainers:' in worker section in {chart_file.name}")
+            return False
+
+        # Find where initContainers section ends (containers: or end of worker section)
+        initcontainers_end = worker_section.find('\n    containers:', initcontainers_start)
+        if initcontainers_end == -1:
+            initcontainers_end = len(worker_section)
+
+        # Replace the initContainers section
+        new_worker_section = (worker_section[:initcontainers_start] +
+                              initcontainers_content.rstrip() + '\n' +
+                              worker_section[initcontainers_end:])
+
+        # Replace the entire worker section in the chart content
+        chart_content = (chart_content[:worker_start] +
+                         new_worker_section +
+                         chart_content[worker_start + len(worker_section):])
+    else:
+        # Insert initContainers before containers
+        # Pattern: worker:\n    containers:
+        pattern = r'(worker:\s*\n)(\s+containers:)'
+        if not re.search(pattern, chart_content):
+            print(f"Warning: Could not find 'worker:' section in {chart_file.name}")
+            return False
         # Insert initContainers before containers
         replacement = r'\1' + initcontainers_content.rstrip() + '\n\2'
         chart_content = re.sub(pattern, replacement, chart_content)
 
-        # Remove any control characters from the entire file
-        chart_content = ''.join(c for c in chart_content if ord(c) >= 32 or c in '\n\r\t')
+    # Remove any control characters from the entire file
+    chart_content = ''.join(c for c in chart_content if ord(c) >= 32 or c in '\n\r\t')
 
-        # Write back to file
-        with open(chart_file, 'w', encoding='utf-8') as f:
-            f.write(chart_content)
+    # Write back to file
+    with open(chart_file, 'w', encoding='utf-8') as f:
+        f.write(chart_content)
 
-        print(f"✅ Restored worker.initContainers in {chart_file.name}")
-        return True
-    else:
-        print(f"Warning: Could not find 'worker:' section in {chart_file.name}")
-        return False
+    print(f"✅ Restored worker.initContainers in {chart_file.name}")
+    return True
 
 
 def main():

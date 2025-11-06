@@ -46,7 +46,7 @@ spec:
           - "--vllm-port=8001"
           - "--connector=nixlv2"
           # BackendTLSPolicy is not implemented yet so disable SSL for now
-          - "--secure-proxy=false"
+          - "--secure-proxy=true"
           # - "--cert-path=/etc/ssl/certs"
           # - "--decoder-use-tls=true"
           # - "--decoder-tls-insecure-skip-verify=true"
