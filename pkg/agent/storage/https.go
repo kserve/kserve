@@ -120,6 +120,7 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 	default:
 		paths := strings.Split(h.Uri.Path, "/")
 		fileName := paths[len(paths)-1]
+
 		fileFullName := filepath.Join(fileDirectory, fileName)
 		file, err := createNewFile(fileFullName)
 		if err != nil {
@@ -146,7 +147,25 @@ func (h *HTTPSDownloader) extractHeaders() (headers map[string]string, err error
 }
 
 func createNewFile(fileFullName string) (*os.File, error) {
+	protectedPaths := []string{"/etc", "/bin", "/dev", "/usr/bin", "/sbin", "/usr/sbin"}
 	fileFullName = filepath.Clean(fileFullName)
+
+	// Check if path starts with any protected directory
+	for _, protectedPath := range protectedPaths {
+		if strings.HasPrefix(fileFullName, protectedPath+"/") || fileFullName == protectedPath {
+			return nil, fmt.Errorf("access denied: cannot write to protected system directory %s", protectedPath)
+		}
+	}
+
+	// Reject any path containing traversal sequences upfront
+	if strings.Contains(fileFullName, "..") {
+		return nil, fmt.Errorf("path traversal detected in file path: %s", fileFullName)
+	}
+	// Reject paths that resolve to current directory or empty
+	if fileFullName == "." || fileFullName == "" {
+		return nil, fmt.Errorf("please provide the full file path. The provided path [%s] is not valid", fileFullName)
+	}
+
 	if FileExists(fileFullName) {
 		if err := os.Remove(fileFullName); err != nil {
 			return nil, fmt.Errorf("file is unable to be deleted: %w", err)
