@@ -99,6 +99,13 @@ manifests: controller-gen yq
 	mv config/crd/full/serving.kserve.io_llminferenceservices.yaml config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
 	mv config/crd/full/serving.kserve.io_llminferenceserviceconfigs.yaml config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
 	
+	# Ensure Helm chart directories exist before copying files
+	@mkdir -p charts/kserve-resources/templates/localmodel
+	@mkdir -p charts/kserve-resources/templates/localmodelnode
+	@mkdir -p charts/kserve-llmisvc-crd/templates
+	@mkdir -p charts/kserve-crd/templates
+	@mkdir -p charts/kserve-llmisvc-resources/templates
+	@mkdir -p charts/kserve-resources/templates
 	# Copy the cluster role to the helm chart
 	cp config/rbac/auth_proxy_role.yaml charts/kserve-resources/templates/clusterrole.yaml
 	cat config/rbac/role.yaml >> charts/kserve-resources/templates/clusterrole.yaml
@@ -175,9 +182,9 @@ manifests: controller-gen yq
 	# Generate llmisvc rbac
 	@$(CONTROLLER_GEN) rbac:roleName=llmisvc-manager-role paths={./pkg/controller/v1alpha1/llmisvc} output:rbac:artifacts:config=config/rbac/llmisvc
 	# Note: RBAC Helm templates are now generated via helm-generate-llmisvc target (includes bindings)
-	# Copy llmisvc crd to llmisvc-crd chart
-	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/llmisvc-crd/templates/
-	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/llmisvc-crd/templates/
+	# Copy llmisvc crd to kserve-llmisvc-crd chart
+	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/kserve-llmisvc-crd/templates/
+	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/kserve-llmisvc-crd/templates/
 	# Copy llmisvc crd to kserve-crd chart (for combined deployments)
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/kserve-crd/templates/
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/kserve-crd/templates/
@@ -194,14 +201,14 @@ helm-generate-llmisvc:
 	@echo "=========================================="
 	@mkdir -p build/helm-tmp
 
-	# Generate standalone LLMISvc from overlay (excludes CRDs - they're in llmisvc-crd chart)
+	# Generate standalone LLMISvc from overlay (excludes CRDs - they're in kserve-llmisvc-crd chart)
 	@echo "Generating standalone LLMISvc templates from Kustomize overlay..."
 	@kubectl kustomize config/overlays/llmisvc > build/helm-tmp/llmisvc.yaml
-	# Filter out CRDs (they're managed by llmisvc-crd chart)
+	# Filter out CRDs (they're managed by kserve-llmisvc-crd chart)
 	@yq eval 'select(.kind != "CustomResourceDefinition")' build/helm-tmp/llmisvc.yaml > build/helm-tmp/llmisvc-no-crds.yaml
 	@cat build/helm-tmp/llmisvc-no-crds.yaml | helmify build/helm-tmp/llmisvc-chart
 
-	# Remove CRDs from generated chart (they're managed by llmisvc-crd chart)
+	# Remove CRDs from generated chart (they're managed by kserve-llmisvc-crd chart)
 	@echo "Removing CRDs from chart templates..."
 	@rm -f build/helm-tmp/llmisvc-chart/templates/*-crd.yaml
 
@@ -217,24 +224,29 @@ helm-generate-llmisvc:
 
 	# Copy EVERYTHING to actual chart (100% automated)
 	@echo "Copying all generated templates and values..."
-	@rm -rf charts/llmisvc-resources/templates/*
-	@cp -r build/helm-tmp/llmisvc-chart/templates/* charts/llmisvc-resources/templates/
-	@cp build/helm-tmp/llmisvc-chart/values.yaml charts/llmisvc-resources/values.yaml
+	@rm -rf charts/kserve-llmisvc-resources/templates/*
+	@cp -r build/helm-tmp/llmisvc-chart/templates/* charts/kserve-llmisvc-resources/templates/
+	@cp build/helm-tmp/llmisvc-chart/values.yaml charts/kserve-llmisvc-resources/values.yaml
+	# Copy Chart.yaml if it doesn't exist, or preserve existing one
+	@if [ ! -f charts/kserve-llmisvc-resources/Chart.yaml ]; then \
+		cp build/helm-tmp/llmisvc-chart/Chart.yaml charts/kserve-llmisvc-resources/Chart.yaml; \
+		sed -i 's/name: llmisvc-chart/name: kserve-llmisvc-resources/g' charts/kserve-llmisvc-resources/Chart.yaml; \
+	fi
 	@echo "Note: Chart.yaml is preserved (contains version and metadata)"
 
 	# Fix hardcoded resource names that controllers expect
 	@echo "Fixing hardcoded resource names..."
-	@sed -i "s/name: {{ include \"llm-isvc-resources\.fullname\" \. }}-inferenceservice-config/name: inferenceservice-config/g" charts/llmisvc-resources/templates/inferenceservice-config.yaml || true
+	@sed -i "s/name: {{ include \"llm-isvc-resources\.fullname\" \. }}-inferenceservice-config/name: inferenceservice-config/g" charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml || true
 	
 	# Fix JSON field rendering (remove toYaml for JSON strings - they're already strings, use |- for multi-line strings)
 	@echo "Fixing ConfigMap data field rendering..."
-	@if [ -f charts/llmisvc-resources/templates/inferenceservice-config.yaml ]; then \
-		python3 hack/fix_inferenceservice_config_template.py charts/llmisvc-resources/templates/inferenceservice-config.yaml; \
+	@if [ -f charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml ]; then \
+		python3 hack/fix_inferenceservice_config_template.py charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml; \
 	fi
 	
 	# Fix LLMInferenceServiceConfig names (remove Helm prefix - controllers expect original names)
 	@echo "Fixing LLMInferenceServiceConfig resource names..."
-	@for file in charts/llmisvc-resources/templates/kserve-config-llm-*.yaml; do \
+	@for file in charts/kserve-llmisvc-resources/templates/kserve-config-llm-*.yaml; do \
 		if [ -f "$$file" ]; then \
 			sed -i "s/name: {{ include \"llm-isvc-resources\.fullname\" \. }}-kserve-config-llm-/name: kserve-config-llm-/g" "$$file"; \
 		fi; \
@@ -242,33 +254,33 @@ helm-generate-llmisvc:
 
 	# Fix worker.initContainers (helmify removes it - restore from Kustomize source)
 	@echo "Restoring worker.initContainers from Kustomize source..."
-	@if [ -f charts/llmisvc-resources/templates/kserve-config-llm-decode-worker-data-parallel.yaml ]; then \
+	@if [ -f charts/kserve-llmisvc-resources/templates/kserve-config-llm-decode-worker-data-parallel.yaml ]; then \
 		python3 hack/fix_worker_initcontainers.py \
-			charts/llmisvc-resources/templates/kserve-config-llm-decode-worker-data-parallel.yaml \
+			charts/kserve-llmisvc-resources/templates/kserve-config-llm-decode-worker-data-parallel.yaml \
 			build/helm-tmp/llmisvc-no-crds.yaml || true; \
 	fi
 
 	# Make inferenceservice-config conditional (only create if KServe doesn't already manage it)
 	@echo "Making inferenceservice-config conditional..."
-	@if [ -f charts/llmisvc-resources/templates/inferenceservice-config.yaml ]; then \
-		if ! grep -q "createInferenceServiceConfig" charts/llmisvc-resources/templates/inferenceservice-config.yaml; then \
-			sed -i '1s/^/{{- if and .Values.createInferenceServiceConfig (not (lookup "v1" "ConfigMap" "kserve" "inferenceservice-config")) }}\n/' charts/llmisvc-resources/templates/inferenceservice-config.yaml; \
-			echo '{{- end }}' >> charts/llmisvc-resources/templates/inferenceservice-config.yaml; \
+	@if [ -f charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml ]; then \
+		if ! grep -q "createInferenceServiceConfig" charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml; then \
+			sed -i '1s/^/{{- if and .Values.createInferenceServiceConfig (not (lookup "v1" "ConfigMap" "kserve" "inferenceservice-config")) }}\n/' charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml; \
+			echo '{{- end }}' >> charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml; \
 		fi; \
 	fi
 
 	# Ensure createInferenceServiceConfig value exists in values.yaml
-	@if ! grep -q "^createInferenceServiceConfig:" charts/llmisvc-resources/values.yaml; then \
-		sed -i '1i# Whether to create the inferenceservice-config ConfigMap\n# Set to false if KServe is already installed (KServe creates this ConfigMap)\ncreateInferenceServiceConfig: true\n' charts/llmisvc-resources/values.yaml; \
+	@if ! grep -q "^createInferenceServiceConfig:" charts/kserve-llmisvc-resources/values.yaml; then \
+		sed -i '1i# Whether to create the inferenceservice-config ConfigMap\n# Set to false if KServe is already installed (KServe creates this ConfigMap)\ncreateInferenceServiceConfig: true\n' charts/kserve-llmisvc-resources/values.yaml; \
 	fi
 
 	# Validate
 	@echo "Validating Helm chart..."
-	@helm lint charts/llmisvc-resources
-	@helm template test charts/llmisvc-resources --dry-run > /dev/null
+	@helm lint charts/kserve-llmisvc-resources
+	@helm template test charts/kserve-llmisvc-resources --dry-run > /dev/null
 
 	@echo "✅ LLMISvc Helm chart fully generated (100% automated, 0% manual)"
-	@echo "   Output: charts/llmisvc-resources/"
+	@echo "   Output: charts/kserve-llmisvc-resources/"
 
 .PHONY: helm-generate-kserve
 helm-generate-kserve:
