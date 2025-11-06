@@ -21,16 +21,28 @@
 #
 # Environment variables:
 #   USE_LOCAL_CHARTS      - Use local charts instead of OCI registry (default: false)
-#   KSERVE_VERSION        - KServe version to install (default: from kserve-deps.env)
+#   SET_KSERVE_VERSION    - KServe version to install (default: from kserve-deps.env)
 #   KSERVE_CRD_EXTRA_ARGS - Additional helm install arguments for KServe CRDs
 #   KSERVE_EXTRA_ARGS     - Additional helm install arguments for KServe resources
+#
+#   LLMISVC - Enable LLM Inference Service Controller (default: false)
+#   DEPLOYMENT_MODE - Default deployment mode
+#                     Supported values:
+#                       - Serverless (legacy, converted to Knative)
+#                       - Knative (serverless deployment with Knative)
+#                       - RawDeployment (legacy, converted to Standard)
+#                       - Standard (standard Kubernetes deployment)
+#                     Default: Knative
+#
+#   GATEWAY_NETWORK_LAYER - false, envoy, istio (default: false)
+#                           if it is not false, enableGatewayApi will be set true
 #
 # Examples:
 #   # Install from OCI registry (uses version from kserve-deps.env)
 #   ./manage.kserve-helm.sh
 #
 #   # Install specific version from OCI registry
-#   KSERVE_VERSION=v0.15.0 ./manage.kserve-helm.sh
+#   SET_KSERVE_VERSION=v0.15.0 ./manage.kserve-helm.sh
 #
 #   # Install from local charts (development)
 #   USE_LOCAL_CHARTS=true ./manage.kserve-helm.sh
@@ -65,26 +77,29 @@ KSERVE_CRD_RELEASE_NAME="kserve-crd"
 KSERVE_RELEASE_NAME="kserve"
 CRD_DIR_NAME="kserve-crd"
 CORE_DIR_NAME="kserve-resources"
-TARGET_POD_LABELS=(
-    "control-plane=kserve-controller-manager"
-    "app.kubernetes.io/name=kserve-localmodel-controller-manager"
-    "app.kubernetes.io/name=llmisvc-controller-manager"
+TARGET_DEPLOYMENT_NAMES=(
+    "kserve-controller-manager"
 )
-DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-Knative}"
+# DEPLOYMENT_MODE, GATEWAY_NETWORK_LAYER, LLMISVC, EMBED_MANIFESTS are defined in global-vars.env
 USE_LOCAL_CHARTS="${USE_LOCAL_CHARTS:-false}"
-LLMISVC="${LLMISVC:-false}"
 CHARTS_DIR="${REPO_ROOT}/charts"
-EMBED_MANIFESTS="${EMBED_MANIFESTS:-false}"
+SET_KSERVE_VERSION="${SET_KSERVE_VERSION:-}"
 # VARIABLES END
 
 # INCLUDE_IN_GENERATED_SCRIPT_START
 # Set Helm release names and target pod labels based on LLMISVC
 if [ "${LLMISVC}" = "true" ]; then
-    CRD_DIR_NAME="llmisvc-crd"
-    CORE_DIR_NAME="llmisvc-resources"
-    KSERVE_CRD_RELEASE_NAME="llmisvc-crd"
-    KSERVE_RELEASE_NAME="llmisvc"
+    log_info "LLMISVC is enabled"
+    CRD_DIR_NAME="kserve-llmisvc-crd"
+    CORE_DIR_NAME="kserve-llmisvc-resources"
+    KSERVE_CRD_RELEASE_NAME="kserve-llmisvc-crd"
+    KSERVE_RELEASE_NAME="kserve-llmisvc"
     TARGET_POD_LABELS=("control-plane=llmisvc-controller-manager")
+fi
+
+if [ "${SET_KSERVE_VERSION}" != "" ]; then
+    log_info "Setting KServe version to ${SET_KSERVE_VERSION}"
+    KSERVE_VERSION="${SET_KSERVE_VERSION}"
 fi
 # INCLUDE_IN_GENERATED_SCRIPT_END
 
@@ -103,7 +118,7 @@ uninstall() {
     else
         # Development/Helm mode
         helm uninstall "${KSERVE_RELEASE_NAME}" -n "${KSERVE_NAMESPACE}" 2>/dev/null || true
-        helm uninstall "${KSERVE_CRD_RELEASE_NAME}" -n "${KSERVE_NAMESPACE}" 2>/dev/null || true
+        helm uninstall "${KSERVE_CRD_RELEASE_NAME}" -n "${KSERVE_NAMESPACE}" --namespace "${KSERVE_NAMESPACE}" 2>/dev/null || true
     fi
 
     kubectl delete all --all -n "${KSERVE_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
@@ -138,7 +153,11 @@ install() {
         # Install KServe using local charts (for development)
         log_info "Installing KServe using local charts..."
         log_info "📍 Using local charts from ${CHARTS_DIR}/"
-
+        
+        # Update default version in values.yaml
+        log_info "Updating default version in values.yaml to ${KSERVE_VERSION}"
+        sed -i -e "s/*defaultVersion*/${KSERVE_VERSION}/g" ${CHARTS_DIR}/${CORE_DIR_NAME}/values.yaml
+            
         # Install KServe CRDs from local chart
         log_info "Installing KServe CRDs..."
         helm install "${KSERVE_CRD_RELEASE_NAME}" "${CHARTS_DIR}/${CRD_DIR_NAME}" \
@@ -183,16 +202,36 @@ install() {
         log_success "Successfully installed KServe ${KSERVE_VERSION}"
     fi
 
-    # Update deployment mode in ConfigMap if not default
-    if [ "${DEPLOYMENT_MODE}" != "Knative" ]; then
-        log_info "Configuring deployment mode: ${DEPLOYMENT_MODE}"
-        kubectl patch configmap inferenceservice-config -n "${KSERVE_NAMESPACE}" \
-            --type='merge' \
-            -p "{\"data\":{\"deploy\":\"{\\\"defaultDeploymentMode\\\":\\\"${DEPLOYMENT_MODE}\\\"}\" }}"
+    # Build list of config updates
+    local config_updates=()
+
+    # Update deployment mode if needed
+    if [ "${DEPLOYMENT_MODE}" = "Standard" ] || [ "${DEPLOYMENT_MODE}" = "RawDeployment" ]; then
+        log_info "Adding deployment mode update: ${DEPLOYMENT_MODE}"
+        config_updates+=("deploy.defaultDeploymentMode=\"${DEPLOYMENT_MODE}\"")
     fi
 
-    for label in "${TARGET_POD_LABELS[@]}"; do
-        wait_for_pods "${KSERVE_NAMESPACE}" "${label}" "300s"
+    # Enable Gateway API if needed
+    if [ "${GATEWAY_NETWORK_LAYER}" != "false" ]; then
+        log_info "Adding Gateway API updates: enableGatewayApi=true, className=${GATEWAY_NETWORK_LAYER}"
+        config_updates+=("ingress.ingressGateway.enableGatewayApi=true")
+        config_updates+=("ingress.ingressGateway.className=\"${GATEWAY_NETWORK_LAYER}\"")
+    fi
+
+    # Apply all config updates at once if there are any
+    if [ ${#config_updates[@]} -gt 0 ]; then
+        log_info "Applying ${#config_updates[@]} configuration update(s):"
+        for update in "${config_updates[@]}"; do
+            log_info "  - ${update}"
+        done
+        update_isvc_config "${config_updates[@]}"
+        kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
+    else
+        log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+    fi
+
+    for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
+        wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "300s"
     done
     log_success "KServe is ready!"
 }

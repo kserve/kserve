@@ -21,7 +21,7 @@
 #
 # Environment variables:
 #   LLMISVC - Enable LLM Inference Service Controller (default: false)
-
+#
 #   DEPLOYMENT_MODE - Default deployment mode
 #                     Supported values:
 #                       - Serverless (legacy, converted to Knative)
@@ -29,6 +29,9 @@
 #                       - RawDeployment (legacy, converted to Standard)
 #                       - Standard (standard Kubernetes deployment)
 #                     Default: Knative
+#
+#   GATEWAY_NETWORK_LAYER - false, envoy, istio (default: false)
+#                           if it is not false, ENABLE_GATEWAY_API will be set true   
 #
 # This script installs KServe directly from the local config directories
 # using kubectl kustomize for development and testing.
@@ -62,25 +65,30 @@ check_cli_exist kubectl
 
 # VARIABLES
 # KSERVE_NAMESPACE is defined in global-vars.env
-KSERVE_CRD_DIR="${REPO_ROOT}/config/crd"
+KSERVE_CRD_DIR="${REPO_ROOT}/config/crd/full"
 KSERVE_CONFIG_DIR="${REPO_ROOT}/config/default"
-TARGET_POD_LABELS=(
-    "control-plane=kserve-controller-manager"
-    "app.kubernetes.io/name=kserve-localmodel-controller-manager"
-    "app.kubernetes.io/name=llmisvc-controller-manager"
+KSERVE_OVERYLAY_DIR="${KSERVE_OVERYLAY_DIR:-}"
+TARGET_DEPLOYMENT_NAMES=(
+    "kserve-controller-manager"
+    "kserve-localmodel-controller-manager"
+    "llmisvc-controller-manager"
 )
-DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-Knative}"
-LLMISVC="${LLMISVC:-false}"
-EMBED_MANIFESTS="${EMBED_MANIFESTS:-false}"
+# DEPLOYMENT_MODE, GATEWAY_NETWORK_LAYER, LLMISVC, EMBED_MANIFESTS are defined in global-vars.env
+INSTALL_RUNTIMES="${INSTALL_RUNTIMES:-false}"
 # VARIABLES END
 
 # INCLUDE_IN_GENERATED_SCRIPT_START
 # Set CRD/Config directories and target pod labels based on LLMISVC
-if [ "${LLMISVC}" = "true" ]; then
-    KSERVE_CRD_DIR="${REPO_ROOT}/config/crd/llmisvc"
-    KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/llmisvc"
-    TARGET_POD_LABELS=("app.kubernetes.io/name=llmisvc-controller-manager")
+if [ "${KSERVE_OVERYLAY_DIR}" != "" ]; then
+    KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/${KSERVE_OVERYLAY_DIR}"
 fi
+
+if [ "${LLMISVC}" = "true" ]; then
+    KSERVE_CRD_DIR="${REPO_ROOT}/config/crd/full/llmisvc"
+    KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/llmisvc"
+    TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
+fi
+
 # INCLUDE_IN_GENERATED_SCRIPT_END
 
 uninstall() {
@@ -139,37 +147,74 @@ install() {
 
         # Install CRDs first
         log_info "Installing KServe CRDs..."
-        kustomize build "${KSERVE_CRD_DIR}" | kubectl apply --server-side -f -
+        kustomize build "${KSERVE_CRD_DIR}" | kubectl apply --server-side --force-conflicts -f -
 
-        # Wait for CRDs to be established
-        wait_for_crds "60s" \
-            "inferenceservices.serving.kserve.io" \
-            "servingruntimes.serving.kserve.io" \
-            "clusterservingruntimes.serving.kserve.io" \
-            "llminferenceservices.serving.kserve.io" \
-            "llminferenceserviceconfigs.serving.kserve.io"
-
+        # Wait for CRDs to be established       
+        if [ "${LLMISVC}" = "true" ]; then
+            wait_for_crds "60s" \
+                "llminferenceservices.serving.kserve.io" \
+                "llminferenceserviceconfigs.serving.kserve.io"
+        else
+            wait_for_crds "60s" \
+                "inferenceservices.serving.kserve.io" \
+                "servingruntimes.serving.kserve.io" \
+                "clusterservingruntimes.serving.kserve.io" \
+                "llminferenceservices.serving.kserve.io" \
+                "llminferenceserviceconfigs.serving.kserve.io"            
+        fi
         # Install resources
         log_info "Installing KServe resources..."
         kustomize build "${KSERVE_CONFIG_DIR}" | kubectl apply --server-side -f -
     fi
 
-    # Update deployment mode in ConfigMap if not default
-    if [ "${DEPLOYMENT_MODE}" != "Knative" ]; then
-        log_info "Configuring deployment mode: ${DEPLOYMENT_MODE}"
-        kubectl patch configmap inferenceservice-config -n "${KSERVE_NAMESPACE}" \
-            --type='merge' \
-            -p "{\"data\":{\"deploy\":\"{\\\"defaultDeploymentMode\\\":\\\"${DEPLOYMENT_MODE}\\\"}\" }}"
+    # Build list of config updates
+    local config_updates=()
+
+    # Update deployment mode if needed
+    if [ "${DEPLOYMENT_MODE}" = "Standard" ] || [ "${DEPLOYMENT_MODE}" = "RawDeployment" ]; then
+        log_info "Adding deployment mode update: ${DEPLOYMENT_MODE}"
+        config_updates+=("deploy.defaultDeploymentMode=\"${DEPLOYMENT_MODE}\"")
     fi
 
+    # Enable Gateway API for KServe(ISVC) if needed
+    if [ "${GATEWAY_NETWORK_LAYER}" != "false" ] && [ "${LLMISVC}" != "true" ]; then
+        log_info "Adding Gateway API updates: enableGatewayApi=true, ingressClassName=${GATEWAY_NETWORK_LAYER}"
+        config_updates+=("ingress.enableGatewayApi=true")
+        config_updates+=("ingress.ingressClassName=\"${GATEWAY_NETWORK_LAYER}\"")
+    fi
+
+    # Add custom configurations if provided
+    if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
+        log_info "Adding custom configurations: ${KSERVE_CUSTOM_ISVC_CONFIGS}"
+        IFS='|' read -ra custom_configs <<< "${KSERVE_CUSTOM_ISVC_CONFIGS}"
+        config_updates+=("${custom_configs[@]}")
+    fi
+
+    # Apply all config updates at once if there are any
+    if [ ${#config_updates[@]} -gt 0 ]; then
+        log_info "Applying ${#config_updates[@]} configuration update(s):"
+        for update in "${config_updates[@]}"; do
+            log_info "  - ${update}"
+        done
+        update_isvc_config "${config_updates[@]}"
+        if [ "${LLMISVC}" != "true" ]; then
+            kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
+        fi   
+    else
+        log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+    fi
+    
     log_success "Successfully installed KServe"
 
     # Wait for all controller managers to be ready
     log_info "Waiting for KServe controllers to be ready..."
-    for label in "${TARGET_POD_LABELS[@]}"; do
-        wait_for_pods "${KSERVE_NAMESPACE}" "${label}" "300s"
+    for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
+        wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "300s"
     done
 
+    if [ ${INSTALL_RUNTIMES} = "true" ]; then
+        kubectl apply --server-side=true -k config/runtimes
+    fi
     log_success "KServe is ready!"
 }
 
