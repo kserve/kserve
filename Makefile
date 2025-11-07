@@ -252,6 +252,13 @@ helm-generate-llmisvc: helmify yq
 	# Fix hardcoded resource names that controllers expect
 	@echo "Fixing hardcoded resource names..."
 	@sed -i "s/name: {{ include \"llm-isvc-resources\.fullname\" \. }}-inferenceservice-config/name: inferenceservice-config/g" charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml || true
+	# Fix deployment name to match Kustomize name (extracted from config files)
+	@if [ -f charts/kserve-llmisvc-resources/templates/deployment.yaml ]; then \
+		DEPLOYMENT_NAME=$$($(YQ) eval 'select(.kind == "Deployment") | .metadata.name' config/llmisvc/manager.yaml 2>/dev/null || echo ""); \
+		if [ -n "$$DEPLOYMENT_NAME" ]; then \
+			sed -i "s|name: {{ include \"llm-isvc-resources\.fullname\" \. }}-$$DEPLOYMENT_NAME|name: $$DEPLOYMENT_NAME|g" charts/kserve-llmisvc-resources/templates/deployment.yaml || true; \
+		fi; \
+	fi
 	
 	# Fix JSON field rendering (remove toYaml for JSON strings - they're already strings, use |- for multi-line strings)
 	@echo "Fixing ConfigMap data field rendering..."
@@ -355,6 +362,17 @@ helm-generate-kserve: helmify yq
 	# Fix hardcoded resource names that controllers expect
 	@echo "Fixing hardcoded resource names..."
 	@sed -i "s/name: {{ include \"kserve-resources\.fullname\" \. }}-inferenceservice-config/name: inferenceservice-config/g" charts/kserve-resources/templates/inferenceservice-config.yaml
+	# Fix deployment names to match Kustomize names (extracted from config files)
+	@if [ -f charts/kserve-resources/templates/deployment.yaml ]; then \
+		for config_file in config/manager/manager.yaml config/llmisvc/manager.yaml config/localmodels/manager.yaml; do \
+			if [ -f "$$config_file" ]; then \
+				DEPLOYMENT_NAME=$$($(YQ) eval 'select(.kind == "Deployment") | .metadata.name' "$$config_file" 2>/dev/null || echo ""); \
+				if [ -n "$$DEPLOYMENT_NAME" ]; then \
+					sed -i "s|name: {{ include \"kserve-resources\.fullname\" \. }}-$$DEPLOYMENT_NAME|name: $$DEPLOYMENT_NAME|g" charts/kserve-resources/templates/deployment.yaml || true; \
+				fi; \
+			fi; \
+		done; \
+	fi
 	
 	# Fix JSON field rendering (remove toYaml for JSON strings - they're already strings, use |- for multi-line strings)
 	@echo "Fixing ConfigMap data field rendering..."

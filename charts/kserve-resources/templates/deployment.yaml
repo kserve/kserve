@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "kserve-resources.fullname" . }}-kserve-controller-manager
+  name: kserve-controller-manager
   labels:
     control-plane: kserve-controller-manager
     controller-tools.k8s.io: "1.0"
@@ -100,7 +100,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "kserve-resources.fullname" . }}-kserve-llmisvc-controller-manager
+  name: kserve-llmisvc-controller-manager
   labels:
     app.kubernetes.io/component: controller
     control-plane: llmisvc-controller-manager
@@ -199,7 +199,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "kserve-resources.fullname" . }}-kserve-localmodel-controller-manager
+  name: kserve-localmodel-controller-manager
   labels:
     control-plane: kserve-localmodel-controller-manager
     controller-tools.k8s.io: "1.0"

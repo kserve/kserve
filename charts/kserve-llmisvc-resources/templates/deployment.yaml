@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "llm-isvc-resources.fullname" . }}-kserve-llmisvc-controller-manager
+  name: kserve-llmisvc-controller-manager
   labels:
     app.kubernetes.io/component: controller
     control-plane: llmisvc-controller-manager
