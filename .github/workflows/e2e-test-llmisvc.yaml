@@ -188,11 +188,16 @@ jobs:
           echo "✅ Gateway configuration verified!"
 
       - name: Install UV
-        run: ./test/scripts/gh-actions/setup-uv.sh
+        run: |
+          ./test/scripts/gh-actions/setup-uv.sh
+          # Add bin directory to PATH for subsequent steps
+          echo "$(pwd)/bin" >> $GITHUB_PATH
 
       - name: Install KServe Python SDK
         run: |
           echo "🐍 Installing KServe Python SDK with test dependencies..."
+          # Source common.sh to set up PATH (same as setup-kserve.sh does)
+          source hack/setup/common.sh
           pushd python/kserve >/dev/null
               uv sync --active --group test
           popd

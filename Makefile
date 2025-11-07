@@ -386,6 +386,20 @@ helm-generate-kserve: helmify yq
 			sed -i "s|name: {{ include \"kserve-resources\.fullname\" \. }}-$$METRICS_SERVICE_NAME|name: $$METRICS_SERVICE_NAME|g" charts/kserve-resources/templates/kserve-controller-manager-metrics-service.yaml || true; \
 		fi; \
 	fi
+	# Fix service account names to match Kustomize names (extracted from config files)
+	# Note: Service account names are already hardcoded in the template, but this ensures they stay correct after regeneration
+	@if [ -f charts/kserve-resources/templates/serviceaccount.yaml ]; then \
+		SA_NAMES=""; \
+		for sa_file in config/rbac/service_account.yaml config/rbac/llmisvc/service_account.yaml config/rbac/localmodel/service_account.yaml config/rbac/localmodelnode/service_account.yaml; do \
+			if [ -f "$$sa_file" ]; then \
+				SA_NAME=$$($(YQ) eval 'select(.kind == "ServiceAccount") | .metadata.name' "$$sa_file" 2>/dev/null || echo ""); \
+				if [ -n "$$SA_NAME" ]; then \
+					SA_NAMES="$$SA_NAMES $$SA_NAME"; \
+					sed -i "0,/name: {{ include \"kserve-resources\.serviceAccountName\" \. }}/s/name: {{ include \"kserve-resources\.serviceAccountName\" \. }}/name: $$SA_NAME/" charts/kserve-resources/templates/serviceaccount.yaml || true; \
+				fi; \
+			fi; \
+		done; \
+	fi
 	
 	# Fix JSON field rendering (remove toYaml for JSON strings - they're already strings, use |- for multi-line strings)
 	@echo "Fixing ConfigMap data field rendering..."
