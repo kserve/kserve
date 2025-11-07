@@ -9,7 +9,7 @@ Helm chart for deploying KServe LLMInferenceService resources
 To install the chart, run the following:
 
 ```console
-$ helm install llmisvc oci://ghcr.io/kserve/charts/llmisvc --version v0.16.0
+$ helm install kserve-llmisvc oci://ghcr.io/kserve/charts/kserve-llmisvc-resources --version v0.16.0
 ```
 
 ## Values
