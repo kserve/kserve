@@ -679,7 +679,7 @@ data:
 
   logger: |-
     {
-        "image" : "kserve/agent:",
+        "image" : "kserve/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -700,7 +700,7 @@ data:
 
   agent: |-
     {
-        "image" : "kserve/agent:",
+        "image" : "kserve/agent:latest",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
