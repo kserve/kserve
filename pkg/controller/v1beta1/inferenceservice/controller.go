@@ -411,7 +411,7 @@ func inferenceServiceReadinessFalse(status v1beta1.InferenceServiceStatus) bool 
 func inferenceServiceStatusEqual(s1, s2 v1beta1.InferenceServiceStatus, deploymentMode constants.DeploymentModeType) bool {
 	if deploymentMode == constants.ModelMeshDeployment {
 		// If the deployment mode is ModelMesh, reduce the status scope to compare.
-		// Exclude Predictor and ModelStatus which are mananged by ModelMesh controllers
+		// Exclude Predictor and ModelStatus which are managed by ModelMesh controllers
 		return equality.Semantic.DeepEqual(s1.Address, s2.Address) &&
 			equality.Semantic.DeepEqual(s1.URL, s2.URL) &&
 			equality.Semantic.DeepEqual(s1.Status, s2.Status) &&
