@@ -373,6 +373,19 @@ helm-generate-kserve: helmify yq
 			fi; \
 		done; \
 	fi
+	# Fix service names to match Kustomize names (extracted from config files)
+	@if [ -f charts/kserve-resources/templates/kserve-controller-manager-service.yaml ]; then \
+		SERVICE_NAME=$$($(YQ) eval 'select(.kind == "Service") | .metadata.name' config/manager/service.yaml 2>/dev/null || echo ""); \
+		if [ -n "$$SERVICE_NAME" ]; then \
+			sed -i "s|name: {{ include \"kserve-resources\.fullname\" \. }}-$$SERVICE_NAME|name: $$SERVICE_NAME|g" charts/kserve-resources/templates/kserve-controller-manager-service.yaml || true; \
+		fi; \
+	fi
+	@if [ -f charts/kserve-resources/templates/kserve-controller-manager-metrics-service.yaml ]; then \
+		METRICS_SERVICE_NAME=$$($(YQ) eval 'select(.kind == "Service") | .metadata.name' config/rbac/auth_proxy_service.yaml 2>/dev/null || echo ""); \
+		if [ -n "$$METRICS_SERVICE_NAME" ]; then \
+			sed -i "s|name: {{ include \"kserve-resources\.fullname\" \. }}-$$METRICS_SERVICE_NAME|name: $$METRICS_SERVICE_NAME|g" charts/kserve-resources/templates/kserve-controller-manager-metrics-service.yaml || true; \
+		fi; \
+	fi
 	
 	# Fix JSON field rendering (remove toYaml for JSON strings - they're already strings, use |- for multi-line strings)
 	@echo "Fixing ConfigMap data field rendering..."
