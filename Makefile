@@ -220,18 +220,20 @@ helm-generate-llmisvc: helmify yq
 		fi; \
 	done
 
-	# Fix worker.initContainers BEFORE copying (helmify removes it - restore from Kustomize source)
-	@echo "Restoring worker.initContainers from Kustomize source..."
-	@if [ -f build-helm/llmisvc-chart/templates/kserve-config-llm-decode-worker-data-parallel.yaml ]; then \
-		python3 hack/fix_worker_initcontainers.py \
-			build-helm/llmisvc-chart/templates/kserve-config-llm-decode-worker-data-parallel.yaml \
-			build-helm/llmisvc-no-crds.yaml || true; \
-	fi
-
 	# Copy EVERYTHING to actual chart (100% automated)
 	@echo "Copying all generated templates and values..."
 	@mkdir -p charts/kserve-llmisvc-resources/templates
 	@cp -r build-helm/llmisvc-chart/templates/* charts/kserve-llmisvc-resources/templates/
+	# Copy config-llm files directly from Kustomize source (preserves initContainers)
+	@echo "Copying config-llm files directly from Kustomize source..."
+	@for file in config/llmisvcconfig/config-llm-*.yaml; do \
+		if [ -f "$$file" ]; then \
+			cp "$$file" charts/kserve-llmisvc-resources/templates/kserve-$$(basename "$$file"); \
+		fi; \
+	done
+	# Escape Go templates in config-llm files (they contain KServe runtime templates)
+	@echo "Escaping Go templates in config-llm files..."
+	@./hack/escape_helm_templates.py charts/kserve-llmisvc-resources/templates/kserve-config-llm-*.yaml
 	# Fix helmify output: ensure {{- if }} syntax is correct (helmify sometimes generates {{ if instead of {{- if)
 	@for file in charts/kserve-llmisvc-resources/templates/*.yaml; do \
 		if [ -f "$$file" ]; then \
@@ -316,19 +318,21 @@ helm-generate-kserve: helmify yq
 		fi; \
 	done
 
-	# Fix worker.initContainers BEFORE copying (helmify removes it - restore from Kustomize source)
-	@echo "Restoring worker.initContainers from Kustomize source..."
-	@if [ -f build-helm/kserve-chart/templates/kserve-config-llm-decode-worker-data-parallel.yaml ]; then \
-		python3 hack/fix_worker_initcontainers.py \
-			build-helm/kserve-chart/templates/kserve-config-llm-decode-worker-data-parallel.yaml \
-			build-helm/kserve-all-no-crds.yaml || true; \
-	fi
-
 	# Copy EVERYTHING to actual chart (100% automated)
 	@echo "Copying all generated templates and values..."
 	@mkdir -p charts/kserve-resources/templates/localmodel
 	@mkdir -p charts/kserve-resources/templates/localmodelnode
 	@cp -r build-helm/kserve-chart/templates/* charts/kserve-resources/templates/
+	# Copy config-llm files directly from Kustomize source (preserves initContainers)
+	@echo "Copying config-llm files directly from Kustomize source..."
+	@for file in config/llmisvcconfig/config-llm-*.yaml; do \
+		if [ -f "$$file" ]; then \
+			cp "$$file" charts/kserve-resources/templates/kserve-$$(basename "$$file"); \
+		fi; \
+	done
+	# Escape Go templates in config-llm files (they contain KServe runtime templates)
+	@echo "Escaping Go templates in config-llm files..."
+	@./hack/escape_helm_templates.py charts/kserve-resources/templates/kserve-config-llm-*.yaml
 	# Fix helmify output: ensure {{- if }} syntax is correct (helmify sometimes generates {{ if instead of {{- if)
 	@for file in charts/kserve-resources/templates/*.yaml; do \
 		if [ -f "$$file" ]; then \
