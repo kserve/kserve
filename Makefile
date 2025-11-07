@@ -567,7 +567,7 @@ deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 	kubectl apply --server-side=true -k config/overlays/dev-image-config
 	
-deploy-helm: manifests
+deploy-helm: manifests helm-generate-kserve
 	USE_LOCAL_CHARTS=true ./hack/setup/infra/manage.kserve-helm.sh
 
 undeploy:
