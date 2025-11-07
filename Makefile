@@ -385,6 +385,8 @@ helm-generate-kserve: helmify yq
 
 	@echo "✅ KServe Helm chart fully generated (includes LLMISvc, 100% automated, 0% manual)"
 	@echo "   Output: charts/kserve-resources/"
+    # Copy Test inferenceconfig configmap to test overlay
+	cp config/configmap/inferenceservice.yaml config/overlays/test/configmap/inferenceservice.yaml
 
 # Generate code
 generate: controller-gen helm-docs manifests
@@ -515,21 +517,9 @@ deploy-dev-huggingface: docker-push-huggingface
 deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 	kubectl apply --server-side=true -k config/overlays/dev-image-config
-
-deploy-ci: manifests
-	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
-	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
-	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
-	kubectl apply --server-side=true --force-conflicts -k config/crd
-	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
-	kubectl apply --server-side=true -k config/overlays/test
-	# TODO: Add runtimes as part of default deployment
-	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kubectl apply --server-side=true -k config/overlays/test/clusterresources
-
+	
 deploy-helm: manifests
-	helm install kserve-crd charts/kserve-crd/ --wait --timeout 180s
-	helm install kserve charts/kserve-resources/ --wait --timeout 180s -n kserve --create-namespace
+	USE_LOCAL_CHARTS=true ./hack/setup/infra/manage.kserve-helm.sh
 
 undeploy:
 	kubectl delete -k config/default
