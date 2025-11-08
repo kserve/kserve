@@ -94,7 +94,7 @@ if [ "${LLMISVC}" = "true" ]; then
     CORE_DIR_NAME="kserve-llmisvc-resources"
     KSERVE_CRD_RELEASE_NAME="kserve-llmisvc-crd"
     KSERVE_RELEASE_NAME="kserve-llmisvc"
-    TARGET_POD_LABELS=("control-plane=llmisvc-controller-manager")
+    TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
 fi
 
 if [ "${SET_KSERVE_VERSION}" != "" ]; then
