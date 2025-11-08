@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Optional
 
 # Import our modules
+from pkg import bash_parser
 from pkg import component_processor
 from pkg import definition_parser
 from pkg import file_reader
@@ -58,11 +59,48 @@ def generate_script(definition_file: Path, output_dir: Path):
     script_dir = Path(__file__).parent
     setup_dir = script_dir.parent.parent  # scripts/install-script-generator -> scripts -> setup
     infra_dir = setup_dir / "infra"
+    cli_dir = setup_dir / "cli"
     repo_root = file_reader.find_git_root(script_dir)
 
     # Process all components
     logger.log_info("Discovering components...")
     components = []
+
+    # Process tools first (CLI scripts)
+    if config["tools"]:
+        logger.log_info("Processing tools...")
+        for tool in config["tools"]:
+            logger.log_info(f"  Processing tool: {tool}")
+            tool_script = cli_dir / f"install-{tool}.sh"
+            if not tool_script.exists():
+                logger.log_warning(f"    → Tool script not found: {tool_script}")
+                continue
+
+            # Extract install function
+            install_raw = bash_parser.extract_bash_function(tool_script, "install")
+            if not install_raw:
+                logger.log_warning(f"    → install() function not found in {tool_script}")
+                continue
+
+            # Rename function
+            func_name = f"install_{tool.replace('-', '_')}"
+            install_code = bash_parser.rename_bash_function(install_raw, "install", func_name)
+
+            # Create component-like structure
+            tool_comp = {
+                "name": tool,
+                "install_func": func_name,
+                "uninstall_func": "",  # Tools don't have uninstall
+                "install_code": install_code,
+                "uninstall_code": "",
+                "variables": [],
+                "include_section": [],
+                "env": {}
+            }
+            logger.log_info(f"    → {func_name}()")
+            components.append(tool_comp)
+
+    # Process components
     for comp_config in config["components"]:
         logger.log_info(f"  Processing: {comp_config['name']}")
         comp = component_processor.process_component(comp_config, infra_dir, config["method"])
