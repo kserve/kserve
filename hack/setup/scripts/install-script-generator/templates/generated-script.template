@@ -67,8 +67,8 @@ set_env_with_priority() {
 # Determine repository root using find_repo_root
 #================================================
 
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
-REPO_ROOT="$(find_repo_root "${SCRIPT_DIR}")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
+REPO_ROOT="$(find_repo_root "${SCRIPT_DIR}" "true")"
 export REPO_ROOT
 export BIN_DIR="${REPO_ROOT}/bin"
 export PATH="${BIN_DIR}:${PATH}"
@@ -136,8 +136,6 @@ main() {
     echo "=========================================="
 
 {{DEFINITION_GLOBAL_ENV}}
-
-{{TOOL_INSTALL_CALLS}}
 
 {{INSTALL_CALLS}}
 

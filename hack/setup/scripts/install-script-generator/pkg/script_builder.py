@@ -78,7 +78,7 @@ def build_component_functions(components: list[dict[str, Any]]) -> str:
     component_functions = ""
     for comp in components:
         component_functions += f'''# ----------------------------------------
-# Component: {comp["name"]}
+# CLI/Component: {comp["name"]}
 # ----------------------------------------
 
 {comp["uninstall_code"]}
@@ -105,30 +105,6 @@ def build_definition_global_env(global_env: dict[str, str]) -> str:
 
     env_lines = [f'    export {k}="${{{k}:-{v}}}"' for k, v in global_env.items()]
     return "\n".join(env_lines)
-
-
-def build_tool_install_calls(tools: list[str], repo_root: Path) -> str:
-    """Build tool installation calls section.
-
-    Args:
-        tools: List of tool names
-        repo_root: Repository root path
-
-    Returns:
-        Tool installation bash code
-    """
-    if not tools:
-        return ""
-
-    cli_dir = repo_root / "hack/setup/cli"
-    lines = []
-    for tool in tools:
-        tool_script = cli_dir / f"install-{tool}.sh"
-        if tool_script.exists():
-            lines.append(f'    bash "${{REPO_ROOT}}/hack/setup/cli/install-{tool}.sh"')
-        else:
-            lines.append(f'    log_warning "Tool installation script not found: install-{tool}.sh"')
-    return "\n".join(lines)
 
 
 def build_install_calls(components: list[dict[str, Any]],
@@ -245,7 +221,6 @@ def generate_script_content(definition_file: Path,
     component_variables = build_component_variables(components, config["global_env"])
     component_functions = build_component_functions(components)
     definition_global_env = build_definition_global_env(config["global_env"])
-    tool_install_calls = build_tool_install_calls(config["tools"], repo_root)
     install_calls_str = build_install_calls(components, config["global_env"], config["embed_manifests"])
     uninstall_calls = build_uninstall_calls(components, config["embed_manifests"])
 
@@ -269,7 +244,6 @@ def generate_script_content(definition_file: Path,
         "KSERVE_MANIFEST_FUNCTIONS": kserve_manifest_functions,
         "COMPONENT_FUNCTIONS": component_functions,
         "DEFINITION_GLOBAL_ENV": definition_global_env,
-        "TOOL_INSTALL_CALLS": tool_install_calls,
         "UNINSTALL_CALLS": uninstall_calls,
         "INSTALL_CALLS": install_calls_str,
     }

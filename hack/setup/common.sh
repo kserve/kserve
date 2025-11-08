@@ -24,6 +24,7 @@ set -o pipefail
 
 find_repo_root() {
     local current_dir="${1:-$(pwd)}"
+    local skip="${2:-false}"
 
     while [[ "$current_dir" != "/" ]]; do
         if [[ -d "${current_dir}/.git" ]]; then
@@ -33,8 +34,15 @@ find_repo_root() {
         current_dir="$(dirname "$current_dir")"
     done
 
-    echo "Error: Could not find git repository root" >&2
-    exit 1
+    # Git repository not found
+    if [[ "$skip" == "true" ]]; then
+        log_warning "Could not find git repository root, using current directory: $PWD"
+        echo "$PWD"
+        return 0
+    else
+        echo "Error: Could not find git repository root" >&2
+        exit 1
+    fi
 }
 
 ensure_dir() {

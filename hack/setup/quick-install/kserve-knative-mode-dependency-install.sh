@@ -37,6 +37,7 @@ set -o pipefail
 
 find_repo_root() {
     local current_dir="${1:-$(pwd)}"
+    local skip="${2:-false}"
 
     while [[ "$current_dir" != "/" ]]; do
         if [[ -d "${current_dir}/.git" ]]; then
@@ -46,8 +47,15 @@ find_repo_root() {
         current_dir="$(dirname "$current_dir")"
     done
 
-    echo "Error: Could not find git repository root" >&2
-    exit 1
+    # Git repository not found
+    if [[ "$skip" == "true" ]]; then
+        log_warning "Could not find git repository root, using current directory: $PWD"
+        echo "$PWD"
+        return 0
+    else
+        echo "Error: Could not find git repository root" >&2
+        exit 1
+    fi
 }
 
 ensure_dir() {
@@ -451,8 +459,8 @@ set_env_with_priority() {
 # Determine repository root using find_repo_root
 #================================================
 
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
-REPO_ROOT="$(find_repo_root "${SCRIPT_DIR}")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
+REPO_ROOT="$(find_repo_root "${SCRIPT_DIR}" "true")"
 export REPO_ROOT
 export BIN_DIR="${REPO_ROOT}/bin"
 export PATH="${BIN_DIR}:${PATH}"
@@ -533,7 +541,176 @@ OTEL_RELEASE_NAME="my-opentelemetry-operator"
 #================================================
 
 # ----------------------------------------
-# Component: cert-manager
+# CLI/Component: helm
+# ----------------------------------------
+
+
+
+install_helm() {
+    local os=$(detect_os)
+    local arch=$(detect_arch)
+    local archive_name="helm-${HELM_VERSION}-${os}-${arch}.tar.gz"
+    local download_url="https://get.helm.sh/${archive_name}"
+
+    log_info "Installing Helm ${HELM_VERSION} for ${os}/${arch}..."
+
+    if command -v helm &>/dev/null; then
+        local current_version=$(helm version --template='{{.Version}}' 2>/dev/null)
+        if [[ -n "$current_version" ]] && version_gte "$current_version" "$HELM_VERSION"; then
+            log_info "Helm ${current_version} is already installed (>= ${HELM_VERSION})"
+            return 0
+        fi
+        [[ -n "$current_version" ]] && log_info "Upgrading Helm from ${current_version} to ${HELM_VERSION}..."
+    fi
+
+    local temp_dir=$(mktemp -d)
+    local temp_file="${temp_dir}/${archive_name}"
+
+    if command -v wget &>/dev/null; then
+        wget -q "${download_url}" -O "${temp_file}"
+    elif command -v curl &>/dev/null; then
+        curl -sL "${download_url}" -o "${temp_file}"
+    else
+        log_error "Neither wget nor curl is available" >&2
+        rm -rf "${temp_dir}"
+        exit 1
+    fi
+
+    tar -xzf "${temp_file}" -C "${temp_dir}"
+
+    local binary_path="${temp_dir}/${os}-${arch}/helm"
+
+    if [[ ! -f "${binary_path}" ]]; then
+        log_error "helm binary not found in archive" >&2
+        rm -rf "${temp_dir}"
+        exit 1
+    fi
+
+    chmod +x "${binary_path}"
+
+    if [[ -w "${BIN_DIR}" ]]; then
+        mv "${binary_path}" "${BIN_DIR}/helm"
+    else
+        sudo mv "${binary_path}" "${BIN_DIR}/helm"
+    fi
+
+    rm -rf "${temp_dir}"
+
+    log_success "Successfully installed Helm ${HELM_VERSION} to ${BIN_DIR}/helm"
+    helm version
+}
+
+# ----------------------------------------
+# CLI/Component: kustomize
+# ----------------------------------------
+
+
+
+install_kustomize() {
+    local os=$(detect_os)
+    local arch=$(detect_arch)
+    local archive_name="kustomize_${KUSTOMIZE_VERSION}_${os}_${arch}.tar.gz"
+    local download_url="https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/${archive_name}"
+
+    log_info "Installing Kustomize ${KUSTOMIZE_VERSION} for ${os}/${arch}..."
+
+    if command -v kustomize &>/dev/null; then
+        local current_version=$(kustomize version --short 2>/dev/null | grep -oP 'v[0-9.]+')
+        if [[ -n "$current_version" ]] && version_gte "$current_version" "$KUSTOMIZE_VERSION"; then
+            log_info "Kustomize ${current_version} is already installed (>= ${KUSTOMIZE_VERSION})"
+            return 0
+        fi
+        [[ -n "$current_version" ]] && log_info "Upgrading Kustomize from ${current_version} to ${KUSTOMIZE_VERSION}..."
+    fi
+
+    local temp_dir=$(mktemp -d)
+    local temp_file="${temp_dir}/${archive_name}"
+
+    if command -v wget &>/dev/null; then
+        wget -q "${download_url}" -O "${temp_file}"
+    elif command -v curl &>/dev/null; then
+        curl -sL "${download_url}" -o "${temp_file}"
+    else
+        log_error "Neither wget nor curl is available" >&2
+        rm -rf "${temp_dir}"
+        exit 1
+    fi
+
+    tar -xzf "${temp_file}" -C "${temp_dir}"
+
+    local binary_path="${temp_dir}/kustomize"
+
+    if [[ ! -f "${binary_path}" ]]; then
+        log_error "kustomize binary not found in archive" >&2
+        rm -rf "${temp_dir}"
+        exit 1
+    fi
+
+    chmod +x "${binary_path}"
+
+    if [[ -w "${BIN_DIR}" ]]; then
+        mv "${binary_path}" "${BIN_DIR}/kustomize"
+    else
+        sudo mv "${binary_path}" "${BIN_DIR}/kustomize"
+    fi
+
+    rm -rf "${temp_dir}"
+
+    log_success "Successfully installed Kustomize ${KUSTOMIZE_VERSION} to ${BIN_DIR}/kustomize"
+    kustomize version
+}
+
+# ----------------------------------------
+# CLI/Component: yq
+# ----------------------------------------
+
+
+
+install_yq() {
+    local os=$(detect_os)
+    local arch=$(detect_arch)
+    local binary_name="yq_${os}_${arch}"
+    local download_url="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/${binary_name}"
+
+    log_info "Installing yq ${YQ_VERSION} for ${os}/${arch}..."
+
+    if command -v yq &>/dev/null; then
+        local current_version=$(yq --version 2>&1 | grep -oP 'version \K[v0-9.]+')
+        # Normalize version format (add 'v' prefix if missing)
+        [[ -n "$current_version" && "$current_version" != v* ]] && current_version="v${current_version}"
+        if [[ -n "$current_version" ]] && version_gte "$current_version" "$YQ_VERSION"; then
+            log_info "yq ${current_version} is already installed (>= ${YQ_VERSION})"
+            return 0
+        fi
+        [[ -n "$current_version" ]] && log_info "Upgrading yq from ${current_version} to ${YQ_VERSION}..."
+    fi
+
+    local temp_file=$(mktemp)
+
+    if command -v wget &>/dev/null; then
+        wget -q "${download_url}" -O "${temp_file}"
+    elif command -v curl &>/dev/null; then
+        curl -sL "${download_url}" -o "${temp_file}"
+    else
+        log_info "Neither wget nor curl is available" >&2
+        rm -f "${temp_file}"
+        exit 1
+    fi
+
+    chmod +x "${temp_file}"
+
+    if [[ -w "${BIN_DIR}" ]]; then
+        mv "${temp_file}" "${BIN_DIR}/yq"
+    else
+        sudo mv "${temp_file}" "${BIN_DIR}/yq"
+    fi
+
+    log_success "Successfully installed yq ${YQ_VERSION} to ${BIN_DIR}/yq"
+    yq --version
+}
+
+# ----------------------------------------
+# CLI/Component: cert-manager
 # ----------------------------------------
 
 uninstall_cert_manager() {
@@ -575,7 +752,7 @@ install_cert_manager() {
 }
 
 # ----------------------------------------
-# Component: istio
+# CLI/Component: istio
 # ----------------------------------------
 
 uninstall_istio() {
@@ -636,7 +813,7 @@ install_istio() {
 }
 
 # ----------------------------------------
-# Component: istio-ingress-class
+# CLI/Component: istio-ingress-class
 # ----------------------------------------
 
 uninstall_istio_ingress_class() {
@@ -670,7 +847,7 @@ EOF
 }
 
 # ----------------------------------------
-# Component: keda
+# CLI/Component: keda
 # ----------------------------------------
 
 uninstall_keda() {
@@ -714,7 +891,7 @@ install_keda() {
 }
 
 # ----------------------------------------
-# Component: keda-otel-addon
+# CLI/Component: keda-otel-addon
 # ----------------------------------------
 
 uninstall_keda_otel_addon() {
@@ -755,7 +932,7 @@ install_keda_otel_addon() {
 }
 
 # ----------------------------------------
-# Component: opentelemetry
+# CLI/Component: opentelemetry
 # ----------------------------------------
 
 uninstall_opentelemetry() {
@@ -811,6 +988,9 @@ main() {
         uninstall_istio_ingress_class
         uninstall_istio
         uninstall_cert_manager
+        
+        
+        
         echo "=========================================="
         echo "✅ Uninstallation completed!"
         echo "=========================================="
@@ -823,10 +1003,9 @@ main() {
 
 
 
-    bash "${REPO_ROOT}/hack/setup/cli/install-helm.sh"
-    bash "${REPO_ROOT}/hack/setup/cli/install-kustomize.sh"
-    bash "${REPO_ROOT}/hack/setup/cli/install-yq.sh"
-
+    install_helm
+    install_kustomize
+    install_yq
     install_cert_manager
     install_istio
     install_istio_ingress_class
