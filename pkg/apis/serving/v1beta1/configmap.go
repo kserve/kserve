@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -113,23 +114,31 @@ type MultiNodeConfig struct {
 }
 
 // +kubebuilder:object:generate=false
+type IngressTLSItem struct {
+	Hosts      []string `json:"hosts"`
+	SecretName string   `json:"secretName"`
+}
+
+// +kubebuilder:object:generate=false
 type IngressConfig struct {
-	EnableGatewayAPI             bool      `json:"enableGatewayApi,omitempty"`
-	KserveIngressGateway         string    `json:"kserveIngressGateway,omitempty"`
-	IngressGateway               string    `json:"ingressGateway,omitempty"`
-	KnativeLocalGatewayService   string    `json:"knativeLocalGatewayService,omitempty"`
-	LocalGateway                 string    `json:"localGateway,omitempty"`
-	LocalGatewayServiceName      string    `json:"localGatewayService,omitempty"`
-	IngressDomain                string    `json:"ingressDomain,omitempty"`
-	IngressClassName             *string   `json:"ingressClassName,omitempty"`
-	AdditionalIngressDomains     *[]string `json:"additionalIngressDomains,omitempty"`
-	DomainTemplate               string    `json:"domainTemplate,omitempty"`
-	UrlScheme                    string    `json:"urlScheme,omitempty"`
-	EnableLLMInferenceServiceTLS bool      `json:"enableLLMInferenceServiceTLS,omitempty"`
-	DisableIstioVirtualHost      bool      `json:"disableIstioVirtualHost,omitempty"`
-	PathTemplate                 string    `json:"pathTemplate,omitempty"`
-	DisableIngressCreation       bool      `json:"disableIngressCreation,omitempty"`
-	DisableHTTPRouteTimeout      bool      `json:"disableHTTPRouteTimeout,omitempty"`
+	EnableGatewayAPI             bool              `json:"enableGatewayApi,omitempty"`
+	KserveIngressGateway         string            `json:"kserveIngressGateway,omitempty"`
+	IngressGateway               string            `json:"ingressGateway,omitempty"`
+	KnativeLocalGatewayService   string            `json:"knativeLocalGatewayService,omitempty"`
+	LocalGateway                 string            `json:"localGateway,omitempty"`
+	LocalGatewayServiceName      string            `json:"localGatewayService,omitempty"`
+	IngressDomain                string            `json:"ingressDomain,omitempty"`
+	IngressClassName             *string           `json:"ingressClassName,omitempty"`
+	AdditionalIngressDomains     *[]string         `json:"additionalIngressDomains,omitempty"`
+	DomainTemplate               string            `json:"domainTemplate,omitempty"`
+	UrlScheme                    string            `json:"urlScheme,omitempty"`
+	EnableLLMInferenceServiceTLS bool              `json:"enableLLMInferenceServiceTLS,omitempty"`
+	DisableIstioVirtualHost      bool              `json:"disableIstioVirtualHost,omitempty"`
+	PathTemplate                 string            `json:"pathTemplate,omitempty"`
+	DisableIngressCreation       bool              `json:"disableIngressCreation,omitempty"`
+	DisableHTTPRouteTimeout      bool              `json:"disableHTTPRouteTimeout,omitempty"`
+	AnnotationsTemplate          map[string]string `json:"annotationsTemplate,omitempty"`
+	TLSTemplate                  []IngressTLSItem  `json:"tlsTemplate,omitempty"`
 
 	ModelBasedRoutingHeaderName string `json:"modelBasedRoutingHeaderName,omitempty"`
 	ModelBasedRoutingMode       string `json:"modelBasedRoutingMode,omitempty"`
@@ -187,6 +196,27 @@ type ServiceConfig struct {
 	// ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None.
 	// If the DeploymentMode is Raw, the default value for ServiceClusterIPNone is false when the value is absent.
 	ServiceClusterIPNone bool `json:"serviceClusterIPNone,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type TemplateCtx struct {
+	Name          string
+	Namespace     string
+	IngressDomain string
+	Labels        map[string]string
+	Annotations   map[string]string
+}
+
+func RenderStringTemplate(tmpl string, ctx TemplateCtx) (string, error) {
+	t, err := template.New("kserve").Parse(tmpl)
+	if err != nil {
+		return "", err
+	}
+	var b bytes.Buffer
+	if err := t.Execute(&b, ctx); err != nil {
+		return "", err
+	}
+	return b.String(), nil
 }
 
 func GetInferenceServiceConfigMap(ctx context.Context, clientset kubernetes.Interface) (*corev1.ConfigMap, error) {
