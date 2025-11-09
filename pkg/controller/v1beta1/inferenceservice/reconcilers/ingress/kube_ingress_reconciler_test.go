@@ -20,14 +20,13 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
 	"knative.dev/pkg/apis"
 
-	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 func makeScheme(t *testing.T) *runtime.Scheme {
@@ -200,5 +199,5 @@ func TestCreateRawIngress_DoesNotChangeClassName(t *testing.T) {
 	if ing.Spec.IngressClassName == nil || *ing.Spec.IngressClassName != "nginx" {
 		t.Fatalf("IngressClassName changed or missing; got %#v", ing.Spec.IngressClassName)
 	}
-	_ = []netv1.IngressTLS(ing.Spec.TLS) // type sanity
+	_ = ing.Spec.TLS
 }

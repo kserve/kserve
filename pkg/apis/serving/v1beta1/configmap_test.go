@@ -202,7 +202,7 @@ func TestNewIngressConfig(t *testing.T) {
 		)
 
 		g.Expect(cfg.TLSTemplate).ToNot(gomega.BeNil())
-		g.Expect(len(cfg.TLSTemplate)).To(gomega.Equal(1))
+		g.Expect(cfg.TLSTemplate).To(gomega.HaveLen(1))
 		g.Expect(cfg.TLSTemplate[0].Hosts[0]).To(gomega.Equal("{{ .Name }}.{{ .Namespace }}.example.com"))
 		g.Expect(cfg.TLSTemplate[0].SecretName).To(gomega.Equal("tls-{{ .Namespace }}"))
 	})
