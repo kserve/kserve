@@ -82,6 +82,7 @@ func readyISVC(name, ns string) *v1beta1.InferenceService {
 }
 
 func baseIngressConfig() *v1beta1.IngressConfig {
+	class := "nginx"
 	return &v1beta1.IngressConfig{
 		KserveIngressGateway:       "kserve/kserve-ingress-gateway",
 		IngressGateway:             "knative-serving/knative-ingress-gateway",
@@ -90,6 +91,8 @@ func baseIngressConfig() *v1beta1.IngressConfig {
 		LocalGatewayServiceName:    "knative-local-gateway",
 		IngressDomain:              "example.com",
 		UrlScheme:                  "https",
+		IngressClassName:           &class,
+		DomainTemplate:             "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}",
 	}
 }
 

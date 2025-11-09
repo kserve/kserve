@@ -198,14 +198,33 @@ func TestNewIngressConfig(t *testing.T) {
 
 		g.Expect(cfg.AnnotationsTemplate).ToNot(gomega.BeNil())
 		g.Expect(cfg.AnnotationsTemplate["external-dns.alpha.kubernetes.io/hostname"]).To(
-			gomega.Equal("{{ .Name }}.{{ .Namespace }}.example.com"),
+			gomega.Equal("{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}"),
 		)
 
 		g.Expect(cfg.TLSTemplate).ToNot(gomega.BeNil())
 		g.Expect(cfg.TLSTemplate).To(gomega.HaveLen(1))
-		g.Expect(cfg.TLSTemplate[0].Hosts[0]).To(gomega.Equal("{{ .Name }}.{{ .Namespace }}.example.com"))
-		g.Expect(cfg.TLSTemplate[0].SecretName).To(gomega.Equal("tls-{{ .Namespace }}"))
+		g.Expect(cfg.TLSTemplate[0].Hosts[0]).To(gomega.Equal("{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}"))
+		g.Expect(cfg.TLSTemplate[0].SecretName).To(gomega.Equal("tls-{{ .Name }}"))
 	})
+}
+
+func TestRenderStringTemplate_WithIngressDomain(t *testing.T) {
+	ctx := TemplateCtx{
+		Name:          "model-name",
+		Namespace:     "models",
+		IngressDomain: "example.com",
+		Labels:        map[string]string{},
+		Annotations:   map[string]string{},
+	}
+
+	out, err := RenderStringTemplate("{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}", ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := "model-name.models.example.com"
+	if out != want {
+		t.Fatalf("render mismatch: got %q want %q", out, want)
+	}
 }
 
 func TestNewIngressConfigDefaultKnativeService(t *testing.T) {
