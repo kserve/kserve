@@ -495,13 +495,13 @@ func validateDeploymentMode(newIsvc *InferenceService, oldIsvc *InferenceService
 		return nil
 	}
 
-	rawStatusDeploymentMode := oldIsvc.Status.DeploymentMode
-	statusDeploymentMode := normalizeDeploymentMode(rawStatusDeploymentMode)
-	if len(statusDeploymentMode) != 0 {
+	originalDeploymentMode := oldIsvc.Status.DeploymentMode
+	deploymentMode := normalizeDeploymentMode(originalDeploymentMode)
+	if len(deploymentMode) != 0 {
 		annotations := newIsvc.Annotations
 		annotationDeploymentMode, ok := annotations[constants.DeploymentMode]
-		if ok && normalizeDeploymentMode(annotationDeploymentMode) != statusDeploymentMode {
-			return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", rawStatusDeploymentMode, annotationDeploymentMode)
+		if ok && normalizeDeploymentMode(annotationDeploymentMode) != deploymentMode {
+			return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", originalDeploymentMode, annotationDeploymentMode)
 		}
 	}
 	return nil
