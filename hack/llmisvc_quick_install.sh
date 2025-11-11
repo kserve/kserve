@@ -48,8 +48,8 @@ uninstall() {
    kubectl delete --ignore-not-found=true gatewayclass envoy
 
    # Uninstall LLMISvc
-   helm uninstall --ignore-not-found llmisvc -n kserve
-   helm uninstall --ignore-not-found llmisvc-crd -n kserve
+   helm uninstall --ignore-not-found kserve-llmisvc -n kserve
+   helm uninstall --ignore-not-found kserve-llmisvc-crd -n kserve
    echo "😀 Successfully uninstalled LLMISvc"
 
 
