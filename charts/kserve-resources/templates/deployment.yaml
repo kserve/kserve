@@ -184,7 +184,7 @@ spec:
         8 }}
       securityContext: {{- toYaml .Values.kserveLlmisvcControllerManager.podSecurityContext
         | nindent 8 }}
-      serviceAccountName: {{ include "kserve-resources.serviceAccountName" . }}
+      serviceAccountName: llmisvc-controller-manager
       terminationGracePeriodSeconds: 30
       tolerations: {{- toYaml .Values.kserveLlmisvcControllerManager.tolerations | nindent
         8 }}
@@ -244,7 +244,7 @@ spec:
         nindent 8 }}
       securityContext: {{- toYaml .Values.kserveLocalmodelControllerManager.podSecurityContext
         | nindent 8 }}
-      serviceAccountName: {{ include "kserve-resources.serviceAccountName" . }}
+      serviceAccountName: kserve-localmodel-controller-manager
       terminationGracePeriodSeconds: 10
       tolerations: {{- toYaml .Values.kserveLocalmodelControllerManager.tolerations | nindent
         8 }}

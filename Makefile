@@ -400,6 +400,50 @@ helm-generate-kserve: helmify yq
 			fi; \
 		done; \
 	fi
+	# Fix service account names in all template files to match Kustomize names (extracted from manager.yaml files)
+	# Find all files with the template function and replace based on the deployment/daemonset name
+	@echo "Fixing service account names in template files..."
+	@for template_file in charts/kserve-resources/templates/*.yaml; do \
+		if [ -f "$$template_file" ] && grep -q "serviceAccountName: {{ include \"kserve-resources\.serviceAccountName\" \. }}" "$$template_file" 2>/dev/null; then \
+			for dep_name in kserve-controller-manager kserve-llmisvc-controller-manager kserve-localmodel-controller-manager kserve-localmodelnode-agent; do \
+				if grep -q "name: $$dep_name" "$$template_file" 2>/dev/null; then \
+					MANAGER_FILE=""; \
+					case "$$dep_name" in \
+						kserve-controller-manager) \
+							MANAGER_FILE="config/manager/manager.yaml" ;; \
+						kserve-llmisvc-controller-manager) \
+							MANAGER_FILE="config/llmisvc/manager.yaml" ;; \
+						kserve-localmodel-controller-manager) \
+							MANAGER_FILE="config/localmodels/manager.yaml" ;; \
+						kserve-localmodelnode-agent) \
+							MANAGER_FILE="config/localmodelnodes/manager.yaml" ;; \
+					esac; \
+					if [ -n "$$MANAGER_FILE" ] && [ -f "$$MANAGER_FILE" ]; then \
+						SA_NAME=$$($(YQ) eval '.spec.template.spec.serviceAccountName' "$$MANAGER_FILE" 2>/dev/null || echo ""); \
+						if [ -z "$$SA_NAME" ] || echo "$$SA_NAME" | grep -q '\$$'; then \
+							case "$$MANAGER_FILE" in \
+								config/manager/manager.yaml) \
+									SA_FILE="config/rbac/service_account.yaml" ;; \
+								config/llmisvc/manager.yaml) \
+									SA_FILE="config/rbac/llmisvc/service_account.yaml" ;; \
+								config/localmodels/manager.yaml) \
+									SA_FILE="config/rbac/localmodel/service_account.yaml" ;; \
+								config/localmodelnodes/manager.yaml) \
+									SA_FILE="config/rbac/localmodelnode/service_account.yaml" ;; \
+							esac; \
+							if [ -n "$$SA_FILE" ] && [ -f "$$SA_FILE" ]; then \
+								SA_NAME=$$($(YQ) eval 'select(.kind == "ServiceAccount") | .metadata.name' "$$SA_FILE" 2>/dev/null || echo ""); \
+							fi; \
+						fi; \
+						if [ -n "$$SA_NAME" ]; then \
+							sed -i "/^  name: $$dep_name$$/,/^      serviceAccountName:/s|serviceAccountName: {{ include \"kserve-resources\.serviceAccountName\" \. }}|serviceAccountName: $$SA_NAME|" "$$template_file" || true; \
+							echo "  Fixed $$(basename $$template_file): $$dep_name -> $$SA_NAME"; \
+						fi; \
+					fi; \
+				fi; \
+			done; \
+		fi; \
+	done
 	
 	# Fix JSON field rendering (remove toYaml for JSON strings - they're already strings, use |- for multi-line strings)
 	@echo "Fixing ConfigMap data field rendering..."
