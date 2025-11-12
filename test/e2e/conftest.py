@@ -42,16 +42,16 @@ def event_loop():
 async def rest_v1_client():
     transport = RetryTransport(
         retry=Retry(
-            total=3,
+            total=4,
             backoff_factor=1,
+            allowed_methods=["GET", "POST"],
             status_forcelist=[404, 429, 502, 503, 504],
             retry_on_exceptions=[
-                httpx.HTTPStatusError,
                 httpx.TimeoutException,
                 httpx.NetworkError,
                 httpx.RemoteProtocolError,
             ],
-        )
+        ),
     )
     v1_client = InferenceRESTClient(
         config=RESTConfig(
@@ -69,16 +69,16 @@ async def rest_v1_client():
 async def rest_v2_client():
     transport = RetryTransport(
         retry=Retry(
-            total=3,
+            total=4,
             backoff_factor=1,
+            allowed_methods=["GET", "POST"],
             status_forcelist=[404, 429, 502, 503, 504],
             retry_on_exceptions=[
-                httpx.HTTPStatusError,
                 httpx.TimeoutException,
                 httpx.NetworkError,
                 httpx.RemoteProtocolError,
             ],
-        )
+        ),
     )
     v2_client = InferenceRESTClient(
         config=RESTConfig(
