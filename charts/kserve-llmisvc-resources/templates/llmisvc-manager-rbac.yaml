@@ -1,9 +1,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "llm-isvc-resources.fullname" . }}-llmisvc-manager-role
+  name: {{ include "kserve-llmisvc-resources.fullname" . }}-llmisvc-manager-role
   labels:
-  {{- include "llm-isvc-resources.labels" . | nindent 4 }}
+  {{- include "kserve-llmisvc-resources.labels" . | nindent 4 }}
 rules:
 - nonResourceURLs:
   - /metrics
@@ -175,14 +175,14 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "llm-isvc-resources.fullname" . }}-llmisvc-manager-rolebinding
+  name: {{ include "kserve-llmisvc-resources.fullname" . }}-llmisvc-manager-rolebinding
   labels:
-  {{- include "llm-isvc-resources.labels" . | nindent 4 }}
+  {{- include "kserve-llmisvc-resources.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: '{{ include "llm-isvc-resources.fullname" . }}-llmisvc-manager-role'
+  name: '{{ include "kserve-llmisvc-resources.fullname" . }}-llmisvc-manager-role'
 subjects:
 - kind: ServiceAccount
-  name: '{{ include "llm-isvc-resources.serviceAccountName" . }}'
+  name: '{{ include "kserve-llmisvc-resources.serviceAccountName" . }}'
   namespace: '{{ .Release.Namespace }}'

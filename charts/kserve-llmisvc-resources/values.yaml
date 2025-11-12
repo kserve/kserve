@@ -1,7 +1,3 @@
-# Whether to create the inferenceservice-config ConfigMap
-# Set to false if KServe is already installed (KServe creates this ConfigMap)
-createInferenceServiceConfig: true
-
 inferenceserviceConfig:
   Example: |-
     ################################
@@ -262,7 +258,7 @@ inferenceserviceConfig:
            "ingressDomain"  : "example.com",
            "additionalIngressDomains": ["additional-example.com", "additional-example-1.com"],
            "ingressClassName" : "istio",
-           "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+           "domainTemplate": "{{ "{{" }} .Name {{ "}}" }}-{{ "{{" }} .Namespace {{ "}}" }}.{{ "{{" }} .IngressDomain {{ "}}" }}",
            "urlScheme": "http",
            "disableIstioVirtualHost": false,
            "disableIngressCreation": false
@@ -308,14 +304,14 @@ inferenceserviceConfig:
            # NOTE: This configuration only applicable for raw deployment.
            "ingressClassName" : "istio",
            # domainTemplate specifies the template for generating domain/url for each inference service by combining variable from:
-           # Name of the inference service  ( {{ .Name}} )
-           # Namespace of the inference service ( {{ .Namespace }} )
-           # Annotation of the inference service ( {{ .Annotations.key }} )
-           # Label of the inference service ( {{ .Labels.key }} )
-           # IngressDomain ( {{ .IngressDomain }} )
-           # If domain template is empty the default template {{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }} is used.
+           # Name of the inference service  ( {{ "{{" }} .Name {{ "}}" }} )
+           # Namespace of the inference service ( {{ "{{" }} .Namespace {{ "}}" }} )
+           # Annotation of the inference service ( {{ "{{" }} .Annotations.key {{ "}}" }} )
+           # Label of the inference service ( {{ "{{" }} .Labels.key {{ "}}" }} )
+           # IngressDomain ( {{ "{{" }} .IngressDomain {{ "}}" }} )
+           # If domain template is empty the default template {{ "{{" }} .Name {{ "}}" }}-{{ "{{" }} .Namespace {{ "}}" }}.{{ "{{" }} .IngressDomain {{ "}}" }} is used.
            # NOTE: This configuration only applicable for raw deployment.
-           "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+           "domainTemplate": "{{ "{{" }} .Name {{ "}}" }}-{{ "{{" }} .Namespace {{ "}}" }}.{{ "{{" }} .IngressDomain {{ "}}" }}",
            # urlScheme specifies the url scheme to use for inference service and inference graph.
            # If urlScheme is empty then by default http is used.
            "urlScheme": "http",
@@ -330,11 +326,11 @@ inferenceserviceConfig:
            "disableIngressCreation": false,
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.
-           # Name of the inference service  ( {{ .Name}} )
-           # Namespace of the inference service ( {{ .Namespace }} )
+           # Name of the inference service  ( {{ "{{" }} .Name {{ "}}" }} )
+           # Namespace of the inference service ( {{ "{{" }} .Namespace {{ "}}" }} )
            # For more info https://github.com/kserve/kserve/issues/2257.
            # NOTE: This configuration only applicable to serverless deployment.
-           "pathTemplate": "/serving/{{ .Namespace }}/{{ .Name }}"
+           "pathTemplate": "/serving/{{ "{{" }} .Namespace {{ "}}" }}/{{ "{{" }} .Name {{ "}}" }}"
        }
      # ====================================== LOGGER CONFIGURATION ======================================
      # Example
@@ -611,7 +607,7 @@ inferenceserviceConfig:
         "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
         "ingressDomain"  : "example.com",
         "ingressClassName" : "istio",
-        "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+        "domainTemplate": "{{ "{{" }} .Name {{ "}}" }}-{{ "{{" }} .Namespace {{ "}}" }}.{{ "{{" }} .IngressDomain {{ "}}" }}",
         "urlScheme": "http",
         "disableIstioVirtualHost": false,
         "disableIngressCreation": false

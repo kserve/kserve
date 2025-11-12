@@ -7,7 +7,8 @@ metadata:
 spec:
   commonName: {{ include "kserve-resources.fullname" . }}-llmisvc-webhook-svc.{{ .Release.Namespace }}.svc
   dnsNames:
-  - {{ include "kserve-resources.fullname" . }}-llmisvc-webhook-svc.{{ .Release.Namespace }}.svc
+  - '{{ include "kserve-resources.fullname" . }}-llmisvc-webhook-svc.{{
+    .Release.Namespace }}.svc'
   issuerRef:
     kind: Issuer
     name: '{{ include "kserve-resources.fullname" . }}-selfsigned-issuer'

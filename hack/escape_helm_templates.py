@@ -84,6 +84,11 @@ def escape_embedded_templates(content: str) -> str:
         r'\{\{-?\s*\.ObjectMeta\.[^}]+\}\}',              # {{ .ObjectMeta.Name }}
         r'\{\{-?\s*\.Status\.[^}]+\}\}',                  # {{ .Status.* }}
         r'\{\{-?\s*\.GlobalConfig\.[^}]+\}\}',            # {{ .GlobalConfig.* }}
+        r'\{\{-?\s*\.Annotations\.[^}]+\}\}',             # {{ .Annotations.key }}
+        r'\{\{-?\s*\.Labels\.[^}]+\}\}',                  # {{ .Labels.key }}
+        r'\{\{-?\s*\.Name\s*\}\}',                        # {{ .Name }}
+        r'\{\{-?\s*\.Namespace\s*\}\}',                    # {{ .Namespace }}
+        r'\{\{-?\s*\.IngressDomain\s*\}\}',                # {{ .IngressDomain }}
         r'\{\{-?\s*if\s+\.Spec\.[^}]+\}\}',               # {{- if .Spec.* -}}
         r'\{\{-?\s*if\s+\.GlobalConfig\.[^}]+\}\}',       # {{- if .GlobalConfig.* -}}
         r'\{\{-?\s*or\s+\.Spec\.[^}]+\}\}',               # {{ or .Spec.* default }}
@@ -102,6 +107,22 @@ def escape_embedded_templates(content: str) -> str:
         inner = matched[2:-2].strip()
         # Escape any backticks in the inner content
         inner = inner.replace('`', '{{ "`" }}')
+        # Escape dots in field access patterns (e.g., .Annotations.key -> .Annotations{{ "." }}key)
+        # This prevents Helm from trying to evaluate the field access
+        # But only escape dots that are between alphanumeric characters (field access)
+        if '.' in inner and '{{ "." }}' not in inner:
+            # Pattern: .Field1.Field2 -> .Field1{{ "." }}Field2
+            # Use regex to match field access patterns
+            import re as re_module
+            # Match patterns like .Field1.Field2 but not already escaped
+
+            def escape_dot_in_field_access(m):
+                field_access = m.group(0)
+                # Replace dots between field names
+                return field_access.replace('.', '{{ "." }}')
+            # Match field access patterns: . followed by identifier, then .identifier
+            inner = re_module.sub(r'\.([A-Za-z_][A-Za-z0-9_]*\.)+[A-Za-z_][A-Za-z0-9_]*',
+                                  escape_dot_in_field_access, inner)
         # Return escaped version
         return '{{ "{{" }} ' + inner + ' {{ "}}" }}'
 
@@ -109,7 +130,38 @@ def escape_embedded_templates(content: str) -> str:
     for pattern in kserve_patterns:
         content = re.sub(pattern, replace_match, content, flags=re.DOTALL)
 
-    # Second pass: Escape {{- end }} and {{- else }} that follow escaped KServe templates
+    # Second pass: For already-escaped templates, escape dots in field access
+    # This handles cases where the source file already has {{ "{{" }} .Annotations.key {{ "}}" }}
+    # We need to escape the dots: {{ "{{" }} .Annotations{{ "." }}key {{ "}}" }}
+    def escape_dots_in_escaped_templates(match):
+        # Match patterns like {{ "{{" }} .Field1.Field2 {{ "}}" }}
+        full_match = match.group(0)
+        # Extract the inner content between {{ "{{" }} and {{ "}}" }}
+        inner_match = re.search(r'\{\{\s*"\{\{"\s*\}\}\s*(.*?)\s*\{\{\s*"\}\}"\s*\}\}', full_match, re.DOTALL)
+        if inner_match:
+            inner = inner_match.group(1)
+            # Escape dots in field access patterns (e.g., .Annotations.key -> .Annotations{{ "." }}key)
+            # But only if not already escaped
+            if '.' in inner and '{{ "." }}' not in inner:
+                # Replace .Field1.Field2 with .Field1{{ "." }}Field2
+                # Match patterns like .Field1.Field2 and replace the dot between them
+                def replace_dot(m):
+                    # m.group(1) is the first field (e.g., "Annotations")
+                    # m.group(2) is the second field (e.g., "key")
+                    # We want: .Annotations{{ "." }}key
+                    return '.' + m.group(1) + '{{ "." }}' + m.group(2)
+                # Match .identifier.identifier patterns and replace the dot between them
+                inner = re.sub(r'\.([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)',
+                               replace_dot, inner)
+            return '{{ "{{" }} ' + inner + ' {{ "}}" }}'
+        return full_match
+
+    # Find already-escaped templates that contain field access with dots
+    # Pattern: {{ "{{" }} .Field1.Field2 {{ "}}" }}
+    escaped_pattern = r'\{\{\s*"\{\{"\s*\}\}\s*\.([A-Za-z_][A-Za-z0-9_]*\.)+[A-Za-z_][A-Za-z0-9_]*\s*\{\{\s*"\}\}"\s*\}\}'
+    content = re.sub(escaped_pattern, escape_dots_in_escaped_templates, content)
+
+    # Third pass: Escape {{- end }} and {{- else }} that follow escaped KServe templates
     # Look for {{- end }} or {{- else }} that appears after an escaped template (within reasonable distance)
     # This handles cases like: {{ "{{" }} - if .Spec.* - {{ "}}" }}...{{- else }}...{{- end }}
     # We need to escape the {{- end }} and {{- else }} that are part of KServe template blocks
@@ -120,9 +172,11 @@ def escape_embedded_templates(content: str) -> str:
         # Look for escaped KServe if/with statements in the last 500 chars
         recent = before[-500:] if len(before) > 500 else before
         # Check if there's an escaped KServe template before this control structure
-        if re.search(r'\{\{\s*"\{\{"\s*\}\}\s*-?\s*if\s+\.Spec\.', recent) or \
-           re.search(r'\{\{\s*"\{\{"\s*\}\}\s*-?\s*if\s+\.GlobalConfig\.', recent) or \
-           re.search(r'\{\{\s*"\{\{"\s*\}\}\s*-?\s*with\s+\.Spec\.', recent):
+        # Patterns to match escaped KServe templates (with escaped dots)
+        if re.search(r'\{\{\s*"\{\{"\s*\}\}\s*-?\s*if\s+', recent) or \
+           re.search(r'\{\{\s*"\{\{"\s*\}\}\s*-?\s*with\s+', recent) or \
+           re.search(r'\{\{\s*"\{\{"\s*\}\}\s*if\s+', recent) or \
+           re.search(r'\{\{\s*"\{\{"\s*\}\}\s*with\s+', recent):
             # This {{- end }} or {{- else }} is part of a KServe template block, escape it
             matched = match.group(0)
             if '"{{" }}' not in matched and '{{ "}}" }}' not in matched:

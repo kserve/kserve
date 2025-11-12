@@ -17,7 +17,7 @@ spec:
           - /mnt/models
         args:
           - --served-model-name
-          - "{{ "{{" }} .Spec.Model.Name {{ "}}" }}"
+          - "{{ "{{" }} {{ "." }}Spec{{ "." }}Model{{ "." }}Name {{ "}}" }}"
           - --port
           - "8001"
           - --disable-log-requests
@@ -142,4 +142,4 @@ spec:
         name: model-cache
       - name: tls-certs
         secret:
-          secretName: "{{ "{{" }} ChildName .ObjectMeta.Name {{ "`" }}-kserve-self-signed-certs{{ "`" }} {{ "}}" }}"
+          secretName: "{{ "{{" }} ChildName {{ "." }}ObjectMeta{{ "." }}Name {{ "`" }}-kserve-self-signed-certs{{ "`" }} {{ "}}" }}"

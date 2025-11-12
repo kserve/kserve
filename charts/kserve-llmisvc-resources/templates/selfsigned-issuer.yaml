@@ -1,8 +1,8 @@
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: {{ include "llm-isvc-resources.fullname" . }}-selfsigned-issuer
+  name: {{ include "kserve-llmisvc-resources.fullname" . }}-selfsigned-issuer
   labels:
-  {{- include "llm-isvc-resources.labels" . | nindent 4 }}
+  {{- include "kserve-llmisvc-resources.labels" . | nindent 4 }}
 spec:
   selfSigned: {}

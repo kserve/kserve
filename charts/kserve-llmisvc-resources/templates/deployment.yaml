@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kserve-llmisvc-controller-manager
+  name: {{ include "kserve-llmisvc-resources.fullname" . }}-kserve-llmisvc-controller-manager
   labels:
     app.kubernetes.io/component: controller
     control-plane: llmisvc-controller-manager
     controller-tools.k8s.io: "1.0"
-  {{- include "llm-isvc-resources.labels" . | nindent 4 }}
+  {{- include "kserve-llmisvc-resources.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.kserveLlmisvcControllerManager.replicas }}
   strategy:
@@ -20,7 +20,7 @@ spec:
     matchLabels:
       control-plane: llmisvc-controller-manager
       controller-tools.k8s.io: "1.0"
-    {{- include "llm-isvc-resources.selectorLabels" . | nindent 6 }}
+    {{- include "kserve-llmisvc-resources.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
@@ -28,7 +28,7 @@ spec:
         app.kubernetes.io/name: kserve-llmisvc-controller-manager
         control-plane: llmisvc-controller-manager
         controller-tools.k8s.io: "1.0"
-      {{- include "llm-isvc-resources.selectorLabels" . | nindent 8 }}
+      {{- include "kserve-llmisvc-resources.selectorLabels" . | nindent 8 }}
       annotations:
         kubectl.kubernetes.io/default-container: manager
     spec:
@@ -85,7 +85,7 @@ spec:
         8 }}
       securityContext: {{- toYaml .Values.kserveLlmisvcControllerManager.podSecurityContext
         | nindent 8 }}
-      serviceAccountName: {{ include "llm-isvc-resources.serviceAccountName" . }}
+      serviceAccountName: {{ include "kserve-llmisvc-resources.serviceAccountName" . }}
       terminationGracePeriodSeconds: 30
       tolerations: {{- toYaml .Values.kserveLlmisvcControllerManager.tolerations | nindent
         8 }}

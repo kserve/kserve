@@ -1,18 +1,18 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: {{ include "llm-isvc-resources.fullname" . }}-llminferenceservice.serving.kserve.io
+  name: {{ include "kserve-llmisvc-resources.fullname" . }}-llminferenceservice.serving.kserve.io
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "llm-isvc-resources.fullname" . }}-llmisvc-serving-cert
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "kserve-llmisvc-resources.fullname" . }}-llmisvc-serving-cert
   labels:
-  {{- include "llm-isvc-resources.labels" . | nindent 4 }}
+  {{- include "kserve-llmisvc-resources.labels" . | nindent 4 }}
 webhooks:
 - admissionReviewVersions:
   - v1
   - v1beta1
   clientConfig:
     service:
-      name: '{{ include "llm-isvc-resources.fullname" . }}-llmisvc-webhook-svc'
+      name: '{{ include "kserve-llmisvc-resources.fullname" . }}-llmisvc-webhook-svc'
       namespace: '{{ .Release.Namespace }}'
       path: /validate-serving-kserve-io-v1alpha1-llminferenceservice
   failurePolicy: Fail

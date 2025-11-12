@@ -219,18 +219,13 @@ helm-generate-llmisvc: helmify yq
 	@echo "Escaping KServe-specific Go templates..."
 	@./hack/escape_helm_templates.py build-helm/llmisvc-chart/templates/*.yaml
 
-	# Fix chart references
-	@echo "Fixing chart references..."
-	@for file in build-helm/llmisvc-chart/templates/*.yaml build-helm/llmisvc-chart/templates/_helpers.tpl; do \
-		if [ -f "$$file" ]; then \
-			sed -i 's/llmisvc-chart\./llm-isvc-resources./g' "$$file"; \
-		fi; \
-	done
-
 	# Copy EVERYTHING to actual chart (100% automated)
 	@echo "Copying all generated templates and values..."
 	@mkdir -p charts/kserve-llmisvc-resources/templates
 	@cp -r build-helm/llmisvc-chart/templates/* charts/kserve-llmisvc-resources/templates/
+	# Remove helmify-generated ConfigMap (we'll copy the original instead)
+	@rm -f charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml
+	@rm -f charts/kserve-llmisvc-resources/templates/configmap.yaml
 	# Copy config-llm files directly from Kustomize source (preserves initContainers)
 	@echo "Copying config-llm files directly from Kustomize source..."
 	@for file in config/llmisvcconfig/config-llm-*.yaml; do \
@@ -242,59 +237,25 @@ helm-generate-llmisvc: helmify yq
 	@echo "Escaping Go templates in config-llm files..."
 	@./hack/escape_helm_templates.py charts/kserve-llmisvc-resources/templates/kserve-config-llm-*.yaml
 	# Fix helmify output: ensure {{- if }} syntax is correct (helmify sometimes generates {{ if instead of {{- if)
-	@for file in charts/kserve-llmisvc-resources/templates/*.yaml; do \
-		if [ -f "$$file" ]; then \
-			sed -i 's/{{ if /{{- if /g' "$$file"; \
-		fi; \
-	done
+	@echo "Fixing Helm template syntax..."
+	@python3 hack/fix_helm_template_syntax.py charts/kserve-llmisvc-resources/templates/*.yaml
 	@mkdir -p charts/kserve-llmisvc-resources
 	@cp build-helm/llmisvc-chart/values.yaml charts/kserve-llmisvc-resources/values.yaml
-	# Copy Chart.yaml if it doesn't exist, or preserve existing one
-	@if [ ! -f charts/kserve-llmisvc-resources/Chart.yaml ]; then \
-		cp build-helm/llmisvc-chart/Chart.yaml charts/kserve-llmisvc-resources/Chart.yaml; \
-		sed -i 's/name: llmisvc-chart/name: kserve-llmisvc-resources/g' charts/kserve-llmisvc-resources/Chart.yaml; \
-	fi
+	@cp build-helm/llmisvc-chart/Chart.yaml charts/kserve-llmisvc-resources/Chart.yaml
+	# Fix chart name to match directory name
+	@sed -i 's/^name: llmisvc-chart/name: kserve-llmisvc-resources/' charts/kserve-llmisvc-resources/Chart.yaml
+	# Fix template names in all template files to match chart name
+	@find charts/kserve-llmisvc-resources/templates -type f -name "*.yaml" -o -name "*.tpl" | xargs sed -i 's/llmisvc-chart\./kserve-llmisvc-resources./g' 2>/dev/null || true
 	@echo "Note: Chart.yaml is preserved (contains version and metadata)"
-
-	# Fix hardcoded resource names that controllers expect
-	@echo "Fixing hardcoded resource names..."
-	@sed -i "s/name: {{ include \"llm-isvc-resources\.fullname\" \. }}-inferenceservice-config/name: inferenceservice-config/g" charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml || true
-	# Fix deployment name to match Kustomize name (extracted from config files)
-	@if [ -f charts/kserve-llmisvc-resources/templates/deployment.yaml ]; then \
-		DEPLOYMENT_NAME=$$($(YQ) eval 'select(.kind == "Deployment") | .metadata.name' config/llmisvc/manager.yaml 2>/dev/null || echo ""); \
-		if [ -n "$$DEPLOYMENT_NAME" ]; then \
-			sed -i "s|name: {{ include \"llm-isvc-resources\.fullname\" \. }}-$$DEPLOYMENT_NAME|name: $$DEPLOYMENT_NAME|g" charts/kserve-llmisvc-resources/templates/deployment.yaml || true; \
-		fi; \
-	fi
+	# Copy ConfigMap directly from config path (no templating needed)
+	@echo "Copying inferenceservice-config ConfigMap from config path..."
+	@cp config/configmap/inferenceservice.yaml charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml
+	# Remove namespace field (Helm will set it via .Release.Namespace)
+	@sed -i '/^  namespace:/d' charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml
+	# Escape embedded Go templates (KServe runtime templates, not Helm templates)
+	@echo "Escaping Go templates in ConfigMap..."
+	@./hack/escape_helm_templates.py charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml
 	
-	# Fix JSON field rendering (remove toYaml for JSON strings - they're already strings, use |- for multi-line strings)
-	@echo "Fixing ConfigMap data field rendering..."
-	@if [ -f charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml ]; then \
-		python3 hack/fix_inferenceservice_config_template.py charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml; \
-	fi
-	
-	# Fix LLMInferenceServiceConfig names (remove Helm prefix - controllers expect original names)
-	@echo "Fixing LLMInferenceServiceConfig resource names..."
-	@for file in charts/kserve-llmisvc-resources/templates/kserve-config-llm-*.yaml; do \
-		if [ -f "$$file" ]; then \
-			sed -i "s/name: {{ include \"llm-isvc-resources\.fullname\" \. }}-kserve-config-llm-/name: kserve-config-llm-/g" "$$file"; \
-		fi; \
-	done
-
-
-	# Make inferenceservice-config conditional (only create if KServe doesn't already manage it)
-	@echo "Making inferenceservice-config conditional..."
-	@if [ -f charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml ]; then \
-		if ! grep -q "createInferenceServiceConfig" charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml; then \
-			sed -i '1s/^/{{- if and .Values.createInferenceServiceConfig (not (lookup "v1" "ConfigMap" "kserve" "inferenceservice-config")) }}\n/' charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml; \
-			echo '{{- end }}' >> charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml; \
-		fi; \
-	fi
-
-	# Ensure createInferenceServiceConfig value exists in values.yaml
-	@if ! grep -q "^createInferenceServiceConfig:" charts/kserve-llmisvc-resources/values.yaml; then \
-		sed -i '1i# Whether to create the inferenceservice-config ConfigMap\n# Set to false if KServe is already installed (KServe creates this ConfigMap)\ncreateInferenceServiceConfig: true\n' charts/kserve-llmisvc-resources/values.yaml; \
-	fi
 
 
 	# Validate
@@ -324,19 +285,14 @@ helm-generate-kserve: helmify yq
 	@echo "Escaping KServe-specific Go templates..."
 	@./hack/escape_helm_templates.py build-helm/kserve-chart/templates/*.yaml
 
-	# Fix chart references
-	@echo "Fixing chart references..."
-	@for file in build-helm/kserve-chart/templates/*.yaml build-helm/kserve-chart/templates/_helpers.tpl; do \
-		if [ -f "$$file" ]; then \
-			sed -i 's/kserve-chart\./kserve-resources./g' "$$file"; \
-		fi; \
-	done
-
 	# Copy EVERYTHING to actual chart (100% automated)
 	@echo "Copying all generated templates and values..."
 	@mkdir -p charts/kserve-resources/templates/localmodel
 	@mkdir -p charts/kserve-resources/templates/localmodelnode
 	@cp -r build-helm/kserve-chart/templates/* charts/kserve-resources/templates/
+	# Remove helmify-generated ConfigMap (we'll copy the original instead)
+	@rm -f charts/kserve-resources/templates/inferenceservice-config.yaml
+	@rm -f charts/kserve-resources/templates/configmap.yaml
 	# Copy config-llm files directly from Kustomize source (preserves initContainers)
 	@echo "Copying config-llm files directly from Kustomize source..."
 	@for file in config/llmisvcconfig/config-llm-*.yaml; do \
@@ -348,135 +304,61 @@ helm-generate-kserve: helmify yq
 	@echo "Escaping Go templates in config-llm files..."
 	@./hack/escape_helm_templates.py charts/kserve-resources/templates/kserve-config-llm-*.yaml
 	# Fix helmify output: ensure {{- if }} syntax is correct (helmify sometimes generates {{ if instead of {{- if)
-	@for file in charts/kserve-resources/templates/*.yaml; do \
-		if [ -f "$$file" ]; then \
-			sed -i 's/{{ if /{{- if /g' "$$file"; \
-		fi; \
-	done
+	@echo "Fixing Helm template syntax..."
+	@python3 hack/fix_helm_template_syntax.py charts/kserve-resources/templates/*.yaml
 	@mkdir -p charts/kserve-resources
 	@cp build-helm/kserve-chart/values.yaml charts/kserve-resources/values.yaml
-	# Copy Chart.yaml if it doesn't exist, or preserve existing one
-	@if [ ! -f charts/kserve-resources/Chart.yaml ]; then \
-		cp build-helm/kserve-chart/Chart.yaml charts/kserve-resources/Chart.yaml; \
-		sed -i 's/name: kserve-chart/name: kserve-resources/g' charts/kserve-resources/Chart.yaml; \
-	fi
+	@cp build-helm/kserve-chart/Chart.yaml charts/kserve-resources/Chart.yaml
+	# Fix chart name to match directory name
+	@sed -i 's/^name: kserve-chart/name: kserve-resources/' charts/kserve-resources/Chart.yaml
+	# Fix template names in all template files to match chart name
+	@find charts/kserve-resources/templates -type f -name "*.yaml" -o -name "*.tpl" | xargs sed -i 's/kserve-chart\./kserve-resources./g' 2>/dev/null || true
 	@echo "Note: Chart.yaml is preserved (contains version and metadata)"
 
 	# Remove CRDs from generated chart (they're managed by kserve-crd/kserve-crd-minimal charts)
 	@echo "Removing CRDs from chart templates..."
 	@rm -f charts/kserve-resources/templates/*-crd.yaml
-
-	# Fix hardcoded resource names that controllers expect
-	@echo "Fixing hardcoded resource names..."
-	@sed -i "s/name: {{ include \"kserve-resources\.fullname\" \. }}-inferenceservice-config/name: inferenceservice-config/g" charts/kserve-resources/templates/inferenceservice-config.yaml
-	# Fix deployment names to match Kustomize names (extracted from config files)
-	@if [ -f charts/kserve-resources/templates/deployment.yaml ]; then \
-		for config_file in config/manager/manager.yaml config/llmisvc/manager.yaml config/localmodels/manager.yaml; do \
-			if [ -f "$$config_file" ]; then \
-				DEPLOYMENT_NAME=$$($(YQ) eval 'select(.kind == "Deployment") | .metadata.name' "$$config_file" 2>/dev/null || echo ""); \
-				if [ -n "$$DEPLOYMENT_NAME" ]; then \
-					sed -i "s|name: {{ include \"kserve-resources\.fullname\" \. }}-$$DEPLOYMENT_NAME|name: $$DEPLOYMENT_NAME|g" charts/kserve-resources/templates/deployment.yaml || true; \
-				fi; \
-			fi; \
-		done; \
-	fi
-	# Fix service names to match Kustomize names (extracted from config files)
-	@if [ -f charts/kserve-resources/templates/kserve-controller-manager-service.yaml ]; then \
-		SERVICE_NAME=$$($(YQ) eval 'select(.kind == "Service") | .metadata.name' config/manager/service.yaml 2>/dev/null || echo ""); \
-		if [ -n "$$SERVICE_NAME" ]; then \
-			sed -i "s|name: {{ include \"kserve-resources\.fullname\" \. }}-$$SERVICE_NAME|name: $$SERVICE_NAME|g" charts/kserve-resources/templates/kserve-controller-manager-service.yaml || true; \
-		fi; \
-	fi
-	@if [ -f charts/kserve-resources/templates/kserve-controller-manager-metrics-service.yaml ]; then \
-		METRICS_SERVICE_NAME=$$($(YQ) eval 'select(.kind == "Service") | .metadata.name' config/rbac/auth_proxy_service.yaml 2>/dev/null || echo ""); \
-		if [ -n "$$METRICS_SERVICE_NAME" ]; then \
-			sed -i "s|name: {{ include \"kserve-resources\.fullname\" \. }}-$$METRICS_SERVICE_NAME|name: $$METRICS_SERVICE_NAME|g" charts/kserve-resources/templates/kserve-controller-manager-metrics-service.yaml || true; \
-		fi; \
-	fi
-	# Fix service account names to match Kustomize names (extracted from config files)
-	# Note: Service account names are already hardcoded in the template, but this ensures they stay correct after regeneration
-	@if [ -f charts/kserve-resources/templates/serviceaccount.yaml ]; then \
-		SA_NAMES=""; \
-		for sa_file in config/rbac/service_account.yaml config/rbac/llmisvc/service_account.yaml config/rbac/localmodel/service_account.yaml config/rbac/localmodelnode/service_account.yaml; do \
-			if [ -f "$$sa_file" ]; then \
-				SA_NAME=$$($(YQ) eval 'select(.kind == "ServiceAccount") | .metadata.name' "$$sa_file" 2>/dev/null || echo ""); \
-				if [ -n "$$SA_NAME" ]; then \
-					SA_NAMES="$$SA_NAMES $$SA_NAME"; \
-					sed -i "0,/name: {{ include \"kserve-resources\.serviceAccountName\" \. }}/s/name: {{ include \"kserve-resources\.serviceAccountName\" \. }}/name: $$SA_NAME/" charts/kserve-resources/templates/serviceaccount.yaml || true; \
-				fi; \
-			fi; \
-		done; \
-	fi
-	# Fix service account names in all template files to match Kustomize names (extracted from manager.yaml files)
-	# Find all files with the template function and replace based on the deployment/daemonset name
-	@echo "Fixing service account names in template files..."
-	@for template_file in charts/kserve-resources/templates/*.yaml; do \
-		if [ -f "$$template_file" ] && grep -q "serviceAccountName: {{ include \"kserve-resources\.serviceAccountName\" \. }}" "$$template_file" 2>/dev/null; then \
-			for dep_name in kserve-controller-manager kserve-llmisvc-controller-manager kserve-localmodel-controller-manager kserve-localmodelnode-agent; do \
-				if grep -q "name: $$dep_name" "$$template_file" 2>/dev/null; then \
-					MANAGER_FILE=""; \
-					case "$$dep_name" in \
-						kserve-controller-manager) \
-							MANAGER_FILE="config/manager/manager.yaml" ;; \
-						kserve-llmisvc-controller-manager) \
-							MANAGER_FILE="config/llmisvc/manager.yaml" ;; \
-						kserve-localmodel-controller-manager) \
-							MANAGER_FILE="config/localmodels/manager.yaml" ;; \
-						kserve-localmodelnode-agent) \
-							MANAGER_FILE="config/localmodelnodes/manager.yaml" ;; \
-					esac; \
-					if [ -n "$$MANAGER_FILE" ] && [ -f "$$MANAGER_FILE" ]; then \
-						SA_NAME=$$($(YQ) eval '.spec.template.spec.serviceAccountName' "$$MANAGER_FILE" 2>/dev/null || echo ""); \
-						if [ -z "$$SA_NAME" ] || echo "$$SA_NAME" | grep -q '\$$'; then \
-							case "$$MANAGER_FILE" in \
-								config/manager/manager.yaml) \
-									SA_FILE="config/rbac/service_account.yaml" ;; \
-								config/llmisvc/manager.yaml) \
-									SA_FILE="config/rbac/llmisvc/service_account.yaml" ;; \
-								config/localmodels/manager.yaml) \
-									SA_FILE="config/rbac/localmodel/service_account.yaml" ;; \
-								config/localmodelnodes/manager.yaml) \
-									SA_FILE="config/rbac/localmodelnode/service_account.yaml" ;; \
-							esac; \
-							if [ -n "$$SA_FILE" ] && [ -f "$$SA_FILE" ]; then \
-								SA_NAME=$$($(YQ) eval 'select(.kind == "ServiceAccount") | .metadata.name' "$$SA_FILE" 2>/dev/null || echo ""); \
-							fi; \
-						fi; \
-						if [ -n "$$SA_NAME" ]; then \
-							sed -i "/^  name: $$dep_name$$/,/^      serviceAccountName:/s|serviceAccountName: {{ include \"kserve-resources\.serviceAccountName\" \. }}|serviceAccountName: $$SA_NAME|" "$$template_file" || true; \
-							echo "  Fixed $$(basename $$template_file): $$dep_name -> $$SA_NAME"; \
-						fi; \
-					fi; \
-				fi; \
-			done; \
-		fi; \
-	done
-	
-	# Fix JSON field rendering (remove toYaml for JSON strings - they're already strings, use |- for multi-line strings)
-	@echo "Fixing ConfigMap data field rendering..."
-	@if [ -f charts/kserve-resources/templates/inferenceservice-config.yaml ]; then \
-		python3 hack/fix_inferenceservice_config_template.py charts/kserve-resources/templates/inferenceservice-config.yaml; \
-	fi
-	
-	# Fix LLMInferenceServiceConfig names (remove Helm prefix - controllers expect original names)
-	@echo "Fixing LLMInferenceServiceConfig resource names..."
-	@for file in charts/kserve-resources/templates/kserve-config-llm-*.yaml; do \
-		if [ -f "$$file" ]; then \
-			sed -i "s/name: {{ include \"kserve-resources\.fullname\" \. }}-kserve-config-llm-/name: kserve-config-llm-/g" "$$file"; \
-		fi; \
-	done
-
-	# Add required values for conditional templates
-	@echo "Adding required Helm values..."
-	@echo "" >> charts/kserve-resources/values.yaml
-	@echo "# Local model configuration" >> charts/kserve-resources/values.yaml
-	@echo "kserve:" >> charts/kserve-resources/values.yaml
-	@echo "  localmodel:" >> charts/kserve-resources/values.yaml
-	@echo "    enabled: false" >> charts/kserve-resources/values.yaml
+	# Copy ConfigMap directly from config path (no templating needed)
+	@echo "Copying inferenceservice-config ConfigMap from config path..."
+	@cp config/configmap/inferenceservice.yaml charts/kserve-resources/templates/inferenceservice-config.yaml
+	# Remove namespace field (Helm will set it via .Release.Namespace)
+	@sed -i '/^  namespace:/d' charts/kserve-resources/templates/inferenceservice-config.yaml
+	# Escape embedded Go templates (KServe runtime templates, not Helm templates)
+	@echo "Escaping Go templates in ConfigMap..."
+	@./hack/escape_helm_templates.py charts/kserve-resources/templates/inferenceservice-config.yaml
 
 	# Fix malformed Certificate dnsNames
 	@echo "Fixing Certificate templates..."
 	@./hack/fix_certificate_dnsnames.py
+	# Also fix using sed as a fallback (handles multiline patterns)
+	@sed -i ':a;N;$!ba;s/{{ include "{{ .Release.Namespace }}-chart.fullname" . }}/{{ include "kserve-resources.fullname" . }}/g' charts/kserve-resources/templates/*-cert.yaml 2>/dev/null || true
+	@sed -i ':a;N;$!ba;s/{{ include "kserve-resources.fullname" . }}-{{ .Release.Namespace }}-webhook-server-service/{{ include "kserve-resources.fullname" . }}-webhook-server-service/g' charts/kserve-resources/templates/serving-cert.yaml 2>/dev/null || true
+	@sed -i ':a;N;$!ba;s/{{ include "kserve-resources.fullname" . }}-{{ .Release.Namespace }}-llmisvc-webhook-svc/{{ include "kserve-resources.fullname" . }}-llmisvc-webhook-svc/g' charts/kserve-resources/templates/llmisvc-serving-cert.yaml 2>/dev/null || true
+
+	# Add required kserve.* values for conditional templates (localmodel, etc.)
+	@echo "Adding required kserve.* values to values.yaml..."
+	@if ! grep -q "^kserve:" charts/kserve-resources/values.yaml; then \
+		echo "" >> charts/kserve-resources/values.yaml; \
+		echo "# Local model configuration" >> charts/kserve-resources/values.yaml; \
+		echo "kserve:" >> charts/kserve-resources/values.yaml; \
+		echo "  agent:" >> charts/kserve-resources/values.yaml; \
+		echo "    image: kserve/agent" >> charts/kserve-resources/values.yaml; \
+		echo "    tag: latest" >> charts/kserve-resources/values.yaml; \
+		echo "  router:" >> charts/kserve-resources/values.yaml; \
+		echo "    image: kserve/router" >> charts/kserve-resources/values.yaml; \
+		echo "    tag: latest" >> charts/kserve-resources/values.yaml; \
+		echo "    imagePullPolicy: IfNotPresent" >> charts/kserve-resources/values.yaml; \
+		echo "    imagePullSecrets: []" >> charts/kserve-resources/values.yaml; \
+		echo "  localmodel:" >> charts/kserve-resources/values.yaml; \
+		echo "    enabled: false" >> charts/kserve-resources/values.yaml; \
+		echo "    jobNamespace: \"kserve-localmodel-jobs\"" >> charts/kserve-resources/values.yaml; \
+		echo "    jobTTLSecondsAfterFinished: 3600" >> charts/kserve-resources/values.yaml; \
+		echo "    disableVolumeManagement: false" >> charts/kserve-resources/values.yaml; \
+		echo "    securityContext:" >> charts/kserve-resources/values.yaml; \
+		echo "      fsGroup: 1000" >> charts/kserve-resources/values.yaml; \
+		echo "    agent:" >> charts/kserve-resources/values.yaml; \
+		echo "      reconcilationFrequencyInSecs: 60" >> charts/kserve-resources/values.yaml; \
+	fi
 
 	# Validate
 	@echo "Validating Helm chart..."
