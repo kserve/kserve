@@ -33,7 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
-	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -88,7 +88,11 @@ func TestMergeSpecs(t *testing.T) {
 						Scheduler: &v1alpha1.SchedulerSpec{
 							Pool: &v1alpha1.InferencePoolSpec{
 								Spec: &igwapi.InferencePoolSpec{
-									TargetPortNumber: 9999,
+									TargetPorts: []igwapi.Port{
+										{
+											Number: igwapi.PortNumber(9999),
+										},
+									},
 								},
 							},
 						},
@@ -103,7 +107,11 @@ func TestMergeSpecs(t *testing.T) {
 					Scheduler: &v1alpha1.SchedulerSpec{
 						Pool: &v1alpha1.InferencePoolSpec{
 							Spec: &igwapi.InferencePoolSpec{
-								TargetPortNumber: 9999,
+								TargetPorts: []igwapi.Port{
+									{
+										Number: igwapi.PortNumber(9999),
+									},
+								},
 							},
 						},
 					},
@@ -450,13 +458,14 @@ func TestMergeSpecs(t *testing.T) {
 						Scheduler: &v1alpha1.SchedulerSpec{
 							Pool: &v1alpha1.InferencePoolSpec{
 								Spec: &igwapi.InferencePoolSpec{
-									TargetPortNumber: 0,
-									EndpointPickerConfig: igwapi.EndpointPickerConfig{
-										ExtensionRef: &igwapi.Extension{
-											ExtensionConnection: igwapi.ExtensionConnection{
-												FailureMode: ptr.To(igwapi.FailClose),
-											},
+									TargetPorts: []igwapi.Port{
+										{
+											Number: igwapi.PortNumber(0),
 										},
+									},
+									EndpointPickerRef: igwapi.EndpointPickerRef{
+										Name:        igwapi.ObjectName("endpoint-picker"),
+										FailureMode: igwapi.EndpointPickerFailureMode(igwapi.EndpointPickerFailClose),
 									},
 								},
 							},
@@ -499,13 +508,14 @@ func TestMergeSpecs(t *testing.T) {
 					Scheduler: &v1alpha1.SchedulerSpec{
 						Pool: &v1alpha1.InferencePoolSpec{
 							Spec: &igwapi.InferencePoolSpec{
-								TargetPortNumber: 0,
-								EndpointPickerConfig: igwapi.EndpointPickerConfig{
-									ExtensionRef: &igwapi.Extension{
-										ExtensionConnection: igwapi.ExtensionConnection{
-											FailureMode: ptr.To(igwapi.FailClose),
-										},
+								TargetPorts: []igwapi.Port{
+									{
+										Number: igwapi.PortNumber(0),
 									},
+								},
+								EndpointPickerRef: igwapi.EndpointPickerRef{
+									Name:        igwapi.ObjectName("endpoint-picker"),
+									FailureMode: igwapi.EndpointPickerFailClose,
 								},
 							},
 						},
@@ -826,8 +836,8 @@ func TestMergeSpecs(t *testing.T) {
 			cfgs: []v1alpha1.LLMInferenceServiceSpec{
 				{
 					Model: v1alpha1.LLMModelSpec{
-						URI:         apis.URL{Path: "model-uri"},
-						Criticality: ptr.To(igwapi.Sheddable),
+						URI:      apis.URL{Path: "model-uri"},
+						Priority: ptr.To(-10), // Low priority (sheddable)
 					},
 				},
 				{
@@ -976,7 +986,7 @@ func TestMergeSpecs(t *testing.T) {
 				{
 					Model: v1alpha1.LLMModelSpec{
 						Name:        ptr.To("override-name"),
-						Criticality: ptr.To(igwapi.Critical),
+						Criticality: ptr.To(igwapi.Criticality("Critical")),
 						LoRA: &v1alpha1.LoRASpec{
 							Adapters: []v1alpha1.LLMModelSpec{
 								{URI: apis.URL{Path: "lora-model2"}},
@@ -1002,7 +1012,7 @@ func TestMergeSpecs(t *testing.T) {
 				Model: v1alpha1.LLMModelSpec{
 					URI:         apis.URL{Path: "base-model"}, // Base URI preserved
 					Name:        ptr.To("override-name"),      // Override name
-					Criticality: ptr.To(igwapi.Critical),
+					Criticality: ptr.To(igwapi.Criticality("Critical")),
 					LoRA: &v1alpha1.LoRASpec{
 						Adapters: []v1alpha1.LLMModelSpec{
 							{URI: apis.URL{Path: "lora-model2"}},

@@ -35,7 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	apix "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
@@ -48,7 +49,7 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
 		return err
 	}
-	if err := r.reconcileSchedulerInferenceModel(ctx, llmSvc); err != nil {
+	if err := r.reconcileSchedulerInferenceObjective(ctx, llmSvc); err != nil {
 		return err
 	}
 	if err := r.reconcileSchedulerDeployment(ctx, llmSvc); err != nil {
@@ -173,13 +174,13 @@ func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSv
 	return nil
 }
 
-func (r *LLMISVCReconciler) reconcileSchedulerInferenceModel(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
-	expected := r.expectedSchedulerInferenceModel(ctx, llmSvc)
+func (r *LLMISVCReconciler) reconcileSchedulerInferenceObjective(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
+	expected := r.expectedSchedulerInferenceObjective(ctx, llmSvc)
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		return Delete(ctx, r, llmSvc, expected)
 	}
 
-	if err := Reconcile(ctx, r, llmSvc, &igwapi.InferenceModel{}, expected, semanticInferenceModelIsEqual); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &apix.InferenceObjective{}, expected, semanticInferenceObjectiveIsEqual); err != nil {
 		return err
 	}
 
