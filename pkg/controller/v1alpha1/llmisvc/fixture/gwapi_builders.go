@@ -587,6 +587,9 @@ func WithExtensionRef(group, kind, name string) InferencePoolOption {
 			Group: ptr.To(igwapi.Group(group)),
 			Kind:  igwapi.Kind(kind),
 			Name:  igwapi.ObjectName(name),
+			Port: &igwapi.Port{
+				Number: igwapi.PortNumber(9002),
+			},
 		}
 	}
 }

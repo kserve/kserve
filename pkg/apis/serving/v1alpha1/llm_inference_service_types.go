@@ -130,7 +130,7 @@ type LLMModelSpec struct {
 	// This is used by the Inference Gateway scheduler for request prioritization.
 	// Higher values indicate higher priority. Negative values are allowed.
 	// If unset, defaults to 0. This maps to the Priority field in InferenceObjective.
-	// Common values: 10 (high priority), 0 (default), -10 (low priority/sheddable).
+	// For example: 10 (high priority), 0 (default), -10 (low priority/sheddable).
 	// +optional
 	Priority *int `json:"priority,omitempty"`
 

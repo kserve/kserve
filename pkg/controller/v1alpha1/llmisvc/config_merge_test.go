@@ -842,14 +842,14 @@ func TestMergeSpecs(t *testing.T) {
 				},
 				{
 					Model: v1alpha1.LLMModelSpec{
-						Criticality: ptr.To(igwapi.Critical),
+						Priority: ptr.To(10), // High priority
 					},
 				},
 			},
 			want: v1alpha1.LLMInferenceServiceSpec{
 				Model: v1alpha1.LLMModelSpec{
-					URI:         apis.URL{Path: "model-uri"},
-					Criticality: ptr.To(igwapi.Critical),
+					URI:      apis.URL{Path: "model-uri"},
+					Priority: ptr.To(10), // High priority
 				},
 			},
 		},
@@ -962,9 +962,9 @@ func TestMergeSpecs(t *testing.T) {
 			cfgs: []v1alpha1.LLMInferenceServiceSpec{
 				{
 					Model: v1alpha1.LLMModelSpec{
-						URI:         apis.URL{Path: "base-model"},
-						Name:        ptr.To("base-name"),
-						Criticality: ptr.To(igwapi.Sheddable),
+						URI:      apis.URL{Path: "base-model"},
+						Name:     ptr.To("base-name"),
+						Priority: ptr.To(-10), // Low priority
 						LoRA: &v1alpha1.LoRASpec{
 							Adapters: []v1alpha1.LLMModelSpec{
 								{URI: apis.URL{Path: "lora-model"}},
@@ -985,8 +985,8 @@ func TestMergeSpecs(t *testing.T) {
 				},
 				{
 					Model: v1alpha1.LLMModelSpec{
-						Name:        ptr.To("override-name"),
-						Criticality: ptr.To(igwapi.Criticality("Critical")),
+						Name:     ptr.To("override-name"),
+						Priority: ptr.To(10), // High priority
 						LoRA: &v1alpha1.LoRASpec{
 							Adapters: []v1alpha1.LLMModelSpec{
 								{URI: apis.URL{Path: "lora-model2"}},
@@ -1010,9 +1010,9 @@ func TestMergeSpecs(t *testing.T) {
 			},
 			want: v1alpha1.LLMInferenceServiceSpec{
 				Model: v1alpha1.LLMModelSpec{
-					URI:         apis.URL{Path: "base-model"}, // Base URI preserved
-					Name:        ptr.To("override-name"),      // Override name
-					Criticality: ptr.To(igwapi.Criticality("Critical")),
+					URI:      apis.URL{Path: "base-model"}, // Base URI preserved
+					Name:     ptr.To("override-name"),      // Override name
+					Priority: ptr.To(10),                   // High priority
 					LoRA: &v1alpha1.LoRASpec{
 						Adapters: []v1alpha1.LLMModelSpec{
 							{URI: apis.URL{Path: "lora-model2"}},

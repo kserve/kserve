@@ -486,7 +486,7 @@ export RELEASE
 #================================================
 
 GOLANGCI_LINT_VERSION=v1.64.8
-CONTROLLER_TOOLS_VERSION=v0.16.2
+CONTROLLER_TOOLS_VERSION=v0.17.1
 ENVTEST_VERSION=latest
 YQ_VERSION=v4.28.1
 HELM_VERSION=v3.16.3
@@ -43569,12 +43569,19 @@ spec:
     scheduler:
       pool:
         spec:
-          extensionRef:
+          endpointPickerRef:
             failureMode: FailOpen
             kind: Service
             name: '{{ ChildName .ObjectMeta.Name `-epp-service` }}'
-          selector: {}
-          targetPortNumber: 8000
+            port:
+              number: 9002
+          selector:
+            matchLabels:
+              app.kubernetes.io/name: '{{ .ObjectMeta.Name }}'
+              app.kubernetes.io/part-of: llminferenceservice
+              kserve.io/component: workload
+          targetPorts:
+          - number: 8000
       template:
         containers:
         - args:
