@@ -72,13 +72,13 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.50.0 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.39.2 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.39.6 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.31.12 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.16 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.254.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/lightsail v1.49.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.267.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/lightsail v1.50.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.38.6 // indirect
-	github.com/aws/smithy-go v1.23.0 // indirect
+	github.com/aws/smithy-go v1.23.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
@@ -190,7 +190,7 @@ require (
 	golang.org/x/mod v0.29.0 // indirect
 	golang.org/x/net v0.46.0 // indirect
 	golang.org/x/oauth2 v0.31.0 // indirect
-	golang.org/x/sync v0.17.0 // indirect
+	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/term v0.36.0 // indirect
 	golang.org/x/text v0.30.0 // indirect
@@ -223,3 +223,5 @@ exclude google.golang.org/grpc/stats/opentelemetry v0.0.0-00010101000000-0000000
 
 // Currently, KEDA requires 0.19 but GIE uses 0.21
 replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.19.7
+
+replace sigs.k8s.io/gateway-api => sigs.k8s.io/gateway-api v1.3.1-0.20251111135056-fd2a23ff00c9

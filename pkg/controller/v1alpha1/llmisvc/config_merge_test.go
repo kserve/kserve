@@ -465,7 +465,7 @@ func TestMergeSpecs(t *testing.T) {
 									},
 									EndpointPickerRef: igwapi.EndpointPickerRef{
 										Name:        igwapi.ObjectName("endpoint-picker"),
-										FailureMode: igwapi.EndpointPickerFailureMode(igwapi.EndpointPickerFailClose),
+										FailureMode: igwapi.EndpointPickerFailClose,
 									},
 								},
 							},

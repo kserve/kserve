@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"slices"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
@@ -215,7 +216,7 @@ func combineIntoURLs(hostnames []string, scheme string, port gwapiv1.PortNumber,
 // Returns just the host if port is nil or zero
 func joinHostPort(host string, port *gwapiv1.PortNumber) string {
 	if port != nil && *port != 0 {
-		return net.JoinHostPort(host, fmt.Sprint(*port))
+		return net.JoinHostPort(host, strconv.Itoa(int(*port)))
 	}
 	return host
 }

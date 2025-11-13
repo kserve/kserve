@@ -24,6 +24,11 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+func portNumberPtr(port int32) *gwapiv1.PortNumber {
+	pn := gwapiv1.PortNumber(port) //nolint:unconvert // explicit cast keeps alias typing
+	return &pn
+}
+
 type ObjectOption[T client.Object] func(T)
 
 type GatewayOption ObjectOption[*gwapiv1.Gateway]
@@ -290,7 +295,7 @@ func BackendRefInferencePool(name string) gwapiv1.HTTPBackendRef {
 				Group: ptr.To(gwapiv1.Group("inference.networking.x-k8s.io")),
 				Kind:  ptr.To(gwapiv1.Kind("InferencePool")),
 				Name:  gwapiv1.ObjectName(name),
-				Port:  ptr.To(gwapiv1.PortNumber(8000)),
+				Port:  portNumberPtr(8000),
 			},
 			Weight: ptr.To(int32(1)),
 		},
@@ -304,7 +309,7 @@ func BackendRefService(name string) gwapiv1.HTTPBackendRef {
 				Group: ptr.To(gwapiv1.Group("")),
 				Kind:  ptr.To(gwapiv1.Kind("Service")),
 				Name:  gwapiv1.ObjectName(name),
-				Port:  ptr.To(gwapiv1.PortNumber(8000)),
+				Port:  portNumberPtr(8000),
 			},
 			Weight: ptr.To(int32(1)),
 		},
@@ -361,7 +366,7 @@ func ServiceRef(name string, port int32, weight int32) gwapiv1.HTTPBackendRef {
 			BackendObjectReference: gwapiv1.BackendObjectReference{
 				Kind: ptr.To(gwapiv1.Kind("Service")),
 				Name: gwapiv1.ObjectName(name),
-				Port: ptr.To(gwapiv1.PortNumber(port)),
+				Port: portNumberPtr(port),
 			},
 			Weight: ptr.To(weight),
 		},
