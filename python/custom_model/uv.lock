@@ -941,7 +941,7 @@ requires-dist = [
     { name = "timing-asgi", specifier = ">=0.3.0,<1.0.0" },
     { name = "torch", marker = "extra == 'build'" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.6,<1.0.0" },
-    { name = "vllm", marker = "extra == 'llm'", specifier = ">=0.11.0,<0.12.0" },
+    { name = "vllm", marker = "extra == 'llm'", specifier = "==0.10.2" },
     { name = "xformers", marker = "extra == 'build'" },
 ]
 provides-extras = ["storage", "logging", "ray", "llm", "build"]
