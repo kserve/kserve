@@ -322,7 +322,13 @@ class TestOpenAIParamsConversion:
                 prompt=chat_completion_create_params.messages[0]["content"],
             )
         )
-        assert converted_params == completion_create_params
+        # vLLM >=0.11.0 assigns a random request_id when constructing CompletionRequest,
+        # so equality checks need to ignore that dynamically generated field.
+        ignored_fields = {"request_id"}
+        assert (
+            converted_params.model_dump(exclude=ignored_fields)
+            == completion_create_params.model_dump(exclude=ignored_fields)
+        )
 
 
 class TestOpenAIProxyModelCompletion:

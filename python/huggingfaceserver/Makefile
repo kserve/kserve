@@ -1,7 +1,7 @@
 IPEX_EXTRA_INDEX_URL = https://pytorch-extension.intel.com/release-whl/stable/cpu/us/
 TORCH_EXTRA_INDEX_URL = https://download.pytorch.org/whl/cpu
-TORCH_VERSION ?= 2.7.0
-TORCHVISION_VERSION ?= 0.22.0
+TORCH_VERSION ?= 2.8.0
+TORCHVISION_VERSION ?= 0.23.0
 
 dev_install:
 	uv sync --active --group test

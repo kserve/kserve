@@ -65,7 +65,11 @@ ray = [
     "ray[serve]>=2.51.1",
 ]
 llm = [
-    "vllm==0.9.2",
+    "vllm>=0.11.0,<0.12.0",
+]
+build = [
+    "torch",
+    "xformers"
 ]
 
 [dependency-groups]
@@ -93,5 +97,10 @@ extra-index-url = ["https://pypi.org/simple"]
 index-strategy = "unsafe-best-match"
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = [
+    "setuptools>=61.0",
+    "wheel",
+    "torch",
+    "xformers"
+]
 build-backend = "setuptools.build_meta"
