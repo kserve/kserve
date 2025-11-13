@@ -5,7 +5,7 @@ authors = [
     {name = "The KServe Authors", email = "hejinchi@cn.ibm.com"},
 ]
 license = {text = "Apache-2.0"}
-requires-python = "<3.13,>=3.9"
+requires-python = "<3.14,>=3.9"
 dependencies = [
     "uvicorn[standard]<1.0.0,>=0.30.6",
     "fastapi>=0.115.3",
@@ -41,6 +41,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering",
