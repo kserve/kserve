@@ -10,19 +10,21 @@ install_dependencies:
 	uv sync --active --group test
 
 install_cpu_dependencies:
+	# Install PyTorch CPU stack using PyPI as main index and PyTorch CPU index as extra
 	uv add --active \
 		"torch~=${TORCH_VERSION}" \
 		"torchaudio~=${TORCH_VERSION}" \
 		"torchvision~=${TORCHVISION_VERSION}" \
-		--index ${TORCH_EXTRA_INDEX_URL} \
-		--index-strategy unsafe-best-match
-	
+		--index https://pypi.org/simple \
+		--extra-index-url ${TORCH_EXTRA_INDEX_URL}
+
 	uv lock
 
+	# Install Intel Extension for PyTorch using IPEX index as extra
 	uv add --active \
 		"intel_extension_for_pytorch~=${TORCH_VERSION}" \
-		--index ${IPEX_EXTRA_INDEX_URL} \
-		--index-strategy unsafe-best-match
+		--index https://pypi.org/simple \
+		--extra-index-url ${IPEX_EXTRA_INDEX_URL}
 
 	uv sync --active --no-cache --dev --group test
 
@@ -30,4 +32,4 @@ test: type_check
 	pytest -W ignore
 
 type_check:
-	mypy --ignore-missing-imports huggingfaceserver 
+	mypy --ignore-missing-imports huggingfaceserver
