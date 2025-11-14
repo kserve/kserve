@@ -326,10 +326,11 @@ data:
 
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.
+           # If the value is an empty string, the default value is "". And then path based routing will be disabled.
            # Name of the inference service ( {{- "{{ .Name }}" -}} )
            # Namespace of the inference service ( {{- "{{ .Namespace }}" -}} )
            # For more info https://github.com/kserve/kserve/issues/2257.
-           # NOTE: This configuration only applicable to serverless deployment.
+           # NOTE: This configuration applicable to serverless deployment and raw deployment (with gateway api).
            "pathTemplate": "/serving/{{ .Namespace }}/{{ .Name }}"
        }
 
@@ -630,6 +631,7 @@ data:
             {{- end}}
         ],
         "domainTemplate": "{{ .Values.kserve.controller.gateway.domainTemplate }}",
+        "pathTemplate": "{{ .Values.kserve.controller.gateway.pathTemplate }}",
         "urlScheme": "{{ .Values.kserve.controller.gateway.urlScheme }}",
         "disableIstioVirtualHost": {{ .Values.kserve.controller.gateway.disableIstioVirtualHost }},
         "disableIngressCreation": {{ .Values.kserve.controller.gateway.disableIngressCreation }}

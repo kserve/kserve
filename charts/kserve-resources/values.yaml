@@ -168,6 +168,9 @@ kserve:
       # -- Ingress domain template for RawDeployment mode, for Serverless mode it is configured in Knative.
       domainTemplate: "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
 
+      # -- pathTemplate specifies the template for generating path based url for each inference service. If the value is an empty string, then path based routing will be disabled.
+      pathTemplate: ""
+
       # -- HTTP endpoint url scheme.
       urlScheme: http
 
@@ -285,6 +288,7 @@ kserve:
       image: tensorflow/serving
       tag: 2.6.2
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         runAsUser: 1000 # User is not defined in the Dockerfile, so we need to set it here to run as non-root
         allowPrivilegeEscalation: false
@@ -299,6 +303,7 @@ kserve:
       tag: 1.5.0
       modelClassPlaceholder: "{{.Labels.modelClass}}"
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
@@ -311,6 +316,7 @@ kserve:
       image: kserve/sklearnserver
       tag: *defaultVersion
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
@@ -323,6 +329,7 @@ kserve:
       image: kserve/xgbserver
       tag: *defaultVersion
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
@@ -335,6 +342,7 @@ kserve:
       image: kserve/huggingfaceserver
       tag: *defaultVersion
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
@@ -366,6 +374,7 @@ kserve:
       image: nvcr.io/nvidia/tritonserver
       tag: 23.05-py3
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         runAsUser: 1000 # https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/customization_guide/deploy.html#run-as-a-non-root-user
         allowPrivilegeEscalation: false
@@ -379,6 +388,7 @@ kserve:
       image: kserve/pmmlserver
       tag: *defaultVersion
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
@@ -391,6 +401,7 @@ kserve:
       image: kserve/paddleserver
       tag: *defaultVersion
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
@@ -403,6 +414,7 @@ kserve:
       image: kserve/lgbserver
       tag: *defaultVersion
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
@@ -416,6 +428,7 @@ kserve:
       tag: 0.9.0
       serviceEnvelopePlaceholder: "{{.Labels.serviceEnvelope}}"
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         runAsUser: 1000 # User ID is not defined in the Dockerfile, so we need to set it here to run as non-root
         allowPrivilegeEscalation: false
