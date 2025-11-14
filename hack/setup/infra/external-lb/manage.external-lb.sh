@@ -101,7 +101,7 @@ install() {
                 log_info "cloud-provider-kind is already running"
             else
                 log_info "Starting cloud-provider-kind..."
-                cloud-provider-kind > /dev/null 2>&1 &
+                nohup cloud-provider-kind > /dev/null 2>&1 &
                 sleep 2
 
                 if pgrep -f cloud-provider-kind > /dev/null; then

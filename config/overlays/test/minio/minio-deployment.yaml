@@ -30,7 +30,7 @@ spec:
             secretKeyRef:
               name: mlpipeline-minio-artifact
               key: secretkey
-        image: gcr.io/ml-pipeline/minio:RELEASE.2019-08-14T20-37-41Z-license-compliance
+        image: minio/minio:RELEASE.2021-04-22T15-44-28Z
         name: minio
         ports:
         - containerPort: 9000
