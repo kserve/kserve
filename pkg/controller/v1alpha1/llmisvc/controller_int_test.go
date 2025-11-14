@@ -224,7 +224,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			By("checking the Deployment's top-level metadata")
 			// Check that the kueue label/annotation was propagated
 			Expect(expectedDeployment.Labels).To(HaveKeyWithValue(LocalQueueNameLabelKey, localQueueName))
-			Expect(expectedDeployment.Annotations).To(gomega.HaveKeyWithValue(PreemptionReclaimAnnotationKey, preemptPriority))
+			Expect(expectedDeployment.Annotations).To(HaveKeyWithValue(PreemptionReclaimAnnotationKey, preemptPriority))
 			// Check that the test label/annotation was not propagated as it is not in the approved prefixes for propagation
 			Expect(expectedDeployment.Labels).ToNot(HaveKeyWithValue(testValue, testValue))
 			Expect(expectedDeployment.Annotations).ToNot(HaveKeyWithValue(testValue, testValue))
@@ -232,7 +232,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			By("checking the Deployment's pod template metadata")
 			// Check that the kueue label/annotation was propagated
 			Expect(expectedDeployment.Spec.Template.Labels).To(HaveKeyWithValue(LocalQueueNameLabelKey, localQueueName))
-			Expect(expectedDeployment.Spec.Template.Annotations).To(gomega.HaveKeyWithValue(PreemptionReclaimAnnotationKey, preemptPriority))
+			Expect(expectedDeployment.Spec.Template.Annotations).To(HaveKeyWithValue(PreemptionReclaimAnnotationKey, preemptPriority))
 			// Check that the test label/annotation was not propagated as it is not in the approved prefixes for propagation
 			Expect(expectedDeployment.Spec.Template.Labels).ToNot(HaveKeyWithValue(testValue, testValue))
 			Expect(expectedDeployment.Spec.Template.Annotations).ToNot(HaveKeyWithValue(testValue, testValue))
