@@ -19,6 +19,7 @@ import glob
 import gzip
 import json
 import mimetypes
+import multiprocessing
 import os
 import re
 import shutil
@@ -28,6 +29,7 @@ import time
 from typing import Optional
 import zipfile
 from pathlib import Path
+from typing import Tuple
 from urllib.parse import urlparse
 import requests
 
@@ -57,6 +59,10 @@ _HF_PREFIX = "hf://"
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
 
+# S3 parallel download configuration
+_S3_MAX_FILE_CONCURRENCY = int(os.getenv("S3_MAX_FILE_CONCURRENCY", "4"))
+# Global variable for S3 resource in worker processes
+_worker_s3_resource = None
 # Azure async download configuration
 _AZURE_MAX_FILE_CONCURRENCY = int(os.getenv("AZURE_MAX_FILE_CONCURRENCY", "4"))
 _AZURE_MAX_CHUNK_CONCURRENCY = int(os.getenv("AZURE_MAX_CHUNK_CONCURRENCY", "4"))
@@ -202,15 +208,13 @@ class Storage(object):
         return c
 
     @staticmethod
-    def _download_s3(uri, temp_dir: str) -> str:
-        import boto3
+    def _get_s3_client_kwargs():
+        """
+        Get the standardized boto3 client kwargs for S3 operations.
 
-        # Boto3 looks at various configuration locations until it finds configuration values.
-        # lookup order:
-        # 1. Config object passed in as the config parameter when creating S3 resource
-        #    if awsAnonymousCredential env var true, passed in via config
-        # 2. Environment variables
-        # 3. ~/.aws/config file
+        Returns:
+            dict: kwargs for creating boto3 S3 resource/client
+        """
         kwargs = {"config": Storage.get_S3_config()}
         endpoint_url = os.getenv("AWS_ENDPOINT_URL")
         if endpoint_url:
@@ -250,62 +254,134 @@ class Storage(object):
                     raise RuntimeError(
                         "Failed to find ca bundle file(%s)." % ca_bundle_full_path
                     )
+        return kwargs
+
+    @staticmethod
+    def _init_s3_worker():
+        """
+        Initialize S3 resources for worker processes.
+        This runs once per worker process to avoid repeated initialization overhead.
+        """
+        global _worker_s3_resource
+        try:
+            import boto3
+
+            kwargs = Storage._get_s3_client_kwargs()
+            _worker_s3_resource = boto3.resource("s3", **kwargs)
+        except Exception as e:
+            logger.error(f"Failed to initialize S3 worker: {e}")
+            _worker_s3_resource = None
+
+    @staticmethod
+    def _download_s3_object(args: Tuple) -> Tuple[bool, str, str]:
+        """
+        Worker function to download a single S3 object in a separate process.
+        Uses pre-initialized S3 resource from _init_s3_worker().
+
+        Args:
+            args: Tuple containing (bucket_name:str, obj_key:str, target_path:str)
+
+        Returns:
+            Tuple of (success: bool, obj_key: str, error_message: str)
+        """
+        try:
+            global _worker_s3_resource
+
+            if _worker_s3_resource is None:
+                return False, args[1], "S3 resource not initialized in worker process"
+
+            bucket_name, obj_key, target_path = args
+            bucket = _worker_s3_resource.Bucket(bucket_name)
+
+            # Download the file
+            bucket.download_file(obj_key, target_path)
+
+            return True, obj_key, ""
+
+        except Exception as e:
+            return False, obj_key, str(e)
+
+    @staticmethod
+    def _download_s3(uri, temp_dir: str) -> str:
+        import boto3
+
+        # Get S3 configuration using the shared helper method
+        kwargs = Storage._get_s3_client_kwargs()
         s3 = boto3.resource("s3", **kwargs)
         parsed = urlparse(uri, scheme="s3")
         bucket_name = parsed.netloc
         bucket_path = parsed.path.lstrip("/")
 
-        file_count = 0
+        # Collect all objects to download
+        download_tasks = []
         exact_obj_found = False
         bucket = s3.Bucket(bucket_name)
+
         for obj in bucket.objects.filter(Prefix=bucket_path):
-            # Skip where boto3 lists the directory as an object
-            if obj.key.endswith("/"):
+            if obj.key.endswith("/") or obj.size == 0:
+                logger.debug("Skipping: %s", obj.key)
                 continue
-            # In the case where bucket_path points to a single object, set the target key to bucket_path
-            # Otherwise, remove the bucket_path prefix, strip any extra slashes, then prepend the target_dir
-            # Example:
-            # s3://test-bucket
-            # Objects: /a/b/c/model.bin /a/model.bin /model.bin
-            #
-            # If 'uri' is set to "s3://test-bucket", then the downloader will
-            # download all the objects listed above, re-creating their subpaths
-            # under the temp_dir.
-            # If 'uri' is set to "s3://test-bucket/a", then the downloader will
-            # add to temp_dir: b/c/model.bin and model.bin.
-            # If 'uri' is set to "s3://test-bucket/a/b/c/model.bin", then
-            # the downloader will add to temp dir: model.bin
-            # (without any subpaths).
-            # If the bucket path is s3://test/models
-            # Objects: churn, churn-pickle, churn-pickle-logs
+
+            logger.info("Found S3 object: %s (%d bytes)", obj.key, obj.size)
 
             if bucket_path == obj.key:
                 target_key = obj.key.rsplit("/", 1)[-1]
                 exact_obj_found = True
-
             else:
-                target_key = re.sub(r"^" + re.escape(bucket_path) + r"/?", "", obj.key)
+                target_key = obj.key.removeprefix(bucket_path).lstrip("/")
 
-            target = f"{temp_dir}/{target_key}"
-            if not os.path.exists(os.path.dirname(target)):
-                os.makedirs(os.path.dirname(target), exist_ok=True)
-            bucket.download_file(obj.key, target)
-            logger.info("Downloaded object %s to %s" % (obj.key, target))
-            file_count += 1
+            target_path = f"{temp_dir}/{target_key}"
+
+            # Create target directory if it doesn't exist
+            if not os.path.exists(dir_path := os.path.dirname(target_path)):
+                os.makedirs(dir_path, exist_ok=True)
+
+            download_tasks.append((bucket_name, obj.key, target_path))
 
             # If the exact object is found, then it is sufficient to download that and break the loop
             if exact_obj_found:
                 break
-        if file_count == 0:
+
+        if len(download_tasks) == 0:
             raise RuntimeError(
                 "Failed to fetch model. No model found in %s." % bucket_path
             )
 
+        num_processes = min(_S3_MAX_FILE_CONCURRENCY, len(download_tasks))
+
+        with multiprocessing.Pool(
+            processes=num_processes, initializer=Storage._init_s3_worker
+        ) as pool:
+            results = pool.map(Storage._download_s3_object, download_tasks)
+
+        # Process results and handle errors
+        successful_downloads = []
+        failed_downloads = []
+
+        for success, obj_key, error_msg in results:
+            if success:
+                successful_downloads.append(obj_key)
+                logger.info("Downloaded object %s" % obj_key)
+            else:
+                failed_downloads.append((obj_key, error_msg))
+                logger.error("Failed to download object %s: %s" % (obj_key, error_msg))
+
+        if len(failed_downloads) > 0:
+            error_details = "; ".join(
+                [f"{obj}: {err}" for obj, err in failed_downloads]
+            )
+            raise RuntimeError(
+                f"Failed to download {len(failed_downloads)} files: {error_details}"
+            )
+
         # Unpack compressed file, supports .tgz, tar.gz and zip file formats.
-        if file_count == 1:
-            mimetype, _ = mimetypes.guess_type(target)
+        if len(successful_downloads) == 1:
+            target_path = download_tasks[0][
+                2
+            ]  # target_path is the 3rd element in task_args
+            mimetype, _ = mimetypes.guess_type(target_path)
             if mimetype in ["application/x-tar", "application/zip"]:
-                temp_dir = Storage._unpack_archive_file(target, mimetype, temp_dir)
+                temp_dir = Storage._unpack_archive_file(target_path, mimetype, temp_dir)
         return temp_dir
 
     @staticmethod

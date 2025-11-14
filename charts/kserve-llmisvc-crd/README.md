@@ -9,5 +9,5 @@ Helm chart for deploying LLMInferenceService crds
 To install the chart, run the following:
 
 ```console
-$ helm install llmisvc-crd oci://ghcr.io/kserve/charts/llmisvc-crd --version v0.16.0
+$ helm install kserve-llmisvc-crd oci://ghcr.io/kserve/charts/kserve-llmisvc-crd --version v0.16.0
 ```
