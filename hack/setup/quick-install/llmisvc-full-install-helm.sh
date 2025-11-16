@@ -49,7 +49,7 @@ find_repo_root() {
 
     # Git repository not found
     if [[ "$skip" == "true" ]]; then
-        log_warning "Could not find git repository root, using current directory: $PWD"
+        log_warning "Could not find git repository root, using current directory: $PWD" >&2
         echo "$PWD"
         return 0
     else
@@ -426,6 +426,22 @@ version_gte() {
 
 # ============================================================================
 
+cleanup_bin_dir() {
+    # Remove BIN_DIR if it was created by this script
+    if [[ "${BIN_DIR_CREATED_BY_SCRIPT:-false}" == "true" ]] && [[ -d "${BIN_DIR:-}" ]]; then
+        log_info "Cleaning up BIN_DIR: ${BIN_DIR}"
+        rm -rf "${BIN_DIR}"
+    fi
+}
+
+cleanup() {
+    # Call all cleanup functions
+    cleanup_bin_dir
+}
+
+# Set up trap to run cleanup on exit
+trap cleanup EXIT
+
 # Set environment variable based on priority order:
 # Priority: 1. Runtime env > 2. Component env > 3. Global env > 4. Component default
 # Usage: set_env_with_priority VAR_NAME COMPONENT_ENV_VALUE GLOBAL_ENV_VALUE DEFAULT_VALUE
@@ -463,6 +479,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 REPO_ROOT="$(find_repo_root "${SCRIPT_DIR}" "true")"
 export REPO_ROOT
 export BIN_DIR="${REPO_ROOT}/bin"
+
+# Track if we created BIN_DIR so we can clean it up later
+BIN_DIR_CREATED_BY_SCRIPT=false
+if [[ ! -d "${BIN_DIR}" ]]; then
+    log_info "Creating BIN_DIR: ${BIN_DIR}"
+    BIN_DIR_CREATED_BY_SCRIPT=true
+fi
+
+ensure_dir "${BIN_DIR}"
 export PATH="${BIN_DIR}:${PATH}"
 
 UNINSTALL="${UNINSTALL:-false}"

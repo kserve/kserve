@@ -36,7 +36,7 @@ find_repo_root() {
 
     # Git repository not found
     if [[ "$skip" == "true" ]]; then
-        log_warning "Could not find git repository root, using current directory: $PWD"
+        log_warning "Could not find git repository root, using current directory: $PWD" >&2
         echo "$PWD"
         return 0
     else
