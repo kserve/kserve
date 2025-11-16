@@ -115,6 +115,7 @@ These are all handled by the `huggingface_hub` package, you can see all the avai
 - `S3_VERIFY_SSL`: Enable/disable SSL verification
 - `S3_USER_VIRTUAL_BUCKET`: Use virtual hosted-style URLs
 - `S3_USE_ACCELERATE`: Use transfer acceleration
+- `S3_MAX_FILE_CONCURRENCY`: number of files to download parallel
 - `awsAnonymousCredential`: Use unsigned requests for public access
 
 ### Azure Configuration
@@ -123,6 +124,8 @@ These are all handled by the `huggingface_hub` package, you can see all the avai
 - `AZ_TENANT_ID` / `AZURE_TENANT_ID`: Azure AD tenant ID
 - `AZ_CLIENT_ID` / `AZURE_CLIENT_ID`: Azure AD client ID
 - `AZ_CLIENT_SECRET` / `AZURE_CLIENT_SECRET`: Azure AD client secret
+- `AZURE_MAX_FILE_CONCURRENCY`: number of files to download parallel (blob only)
+- `AZURE_MAX_CHUNK_CONCURRENCY`: number of chunks for each file to download parallel (blob only)
 
 ### HDFS Configuration
 

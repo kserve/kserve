@@ -67,6 +67,7 @@ class V1beta1TransformerSpec(object):
         'host_pid': 'bool',
         'host_users': 'bool',
         'hostname': 'str',
+        'hostname_override': 'str',
         'image_pull_secrets': 'list[V1LocalObjectReference]',
         'init_containers': 'list[V1Container]',
         'labels': 'dict(str, str)',
@@ -125,6 +126,7 @@ class V1beta1TransformerSpec(object):
         'host_pid': 'hostPID',
         'host_users': 'hostUsers',
         'hostname': 'hostname',
+        'hostname_override': 'hostnameOverride',
         'image_pull_secrets': 'imagePullSecrets',
         'init_containers': 'initContainers',
         'labels': 'labels',
@@ -162,7 +164,7 @@ class V1beta1TransformerSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, storage_uris=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, hostname_override=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, storage_uris=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1TransformerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -188,6 +190,7 @@ class V1beta1TransformerSpec(object):
         self._host_pid = None
         self._host_users = None
         self._hostname = None
+        self._hostname_override = None
         self._image_pull_secrets = None
         self._init_containers = None
         self._labels = None
@@ -265,6 +268,8 @@ class V1beta1TransformerSpec(object):
             self.host_users = host_users
         if hostname is not None:
             self.hostname = hostname
+        if hostname_override is not None:
+            self.hostname_override = hostname_override
         if image_pull_secrets is not None:
             self.image_pull_secrets = image_pull_secrets
         if init_containers is not None:
@@ -785,6 +790,29 @@ class V1beta1TransformerSpec(object):
         """
 
         self._hostname = hostname
+
+    @property
+    def hostname_override(self):
+        """Gets the hostname_override of this V1beta1TransformerSpec.  # noqa: E501
+
+        HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod. This field only specifies the pod's hostname and does not affect its DNS records. When this field is set to a non-empty string: - It takes precedence over the values set in `hostname` and `subdomain`. - The Pod's hostname will be set to this value. - `setHostnameAsFQDN` must be nil or set to false. - `hostNetwork` must be set to false.  This field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters. Requires the HostnameOverride feature gate to be enabled.  # noqa: E501
+
+        :return: The hostname_override of this V1beta1TransformerSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._hostname_override
+
+    @hostname_override.setter
+    def hostname_override(self, hostname_override):
+        """Sets the hostname_override of this V1beta1TransformerSpec.
+
+        HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod. This field only specifies the pod's hostname and does not affect its DNS records. When this field is set to a non-empty string: - It takes precedence over the values set in `hostname` and `subdomain`. - The Pod's hostname will be set to this value. - `setHostnameAsFQDN` must be nil or set to false. - `hostNetwork` must be set to false.  This field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters. Requires the HostnameOverride feature gate to be enabled.  # noqa: E501
+
+        :param hostname_override: The hostname_override of this V1beta1TransformerSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._hostname_override = hostname_override
 
     @property
     def image_pull_secrets(self):
