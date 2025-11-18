@@ -16,8 +16,8 @@ Help() {
 }
 
 export GATEWAY_API_VERSION=v1.2.1
-export KSERVE_VERSION=v0.16.0-rc1
-export LLMISVC_VERSION=v0.16.0-rc1
+export KSERVE_VERSION=v0.16.0
+export LLMISVC_VERSION=v0.16.0
 export LWS_VERSION=0.7.0
 export ENVOY_GATEWAY_VERSION=v1.5.0
 export ENVOY_AI_GATEWAY_VERSION=v0.3.0
@@ -48,8 +48,8 @@ uninstall() {
    kubectl delete --ignore-not-found=true gatewayclass envoy
 
    # Uninstall LLMISvc
-   helm uninstall --ignore-not-found llmisvc -n kserve
-   helm uninstall --ignore-not-found llmisvc-crd -n kserve
+   helm uninstall --ignore-not-found kserve-llmisvc -n kserve
+   helm uninstall --ignore-not-found kserve-llmisvc-crd -n kserve
    echo "😀 Successfully uninstalled LLMISvc"
 
 
@@ -246,16 +246,16 @@ if [ "${USE_LOCAL_CHARTS}" = true ]; then
    echo "Installing LLMISvc using local charts..."
    echo "📍 Using local charts from $(pwd)/charts/"
    # Install LLMISvc CRDs from local chart
-   helm install llmisvc-crd ./charts/llmisvc-crd --namespace kserve --create-namespace --wait
+   helm install kserve-llmisvc-crd ./charts/kserve-llmisvc-crd --namespace kserve --create-namespace --wait
 
    # Install LLMISvc resources from local chart  
-   helm install llmisvc ./charts/llmisvc-resources --namespace kserve --create-namespace --wait --set kserve.llmisvc.controller.tag=local-test --set kserve.llmisvc.controller.imagePullPolicy=Never
+   helm install kserve-llmisvc ./charts/kserve-llmisvc-resources --namespace kserve --create-namespace --wait --set kserve.llmisvc.controller.tag=local-test --set kserve.llmisvc.controller.imagePullPolicy=Never
    echo "😀 Successfully installed LLMISvc using local charts"
 
 else
    echo "Installing LLMISvc ..."
-   helm install llmisvc-crd oci://ghcr.io/kserve/charts/llmisvc-crd --version ${LLMISVC_VERSION} --namespace kserve --create-namespace --wait
-   helm install llmisvc oci://ghcr.io/kserve/charts/llmisvc-resources --version ${LLMISVC_VERSION} --namespace kserve --create-namespace --wait
+   helm install kserve-llmisvc-crd oci://ghcr.io/kserve/charts/kserve-llmisvc-crd --version ${LLMISVC_VERSION} --namespace kserve --create-namespace --wait
+   helm install kserve-llmisvc oci://ghcr.io/kserve/charts/kserve-llmisvc-resources --version ${LLMISVC_VERSION} --namespace kserve --create-namespace --wait
 
 fi
 echo "😀 Successfully installed LLMISvc"
