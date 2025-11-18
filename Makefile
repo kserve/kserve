@@ -335,11 +335,16 @@ helm-generate-kserve: helmify yq
 	@sed -i ':a;N;$!ba;s/{{ include "kserve-resources.fullname" . }}-{{ .Release.Namespace }}-webhook-server-service/{{ include "kserve-resources.fullname" . }}-webhook-server-service/g' charts/kserve-resources/templates/serving-cert.yaml 2>/dev/null || true
 	@sed -i ':a;N;$!ba;s/{{ include "kserve-resources.fullname" . }}-{{ .Release.Namespace }}-llmisvc-webhook-svc/{{ include "kserve-resources.fullname" . }}-llmisvc-webhook-svc/g' charts/kserve-resources/templates/llmisvc-serving-cert.yaml 2>/dev/null || true
 
-	# Add required kserve.* values for conditional templates (localmodel, etc.)
+	# Remove disabled fields that helmify added but don't exist in source files
+	@echo "Removing templated 'disabled' fields that don't exist in source..."
+	@python3 -c "import re; content = open('charts/kserve-resources/templates/clusterservingruntimes.yaml').read(); content = re.sub(r'^  disabled: {{ .Values\.kserve\.servingruntime\..*\.disabled }}$\n', '', content, flags=re.MULTILINE); open('charts/kserve-resources/templates/clusterservingruntimes.yaml', 'w').write(content)" 2>/dev/null || true
+
+	# Add required kserve.* values for conditional templates (localmodel only)
+	# This must be done before extracting servingruntime values
 	@echo "Adding required kserve.* values to values.yaml..."
 	@if ! grep -q "^kserve:" charts/kserve-resources/values.yaml; then \
 		echo "" >> charts/kserve-resources/values.yaml; \
-		echo "# Local model configuration" >> charts/kserve-resources/values.yaml; \
+		echo "# KServe configuration" >> charts/kserve-resources/values.yaml; \
 		echo "kserve:" >> charts/kserve-resources/values.yaml; \
 		echo "  agent:" >> charts/kserve-resources/values.yaml; \
 		echo "    image: kserve/agent" >> charts/kserve-resources/values.yaml; \
@@ -359,6 +364,10 @@ helm-generate-kserve: helmify yq
 		echo "    agent:" >> charts/kserve-resources/values.yaml; \
 		echo "      reconcilationFrequencyInSecs: 60" >> charts/kserve-resources/values.yaml; \
 	fi
+
+	# Extract servingruntime values from kustomization.yaml (helmify doesn't extract these)
+	@echo "Extracting servingruntime values from kustomization.yaml..."
+	@python3 hack/extract_runtime_values.py config/runtimes/kustomization.yaml config/runtimes charts/kserve-resources/values.yaml
 
 	# Validate
 	@echo "Validating Helm chart..."

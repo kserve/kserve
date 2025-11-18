@@ -77299,6 +77299,7 @@ spec:
       - --port=8000
       - --vllm-port=8001
       - --connector=nixlv2
+      - --secure-proxy=false
       env:
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
