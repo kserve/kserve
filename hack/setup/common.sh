@@ -36,11 +36,11 @@ find_repo_root() {
 
     # Git repository not found
     if [[ "$skip" == "true" ]]; then
-        log_warning "Could not find git repository root, using current directory: $PWD" >&2
+        log_warning "Could not find git repository root, using current directory: $PWD"
         echo "$PWD"
         return 0
     else
-        echo "Error: Could not find git repository root" >&2
+        log_error "Could not find git repository root"
         exit 1
     fi
 }
@@ -60,7 +60,7 @@ detect_os() {
     case "$(uname -s)" in
         Linux*)  os="linux" ;;
         Darwin*) os="darwin" ;;
-        *)       echo "Unsupported OS" >&2; exit 1 ;;
+        *)       log_error "Unsupported OS detected: $(uname -s)" ; exit 1 ;;
     esac
     echo "$os"
 }
@@ -70,7 +70,7 @@ detect_arch() {
     case "$(uname -m)" in
         x86_64)  arch="amd64" ;;
         aarch64|arm64) arch="arm64" ;;
-        *)       echo "Unsupported architecture" >&2; exit 1 ;;
+        *)       log_error "Unsupported architecture detected: $(uname -m)" ; exit 1 ;;
     esac
     echo "$arch"
 }
@@ -107,7 +107,7 @@ else
 fi
 
 log_info() {
-    echo -e "${BLUE}[INFO]${RESET} $*"
+    echo -e "${BLUE}[INFO]${RESET} $*" >&2
 }
 
 log_error() {
@@ -115,11 +115,11 @@ log_error() {
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${RESET} $*"
+    echo -e "${GREEN}[SUCCESS]${RESET} $*" >&2
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${RESET} $*"
+    echo -e "${YELLOW}[WARNING]${RESET} $*" >&2
 }
 
 
