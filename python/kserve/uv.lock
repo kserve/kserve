@@ -2078,7 +2078,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.5.0,<3.0.0" },
     { name = "python-dateutil", specifier = ">=2.8.0,<3.0.0" },
     { name = "pyyaml", specifier = ">=6.0.0,<7.0.0" },
-    { name = "ray", extras = ["serve"], marker = "extra == 'ray'", specifier = ">=2.51.0" },
+    { name = "ray", extras = ["serve"], marker = "extra == 'ray'", specifier = ">=2.49.0" },
     { name = "six", specifier = ">=1.16.0,<2.0.0" },
     { name = "starlette", specifier = "==0.49.1" },
     { name = "tabulate", specifier = ">=0.9.0,<1.0.0" },
@@ -3204,15 +3204,15 @@ wheels = [
 [[package]]
 name = "opentelemetry-exporter-prometheus"
 version = "1.12.0rc1"
-source = { registry = "https://test.pypi.org/simple/" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
     { name = "opentelemetry-sdk" },
     { name = "prometheus-client" },
 ]
-sdist = { url = "https://test-files.pythonhosted.org/packages/87/fe/e94cf40c01f2ba78dc4854c8ea61be2f6d418387c2f0f739232dba716419/opentelemetry-exporter-prometheus-1.12.0rc1.tar.gz", hash = "sha256:f10c6c243d69d5b63f755885b36a4ce8ef2cdf3e737c4e6bf00f32e87668f0a9", size = 10097, upload-time = "2022-05-17T20:54:40.007Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/87/fe/e94cf40c01f2ba78dc4854c8ea61be2f6d418387c2f0f739232dba716419/opentelemetry-exporter-prometheus-1.12.0rc1.tar.gz", hash = "sha256:f10c6c243d69d5b63f755885b36a4ce8ef2cdf3e737c4e6bf00f32e87668f0a9", size = 10097, upload-time = "2022-05-17T20:55:30.161Z" }
 wheels = [
-    { url = "https://test-files.pythonhosted.org/packages/e9/ae/d44f958d61700daaaead0452d7d911170117863ab392d0741cf21aaec451/opentelemetry_exporter_prometheus-1.12.0rc1-py3-none-any.whl", hash = "sha256:1f0c8f93d62e1575313966ceb8abf11e9a46e1839fda9ee4269b06d40494280f", size = 10068, upload-time = "2022-05-17T20:54:17.927Z" },
+    { url = "https://files.pythonhosted.org/packages/e9/ae/d44f958d61700daaaead0452d7d911170117863ab392d0741cf21aaec451/opentelemetry_exporter_prometheus-1.12.0rc1-py3-none-any.whl", hash = "sha256:1f0c8f93d62e1575313966ceb8abf11e9a46e1839fda9ee4269b06d40494280f", size = 10068, upload-time = "2022-05-17T20:55:04.767Z" },
 ]
 
 [[package]]
