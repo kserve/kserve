@@ -88,6 +88,9 @@ dev = [
     "black[colorama]~=24.3.0",
 ]
 
+[tool.uv.extra-build-dependencies]
+xformers = ["torch"]
+
 [tool.uv]
 # TODO remove later
 index-url = "https://test.pypi.org/simple/"
