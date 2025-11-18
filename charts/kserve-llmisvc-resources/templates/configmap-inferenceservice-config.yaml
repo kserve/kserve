@@ -1,3 +1,5 @@
+{{- if .Values.kserve.llmisvc.inferenceServiceConfig.createConfigMap }}
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -36,27 +38,27 @@ data:
            "art": {
                # image contains the default Art explainer serving runtime image uri.
                "image" : "kserve/art-explainer",
-       
+
                # defautltImageVersion contains the Art explainer serving runtime default image version.
                "defaultImageVersion": "latest"
            }
        }
     # ====================================== ISVC CONFIGURATION ======================================
-    # Example - setting custom annotation  
+    # Example - setting custom annotation
      inferenceService: |-
        {
          "serviceAnnotationDisallowedList": [
-            "my.custom.annotation/1"  
+            "my.custom.annotation/1"
          ],
          "serviceLabelDisallowedList": [
-            "my.custom.label.1"  
+            "my.custom.label.1"
          ]
        }
     # Example - setting custom annotation
     inferenceService: |-
       {
-        # ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative 
-        # revisions, which prevents the reconciliation loop to be triggered if the annotations is 
+        # ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative
+        # revisions, which prevents the reconciliation loop to be triggered if the annotations is
         # configured here are used.
         # Default values are:
         #  "autoscaling.knative.dev/min-scale",
@@ -65,14 +67,14 @@ data:
         #  "kubectl.kubernetes.io/last-applied-configuration"
         # Any new value will be appended to the list.
         "serviceAnnotationDisallowedList": [
-          "my.custom.annotation/1"  
+          "my.custom.annotation/1"
         ],
         # ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions
         # which prevents the reconciliation loop to be triggered if the labels is configured here are used.
         "serviceLabelDisallowedList": [
-          "my.custom.label.1"  
+          "my.custom.label.1"
         ]
-      } 
+      }
     # Example - setting custom resource
     inferenceService: |-
       {
@@ -88,7 +90,7 @@ data:
       {
         # resource contains the default resource configuration for the inference service.
         # you can override this configuration by specifying the resources in the inference service yaml.
-        # If you want to unbound the resource (limits and requests), you can set the value to null or "" 
+        # If you want to unbound the resource (limits and requests), you can set the value to null or ""
         # or just remove the specific field from the config.
         "resource": {
            # cpuLimit is the limits.cpu to set for the inference service.
@@ -105,7 +107,7 @@ data:
         }
      }
     # ====================================== MultiNode CONFIGURATION ======================================
-    # Example   
+    # Example
     multiNode: |-
       {
         "customGPUResourceTypeList": [
@@ -114,14 +116,14 @@ data:
       }
     # Example of multinode configuration
     multiNode: |-
-      {      
+      {
         # CustomGPUResourceTypeList is a list of custom GPU resource types intended to identify the GPU type of a resource,
         # not to restrict the user from using a specific GPU type.
         # The MultiNode runtime pod will dynamically add GPU resources based on the registered GPU types.
         "customGPUResourceTypeList": [
           "custom.com/gpu"
         ]
-      }  
+      }
      # ====================================== OTelCollector CONFIGURATION ======================================
      # Example
      opentelemetryCollector: |-
@@ -143,7 +145,7 @@ data:
          # scaleDownStabilizationWindowSeconds is the stabilization window in seconds for scale down.
          "scaleDownStabilizationWindowSeconds": "300"
        }
-      
+
      # ====================================== STORAGE INITIALIZER CONFIGURATION ======================================
      # Example
      storageInitializer: |-
@@ -163,19 +165,19 @@ data:
        {
            # image contains the default storage initializer image uri.
            "image" : "kserve/storage-initializer:latest",
-           
+
            # memoryRequest is the requests.memory to set for the storage initializer init container.
            "memoryRequest": "100Mi",
-       
+
             # memoryLimit is the limits.memory to set for the storage initializer init container.
            "memoryLimit": "1Gi",
-           
+
            # cpuRequest is the requests.cpu to set for the storage initializer init container.
            "cpuRequest": "100m",
-           
+
            # cpuLimit is the limits.cpu to set for the storage initializer init container.
            "cpuLimit": "1",
-       
+
            # caBundleConfigMapName is the ConfigMap will be copied to a user namespace for the storage initializer init container.
            "caBundleConfigMapName": "",
 
@@ -198,7 +200,7 @@ data:
            # Some Kubernetes clusters might require this to be root (0). If not set the user id is left untouched (default)
            "uidModelcar": 10
        }
-     
+
      # ====================================== CREDENTIALS ======================================
      # Example
      credentials: |-
@@ -246,47 +248,47 @@ data:
               # gcsCredentialFileName specifies the filename of the gcs credential
               "gcsCredentialFileName": "gcloud-application-credentials.json"
           },
-          
+
           # Configuration for aws s3 storage. This add the corresponding environmental variables to the storage initializer init container.
           # For more info on s3 storage see https://kserve.github.io/website/master/modelserving/storage/s3/s3/
           "s3": {
               # s3AccessKeyIDName specifies the s3 access key id name
               "s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
-       
+
               # s3SecretAccessKeyName specifies the s3 secret access key name
               "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY",
-              
+
               # s3Endpoint specifies the s3 endpoint
               "s3Endpoint": "",
-              
+
               # s3UseHttps controls whether to use secure https or unsecure http to download models.
               # Allowed values are 0 and 1.
               "s3UseHttps": "",
-       
+
               # s3Region specifies the region of the bucket.
               "s3Region": "",
-              
+
               # s3VerifySSL controls whether to verify the tls/ssl certificate.
               "s3VerifySSL": "",
-              
+
               # s3UseVirtualBucket configures whether it is a virtual bucket or not.
               "s3UseVirtualBucket": "",
 
               # s3UseAccelerate configures whether to use transfer acceleration.
               "s3UseAccelerate": "",
-               
+
               # s3UseAnonymousCredential configures whether to use anonymous credentials to download the model or not.
               "s3UseAnonymousCredential": "",
-              
+
               # s3CABundle specifies the path to a certificate bundle to use for HTTPS certificate validation.
               "s3CABundle": ""
           }
        }
-     
+
      # ====================================== INGRESS CONFIGURATION ======================================
      # Example
      ingress: |-
-       {    
+       {
            "enableGatewayApi": false,
            "kserveIngressGateway": "kserve/kserve-ingress-gateway",
            "ingressGateway" : "knative-serving/knative-ingress-gateway",
@@ -301,22 +303,22 @@ data:
            "disableIngressCreation": false
        }
      ingress: |-
-       {   
+       {
            # enableGatewayApi specifies whether to use Gateway API instead of Ingress to serve external traffic.
            "enableGatewayApi": false,
 
-           # KServe implements [Gateway API](https://gateway-api.sigs.k8s.io/) to serve external traffic. 
+           # KServe implements [Gateway API](https://gateway-api.sigs.k8s.io/) to serve external traffic.
            # By default, KServe configures a default gateway to serve external traffic.
            # But, KServe can be configured to use a custom gateway by modifying this configuration.
            # The gateway should be specified in format <gateway namespace>/<gateway name>
            # NOTE: This configuration only applicable for raw deployment.
            "kserveIngressGateway": "kserve/kserve-ingress-gateway",
-     
+
            # ingressGateway specifies the ingress gateway to serve external traffic.
            # The gateway should be specified in format <gateway namespace>/<gateway name>
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
            "ingressGateway" : "knative-serving/knative-ingress-gateway",
-     
+
            # knativeLocalGatewayService specifies the hostname of the Knative's local gateway service.
            # The default KServe configurations are re-using the Istio local gateways for Knative. In this case, this
            # knativeLocalGatewayService field can be left unset. When unset, the value of "localGatewayService" will be used.
@@ -326,15 +328,15 @@ data:
            # should point to the Knative's local gateway service.
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
            "knativeLocalGatewayService": "",
-     
+
            # localGateway specifies the gateway which handles the network traffic within the cluster.
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
            "localGateway" : "knative-serving/knative-local-gateway",
-     
+
            # localGatewayService specifies the hostname of the local gateway service.
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
            "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
-     
+
            # ingressDomain specifies the domain name which is used for creating the url.
            # If ingressDomain is empty then example.com is used as default domain.
            # NOTE: This configuration only applicable for raw deployment.
@@ -348,7 +350,7 @@ data:
            # https://kubernetes.io/docs/concepts/services-networking/ingress/#default-ingress-class
            # NOTE: This configuration only applicable for raw deployment.
            "ingressClassName" : "istio",
-     
+
           # domainTemplate specifies the template for generating domain/url for each inference service by combining variable from:
           # Name of the inference service  ( {{`{{ .Name}}`}} )
           # Namespace of the inference service ( {{`{{ .Namespace }}`}} )
@@ -358,11 +360,11 @@ data:
           # If domain template is empty the default template {{`{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}`}} is used.
           # NOTE: This configuration only applicable for raw deployment.
           "domainTemplate": "{{`{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}`}}",
-     
+
            # urlScheme specifies the url scheme to use for inference service and inference graph.
            # If urlScheme is empty then by default http is used.
            "urlScheme": "http",
-     
+
            # disableIstioVirtualHost controls whether to use istio as network layer.
            # By default istio is used as the network layer. When DisableIstioVirtualHost is true, KServe does not
            # create the top level virtual service thus Istio is no longer required for serverless mode.
@@ -373,7 +375,7 @@ data:
 
            # disableIngressCreation controls whether to disable ingress creation for raw deployment mode.
            "disableIngressCreation": false,
-     
+
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.
           # Name of the inference service  ( {{`{{ .Name}}`}} )
@@ -382,7 +384,7 @@ data:
            # NOTE: This configuration only applicable to serverless deployment.
            "pathTemplate": "/serving/{{`{{ .Namespace }}`}}/{{`{{ .Name }}`}}"
        }
-     
+
      # ====================================== LOGGER CONFIGURATION ======================================
      # Example
      logger: |-
@@ -398,23 +400,23 @@ data:
        {
            # image contains the default logger image uri.
            "image" : "kserve/agent:latest",
-       
+
            # memoryRequest is the requests.memory to set for the logger container.
            "memoryRequest": "100Mi",
-           
+
            # memoryLimit is the limits.memory to set for the logger container.
            "memoryLimit": "1Gi",
-           
+
            # cpuRequest is the requests.cpu to set for the logger container.
            "cpuRequest": "100m",
-           
+
            # cpuLimit is the limits.cpu to set for the logger container.
            "cpuLimit": "1",
-           
+
            # defaultUrl specifies the default logger url. If logger is not specified in the resource this url is used.
            "defaultUrl": "http://default-broker"
        }
-     
+
      # ====================================== BATCHER CONFIGURATION ======================================
      # Example
      batcher: |-
@@ -431,16 +433,16 @@ data:
        {
            # image contains the default batcher image uri.
            "image" : "kserve/agent:latest",
-           
+
            # memoryRequest is the requests.memory to set for the batcher container.
            "memoryRequest": "1Gi",
-       
+
            # memoryLimit is the limits.memory to set for the batcher container.
            "memoryLimit": "1Gi",
-           
+
            # cpuRequest is the requests.cpu to set for the batcher container.
            "cpuRequest": "1",
-           
+
            # cpuLimit is the limits.cpu to set for the batcher container.
            "cpuLimit": "1"
 
@@ -450,7 +452,7 @@ data:
            # maxLatency is the default maximum latency in milliseconds for batcher to wait and collect the batch.
            "maxLatency": "5000"
        }
-     
+
      # ====================================== AGENT CONFIGURATION ======================================
      # Example
      agent: |-
@@ -465,20 +467,20 @@ data:
        {
            # image contains the default agent image uri.
            "image" : "kserve/agent:latest",
-       
+
            # memoryRequest is the requests.memory to set for the agent container.
            "memoryRequest": "100Mi",
-       
+
            # memoryLimit is the limits.memory to set for the agent container.
            "memoryLimit": "1Gi",
-           
+
            # cpuRequest is the requests.cpu to set for the agent container.
            "cpuRequest": "100m",
-           
+
            # cpuLimit is the limits.cpu to set for the agent container.
            "cpuLimit": "1"
        }
-     
+
      # ====================================== ROUTER CONFIGURATION ======================================
      # Example
      router: |-
@@ -499,20 +501,20 @@ data:
        {
            # image contains the default router image uri.
            "image" : "kserve/router:latest",
-           
+
            # memoryRequest is the requests.memory to set for the router container.
            "memoryRequest": "100Mi",
-           
+
            # memoryLimit is the limits.memory to set for the router container.
            "memoryLimit": "1Gi",
-           
+
            # cpuRequest is the requests.cpu to set for the router container.
            "cpuRequest": "100m",
-           
+
            # cpuLimit is the limits.cpu to set for the router container.
            "cpuLimit": "1",
-           
-           # Propagate the specified headers to all the steps specified in an InferenceGraph. 
+
+           # Propagate the specified headers to all the steps specified in an InferenceGraph.
            # You can either specify the exact header names or use [Golang supported regex patterns]
            # (https://pkg.go.dev/regexp/syntax@go1.21.3#hdr-Syntax) to propagate multiple headers.
            "headers": {
@@ -525,12 +527,12 @@ data:
 
            # imagePullPolicy specifies when the router image should be pulled from registry.
            "imagePullPolicy": "IfNotPresent",
-           
+
            # # imagePullSecrets specifies the list of secrets to be used for pulling the router image from registry.
            # https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
            "imagePullSecrets": ["docker-secret"]
        }
-     
+
     # ====================================== DEPLOYMENT CONFIGURATION ======================================
     # Example
     deploy: |-
@@ -591,13 +593,13 @@ data:
          # service with the specified boolean value. If true enables metric aggregation in queue-proxy by setting env vars in the queue proxy container
          # to configure scraping ports.
          "enableMetricAggregation": "false",
-         
+
          # enablePrometheusScraping configures metric aggregation annotation. This adds the annotation serving.kserve.io/enable-metric-aggregation to every
          # service with the specified boolean value. If true, prometheus annotations are added to the pod. If serving.kserve.io/enable-metric-aggregation is false,
          # the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port.
          "enablePrometheusScraping" : "false"
        }
-      
+
      # ====================================== LOCALMODEL CONFIGURATION ======================================
      # Example
      localModel: |-
@@ -663,7 +665,7 @@ data:
     }
 
   ingress: |-
-    {   
+    {
         "enableGatewayApi": false,
         "kserveIngressGateway": "kserve/kserve-ingress-gateway",
         "ingressGateway" : "knative-serving/knative-ingress-gateway",
@@ -769,3 +771,4 @@ data:
       "scaleUpStabilizationWindowSeconds": "0",
       "scaleDownStabilizationWindowSeconds": "300"
     }
+{{- end }}
