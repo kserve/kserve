@@ -75,6 +75,22 @@ detect_arch() {
     echo "$arch"
 }
 
+cleanup_bin_dir() {
+    # Remove BIN_DIR if it was created by this script
+    if [[ "${BIN_DIR_CREATED_BY_SCRIPT:-false}" == "true" ]] && [[ -d "${BIN_DIR:-}" ]]; then
+        log_info "Cleaning up BIN_DIR: ${BIN_DIR}"
+        rm -rf "${BIN_DIR}"
+    fi
+}
+
+cleanup() {
+    # Call all cleanup functions
+    cleanup_bin_dir
+}
+
+# Set up trap to run cleanup on exit
+trap cleanup EXIT
+
 # Color codes (disable if NO_COLOR is set or not a terminal)
 if [[ -z "${NO_COLOR:-}" ]] && [[ -t 1 ]]; then
     BLUE='\033[94m'

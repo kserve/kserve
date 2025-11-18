@@ -34,22 +34,6 @@ set -o pipefail
 
 {{COMMON_FUNCTIONS}}
 
-cleanup_bin_dir() {
-    # Remove BIN_DIR if it was created by this script
-    if [[ "${BIN_DIR_CREATED_BY_SCRIPT:-false}" == "true" ]] && [[ -d "${BIN_DIR:-}" ]]; then
-        log_info "Cleaning up BIN_DIR: ${BIN_DIR}"
-        rm -rf "${BIN_DIR}"
-    fi
-}
-
-cleanup() {
-    # Call all cleanup functions
-    cleanup_bin_dir
-}
-
-# Set up trap to run cleanup on exit
-trap cleanup EXIT
-
 # Set environment variable based on priority order:
 # Priority: 1. Runtime env > 2. Component env > 3. Global env > 4. Component default
 # Usage: set_env_with_priority VAR_NAME COMPONENT_ENV_VALUE GLOBAL_ENV_VALUE DEFAULT_VALUE
