@@ -67,6 +67,10 @@ def escape_embedded_templates(content: str) -> str:
     Returns:
         Content with escaped templates
     """
+    # First, fix invalid JSON in ConfigMap data fields (convert {{ "{{" }} back to {{)
+    # This must be done BEFORE escaping templates, so we have valid JSON to work with
+    content = fix_json_strings_with_escaped_templates(content)
+
     # Strategy: Look for patterns that contain KServe-specific references
     # These are template expressions that reference KServe CRD fields, not Helm values
 
@@ -188,31 +192,49 @@ def escape_embedded_templates(content: str) -> str:
     # Match {{- else }} or {{ else }} that might be in KServe templates
     content = re.sub(r'\{\{-?\s*else\s*-?\}\}', escape_control_after_kserve, content)
 
-    # Fourth pass: Fix JSON strings that contain escaped template syntax
-    # When we escape {{ .Name }} to {{ "{{" }} .Name {{ "}}" }}, the quotes break JSON parsing
-    # We need to escape the quotes in JSON string values: "{{" becomes \"{{\" and "}}" becomes }}\"
-    content = fix_json_strings_with_escaped_templates(content)
-
     return content
 
 
 def fix_json_strings_with_escaped_templates(content: str) -> str:
     """
-    Fix JSON strings in YAML that contain escaped Helm template syntax.
+    Fix JSON strings in ConfigMap data fields that contain invalid JSON syntax.
 
-    The templates are already escaped by escape_embedded_templates, so they
-    will output correctly after Helm processes them. The JSON might be invalid
-    before Helm processes it, but will be valid after Helm renders the templates.
+    The source file has invalid JSON like {{ "{{" }} which breaks JSON parsing.
+    We need to:
+    1. Convert {{ "{{" }} back to {{ to make valid JSON (only in JSON strings)
+    2. The escape_embedded_templates function will then escape it for Helm
 
     Args:
-        content: YAML content that may contain JSON strings with escaped templates
+        content: YAML content that may contain JSON strings with invalid syntax
 
     Returns:
-        Content unchanged (templates are already properly escaped)
+        Content with fixed JSON strings (converted to valid JSON, ready for Helm escaping)
     """
-    # Templates are already escaped by escape_embedded_templates, so no fixing needed
-    # Helm will process {{ "{{" }} .Name {{ "}}" }} and output {{ .Name }},
-    # which is valid JSON
+    # Only fix JSON strings in ConfigMap data fields, not in other template files
+    # Look for ConfigMap data fields with JSON block scalars (|-)
+    import re
+
+    # Pattern to match ConfigMap data fields with JSON block scalars
+    # Match: field: |-\n    { ... json with {{ "{{" }} ... }
+    json_field_pattern = r'^  (ingress|agent|autoscaler|batcher|credentials|deploy|explainers|inferenceService|localModel|logger|metricsAggregator|opentelemetryCollector|router|security|storageInitializer): \|-\n((?:    .*\n)*?)(?=^  [a-zA-Z]|\Z)'
+
+    def fix_json_field(match):
+        field_name = match.group(1)
+        json_content = match.group(2)
+
+        # Only fix if it contains the invalid syntax
+        if '{{ "{{" }}' in json_content or '{{ "}}" }}' in json_content:
+            # Convert {{ "{{" }} back to {{ to make valid JSON
+            fixed_json = json_content.replace('{{ "{{" }}', '{{')
+            fixed_json = fixed_json.replace('{{ "}}" }}', '}}')
+            return f'  {field_name}: |-\n{fixed_json}'
+
+        return match.group(0)
+
+    # Only apply to ConfigMap files (check if it looks like a ConfigMap)
+    if 'kind: ConfigMap' in content or 'kind:ConfigMap' in content:
+        content = re.sub(json_field_pattern, fix_json_field, content, flags=re.MULTILINE | re.DOTALL)
+
     return content
 
 
