@@ -108,12 +108,19 @@ jobs:
           ./hack/llmisvc_quick_install.sh
 
           # Update the deployment to use our built image with Never pull policy
-          # Note: deployment name matches Kustomize name (kserve-llmisvc-controller-manager)
-          kubectl patch deployment kserve-llmisvc-controller-manager -n kserve \
+          # Note: Helm adds release name prefix, so we use label selector to find the deployment
+          DEPLOYMENT_NAME=$(kubectl get deployment -n kserve -l control-plane=llmisvc-controller-manager -o jsonpath='{.items[0].metadata.name}')
+          if [ -z "$DEPLOYMENT_NAME" ]; then
+            echo "❌ Error: Could not find LLMISvc controller deployment"
+            kubectl get deployments -n kserve
+            exit 1
+          fi
+          echo "📦 Found deployment: $DEPLOYMENT_NAME"
+          kubectl patch deployment $DEPLOYMENT_NAME -n kserve \
             -p '{"spec":{"template":{"spec":{"containers":[{"name":"manager","image":"'${LLMISVC_CONTROLLER_IMG_TAG}'","imagePullPolicy":"Never"}]}}}}'
 
           # Wait for deployment to be ready
-          kubectl wait --for=condition=available --timeout=300s deployment/kserve-llmisvc-controller-manager -n kserve
+          kubectl wait --for=condition=available --timeout=300s deployment/$DEPLOYMENT_NAME -n kserve
 
       - name: Verify LLMISvc setup
         run: |
