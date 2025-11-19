@@ -785,7 +785,7 @@ install_external_lb() {
 
         openshift|kubernetes)
             log_info "Platform ${PLATFORM} does not require external LB setup. Skipping."
-            exit 0
+            return 0
             ;;
 
         *)
@@ -996,7 +996,7 @@ install_gateway_api_gwclass() {
     if kubectl get gatewayclass "${GATEWAYCLASS_NAME}" &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
             log_info "GatewayClass '${GATEWAYCLASS_NAME}' already exists. Use --reinstall to recreate."
-            exit 0
+            return 0
         else
             log_info "Recreating GatewayClass '${GATEWAYCLASS_NAME}'..."
             uninstall
@@ -1032,7 +1032,7 @@ install_gateway_api_gw() {
     if kubectl get gateway "${GATEWAY_NAME}" -n "${GATEWAY_NAMESPACE}" &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
             log_info "KServe Gateway '${GATEWAY_NAME}' already exists in namespace '${GATEWAY_NAMESPACE}'. Use --reinstall to recreate."
-            exit 0
+            return 0
         else
             log_info "Recreating KServe Gateway '${GATEWAY_NAME}'..."
             uninstall

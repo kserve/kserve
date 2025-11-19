@@ -851,7 +851,7 @@ install_istio_ingress_class() {
     if kubectl get ingressclass "istio" &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
             log_info "Istio IngressClass 'istio' already exists. Use --reinstall to recreate."
-            exit 0
+            return 0
         else
             log_info "Recreating Istio IngressClass 'istio'..."
             uninstall

@@ -87,7 +87,7 @@ install() {
 
             if kubectl get knativeserving knative-serving -n "${SERVING_NAMESPACE}" &>/dev/null; then
                 log_info "Knative Serving is already deployed. Use --reinstall to reinstall."
-                exit 0
+                return 0
             fi
         else
             log_info "Reinstalling Knative..."
