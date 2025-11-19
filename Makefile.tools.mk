@@ -58,7 +58,7 @@ $(PYTHON_VENV): | $(LOCALBIN)
 	$(PYTHON_BIN)/pip install --upgrade pip
 
 $(BLACK_FMT) $(FLAKE8_LINT): $(PYTHON_VENV)
-	$(PYTHON_BIN)/pip install black==$(BLACK_FMT_VERSION) flake8==$(FLAKE8_LINT_VERSION)
+	$(PYTHON_BIN)/pip install black==$(BLACK_FMT_VERSION) flake8==$(FLAKE8_LINT_VERSION) PyYAML>=6.0
 
 $(UV): $(PYTHON_VENV)
 	$(PYTHON_BIN)/pip install uv==$(UV_VERSION)

@@ -367,7 +367,7 @@ helm-generate-kserve: helmify yq
 
 	# Extract servingruntime values from kustomization.yaml (helmify doesn't extract these)
 	@echo "Extracting servingruntime values from kustomization.yaml..."
-	@python3 hack/extract_runtime_values.py config/runtimes/kustomization.yaml config/runtimes charts/kserve-resources/values.yaml
+	python3 hack/extract_runtime_values.py config/runtimes/kustomization.yaml config/runtimes charts/kserve-resources/values.yaml
 
 	# Validate
 	@echo "Validating Helm chart..."

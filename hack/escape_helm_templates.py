@@ -54,7 +54,11 @@ Author: Generated for KServe Helm chart conversion
 
 import re
 import sys
+import json
 from pathlib import Path
+
+# PyYAML is required for this script
+import yaml
 
 
 def escape_embedded_templates(content: str) -> str:
@@ -113,7 +117,6 @@ def escape_embedded_templates(content: str) -> str:
         if '.' in inner and '{{ "." }}' not in inner:
             # Pattern: .Field1.Field2 -> .Field1{{ "." }}Field2
             # Use regex to match field access patterns
-            import re as re_module
             # Match patterns like .Field1.Field2 but not already escaped
 
             def escape_dot_in_field_access(m):
@@ -121,8 +124,8 @@ def escape_embedded_templates(content: str) -> str:
                 # Replace dots between field names
                 return field_access.replace('.', '{{ "." }}')
             # Match field access patterns: . followed by identifier, then .identifier
-            inner = re_module.sub(r'\.([A-Za-z_][A-Za-z0-9_]*\.)+[A-Za-z_][A-Za-z0-9_]*',
-                                  escape_dot_in_field_access, inner)
+            inner = re.sub(r'\.([A-Za-z_][A-Za-z0-9_]*\.)+[A-Za-z_][A-Za-z0-9_]*',
+                           escape_dot_in_field_access, inner)
         # Return escaped version
         return '{{ "{{" }} ' + inner + ' {{ "}}" }}'
 
@@ -189,6 +192,90 @@ def escape_embedded_templates(content: str) -> str:
     # Match {{- else }} or {{ else }} that might be in KServe templates
     content = re.sub(r'\{\{-?\s*else\s*-?\}\}', escape_control_after_kserve, content)
 
+    # Fourth pass: Fix JSON strings that contain escaped template syntax
+    # When we escape {{ .Name }} to {{ "{{" }} .Name {{ "}}" }}, the quotes break JSON parsing
+    # We need to escape the quotes in JSON string values: "{{" becomes \"{{\" and "}}" becomes }}\"
+    content = fix_json_strings_with_escaped_templates(content)
+
+    return content
+
+
+def fix_json_strings_with_escaped_templates(content: str) -> str:
+    """
+    Fix JSON strings in YAML that contain invalid JSON syntax.
+
+    The issue: The source file has invalid JSON like {{ "{{" }} which breaks JSON parsing.
+    Since the ConfigMap is copied as-is (no Helm templating needed), we just need to
+    fix the invalid JSON by converting {{ "{{" }} back to {{ (plain template syntax).
+
+    Args:
+        content: YAML content that may contain JSON strings with invalid syntax
+
+    Returns:
+        Content with fixed JSON strings
+    """
+    # Parse as YAML to find ConfigMap data fields
+    try:
+        doc = yaml.safe_load(content)
+        if doc and isinstance(doc, dict) and 'data' in doc and isinstance(doc['data'], dict):
+            # This looks like a ConfigMap, fix JSON strings in data fields
+            json_fields = [
+                'ingress', 'agent', 'autoscaler', 'batcher', 'credentials',
+                'deploy', 'explainers', 'inferenceService', 'localModel',
+                'logger', 'metricsAggregator', 'opentelemetryCollector',
+                'router', 'security', 'storageInitializer'
+            ]
+
+            # Instead of re-serializing with yaml.dump (which escapes backslashes),
+            # modify the content string directly to preserve the original YAML structure
+            fixed = False
+            for field in json_fields:
+                if field in doc['data']:
+                    json_str = doc['data'][field]
+                    # Check if it contains invalid JSON syntax
+                    if '"{{"' in json_str or '"}}"' in json_str:
+                        # Try to parse as JSON first
+                        try:
+                            json.loads(json_str)
+                            # If it parses, no fix needed
+                            continue
+                        except json.JSONDecodeError:
+                            # JSON is invalid because source file has {{ "{{" }} syntax
+                            # Convert {{ "{{" }} back to {{ to make valid JSON
+                            # The ConfigMap is copied as-is, so we don't need to escape for Helm
+                            fixed_json = json_str.replace('{{ "{{" }}', '{{')
+                            fixed_json = fixed_json.replace('{{ "}}" }}', '}}')
+
+                            # Verify it's now valid JSON
+                            try:
+                                json.loads(fixed_json)
+                                # Update the content string directly instead of re-serializing
+                                # Find the field in the original content and replace its value
+                                # Pattern: field: |-\n    { ... original json ... }
+                                pattern = rf'^  {re.escape(field)}: \|-\n((?:    .*\n)*?)(?=^  [a-zA-Z]|\Z)'
+
+                                # Use default arguments to capture values at function definition time
+                                def replace_field_json(_match, fld=field, fixed=fixed_json):
+                                    # Replace with fixed JSON (indented with 4 spaces for ConfigMap data)
+                                    fixed_lines = fixed.split('\n')
+                                    indented_fixed = '\n'.join('    ' + line if line.strip()
+                                                               else '' for line in fixed_lines)
+                                    return f'  {fld}: |-\n{indented_fixed}\n'
+
+                                content = re.sub(pattern, replace_field_json, content,
+                                                 flags=re.MULTILINE | re.DOTALL)
+                                fixed = True
+                            except json.JSONDecodeError:
+                                # Could not fix, leave as-is
+                                pass
+
+            if fixed:
+                return content
+    except (yaml.YAMLError, AttributeError, TypeError, ValueError, KeyError):
+        # YAML parsing failed, but this is not a ConfigMap or not valid YAML
+        # Just return content as-is
+        pass
+
     return content
 
 
@@ -204,7 +291,7 @@ def process_file(file_path: Path, dry_run: bool = False) -> bool:
         True if file was modified (or would be modified in dry_run)
     """
     try:
-        with open(file_path, 'r') as f:
+        with open(file_path, 'r', encoding='utf-8') as f:
             original_content = f.read()
 
         escaped_content = escape_embedded_templates(original_content)
@@ -221,7 +308,7 @@ def process_file(file_path: Path, dry_run: bool = False) -> bool:
                         print(f"    - {orig}")
                         print(f"    + {esc}")
             else:
-                with open(file_path, 'w') as f:
+                with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(escaped_content)
                 print(f"✓ Modified: {file_path}")
             return True
@@ -230,7 +317,7 @@ def process_file(file_path: Path, dry_run: bool = False) -> bool:
                 print(f"  No changes: {file_path}")
             return False
 
-    except Exception as e:
+    except (IOError, OSError, UnicodeDecodeError) as e:
         print(f"✗ Error processing {file_path}: {e}", file=sys.stderr)
         return False
 

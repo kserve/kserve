@@ -20,16 +20,17 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-            python-version: "3.12"
+          python-version: "3.12"
 
       - name: Install dependencies
         run: |
           go mod download
           cd qpext && go mod download
+          pip install PyYAML>=6.0
 
       - name: Check
         shell: bash
