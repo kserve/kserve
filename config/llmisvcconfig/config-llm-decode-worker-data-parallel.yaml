@@ -237,12 +237,21 @@ spec:
             type: RuntimeDefault
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: FallbackToLogsOnError
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8001
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 60
         livenessProbe:
           httpGet:
             path: /health
             port: 8001
             scheme: HTTP
-          initialDelaySeconds: 300
+          initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 10
           failureThreshold: 3
