@@ -72,8 +72,29 @@ popd
 
 $MY_PATH/deploy.cma.sh
 
-# Install KServe stack
-if [ "$1" != "raw" ]; then
+# Add CA certificate extraction for raw deployments
+if [[ "$1" =~ raw ]]; then
+  echo "⏳ Extracting OpenShift CA certificates for raw deployment"
+  # Get comprehensive CA bundle including both cluster and service CAs
+  {
+    # Cluster root CA bundle
+    oc get configmap kube-root-ca.crt -o jsonpath='{.data.ca\.crt}' 2>/dev/null && echo ""
+
+    # OpenShift service CA
+    oc get configmap openshift-service-ca.crt -n openshift-config-managed -o jsonpath='{.data.service-ca\.crt}' 2>/dev/null || \
+    oc get secret service-ca -n openshift-service-ca -o jsonpath='{.data.service-ca\.crt}' 2>/dev/null | base64 -d || true
+  } > /tmp/ca.crt
+
+  # Verify we got a valid CA bundle
+  if [ -s "/tmp/ca.crt" ] && grep -q "BEGIN CERTIFICATE" "/tmp/ca.crt"; then
+    echo "✅ CA certificate bundle extracted ($(grep -c "BEGIN CERTIFICATE" /tmp/ca.crt) certificates)"
+  else
+    echo "❌ Failed to extract CA certificates"
+  fi
+fi
+
+# Install KServe stack - skip serverless for raw and graph deployments
+if [[ ! "$1" =~ raw && ! "$1" =~ graph ]]; then
   echo "Installing OSSM"
   $MY_PATH/deploy.ossm.sh
   echo "Installing Serverless"
@@ -94,11 +115,12 @@ kustomize build $PROJECT_ROOT/config/overlays/test |
   oc apply --server-side=true -f -
 
 # Install DSC/DSCI for test. (sometimes there is timing issue when it is under the same kustomization so it is separated)
-oc create -f config/overlays/test/dsci.yaml
-oc create -f config/overlays/test/dsc.yaml
+oc apply -f config/overlays/test/dsci.yaml
+oc apply -f config/overlays/test/dsc.yaml
 
 # Patch the inferenceservice-config ConfigMap, when running RawDeployment tests
-if [ "$1" == "raw" ]; then
+if [[ "$1" =~ raw || "$1" =~ graph ]]; then
+  echo "Patching RAW/Graph deployment, markers: $1"
   export OPENSHIFT_INGRESS_DOMAIN=$(oc get ingresses.config cluster -o jsonpath='{.spec.domain}')
   oc patch configmap inferenceservice-config -n kserve --patch-file <(cat config/overlays/test/configmap/inferenceservice-openshift-ci-raw.yaml | envsubst)
   oc delete pod -n kserve -l control-plane=kserve-controller-manager
@@ -106,20 +128,17 @@ if [ "$1" == "raw" ]; then
   oc patch DataScienceCluster test-dsc --type='json' -p='[{"op": "replace", "path": "/spec/components/kserve/defaultDeploymentMode", "value": "RawDeployment"}]'
 else
   export OPENSHIFT_INGRESS_DOMAIN=$(oc get ingresses.config cluster -o jsonpath='{.spec.domain}')
-  if [ "$1" == "graph" ]; then
-    oc patch configmap inferenceservice-config -n kserve --patch-file <(cat config/overlays/test/configmap/inferenceservice-openshift-ci-serverless.yaml | envsubst)
-  else 
-    oc patch configmap inferenceservice-config -n kserve --patch-file <(cat config/overlays/test/configmap/inferenceservice-openshift-ci-serverless-predictor.yaml | envsubst)
-  fi
+  oc patch configmap inferenceservice-config -n kserve --patch-file <(cat config/overlays/test/configmap/inferenceservice-openshift-ci-serverless-predictor.yaml | envsubst)
 fi
 
 # Wait until KServe starts
+echo "waiting kserve-controller get ready..."
 oc wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 
-if [ "$1" != "raw" ]; then
+if [[ ! "$1" =~ raw && ! "$1" =~ graph ]]; then
   echo "Installing authorino and kserve gateways"
   # authorino
-  curl -sL https://raw.githubusercontent.com/Kuadrant/authorino-operator/main/utils/install.sh | sed "s|kubectl|oc|" | 
+  curl -sL https://raw.githubusercontent.com/Kuadrant/authorino-operator/main/utils/install.sh | sed "s|kubectl|oc|" |
     bash -s -- -v 0.16.0
 
 fi
@@ -190,7 +209,7 @@ metadata:
   name: kserve-ci-e2e-test
 EOF
 
-if [ "$1" != "raw" ]; then
+if [[ ! "$1" =~ raw && ! "$1" =~ graph ]]; then
   cat <<EOF | oc apply -f -
 apiVersion: maistra.io/v1
 kind: ServiceMeshMember
@@ -214,7 +233,7 @@ kustomize build $PROJECT_ROOT/config/overlays/test/clusterresources |
 
 # Add the enablePassthrough annotation to the ServingRuntimes, to let Knative to
 # generate passthrough routes.
-if [ "$1" != "raw" ]; then
+if [[ ! "$1" =~ raw && ! "$1" =~ graph ]]; then
   oc annotate servingruntimes -n kserve-ci-e2e-test --all serving.knative.openshift.io/enablePassthrough=true
 fi
 

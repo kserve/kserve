@@ -17,11 +17,14 @@ set -eu
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source "${SCRIPT_DIR}/common.sh"
 
-# Create namespaces(openshift-serverless)
-oc create ns openshift-serverless
+# Set default value for RUNNING_LOCAL if not set
+: "${RUNNING_LOCAL:=false}"
 
-# Create operatorGroup
-cat <<EOF | oc create -f -
+# Create openshift-serverless namespace if it doesn't exist
+oc create ns openshift-serverless || true
+
+# Create operatorGroup if it doesn't exist
+cat <<EOF | oc apply -f -
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
@@ -33,8 +36,8 @@ spec:
   upgradeStrategy: Default
 EOF
 
-# Install Serverless operator
-cat <<EOF | oc create -f -
+# Install Serverless operator if it doesn't exist
+cat <<EOF | oc apply -f -
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -185,10 +188,11 @@ if [ -f "$CA_CERT_PATH" ]; then
   export REQUESTS_CA_BUNDLE=$CA_CERT_PATH
 fi
 export tls_key=$(oc get secret $secret_name -n openshift-ingress -o=jsonpath='{.data.tls\.key}')
+# Create TLS secret for knative-serving if it doesn't exist
 oc create secret tls knative-serving-cert \
   --cert=<(echo $tls_cert | base64 -d) \
   --key=<(echo $tls_key | base64 -d) \
-  -n istio-system
+  -n istio-system || true
 export domain=$(oc get ingresses.config/cluster -o=jsonpath='{ .spec.domain}')
 
 
