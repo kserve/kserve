@@ -77270,7 +77270,6 @@ spec:
           path: /health
           port: 8001
           scheme: HTTP
-        initialDelaySeconds: 120
         periodSeconds: 10
         timeoutSeconds: 10
       name: main
@@ -77278,13 +77277,12 @@ spec:
       - containerPort: 8001
         protocol: TCP
       readinessProbe:
-        failureThreshold: 60
+        failureThreshold: 3
         httpGet:
           path: /health
           port: 8001
           scheme: HTTP
-        initialDelaySeconds: 10
-        periodSeconds: 10
+        periodSeconds: 5
         timeoutSeconds: 5
       securityContext:
         allowPrivilegeEscalation: false
@@ -77295,6 +77293,15 @@ spec:
         runAsNonRoot: false
         seccompProfile:
           type: RuntimeDefault
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /health
+          port: 8001
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 10
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
       volumeMounts:
@@ -77477,7 +77484,6 @@ spec:
           path: /health
           port: 8001
           scheme: HTTP
-        initialDelaySeconds: 300
         periodSeconds: 10
         timeoutSeconds: 10
       name: main
@@ -77485,13 +77491,12 @@ spec:
       - containerPort: 8001
         protocol: TCP
       readinessProbe:
-        failureThreshold: 60
+        failureThreshold: 3
         httpGet:
           path: /health
           port: 8001
           scheme: HTTP
-        initialDelaySeconds: 200
-        periodSeconds: 30
+        periodSeconds: 5
         timeoutSeconds: 5
       securityContext:
         allowPrivilegeEscalation: false
@@ -77506,6 +77511,15 @@ spec:
         runAsNonRoot: false
         seccompProfile:
           type: RuntimeDefault
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /health
+          port: 8001
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 10
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
       volumeMounts:
@@ -77679,10 +77693,26 @@ spec:
         value: "1"
       image: ghcr.io/llm-d/llm-d-dev:v0.2.2
       imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /health
+          port: 8001
+          scheme: HTTP
+        periodSeconds: 10
+        timeoutSeconds: 10
       name: main
       ports:
       - containerPort: 8001
         protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /health
+          port: 8001
+          scheme: HTTP
+        periodSeconds: 5
+        timeoutSeconds: 5
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
@@ -77696,6 +77726,15 @@ spec:
         runAsNonRoot: false
         seccompProfile:
           type: RuntimeDefault
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /health
+          port: 8001
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 10
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
       volumeMounts:
@@ -77756,7 +77795,6 @@ spec:
             path: /health
             port: 8000
             scheme: HTTP
-          initialDelaySeconds: 120
           periodSeconds: 10
           timeoutSeconds: 10
         name: main
@@ -77764,13 +77802,12 @@ spec:
         - containerPort: 8000
           protocol: TCP
         readinessProbe:
-          failureThreshold: 60
+          failureThreshold: 3
           httpGet:
             path: /health
             port: 8000
             scheme: HTTP
-          initialDelaySeconds: 10
-          periodSeconds: 10
+          periodSeconds: 5
           timeoutSeconds: 5
         securityContext:
           allowPrivilegeEscalation: false
@@ -77781,6 +77818,15 @@ spec:
           runAsNonRoot: false
           seccompProfile:
             type: RuntimeDefault
+        startupProbe:
+          failureThreshold: 60
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 10
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         volumeMounts:
@@ -77916,7 +77962,6 @@ spec:
             path: /health
             port: 8000
             scheme: HTTP
-          initialDelaySeconds: 300
           periodSeconds: 10
           timeoutSeconds: 10
         name: main
@@ -77924,13 +77969,12 @@ spec:
         - containerPort: 8000
           protocol: TCP
         readinessProbe:
-          failureThreshold: 60
+          failureThreshold: 3
           httpGet:
             path: /health
             port: 8000
             scheme: HTTP
-          initialDelaySeconds: 200
-          periodSeconds: 30
+          periodSeconds: 5
           timeoutSeconds: 5
         securityContext:
           allowPrivilegeEscalation: false
@@ -77945,6 +77989,15 @@ spec:
           runAsNonRoot: false
           seccompProfile:
             type: RuntimeDefault
+        startupProbe:
+          failureThreshold: 60
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 10
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
@@ -78067,10 +78120,26 @@ spec:
           value: /models
         image: ghcr.io/llm-d/llm-d-dev:v0.2.2
         imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          periodSeconds: 10
+          timeoutSeconds: 10
         name: main
         ports:
         - containerPort: 8000
           protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          periodSeconds: 5
+          timeoutSeconds: 5
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -78084,6 +78153,15 @@ spec:
           runAsNonRoot: false
           seccompProfile:
             type: RuntimeDefault
+        startupProbe:
+          failureThreshold: 60
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 10
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
@@ -78267,7 +78345,6 @@ spec:
           path: /health
           port: 8000
           scheme: HTTP
-        initialDelaySeconds: 120
         periodSeconds: 10
         timeoutSeconds: 10
       name: main
@@ -78275,13 +78352,12 @@ spec:
       - containerPort: 8000
         protocol: TCP
       readinessProbe:
-        failureThreshold: 60
+        failureThreshold: 3
         httpGet:
           path: /health
           port: 8000
           scheme: HTTP
-        initialDelaySeconds: 10
-        periodSeconds: 10
+        periodSeconds: 5
         timeoutSeconds: 5
       securityContext:
         allowPrivilegeEscalation: false
@@ -78292,6 +78368,15 @@ spec:
         runAsNonRoot: false
         seccompProfile:
           type: RuntimeDefault
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 10
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
       volumeMounts:
@@ -78425,7 +78510,6 @@ spec:
           path: /health
           port: 8000
           scheme: HTTP
-        initialDelaySeconds: 300
         periodSeconds: 10
         timeoutSeconds: 10
       name: main
@@ -78433,13 +78517,12 @@ spec:
       - containerPort: 8000
         protocol: TCP
       readinessProbe:
-        failureThreshold: 60
+        failureThreshold: 3
         httpGet:
           path: /health
           port: 8000
           scheme: HTTP
-        initialDelaySeconds: 200
-        periodSeconds: 30
+        periodSeconds: 5
         timeoutSeconds: 5
       securityContext:
         allowPrivilegeEscalation: false
@@ -78454,6 +78537,15 @@ spec:
         runAsNonRoot: false
         seccompProfile:
           type: RuntimeDefault
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 10
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
       volumeMounts:
@@ -78574,10 +78666,26 @@ spec:
         value: /models
       image: ghcr.io/llm-d/llm-d-dev:v0.2.2
       imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        periodSeconds: 10
+        timeoutSeconds: 10
       name: main
       ports:
       - containerPort: 8000
         protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        periodSeconds: 5
+        timeoutSeconds: 5
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
@@ -78591,6 +78699,15 @@ spec:
         runAsNonRoot: false
         seccompProfile:
           type: RuntimeDefault
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 10
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
       volumeMounts:
