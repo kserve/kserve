@@ -351,8 +351,8 @@ data:
            # domainTemplate specifies the template for generating domain/url for each inference service by combining variable from:
            # Name of the inference service  ( {{ "{{" }} .Name {{ "}}" }} )
            # Namespace of the inference service ( {{ "{{" }} .Namespace {{ "}}" }} )
-           # Annotation of the inference service ( {{ "{{" }} .Annotations{{ "." }}key {{ "}}" }} )
-           # Label of the inference service ( {{ "{{" }} .Labels{{ "." }}key {{ "}}" }} )
+           # Annotation of the inference service ( {{ "{{" }} {{ "." }}Annotations{{ "." }}key {{ "}}" }} )
+           # Label of the inference service ( {{ "{{" }} {{ "." }}Labels{{ "." }}key {{ "}}" }} )
            # IngressDomain ( {{ "{{" }} .IngressDomain {{ "}}" }} )
            # If domain template is empty the default template {{ "{{" }} .Name {{ "}}" }}-{{ "{{" }} .Namespace {{ "}}" }}.{{ "{{" }} .IngressDomain {{ "}}" }} is used.
            # NOTE: This configuration only applicable for raw deployment.

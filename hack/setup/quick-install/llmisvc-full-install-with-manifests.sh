@@ -42186,24 +42186,24 @@ data:
     : \"knative-local-gateway.istio-system.svc.cluster.local\",\n       \"ingressDomain\"
     \ : \"example.com\",\n       \"additionalIngressDomains\": [\"additional-example.com\",
     \"additional-example-1.com\"],\n       \"ingressClassName\" : \"istio\",\n       \"domainTemplate\":
-    \"{{ \"{{\" }} .Name {{ \"}}\" }}-{{ \"{{\" }} .Namespace {{ \"}}\" }}.{{ \"{{\"
-    }} .IngressDomain {{ \"}}\" }}\",\n       \"urlScheme\": \"http\",\n       \"disableIstioVirtualHost\":
-    false,\n       \"disableIngressCreation\": false\n   }\n ingress: |-\n   {   \n
-    \      # enableGatewayApi specifies whether to use Gateway API instead of Ingress
-    to serve external traffic.\n       \"enableGatewayApi\": false,\n\n       # KServe
-    implements [Gateway API](https://gateway-api.sigs.k8s.io/) to serve external traffic.
-    \n       # By default, KServe configures a default gateway to serve external traffic.\n
-    \      # But, KServe can be configured to use a custom gateway by modifying this
-    configuration.\n       # The gateway should be specified in format <gateway namespace>/<gateway
-    name>\n       # NOTE: This configuration only applicable for raw deployment.\n
-    \      \"kserveIngressGateway\": \"kserve/kserve-ingress-gateway\",\n \n       #
-    ingressGateway specifies the ingress gateway to serve external traffic.\n       #
-    The gateway should be specified in format <gateway namespace>/<gateway name>\n
-    \      # NOTE: This configuration only applicable for serverless deployment with
-    Istio configured as network layer.\n       \"ingressGateway\" : \"knative-serving/knative-ingress-gateway\",\n
-    \n       # knativeLocalGatewayService specifies the hostname of the Knative's
-    local gateway service.\n       # The default KServe configurations are re-using
-    the Istio local gateways for Knative. In this case, this\n       # knativeLocalGatewayService
+    \"{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}\",\n       \"urlScheme\":
+    \"http\",\n       \"disableIstioVirtualHost\": false,\n       \"disableIngressCreation\":
+    false\n   }\n ingress: |-\n   {   \n       # enableGatewayApi specifies whether
+    to use Gateway API instead of Ingress to serve external traffic.\n       \"enableGatewayApi\":
+    false,\n\n       # KServe implements [Gateway API](https://gateway-api.sigs.k8s.io/)
+    to serve external traffic. \n       # By default, KServe configures a default
+    gateway to serve external traffic.\n       # But, KServe can be configured to
+    use a custom gateway by modifying this configuration.\n       # The gateway should
+    be specified in format <gateway namespace>/<gateway name>\n       # NOTE: This
+    configuration only applicable for raw deployment.\n       \"kserveIngressGateway\":
+    \"kserve/kserve-ingress-gateway\",\n \n       # ingressGateway specifies the ingress
+    gateway to serve external traffic.\n       # The gateway should be specified in
+    format <gateway namespace>/<gateway name>\n       # NOTE: This configuration only
+    applicable for serverless deployment with Istio configured as network layer.\n
+    \      \"ingressGateway\" : \"knative-serving/knative-ingress-gateway\",\n \n
+    \      # knativeLocalGatewayService specifies the hostname of the Knative's local
+    gateway service.\n       # The default KServe configurations are re-using the
+    Istio local gateways for Knative. In this case, this\n       # knativeLocalGatewayService
     field can be left unset. When unset, the value of \"localGatewayService\" will
     be used.\n       # However, sometimes it may be better to have local gateways
     specifically for KServe (e.g. when enabling strict mTLS in Istio).\n       # Under
@@ -42231,23 +42231,21 @@ data:
     \      # NOTE: This configuration only applicable for raw deployment.\n       \"ingressClassName\"
     : \"istio\",\n \n       # domainTemplate specifies the template for generating
     domain/url for each inference service by combining variable from:\n       # Name
-    of the inference service  ( {{ \"{{\" }} .Name {{ \"}}\" }} )\n       # Namespace
-    of the inference service ( {{ \"{{\" }} .Namespace {{ \"}}\" }} )\n       # Annotation
-    of the inference service ( {{ \"{{\" }} .Annotations.key {{ \"}}\" }} )\n       #
-    Label of the inference service ( {{ \"{{\" }} .Labels.key {{ \"}}\" }} )\n       #
-    IngressDomain ( {{ \"{{\" }} .IngressDomain {{ \"}}\" }} )\n       # If domain
-    template is empty the default template {{ \"{{\" }} .Name {{ \"}}\" }}-{{ \"{{\"
-    }} .Namespace {{ \"}}\" }}.{{ \"{{\" }} .IngressDomain {{ \"}}\" }} is used.\n
-    \      # NOTE: This configuration only applicable for raw deployment.\n       \"domainTemplate\":
-    \"{{ \"{{\" }} .Name {{ \"}}\" }}-{{ \"{{\" }} .Namespace {{ \"}}\" }}.{{ \"{{\"
-    }} .IngressDomain {{ \"}}\" }}\",\n \n       # urlScheme specifies the url scheme
-    to use for inference service and inference graph.\n       # If urlScheme is empty
-    then by default http is used.\n       \"urlScheme\": \"http\",\n \n       # disableIstioVirtualHost
-    controls whether to use istio as network layer.\n       # By default istio is
-    used as the network layer. When DisableIstioVirtualHost is true, KServe does not\n
-    \      # create the top level virtual service thus Istio is no longer required
-    for serverless mode.\n       # By setting this field to true, user can use other
-    networking layers supported by knative.\n       # For more info https://github.com/kserve/kserve/pull/2380,
+    of the inference service  ( {{ .Name}} )\n       # Namespace of the inference
+    service ( {{ .Namespace }} )\n       # Annotation of the inference service ( {{
+    .Annotations.key }} )\n       # Label of the inference service ( {{ .Labels.key
+    }} )\n       # IngressDomain ( {{ .IngressDomain }} )\n       # If domain template
+    is empty the default template {{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}
+    is used.\n       # NOTE: This configuration only applicable for raw deployment.\n
+    \      \"domainTemplate\": \"{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}\",\n
+    \n       # urlScheme specifies the url scheme to use for inference service and
+    inference graph.\n       # If urlScheme is empty then by default http is used.\n
+    \      \"urlScheme\": \"http\",\n \n       # disableIstioVirtualHost controls
+    whether to use istio as network layer.\n       # By default istio is used as the
+    network layer. When DisableIstioVirtualHost is true, KServe does not\n       #
+    create the top level virtual service thus Istio is no longer required for serverless
+    mode.\n       # By setting this field to true, user can use other networking layers
+    supported by knative.\n       # For more info https://github.com/kserve/kserve/pull/2380,
     https://kserve.github.io/website/master/admin/serverless/kourier_networking/.\n
     \      # NOTE: This configuration is only applicable to serverless deployment.\n
     \      \"disableIstioVirtualHost\": false,\n\n       # disableIngressCreation
@@ -42255,24 +42253,23 @@ data:
     false,\n \n       # pathTemplate specifies the template for generating path based
     url for each inference service.\n       # The following variables can be used
     in the template for generating url.\n       # Name of the inference service  (
-    {{ \"{{\" }} .Name {{ \"}}\" }} )\n       # Namespace of the inference service
-    ( {{ \"{{\" }} .Namespace {{ \"}}\" }} )\n       # For more info https://github.com/kserve/kserve/issues/2257.\n
-    \      # NOTE: This configuration only applicable to serverless deployment.\n
-    \      \"pathTemplate\": \"/serving/{{ \"{{\" }} .Namespace {{ \"}}\" }}/{{ \"{{\"
-    }} .Name {{ \"}}\" }}\"\n   }\n \n # ====================================== LOGGER
-    CONFIGURATION ======================================\n # Example\n logger: |-\n
-    \  {\n       \"image\" : \"kserve/agent:latest\",\n       \"memoryRequest\": \"100Mi\",\n
-    \      \"memoryLimit\": \"1Gi\",\n       \"cpuRequest\": \"100m\",\n       \"cpuLimit\":
-    \"1\",\n       \"defaultUrl\": \"http://default-broker\"\n   }\n logger: |-\n
-    \  {\n       # image contains the default logger image uri.\n       \"image\"
-    : \"kserve/agent:latest\",\n   \n       # memoryRequest is the requests.memory
-    to set for the logger container.\n       \"memoryRequest\": \"100Mi\",\n       \n
-    \      # memoryLimit is the limits.memory to set for the logger container.\n       \"memoryLimit\":
-    \"1Gi\",\n       \n       # cpuRequest is the requests.cpu to set for the logger
-    container.\n       \"cpuRequest\": \"100m\",\n       \n       # cpuLimit is the
-    limits.cpu to set for the logger container.\n       \"cpuLimit\": \"1\",\n       \n
-    \      # defaultUrl specifies the default logger url. If logger is not specified
-    in the resource this url is used.\n       \"defaultUrl\": \"http://default-broker\"\n
+    {{ .Name}} )\n       # Namespace of the inference service ( {{ .Namespace }} )\n
+    \      # For more info https://github.com/kserve/kserve/issues/2257.\n       #
+    NOTE: This configuration only applicable to serverless deployment.\n       \"pathTemplate\":
+    \"/serving/{{ .Namespace }}/{{ .Name }}\"\n   }\n \n # ======================================
+    LOGGER CONFIGURATION ======================================\n # Example\n logger:
+    |-\n   {\n       \"image\" : \"kserve/agent:latest\",\n       \"memoryRequest\":
+    \"100Mi\",\n       \"memoryLimit\": \"1Gi\",\n       \"cpuRequest\": \"100m\",\n
+    \      \"cpuLimit\": \"1\",\n       \"defaultUrl\": \"http://default-broker\"\n
+    \  }\n logger: |-\n   {\n       # image contains the default logger image uri.\n
+    \      \"image\" : \"kserve/agent:latest\",\n   \n       # memoryRequest is the
+    requests.memory to set for the logger container.\n       \"memoryRequest\": \"100Mi\",\n
+    \      \n       # memoryLimit is the limits.memory to set for the logger container.\n
+    \      \"memoryLimit\": \"1Gi\",\n       \n       # cpuRequest is the requests.cpu
+    to set for the logger container.\n       \"cpuRequest\": \"100m\",\n       \n
+    \      # cpuLimit is the limits.cpu to set for the logger container.\n       \"cpuLimit\":
+    \"1\",\n       \n       # defaultUrl specifies the default logger url. If logger
+    is not specified in the resource this url is used.\n       \"defaultUrl\": \"http://default-broker\"\n
     \  }\n \n # ====================================== BATCHER CONFIGURATION ======================================\n
     # Example\n batcher: |-\n   {\n       \"image\" : \"kserve/agent:latest\",\n       \"memoryRequest\":
     \"1Gi\",\n       \"memoryLimit\": \"1Gi\",\n       \"cpuRequest\": \"1\",\n       \"cpuLimit\":
@@ -42438,9 +42435,8 @@ data:
     \   \"localGateway\" : \"knative-serving/knative-local-gateway\",\n    \"localGatewayService\"
     : \"knative-local-gateway.istio-system.svc.cluster.local\",\n    \"ingressDomain\"
     \ : \"example.com\",\n    \"ingressClassName\" : \"istio\",\n    \"domainTemplate\":
-    \"{{ \"{{\" }} .Name {{ \"}}\" }}-{{ \"{{\" }} .Namespace {{ \"}}\" }}.{{ \"{{\"
-    }} .IngressDomain {{ \"}}\" }}\",\n    \"urlScheme\": \"http\",\n    \"disableIstioVirtualHost\":
-    false,\n    \"disableIngressCreation\": false\n}"
+    \"{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}\",\n    \"urlScheme\": \"http\",\n
+    \   \"disableIstioVirtualHost\": false,\n    \"disableIngressCreation\": false\n}"
   localModel: |-
     {
       "enabled": false,

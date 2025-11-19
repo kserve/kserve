@@ -208,7 +208,8 @@ helm-generate-llmisvc: helmify yq
 	@rm -rf build-helm/llmisvc-chart
 	@kubectl kustomize config/overlays/llmisvc > build-helm/llmisvc.yaml
 	# Filter out CRDs (they're managed by kserve-llmisvc-crd chart)
-	@$(YQ) eval 'select(.kind != "CustomResourceDefinition")' build-helm/llmisvc.yaml > build-helm/llmisvc-no-crds.yaml
+	# Also filter out ConfigMap (we'll copy it directly from source, untouched by helmify)
+	@$(YQ) eval 'select(.kind != "CustomResourceDefinition" and (.kind != "ConfigMap" or .metadata.name != "inferenceservice-config"))' build-helm/llmisvc.yaml > build-helm/llmisvc-no-crds.yaml
 	@cat build-helm/llmisvc-no-crds.yaml | $(HELMIFY) build-helm/llmisvc-chart
 
 	# Remove CRDs from generated chart (they're managed by kserve-llmisvc-crd chart)
@@ -278,7 +279,8 @@ helm-generate-kserve: helmify yq
 	@rm -rf build-helm/kserve-chart
 	@kubectl kustomize config/default > build-helm/kserve-all.yaml
 	# Filter out CRDs (they're managed by kserve-crd/kserve-crd-minimal charts)
-	@$(YQ) eval 'select(.kind != "CustomResourceDefinition")' build-helm/kserve-all.yaml > build-helm/kserve-all-no-crds.yaml
+	# Also filter out ConfigMap (we'll copy it directly from source, untouched by helmify)
+	@$(YQ) eval 'select(.kind != "CustomResourceDefinition" and (.kind != "ConfigMap" or .metadata.name != "inferenceservice-config"))' build-helm/kserve-all.yaml > build-helm/kserve-all-no-crds.yaml
 	@cat build-helm/kserve-all-no-crds.yaml | $(HELMIFY) build-helm/kserve-chart
 
 	# Escape embedded Go templates (for LLMISvc ConfigMaps)
