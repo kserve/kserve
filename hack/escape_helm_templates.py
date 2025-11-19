@@ -54,11 +54,7 @@ Author: Generated for KServe Helm chart conversion
 
 import re
 import sys
-import json
 from pathlib import Path
-
-# PyYAML is required for this script
-import yaml
 
 
 def escape_embedded_templates(content: str) -> str:
@@ -202,80 +198,21 @@ def escape_embedded_templates(content: str) -> str:
 
 def fix_json_strings_with_escaped_templates(content: str) -> str:
     """
-    Fix JSON strings in YAML that contain invalid JSON syntax.
+    Fix JSON strings in YAML that contain escaped Helm template syntax.
 
-    The issue: The source file has invalid JSON like {{ "{{" }} which breaks JSON parsing.
-    Since the ConfigMap is copied as-is (no Helm templating needed), we just need to
-    fix the invalid JSON by converting {{ "{{" }} back to {{ (plain template syntax).
+    The templates are already escaped by escape_embedded_templates, so they
+    will output correctly after Helm processes them. The JSON might be invalid
+    before Helm processes it, but will be valid after Helm renders the templates.
 
     Args:
-        content: YAML content that may contain JSON strings with invalid syntax
+        content: YAML content that may contain JSON strings with escaped templates
 
     Returns:
-        Content with fixed JSON strings
+        Content unchanged (templates are already properly escaped)
     """
-    # Parse as YAML to find ConfigMap data fields
-    try:
-        doc = yaml.safe_load(content)
-        if doc and isinstance(doc, dict) and 'data' in doc and isinstance(doc['data'], dict):
-            # This looks like a ConfigMap, fix JSON strings in data fields
-            json_fields = [
-                'ingress', 'agent', 'autoscaler', 'batcher', 'credentials',
-                'deploy', 'explainers', 'inferenceService', 'localModel',
-                'logger', 'metricsAggregator', 'opentelemetryCollector',
-                'router', 'security', 'storageInitializer'
-            ]
-
-            # Instead of re-serializing with yaml.dump (which escapes backslashes),
-            # modify the content string directly to preserve the original YAML structure
-            fixed = False
-            for field in json_fields:
-                if field in doc['data']:
-                    json_str = doc['data'][field]
-                    # Check if it contains invalid JSON syntax
-                    if '"{{"' in json_str or '"}}"' in json_str:
-                        # Try to parse as JSON first
-                        try:
-                            json.loads(json_str)
-                            # If it parses, no fix needed
-                            continue
-                        except json.JSONDecodeError:
-                            # JSON is invalid because source file has {{ "{{" }} syntax
-                            # Convert {{ "{{" }} back to {{ to make valid JSON
-                            # The ConfigMap is copied as-is, so we don't need to escape for Helm
-                            fixed_json = json_str.replace('{{ "{{" }}', '{{')
-                            fixed_json = fixed_json.replace('{{ "}}" }}', '}}')
-
-                            # Verify it's now valid JSON
-                            try:
-                                json.loads(fixed_json)
-                                # Update the content string directly instead of re-serializing
-                                # Find the field in the original content and replace its value
-                                # Pattern: field: |-\n    { ... original json ... }
-                                pattern = rf'^  {re.escape(field)}: \|-\n((?:    .*\n)*?)(?=^  [a-zA-Z]|\Z)'
-
-                                # Use default arguments to capture values at function definition time
-                                def replace_field_json(_match, fld=field, fixed=fixed_json):
-                                    # Replace with fixed JSON (indented with 4 spaces for ConfigMap data)
-                                    fixed_lines = fixed.split('\n')
-                                    indented_fixed = '\n'.join('    ' + line if line.strip()
-                                                               else '' for line in fixed_lines)
-                                    return f'  {fld}: |-\n{indented_fixed}\n'
-
-                                content = re.sub(pattern, replace_field_json, content,
-                                                 flags=re.MULTILINE | re.DOTALL)
-                                fixed = True
-                            except json.JSONDecodeError:
-                                # Could not fix, leave as-is
-                                pass
-
-            if fixed:
-                return content
-    except (yaml.YAMLError, AttributeError, TypeError, ValueError, KeyError):
-        # YAML parsing failed, but this is not a ConfigMap or not valid YAML
-        # Just return content as-is
-        pass
-
+    # Templates are already escaped by escape_embedded_templates, so no fixing needed
+    # Helm will process {{ "{{" }} .Name {{ "}}" }} and output {{ .Name }},
+    # which is valid JSON
     return content
 
 
