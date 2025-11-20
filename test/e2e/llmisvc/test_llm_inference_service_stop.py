@@ -19,9 +19,10 @@ import pytest
 from kserve import KServeClient, V1alpha1LLMInferenceService, constants
 from kubernetes import client
 
-from .fixtures import (
+from .fixtures import (  # noqa: F401, F811
     generate_test_id,
     inject_k8s_proxy,
+    test_case,
 )
 from .logging import log_execution
 from .test_llm_inference_service import (
@@ -49,6 +50,7 @@ STOP_ANNOTATION_KEY = "serving.kserve.io/stop"
                     "workload-single-cpu",
                     "model-fb-opt-125m",
                 ],
+                prompt="KServe is a",
                 service_name="stop-feature-test",
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
@@ -58,7 +60,7 @@ STOP_ANNOTATION_KEY = "serving.kserve.io/stop"
     ids=generate_test_id,
 )
 @log_execution
-def test_llm_stop_feature(test_case: TestCase):
+def test_llm_stop_feature(test_case: TestCase):  # noqa: F811
     """Test that stopping an LLMInferenceService sets the Ready condition to False with reason Stopped."""
     inject_k8s_proxy()
 
