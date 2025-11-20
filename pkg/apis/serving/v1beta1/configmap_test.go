@@ -47,8 +47,26 @@ var (
 		"ingressDomain": "%s",
 		"urlScheme": "https",
         "additionalIngressDomains": ["%s","%s"]
-	}`, KserveIngressGateway, KnativeIngressGateway, KnativeLocalGatewayService, KnativeLocalGateway, LocalGatewayService, IngressDomain,
-		AdditionalDomain, AdditionalDomainExtra)
+	}`, KserveIngressGateway, KnativeIngressGateway, KnativeLocalGatewayService, KnativeLocalGateway, LocalGatewayService,
+		IngressDomain, AdditionalDomain, AdditionalDomainExtra)
+	IngressConfigDataWithTemplates = fmt.Sprintf(`{
+		"kserveIngressGateway" : "%s",
+		"ingressGateway" : "%s",
+		"knativeLocalGatewayService" : "%s",
+		"localGateway" : "%s",
+		"localGatewayService" : "%s",
+		"ingressDomain": "%s",
+		"urlScheme": "https",
+		"annotationsTemplate": {
+			"external-dns.alpha.kubernetes.io/hostname": "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}"
+		},
+		"tlsTemplate": [{
+			"hosts": ["{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}"],
+			"secretName": "tls-{{ .Name }}"
+		}],
+		"additionalIngressDomains": ["%s","%s"]
+	}`, KserveIngressGateway, KnativeIngressGateway, KnativeLocalGatewayService, KnativeLocalGateway, LocalGatewayService,
+		IngressDomain, AdditionalDomain, AdditionalDomainExtra)
 	ServiceConfigData = fmt.Sprintf(`{
 		"serviceClusterIPNone" : %t
 	}`, true)
@@ -161,6 +179,52 @@ func TestNewIngressConfig(t *testing.T) {
 	g.Expect(ingressCfg.UrlScheme).To(gomega.Equal(UrlScheme))
 	g.Expect(ingressCfg.IngressDomain).To(gomega.Equal(IngressDomain))
 	g.Expect(*ingressCfg.AdditionalIngressDomains).To(gomega.Equal([]string{AdditionalDomain, AdditionalDomainExtra}))
+
+	t.Run("loads annotationsTemplate and tlsTemplate from ingress config", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.InferenceServiceConfigMapName,
+				Namespace: constants.KServeNamespace,
+			},
+			Data: map[string]string{
+				IngressConfigKeyName: IngressConfigDataWithTemplates,
+			},
+		}
+
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+
+		g.Expect(cfg.AnnotationsTemplate).ToNot(gomega.BeNil())
+		g.Expect(cfg.AnnotationsTemplate["external-dns.alpha.kubernetes.io/hostname"]).To(
+			gomega.Equal("{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}"),
+		)
+
+		g.Expect(cfg.TLSTemplate).ToNot(gomega.BeNil())
+		g.Expect(cfg.TLSTemplate).To(gomega.HaveLen(1))
+		g.Expect(cfg.TLSTemplate[0].Hosts[0]).To(gomega.Equal("{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}"))
+		g.Expect(cfg.TLSTemplate[0].SecretName).To(gomega.Equal("tls-{{ .Name }}"))
+	})
+}
+
+func TestRenderStringTemplate_WithIngressDomain(t *testing.T) {
+	ctx := TemplateCtx{
+		Name:          "model-name",
+		Namespace:     "models",
+		IngressDomain: "example.com",
+		Labels:        map[string]string{},
+		Annotations:   map[string]string{},
+	}
+
+	out, err := RenderStringTemplate("{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}", ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := "model-name.models.example.com"
+	if out != want {
+		t.Fatalf("render mismatch: got %q want %q", out, want)
+	}
 }
 
 func TestNewIngressConfigDefaultKnativeService(t *testing.T) {
@@ -724,4 +788,36 @@ func TestNewIngressConfig_Validation(t *testing.T) {
 		g.Expect(cfg.IngressDomain).To(gomega.Equal("mydomain.com"))
 		g.Expect(cfg.UrlScheme).To(gomega.Equal("https"))
 	})
+}
+
+func TestRenderStringTemplate(t *testing.T) {
+	ctx := TemplateCtx{
+		Name:        "my-model",
+		Namespace:   "ml",
+		Labels:      map[string]string{"team": "ai"},
+		Annotations: map[string]string{"note": "hello"},
+	}
+
+	cases := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{"Name", "{{ .Name }}", "my-model", false},
+		{"Namespace", "{{ .Namespace }}", "ml", false},
+		{"Label", "{{ .Labels.team }}", "ai", false},
+		{"Annotation", "{{ .Annotations.note }}", "hello", false},
+		{"Invalid syntax", "{{ .Name ", "", true},
+	}
+
+	for _, tc := range cases {
+		got, err := RenderStringTemplate(tc.input, ctx)
+		if (err != nil) != tc.wantErr {
+			t.Fatalf("%s: expected error=%v got %v", tc.name, tc.wantErr, err)
+		}
+		if err == nil && got != tc.want {
+			t.Fatalf("%s: expected %q got %q", tc.name, tc.want, got)
+		}
+	}
 }

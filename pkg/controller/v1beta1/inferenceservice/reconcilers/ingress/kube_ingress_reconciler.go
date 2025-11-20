@@ -296,6 +296,54 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 			Rules:            rules,
 		},
 	}
+
+	tctx := v1beta1.TemplateCtx{
+		Name:          isvc.Name,
+		Namespace:     isvc.Namespace,
+		IngressDomain: ingressConfig.IngressDomain,
+		Labels:        isvc.GetLabels(),
+		Annotations:   isvc.GetAnnotations(),
+	}
+
+	if len(ingressConfig.AnnotationsTemplate) > 0 {
+		if ingress.Annotations == nil {
+			ingress.Annotations = map[string]string{}
+		}
+		for k, v := range ingressConfig.AnnotationsTemplate {
+			rendered, err := v1beta1.RenderStringTemplate(v, tctx)
+			if err != nil {
+				log.Error(err, "Failed to render annotation", "key", k)
+				continue
+			}
+			ingress.Annotations[k] = rendered
+		}
+	}
+
+	if len(ingressConfig.TLSTemplate) > 0 {
+		var tlsList []netv1.IngressTLS
+		for _, item := range ingressConfig.TLSTemplate {
+			var hosts []string
+			for _, h := range item.Hosts {
+				rh, err := v1beta1.RenderStringTemplate(h, tctx)
+				if err != nil {
+					log.Error(err, "Failed to render TLS host")
+					continue
+				}
+				hosts = append(hosts, rh)
+			}
+			secret := item.SecretName
+			if secret != "" {
+				if rs, err := v1beta1.RenderStringTemplate(secret, tctx); err == nil {
+					secret = rs
+				} else {
+					log.Error(err, "Failed to render TLS secretName")
+				}
+			}
+			tlsList = append(tlsList, netv1.IngressTLS{Hosts: hosts, SecretName: secret})
+		}
+		ingress.Spec.TLS = tlsList
+	}
+
 	if err := controllerutil.SetControllerReference(isvc, ingress, scheme); err != nil {
 		return nil, err
 	}
