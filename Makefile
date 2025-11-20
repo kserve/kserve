@@ -416,10 +416,9 @@ precommit: sync-deps vet tidy go-lint py-fmt py-lint generate manifests uv-lock
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit
-	@if [ ! -z "`git status --porcelain=v1 | grep -v '^??'`" ]; then \
+	@if [ ! -z "`git status -s`" ]; then \
 		echo "The following differences will fail CI until committed:"; \
-		git diff; \
-		echo ""; \
+		git diff --exit-code; \
 		echo "Please ensure that you have run 'make precommit' and committed the changes."; \
 		exit 1; \
 	fi
