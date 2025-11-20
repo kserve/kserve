@@ -386,11 +386,13 @@ generate: controller-gen helm-docs manifests
 	hack/update-codegen.sh
 	hack/update-openapigen.sh
 	hack/python-sdk/client-gen.sh
-	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md
 	# Generate Helm charts from Kustomize configs
 	@echo "Generating Helm charts..."
 	@$(MAKE) helm-generate-llmisvc
 	@$(MAKE) helm-generate-kserve
+	# Generate README.md from values.yaml files (must be after chart generation)
+	@echo "Generating README.md from Helm chart values..."
+	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md
 
 # Update uv.lock files
 uv-lock: $(UV)
