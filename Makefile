@@ -347,6 +347,17 @@ helm-generate-kserve: helmify yq
 	@sed -i ':a;N;$!ba;s/{{ include "kserve-resources.fullname" . }}-{{ .Release.Namespace }}-webhook-server-service/{{ include "kserve-resources.fullname" . }}-webhook-server-service/g' charts/kserve-resources/templates/serving-cert.yaml 2>/dev/null || true
 	@sed -i ':a;N;$!ba;s/{{ include "kserve-resources.fullname" . }}-{{ .Release.Namespace }}-llmisvc-webhook-svc/{{ include "kserve-resources.fullname" . }}-llmisvc-webhook-svc/g' charts/kserve-resources/templates/llmisvc-serving-cert.yaml 2>/dev/null || true
 
+	# Fix ServiceAccount duplicates (remove duplicates, keep only first one)
+	@echo "Fixing ServiceAccount duplicates..."
+	@if [ -f charts/kserve-resources/templates/serviceaccount.yaml ]; then \
+		python3 -c "content = open('charts/kserve-resources/templates/serviceaccount.yaml').read(); docs = [d.strip() for d in content.split('---') if d.strip()]; sa_docs = [d for d in docs if 'kind: ServiceAccount' in d]; other_docs = [d for d in docs if 'kind: ServiceAccount' not in d]; fixed = ([sa_docs[0]] if sa_docs else []) + other_docs; open('charts/kserve-resources/templates/serviceaccount.yaml', 'w').write('---\n'.join(fixed) if len(fixed) > 1 else (fixed[0] if fixed else ''))" 2>/dev/null || true; \
+	fi
+
+	# Fix metrics service name (remove "kserve-" prefix and add truncation to stay under 63 char limit)
+	@echo "Fixing metrics service name..."
+	@sed -i 's/-kserve-controller-manager-metrics-service/-controller-manager-metrics-service/g' charts/kserve-resources/templates/kserve-controller-manager-metrics-service.yaml 2>/dev/null || true
+	@sed -i 's/name: {{ include "kserve-resources.fullname" . }}-controller-manager-metrics-service/name: {{ printf "%s-controller-manager-metrics-service" (include "kserve-resources.fullname" .) | trunc 63 | trimSuffix "-" }}/g' charts/kserve-resources/templates/kserve-controller-manager-metrics-service.yaml 2>/dev/null || true
+
 	# Remove disabled fields that helmify added but don't exist in source files
 	@echo "Removing templated 'disabled' fields that don't exist in source..."
 	@python3 -c "import re; content = open('charts/kserve-resources/templates/clusterservingruntimes.yaml').read(); content = re.sub(r'^  disabled: {{ .Values\.kserve\.servingruntime\..*\.disabled }}$\n', '', content, flags=re.MULTILINE); open('charts/kserve-resources/templates/clusterservingruntimes.yaml', 'w').write(content)" 2>/dev/null || true
