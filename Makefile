@@ -416,12 +416,30 @@ precommit: sync-deps vet tidy go-lint py-fmt py-lint generate manifests uv-lock
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit
-	@if [ ! -z "`git status -s`" ]; then \
-		echo "The following differences will fail CI until committed:"; \
-		git diff --exit-code; \
+	@echo "Checking for uncommitted changes..."
+	@TRACKED_CHANGES=$$(git status --porcelain=v1 | grep -v '^??' || true); \
+	UNTRACKED_GENERATED=$$(git status --porcelain | grep '^??' | grep -E '(^\./)?(charts/|pkg/client/|python/kserve/)' || true); \
+	if [ ! -z "$$TRACKED_CHANGES" ] || [ ! -z "$$UNTRACKED_GENERATED" ]; then \
+		echo ""; \
+		echo "❌ The following changes will fail CI until committed:"; \
+		echo ""; \
+		if [ ! -z "$$TRACKED_CHANGES" ]; then \
+			echo "Modified tracked files:"; \
+			git status --short | grep -v "^??" || true; \
+			echo ""; \
+			echo "Diff:"; \
+			git diff; \
+			echo ""; \
+		fi; \
+		if [ ! -z "$$UNTRACKED_GENERATED" ]; then \
+			echo "Untracked generated files (should be committed):"; \
+			echo "$$UNTRACKED_GENERATED"; \
+			echo ""; \
+		fi; \
 		echo "Please ensure that you have run 'make precommit' and committed the changes."; \
 		exit 1; \
 	fi
+	@echo "✅ No uncommitted changes detected"
 
 # This clears all the installed binaries.
 #
