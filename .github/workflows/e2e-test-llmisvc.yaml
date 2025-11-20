@@ -197,6 +197,7 @@ jobs:
       - name: Install KServe Python SDK
         run: |
           echo "🐍 Installing KServe Python SDK with test dependencies..."
+          source hack/setup/common.sh
           pushd python/kserve >/dev/null
               uv sync --active --group test
           popd
