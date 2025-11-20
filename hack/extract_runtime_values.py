@@ -13,6 +13,13 @@ import sys
 import yaml
 from pathlib import Path
 
+# Try to use ruamel.yaml for better YAML preservation, fallback to standard yaml
+try:
+    from ruamel.yaml import YAML
+    RUAMEL_AVAILABLE = True
+except ImportError:
+    RUAMEL_AVAILABLE = False
+
 
 def parse_kustomization(kustomization_path):
     """Parse kustomization.yaml to extract image transformations."""
@@ -156,9 +163,16 @@ def generate_runtime_values(kustomization_path, runtimes_dir, values_yaml_path):
         # Use helmify_key for the values structure
         runtime_values[helmify_key] = runtime_config
 
-    # Read existing values.yaml
-    with open(values_yaml_path, 'r', encoding='utf-8') as f:
-        values = yaml.safe_load(f) or {}
+    # Read existing values.yaml preserving order if ruamel is available
+    if RUAMEL_AVAILABLE:
+        yaml_loader = YAML()
+        yaml_loader.preserve_quotes = True
+        yaml_loader.width = 4096
+        with open(values_yaml_path, 'r', encoding='utf-8') as f:
+            values = yaml_loader.load(f) or {}
+    else:
+        with open(values_yaml_path, 'r', encoding='utf-8') as f:
+            values = yaml.safe_load(f) or {}
 
     # Ensure kserve.servingruntime structure exists
     if 'kserve' not in values:
@@ -166,26 +180,55 @@ def generate_runtime_values(kustomization_path, runtimes_dir, values_yaml_path):
     if 'servingruntime' not in values['kserve']:
         values['kserve']['servingruntime'] = {}
 
-    # Merge runtime values (don't overwrite existing, but remove duplicates)
     # Remove old keys that were replaced by key mappings
     keys_to_remove = ['tensorflow-serving', 'huggingfaceserver-multinode']
     for key in keys_to_remove:
         if key in values['kserve']['servingruntime']:
             del values['kserve']['servingruntime'][key]
 
-    # Merge runtime values (don't overwrite existing)
-    for key, value in runtime_values.items():
-        if key not in values['kserve']['servingruntime']:
-            values['kserve']['servingruntime'][key] = value
-        elif isinstance(value, dict) and isinstance(values['kserve']['servingruntime'][key], dict):
-            # Merge nested dicts
-            for subkey, subvalue in value.items():
-                if subkey not in values['kserve']['servingruntime'][key]:
-                    values['kserve']['servingruntime'][key][subkey] = subvalue
+    # Merge runtime values into existing structure, preserving order
+    existing_servingruntime = values['kserve']['servingruntime']
 
-    # Write back to values.yaml
-    with open(values_yaml_path, 'w', encoding='utf-8') as f:
-        yaml.dump(values, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+    # Update existing entries with new fields
+    for key, value in runtime_values.items():
+        if key in existing_servingruntime:
+            # Update existing entry with any new fields
+            if isinstance(value, dict) and isinstance(existing_servingruntime[key], dict):
+                # Merge nested dicts
+                for subkey, subvalue in value.items():
+                    if subkey not in existing_servingruntime[key]:
+                        existing_servingruntime[key][subkey] = subvalue
+
+    # Add new keys, preserving existing order
+    if RUAMEL_AVAILABLE:
+        # With ruamel.yaml, order is automatically preserved when we add new keys
+        for key, value in runtime_values.items():
+            if key not in existing_servingruntime:
+                existing_servingruntime[key] = value
+    else:
+        # For standard yaml, preserve order by rebuilding dict with existing keys first
+        # Python 3.7+ dicts preserve insertion order
+        ordered_dict = {}
+        # First add all existing keys in their current order
+        for key in existing_servingruntime.keys():
+            ordered_dict[key] = existing_servingruntime[key]
+        # Then add new keys
+        for key, value in runtime_values.items():
+            if key not in ordered_dict:
+                ordered_dict[key] = value
+        values['kserve']['servingruntime'] = ordered_dict
+
+    # Write back to values.yaml preserving order and formatting
+    if RUAMEL_AVAILABLE:
+        yaml_writer = YAML()
+        yaml_writer.preserve_quotes = True
+        yaml_writer.width = 4096
+        yaml_writer.default_flow_style = False
+        with open(values_yaml_path, 'w', encoding='utf-8') as f:
+            yaml_writer.dump(values, f)
+    else:
+        with open(values_yaml_path, 'w', encoding='utf-8') as f:
+            yaml.dump(values, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
     print(f"✅ Extracted and added kserve.servingruntime.* values to {values_yaml_path}")
 
