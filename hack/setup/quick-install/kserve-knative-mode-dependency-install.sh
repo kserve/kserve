@@ -753,7 +753,7 @@ install_cert_manager() {
             return 0
         else
             log_info "Reinstalling cert-manager..."
-            uninstall
+            uninstall_cert_manager
         fi
     fi
 
@@ -797,7 +797,7 @@ install_istio() {
             return 0
         else
             log_info "Reinstalling Istio..."
-            uninstall
+            uninstall_istio
         fi
     fi
 
@@ -854,7 +854,7 @@ install_istio_ingress_class() {
             return 0
         else
             log_info "Recreating Istio IngressClass 'istio'..."
-            uninstall
+            uninstall_istio_ingress_class
         fi
     fi
 
@@ -893,7 +893,7 @@ install_keda() {
             return 0
         else
             log_info "Reinstalling KEDA..."
-            uninstall
+            uninstall_keda
         fi
     fi
 
@@ -937,7 +937,7 @@ install_keda_otel_addon() {
             return 0
         else
             log_info "Reinstalling KEDA OTel add-on..."
-            uninstall
+            uninstall_keda_otel_addon
         fi
     fi
 
@@ -975,7 +975,7 @@ install_opentelemetry() {
             return 0
         else
             log_info "Reinstalling OpenTelemetry Operator..."
-            uninstall
+            uninstall_opentelemetry
         fi
     fi
 

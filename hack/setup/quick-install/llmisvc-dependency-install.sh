@@ -712,7 +712,7 @@ uninstall_external_lb() {
 install_external_lb() {
     if [ "$REINSTALL" = true ]; then
         log_info "Reinstalling External LoadBalancer..."
-        uninstall
+        uninstall_external_lb
     fi
 
     log_info "Setting up External LoadBalancer for platform: ${PLATFORM}"
@@ -806,7 +806,7 @@ install_cert_manager() {
             return 0
         else
             log_info "Reinstalling cert-manager..."
-            uninstall
+            uninstall_cert_manager
         fi
     fi
 
@@ -847,7 +847,7 @@ install_gateway_api_crd() {
             return 0
         else
             log_info "Reinstalling Gateway API CRDs..."
-            uninstall
+            uninstall_gateway_api_crd
         fi
     fi
 
@@ -895,7 +895,7 @@ install_envoy_gateway() {
             return 0
         else
             log_info "Reinstalling Envoy Gateway..."
-            uninstall
+            uninstall_envoy_gateway
         fi
     fi
 
@@ -940,7 +940,7 @@ install_envoy_ai_gateway() {
             return 0
         else
             log_info "Reinstalling Envoy AI Gateway..."
-            uninstall
+            uninstall_envoy_ai_gateway
         fi
     fi
 
@@ -989,7 +989,7 @@ install_gateway_api_gwclass() {
             return 0
         else
             log_info "Recreating GatewayClass '${GATEWAYCLASS_NAME}'..."
-            uninstall
+            uninstall_gateway_api_gwclass
         fi
     fi
 
@@ -1025,7 +1025,7 @@ install_gateway_api_gw() {
             return 0
         else
             log_info "Recreating KServe Gateway '${GATEWAY_NAME}'..."
-            uninstall
+            uninstall_gateway_api_gw
         fi
     fi
 
@@ -1070,7 +1070,7 @@ install_lws_operator() {
             return 0
         else
             log_info "Reinstalling LWS..."
-            uninstall
+            uninstall_lws_operator
         fi
     fi
 
