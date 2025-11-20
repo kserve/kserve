@@ -192,6 +192,16 @@ manifests: controller-gen yq generate-quick-install-scripts
 	# Copy llmisvc crd to kserve-llmisvc-crd chart
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/kserve-llmisvc-crd/templates/
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/kserve-llmisvc-crd/templates/
+	# Copy main KServe CRDs to kserve-crd chart (for combined deployments)
+	cp config/crd/full/serving.kserve.io_inferenceservices.yaml charts/kserve-crd/templates/
+	cp config/crd/full/serving.kserve.io_trainedmodels.yaml charts/kserve-crd/templates/
+	cp config/crd/full/serving.kserve.io_clusterservingruntimes.yaml charts/kserve-crd/templates/
+	cp config/crd/full/serving.kserve.io_servingruntimes.yaml charts/kserve-crd/templates/
+	cp config/crd/full/serving.kserve.io_inferencegraphs.yaml charts/kserve-crd/templates/
+	cp config/crd/full/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd/templates/
+	cp config/crd/full/serving.kserve.io_localmodelcaches.yaml charts/kserve-crd/templates/
+	cp config/crd/full/serving.kserve.io_localmodelnodegroups.yaml charts/kserve-crd/templates/
+	cp config/crd/full/serving.kserve.io_localmodelnodes.yaml charts/kserve-crd/templates/
 	# Copy llmisvc crd to kserve-crd chart (for combined deployments)
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/kserve-crd/templates/
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/kserve-crd/templates/
