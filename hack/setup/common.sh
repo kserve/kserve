@@ -435,8 +435,15 @@ version_gte() {
 if [[ -z "${REPO_ROOT:-}" ]]; then
     REPO_ROOT="$(find_repo_root "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")")"
     export REPO_ROOT
-    export BIN_DIR="${REPO_ROOT}/bin"
-    ensure_dir "${BIN_DIR}"
+
+    # Set up BIN_DIR - use repo bin if it exists, otherwise use temp directory
+    if [[ -d "${REPO_ROOT}/bin" ]]; then
+        export BIN_DIR="${REPO_ROOT}/bin"
+    else
+        export BIN_DIR="$(mktemp -d)"
+        log_info "Using temp BIN_DIR: ${BIN_DIR}"
+    fi
+
     export PATH="${BIN_DIR}:${PATH}"
 fi
 
