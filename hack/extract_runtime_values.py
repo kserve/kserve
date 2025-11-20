@@ -100,8 +100,23 @@ def generate_runtime_values(kustomization_path, runtimes_dir, values_yaml_path):
         runtimes[metadata['name']] = metadata
 
     # Map images to runtimes
+    # Define the expected order for servingruntime keys
+    expected_runtime_order = [
+        'modelNamePlaceholder',
+        'huggingfaceserver_multinode',
+        'huggingfaceserver',
+        'lgbserver',
+        'mlserver',
+        'paddleserver',
+        'pmmlserver',
+        'sklearnserver',
+        'tensorflow',
+        'torchserve',
+        'tritonserver',
+        'xgbserver'
+    ]
+
     runtime_values = {}
-    runtime_values['modelNamePlaceholder'] = '{{.Name}}'
 
     # Map each runtime to its image
     for runtime_name, metadata in runtimes.items():
@@ -161,7 +176,11 @@ def generate_runtime_values(kustomization_path, runtimes_dir, values_yaml_path):
             runtime_config['shm'] = {'enabled': False}
 
         # Use helmify_key for the values structure
+        # Store in a temporary dict first, then we'll order them
         runtime_values[helmify_key] = runtime_config
+
+    # Add modelNamePlaceholder first
+    runtime_values['modelNamePlaceholder'] = '{{.Name}}'
 
     # Read existing values.yaml preserving order if ruamel is available
     if RUAMEL_AVAILABLE:
@@ -177,6 +196,7 @@ def generate_runtime_values(kustomization_path, runtimes_dir, values_yaml_path):
     # Ensure kserve.servingruntime structure exists
     if 'kserve' not in values:
         values['kserve'] = {}
+    servingruntime_exists = 'servingruntime' in values['kserve'] and len(values['kserve']['servingruntime']) > 0
     if 'servingruntime' not in values['kserve']:
         values['kserve']['servingruntime'] = {}
 
@@ -199,24 +219,87 @@ def generate_runtime_values(kustomization_path, runtimes_dir, values_yaml_path):
                     if subkey not in existing_servingruntime[key]:
                         existing_servingruntime[key][subkey] = subvalue
 
-    # Add new keys, preserving existing order
-    if RUAMEL_AVAILABLE:
-        # With ruamel.yaml, order is automatically preserved when we add new keys
-        for key, value in runtime_values.items():
-            if key not in existing_servingruntime:
-                existing_servingruntime[key] = value
-    else:
-        # For standard yaml, preserve order by rebuilding dict with existing keys first
-        # Python 3.7+ dicts preserve insertion order
+    # If servingruntime section is empty or new, build it in the correct order from scratch
+    if not servingruntime_exists:
+        # Build the servingruntime section in the expected order
         ordered_dict = {}
-        # First add all existing keys in their current order
-        for key in existing_servingruntime.keys():
-            ordered_dict[key] = existing_servingruntime[key]
-        # Then add new keys
+        for key in expected_runtime_order:
+            if key in runtime_values:
+                ordered_dict[key] = runtime_values[key]
+        # Add any remaining keys that weren't in the expected order
         for key, value in runtime_values.items():
             if key not in ordered_dict:
                 ordered_dict[key] = value
         values['kserve']['servingruntime'] = ordered_dict
+    else:
+        # Existing servingruntime section - merge and preserve order
+        # Define insertion points for new keys (where they should appear relative to existing keys)
+        insertion_after = {
+            'tensorflow': 'sklearnserver',
+            'paddleserver': 'pmmlserver',
+            'mlserver': 'lgbserver',
+            'pmmlserver': 'lgbserver',
+            'tritonserver': 'torchserve',
+            'xgbserver': 'tritonserver',
+        }
+
+        if RUAMEL_AVAILABLE:
+            # With ruamel.yaml, we need to insert keys in the right position
+            # Get the ordered keys list
+            existing_keys = list(existing_servingruntime.keys())
+            new_keys_to_add = {k: v for k, v in runtime_values.items() if k not in existing_servingruntime}
+
+            # Build ordered list with new keys inserted in correct positions
+            ordered_keys = []
+            for key in existing_keys:
+                ordered_keys.append(key)
+                # Check if any new key should be inserted after this one
+                for new_key, insert_after in insertion_after.items():
+                    if new_key in new_keys_to_add and insert_after == key:
+                        ordered_keys.append(new_key)
+
+            # Add any remaining new keys that don't have insertion points at the end
+            for new_key in new_keys_to_add:
+                if new_key not in ordered_keys:
+                    ordered_keys.append(new_key)
+
+            # Rebuild the dict in the correct order
+            ordered_dict = {}
+            for key in ordered_keys:
+                if key in existing_servingruntime:
+                    ordered_dict[key] = existing_servingruntime[key]
+                elif key in new_keys_to_add:
+                    ordered_dict[key] = new_keys_to_add[key]
+            existing_servingruntime.clear()
+            existing_servingruntime.update(ordered_dict)
+        else:
+            # For standard yaml, preserve order by rebuilding dict with existing keys first
+            # Python 3.7+ dicts preserve insertion order
+            existing_keys = list(existing_servingruntime.keys())
+            new_keys_to_add = {k: v for k, v in runtime_values.items() if k not in existing_servingruntime}
+
+            # Build ordered list with new keys inserted in correct positions
+            ordered_keys = []
+            for key in existing_keys:
+                ordered_keys.append(key)
+                # Check if any new key should be inserted after this one
+                for new_key, insert_after in insertion_after.items():
+                    if new_key in new_keys_to_add and insert_after == key:
+                        ordered_keys.append(new_key)
+
+            # Add any remaining new keys that don't have insertion points at the end
+            for new_key in new_keys_to_add:
+                if new_key not in ordered_keys:
+                    ordered_keys.append(new_key)
+
+            # Rebuild the dict in the correct order
+            ordered_dict = {}
+            for key in ordered_keys:
+                if key in existing_servingruntime:
+                    ordered_dict[key] = existing_servingruntime[key]
+                elif key in new_keys_to_add:
+                    ordered_dict[key] = new_keys_to_add[key]
+            values['kserve']['servingruntime'] = ordered_dict
 
     # Write back to values.yaml preserving order and formatting
     if RUAMEL_AVAILABLE:
