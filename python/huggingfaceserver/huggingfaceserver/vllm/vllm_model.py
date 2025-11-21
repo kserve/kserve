@@ -138,11 +138,7 @@ class VLLMModel(
             self.openai_serving_models = OpenAIServingModels(
                 engine_client=self.engine_client,
                 base_model_paths=self.base_model_paths,
-                lora_modules=(
-                    self.args.lora_modules
-                    if hasattr(self.args, "lora_modules")
-                    else None
-                ),
+                lora_modules=self.args.lora_modules,
             )
             await self.openai_serving_models.init_static_loras()
 
@@ -154,22 +150,16 @@ class VLLMModel(
                     request_logger=self.request_logger,
                     chat_template=resolved_chat_template,
                     chat_template_content_format=self.args.chat_template_content_format,
-                    trust_request_chat_template=getattr(
-                        self.args, "trust_request_chat_template", False
-                    ),
+                    trust_request_chat_template=self.args.trust_request_chat_template,
                     return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
                     enable_auto_tools=self.args.enable_auto_tool_choice,
-                    exclude_tools_when_tool_choice_none=getattr(
-                        self.args, "exclude_tools_when_tool_choice_none", True
-                    ),
+                    exclude_tools_when_tool_choice_none=self.args.exclude_tools_when_tool_choice_none,
                     tool_parser=self.args.tool_call_parser,
-                    reasoning_parser=getattr(self.args, "reasoning_parser", None),
+                    reasoning_parser=self.args.reasoning_parser,
                     enable_prompt_tokens_details=self.args.enable_prompt_tokens_details,
-                    enable_force_include_usage=getattr(
-                        self.args, "enable_force_include_usage", False
-                    ),
-                    enable_log_outputs=getattr(self.args, "enable_log_outputs", False),
-                    log_error_stack=getattr(self.args, "log_error_stack", False),
+                    enable_force_include_usage=self.args.enable_force_include_usage,
+                    enable_log_outputs=self.args.enable_log_outputs,
+                    log_error_stack=self.args.log_error_stack,
                 )
                 if "generate" in supported_tasks
                 else None
@@ -181,13 +171,9 @@ class VLLMModel(
                     self.openai_serving_models,
                     request_logger=self.request_logger,
                     return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
-                    enable_prompt_tokens_details=getattr(
-                        self.args, "enable_prompt_tokens_details", False
-                    ),
-                    enable_force_include_usage=getattr(
-                        self.args, "enable_force_include_usage", False
-                    ),
-                    log_error_stack=getattr(self.args, "log_error_stack", False),
+                    enable_prompt_tokens_details=self.args.enable_prompt_tokens_details,
+                    enable_force_include_usage=self.args.enable_force_include_usage,
+                    log_error_stack=self.args.log_error_stack,
                 )
                 if "generate" in supported_tasks
                 else None
@@ -200,10 +186,8 @@ class VLLMModel(
                     request_logger=self.request_logger,
                     chat_template=resolved_chat_template,
                     chat_template_content_format=self.args.chat_template_content_format,
-                    trust_request_chat_template=getattr(
-                        self.args, "trust_request_chat_template", False
-                    ),
-                    log_error_stack=getattr(self.args, "log_error_stack", False),
+                    trust_request_chat_template=self.args.trust_request_chat_template,
+                    log_error_stack=self.args.log_error_stack,
                 )
                 if "embed" in supported_tasks
                 else None
@@ -214,7 +198,7 @@ class VLLMModel(
                     self.engine_client,
                     self.openai_serving_models,
                     request_logger=self.request_logger,
-                    log_error_stack=getattr(self.args, "log_error_stack", False),
+                    log_error_stack=self.args.log_error_stack,
                 )
                 if ("embed" in supported_tasks or "score" in supported_tasks)
                 else None
