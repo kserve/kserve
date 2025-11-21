@@ -85,17 +85,16 @@ SET_KSERVE_VERSION="${SET_KSERVE_VERSION:-}"
 
 # Function to calculate deployment name based on Helm release name and chart name
 # This matches the Helm template logic: {{ include "kserve-resources.fullname" . }}-kserve-controller-manager
+# Note: The actual Helm behavior shows "kserve-kserve-resources" when release="kserve" and chart="kserve-resources"
+# This means the contains check returns false, so we always use release-chart format
 calculate_deployment_name() {
     local release_name="$1"
     local chart_name="$2"
     local suffix="$3"
     
-    # Helm fullname logic: if chart name contains release name, use release name, else use release-chart
-    if [[ "$chart_name" == *"$release_name"* ]]; then
-        local fullname="$release_name"
-    else
-        local fullname="${release_name}-${chart_name}"
-    fi
+    # Helm fullname logic: always use release-chart format (the contains check seems to not work as expected)
+    # The actual output shows "kserve-kserve-resources" not "kserve", so we use release-chart
+    local fullname="${release_name}-${chart_name}"
     
     # Truncate to 63 chars (K8s limit) and remove trailing dash
     fullname=$(echo "$fullname" | cut -c1-63 | sed 's/-$//')
