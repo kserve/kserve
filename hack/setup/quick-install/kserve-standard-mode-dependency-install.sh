@@ -53,7 +53,7 @@ find_repo_root() {
         echo "$PWD"
         return 0
     else
-        echo "Error: Could not find git repository root" >&2
+        log_error "Could not find git repository root"
         exit 1
     fi
 }
@@ -73,7 +73,7 @@ detect_os() {
     case "$(uname -s)" in
         Linux*)  os="linux" ;;
         Darwin*) os="darwin" ;;
-        *)       echo "Unsupported OS" >&2; exit 1 ;;
+        *)       log_error "Unsupported OS detected: $(uname -s)" ; exit 1 ;;
     esac
     echo "$os"
 }
@@ -83,10 +83,26 @@ detect_arch() {
     case "$(uname -m)" in
         x86_64)  arch="amd64" ;;
         aarch64|arm64) arch="arm64" ;;
-        *)       echo "Unsupported architecture" >&2; exit 1 ;;
+        *)       log_error "Unsupported architecture detected: $(uname -m)" ; exit 1 ;;
     esac
     echo "$arch"
 }
+
+cleanup_bin_dir() {
+    # Remove BIN_DIR if it was created by this script
+    if [[ "${BIN_DIR_CREATED_BY_SCRIPT:-false}" == "true" ]] && [[ -d "${BIN_DIR:-}" ]]; then
+        log_info "Cleaning up BIN_DIR: ${BIN_DIR}"
+        rm -rf "${BIN_DIR}"
+    fi
+}
+
+cleanup() {
+    # Call all cleanup functions
+    cleanup_bin_dir
+}
+
+# Set up trap to run cleanup on exit
+trap cleanup EXIT
 
 # Color codes (disable if NO_COLOR is set or not a terminal)
 if [[ -z "${NO_COLOR:-}" ]] && [[ -t 1 ]]; then
@@ -104,7 +120,7 @@ else
 fi
 
 log_info() {
-    echo -e "${BLUE}[INFO]${RESET} $*"
+    echo -e "${BLUE}[INFO]${RESET} $*" >&2
 }
 
 log_error() {
@@ -112,11 +128,11 @@ log_error() {
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${RESET} $*"
+    echo -e "${GREEN}[SUCCESS]${RESET} $*" >&2
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${RESET} $*"
+    echo -e "${YELLOW}[WARNING]${RESET} $*" >&2
 }
 
 
@@ -462,7 +478,15 @@ set_env_with_priority() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 REPO_ROOT="$(find_repo_root "${SCRIPT_DIR}" "true")"
 export REPO_ROOT
-export BIN_DIR="${REPO_ROOT}/bin"
+
+# Set up BIN_DIR - use repo bin if it exists, otherwise use temp directory
+if [[ -d "${REPO_ROOT}/bin" ]]; then
+    export BIN_DIR="${REPO_ROOT}/bin"
+else
+    export BIN_DIR="$(mktemp -d)"
+    log_info "Using temp BIN_DIR: ${BIN_DIR}"
+fi
+
 export PATH="${BIN_DIR}:${PATH}"
 
 UNINSTALL="${UNINSTALL:-false}"
@@ -733,7 +757,7 @@ install_cert_manager() {
             return 0
         else
             log_info "Reinstalling cert-manager..."
-            uninstall
+            uninstall_cert_manager
         fi
     fi
 
@@ -778,7 +802,7 @@ install_keda() {
             return 0
         else
             log_info "Reinstalling KEDA..."
-            uninstall
+            uninstall_keda
         fi
     fi
 
@@ -822,7 +846,7 @@ install_keda_otel_addon() {
             return 0
         else
             log_info "Reinstalling KEDA OTel add-on..."
-            uninstall
+            uninstall_keda_otel_addon
         fi
     fi
 
@@ -876,7 +900,7 @@ uninstall_external_lb() {
 install_external_lb() {
     if [ "$REINSTALL" = true ]; then
         log_info "Reinstalling External LoadBalancer..."
-        uninstall
+        uninstall_external_lb
     fi
 
     log_info "Setting up External LoadBalancer for platform: ${PLATFORM}"
@@ -939,7 +963,7 @@ install_external_lb() {
 
         openshift|kubernetes)
             log_info "Platform ${PLATFORM} does not require external LB setup. Skipping."
-            exit 0
+            return 0
             ;;
 
         *)
@@ -969,7 +993,7 @@ install_gateway_api_crd() {
             return 0
         else
             log_info "Reinstalling Gateway API CRDs..."
-            uninstall
+            uninstall_gateway_api_crd
         fi
     fi
 
@@ -1017,7 +1041,7 @@ install_envoy_gateway() {
             return 0
         else
             log_info "Reinstalling Envoy Gateway..."
-            uninstall
+            uninstall_envoy_gateway
         fi
     fi
 
@@ -1062,7 +1086,7 @@ install_envoy_ai_gateway() {
             return 0
         else
             log_info "Reinstalling Envoy AI Gateway..."
-            uninstall
+            uninstall_envoy_ai_gateway
         fi
     fi
 
@@ -1108,10 +1132,10 @@ install_gateway_api_gwclass() {
     if kubectl get gatewayclass "${GATEWAYCLASS_NAME}" &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
             log_info "GatewayClass '${GATEWAYCLASS_NAME}' already exists. Use --reinstall to recreate."
-            exit 0
+            return 0
         else
             log_info "Recreating GatewayClass '${GATEWAYCLASS_NAME}'..."
-            uninstall
+            uninstall_gateway_api_gwclass
         fi
     fi
 
@@ -1144,10 +1168,10 @@ install_gateway_api_gw() {
     if kubectl get gateway "${GATEWAY_NAME}" -n "${GATEWAY_NAMESPACE}" &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
             log_info "KServe Gateway '${GATEWAY_NAME}' already exists in namespace '${GATEWAY_NAMESPACE}'. Use --reinstall to recreate."
-            exit 0
+            return 0
         else
             log_info "Recreating KServe Gateway '${GATEWAY_NAME}'..."
-            uninstall
+            uninstall_gateway_api_gw
         fi
     fi
 
@@ -1192,7 +1216,7 @@ install_lws_operator() {
             return 0
         else
             log_info "Reinstalling LWS..."
-            uninstall
+            uninstall_lws_operator
         fi
     fi
 
