@@ -9,6 +9,11 @@ kserve:
   version: &defaultVersion v0.16.0
 
   llmisvc:
+    # -- Setup of inferenceservice-config configmap
+    inferenceServiceConfig:
+      # -- Disable creation of inferenceservice-config configmap
+      createConfigMap: true
+    
     controller:
       # -- KServe LLM ISVC controller manager container image
       image: kserve/llmisvc-controller
