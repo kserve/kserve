@@ -97,12 +97,10 @@ class VLLMModel(
 
         valid_reasoning_parsers = ReasoningParserManager.list_registered()
         if (
-            hasattr(self.args, "reasoning_parser")
-            and self.args.reasoning_parser
-            and self.args.reasoning_parser not in valid_reasoning_parsers
-        ):
+            reasoning_parser := self.args.structured_outputs_config.reasoning_parser
+        ) and reasoning_parser not in valid_reasoning_parsers:
             raise KeyError(
-                f"invalid reasoning parser: {self.args.reasoning_parser} "
+                f"invalid reasoning parser: {reasoning_parser} "
                 f"(chose from {{ {','.join(valid_reasoning_parsers)} }})"
             )
 
@@ -155,7 +153,7 @@ class VLLMModel(
                     enable_auto_tools=self.args.enable_auto_tool_choice,
                     exclude_tools_when_tool_choice_none=self.args.exclude_tools_when_tool_choice_none,
                     tool_parser=self.args.tool_call_parser,
-                    reasoning_parser=self.args.reasoning_parser,
+                    reasoning_parser=self.args.structured_outputs_config.reasoning_parser,
                     enable_prompt_tokens_details=self.args.enable_prompt_tokens_details,
                     enable_force_include_usage=self.args.enable_force_include_usage,
                     enable_log_outputs=self.args.enable_log_outputs,
