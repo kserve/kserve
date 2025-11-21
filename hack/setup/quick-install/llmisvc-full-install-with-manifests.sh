@@ -478,16 +478,15 @@ set_env_with_priority() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 REPO_ROOT="$(find_repo_root "${SCRIPT_DIR}" "true")"
 export REPO_ROOT
-export BIN_DIR="${REPO_ROOT}/bin"
 
-# Track if we created BIN_DIR so we can clean it up later
-BIN_DIR_CREATED_BY_SCRIPT=false
-if [[ ! -d "${BIN_DIR}" ]]; then
-    log_info "Creating BIN_DIR: ${BIN_DIR}"
-    BIN_DIR_CREATED_BY_SCRIPT=true
+# Set up BIN_DIR - use repo bin if it exists, otherwise use temp directory
+if [[ -d "${REPO_ROOT}/bin" ]]; then
+    export BIN_DIR="${REPO_ROOT}/bin"
+else
+    export BIN_DIR="$(mktemp -d)"
+    log_info "Using temp BIN_DIR: ${BIN_DIR}"
 fi
 
-ensure_dir "${BIN_DIR}"
 export PATH="${BIN_DIR}:${PATH}"
 
 UNINSTALL="${UNINSTALL:-false}"
