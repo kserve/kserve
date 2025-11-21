@@ -64,7 +64,7 @@ func RequiredResources(ctx context.Context, c client.Client, ns string) {
 func IstioShadowService(name, ns string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "istio-shadow",
+			Name:      kmeta.ChildName(name, "istio-shadow"),
 			Namespace: ns,
 			Labels: map[string]string{
 				"istio.io/inferencepool-name": kmeta.ChildName(name, "-inference-pool"),
