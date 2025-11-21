@@ -516,6 +516,7 @@ YQ_VERSION=v4.28.1
 HELM_VERSION=v3.16.3
 KUSTOMIZE_VERSION=v5.5.0
 HELM_DOCS_VERSION=v1.12.0
+HELMIFY_VERSION=latest
 BLACK_FMT_VERSION=24.3
 FLAKE8_LINT_VERSION=7.1
 POETRY_VERSION=1.8.3
@@ -567,9 +568,6 @@ KSERVE_CRD_RELEASE_NAME="kserve-crd"
 KSERVE_RELEASE_NAME="kserve"
 CRD_DIR_NAME="kserve-crd"
 CORE_DIR_NAME="kserve-resources"
-TARGET_DEPLOYMENT_NAMES=(
-"kserve-controller-manager"
-)
 USE_LOCAL_CHARTS="${USE_LOCAL_CHARTS:-false}"
 CHARTS_DIR="${REPO_ROOT}/charts"
 SET_KSERVE_VERSION="${SET_KSERVE_VERSION:-}"
@@ -1365,7 +1363,7 @@ install_kserve() {
             log_info "  - ${update}"
         done
         update_isvc_config "${config_updates[@]}"
-        kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
+        kubectl rollout restart deployment "${TARGET_DEPLOYMENT_NAMES[0]}" -n ${KSERVE_NAMESPACE}
     else
         log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
     fi
@@ -1435,7 +1433,9 @@ main() {
             CORE_DIR_NAME="kserve-llmisvc-resources"
             KSERVE_CRD_RELEASE_NAME="kserve-llmisvc-crd"
             KSERVE_RELEASE_NAME="kserve-llmisvc"
-            TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
+            TARGET_DEPLOYMENT_NAMES=("$(calculate_deployment_name "${KSERVE_RELEASE_NAME}" "${CORE_DIR_NAME}" "llmisvc-controller-manager")")
+        else
+            TARGET_DEPLOYMENT_NAMES=("$(calculate_deployment_name "${KSERVE_RELEASE_NAME}" "${CORE_DIR_NAME}" "kserve-controller-manager")")
         fi
         
         if [ "${SET_KSERVE_VERSION}" != "" ]; then
@@ -76846,7 +76846,7 @@ metadata:
     app.kubernetes.io/component: controller
     control-plane: llmisvc-controller-manager
     controller-tools.k8s.io: "1.0"
-  name: llmisvc-controller-manager-service
+  name: llmisvc-mgr-svc
   namespace: kserve
 spec:
   ports:
@@ -76861,7 +76861,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: llmisvc-webhook-server-service
+  name: llmisvc-webhook-svc
   namespace: kserve
 spec:
   ports:
@@ -76982,80 +76982,30 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app.kubernetes.io/name: kserve-localmodel-controller-manager
-    control-plane: kserve-localmodel-controller-manager
-    controller-tools.k8s.io: "1.0"
-  name: kserve-localmodel-controller-manager
-  namespace: kserve
-spec:
-  selector:
-    matchLabels:
-      control-plane: kserve-localmodel-controller-manager
-      controller-tools.k8s.io: "1.0"
-  template:
-    metadata:
-      annotations:
-        kubectl.kubernetes.io/default-container: manager
-      labels:
-        app.kubernetes.io/name: kserve-localmodel-controller-manager
-        control-plane: kserve-localmodel-controller-manager
-        controller-tools.k8s.io: "1.0"
-    spec:
-      containers:
-      - command:
-        - /manager
-        env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        image: kserve/kserve-localmodel-controller:latest
-        imagePullPolicy: Always
-        name: manager
-        resources:
-          limits:
-            cpu: 100m
-            memory: 300Mi
-          requests:
-            cpu: 100m
-            memory: 200Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          privileged: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-      securityContext:
-        runAsNonRoot: true
-        seccompProfile:
-          type: RuntimeDefault
-      serviceAccountName: kserve-localmodel-controller-manager
-      terminationGracePeriodSeconds: 10
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
     app.kubernetes.io/component: controller
-    app.kubernetes.io/name: llmisvc-controller-manager
+    app.kubernetes.io/name: kserve-llmisvc-controller-manager
     control-plane: llmisvc-controller-manager
     controller-tools.k8s.io: "1.0"
-  name: llmisvc-controller-manager
+  name: kserve-llmisvc-controller-manager
   namespace: kserve
 spec:
+  replicas: 1
   selector:
     matchLabels:
       control-plane: llmisvc-controller-manager
       controller-tools.k8s.io: "1.0"
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
   template:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
         app.kubernetes.io/component: controller
-        app.kubernetes.io/name: llmisvc-controller-manager
+        app.kubernetes.io/name: kserve-llmisvc-controller-manager
         control-plane: llmisvc-controller-manager
         controller-tools.k8s.io: "1.0"
     spec:
@@ -77129,6 +77079,62 @@ spec:
         secret:
           defaultMode: 420
           secretName: llmisvc-webhook-server-cert
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: kserve-localmodel-controller-manager
+    control-plane: kserve-localmodel-controller-manager
+    controller-tools.k8s.io: "1.0"
+  name: kserve-localmodel-controller-manager
+  namespace: kserve
+spec:
+  selector:
+    matchLabels:
+      control-plane: kserve-localmodel-controller-manager
+      controller-tools.k8s.io: "1.0"
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        app.kubernetes.io/name: kserve-localmodel-controller-manager
+        control-plane: kserve-localmodel-controller-manager
+        controller-tools.k8s.io: "1.0"
+    spec:
+      containers:
+      - command:
+        - /manager
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: kserve/kserve-localmodel-controller:latest
+        imagePullPolicy: Always
+        name: manager
+        resources:
+          limits:
+            cpu: 100m
+            memory: 300Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: kserve-localmodel-controller-manager
+      terminationGracePeriodSeconds: 10
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -77207,9 +77213,9 @@ metadata:
   name: llmisvc-serving-cert
   namespace: kserve
 spec:
-  commonName: llmisvc-webhook-server-service.kserve.svc
+  commonName: llmisvc-webhook-svc.kserve.svc
   dnsNames:
-  - llmisvc-webhook-server-service.kserve.svc
+  - llmisvc-webhook-svc.kserve.svc
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
@@ -77312,6 +77318,7 @@ spec:
       - --port=8000
       - --vllm-port=8001
       - --connector=nixlv2
+      - --secure-proxy=false
       env:
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
@@ -77705,6 +77712,57 @@ spec:
         name: dshm
       - mountPath: /models
         name: model-cache
+      - mountPath: /etc/ssl/certs
+        name: tls-certs
+        readOnly: true
+    initContainers:
+    - args:
+      - --port=8000
+      - --vllm-port=8001
+      - --connector=nixlv2
+      - --secure-proxy=true
+      env:
+      - name: INFERENCE_POOL_NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.2.0
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 10
+      name: llm-d-routing-sidecar
+      ports:
+      - containerPort: 8000
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 10
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 5
+      restartPolicy: Always
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: false
+        seccompProfile:
+          type: RuntimeDefault
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
       - mountPath: /etc/ssl/certs
         name: tls-certs
         readOnly: true
@@ -78774,7 +78832,7 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: llmisvc-webhook-server-service
+      name: llmisvc-webhook-svc
       namespace: kserve
       path: /validate-serving-kserve-io-v1alpha1-llminferenceservice
   failurePolicy: Fail
@@ -78804,7 +78862,7 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: llmisvc-webhook-server-service
+      name: llmisvc-webhook-svc
       namespace: kserve
       path: /validate-serving-kserve-io-v1alpha1-llminferenceserviceconfig
   failurePolicy: Fail

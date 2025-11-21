@@ -1,0 +1,8 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "kserve-resources.fullname" . }}-selfsigned-issuer
+  labels:
+  {{- include "kserve-resources.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}

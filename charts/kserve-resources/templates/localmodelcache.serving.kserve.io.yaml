@@ -1,0 +1,30 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ include "kserve-resources.fullname" . }}-localmodelcache.serving.kserve.io
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ include "kserve-resources.fullname" . }}-serving-cert
+  labels:
+  {{- include "kserve-resources.labels" . | nindent 4 }}
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: '{{ include "kserve-resources.fullname" . }}-kserve-webhook-server-service'
+      namespace: '{{ .Release.Namespace }}'
+      path: /validate-serving-kserve-io-v1alpha1-localmodelcache
+  failurePolicy: Fail
+  name: localmodelcache.kserve-webhook-server.validator
+  rules:
+  - apiGroups:
+    - serving.kserve.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - localmodelcaches
+  sideEffects: None
