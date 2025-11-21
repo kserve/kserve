@@ -543,9 +543,6 @@ KSERVE_CRD_RELEASE_NAME="kserve-crd"
 KSERVE_RELEASE_NAME="kserve"
 CRD_DIR_NAME="kserve-crd"
 CORE_DIR_NAME="kserve-resources"
-TARGET_DEPLOYMENT_NAMES=(
-"kserve-controller-manager"
-)
 USE_LOCAL_CHARTS="${USE_LOCAL_CHARTS:-false}"
 CHARTS_DIR="${REPO_ROOT}/charts"
 SET_KSERVE_VERSION="${SET_KSERVE_VERSION:-}"
@@ -1196,7 +1193,7 @@ install_kserve_helm() {
             log_info "  - ${update}"
         done
         update_isvc_config "${config_updates[@]}"
-        kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
+        kubectl rollout restart deployment "${TARGET_DEPLOYMENT_NAMES[0]}" -n ${KSERVE_NAMESPACE}
     else
         log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
     fi
@@ -1260,7 +1257,9 @@ main() {
             CORE_DIR_NAME="kserve-llmisvc-resources"
             KSERVE_CRD_RELEASE_NAME="kserve-llmisvc-crd"
             KSERVE_RELEASE_NAME="kserve-llmisvc"
-            TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
+            TARGET_DEPLOYMENT_NAMES=("$(calculate_deployment_name "${KSERVE_RELEASE_NAME}" "${CORE_DIR_NAME}" "llmisvc-controller-manager")")
+        else
+            TARGET_DEPLOYMENT_NAMES=("$(calculate_deployment_name "${KSERVE_RELEASE_NAME}" "${CORE_DIR_NAME}" "kserve-controller-manager")")
         fi
         
         if [ "${SET_KSERVE_VERSION}" != "" ]; then
