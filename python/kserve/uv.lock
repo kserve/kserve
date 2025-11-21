@@ -1393,6 +1393,18 @@ wheels = [
 ]
 
 [[package]]
+name = "httpx-retries"
+version = "0.4.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/22/40/b9b5e4c16fb86d2999840bb795b28670a61856c7f48f030530b412bf4133/httpx_retries-0.4.5.tar.gz", hash = "sha256:acee306d7384eefad71ac12fefe8b13d7b41c19595c538e68d9bd7e40e59539d", size = 13015, upload-time = "2025-10-17T15:55:23.871Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ef/0a/2626b5a2678f8072ba3174d3e40f81429fdc41d1cb993280dbc7ba3c4e3f/httpx_retries-0.4.5-py3-none-any.whl", hash = "sha256:ae22d6ef197a2da49242246a01d721474cbd6516b1fef155f6da694ee410bb37", size = 8301, upload-time = "2025-10-17T15:55:22.869Z" },
+]
+
+[[package]]
 name = "huggingface-hub"
 version = "0.33.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1620,6 +1632,7 @@ dev = [
 test = [
     { name = "avro" },
     { name = "grpcio-testing" },
+    { name = "httpx-retries" },
     { name = "jinja2" },
     { name = "mypy" },
     { name = "portforward" },
@@ -1665,6 +1678,7 @@ dev = [{ name = "black", extras = ["colorama"], specifier = "~=24.3.0" }]
 test = [
     { name = "avro", specifier = ">=1.11.0,<2.0.0" },
     { name = "grpcio-testing", specifier = ">=1.60.0,<2.0.0" },
+    { name = "httpx-retries", specifier = ">=0.4.5,<1.0.0" },
     { name = "jinja2", specifier = ">=3.1.4,<4.0.0" },
     { name = "mypy", specifier = ">=0.991,<1.0" },
     { name = "portforward", specifier = ">=0.6.2,<1.0.0" },
@@ -1678,7 +1692,7 @@ test = [
 
 [[package]]
 name = "kserve-storage"
-version = "0.16.0rc1"
+version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-identity" },
@@ -1689,9 +1703,9 @@ dependencies = [
     { name = "huggingface-hub", extra = ["hf-transfer"] },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/78/cc/f71ffac4f0ae8fd7af9b5126d5f519110718460e0d7d09c2e96b2fb6cee4/kserve_storage-0.16.0rc1.tar.gz", hash = "sha256:2c374b82990359ff666c9c8aa5a6f5e6592fc551164cb416b40127986a72a8e1", size = 21906, upload-time = "2025-10-17T16:04:06.227Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2f/ba/91b41a760155bdbd1981defec90fec5adf179120ddeafc8cf07aa0aa3245/kserve_storage-0.16.0.tar.gz", hash = "sha256:c602e759e82c3c5d7c44bc70c6dd1d7e7ad9c2c5fb00addbf00753e7de0169ce", size = 21759, upload-time = "2025-11-03T02:40:42.724Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/32/6e/c3f611b004efec8818d5a5493740dd92e7e58d5447c08ea468040ae30b3e/kserve_storage-0.16.0rc1-py3-none-any.whl", hash = "sha256:85c004295c500699a30e72e4821f7831f75766b9ea17a5d333535dd982f698b4", size = 13384, upload-time = "2025-10-17T16:04:04.948Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/be/0f10251bd98e697f1083f70d6b68518bc8b8ce376c86dd5319db6fb8f054/kserve_storage-0.16.0-py3-none-any.whl", hash = "sha256:0ec852f8727afb900f4fb2d037c2858040c5efcfbaa957c3815b11c3031c15e5", size = 13357, upload-time = "2025-11-03T02:40:41.746Z" },
 ]
 
 [[package]]
