@@ -343,3 +343,33 @@ func WithConfigWorkloadTemplate(podSpec *corev1.PodSpec) LLMInferenceServiceConf
 		config.Spec.Template = podSpec
 	}
 }
+
+// Ingress-related builders
+
+func WithManagedIngress() LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha1.LLMInferenceService) {
+		if llmSvc.Spec.Router == nil {
+			llmSvc.Spec.Router = &v1alpha1.RouterSpec{}
+		}
+		llmSvc.Spec.Router.Ingress = &v1alpha1.IngressSpec{}
+	}
+}
+
+func WithIngressRefs(refs ...v1alpha1.UntypedObjectReference) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha1.LLMInferenceService) {
+		if llmSvc.Spec.Router == nil {
+			llmSvc.Spec.Router = &v1alpha1.RouterSpec{}
+		}
+		if llmSvc.Spec.Router.Ingress == nil {
+			llmSvc.Spec.Router.Ingress = &v1alpha1.IngressSpec{}
+		}
+		llmSvc.Spec.Router.Ingress.Refs = refs
+	}
+}
+
+func LLMIngressRef(name, namespace string) v1alpha1.UntypedObjectReference {
+	return v1alpha1.UntypedObjectReference{
+		Name:      gwapiv1.ObjectName(name),
+		Namespace: gwapiv1.Namespace(namespace),
+	}
+}

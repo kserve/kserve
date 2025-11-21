@@ -35,6 +35,8 @@ const (
 	// routingSidecarContainerName is the name of the routing sidecar container
 	// that handles prefill disaggregation routing.
 	routingSidecarContainerName = "llm-d-routing-sidecar"
+
+	workloadServicePort = 8000
 )
 
 // sidecarSSRFProtectionRules defines RBAC rules for the routing sidecar
@@ -88,7 +90,7 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	expected := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"),
+			Name:      getWorkloadServiceName(llmSvc),
 			Namespace: llmSvc.GetNamespace(),
 			Labels: map[string]string{
 				"app.kubernetes.io/component": "llminferenceservice-workload",
@@ -113,7 +115,7 @@ func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc
 					Name:        "https",
 					Protocol:    corev1.ProtocolTCP,
 					AppProtocol: ptr.To("https"),
-					Port:        8000,
+					Port:        workloadServicePort,
 					TargetPort: intstr.IntOrString{
 						Type:   intstr.Int,
 						IntVal: 8000,
@@ -156,4 +158,8 @@ func routingSidecar(pod *corev1.PodSpec) *corev1.Container {
 		}
 	}
 	return nil
+}
+
+func getWorkloadServiceName(llmSvc *v1alpha1.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc")
 }
