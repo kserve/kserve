@@ -491,15 +491,33 @@ func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
 
 // validates if the deploymentMode specified in the annotation is not different from the one recorded in the status
 func validateDeploymentMode(newIsvc *InferenceService, oldIsvc *InferenceService) error {
-	statusDeploymentMode := oldIsvc.Status.DeploymentMode
-	if len(statusDeploymentMode) != 0 {
+	if oldIsvc == nil {
+		return nil
+	}
+
+	originalDeploymentMode := oldIsvc.Status.DeploymentMode
+	deploymentMode := normalizeDeploymentMode(originalDeploymentMode)
+	if len(deploymentMode) != 0 {
 		annotations := newIsvc.Annotations
 		annotationDeploymentMode, ok := annotations[constants.DeploymentMode]
-		if ok && annotationDeploymentMode != statusDeploymentMode {
-			return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, annotationDeploymentMode)
+		if ok && normalizeDeploymentMode(annotationDeploymentMode) != deploymentMode {
+			return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", originalDeploymentMode, annotationDeploymentMode)
 		}
 	}
 	return nil
+}
+
+func normalizeDeploymentMode(mode string) string {
+	switch constants.DeploymentModeType(mode) {
+	case constants.LegacyServerless:
+		// Legacy "Serverless" should be treated the same as Knative.
+		return string(constants.Knative)
+	case constants.LegacyRawDeployment:
+		// Legacy "RawDeployment" should be treated the same as Standard.
+		return string(constants.Standard)
+	default:
+		return mode
+	}
 }
 
 // ValidateStorageURISpec validates that paths are absolute
