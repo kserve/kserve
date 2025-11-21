@@ -72,6 +72,11 @@ func toGatewayAPIDuration(seconds int64) *gwapiv1.Duration {
 	return &duration
 }
 
+func portNumberPtr(v int32) *gwapiv1.PortNumber {
+	pn := gwapiv1.PortNumber(v) //nolint:unconvert // explicit cast keeps alias typing
+	return &pn
+}
+
 func createRawURL(isvc *v1beta1.InferenceService,
 	ingressConfig *v1beta1.IngressConfig,
 ) (*knapis.URL, error) {
@@ -134,7 +139,7 @@ func createHTTPRouteRule(routeMatches []gwapiv1.HTTPRouteMatch, filters []gwapiv
 						Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 						Name:      gwapiv1.ObjectName(serviceName),
 						Namespace: (*gwapiv1.Namespace)(&namespace),
-						Port:      (*gwapiv1.PortNumber)(&port),
+						Port:      portNumberPtr(port),
 					},
 				},
 			},
