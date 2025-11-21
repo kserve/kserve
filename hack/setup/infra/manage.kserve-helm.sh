@@ -77,14 +77,31 @@ KSERVE_CRD_RELEASE_NAME="kserve-crd"
 KSERVE_RELEASE_NAME="kserve"
 CRD_DIR_NAME="kserve-crd"
 CORE_DIR_NAME="kserve-resources"
-TARGET_DEPLOYMENT_NAMES=(
-    "kserve-controller-manager"
-)
 # DEPLOYMENT_MODE, GATEWAY_NETWORK_LAYER, LLMISVC, EMBED_MANIFESTS are defined in global-vars.env
 USE_LOCAL_CHARTS="${USE_LOCAL_CHARTS:-false}"
 CHARTS_DIR="${REPO_ROOT}/charts"
 SET_KSERVE_VERSION="${SET_KSERVE_VERSION:-}"
 # VARIABLES END
+
+# Function to calculate deployment name based on Helm release name and chart name
+# This matches the Helm template logic: {{ include "kserve-resources.fullname" . }}-kserve-controller-manager
+calculate_deployment_name() {
+    local release_name="$1"
+    local chart_name="$2"
+    local suffix="$3"
+    
+    # Helm fullname logic: if chart name contains release name, use release name, else use release-chart
+    if [[ "$chart_name" == *"$release_name"* ]]; then
+        local fullname="$release_name"
+    else
+        local fullname="${release_name}-${chart_name}"
+    fi
+    
+    # Truncate to 63 chars (K8s limit) and remove trailing dash
+    fullname=$(echo "$fullname" | cut -c1-63 | sed 's/-$//')
+    
+    echo "${fullname}-${suffix}"
+}
 
 # INCLUDE_IN_GENERATED_SCRIPT_START
 # Set Helm release names and target pod labels based on LLMISVC
@@ -94,7 +111,9 @@ if [ "${LLMISVC}" = "true" ]; then
     CORE_DIR_NAME="kserve-llmisvc-resources"
     KSERVE_CRD_RELEASE_NAME="kserve-llmisvc-crd"
     KSERVE_RELEASE_NAME="kserve-llmisvc"
-    TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
+    TARGET_DEPLOYMENT_NAMES=("$(calculate_deployment_name "${KSERVE_RELEASE_NAME}" "${CORE_DIR_NAME}" "llmisvc-controller-manager")")
+else
+    TARGET_DEPLOYMENT_NAMES=("$(calculate_deployment_name "${KSERVE_RELEASE_NAME}" "${CORE_DIR_NAME}" "kserve-controller-manager")")
 fi
 
 if [ "${SET_KSERVE_VERSION}" != "" ]; then
@@ -225,7 +244,7 @@ install() {
             log_info "  - ${update}"
         done
         update_isvc_config "${config_updates[@]}"
-        kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
+        kubectl rollout restart deployment "${TARGET_DEPLOYMENT_NAMES[0]}" -n ${KSERVE_NAMESPACE}
     else
         log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
     fi
