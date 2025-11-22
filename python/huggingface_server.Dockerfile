@@ -5,7 +5,7 @@ ARG WORKSPACE_DIR=/kserve-workspace
 
 #################### BASE BUILD IMAGE ####################
 # prepare basic build environment
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu20.04 AS base
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04 AS base
 
 ARG WORKSPACE_DIR
 ARG CUDA_VERSION=12.9.1
@@ -119,7 +119,7 @@ RUN mkdir -p third_party/library && python3 pip-licenses.py
 #################### WHEEL BUILD IMAGE ####################
 
 #################### PROD IMAGE ####################
-FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu20.04 AS prod
+FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu22.04 AS prod
 
 ARG WORKSPACE_DIR
 ARG CUDA_VERSION=12.9.1
