@@ -54,9 +54,7 @@ FROM base AS build
 ARG WORKSPACE_DIR
 ARG VLLM_VERSION=0.11.2
 ARG LMCACHE_VERSION=0.3.0
-ARG FLASHINFER_VERSION=0.4.1
-# Need a separate CUDA arch list for flashinfer because '7.0' is not supported by flashinfer
-ARG FLASHINFER_CUDA_ARCH_LIST="7.5 8.0 8.6 8.9 9.0+PTX"
+ARG FLASHINFER_VERSION=0.5.2
 
 WORKDIR ${WORKSPACE_DIR}
 
@@ -96,20 +94,12 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install lmcache==${LMCACHE_VE
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install flashinfer
+# https://docs.flashinfer.ai/installation.html
 RUN --mount=type=cache,target=/root/.cache/pip \
-  # Install apache-tvm-ffi pre-release dependency required by FlashInfer 0.4.1
-  pip install --pre apache-tvm-ffi==0.1.0b15 && \
-  # FlashInfer has a wheel for PyTorch 2.9.0 and CUDA 12.9.
-  if [[ "$CUDA_VERSION" == 12.9* ]]; then \
-    pip install https://flashinfer.ai/whl/cu129/flashinfer_python-${FLASHINFER_VERSION}%2Bcu129torch2.9-cp39-abi3-linux_x86_64.whl; \
-  else \
-    export TORCH_CUDA_ARCH_LIST="${FLASHINFER_CUDA_ARCH_LIST}" && \
-    git clone --branch v${FLASHINFER_VERSION} --recursive https://github.com/flashinfer-ai/flashinfer.git && \
-    cd flashinfer && \
-    python3 -m flashinfer.aot && \
-    pip install --no-build-isolation . && \
-    cd .. && rm -rf flashinfer; \
-  fi
+    pip install flashinfer-cubin==${FLASHINFER_VERSION} && \
+    pip install flashinfer-jit-cache==${FLASHINFER_VERSION} \
+        --extra-index-url https://flashinfer.ai/whl/cu$(echo ${CUDA_VERSION} | cut -d. -f1,2 | tr -d '.') && \
+    flashinfer show-config
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
