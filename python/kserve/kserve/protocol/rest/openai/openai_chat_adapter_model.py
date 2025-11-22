@@ -83,6 +83,7 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
             top_p=request.top_p,
             user=request.user,
             logprobs=request.top_logprobs,
+            request_id=request.request_id,
         )
 
     @classmethod

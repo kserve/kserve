@@ -4,7 +4,7 @@ authors = [
     {name = "The KServe Authors", email = "fspolti@redhat.com"},
 ]
 license = {text = "https://github.com/kserve/kserve/blob/master/LICENSE"}
-requires-python = "<3.13,>=3.9"
+requires-python = "<3.13,>=3.10"
 dependencies = [
     "aiohttp<4.0.0,>=3.10.0",
     "requests<3.0.0,>=2.32.2",

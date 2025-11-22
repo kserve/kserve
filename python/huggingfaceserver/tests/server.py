@@ -19,7 +19,7 @@ import time
 import requests
 from typing import Dict, List, Optional
 import openai
-from vllm.utils import FlexibleArgumentParser
+from vllm.utils.argparse_utils import FlexibleArgumentParser
 from vllm.entrypoints.openai.cli_args import make_arg_parser
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.model_executor.model_loader import get_model_loader
