@@ -9,7 +9,7 @@ dependencies = [
     "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
     "transformers>=4.53.2",
     "accelerate<2.0.0,>=1.6.0",
-    "torch>=2.7.0",
+    "torch>=2.9.0",
     "triton>=3.2.0",
     "vllm==0.11.2",
     "bitsandbytes>=0.45.3",

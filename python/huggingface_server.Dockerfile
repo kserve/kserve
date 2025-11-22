@@ -1,14 +1,14 @@
-ARG CUDA_VERSION=12.8.1
+ARG CUDA_VERSION=12.9.1
 ARG VENV_PATH=prod_venv
 ARG PYTHON_VERSION=3.12
 ARG WORKSPACE_DIR=/kserve-workspace
 
 #################### BASE BUILD IMAGE ####################
 # prepare basic build environment
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04 AS base
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu20.04 AS base
 
 ARG WORKSPACE_DIR
-ARG CUDA_VERSION=12.8.1
+ARG CUDA_VERSION=12.9.1
 ARG PYTHON_VERSION=3.12
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -54,7 +54,7 @@ FROM base AS build
 ARG WORKSPACE_DIR
 ARG VLLM_VERSION=0.11.2
 ARG LMCACHE_VERSION=0.3.0
-ARG FLASHINFER_VERSION=0.2.6.post1
+ARG FLASHINFER_VERSION=0.4.1
 # Need a separate CUDA arch list for flashinfer because '7.0' is not supported by flashinfer
 ARG FLASHINFER_CUDA_ARCH_LIST="7.5 8.0 8.6 8.9 9.0+PTX"
 
@@ -97,9 +97,11 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install flashinfer
 RUN --mount=type=cache,target=/root/.cache/pip \
-  # FlashInfer already has a wheel for PyTorch 2.7.0 and CUDA 12.8.
-  if [[ "$CUDA_VERSION" == 12.8* ]]; then \
-    pip install https://download.pytorch.org/whl/cu128/flashinfer/flashinfer_python-${FLASHINFER_VERSION}%2Bcu128torch2.7-cp39-abi3-linux_x86_64.whl; \
+  # Install apache-tvm-ffi pre-release dependency required by FlashInfer 0.4.1
+  pip install --pre apache-tvm-ffi==0.1.0b15 && \
+  # FlashInfer has a wheel for PyTorch 2.9.0 and CUDA 12.9.
+  if [[ "$CUDA_VERSION" == 12.9* ]]; then \
+    pip install https://flashinfer.ai/whl/cu129/flashinfer_python-${FLASHINFER_VERSION}%2Bcu129torch2.9-cp39-abi3-linux_x86_64.whl; \
   else \
     export TORCH_CUDA_ARCH_LIST="${FLASHINFER_CUDA_ARCH_LIST}" && \
     git clone --branch v${FLASHINFER_VERSION} --recursive https://github.com/flashinfer-ai/flashinfer.git && \
@@ -117,10 +119,10 @@ RUN mkdir -p third_party/library && python3 pip-licenses.py
 #################### WHEEL BUILD IMAGE ####################
 
 #################### PROD IMAGE ####################
-FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu22.04 AS prod
+FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu20.04 AS prod
 
 ARG WORKSPACE_DIR
-ARG CUDA_VERSION=12.8.1
+ARG CUDA_VERSION=12.9.1
 ARG PYTHON_VERSION=3.12
 ENV DEBIAN_FRONTEND=noninteractive
 
