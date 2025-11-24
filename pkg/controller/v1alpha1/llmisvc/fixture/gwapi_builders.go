@@ -17,13 +17,17 @@ limitations under the License.
 package fixture
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
+
+func portNumberPtr(port int32) *gwapiv1.PortNumber {
+	pn := gwapiv1.PortNumber(port) //nolint:unconvert // explicit cast keeps alias typing
+	return &pn
+}
 
 type ObjectOption[T client.Object] func(T)
 
@@ -291,7 +295,7 @@ func BackendRefInferencePool(name string) gwapiv1.HTTPBackendRef {
 				Group: ptr.To(gwapiv1.Group("inference.networking.x-k8s.io")),
 				Kind:  ptr.To(gwapiv1.Kind("InferencePool")),
 				Name:  gwapiv1.ObjectName(name),
-				Port:  ptr.To(gwapiv1.PortNumber(8000)),
+				Port:  portNumberPtr(8000),
 			},
 			Weight: ptr.To(int32(1)),
 		},
@@ -305,7 +309,7 @@ func BackendRefService(name string) gwapiv1.HTTPBackendRef {
 				Group: ptr.To(gwapiv1.Group("")),
 				Kind:  ptr.To(gwapiv1.Kind("Service")),
 				Name:  gwapiv1.ObjectName(name),
-				Port:  ptr.To(gwapiv1.PortNumber(8000)),
+				Port:  portNumberPtr(8000),
 			},
 			Weight: ptr.To(int32(1)),
 		},
@@ -362,7 +366,7 @@ func ServiceRef(name string, port int32, weight int32) gwapiv1.HTTPBackendRef {
 			BackendObjectReference: gwapiv1.BackendObjectReference{
 				Kind: ptr.To(gwapiv1.Kind("Service")),
 				Name: gwapiv1.ObjectName(name),
-				Port: ptr.To(gwapiv1.PortNumber(port)),
+				Port: portNumberPtr(port),
 			},
 			Weight: ptr.To(weight),
 		},
@@ -539,11 +543,19 @@ func InferencePool(name string, opts ...InferencePoolOption) *igwapi.InferencePo
 			Name: name,
 		},
 		Spec: igwapi.InferencePoolSpec{
-			Selector:         make(map[igwapi.LabelKey]igwapi.LabelValue),
-			TargetPortNumber: 8000,
+			Selector: igwapi.LabelSelector{
+				MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+					igwapi.LabelKey("app"): igwapi.LabelValue("app"),
+				},
+			},
+			TargetPorts: []igwapi.Port{
+				{
+					Number: igwapi.PortNumber(8000),
+				},
+			},
 		},
 		Status: igwapi.InferencePoolStatus{
-			Parents: []igwapi.PoolStatus{},
+			Parents: []igwapi.ParentStatus{},
 		},
 	}
 
@@ -556,31 +568,32 @@ func InferencePool(name string, opts ...InferencePoolOption) *igwapi.InferencePo
 
 func WithSelector(key, value string) InferencePoolOption {
 	return func(pool *igwapi.InferencePool) {
-		if pool.Spec.Selector == nil {
-			pool.Spec.Selector = make(map[igwapi.LabelKey]igwapi.LabelValue)
+		pool.Spec.Selector = igwapi.LabelSelector{
+			MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+				igwapi.LabelKey(key): igwapi.LabelValue(value),
+			},
 		}
-		pool.Spec.Selector[igwapi.LabelKey(key)] = igwapi.LabelValue(value)
 	}
 }
 
 func WithTargetPort(port int32) InferencePoolOption {
 	return func(pool *igwapi.InferencePool) {
-		pool.Spec.TargetPortNumber = port
+		pool.Spec.TargetPorts = []igwapi.Port{
+			{
+				Number: igwapi.PortNumber(port),
+			},
+		}
 	}
 }
 
 func WithExtensionRef(group, kind, name string) InferencePoolOption {
 	return func(pool *igwapi.InferencePool) {
-		pool.Spec.EndpointPickerConfig = igwapi.EndpointPickerConfig{
-			ExtensionRef: &igwapi.Extension{
-				ExtensionReference: igwapi.ExtensionReference{
-					Group: ptr.To(igwapi.Group(group)),
-					Kind:  ptr.To(igwapi.Kind(kind)),
-					Name:  igwapi.ObjectName(name),
-				},
-				ExtensionConnection: igwapi.ExtensionConnection{
-					FailureMode: ptr.To(igwapi.FailOpen),
-				},
+		pool.Spec.EndpointPickerRef = igwapi.EndpointPickerRef{
+			Group: ptr.To(igwapi.Group(group)),
+			Kind:  igwapi.Kind(kind),
+			Name:  igwapi.ObjectName(name),
+			Port: &igwapi.Port{
+				Number: igwapi.PortNumber(9002),
 			},
 		}
 	}
@@ -588,12 +601,13 @@ func WithExtensionRef(group, kind, name string) InferencePoolOption {
 
 func WithInferencePoolReadyStatus() InferencePoolOption {
 	return func(pool *igwapi.InferencePool) {
-		pool.Status.Parents = []igwapi.PoolStatus{
+		pool.Status.Parents = []igwapi.ParentStatus{
 			{
-				GatewayRef: corev1.ObjectReference{
-					APIVersion: gwapiv1.GroupVersion.String(),
-					Kind:       "Gateway",
-					Name:       "gateway",
+				ParentRef: igwapi.ParentReference{
+					Group:     ptr.To(igwapi.Group("gateway.networking.k8s.io")),
+					Kind:      igwapi.Kind("Gateway"),
+					Name:      igwapi.ObjectName("gateway"),
+					Namespace: igwapi.Namespace("default"),
 				},
 				Conditions: []metav1.Condition{
 					{

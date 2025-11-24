@@ -31,7 +31,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -184,14 +184,14 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		llmSvcCfg.Spec.Router.Scheduler != nil &&
 		llmSvcCfg.Spec.Router.Scheduler.Pool != nil &&
 		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec != nil &&
-		len(llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.Selector) == 0 {
+		len(llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.Selector.MatchLabels) == 0 {
 		selector := GetWorkloadLabelSelector(llmSvc.ObjectMeta, &llmSvcCfg.Spec)
 
 		gieSelector := make(map[igwapi.LabelKey]igwapi.LabelValue, len(selector))
 		for k, v := range selector {
 			gieSelector[igwapi.LabelKey(k)] = igwapi.LabelValue(v)
 		}
-		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.Selector = gieSelector
+		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.Selector.MatchLabels = gieSelector
 	}
 
 	if llmSvcCfg.Spec.Router != nil &&

@@ -35,7 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	apix "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
@@ -48,7 +49,7 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
 		return err
 	}
-	if err := r.reconcileSchedulerInferenceModel(ctx, llmSvc); err != nil {
+	if err := r.reconcileSchedulerInferenceObjective(ctx, llmSvc); err != nil {
 		return err
 	}
 	if err := r.reconcileSchedulerDeployment(ctx, llmSvc); err != nil {
@@ -173,13 +174,13 @@ func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSv
 	return nil
 }
 
-func (r *LLMISVCReconciler) reconcileSchedulerInferenceModel(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
-	expected := r.expectedSchedulerInferenceModel(ctx, llmSvc)
+func (r *LLMISVCReconciler) reconcileSchedulerInferenceObjective(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
+	expected := r.expectedSchedulerInferenceObjective(ctx, llmSvc)
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		return Delete(ctx, r, llmSvc, expected)
 	}
 
-	if err := Reconcile(ctx, r, llmSvc, &igwapi.InferenceModel{}, expected, semanticInferenceModelIsEqual); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &apix.InferenceObjective{}, expected, semanticInferenceObjectiveIsEqual); err != nil {
 		return err
 	}
 
@@ -265,35 +266,40 @@ func (r *LLMISVCReconciler) expectedSchedulerInferencePool(ctx context.Context, 
 	return ip
 }
 
-func (r *LLMISVCReconciler) expectedSchedulerInferenceModel(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *igwapi.InferenceModel {
+func (r *LLMISVCReconciler) expectedSchedulerInferenceObjective(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *apix.InferenceObjective {
 	labels := SchedulerLabels(llmSvc)
 
-	im := &igwapi.InferenceModel{
+	// Use model name as the resource name to preserve modelName semantics
+	// InferenceObjective doesn't have a separate modelName field
+	modelName := ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.GetName())
+
+	io := &apix.InferenceObjective{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-inference-model"),
+			Name:      kmeta.ChildName(modelName, "-inference-objective"),
 			Namespace: llmSvc.GetNamespace(),
 			Labels:    labels,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha1.LLMInferenceServiceGVK),
 			},
 		},
-		Spec: igwapi.InferenceModelSpec{
-			ModelName: ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.GetName()),
-			PoolRef: igwapi.PoolObjectReference{
-				Group: "inference.networking.x-k8s.io",
-				Kind:  "InferencePool",
-				Name:  igwapi.ObjectName(kmeta.ChildName(llmSvc.GetName(), "-inference-pool")),
+		Spec: apix.InferenceObjectiveSpec{
+			PoolRef: apix.PoolObjectReference{
+				Group: apix.Group("inference.networking.k8s.io"),
+				Kind:  apix.Kind("InferencePool"),
+				Name:  apix.ObjectName(kmeta.ChildName(llmSvc.GetName(), "-inference-pool")),
 			},
-			Criticality: llmSvc.Spec.Model.Criticality,
+			Priority: llmSvc.Spec.Model.Priority,
 		},
 	}
-	if im.Spec.Criticality == nil {
-		im.Spec.Criticality = ptr.To(igwapi.Critical)
+
+	// Default to 0 priority if not set.
+	if io.Spec.Priority == nil {
+		io.Spec.Priority = ptr.To(int(0))
 	}
 
-	log.FromContext(ctx).V(2).Info("Expected InferenceModel", "inferencemodel", im)
+	log.FromContext(ctx).V(2).Info("Expected InferenceObjective", "inferenceobjective", io)
 
-	return im
+	return io
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) *appsv1.Deployment {
@@ -492,7 +498,7 @@ func semanticServiceIsEqual(expected *corev1.Service, current *corev1.Service) b
 		equality.Semantic.DeepDerivative(expected.Annotations, current.Annotations)
 }
 
-func semanticInferenceModelIsEqual(expected *igwapi.InferenceModel, current *igwapi.InferenceModel) bool {
+func semanticInferenceObjectiveIsEqual(expected *apix.InferenceObjective, current *apix.InferenceObjective) bool {
 	return equality.Semantic.DeepDerivative(expected.Spec, current.Spec) &&
 		equality.Semantic.DeepDerivative(expected.Labels, current.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, current.Annotations)
