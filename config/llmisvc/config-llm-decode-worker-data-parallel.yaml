@@ -3,7 +3,7 @@ kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-decode-worker-data-parallel
 spec:
-  worker:
+  template:
     initContainers:
       - name: llm-d-routing-sidecar
         imagePullPolicy: IfNotPresent
@@ -12,6 +12,15 @@ spec:
         ports:
           - containerPort: 8000
             protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: FallbackToLogsOnError
         livenessProbe:
@@ -35,6 +44,7 @@ spec:
         args:
           - "--port=8000"
           - "--vllm-port=8001"
+          - "--connector=nixlv2"
           - "--secure-proxy=true"
           - "--cert-path=/etc/ssl/certs"
           - "--decoder-use-tls=true"
@@ -52,66 +62,39 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
     containers:
-      - image: ghcr.io/llm-d/llm-d:v0.2.0
+      - image: ghcr.io/llm-d/llm-d-dev:v0.2.2
         imagePullPolicy: IfNotPresent
         name: main
         ports:
           - containerPort: 8001
             protocol: TCP
-        stdin: true
-        tty: true
         command:
           - "/bin/sh"
           - "-c"
         args:
           - |-
-
-            START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Parallelism.DataLocal 1 }} ))
-            if [ "${LWS_WORKER_INDEX:-0}" -eq 0 ]; then
-              #################
-              # Leader-only launch
-              #################
-              vllm serve \
-                {{ .Spec.Model.Name }} \
-                --port 8001 \
-                --api-server-count 4 \
-                --disable-log-requests \
-                {{- if .Spec.Parallelism.Expert -}}--enable-expert-parallel \{{- end }}
-                {{- if .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }} \{{- end }}
-                --data-parallel-size {{ or .Spec.Parallelism.Data 1 }} \
-                --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \
-                --data-parallel-address $(LWS_LEADER_ADDRESS) \
-                --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
-                --data-parallel-start-rank $START_RANK \
-                --trust-remote-code \
-                --enable-ssl-refresh \
-                --ssl-certfile \
-                /etc/ssl/certs/tls.crt \
-                --ssl-keyfile \
-                /etc/ssl/certs/tls.key
-            else
-              #################
-              # Worker-only launch
-              #################
-              vllm serve \
-                {{ .Spec.Model.Name }} \
-                --port 8001 \
-                --disable-log-requests \
-                {{- if .Spec.Parallelism.Expert }}--enable-expert-parallel \{{- end }}
-                {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }} \{{- end }}
-                --data-parallel-size {{ or .Spec.Parallelism.Data 1 }} \
-                --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \
-                --data-parallel-address $(LWS_LEADER_ADDRESS) \
-                --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
-                --data-parallel-start-rank $START_RANK \
-                --trust-remote-code \
-                --headless \
-                --enable-ssl-refresh \
-                --ssl-certfile \
-                /etc/ssl/certs/tls.crt \
-                --ssl-keyfile \
-                /etc/ssl/certs/tls.key
-            fi
+            START_RANK=0
+            eval "vllm serve \
+              /mnt/models \
+              --served-model-name "{{ .Spec.Model.Name }}" \
+              --port 8001 \
+              --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
+              --disable-log-requests \
+              {{- if .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
+              {{- if .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
+              --data-parallel-size $(( {{ or .Spec.Parallelism.DataLocal 1 }} * {{ or .Spec.Parallelism.Data 1 }} )) \
+              --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \
+              --data-parallel-address $(LWS_LEADER_ADDRESS) \
+              --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
+              --data-parallel-start-rank $START_RANK \
+              --data-parallel-hybrid-lb \
+              ${VLLM_ADDITIONAL_ARGS} \
+              --trust-remote-code \
+              --enable-ssl-refresh \
+              --ssl-certfile \
+              /etc/ssl/certs/tls.crt \
+              --ssl-keyfile \
+              /etc/ssl/certs/tls.key"
         env:
           - name: HOME
             value: /home
@@ -121,10 +104,16 @@ spec:
             value: /models
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
           capabilities:
             add:
               - "IPC_LOCK"
               - "SYS_RAWIO"
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: FallbackToLogsOnError
         livenessProbe:
@@ -132,7 +121,7 @@ spec:
             path: /health
             port: 8001
             scheme: HTTPS
-          initialDelaySeconds: 120
+          initialDelaySeconds: 300
           periodSeconds: 10
           timeoutSeconds: 10
           failureThreshold: 3
@@ -141,10 +130,91 @@ spec:
             path: /health
             port: 8001
             scheme: HTTPS
-          initialDelaySeconds: 10
-          periodSeconds: 10
+          initialDelaySeconds: 200
+          periodSeconds: 30
           timeoutSeconds: 5
           failureThreshold: 60
+        volumeMounts:
+          - mountPath: /home
+            name: home
+          - mountPath: /dev/shm
+            name: dshm
+          - mountPath: /models
+            name: model-cache
+          - mountPath: /etc/ssl/certs
+            name: tls-certs
+            readOnly: true
+    terminationGracePeriodSeconds: 30
+    volumes:
+      - emptyDir: { }
+        name: home
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 1Gi
+        name: dshm
+      - emptyDir: { }
+        name: model-cache
+      - name: tls-certs
+        secret:
+          secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
+  worker:
+    containers:
+      - image: ghcr.io/llm-d/llm-d-dev:v0.2.2
+        imagePullPolicy: IfNotPresent
+        name: main
+        ports:
+          - containerPort: 8001
+            protocol: TCP
+        command:
+          - "/bin/sh"
+          - "-c"
+        args:
+          - |-
+            START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Parallelism.DataLocal 1 }} ))
+            eval "vllm serve \
+              /mnt/models \
+              --served-model-name "{{ .Spec.Model.Name }}" \
+              --port 8001 \
+              --disable-log-requests \
+              {{- if .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
+              {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
+              --data-parallel-size $(( {{ or .Spec.Parallelism.DataLocal 1 }} * {{ or .Spec.Parallelism.Data 1 }} )) \
+              --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \
+              --data-parallel-address $(LWS_LEADER_ADDRESS) \
+              --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
+              --data-parallel-start-rank $START_RANK \
+              --data-parallel-hybrid-lb \
+              ${VLLM_ADDITIONAL_ARGS} \
+              --trust-remote-code \
+              --headless \
+              --enable-ssl-refresh \
+              --ssl-certfile \
+              /etc/ssl/certs/tls.crt \
+              --ssl-keyfile \
+              /etc/ssl/certs/tls.key"
+        env:
+          - name: HOME
+            value: /home
+          - name: VLLM_LOGGING_LEVEL
+            value: INFO
+          - name: HF_HUB_CACHE
+            value: /models
+          - name: VLLM_RANDOMIZE_DP_DUMMY_INPUTS
+            value: "1"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          capabilities:
+            add:
+              - "IPC_LOCK"
+              - "SYS_RAWIO"
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
           - mountPath: /home
             name: home

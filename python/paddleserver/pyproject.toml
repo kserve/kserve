@@ -5,7 +5,8 @@ authors = [
 license = {text = "Apache-2.0"}
 requires-python = "<3.13,>=3.9"
 dependencies = [
-    "kserve[storage] @ file:///${PROJECT_ROOT}/../kserve",
+    "kserve @ file:///${PROJECT_ROOT}/../kserve",
+    "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
     "paddlepaddle>=2.6.1,<=3.0.0; platform_system != 'Windows'",
     "setuptools<71.0.0,>=70.0.0",
 ]
