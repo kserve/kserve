@@ -21,6 +21,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -151,6 +152,168 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			// then
 			Expect(errValidation).To(HaveOccurred())
 			Expect(errValidation.Error()).To(ContainSubstring("unsupported configuration"))
+		})
+
+		It("should reject LLMInferenceService with Ingress and Scheduler", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-ingress-with-scheduler",
+				fixture.InNamespace[*v1alpha1.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithManagedIngress(),
+				fixture.WithManagedScheduler(),
+			)
+
+			// when
+			errValidation := envTest.Client.Create(ctx, llmSvc)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("unsupported configuration"))
+			Expect(errValidation.Error()).To(ContainSubstring("Ingress"))
+			Expect(errValidation.Error()).To(ContainSubstring("cannot be used with Scheduler"))
+		})
+
+		It("should reject LLMInferenceService with Ingress and HTTPRoute refs", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-ingress-with-httproute-refs",
+				fixture.InNamespace[*v1alpha1.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithManagedIngress(),
+				fixture.WithHTTPRouteRefs(fixture.HTTPRouteRef("test-route")),
+			)
+
+			// when
+			errValidation := envTest.Client.Create(ctx, llmSvc)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("unsupported configuration"))
+			Expect(errValidation.Error()).To(ContainSubstring("Ingress"))
+			Expect(errValidation.Error()).To(ContainSubstring("cannot be used with HTTPRoute refs"))
+		})
+
+		It("should reject LLMInferenceService with Ingress and HTTPRoute spec", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-ingress-with-httproute-spec",
+				fixture.InNamespace[*v1alpha1.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithManagedIngress(),
+				fixture.WithHTTPRouteSpec(&fixture.HTTPRoute("test-route",
+					fixture.WithHTTPRule(
+						fixture.Matches(fixture.PathPrefixMatch("/test")),
+						fixture.BackendRefs(fixture.ServiceRef("test-service", 80, 1)),
+					),
+				).Spec),
+			)
+
+			// when
+			errValidation := envTest.Client.Create(ctx, llmSvc)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("unsupported configuration"))
+			Expect(errValidation.Error()).To(ContainSubstring("Ingress"))
+			Expect(errValidation.Error()).To(ContainSubstring("cannot be used with HTTPRoute spec"))
+		})
+
+		It("should reject LLMInferenceService with Ingress and Gateway refs", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-ingress-with-gateway-refs",
+				fixture.InNamespace[*v1alpha1.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithManagedIngress(),
+				fixture.WithGatewayRefs(fixture.LLMGatewayRef("test-gateway", nsName)),
+				fixture.WithHTTPRouteSpec(&fixture.HTTPRoute("test-route",
+					fixture.WithHTTPRule(
+						fixture.Matches(fixture.PathPrefixMatch("/test")),
+						fixture.BackendRefs(fixture.ServiceRef("test-service", 80, 1)),
+					),
+				).Spec),
+			)
+
+			// when
+			errValidation := envTest.Client.Create(ctx, llmSvc)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("unsupported configuration"))
+			Expect(errValidation.Error()).To(ContainSubstring("Ingress"))
+			Expect(errValidation.Error()).To(ContainSubstring("cannot be used with Gateway refs"))
+		})
+
+		It("should reject LLMInferenceService with Ingress and managed Gateway", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-ingress-with-managed-gateway",
+				fixture.InNamespace[*v1alpha1.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithManagedIngress(),
+				fixture.WithManagedGateway(),
+				fixture.WithManagedRoute(),
+			)
+
+			// when
+			errValidation := envTest.Client.Create(ctx, llmSvc)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("unsupported configuration"))
+			Expect(errValidation.Error()).To(ContainSubstring("Ingress"))
+			Expect(errValidation.Error()).To(ContainSubstring("cannot be used with Gateway"))
+		})
+
+		It("should reject LLMInferenceService with Ingress, Scheduler, and HTTPRoute (multiple violations)", func(ctx SpecContext) {
+			// given - When multiple violations occur, all should be reported
+			llmSvc := fixture.LLMInferenceService("test-ingress-multiple-violations",
+				fixture.InNamespace[*v1alpha1.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithManagedIngress(),
+				fixture.WithManagedScheduler(),
+				fixture.WithHTTPRouteRefs(fixture.HTTPRouteRef("test-route")),
+			)
+
+			// when
+			errValidation := envTest.Client.Create(ctx, llmSvc)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("unsupported configuration"))
+			Expect(errValidation.Error()).To(ContainSubstring("Ingress"))
+			// Should report both Scheduler and HTTPRoute violations
+			Expect(errValidation.Error()).To(Or(
+				ContainSubstring("cannot be used with Scheduler"),
+				ContainSubstring("cannot be used with HTTPRoute"),
+			))
+		})
+
+		It("should accept LLMInferenceService with only Ingress (no HTTPRoute or Gateway)", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-ingress-only",
+				fixture.InNamespace[*v1alpha1.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithManagedIngress(),
+			)
+
+			// when/then
+			Expect(envTest.Client.Create(ctx, llmSvc)).To(Succeed())
+		})
+
+		It("should accept LLMInferenceService with Ingress refs (no HTTPRoute or Gateway)", func(ctx SpecContext) {
+			// Create a test ingress first
+			ingress := fixture.Ingress("test-custom-ingress",
+				fixture.InNamespace[*netv1.Ingress](nsName),
+				fixture.WithIngressRule("test.example.com", "test-service", 8080),
+			)
+			Expect(envTest.Client.Create(ctx, ingress)).To(Succeed())
+
+			// given
+			llmSvc := fixture.LLMInferenceService("test-ingress-refs-only",
+				fixture.InNamespace[*v1alpha1.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithIngressRefs(fixture.LLMIngressRef("test-custom-ingress", nsName)),
+			)
+
+			// when/then
+			Expect(envTest.Client.Create(ctx, llmSvc)).To(Succeed())
 		})
 	})
 

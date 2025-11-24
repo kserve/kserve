@@ -52,6 +52,10 @@ func (p *InferencePoolSpec) HasRef() bool {
 	return p != nil && p.Ref != nil && p.Ref.Name != ""
 }
 
+func (i *IngressSpec) HasRefs() bool {
+	return i != nil && len(i.Refs) > 0
+}
+
 func (p *ParallelismSpec) IsPipelineParallel() bool {
 	if p == nil {
 		return false
