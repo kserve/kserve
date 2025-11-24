@@ -821,7 +821,7 @@ requires-dist = [
     { name = "kserve-storage", marker = "extra == 'storage'", specifier = "==0.16.0" },
     { name = "kubernetes", specifier = ">=23.3.0" },
     { name = "numpy", specifier = ">=1.26.0,<3.0.0" },
-    { name = "orjson", specifier = ">=3.9.15,<4.0.0" },
+    { name = "orjson", specifier = ">=3.10.15,<4.0.0" },
     { name = "pandas", specifier = ">=2.2.0,<3.0.0" },
     { name = "prometheus-client", specifier = ">=0.20.0,<1.0.0" },
     { name = "protobuf", specifier = ">=5.27.1,<6.0.0" },
