@@ -315,11 +315,6 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 		Image:                    storageInitializerImage,
 		Args:                     containerArgs,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-		VolumeMounts: []corev1.VolumeMount{{
-			Name:      constants.StorageInitializerVolumeName,
-			MountPath: constants.DefaultModelLocalMountPath,
-			ReadOnly:  false,
-		}},
 		Resources: corev1.ResourceRequirements{
 			Limits: map[corev1.ResourceName]resource.Quantity{
 				corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),
