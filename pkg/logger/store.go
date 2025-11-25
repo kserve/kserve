@@ -186,8 +186,8 @@ func (s *BlobStore) Store(logUrl *url.URL, logRequest types.LogRequest) error {
 			return errors.New("no bucket specified in url")
 		}
 
-		// the most recent request in the batch is used to generate the key
-		objectKey, err := s.getObjectKey(configPrefix, &logRequest)
+		// use the last request in the current batch to generate the key
+		objectKey, err := s.getObjectKey(configPrefix, &req[len(req)-1])
 		if err != nil {
 			s.log.Error(err)
 			return err
