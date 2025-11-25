@@ -91,10 +91,6 @@ type Store interface {
 	Store(logUrl *url.URL, logRequest types.LogRequest) error
 }
 
-type Batch struct {
-	buffer map[url.URL][]interface{}
-}
-
 type BlobStore struct {
 	mutex        sync.Mutex
 	buffer       map[url.URL][]types.LogRequest
