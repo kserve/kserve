@@ -53,7 +53,10 @@ const (
 	DefaultBatchSize = 1
 )
 
-var registeredStrategies = map[string]StorageStrategy{}
+var (
+	registeredStrategies = map[string]StorageStrategy{}
+	initStrategiesOnce   sync.Once
+)
 
 func uriPrefix(uri string) string {
 	parsed, err := url.Parse(uri)
@@ -77,9 +80,7 @@ func RegisterStorageStrategy(uriPrefix string, strategy StorageStrategy) {
 }
 
 func GetStorageStrategy(url string) StorageStrategy {
-	if len(registeredStrategies) == 0 {
-		initializeStorageStrategies()
-	}
+	initStrategiesOnce.Do(initializeStorageStrategies)
 	prefix := uriPrefix(url)
 	if str, ok := registeredStrategies[prefix]; ok {
 		return str
