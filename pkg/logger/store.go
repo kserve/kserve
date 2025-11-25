@@ -201,7 +201,7 @@ func (s *BlobStore) Store(logUrl *url.URL, logRequest types.LogRequest) error {
 			s.log.Error(err)
 			return err
 		}
-		delete(s.buffer, *logUrl)
+		delete(s.buffer, batchUrl)
 		s.log.Info("Successfully uploaded object to blob store")
 	}
 
