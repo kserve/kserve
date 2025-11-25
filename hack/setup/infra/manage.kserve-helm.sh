@@ -84,22 +84,16 @@ SET_KSERVE_VERSION="${SET_KSERVE_VERSION:-}"
 # VARIABLES END
 
 # Function to calculate deployment name based on Helm release name and chart name
-# This matches the Helm template logic: {{ include "kserve-resources.fullname" . }}-kserve-controller-manager
-# Note: The actual Helm behavior shows "kserve-kserve-resources" when release="kserve" and chart="kserve-resources"
-# This means the contains check returns false, so we always use release-chart format
+# Note: With --original-name flag in helmify, deployment names are NOT prefixed with release name
+# So the deployment name is just the suffix (e.g., "llmisvc-controller-manager" or "kserve-controller-manager")
 calculate_deployment_name() {
     local release_name="$1"
     local chart_name="$2"
     local suffix="$3"
     
-    # Helm fullname logic: always use release-chart format (the contains check seems to not work as expected)
-    # The actual output shows "kserve-kserve-resources" not "kserve", so we use release-chart
-    local fullname="${release_name}-${chart_name}"
-    
-    # Truncate to 63 chars (K8s limit) and remove trailing dash
-    fullname=$(echo "$fullname" | cut -c1-63 | sed 's/-$//')
-    
-    echo "${fullname}-${suffix}"
+    # With --original-name flag, helmify generates resources with their original names
+    # So deployment name is just the suffix, not prefixed with release/chart name
+    echo "${suffix}"
 }
 
 # INCLUDE_IN_GENERATED_SCRIPT_START

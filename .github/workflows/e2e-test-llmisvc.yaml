@@ -105,13 +105,18 @@ jobs:
           LLMISVC_CONTROLLER_IMG_TAG="${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${{ github.sha }}"
 
           # Use the quick install script to install all dependencies and LLMISvc
-          ./hack/llmisvc_quick_install.sh
+          # Note: The script uses --wait which may timeout, so we'll handle deployment waiting separately
+          ./hack/llmisvc_quick_install.sh || {
+            echo "⚠️ Helm install completed but may have timed out waiting for deployment"
+            echo "📋 Checking deployment status..."
+            kubectl get deployments -n kserve
+          }
 
           # Update the deployment to use our built image with Never pull policy
-          # Note: Helm adds release name prefix, so we use label selector to find the deployment
-          DEPLOYMENT_NAME=$(kubectl get deployment -n kserve -l control-plane=llmisvc-controller-manager -o jsonpath='{.items[0].metadata.name}')
-          if [ -z "$DEPLOYMENT_NAME" ]; then
-            echo "❌ Error: Could not find LLMISvc controller deployment"
+          # Note: With --original-name flag, deployment name is hardcoded as llmisvc-controller-manager (not prefixed)
+          DEPLOYMENT_NAME="llmisvc-controller-manager"
+          if ! kubectl get deployment $DEPLOYMENT_NAME -n kserve >/dev/null 2>&1; then
+            echo "❌ Error: Deployment $DEPLOYMENT_NAME not found"
             kubectl get deployments -n kserve
             exit 1
           fi
@@ -120,6 +125,7 @@ jobs:
             -p '{"spec":{"template":{"spec":{"containers":[{"name":"manager","image":"'${LLMISVC_CONTROLLER_IMG_TAG}'","imagePullPolicy":"Never"}]}}}}'
 
           # Wait for deployment to be ready
+          echo "⏳ Waiting for deployment $DEPLOYMENT_NAME to be ready..."
           kubectl wait --for=condition=available --timeout=300s deployment/$DEPLOYMENT_NAME -n kserve
 
       - name: Verify LLMISvc setup
