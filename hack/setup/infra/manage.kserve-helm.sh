@@ -83,17 +83,36 @@ CHARTS_DIR="${REPO_ROOT}/charts"
 SET_KSERVE_VERSION="${SET_KSERVE_VERSION:-}"
 # VARIABLES END
 
-# Function to calculate deployment name based on Helm release name and chart name
-# Note: With --original-name flag in helmify, deployment names are NOT prefixed with release name
-# So the deployment name is just the suffix (e.g., "llmisvc-controller-manager" or "kserve-controller-manager")
+# Function to get deployment name from Helm chart template
+# This extracts the actual deployment name from the rendered Helm chart
 calculate_deployment_name() {
     local release_name="$1"
     local chart_name="$2"
     local suffix="$3"
     
-    # With --original-name flag, helmify generates resources with their original names
-    # So deployment name is just the suffix, not prefixed with release/chart name
-    echo "${suffix}"
+    # Determine chart path - check if USE_LOCAL_CHARTS is set and charts directory exists
+    local chart_path
+    if [ "${USE_LOCAL_CHARTS:-false}" = "true" ] && [ -d "./charts/${chart_name}" ]; then
+        chart_path="./charts/${chart_name}"
+    elif [ -n "${CHARTS_DIR:-}" ] && [ -d "${CHARTS_DIR}/${chart_name}" ]; then
+        chart_path="${CHARTS_DIR}/${chart_name}"
+    else
+        # Fallback to suffix if chart path not found (for backwards compatibility)
+        echo "${suffix}"
+        return
+    fi
+    
+    # Extract deployment name from Helm chart template
+    # Look for the deployment with the matching suffix in the name
+    local deployment_name=$(helm template "${release_name}" "${chart_path}" --namespace "${KSERVE_NAMESPACE:-kserve}" 2>/dev/null | \
+        grep -A 3 "kind: Deployment" | grep "name:" | grep "${suffix}" | head -1 | awk '{print $2}' || echo "")
+    
+    # Fallback to suffix if extraction fails (for backwards compatibility)
+    if [ -z "$deployment_name" ]; then
+        deployment_name="${suffix}"
+    fi
+    
+    echo "${deployment_name}"
 }
 
 # INCLUDE_IN_GENERATED_SCRIPT_START

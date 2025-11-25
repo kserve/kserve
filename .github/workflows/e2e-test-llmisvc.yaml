@@ -112,15 +112,22 @@ jobs:
             kubectl get deployments -n kserve
           }
 
-          # Update the deployment to use our built image with Never pull policy
-          # Note: With --original-name flag, deployment name is hardcoded as llmisvc-controller-manager (not prefixed)
-          DEPLOYMENT_NAME="llmisvc-controller-manager"
-          if ! kubectl get deployment $DEPLOYMENT_NAME -n kserve >/dev/null 2>&1; then
-            echo "❌ Error: Deployment $DEPLOYMENT_NAME not found"
+          # Get deployment name from Helm chart template (deployment name is hardcoded in the chart)
+          DEPLOYMENT_NAME=$(helm template llmisvc ./charts/kserve-llmisvc-resources --namespace kserve | grep -A 3 "kind: Deployment" | grep "name:" | head -1 | awk '{print $2}')
+          if [ -z "$DEPLOYMENT_NAME" ]; then
+            echo "❌ Error: Could not determine deployment name from Helm chart"
+            echo "📋 Available deployments:"
             kubectl get deployments -n kserve
             exit 1
           fi
-          echo "📦 Found deployment: $DEPLOYMENT_NAME"
+          echo "📦 Found deployment name from chart: $DEPLOYMENT_NAME"
+
+          if ! kubectl get deployment $DEPLOYMENT_NAME -n kserve >/dev/null 2>&1; then
+            echo "❌ Error: Deployment $DEPLOYMENT_NAME not found in cluster"
+            kubectl get deployments -n kserve
+            exit 1
+          fi
+
           kubectl patch deployment $DEPLOYMENT_NAME -n kserve \
             -p '{"spec":{"template":{"spec":{"containers":[{"name":"manager","image":"'${LLMISVC_CONTROLLER_IMG_TAG}'","imagePullPolicy":"Never"}]}}}}'
 
