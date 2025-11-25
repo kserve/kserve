@@ -196,7 +196,10 @@ def generate_runtime_values(kustomization_path, runtimes_dir, values_yaml_path):
     # Ensure kserve.servingruntime structure exists
     if 'kserve' not in values:
         values['kserve'] = {}
-    servingruntime_exists = 'servingruntime' in values['kserve'] and len(values['kserve']['servingruntime']) > 0
+    if values['kserve'] is None:
+        values['kserve'] = {}
+    servingruntime_exists = 'servingruntime' in values['kserve'] and values['kserve'].get(
+        'servingruntime') and len(values['kserve']['servingruntime']) > 0
     if 'servingruntime' not in values['kserve']:
         values['kserve']['servingruntime'] = {}
 

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "kserve-resources.fullname" . }}-kserve-webhook-server-service
+  name: kserve-webhook-server-service
   labels:
   {{- include "kserve-resources.labels" . | nindent 4 }}
 spec:

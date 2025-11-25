@@ -1,4 +1,5 @@
-kserveLlmisvcControllerManager:
+kubernetesClusterDomain: cluster.local
+llmisvcControllerManager:
   manager:
     args:
     - --metrics-addr=127.0.0.1:8443
@@ -38,15 +39,14 @@ kserveLlmisvcControllerManager:
     type: RollingUpdate
   tolerations: []
   topologySpreadConstraints: []
-kubernetesClusterDomain: cluster.local
-llmisvcMgrSvc:
+llmisvcControllerManagerService:
   ports:
   - name: https
     port: 8443
     protocol: TCP
     targetPort: metrics
   type: ClusterIP
-llmisvcWebhookSvc:
+llmisvcWebhookServerService:
   ports:
   - port: 443
     targetPort: webhook-server

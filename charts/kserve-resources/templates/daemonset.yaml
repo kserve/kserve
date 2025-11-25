@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: {{ include "kserve-resources.fullname" . }}-kserve-localmodelnode-agent
+  name: kserve-localmodelnode-agent
   labels:
     control-plane: kserve-localmodelnode-agent
     controller-tools.k8s.io: "1.0"

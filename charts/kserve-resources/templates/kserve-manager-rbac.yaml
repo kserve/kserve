@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "kserve-resources.fullname" . }}-kserve-manager-role
+  name: kserve-manager-role
   labels:
   {{- include "kserve-resources.labels" . | nindent 4 }}
 rules:
@@ -232,13 +232,13 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "kserve-resources.fullname" . }}-kserve-manager-rolebinding
+  name: kserve-manager-rolebinding
   labels:
   {{- include "kserve-resources.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: '{{ include "kserve-resources.fullname" . }}-kserve-manager-role'
+  name: kserve-manager-role
 subjects:
 - kind: ServiceAccount
   name: '{{ include "kserve-resources.serviceAccountName" . }}'

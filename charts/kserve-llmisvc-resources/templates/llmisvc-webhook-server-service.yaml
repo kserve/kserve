@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "kserve-llmisvc-resources.fullname" . }}-llmisvc-webhook-svc
+  name: llmisvc-webhook-server-service
   labels:
   {{- include "kserve-llmisvc-resources.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.llmisvcWebhookSvc.type }}
+  type: {{ .Values.llmisvcWebhookServerService.type }}
   selector:
     control-plane: llmisvc-controller-manager
     {{- include "kserve-llmisvc-resources.selectorLabels" . | nindent 4 }}
   ports:
-  {{- .Values.llmisvcWebhookSvc.ports | toYaml | nindent 2 }}
+  {{- .Values.llmisvcWebhookServerService.ports | toYaml | nindent 2 }}

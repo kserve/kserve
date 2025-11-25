@@ -71,7 +71,7 @@ KSERVE_OVERYLAY_DIR="${KSERVE_OVERYLAY_DIR:-}"
 TARGET_DEPLOYMENT_NAMES=(
     "kserve-controller-manager"
     "kserve-localmodel-controller-manager"
-    "kserve-llmisvc-controller-manager"
+    "llmisvc-controller-manager"
 )
 # DEPLOYMENT_MODE, GATEWAY_NETWORK_LAYER, LLMISVC, EMBED_MANIFESTS are defined in global-vars.env
 INSTALL_RUNTIMES="${INSTALL_RUNTIMES:-false}"
@@ -86,7 +86,7 @@ fi
 if [ "${LLMISVC}" = "true" ]; then
     KSERVE_CRD_DIR="${REPO_ROOT}/config/crd/full/llmisvc"
     KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/llmisvc"
-    TARGET_DEPLOYMENT_NAMES=("kserve-llmisvc-controller-manager")
+    TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
 fi
 
 # INCLUDE_IN_GENERATED_SCRIPT_END

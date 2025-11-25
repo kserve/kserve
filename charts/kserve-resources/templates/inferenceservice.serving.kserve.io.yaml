@@ -11,7 +11,7 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: '{{ include "kserve-resources.fullname" . }}-kserve-webhook-server-service'
+      name: kserve-webhook-server-service
       namespace: '{{ .Release.Namespace }}'
       path: /mutate-serving-kserve-io-v1beta1-inferenceservice
   failurePolicy: Fail
@@ -31,7 +31,7 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: '{{ include "kserve-resources.fullname" . }}-kserve-webhook-server-service'
+      name: kserve-webhook-server-service
       namespace: '{{ .Release.Namespace }}'
       path: /mutate-pods
   failurePolicy: Fail
@@ -69,7 +69,7 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: '{{ include "kserve-resources.fullname" . }}-kserve-webhook-server-service'
+      name: kserve-webhook-server-service
       namespace: '{{ .Release.Namespace }}'
       path: /validate-serving-kserve-io-v1beta1-inferenceservice
   failurePolicy: Fail

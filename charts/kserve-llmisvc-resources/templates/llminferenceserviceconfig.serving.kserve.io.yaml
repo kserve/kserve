@@ -12,7 +12,7 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: '{{ include "kserve-llmisvc-resources.fullname" . }}-llmisvc-webhook-svc'
+      name: llmisvc-webhook-server-service
       namespace: '{{ .Release.Namespace }}'
       path: /validate-serving-kserve-io-v1alpha1-llminferenceserviceconfig
   failurePolicy: Fail

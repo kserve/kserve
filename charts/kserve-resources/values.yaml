@@ -60,46 +60,6 @@ kserveControllerManagerService:
     protocol: TCP
     targetPort: https
   type: ClusterIP
-kserveLlmisvcControllerManager:
-  manager:
-    args:
-    - --metrics-addr=127.0.0.1:8443
-    - --leader-elect
-    containerSecurityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-        - ALL
-      privileged: false
-      readOnlyRootFilesystem: true
-      runAsNonRoot: true
-      runAsUser: 1000
-      seccompProfile:
-        type: RuntimeDefault
-    image:
-      repository: kserve/llmisvc-controller
-      tag: latest
-    imagePullPolicy: Always
-    resources:
-      limits:
-        cpu: 100m
-        memory: 300Mi
-      requests:
-        cpu: 100m
-        memory: 300Mi
-  nodeSelector: {}
-  podSecurityContext:
-    runAsNonRoot: true
-    seccompProfile:
-      type: RuntimeDefault
-  replicas: 1
-  strategy:
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
-    type: RollingUpdate
-  tolerations: []
-  topologySpreadConstraints: []
 kserveLocalmodelControllerManager:
   manager:
     containerSecurityContext:
@@ -163,14 +123,54 @@ kserveWebhookServerService:
     targetPort: webhook-server
   type: ClusterIP
 kubernetesClusterDomain: cluster.local
-llmisvcMgrSvc:
+llmisvcControllerManager:
+  manager:
+    args:
+    - --metrics-addr=127.0.0.1:8443
+    - --leader-elect
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 1000
+      seccompProfile:
+        type: RuntimeDefault
+    image:
+      repository: kserve/llmisvc-controller
+      tag: latest
+    imagePullPolicy: Always
+    resources:
+      limits:
+        cpu: 100m
+        memory: 300Mi
+      requests:
+        cpu: 100m
+        memory: 300Mi
+  nodeSelector: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  tolerations: []
+  topologySpreadConstraints: []
+llmisvcControllerManagerService:
   ports:
   - name: https
     port: 8443
     protocol: TCP
     targetPort: metrics
   type: ClusterIP
-llmisvcWebhookSvc:
+llmisvcWebhookServerService:
   ports:
   - port: 443
     targetPort: webhook-server
@@ -181,23 +181,6 @@ serviceAccount:
   create: true
   name: ''
 kserve:
-  agent:
-    image: kserve/agent
-    tag: latest
-  router:
-    image: kserve/router
-    tag: latest
-    imagePullPolicy: IfNotPresent
-    imagePullSecrets: []
-  localmodel:
-    enabled: false
-    jobNamespace: kserve-localmodel-jobs
-    jobTTLSecondsAfterFinished: 3600
-    disableVolumeManagement: false
-    securityContext:
-      fsGroup: 1000
-    agent:
-      reconcilationFrequencyInSecs: 60
   servingruntime:
     modelNamePlaceholder: '{{.Name}}'
     huggingfaceserver_multinode:

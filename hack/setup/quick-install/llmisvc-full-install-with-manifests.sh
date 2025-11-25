@@ -42508,7 +42508,7 @@ metadata:
     app.kubernetes.io/component: controller
     control-plane: llmisvc-controller-manager
     controller-tools.k8s.io: "1.0"
-  name: llmisvc-mgr-svc
+  name: llmisvc-controller-manager-service
   namespace: kserve
 spec:
   ports:
@@ -42523,7 +42523,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: llmisvc-webhook-svc
+  name: llmisvc-webhook-server-service
   namespace: kserve
 spec:
   ports:
@@ -42537,10 +42537,10 @@ kind: Deployment
 metadata:
   labels:
     app.kubernetes.io/component: controller
-    app.kubernetes.io/name: kserve-llmisvc-controller-manager
+    app.kubernetes.io/name: llmisvc-controller-manager
     control-plane: llmisvc-controller-manager
     controller-tools.k8s.io: "1.0"
-  name: kserve-llmisvc-controller-manager
+  name: llmisvc-controller-manager
   namespace: kserve
 spec:
   replicas: 1
@@ -42559,7 +42559,7 @@ spec:
         kubectl.kubernetes.io/default-container: manager
       labels:
         app.kubernetes.io/component: controller
-        app.kubernetes.io/name: kserve-llmisvc-controller-manager
+        app.kubernetes.io/name: llmisvc-controller-manager
         control-plane: llmisvc-controller-manager
         controller-tools.k8s.io: "1.0"
     spec:
@@ -42640,9 +42640,9 @@ metadata:
   name: llmisvc-serving-cert
   namespace: kserve
 spec:
-  commonName: llmisvc-webhook-svc.kserve.svc
+  commonName: llmisvc-webhook-server-service.kserve.svc
   dnsNames:
-  - llmisvc-webhook-svc.kserve.svc
+  - llmisvc-webhook-server-service.kserve.svc
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
@@ -44101,7 +44101,7 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: llmisvc-webhook-svc
+      name: llmisvc-webhook-server-service
       namespace: kserve
       path: /validate-serving-kserve-io-v1alpha1-llminferenceservice
   failurePolicy: Fail
@@ -44131,7 +44131,7 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: llmisvc-webhook-svc
+      name: llmisvc-webhook-server-service
       namespace: kserve
       path: /validate-serving-kserve-io-v1alpha1-llminferenceserviceconfig
   failurePolicy: Fail

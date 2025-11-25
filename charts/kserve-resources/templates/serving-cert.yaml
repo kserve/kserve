@@ -7,9 +7,8 @@ metadata:
 spec:
   commonName: kserve-webhook-server-service.kserve.svc
   dnsNames:
-  - '{{ include "kserve-resources.fullname" . }}-{{ .Release.Namespace
-    }}-webhook-server-service.{{ .Release.Namespace }}.svc'
+  - '{{ include "kserve-resources.fullname" . }}-webhook-server-service.{{ .Release.Namespace }}.svc'
   issuerRef:
     kind: Issuer
-    name: '{{ include "kserve-resources.fullname" . }}-selfsigned-issuer'
+    name: selfsigned-issuer
   secretName: kserve-webhook-server-cert

@@ -76822,7 +76822,7 @@ metadata:
     app.kubernetes.io/component: controller
     control-plane: llmisvc-controller-manager
     controller-tools.k8s.io: "1.0"
-  name: llmisvc-mgr-svc
+  name: llmisvc-controller-manager-service
   namespace: kserve
 spec:
   ports:
@@ -76837,7 +76837,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: llmisvc-webhook-svc
+  name: llmisvc-webhook-server-service
   namespace: kserve
 spec:
   ports:
@@ -76958,11 +76958,67 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    app.kubernetes.io/name: kserve-localmodel-controller-manager
+    control-plane: kserve-localmodel-controller-manager
+    controller-tools.k8s.io: "1.0"
+  name: kserve-localmodel-controller-manager
+  namespace: kserve
+spec:
+  selector:
+    matchLabels:
+      control-plane: kserve-localmodel-controller-manager
+      controller-tools.k8s.io: "1.0"
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        app.kubernetes.io/name: kserve-localmodel-controller-manager
+        control-plane: kserve-localmodel-controller-manager
+        controller-tools.k8s.io: "1.0"
+    spec:
+      containers:
+      - command:
+        - /manager
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: kserve/kserve-localmodel-controller:latest
+        imagePullPolicy: Always
+        name: manager
+        resources:
+          limits:
+            cpu: 100m
+            memory: 300Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: kserve-localmodel-controller-manager
+      terminationGracePeriodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
     app.kubernetes.io/component: controller
-    app.kubernetes.io/name: kserve-llmisvc-controller-manager
+    app.kubernetes.io/name: llmisvc-controller-manager
     control-plane: llmisvc-controller-manager
     controller-tools.k8s.io: "1.0"
-  name: kserve-llmisvc-controller-manager
+  name: llmisvc-controller-manager
   namespace: kserve
 spec:
   replicas: 1
@@ -76981,7 +77037,7 @@ spec:
         kubectl.kubernetes.io/default-container: manager
       labels:
         app.kubernetes.io/component: controller
-        app.kubernetes.io/name: kserve-llmisvc-controller-manager
+        app.kubernetes.io/name: llmisvc-controller-manager
         control-plane: llmisvc-controller-manager
         controller-tools.k8s.io: "1.0"
     spec:
@@ -77055,62 +77111,6 @@ spec:
         secret:
           defaultMode: 420
           secretName: llmisvc-webhook-server-cert
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app.kubernetes.io/name: kserve-localmodel-controller-manager
-    control-plane: kserve-localmodel-controller-manager
-    controller-tools.k8s.io: "1.0"
-  name: kserve-localmodel-controller-manager
-  namespace: kserve
-spec:
-  selector:
-    matchLabels:
-      control-plane: kserve-localmodel-controller-manager
-      controller-tools.k8s.io: "1.0"
-  template:
-    metadata:
-      annotations:
-        kubectl.kubernetes.io/default-container: manager
-      labels:
-        app.kubernetes.io/name: kserve-localmodel-controller-manager
-        control-plane: kserve-localmodel-controller-manager
-        controller-tools.k8s.io: "1.0"
-    spec:
-      containers:
-      - command:
-        - /manager
-        env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        image: kserve/kserve-localmodel-controller:latest
-        imagePullPolicy: Always
-        name: manager
-        resources:
-          limits:
-            cpu: 100m
-            memory: 300Mi
-          requests:
-            cpu: 100m
-            memory: 200Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          privileged: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-      securityContext:
-        runAsNonRoot: true
-        seccompProfile:
-          type: RuntimeDefault
-      serviceAccountName: kserve-localmodel-controller-manager
-      terminationGracePeriodSeconds: 10
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -77189,9 +77189,9 @@ metadata:
   name: llmisvc-serving-cert
   namespace: kserve
 spec:
-  commonName: llmisvc-webhook-svc.kserve.svc
+  commonName: llmisvc-webhook-server-service.kserve.svc
   dnsNames:
-  - llmisvc-webhook-svc.kserve.svc
+  - llmisvc-webhook-server-service.kserve.svc
   issuerRef:
     kind: Issuer
     name: selfsigned-issuer
@@ -78808,7 +78808,7 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: llmisvc-webhook-svc
+      name: llmisvc-webhook-server-service
       namespace: kserve
       path: /validate-serving-kserve-io-v1alpha1-llminferenceservice
   failurePolicy: Fail
@@ -78838,7 +78838,7 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: llmisvc-webhook-svc
+      name: llmisvc-webhook-server-service
       namespace: kserve
       path: /validate-serving-kserve-io-v1alpha1-llminferenceserviceconfig
   failurePolicy: Fail

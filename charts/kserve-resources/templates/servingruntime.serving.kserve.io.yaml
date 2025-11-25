@@ -11,7 +11,7 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: '{{ include "kserve-resources.fullname" . }}-kserve-webhook-server-service'
+      name: kserve-webhook-server-service
       namespace: '{{ .Release.Namespace }}'
       path: /validate-serving-kserve-io-v1alpha1-servingruntime
   failurePolicy: Fail

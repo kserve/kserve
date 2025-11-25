@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "kserve-resources.fullname" . }}-kserve-controller-manager
+  name: kserve-controller-manager
   labels:
     control-plane: kserve-controller-manager
     controller-tools.k8s.io: "1.0"
@@ -100,106 +100,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "kserve-resources.fullname" . }}-kserve-llmisvc-controller-manager
-  labels:
-    app.kubernetes.io/component: controller
-    control-plane: llmisvc-controller-manager
-    controller-tools.k8s.io: "1.0"
-  {{- include "kserve-resources.labels" . | nindent 4 }}
-spec:
-  replicas: {{ .Values.kserveLlmisvcControllerManager.replicas }}
-  strategy:
-    rollingUpdate:
-      maxSurge: {{ .Values.kserveLlmisvcControllerManager.strategy.rollingUpdate.maxSurge
-        }}
-      maxUnavailable: {{ .Values.kserveLlmisvcControllerManager.strategy.rollingUpdate.maxUnavailable
-        }}
-    type: {{ .Values.kserveLlmisvcControllerManager.strategy.type | quote }}
-  selector:
-    matchLabels:
-      control-plane: llmisvc-controller-manager
-      controller-tools.k8s.io: "1.0"
-    {{- include "kserve-resources.selectorLabels" . | nindent 6 }}
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/component: controller
-        app.kubernetes.io/name: kserve-llmisvc-controller-manager
-        control-plane: llmisvc-controller-manager
-        controller-tools.k8s.io: "1.0"
-      {{- include "kserve-resources.selectorLabels" . | nindent 8 }}
-      annotations:
-        kubectl.kubernetes.io/default-container: manager
-    spec:
-      containers:
-      - args: {{- toYaml .Values.kserveLlmisvcControllerManager.manager.args | nindent
-          8 }}
-        command:
-        - /manager
-        env:
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: KUBERNETES_CLUSTER_DOMAIN
-          value: {{ quote .Values.kubernetesClusterDomain }}
-        image: '{{ .Values.kserveLlmisvcControllerManager.manager.image.repository }}:{{
-          .Values.kserveLlmisvcControllerManager.manager.image.tag | default .Chart.AppVersion
-          }}'
-        imagePullPolicy: {{ .Values.kserveLlmisvcControllerManager.manager.imagePullPolicy
-          }}
-        livenessProbe:
-          failureThreshold: 5
-          httpGet:
-            path: /healthz
-            port: 8081
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
-        name: manager
-        ports:
-        - containerPort: 9443
-          name: webhook-server
-          protocol: TCP
-        - containerPort: 8443
-          name: metrics
-          protocol: TCP
-        readinessProbe:
-          failureThreshold: 5
-          httpGet:
-            path: /readyz
-            port: 8081
-          initialDelaySeconds: 30
-          periodSeconds: 5
-          timeoutSeconds: 5
-        resources: {{- toYaml .Values.kserveLlmisvcControllerManager.manager.resources
-          | nindent 10 }}
-        securityContext: {{- toYaml .Values.kserveLlmisvcControllerManager.manager.containerSecurityContext
-          | nindent 10 }}
-        volumeMounts:
-        - mountPath: /tmp/k8s-webhook-server/serving-certs
-          name: cert
-          readOnly: true
-      nodeSelector: {{- toYaml .Values.kserveLlmisvcControllerManager.nodeSelector | nindent
-        8 }}
-      securityContext: {{- toYaml .Values.kserveLlmisvcControllerManager.podSecurityContext
-        | nindent 8 }}
-      serviceAccountName: {{ include "kserve-resources.serviceAccountName" . }}
-      terminationGracePeriodSeconds: 30
-      tolerations: {{- toYaml .Values.kserveLlmisvcControllerManager.tolerations | nindent
-        8 }}
-      topologySpreadConstraints: {{- toYaml .Values.kserveLlmisvcControllerManager.topologySpreadConstraints
-        | nindent 8 }}
-      volumes:
-      - name: cert
-        secret:
-          defaultMode: 420
-          secretName: llmisvc-webhook-server-cert
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{ include "kserve-resources.fullname" . }}-kserve-localmodel-controller-manager
+  name: kserve-localmodel-controller-manager
   labels:
     control-plane: kserve-localmodel-controller-manager
     controller-tools.k8s.io: "1.0"
@@ -250,3 +151,99 @@ spec:
         8 }}
       topologySpreadConstraints: {{- toYaml .Values.kserveLocalmodelControllerManager.topologySpreadConstraints
         | nindent 8 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llmisvc-controller-manager
+  labels:
+    app.kubernetes.io/component: controller
+    control-plane: llmisvc-controller-manager
+    controller-tools.k8s.io: "1.0"
+  {{- include "kserve-resources.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.llmisvcControllerManager.replicas }}
+  strategy:
+    rollingUpdate:
+      maxSurge: {{ .Values.llmisvcControllerManager.strategy.rollingUpdate.maxSurge
+        }}
+      maxUnavailable: {{ .Values.llmisvcControllerManager.strategy.rollingUpdate.maxUnavailable
+        }}
+    type: {{ .Values.llmisvcControllerManager.strategy.type | quote }}
+  selector:
+    matchLabels:
+      control-plane: llmisvc-controller-manager
+      controller-tools.k8s.io: "1.0"
+    {{- include "kserve-resources.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: llmisvc-controller-manager
+        control-plane: llmisvc-controller-manager
+        controller-tools.k8s.io: "1.0"
+      {{- include "kserve-resources.selectorLabels" . | nindent 8 }}
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+    spec:
+      containers:
+      - args: {{- toYaml .Values.llmisvcControllerManager.manager.args | nindent 8 }}
+        command:
+        - /manager
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.llmisvcControllerManager.manager.image.repository }}:{{ .Values.llmisvcControllerManager.manager.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.llmisvcControllerManager.manager.imagePullPolicy }}
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        - containerPort: 8443
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 5
+        resources: {{- toYaml .Values.llmisvcControllerManager.manager.resources | nindent
+          10 }}
+        securityContext: {{- toYaml .Values.llmisvcControllerManager.manager.containerSecurityContext
+          | nindent 10 }}
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+      nodeSelector: {{- toYaml .Values.llmisvcControllerManager.nodeSelector | nindent
+        8 }}
+      securityContext: {{- toYaml .Values.llmisvcControllerManager.podSecurityContext |
+        nindent 8 }}
+      serviceAccountName: {{ include "kserve-resources.serviceAccountName" . }}
+      terminationGracePeriodSeconds: 30
+      tolerations: {{- toYaml .Values.llmisvcControllerManager.tolerations | nindent 8
+        }}
+      topologySpreadConstraints: {{- toYaml .Values.llmisvcControllerManager.topologySpreadConstraints
+        | nindent 8 }}
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: llmisvc-webhook-server-cert

@@ -167,7 +167,7 @@ replacements:
   - source:
       fieldPath: metadata.name
       kind: Service
-      name: llmisvc-webhook-svc
+      name: llmisvc-webhook-server-service
       version: v1
     targets:
       - fieldPaths:

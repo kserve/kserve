@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "kserve-resources.fullname" . }}-llmisvc-leader-election-role
+  name: llmisvc-leader-election-role
   labels:
   {{- include "kserve-resources.labels" . | nindent 4 }}
 rules:
@@ -18,13 +18,13 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "kserve-resources.fullname" . }}-llmisvc-leader-election-rolebinding
+  name: llmisvc-leader-election-rolebinding
   labels:
   {{- include "kserve-resources.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: '{{ include "kserve-resources.fullname" . }}-llmisvc-leader-election-role'
+  name: llmisvc-leader-election-role
 subjects:
 - kind: ServiceAccount
   name: '{{ include "kserve-resources.serviceAccountName" . }}'
