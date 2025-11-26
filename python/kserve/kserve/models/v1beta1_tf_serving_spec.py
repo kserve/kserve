@@ -62,6 +62,7 @@ class V1beta1TFServingSpec(object):
         'resize_policy': 'list[V1ContainerResizePolicy]',
         'resources': 'V1ResourceRequirements',
         'restart_policy': 'str',
+        'restart_policy_rules': 'list[V1ContainerRestartRule]',
         'runtime_version': 'str',
         'security_context': 'V1SecurityContext',
         'startup_probe': 'V1Probe',
@@ -93,6 +94,7 @@ class V1beta1TFServingSpec(object):
         'resize_policy': 'resizePolicy',
         'resources': 'resources',
         'restart_policy': 'restartPolicy',
+        'restart_policy_rules': 'restartPolicyRules',
         'runtime_version': 'runtimeVersion',
         'security_context': 'securityContext',
         'startup_probe': 'startupProbe',
@@ -108,7 +110,7 @@ class V1beta1TFServingSpec(object):
         'working_dir': 'workingDir'
     }
 
-    def __init__(self, args=None, command=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, name='', ports=None, protocol_version=None, readiness_probe=None, resize_policy=None, resources=None, restart_policy=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, args=None, command=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, name='', ports=None, protocol_version=None, readiness_probe=None, resize_policy=None, resources=None, restart_policy=None, restart_policy_rules=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1TFServingSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -129,6 +131,7 @@ class V1beta1TFServingSpec(object):
         self._resize_policy = None
         self._resources = None
         self._restart_policy = None
+        self._restart_policy_rules = None
         self._runtime_version = None
         self._security_context = None
         self._startup_probe = None
@@ -174,6 +177,8 @@ class V1beta1TFServingSpec(object):
             self.resources = resources
         if restart_policy is not None:
             self.restart_policy = restart_policy
+        if restart_policy_rules is not None:
+            self.restart_policy_rules = restart_policy_rules
         if runtime_version is not None:
             self.runtime_version = runtime_version
         if security_context is not None:
@@ -274,7 +279,7 @@ class V1beta1TFServingSpec(object):
     def env_from(self):
         """Gets the env_from of this V1beta1TFServingSpec.  # noqa: E501
 
-        List of sources to populate environment variables in the container. The keys defined within a source must be a C_IDENTIFIER. All invalid keys will be reported as an event when the container is starting. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.  # noqa: E501
+        List of sources to populate environment variables in the container. The keys defined within a source may consist of any printable ASCII characters except '='. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.  # noqa: E501
 
         :return: The env_from of this V1beta1TFServingSpec.  # noqa: E501
         :rtype: list[V1EnvFromSource]
@@ -285,7 +290,7 @@ class V1beta1TFServingSpec(object):
     def env_from(self, env_from):
         """Sets the env_from of this V1beta1TFServingSpec.
 
-        List of sources to populate environment variables in the container. The keys defined within a source must be a C_IDENTIFIER. All invalid keys will be reported as an event when the container is starting. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.  # noqa: E501
+        List of sources to populate environment variables in the container. The keys defined within a source may consist of any printable ASCII characters except '='. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.  # noqa: E501
 
         :param env_from: The env_from of this V1beta1TFServingSpec.  # noqa: E501
         :type: list[V1EnvFromSource]
@@ -519,7 +524,7 @@ class V1beta1TFServingSpec(object):
     def restart_policy(self):
         """Gets the restart_policy of this V1beta1TFServingSpec.  # noqa: E501
 
-        RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.  # noqa: E501
+        RestartPolicy defines the restart behavior of individual containers in a pod. This overrides the pod-level restart policy. When this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Additionally, setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.  # noqa: E501
 
         :return: The restart_policy of this V1beta1TFServingSpec.  # noqa: E501
         :rtype: str
@@ -530,13 +535,36 @@ class V1beta1TFServingSpec(object):
     def restart_policy(self, restart_policy):
         """Sets the restart_policy of this V1beta1TFServingSpec.
 
-        RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.  # noqa: E501
+        RestartPolicy defines the restart behavior of individual containers in a pod. This overrides the pod-level restart policy. When this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Additionally, setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.  # noqa: E501
 
         :param restart_policy: The restart_policy of this V1beta1TFServingSpec.  # noqa: E501
         :type: str
         """
 
         self._restart_policy = restart_policy
+
+    @property
+    def restart_policy_rules(self):
+        """Gets the restart_policy_rules of this V1beta1TFServingSpec.  # noqa: E501
+
+        Represents a list of rules to be checked to determine if the container should be restarted on exit. The rules are evaluated in order. Once a rule matches a container exit condition, the remaining rules are ignored. If no rule matches the container exit condition, the Container-level restart policy determines the whether the container is restarted or not. Constraints on the rules: - At most 20 rules are allowed. - Rules can have the same action. - Identical rules are not forbidden in validations. When rules are specified, container MUST set RestartPolicy explicitly even it if matches the Pod's RestartPolicy.  # noqa: E501
+
+        :return: The restart_policy_rules of this V1beta1TFServingSpec.  # noqa: E501
+        :rtype: list[V1ContainerRestartRule]
+        """
+        return self._restart_policy_rules
+
+    @restart_policy_rules.setter
+    def restart_policy_rules(self, restart_policy_rules):
+        """Sets the restart_policy_rules of this V1beta1TFServingSpec.
+
+        Represents a list of rules to be checked to determine if the container should be restarted on exit. The rules are evaluated in order. Once a rule matches a container exit condition, the remaining rules are ignored. If no rule matches the container exit condition, the Container-level restart policy determines the whether the container is restarted or not. Constraints on the rules: - At most 20 rules are allowed. - Rules can have the same action. - Identical rules are not forbidden in validations. When rules are specified, container MUST set RestartPolicy explicitly even it if matches the Pod's RestartPolicy.  # noqa: E501
+
+        :param restart_policy_rules: The restart_policy_rules of this V1beta1TFServingSpec.  # noqa: E501
+        :type: list[V1ContainerRestartRule]
+        """
+
+        self._restart_policy_rules = restart_policy_rules
 
     @property
     def runtime_version(self):
