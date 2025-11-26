@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,25 +41,17 @@ func Create[O client.Object, T client.Object](ctx context.Context, c clientWithR
 		return fmt.Errorf("failed to create %s %s/%s: %w", logLineForObject(expected), expected.GetNamespace(), expected.GetName(), err)
 	}
 
-	if !reflect.ValueOf(owner).IsNil() {
-		c.Eventf(owner, corev1.EventTypeNormal, "Created", "Created %s %s/%s", logLineForObject(expected), expected.GetNamespace(), expected.GetName())
-	}
-
+	c.Eventf(owner, corev1.EventTypeNormal, "Created", "Created %s %s/%s", logLineForObject(expected), expected.GetNamespace(), expected.GetName())
 	return nil
 }
 
 func Delete[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, expected T) error {
 	typeLogLine := logLineForObject(expected)
-	isOwnerNil := reflect.ValueOf(owner).IsNil()
+	ownerLogLine := logLineForObject(owner)
 
-	ownerLogLine := ""
-	if !isOwnerNil {
-		ownerLogLine = logLineForObject(owner)
-	}
-
-	if isNamespaced, err := apiutil.IsObjectNamespaced(expected, c.Scheme(), c.RESTMapper()); err != nil && !meta.IsNoMatchError(err) {
+	if isNamespaced, err := apiutil.IsObjectNamespaced(expected, c.Scheme(), c.RESTMapper()); err != nil {
 		return fmt.Errorf("failed to resolve if resource is namespaced %s: %w", typeLogLine, err)
-	} else if isNamespaced && !isOwnerNil {
+	} else if isNamespaced {
 		if !metav1.IsControlledBy(expected, owner) {
 			return fmt.Errorf("failed to delete %s %s/%s: it is not controlled by %s %s/%s",
 				typeLogLine,
@@ -87,10 +78,7 @@ func Delete[O client.Object, T client.Object](ctx context.Context, c clientWithR
 		return nil
 	}
 
-	if !isOwnerNil {
-		c.Eventf(owner, corev1.EventTypeNormal, "Deleted", "Deleted %s %s/%s", typeLogLine, expected.GetNamespace(), expected.GetName())
-	}
-
+	c.Eventf(owner, corev1.EventTypeNormal, "Deleted", "Deleted %s %s/%s", typeLogLine, expected.GetNamespace(), expected.GetName())
 	return nil
 }
 
@@ -109,16 +97,11 @@ func Reconcile[O client.Object, T client.Object](ctx context.Context, c clientWi
 
 func Update[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, curr, expected T, isEqual SemanticEqual[T]) error {
 	typeLogLine := logLineForObject(expected)
-	isOwnerNil := reflect.ValueOf(owner).IsNil()
-
-	ownerLogLine := ""
-	if !isOwnerNil {
-		ownerLogLine = logLineForObject(owner)
-	}
+	ownerLogLine := logLineForObject(owner)
 
 	if isNamespaced, err := apiutil.IsObjectNamespaced(expected, c.Scheme(), c.RESTMapper()); err != nil {
 		return fmt.Errorf("failed to resolve if resource is namespaced %s: %w", typeLogLine, err)
-	} else if isNamespaced && !isOwnerNil {
+	} else if isNamespaced {
 		if !metav1.IsControlledBy(curr, owner) {
 			return fmt.Errorf("failed to update %s %s/%s: it is not controlled by %s %s/%s",
 				typeLogLine,
@@ -146,17 +129,14 @@ func Update[O client.Object, T client.Object](ctx context.Context, c clientWithR
 	if err := c.Update(ctx, expected); err != nil {
 		return fmt.Errorf("failed to update %s %s/%s: %w", typeLogLine, expected.GetNamespace(), expected.GetName(), err)
 	}
-
-	if !isOwnerNil {
-		c.Eventf(owner, corev1.EventTypeNormal, "Updated", "Updated %s %s/%s", typeLogLine, expected.GetNamespace(), expected.GetName())
-	}
+	c.Eventf(owner, corev1.EventTypeNormal, "Updated", "Updated %s %s/%s", typeLogLine, expected.GetNamespace(), expected.GetName())
 
 	return nil
 }
 
 func logLineForObject(obj client.Object) string {
 	// Note: don't use `obj.GetObjectKind()` as it's always empty.
-	return strings.Replace(reflect.TypeOf(obj).String(), "*", "", 1)
+	return reflect.TypeOf(obj).String()
 }
 
 type SemanticEqual[T client.Object] func(expected T, curr T) bool

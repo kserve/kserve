@@ -74,11 +74,6 @@ jobs:
           cd python
           source kserve/.venv/bin/activate
           pytest --cov=kserve ./kserve
-      - name: Test kserve Storage
-        run: |
-          cd python
-          source kserve/.venv/bin/activate
-          pytest --cov=storage ./storage
 
       # ----------------------------------------Kserve Numpy 1.x Unit Tests--------------------------------------------
       - name: Setup kserve numpy 1-x directory

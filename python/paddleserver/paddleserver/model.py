@@ -18,7 +18,7 @@ import numpy as np
 from paddle import inference
 from kserve import Model
 from kserve.errors import InferenceError
-from kserve_storage import Storage
+from kserve.storage import Storage
 from typing import Dict, Union
 
 from kserve.protocol.infer_type import InferRequest, InferResponse

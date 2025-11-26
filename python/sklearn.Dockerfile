@@ -25,13 +25,6 @@ RUN cd kserve && uv sync --active --no-cache
 COPY kserve kserve
 RUN cd kserve && uv sync --active --no-cache
 
-# ========== Install kserve storage dependencies ==========
-COPY storage/pyproject.toml storage/uv.lock storage/
-RUN cd storage && uv sync --active --no-cache
-
-COPY storage storage
-RUN cd storage && uv pip install . --no-cache
-
 # ========== Install sklearnserver dependencies ==========
 COPY sklearnserver/pyproject.toml sklearnserver/uv.lock sklearnserver/
 RUN cd sklearnserver && uv sync --active --no-cache
@@ -62,7 +55,6 @@ RUN useradd kserve -m -u 1000 -d /home/kserve
 COPY --from=builder --chown=kserve:kserve third_party third_party
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder kserve kserve
-COPY --from=builder storage storage
 COPY --from=builder sklearnserver sklearnserver
 
 USER 1000

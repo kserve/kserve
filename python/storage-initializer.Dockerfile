@@ -32,11 +32,11 @@ RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install Python dependencies
-COPY storage/pyproject.toml storage/uv.lock storage/
-RUN cd storage && uv sync --active --no-cache 
+COPY kserve/pyproject.toml kserve/uv.lock kserve/
+RUN cd kserve && uv sync --extra storage --active --no-cache 
 
-COPY storage storage
-RUN cd storage && uv pip install . --no-cache 
+COPY kserve kserve
+RUN cd kserve && uv sync --extra storage --active --no-cache 
 
 # Install Kerberos-related packages
 RUN uv pip install --no-cache-dir krbcontext==0.10 hdfs~=2.6.0 requests-kerberos==0.14.0
@@ -65,7 +65,7 @@ RUN useradd kserve -m -u 1000 -d /home/kserve
 
 COPY --from=builder --chown=kserve:kserve third_party third_party
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
-COPY --from=builder storage storage
+COPY --from=builder kserve kserve
 COPY ./storage-initializer /storage-initializer
 
 RUN chmod +x /storage-initializer/scripts/initializer-entrypoint

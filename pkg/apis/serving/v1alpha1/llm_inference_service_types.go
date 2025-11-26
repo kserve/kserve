@@ -141,10 +141,7 @@ type LoRASpec struct {
 	// Adapters is the static specification for one or more LoRA adapters.
 	// Each adapter is defined by its own ModelSpec.
 	// +optional
-	// This type is recursive https://github.com/kubernetes-sigs/controller-tools/issues/585
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:Schemaless
-	Adapters []LLMModelSpec `json:"adapters,omitempty"`
+	Adapters []ModelSpec `json:"adapters,omitempty"`
 }
 
 // RouterSpec defines the routing configuration for exposing the service.

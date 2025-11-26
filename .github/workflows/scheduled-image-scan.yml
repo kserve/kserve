@@ -14,7 +14,6 @@ jobs:
     name: scan images
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
         image:
           [
@@ -54,16 +53,15 @@ jobs:
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
+        continue-on-error: true #avoid fail the pipeline if the SARIF upload fails.
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
-          category: ${{ matrix.image.name }}
 
   predictor-image-scan:
     name: scan predictor images
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
         image:
           [
@@ -106,13 +104,11 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
-          category: ${{ matrix.image.name }}
 
   explainer-image-scan:
     name: scan explainer images
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
         image: [{ name: art-explainer, file: python/artexplainer.Dockerfile }]
 
@@ -147,4 +143,3 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
-          category: ${{ matrix.image.name }}

@@ -5,7 +5,7 @@ metadata:
 spec:
   template:
     containers:
-      - image: ghcr.io/llm-d/llm-d-dev:v0.2.2
+      - image: ghcr.io/llm-d/llm-d:v0.2.0
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -14,7 +14,6 @@ spec:
         command:
           - vllm
           - serve
-          - /mnt/models
         args:
           - --served-model-name
           - "{{ .Spec.Model.Name }}"
@@ -35,13 +34,9 @@ spec:
             value: /models
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false
-          runAsNonRoot: true
           capabilities:
             drop:
-              - ALL
-          seccompProfile:
-            type: RuntimeDefault
+              - MKNOD
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: FallbackToLogsOnError
         livenessProbe:

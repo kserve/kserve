@@ -38,11 +38,11 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 pytest.skip("ODH does not support art explainer at the moment", allow_module_level=True)
 
 
+@pytest.mark.path_based_routing
 @pytest.mark.explainer
 @pytest.mark.asyncio(scope="session")
 async def test_tabular_explainer(rest_v1_client):
-    suffix = str(uuid.uuid4())[1:6]
-    service_name = "art-explainer" + suffix
+    service_name = "art-explainer"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
