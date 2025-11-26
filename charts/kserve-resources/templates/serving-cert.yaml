@@ -10,5 +10,5 @@ spec:
   - '{{ include "kserve-resources.fullname" . }}-webhook-server-service.{{ .Release.Namespace }}.svc'
   issuerRef:
     kind: Issuer
-    name: selfsigned-issuer
+    name: {{ include "kserve-resources.fullname" . }}-selfsigned-issuer
   secretName: kserve-webhook-server-cert

@@ -66,13 +66,13 @@ def fix_certificate_file(filepath, service_name, chart_name="kserve-chart", remo
     # Fix issuerRef name
     chart_name_escaped = chart_name.replace('.', r'\.')
 
-    # For kserve-resources: issuerRef should be just "selfsigned-issuer" (not templated)
-    # For llmisvc-resources: issuerRef should use fullname template
+    # For kserve-resources: All certificates should use fullname template to match the single Issuer
+    # For kserve-llmisvc-resources: issuerRef should use fullname template
     if chart_name == "kserve-resources":
-        # Remove fullname template from issuerRef (if it exists)
-        issuer_pattern = r"name:\s*'?\{\{\s*include\s+\"" + chart_name_escaped + \
-            r"\.fullname\"\s+\.\s*\}\}\s*-\s*selfsigned-issuer'?"
-        issuer_replacement = "name: selfsigned-issuer"
+        # All certificates in kserve-resources should reference the same Issuer with fullname template
+        # Fix issuerRef to use fullname template (if it's just "selfsigned-issuer")
+        issuer_pattern = r"name:\s*selfsigned-issuer"
+        issuer_replacement = f'name: {{{{ include "{chart_name}.fullname" . }}}}-selfsigned-issuer'
         content = re.sub(issuer_pattern, issuer_replacement, content)
     elif chart_name == "kserve-llmisvc-resources":
         # Fix issuerRef to use fullname template (if it's just "selfsigned-issuer")

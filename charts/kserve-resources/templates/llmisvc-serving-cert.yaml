@@ -10,5 +10,5 @@ spec:
   - 'llmisvc-webhook-server-service.{{ .Release.Namespace }}.svc'
   issuerRef:
     kind: Issuer
-    name: selfsigned-issuer
+    name: {{ include "kserve-resources.fullname" . }}-selfsigned-issuer
   secretName: llmisvc-webhook-server-cert
