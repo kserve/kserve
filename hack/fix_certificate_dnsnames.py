@@ -5,8 +5,15 @@ import re
 import os
 
 
-def fix_certificate_file(filepath, service_name, chart_name="kserve-chart"):
-    """Fix malformed dnsNames in a Certificate YAML file."""
+def fix_certificate_file(filepath, service_name, chart_name="kserve-chart", remove_fullname_prefix=False):
+    """Fix malformed dnsNames in a Certificate YAML file.
+
+    Args:
+        filepath: Path to the certificate YAML file
+        service_name: Name of the service (e.g., 'webhook-server-service' or 'llmisvc-webhook-server-service')
+        chart_name: Name of the Helm chart (e.g., 'kserve-resources')
+        remove_fullname_prefix: If True, remove fullname prefix from both commonName and dnsNames (for llmisvc)
+    """
     if not os.path.exists(filepath):
         return
 
@@ -20,28 +27,41 @@ def fix_certificate_file(filepath, service_name, chart_name="kserve-chart"):
     fixed_include = f'{{{{ include "{chart_name}.fullname" . }}}}'
     content = re.sub(malformed_include_pattern, fixed_include, content)
 
-    # Fix dnsNames: Remove {{ .Release.Namespace }}- prefix that helmify incorrectly adds to service name
-    # Pattern: {{ include "chart.fullname" . }}-{{ .Release.Namespace }}-service-name.{{ .Release.Namespace }}.svc
-    # Should be: {{ include "chart.fullname" . }}-service-name.{{ .Release.Namespace }}.svc
-    # Handle both single-line and multi-line dnsNames entries
     chart_name_escaped = chart_name.replace('.', r'\.')
-    # Pattern: {{ include "chart.fullname" . }}-{{ .Release.Namespace }}-service-name
-    dnsnames_pattern = (
-        r'(\{\{\s*include\s+"' + chart_name_escaped + r'\.fullname"\s+\.\s*\}\}\s*-\s*)'
-        r'\{\{\s*\.Release\.Namespace\s*\}\}\s*-\s*'
-        r'(' + re.escape(service_name) + r'\.\{\{\s*\.Release\.Namespace\s*\}\}\.svc)'
-    )
-    dnsnames_replacement = r'\1\2'
-    content = re.sub(dnsnames_pattern, dnsnames_replacement, content, flags=re.MULTILINE | re.DOTALL)
 
-    # Also handle the case where the pattern spans multiple lines
-    # Pattern with line breaks: {{ include ... }}-{{ .Release.Namespace\n    }}-service-name
-    dnsnames_multiline_pattern = (
-        r'(\{\{\s*include\s+"' + chart_name_escaped + r'\.fullname"\s+\.\s*\}\}\s*-\s*)'
-        r'\{\{\s*\.Release\.Namespace\s*\n\s*\}\}\s*-\s*'
-        r'(' + re.escape(service_name) + r'\.\{\{\s*\.Release\.Namespace\s*\}\}\.svc)'
-    )
-    content = re.sub(dnsnames_multiline_pattern, dnsnames_replacement, content, flags=re.MULTILINE | re.DOTALL)
+    if remove_fullname_prefix:
+        # For llmisvc: Remove fullname prefix from dnsNames entirely
+        # Pattern: {{ include "chart.fullname" . }}-service-name.{{ .Release.Namespace }}.svc
+        # Should be: service-name.{{ .Release.Namespace }}.svc
+        dnsnames_with_fullname_pattern = (
+            r'\{\{\s*include\s+"' + chart_name_escaped + r'\.fullname"\s+\.\s*\}\}\s*-\s*'
+            + re.escape(service_name) + r'\.\{\{\s*\.Release\.Namespace\s*\}\}\.svc'
+        )
+        dnsnames_without_fullname = f"{service_name}.{{{{ .Release.Namespace }}}}.svc"
+        content = re.sub(dnsnames_with_fullname_pattern, dnsnames_without_fullname,
+                         content, flags=re.MULTILINE | re.DOTALL)
+    else:
+        # For kserve: Remove {{ .Release.Namespace }}- prefix that helmify incorrectly adds to service name
+        # Pattern: {{ include "chart.fullname" . }}-{{ .Release.Namespace }}-service-name.{{ .Release.Namespace }}.svc
+        # Should be: {{ include "chart.fullname" . }}-service-name.{{ .Release.Namespace }}.svc
+        # Handle both single-line and multi-line dnsNames entries
+        # Pattern: {{ include "chart.fullname" . }}-{{ .Release.Namespace }}-service-name
+        dnsnames_pattern = (
+            r'(\{\{\s*include\s+"' + chart_name_escaped + r'\.fullname"\s+\.\s*\}\}\s*-\s*)'
+            r'\{\{\s*\.Release\.Namespace\s*\}\}\s*-\s*'
+            + r'(' + re.escape(service_name) + r'\.\{\{\s*\.Release\.Namespace\s*\}\}\.svc)'
+        )
+        dnsnames_replacement = r'\1\2'
+        content = re.sub(dnsnames_pattern, dnsnames_replacement, content, flags=re.MULTILINE | re.DOTALL)
+
+        # Also handle the case where the pattern spans multiple lines
+        # Pattern with line breaks: {{ include ... }}-{{ .Release.Namespace\n    }}-service-name
+        dnsnames_multiline_pattern = (
+            r'(\{\{\s*include\s+"' + chart_name_escaped + r'\.fullname"\s+\.\s*\}\}\s*-\s*)'
+            r'\{\{\s*\.Release\.Namespace\s*\n\s*\}\}\s*-\s*'
+            + r'(' + re.escape(service_name) + r'\.\{\{\s*\.Release\.Namespace\s*\}\}\.svc)'
+        )
+        content = re.sub(dnsnames_multiline_pattern, dnsnames_replacement, content, flags=re.MULTILINE | re.DOTALL)
 
     # Fix issuerRef name: should be just "selfsigned-issuer", not templated
     chart_name_escaped = chart_name.replace('.', r'\.')
@@ -50,11 +70,29 @@ def fix_certificate_file(filepath, service_name, chart_name="kserve-chart"):
     issuer_replacement = "name: selfsigned-issuer"
     content = re.sub(issuer_pattern, issuer_replacement, content)
 
-    # Also fix commonName to match the fullname pattern (if hardcoded)
+    # Fix commonName: Remove fullname prefix if it exists (for llmisvc certificate)
+    # Pattern: commonName: {{ include "chart.fullname" . }}-service-name.{{ .Release.Namespace }}.svc
+    # Should be: commonName: service-name.{{ .Release.Namespace }}.svc (for llmisvc)
+    # OR add fullname prefix if missing (for kserve certificate)
+    chart_name_escaped = chart_name.replace('.', r'\.')
+
+    # First, try to remove fullname prefix from commonName (for llmisvc)
+    commonname_with_prefix_pattern = (
+        r'commonName:\s*\{\{\s*include\s+"' + chart_name_escaped + r'\.fullname"\s+\.\s*\}\}\s*-\s*'
+        + re.escape(service_name) + r'\.\{\{\s*\.Release\.Namespace\s*\}\}\.svc'
+    )
+    commonname_without_prefix = f"commonName: {service_name}.{{{{ .Release.Namespace }}}}.svc"
+    content = re.sub(commonname_with_prefix_pattern, commonname_without_prefix, content)
+
+    # Then, fix commonName to add fullname pattern if it's hardcoded without template (for kserve)
     # Pattern matches hardcoded service names like "kserve-webhook-server-service.kserve.svc"
-    commonname_pattern = rf"commonName:\s*{service_name}\.\w+\.svc"
-    commonname_replacement = f"commonName: {{{{ include \"{chart_name}.fullname\" . }}}}-{service_name}.{{{{ .Release.Namespace }}}}.svc"
-    content = re.sub(commonname_pattern, commonname_replacement, content)
+    # Only apply if the commonName doesn't already have a template
+    if '{{' not in service_name:  # Only for hardcoded service names
+        commonname_hardcoded_pattern = rf"commonName:\s*{service_name}\.\w+\.svc"
+        # Only replace if it's a hardcoded value (not already templated)
+        if re.search(commonname_hardcoded_pattern, content) and '{{' not in re.search(commonname_hardcoded_pattern, content).group(0):
+            commonname_replacement = f"commonName: {{{{ include \"{chart_name}.fullname\" . }}}}-{service_name}.{{{{ .Release.Namespace }}}}.svc"
+            content = re.sub(commonname_hardcoded_pattern, commonname_replacement, content)
 
     with open(filepath, 'w') as f:
         f.write(content)
@@ -71,8 +109,10 @@ if __name__ == '__main__':
     )
 
     # Fix LLMISvc controller certificate in kserve-resources
+    # Remove fullname prefix from both commonName and dnsNames (service name doesn't have prefix)
     fix_certificate_file(
         'charts/kserve-resources/templates/llmisvc-serving-cert.yaml',
         'llmisvc-webhook-server-service',
-        'kserve-resources'
+        'kserve-resources',
+        remove_fullname_prefix=True
     )
