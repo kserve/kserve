@@ -41,27 +41,48 @@ def fix_certificate_file(filepath, service_name, chart_name="kserve-chart", remo
         content = re.sub(dnsnames_with_fullname_pattern, dnsnames_without_fullname,
                          content, flags=re.MULTILINE | re.DOTALL)
     else:
-        # For kserve: Remove {{ .Release.Namespace }}- prefix that helmify incorrectly adds to service name
-        # Pattern: {{ include "chart.fullname" . }}-{{ .Release.Namespace }}-service-name.{{ .Release.Namespace }}.svc
-        # Should be: {{ include "chart.fullname" . }}-service-name.{{ .Release.Namespace }}.svc
-        # Handle both single-line and multi-line dnsNames entries
-        # Pattern: {{ include "chart.fullname" . }}-{{ .Release.Namespace }}-service-name
-        dnsnames_pattern = (
-            r'(\{\{\s*include\s+"' + chart_name_escaped + r'\.fullname"\s+\.\s*\}\}\s*-\s*)'
-            r'\{\{\s*\.Release\.Namespace\s*\}\}\s*-\s*'
-            + r'(' + re.escape(service_name) + r'\.\{\{\s*\.Release\.Namespace\s*\}\}\.svc)'
-        )
-        dnsnames_replacement = r'\1\2'
-        content = re.sub(dnsnames_pattern, dnsnames_replacement, content, flags=re.MULTILINE | re.DOTALL)
+        # For kserve: The service name is "kserve-webhook-server-service" (no fullname prefix)
+        # But helmify generates dnsNames with fullname prefix and namespace prefix:
+        # Pattern: {{ include "chart.fullname" . }}-{{ .Release.Namespace }}-webhook-server-service.{{ .Release.Namespace }}.svc
+        # Should be: kserve-webhook-server-service.{{ .Release.Namespace }}.svc
+        if service_name == "webhook-server-service":
+            # Remove both fullname prefix and namespace prefix from dnsNames to match actual service name "kserve-webhook-server-service"
+            # Pattern 1: {{ include "chart.fullname" . }}-{{ .Release.Namespace }}-webhook-server-service.{{ .Release.Namespace }}.svc
+            dnsnames_with_both_prefixes_pattern = (
+                r'\{\{\s*include\s+"' + chart_name_escaped + r'\.fullname"\s+\.\s*\}\}\s*-\s*'
+                r'\{\{\s*\.Release\.Namespace\s*\}\}\s*-\s*'
+                + re.escape(service_name) + r'\.\{\{\s*\.Release\.Namespace\s*\}\}\.svc'
+            )
+            dnsnames_without_prefixes = f"kserve-{service_name}.{{{{ .Release.Namespace }}}}.svc"
+            content = re.sub(dnsnames_with_both_prefixes_pattern, dnsnames_without_prefixes,
+                             content, flags=re.MULTILINE | re.DOTALL)
 
-        # Also handle the case where the pattern spans multiple lines
-        # Pattern with line breaks: {{ include ... }}-{{ .Release.Namespace\n    }}-service-name
-        dnsnames_multiline_pattern = (
-            r'(\{\{\s*include\s+"' + chart_name_escaped + r'\.fullname"\s+\.\s*\}\}\s*-\s*)'
-            r'\{\{\s*\.Release\.Namespace\s*\n\s*\}\}\s*-\s*'
-            + r'(' + re.escape(service_name) + r'\.\{\{\s*\.Release\.Namespace\s*\}\}\.svc)'
-        )
-        content = re.sub(dnsnames_multiline_pattern, dnsnames_replacement, content, flags=re.MULTILINE | re.DOTALL)
+            # Pattern 2: {{ include "chart.fullname" . }}-webhook-server-service.{{ .Release.Namespace }}.svc (if namespace prefix was already removed)
+            dnsnames_with_fullname_pattern = (
+                r'\{\{\s*include\s+"' + chart_name_escaped + r'\.fullname"\s+\.\s*\}\}\s*-\s*'
+                + re.escape(service_name) + r'\.\{\{\s*\.Release\.Namespace\s*\}\}\.svc'
+            )
+            content = re.sub(dnsnames_with_fullname_pattern, dnsnames_without_prefixes,
+                             content, flags=re.MULTILINE | re.DOTALL)
+        else:
+            # For other services: Remove {{ .Release.Namespace }}- prefix that helmify incorrectly adds to service name
+            # Pattern: {{ include "chart.fullname" . }}-{{ .Release.Namespace }}-service-name.{{ .Release.Namespace }}.svc
+            # Should be: {{ include "chart.fullname" . }}-service-name.{{ .Release.Namespace }}.svc
+            dnsnames_pattern = (
+                r'(\{\{\s*include\s+"' + chart_name_escaped + r'\.fullname"\s+\.\s*\}\}\s*-\s*)'
+                r'\{\{\s*\.Release\.Namespace\s*\}\}\s*-\s*'
+                + r'(' + re.escape(service_name) + r'\.\{\{\s*\.Release\.Namespace\s*\}\}\.svc)'
+            )
+            dnsnames_replacement = r'\1\2'
+            content = re.sub(dnsnames_pattern, dnsnames_replacement, content, flags=re.MULTILINE | re.DOTALL)
+
+            # Also handle the case where the pattern spans multiple lines
+            dnsnames_multiline_pattern = (
+                r'(\{\{\s*include\s+"' + chart_name_escaped + r'\.fullname"\s+\.\s*\}\}\s*-\s*)'
+                r'\{\{\s*\.Release\.Namespace\s*\n\s*\}\}\s*-\s*'
+                + r'(' + re.escape(service_name) + r'\.\{\{\s*\.Release\.Namespace\s*\}\}\.svc)'
+            )
+            content = re.sub(dnsnames_multiline_pattern, dnsnames_replacement, content, flags=re.MULTILINE | re.DOTALL)
 
     # Fix issuerRef name
     chart_name_escaped = chart_name.replace('.', r'\.')
