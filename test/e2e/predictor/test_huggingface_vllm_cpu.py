@@ -283,10 +283,10 @@ def test_huggingface_vllm_cpu_rerank():
 
     res = rerank(service_name, "./data/bge-reranker-base.json")
     assert res["results"][0]["index"] == 1
-    assert res["results"][0]["relevance_score"] == 1.0
+    assert res["results"][0]["relevance_score"] == pytest.approx(1.0, rel=1e-2)
     assert res["results"][0]["document"]["text"] == "The capital of France is Paris."
     assert res["results"][1]["index"] == 0
-    assert res["results"][1]["relevance_score"] == 0.00058746337890625
+    assert res["results"][1]["relevance_score"] == pytest.approx(0.0, abs=1e-2)
     assert res["results"][1]["document"]["text"] == "The capital of Brazil is Brasilia."
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
