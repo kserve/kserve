@@ -526,7 +526,7 @@ ENVOY_AI_GATEWAY_VERSION=v0.3.0
 KNATIVE_OPERATOR_VERSION=v1.16.0
 KNATIVE_SERVING_VERSION=1.15.2
 KEDA_OTEL_ADDON_VERSION=v0.0.6
-KSERVE_VERSION=v0.16.0-rc1
+KSERVE_VERSION=v0.16.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.16.1
 OPENTELEMETRY_OPERATOR_VERSION=0.113.0
@@ -1186,7 +1186,7 @@ install_kserve_helm() {
         # Install KServe resources
         log_info "Installing KServe resources..."
         helm install "${KSERVE_RELEASE_NAME}" \
-            oci://ghcr.io/kserve/charts/${CORE_DIR_NAME} \
+            oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
             --version "${KSERVE_VERSION}" \
             --namespace "${KSERVE_NAMESPACE}" \
             --create-namespace \
