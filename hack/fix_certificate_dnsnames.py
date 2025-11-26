@@ -94,10 +94,21 @@ def fix_certificate_file(filepath, service_name, chart_name="kserve-chart", remo
     commonname_without_prefix = f"commonName: {service_name}.{{{{ .Release.Namespace }}}}.svc"
     content = re.sub(commonname_with_prefix_pattern, commonname_without_prefix, content)
 
+    # For llmisvc: Also convert hardcoded namespace to template (if it's still hardcoded)
+    # Pattern: commonName: service-name.namespace.svc -> commonName: service-name.{{ .Release.Namespace }}.svc
+    if remove_fullname_prefix:
+        hardcoded_namespace_pattern = rf'commonName:\s*{re.escape(service_name)}\.\w+\.svc'
+        templated_namespace = f"commonName: {service_name}.{{{{ .Release.Namespace }}}}.svc"
+        # Only replace if it's a hardcoded value (not already templated)
+        if re.search(hardcoded_namespace_pattern, content) and '{{' not in re.search(hardcoded_namespace_pattern, content).group(0):
+            content = re.sub(hardcoded_namespace_pattern, templated_namespace, content)
+
     # Then, fix commonName to add fullname pattern if it's hardcoded without template (for kserve)
     # Pattern matches hardcoded service names like "kserve-webhook-server-service.kserve.svc"
     # Only apply if the commonName doesn't already have a template
-    if '{{' not in service_name:  # Only for hardcoded service names
+    # Skip this for llmisvc certificates (remove_fullname_prefix=True) - they should stay hardcoded
+    # Only for hardcoded service names and kserve certificates
+    if not remove_fullname_prefix and '{{' not in service_name:
         commonname_hardcoded_pattern = rf"commonName:\s*{service_name}\.\w+\.svc"
         # Only replace if it's a hardcoded value (not already templated)
         if re.search(commonname_hardcoded_pattern, content) and '{{' not in re.search(commonname_hardcoded_pattern, content).group(0):

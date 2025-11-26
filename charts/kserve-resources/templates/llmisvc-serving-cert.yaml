@@ -5,7 +5,7 @@ metadata:
   labels:
   {{- include "kserve-resources.labels" . | nindent 4 }}
 spec:
-  commonName: {{ include "kserve-resources.fullname" . }}-llmisvc-webhook-server-service.{{ .Release.Namespace }}.svc
+  commonName: llmisvc-webhook-server-service.{{ .Release.Namespace }}.svc
   dnsNames:
   - 'llmisvc-webhook-server-service.{{ .Release.Namespace }}.svc'
   issuerRef:
