@@ -256,8 +256,10 @@ helm-generate-llmisvc: helmify yq
 	# Escape embedded Go templates (KServe runtime templates, not Helm templates)
 	@echo "Escaping Go templates in ConfigMap..."
 	@./hack/escape_helm_templates.py charts/kserve-llmisvc-resources/templates/inferenceservice-config.yaml
-	
 
+	# Fix malformed Certificate dnsNames
+	@echo "Fixing Certificate templates..."
+	@./hack/fix_certificate_dnsnames.py
 
 	# Validate
 	@echo "Validating Helm chart..."

@@ -17,7 +17,7 @@ def fix_certificate_file(filepath, service_name, chart_name="kserve-chart", remo
     if not os.path.exists(filepath):
         return
 
-    with open(filepath, 'r') as f:
+    with open(filepath, 'r', encoding='utf-8') as f:
         content = f.read()
 
     # Fix malformed include pattern first (if it exists)
@@ -63,12 +63,22 @@ def fix_certificate_file(filepath, service_name, chart_name="kserve-chart", remo
         )
         content = re.sub(dnsnames_multiline_pattern, dnsnames_replacement, content, flags=re.MULTILINE | re.DOTALL)
 
-    # Fix issuerRef name: should be just "selfsigned-issuer", not templated
+    # Fix issuerRef name
     chart_name_escaped = chart_name.replace('.', r'\.')
-    issuer_pattern = r"name:\s*'?\{\{\s*include\s+\"" + chart_name_escaped + \
-        r"\.fullname\"\s+\.\s*\}\}\s*-\s*selfsigned-issuer'?"
-    issuer_replacement = "name: selfsigned-issuer"
-    content = re.sub(issuer_pattern, issuer_replacement, content)
+
+    # For kserve-resources: issuerRef should be just "selfsigned-issuer" (not templated)
+    # For llmisvc-resources: issuerRef should use fullname template
+    if chart_name == "kserve-resources":
+        # Remove fullname template from issuerRef (if it exists)
+        issuer_pattern = r"name:\s*'?\{\{\s*include\s+\"" + chart_name_escaped + \
+            r"\.fullname\"\s+\.\s*\}\}\s*-\s*selfsigned-issuer'?"
+        issuer_replacement = "name: selfsigned-issuer"
+        content = re.sub(issuer_pattern, issuer_replacement, content)
+    elif chart_name == "kserve-llmisvc-resources":
+        # Fix issuerRef to use fullname template (if it's just "selfsigned-issuer")
+        issuer_pattern = r"name:\s*selfsigned-issuer"
+        issuer_replacement = f'name: {{{{ include "{chart_name}.fullname" . }}}}-selfsigned-issuer'
+        content = re.sub(issuer_pattern, issuer_replacement, content)
 
     # Fix commonName: Remove fullname prefix if it exists (for llmisvc certificate)
     # Pattern: commonName: {{ include "chart.fullname" . }}-service-name.{{ .Release.Namespace }}.svc
@@ -94,7 +104,7 @@ def fix_certificate_file(filepath, service_name, chart_name="kserve-chart", remo
             commonname_replacement = f"commonName: {{{{ include \"{chart_name}.fullname\" . }}}}-{service_name}.{{{{ .Release.Namespace }}}}.svc"
             content = re.sub(commonname_hardcoded_pattern, commonname_replacement, content)
 
-    with open(filepath, 'w') as f:
+    with open(filepath, 'w', encoding='utf-8') as f:
         f.write(content)
 
     print(f"Fixed {filepath}")
@@ -114,5 +124,15 @@ if __name__ == '__main__':
         'charts/kserve-resources/templates/llmisvc-serving-cert.yaml',
         'llmisvc-webhook-server-service',
         'kserve-resources',
+        remove_fullname_prefix=True
+    )
+
+    # Fix LLMISvc controller certificate in kserve-llmisvc-resources
+    # Remove fullname prefix from both commonName and dnsNames (service name doesn't have prefix)
+    # Also fix issuerRef to use fullname template
+    fix_certificate_file(
+        'charts/kserve-llmisvc-resources/templates/llmisvc-serving-cert.yaml',
+        'llmisvc-webhook-server-service',
+        'kserve-llmisvc-resources',
         remove_fullname_prefix=True
     )

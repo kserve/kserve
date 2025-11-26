@@ -247,10 +247,11 @@ if [ "${USE_LOCAL_CHARTS}" = true ]; then
    echo "📍 Using local charts from $(pwd)/charts/"
    # Install LLMISvc CRDs from local chart
    helm install llmisvc-crd ./charts/kserve-llmisvc-crd --namespace kserve --create-namespace --wait
+   echo "😀 Successfully installed LLMISvc CRDs using local charts"
 
    # Install LLMISvc resources from local chart  
    helm install llmisvc ./charts/kserve-llmisvc-resources --namespace kserve --create-namespace --wait --set kserve.llmisvc.controller.tag=local-test --set kserve.llmisvc.controller.imagePullPolicy=Never
-   echo "😀 Successfully installed LLMISvc using local charts"
+   echo "😀 Successfully installed LLMISvc resources using local charts"
 
 else
    echo "Installing LLMISvc ..."
