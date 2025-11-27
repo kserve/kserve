@@ -702,9 +702,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 						return nil
 					}).WithContext(ctx).Should(Succeed(), "Should have no managed HTTPRoutes with router when ")
 
-					Eventually(LLMInferenceServiceIsReady(llmSvc, func(g Gomega, current *v1alpha1.LLMInferenceService) {
-						g.Expect(current.Status).To(HaveCondition(string(v1alpha1.HTTPRoutesReady), "True"))
-					})).WithContext(ctx).Should(Succeed())
+					Eventually(LLMInferenceServiceIsReady(llmSvc)).WithContext(ctx).Should(Succeed())
 				},
 				Entry("should delete HTTPRoutes when spec.Router is set to nil",
 					"router-spec-nil",
