@@ -1,4 +1,4 @@
 # Developer Guide
 
-Please review the [KServe Developer Guide](https://github.com/kserve/website/blob/main/docs/developer/developer.md) docs.
+Please review the [KServe Developer Guide](https://github.com/kserve/website/blob/main/docs/developer-guide/index.md) docs.
 

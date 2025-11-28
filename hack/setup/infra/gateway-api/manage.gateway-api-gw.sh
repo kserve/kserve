@@ -52,7 +52,7 @@ install() {
     if kubectl get gateway "${GATEWAY_NAME}" -n "${GATEWAY_NAMESPACE}" &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
             log_info "KServe Gateway '${GATEWAY_NAME}' already exists in namespace '${GATEWAY_NAMESPACE}'. Use --reinstall to recreate."
-            exit 0
+            return 0
         else
             log_info "Recreating KServe Gateway '${GATEWAY_NAME}'..."
             uninstall
