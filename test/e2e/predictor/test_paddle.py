@@ -52,7 +52,13 @@ async def test_paddle(rest_v1_client):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=V1ObjectMeta(
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            labels={
+                constants.KSERVE_LABEL_NETWORKING_VISIBILITY: constants.KSERVE_LABEL_NETWORKING_VISIBILITY_EXPOSED,
+            },
+        ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -100,7 +106,13 @@ async def test_paddle_runtime(rest_v1_client):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=V1ObjectMeta(
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            labels={
+                constants.KSERVE_LABEL_NETWORKING_VISIBILITY: constants.KSERVE_LABEL_NETWORKING_VISIBILITY_EXPOSED,
+            },
+        ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -149,7 +161,13 @@ async def test_paddle_v2_kserve(rest_v2_client):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=V1ObjectMeta(
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            labels={
+                constants.KSERVE_LABEL_NETWORKING_VISIBILITY: constants.KSERVE_LABEL_NETWORKING_VISIBILITY_EXPOSED,
+            },
+        ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 

@@ -50,6 +50,7 @@ INPUT = "./data/iris_input.json"
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
+@pytest.mark.skip("We do not test anymore with Knative")
 async def test_sklearn_kserve_concurrency(rest_v1_client):
     service_name = "isvc-sklearn-scale-concurrency"
     predictor = V1beta1PredictorSpec(
@@ -68,7 +69,8 @@ async def test_sklearn_kserve_concurrency(rest_v1_client):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -94,6 +96,7 @@ async def test_sklearn_kserve_concurrency(rest_v1_client):
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
+@pytest.mark.skip("We do not test anymore with Knative")
 async def test_sklearn_kserve_rps(rest_v1_client):
     service_name = "isvc-sklearn-scale-rps"
     predictor = V1beta1PredictorSpec(
@@ -113,7 +116,8 @@ async def test_sklearn_kserve_rps(rest_v1_client):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -137,7 +141,7 @@ async def test_sklearn_kserve_rps(rest_v1_client):
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.skip()
+@pytest.mark.skip("Not needed to test with knative")
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_kserve_cpu(rest_v1_client):
     service_name = "isvc-sklearn-scale-cpu"

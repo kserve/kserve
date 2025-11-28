@@ -51,7 +51,11 @@ async def test_pmml_kserve(rest_v1_client):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            labels={
+                constants.KSERVE_LABEL_NETWORKING_VISIBILITY: constants.KSERVE_LABEL_NETWORKING_VISIBILITY_EXPOSED,
+            },
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -100,7 +104,11 @@ async def test_pmml_runtime_kserve(rest_v1_client):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            labels={
+                constants.KSERVE_LABEL_NETWORKING_VISIBILITY: constants.KSERVE_LABEL_NETWORKING_VISIBILITY_EXPOSED,
+            },
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -146,7 +154,11 @@ async def test_pmml_v2_kserve(rest_v2_client):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            labels={
+                constants.KSERVE_LABEL_NETWORKING_VISIBILITY: constants.KSERVE_LABEL_NETWORKING_VISIBILITY_EXPOSED,
+            },
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )

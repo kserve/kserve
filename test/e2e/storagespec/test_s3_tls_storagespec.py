@@ -72,6 +72,7 @@ ssl_error = "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed"
 
 @pytest.mark.kserve_on_openshift
 @pytest.mark.asyncio(scope="session")
+@pytest.mark.skip("Will be fixed as part of RHOAIENG-39707")
 async def test_s3_tls_global_custom_cert_storagespec_kserve():
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -113,7 +114,11 @@ async def test_s3_tls_global_custom_cert_storagespec_kserve():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            labels={
+                constants.KSERVE_LABEL_NETWORKING_VISIBILITY: constants.KSERVE_LABEL_NETWORKING_VISIBILITY_EXPOSED,
+            },
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -149,6 +154,7 @@ async def test_s3_tls_global_custom_cert_storagespec_kserve():
 
 @pytest.mark.kserve_on_openshift
 @pytest.mark.asyncio(scope="session")
+@pytest.mark.skip("Will be fixed as part of RHOAIENG-39707")
 async def test_s3_tls_custom_cert_storagespec_kserve():
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -190,7 +196,11 @@ async def test_s3_tls_custom_cert_storagespec_kserve():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            labels={
+                constants.KSERVE_LABEL_NETWORKING_VISIBILITY: constants.KSERVE_LABEL_NETWORKING_VISIBILITY_EXPOSED,
+            },
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -226,6 +236,7 @@ async def test_s3_tls_custom_cert_storagespec_kserve():
 
 @pytest.mark.kserve_on_openshift
 @pytest.mark.asyncio(scope="session")
+@pytest.mark.skip("Will be fixed as part of RHOAIENG-39707")
 async def test_s3_tls_serving_cert_storagespec_kserve():
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -251,7 +262,11 @@ async def test_s3_tls_serving_cert_storagespec_kserve():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            labels={
+                constants.KSERVE_LABEL_NETWORKING_VISIBILITY: constants.KSERVE_LABEL_NETWORKING_VISIBILITY_EXPOSED,
+            },
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )

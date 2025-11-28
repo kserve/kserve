@@ -53,7 +53,13 @@ async def test_kserve_logger(rest_v1_client):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=client.V1ObjectMeta(
+            name=msg_dumper,
+            namespace=KSERVE_TEST_NAMESPACE,
+            labels={
+                constants.KSERVE_LABEL_NETWORKING_VISIBILITY: constants.KSERVE_LABEL_NETWORKING_VISIBILITY_EXPOSED,
+            },
+        ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -65,7 +71,7 @@ async def test_kserve_logger(rest_v1_client):
         min_replicas=1,
         logger=V1beta1LoggerSpec(
             mode="all",
-            url=f"http://{msg_dumper}." + KSERVE_TEST_NAMESPACE + ".svc.cluster.local",
+            url=f"http://{msg_dumper}-predictor." + KSERVE_TEST_NAMESPACE + ".svc.cluster.local",
         ),
         sklearn=V1beta1SKLearnSpec(
             storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
@@ -80,7 +86,11 @@ async def test_kserve_logger(rest_v1_client):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            labels={
+                constants.KSERVE_LABEL_NETWORKING_VISIBILITY: constants.KSERVE_LABEL_NETWORKING_VISIBILITY_EXPOSED,
+            },
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )

@@ -43,14 +43,9 @@ def grpc_client(host, cluster_ip):
     if ":" not in cluster_ip:
         cluster_ip = cluster_ip + ":80"
     logger.info("Cluster IP: %s", cluster_ip)
-    logger.info("gRPC target host: %s", host)
     return InferenceGRPCClient(
         cluster_ip,
         verbose=True,
-        channel_args=[
-            ("grpc.ssl_target_name_override", host),
-        ],
-        timeout=120,
     )
 
 
@@ -277,6 +272,7 @@ async def predict_grpc(
 
     if model_name is None:
         model_name = service_name
+
     client = grpc_client(host, cluster_ip)
 
     response = await client.infer(
@@ -312,10 +308,16 @@ def get_isvc_endpoint(isvc, network_layer: str = "istio"):
     scheme = urlparse(isvc["status"]["url"]).scheme
     host = urlparse(isvc["status"]["url"]).netloc
     path = urlparse(isvc["status"]["url"]).path
-    if os.environ.get("CI_USE_ISVC_HOST") == "1":
+    ci_use_isvc_host = os.environ.get("CI_USE_ISVC_HOST")
+    logger.info(f"CI_USE_ISVC_HOST = {ci_use_isvc_host}")
+    logger.info(f"Host from isvc status URL = {host}")
+    logger.info(f"Network layer = {network_layer}")
+    if ci_use_isvc_host == "1":
         cluster_ip = host
+        logger.info(f"Using external route host: {cluster_ip}")
     elif network_layer == "istio" or network_layer == "istio-ingress":
         cluster_ip = get_cluster_ip()
+        logger.info(f"Using internal cluster IP: {cluster_ip}")
     elif network_layer == "envoy-gatewayapi":
         cluster_ip = get_cluster_ip(
             namespace="envoy-gateway-system",

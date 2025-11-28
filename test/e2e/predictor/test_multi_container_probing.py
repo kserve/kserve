@@ -46,13 +46,11 @@ logger = logging.getLogger(__name__)
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
-def get_ksvc(k8s_client: client.CustomObjectsApi, service_name: str) -> dict:
-    return k8s_client.get_namespaced_custom_object(
-        group="serving.knative.dev",
-        version="v1",
-        namespace=KSERVE_TEST_NAMESPACE,
-        plural="services",
+def get_deployment(k8s_client: client.AppsV1Api, service_name: str) -> client.V1Deployment:
+    """Get the Kubernetes Deployment for RawDeployment mode."""
+    return k8s_client.read_namespaced_deployment(
         name=service_name + "-predictor",
+        namespace=KSERVE_TEST_NAMESPACE,
     )
 
 
@@ -132,6 +130,9 @@ async def test_multi_container_probing(rest_v1_client):
                 "serving.kserve.io/autoscalerClass": "none",
                 "serving.kserve.io/DeploymentMode": "RawDeployment",
             },
+            labels={
+                constants.KSERVE_LABEL_NETWORKING_VISIBILITY: constants.KSERVE_LABEL_NETWORKING_VISIBILITY_EXPOSED,
+            },
         ),
         spec=V1beta1InferenceServiceSpec(
             predictor=predictor,
@@ -141,39 +142,39 @@ async def test_multi_container_probing(rest_v1_client):
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, KSERVE_TEST_NAMESPACE)
 
-    # Get the Knative Service
-    k8s_client = client.CustomObjectsApi()
+    # Get the Kubernetes Deployment for RawDeployment mode
+    k8s_client = client.AppsV1Api()
     try:
-        for ksvc in TimeoutSampler(
-            wait_timeout=15,
+        for deployment in TimeoutSampler(
+            wait_timeout=60,
             sleep=2,
-            func=lambda: get_ksvc(k8s_client, service_name),
+            func=lambda: get_deployment(k8s_client, service_name),
         ):
-            # Wait for Ready condition to be True
-            if ksvc["status"].get("conditions"):
-                ready_condition = next(
-                    (c for c in ksvc["status"]["conditions"] if c["type"] == "Ready"),
-                    None,
-                )
-                if ready_condition and ready_condition["status"] == "True":
-                    break
-            # Get latest ksvc state after Ready condition is met
-        ready_ksvc = get_ksvc(k8s_client, service_name)
-        containers = ready_ksvc["spec"]["template"]["spec"]["containers"]
+            # Wait for Deployment to be ready
+            if deployment.status.ready_replicas and deployment.status.ready_replicas > 0:
+                break
+
+        # Get latest deployment state after ready condition is met
+        ready_deployment = get_deployment(k8s_client, service_name)
+        containers = ready_deployment.spec.template.spec.containers
+
+        # Find containers by name
         kserve_container = next(
-            c for c in containers if c["name"] == "kserve-container"
+            c for c in containers if c.name == "kserve-container"
         )
-        kserve_agent = next(c for c in containers if c["name"] == "kserve-agent")
+        kserve_agent = next(c for c in containers if c.name == "kserve-agent")
 
         # Verify kserve-container probes
-        assert kserve_container["livenessProbe"] is not None
-        assert kserve_container["readinessProbe"] is not None
+        assert kserve_container.liveness_probe is not None
+        assert kserve_container.readiness_probe is not None
+        logger.info("kserve-container probes verified successfully")
 
         # Verify kserve-agent probes
-        assert kserve_agent["livenessProbe"] is not None
-        assert kserve_agent["readinessProbe"] is not None
+        assert kserve_agent.liveness_probe is not None
+        assert kserve_agent.readiness_probe is not None
+        logger.info("kserve-agent probes verified successfully")
 
         kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
     except TimeoutExpiredError as e:
-        logger.error("Timeout waiting for ksvc to be ready")
+        logger.error("Timeout waiting for deployment to be ready")
         raise e

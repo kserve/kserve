@@ -25,6 +25,20 @@ set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
+# Define deployment types that skip serverless installation
+MARKERS_SKIP_SERVERLESS=("raw" "graph" "predictor" "path_based_routing")
+
+# Helper function to check if deployment type should skip serverless
+skip_serverless() {
+  local deployment_type="$1"
+  for type in "${MARKERS_SKIP_SERVERLESS[@]}"; do
+    if [[ "$deployment_type" =~ $type ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 : "${SKLEARN_IMAGE:=kserve/sklearnserver:latest}"
 : "${KSERVE_CONTROLLER_IMAGE:=quay.io/opendatahub/kserve-controller:latest}"
 : "${KSERVE_AGENT_IMAGE:=quay.io/opendatahub/kserve-agent:latest}"
@@ -93,8 +107,8 @@ if [[ "$1" =~ raw ]]; then
   fi
 fi
 
-# Install KServe stack - skip serverless for raw and graph deployments
-if [[ ! "$1" =~ raw && ! "$1" =~ graph ]]; then
+# Install KServe stack - skip serverless for raw, graph and predictor deployments
+if ! skip_serverless "$1"; then
   echo "Installing OSSM"
   $MY_PATH/deploy.ossm.sh
   echo "Installing Serverless"
@@ -112,15 +126,15 @@ kustomize build $PROJECT_ROOT/config/overlays/test |
   sed "s|kserve/agent:latest|${KSERVE_AGENT_IMAGE}|" |
   sed "s|kserve/router:latest|${KSERVE_ROUTER_IMAGE}|" |
   sed "s|kserve/kserve-controller:latest|${KSERVE_CONTROLLER_IMAGE}|" |
-  oc apply --server-side=true -f -
+  oc apply --server-side=true --force-conflicts -f -
 
 # Install DSC/DSCI for test. (sometimes there is timing issue when it is under the same kustomization so it is separated)
 oc apply -f config/overlays/test/dsci.yaml
 oc apply -f config/overlays/test/dsc.yaml
 
 # Patch the inferenceservice-config ConfigMap, when running RawDeployment tests
-if [[ "$1" =~ raw || "$1" =~ graph ]]; then
-  echo "Patching RAW/Graph deployment, markers: $1"
+if skip_serverless "$1"; then
+  echo "Patching RAW deployment, markers: $1"
   export OPENSHIFT_INGRESS_DOMAIN=$(oc get ingresses.config cluster -o jsonpath='{.spec.domain}')
   oc patch configmap inferenceservice-config -n kserve --patch-file <(cat config/overlays/test/configmap/inferenceservice-openshift-ci-raw.yaml | envsubst)
   oc delete pod -n kserve -l control-plane=kserve-controller-manager
@@ -135,7 +149,7 @@ fi
 echo "waiting kserve-controller get ready..."
 oc wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 
-if [[ ! "$1" =~ raw && ! "$1" =~ graph ]]; then
+if ! skip_serverless "$1"; then
   echo "Installing authorino and kserve gateways"
   # authorino
   curl -sL https://raw.githubusercontent.com/Kuadrant/authorino-operator/main/utils/install.sh | sed "s|kubectl|oc|" |
@@ -147,6 +161,7 @@ echo "Installing ODH Model Controller"
 kustomize build $PROJECT_ROOT/test/scripts/openshift-ci |
     sed "s|quay.io/opendatahub/odh-model-controller:fast|${ODH_MODEL_CONTROLLER_IMAGE}|" |
     oc apply -n kserve -f -
+  echo "Waiting for the odh-model-controller pod to become ready... (300s)"
   oc wait --for=condition=ready pod -l app=odh-model-controller -n kserve --timeout=300s
 
 # Configure certs for the python requests by getting the CA cert from the kserve controller pod 
@@ -209,7 +224,7 @@ metadata:
   name: kserve-ci-e2e-test
 EOF
 
-if [[ ! "$1" =~ raw && ! "$1" =~ graph ]]; then
+if ! skip_serverless "$1"; then
   cat <<EOF | oc apply -f -
 apiVersion: maistra.io/v1
 kind: ServiceMeshMember
@@ -233,7 +248,7 @@ kustomize build $PROJECT_ROOT/config/overlays/test/clusterresources |
 
 # Add the enablePassthrough annotation to the ServingRuntimes, to let Knative to
 # generate passthrough routes.
-if [[ ! "$1" =~ raw && ! "$1" =~ graph ]]; then
+if ! skip_serverless "$1"; then
   oc annotate servingruntimes -n kserve-ci-e2e-test --all serving.knative.openshift.io/enablePassthrough=true
 fi
 

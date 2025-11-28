@@ -37,6 +37,7 @@ if $RUNNING_LOCAL; then
   export GITHUB_SHA=master
 
   if [ "$BUILD_KSERVE_IMAGES" = "true" ]; then
+    echo "asd"
     pushd $PROJECT_ROOT >/dev/null
     ./test/scripts/openshift-ci/build-kserve-images.sh | tee 2>&1 ./test/scripts/openshift-ci/build-kserve-images.log
     popd
@@ -60,6 +61,11 @@ fi
 PARALLELISM="${2:-1}"
 
 # Use certify go module to get the CA certs
+if [ ! -f "/tmp/ca.crt" ]; then
+  echo "❌ Error: CA certificate file '/tmp/ca.crt' not found. Please ensure the setup script ran successfully."
+  exit 1
+fi
+
 export REQUESTS_CA_BUNDLE="/tmp/ca.crt"
 echo "REQUESTS_CA_BUNDLE=$(cat ${REQUESTS_CA_BUNDLE})"
 

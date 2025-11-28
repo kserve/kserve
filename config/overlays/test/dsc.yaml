@@ -19,11 +19,13 @@ spec:
     kserve:
       defaultDeploymentMode: Serverless
       managementState: Managed
+      nim:
+        managementState: Removed
       serving:
         ingressGateway:
           certificate:
             type: OpenshiftDefaultIngress
-        managementState: Managed
+        managementState: Removed
         name: knative-serving
     modelmeshserving:
       managementState: Removed

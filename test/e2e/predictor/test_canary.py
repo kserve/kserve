@@ -33,6 +33,7 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
+@pytest.mark.skip(reason="Canary rollouts require Knative Serving and are not supported in RawDeployment mode")
 def test_canary_rollout():
     service_name = "isvc-canary"
     default_endpoint_spec = V1beta1InferenceServiceSpec(
@@ -52,7 +53,8 @@ def test_canary_rollout():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
         ),
         spec=default_endpoint_spec,
     )
@@ -96,6 +98,7 @@ def test_canary_rollout():
 
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
+@pytest.mark.skip(reason="Canary rollouts require Knative Serving and are not supported in RawDeployment mode")
 def test_canary_rollout_runtime():
     service_name = "isvc-canary-runtime"
     default_endpoint_spec = V1beta1InferenceServiceSpec(
@@ -118,7 +121,8 @@ def test_canary_rollout_runtime():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
         ),
         spec=default_endpoint_spec,
     )

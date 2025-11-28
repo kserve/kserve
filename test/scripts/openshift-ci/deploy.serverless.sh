@@ -172,8 +172,13 @@ if [ -z "$secret_name" ]; then
   if $RUNNING_LOCAL; then
     export secret_name=router-certs-default
   else
-    # In OpenShift 4.12, the default secret name is changed to default-ingress-cert
-    export secret_name=default-ingress-cert
+    # Check which secret exists in the openshift-ingress namespace
+    if oc get secret default-ingress-cert -n openshift-ingress >/dev/null 2>&1; then
+      export secret_name=default-ingress-cert
+    else
+      echo "Secret 'default-ingress-cert' not found in openshift-ingress namespace, defaulting to 'router-certs-default'"
+      export secret_name=router-certs-default
+    fi
   fi
 fi
 oc get secret -n openshift-ingress

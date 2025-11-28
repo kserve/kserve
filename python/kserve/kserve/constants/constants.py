@@ -37,6 +37,10 @@ KSERVE_V1ALPHA1 = KSERVE_GROUP + "/" + KSERVE_V1ALPHA1_VERSION
 
 KSERVE_LOGLEVEL = os.environ.get("KSERVE_LOGLEVEL", "INFO").upper()
 
+# KServe label constants
+KSERVE_LABEL_NETWORKING_VISIBILITY = "networking.kserve.io/visibility"
+KSERVE_LABEL_NETWORKING_VISIBILITY_EXPOSED = "exposed"
+
 # INFERENCESERVICE credentials common constants
 INFERENCESERVICE_CONFIG_MAP_NAME = "inferenceservice-config"
 INFERENCESERVICE_SYSTEM_NAMESPACE = "kserve"
