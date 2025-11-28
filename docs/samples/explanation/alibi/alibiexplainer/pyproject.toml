@@ -12,8 +12,9 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.9,<=3.12"
 kserve = { path = "../../../../../python/kserve", extras = ["storage"], develop = true }
-alibi = { version = "^0.9.4", extras = ["shap", "tensorflow"] } # From 0.9.5 alibi uses BSL license
-tensorflow = ">=2.14"  # version that starts to support python 3.9
+alibi = { version = "^0.9.4", extras = ["shap"] } # From 0.9.5 alibi uses BSL license (removed tensorflow extra to allow newer tensorflow/protobuf)
+tensorflow = ">=2.15"  # version that supports protobuf 5.x and python 3.9
+protobuf = "^5.27.1"  # Override to match kserve's requirement
 dill = "^0.3.8"
 nest-asyncio = "~1.4.0"
 llvmlite = ">0.38.1" # needed since poetry chooses lower version of llvmlite which is not supported by python 3.9 above
