@@ -1,7 +1,7 @@
 IPEX_EXTRA_INDEX_URL = https://pytorch-extension.intel.com/release-whl/stable/cpu/us/
 TORCH_EXTRA_INDEX_URL = https://download.pytorch.org/whl/cpu
-TORCH_VERSION ?= 2.9.0
-TORCHVISION_VERSION ?= 0.24.0
+TORCH_VERSION ?= 2.8.0
+TORCHVISION_VERSION ?= 0.23.0
 IPEX_VERSION ?= 2.8.0
 
 dev_install:
@@ -10,28 +10,22 @@ dev_install:
 install_dependencies:
 	uv sync --active --group test
 
-# Install CPU-specific PyTorch packages
-# Note: We use exact version with +cpu suffix to ensure CPU-only wheels are installed.
-# The --index-strategy unsafe-best-match allows uv to find +cpu versions from PyTorch index.
-# markupsafe is constrained to avoid version 3.0.2 which lacks cp312 wheels on PyTorch index.
-# IPEX version must match PyTorch major.minor version (e.g., IPEX 2.8.x for PyTorch 2.8.x).
+# CPU build workflow:
+# 1. First run install_cpu_dependencies to install huggingfaceserver dependencies
+# 2. Then run setup_vllm.sh LAST to build vLLM from source with torch CPU
+#
+# The key issue: kserve[llm] depends on vllm==0.11.2 which requires torchvision==0.24.0,
+# but torch==2.8.0+cpu requires torchvision==0.23.0+cpu. To avoid this conflict:
+# - We temporarily replace kserve[llm] with kserve (no vllm dependency)
+# - setup_vllm.sh must run LAST to ensure torch 2.8.0+cpu is not overwritten
 install_cpu_dependencies:
-	uv add --active \
-		"torch==${TORCH_VERSION}+cpu" \
-		"torchaudio==${TORCH_VERSION}+cpu" \
-		"torchvision==${TORCHVISION_VERSION}+cpu" \
-		"markupsafe>=2.0.0,<3.0.0" \
-		--index ${TORCH_EXTRA_INDEX_URL} \
-		--index-strategy unsafe-best-match
-
+	@echo "Replacing kserve[llm] with kserve to avoid vllm dependency conflict..."
+	sed -i 's/kserve\[llm\]/kserve/' pyproject.toml
 	uv lock
-
-	uv add --active \
-		"intel_extension_for_pytorch==${IPEX_VERSION}+cpu" \
-		--index ${IPEX_EXTRA_INDEX_URL} \
-		--index-strategy unsafe-best-match
-
-	uv sync --active --no-cache --dev --group test
+	@echo "Installing huggingfaceserver with test dependencies..."
+	uv sync --active --group test
+	@echo "Restoring original pyproject.toml..."
+	sed -i 's/"kserve @/"kserve[llm] @/' pyproject.toml
 
 test: type_check
 	pytest -W ignore

@@ -259,22 +259,20 @@ jobs:
           uv venv /mnt/python/huggingfaceserver-cpu-venv
           echo "/mnt/python/huggingfaceserver-cpu-venv/bin" >> $GITHUB_PATH
 
-      - name: Install dependencies
+      - name: Install build dependencies for vLLM
         run: |
-          export VIRTUAL_ENV=/mnt/python/huggingfaceserver-cpu-venv
-          cd python/huggingfaceserver
-          make install_cpu_dependencies
+          sudo apt-get update -y
+          sudo apt-get install -y gcc-12 g++-12 libnuma-dev python3-dev
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 --slave /usr/bin/g++ g++ /usr/bin/g++-12
 
       - name: Install huggingface cpu server
         run: |
           export VIRTUAL_ENV=/mnt/python/huggingfaceserver-cpu-venv
           cd python/huggingfaceserver
-          make dev_install
-          
+          make install_cpu_dependencies
+
       - name: Run tests
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libnuma-dev
           cd python/huggingfaceserver
           /mnt/python/huggingfaceserver-cpu-venv/bin/python -m ensurepip --upgrade
           /mnt/python/huggingfaceserver-cpu-venv/bin/python -m pip install --upgrade pip
