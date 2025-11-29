@@ -299,7 +299,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
@@ -361,7 +361,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
@@ -443,7 +443,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
@@ -517,7 +517,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
@@ -610,7 +610,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
@@ -674,7 +674,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
@@ -733,7 +733,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
@@ -853,7 +853,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
@@ -932,7 +932,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
@@ -1011,7 +1011,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
@@ -1070,7 +1070,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
@@ -1130,7 +1130,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Create tmp-images directory
         run: |
