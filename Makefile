@@ -95,7 +95,7 @@ generate-quick-install-scripts: validate-infra-scripts $(PYTHON_VENV)
 	@$(PYTHON_BIN)/python hack/setup/scripts/install-script-generator/generator.py
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen yq generate-quick-install-scripts
+manifests: controller-gen yq
 	@$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full	
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths={./pkg/controller/v1alpha1/inferencegraph,./pkg/controller/v1alpha1/trainedmodel,./pkg/controller/v1beta1/...} output:rbac:artifacts:config=config/rbac
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
@@ -390,7 +390,7 @@ uv-lock: $(UV)
 
 
 # This runs all necessary steps to prepare for a commit.
-precommit: sync-deps vet tidy go-lint py-fmt py-lint generate manifests uv-lock
+precommit: sync-deps vet tidy go-lint py-fmt py-lint generate manifests uv-lock generate-quick-install-scripts
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit
