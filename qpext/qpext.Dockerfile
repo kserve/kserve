@@ -1,5 +1,5 @@
 # Build the inference qpext binary
-FROM golang:1.24 AS builder
+FROM golang:1.25 AS builder
 
 # Copy in the go src
 WORKDIR /go/src/github.com/kserve/kserve/qpext
