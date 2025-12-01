@@ -4,8 +4,8 @@ kind: Kustomization
 # Adds namespace to all resources.
 namespace: kubeflow
 resources:
-  - ../../default
-  - cluster-role.yaml
+- ../../default
+- cluster-role.yaml
 
 # Labels to add to all resources and selectors.
 labels:
@@ -21,8 +21,8 @@ configurations:
   - params.yaml
 
 replacements:
-  # Replace the namespace with the namespace of the controller manager.
-  - source:
+# Replace the namespace with the namespace of the controller manager.
+- source:
       fieldPath: metadata.namespace
       kind: Deployment
       name: kserve-controller-manager
@@ -163,8 +163,8 @@ replacements:
         select:
           kind: ValidatingWebhookConfiguration
           name: llminferenceserviceconfig.serving.kserve.io
-  # Replace llmisvc webhook service name
-  - source:
+# Replace llmisvc webhook service name
+- source:
       fieldPath: metadata.name
       kind: Service
       name: llmisvc-webhook-server-service
@@ -190,8 +190,8 @@ replacements:
           kind: Certificate
           name: llmisvc-serving-cert
           namespace: kserve
-  # Replace llmisvc service account name
-  - source:
+# Replace llmisvc service account name
+- source:
       fieldPath: metadata.name
       kind: ServiceAccount
       name: llmisvc-controller-manager
@@ -213,5 +213,5 @@ replacements:
           kind: Deployment
           name: llmisvc-controller-manager
 patches:
-  - path: patches/statefulset.yaml
-  - path: patches/namespace.yaml
+- path: patches/statefulset.yaml
+- path: patches/namespace.yaml
