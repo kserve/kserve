@@ -41,7 +41,7 @@ spec:
           image: ${IMG}
 EOF
 
-IMG=$(ko resolve -f config/llmisvc/deployment.yaml | grep 'image:' | head -1 | awk '{print $2}')
+IMG=$(ko resolve -f config/llmisvc/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
 if [ -z ${IMG} ]; then exit; fi
 cat > config/overlays/${OVERLAY}/llmisvc_image_patch.yaml << EOF
 apiVersion: apps/v1
@@ -59,7 +59,7 @@ spec:
           image: ${IMG}
 EOF
 
-IMG=$(ko resolve -f config/llmisvc/deployment.yaml | grep 'image:' | head -1 | awk '{print $2}')
+IMG=$(ko resolve -f config/localmodelnodes/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
 if [ -z ${IMG} ]; then exit; fi
 cat > config/overlays/${OVERLAY}/localmodelnode_image_patch.yaml << EOF
 apiVersion: apps/v1
