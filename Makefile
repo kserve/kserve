@@ -236,13 +236,8 @@ helm-generate-llmisvc: helmify yq
 	@python3 hack/fix_helm_template_syntax.py charts/kserve-llmisvc-resources/templates/*.yaml
 	@mkdir -p charts/kserve-llmisvc-resources
 	@cp build-helm/llmisvc-chart/values.yaml charts/kserve-llmisvc-resources/values.yaml
-	@cp build-helm/llmisvc-chart/Chart.yaml charts/kserve-llmisvc-resources/Chart.yaml
-	# Fix chart name to match directory name
-	@sed -i 's/^name: llmisvc-chart/name: kserve-llmisvc-resources/' charts/kserve-llmisvc-resources/Chart.yaml
-	# Update chart metadata from variables
-	@sed -i 's/^version: .*/version: $(KSERVE_VERSION)/' charts/kserve-llmisvc-resources/Chart.yaml
-	@sed -i 's/^appVersion: .*/appVersion: "$(KSERVE_VERSION)"/' charts/kserve-llmisvc-resources/Chart.yaml
-	@sed -i 's/^description: .*/description: $(KSERVE_LLMISVC_CHART_DESCRIPTION)/' charts/kserve-llmisvc-resources/Chart.yaml
+	# Generate Chart.yaml using Python script (preserves exact master format)
+	@python3 hack/generate_chart_yaml.py $(KSERVE_VERSION) kserve-llmisvc-resources
 	# Fix template names in all template files to match chart name
 	@find charts/kserve-llmisvc-resources/templates -type f \( -name "*.yaml" -o -name "*.tpl" \) | xargs sed -i 's/llmisvc-chart\./kserve-llmisvc-resources./g' 2>/dev/null || true
 	@echo "Note: Chart.yaml is preserved (contains version and metadata)"

@@ -148,7 +148,7 @@ spec:
                 --data-parallel-size {{`{{ or .Spec.Prefill.Parallelism.Data 1 }}`}} \
                 --data-parallel-size-local {{`{{ or .Spec.Prefill.Parallelism.DataLocal 1 }}`}} \
                 --data-parallel-address $(LWS_LEADER_ADDRESS) \
-                --data-parallel-rpc-port {{`{{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }}`}} \
+                --data-parallel-rpc-port {{`{{- if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{- else }}5555{{- end }}`}} \
                 --data-parallel-start-rank $START_RANK \
                 ${VLLM_ADDITIONAL_ARGS} \
                 --trust-remote-code"
@@ -364,7 +364,7 @@ spec:
                 --data-parallel-size {{`{{ or .Spec.Prefill.Parallelism.Data 1 }}`}} \
                 --data-parallel-size-local {{`{{ or .Spec.Prefill.Parallelism.DataLocal 1 }}`}} \
                 --data-parallel-address $(LWS_LEADER_ADDRESS) \
-                --data-parallel-rpc-port {{`{{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }}`}} \
+                --data-parallel-rpc-port {{`{{- if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{- else }}5555{{- end }}`}} \
                 --data-parallel-start-rank $START_RANK \
                 ${VLLM_ADDITIONAL_ARGS} \
                 --trust-remote-code \
