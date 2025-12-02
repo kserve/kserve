@@ -3,7 +3,6 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-lgbserver
 spec:
-  disabled: {{ .Values.kserve.servingruntime.lgbserver.disabled }}
   annotations:
     prometheus.kserve.io/port: '8080'
     prometheus.kserve.io/path: "/metrics"
@@ -46,7 +45,6 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-mlserver
 spec:
-  disabled: {{ .Values.kserve.servingruntime.mlserver.disabled }}
   annotations:
     # mlserver version 1.1.0 uses port 8082 as default instead of 8080.
     prometheus.kserve.io/port: '8080'
@@ -121,7 +119,6 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-paddleserver
 spec:
-  disabled: {{ .Values.kserve.servingruntime.paddleserver.disabled }}
   annotations:
     prometheus.kserve.io/port: '8080'
     prometheus.kserve.io/path: "/metrics"
@@ -163,7 +160,6 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-pmmlserver
 spec:
-  disabled: {{ .Values.kserve.servingruntime.pmmlserver.disabled }}
   annotations:
     prometheus.kserve.io/port: '8080'
     prometheus.kserve.io/path: "/metrics"
@@ -209,7 +205,6 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-sklearnserver
 spec:
-  disabled: {{ .Values.kserve.servingruntime.sklearnserver.disabled }}
   annotations:
     prometheus.kserve.io/port: '8080'
     prometheus.kserve.io/path: "/metrics"
@@ -251,7 +246,6 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-tensorflow-serving
 spec:
-  disabled: {{ .Values.kserve.servingruntime.tensorflow.disabled }}
   annotations:
     prometheus.kserve.io/port: '8080'
     prometheus.kserve.io/path: "/metrics"
@@ -300,7 +294,6 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-torchserve
 spec:
-  disabled: {{ .Values.kserve.servingruntime.torchserve.disabled }}
   annotations:
     prometheus.kserve.io/port: '8082'
     prometheus.kserve.io/path: "/metrics"
@@ -347,7 +340,6 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-tritonserver
 spec:
-  disabled: {{ .Values.kserve.servingruntime.tritonserver.disabled }}
   annotations:
     prometheus.kserve.io/port: '8002'
     prometheus.kserve.io/path: "/metrics"
@@ -410,7 +402,6 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-xgbserver
 spec:
-  disabled: {{ .Values.kserve.servingruntime.xgbserver.disabled }}
   annotations:
     prometheus.kserve.io/port: '8080'
     prometheus.kserve.io/path: "/metrics"
@@ -452,7 +443,6 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-huggingfaceserver
 spec:
-  disabled: {{ .Values.kserve.servingruntime.huggingfaceserver.disabled }}
   annotations:
     prometheus.kserve.io/port: '8080'
     prometheus.kserve.io/path: "/metrics"
@@ -511,7 +501,6 @@ kind: ClusterServingRuntime
 metadata:
   name: kserve-huggingfaceserver-multinode
 spec:
-  disabled: {{ .Values.kserve.servingruntime.huggingfaceserver.disabled }}
   annotations:
     prometheus.kserve.io/port: '8080'
     prometheus.kserve.io/path: "/metrics"

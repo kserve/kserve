@@ -691,6 +691,12 @@ jobs:
       - name: Install UV
         run: ./test/scripts/gh-actions/setup-uv.sh
 
+      - name: Install Python dependencies for chart generation
+        run: |
+          echo "📦 Installing Python dependencies for chart generation..."
+          pip install PyYAML>=6.0
+          echo "✅ Python build dependencies installed!"
+
       - name: Install Kserve from helm
         run: |
           ./test/scripts/gh-actions/setup-kserve-helm.sh

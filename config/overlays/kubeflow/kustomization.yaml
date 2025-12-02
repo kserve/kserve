@@ -9,20 +9,20 @@ resources:
 
 # Labels to add to all resources and selectors.
 labels:
-- includeSelectors: true
-  pairs:
-    app: kserve
-    app.kubernetes.io/name: kserve
+  - includeSelectors: true
+    pairs:
+      app: kserve
+      app.kubernetes.io/name: kserve
 
 generatorOptions:
   disableNameSuffixHash: true
 
 configurations:
-- params.yaml
+  - params.yaml
 
 replacements:
 # Replace the namespace with the namespace of the controller manager.
-  - source:
+- source:
       fieldPath: metadata.namespace
       kind: Deployment
       name: kserve-controller-manager
@@ -50,16 +50,16 @@ replacements:
           - webhooks.*.clientConfig.service.namespace
       - select:
           kind: ValidatingWebhookConfiguration
-          name: localmodelcache.serving.kserve.io 
+          name: localmodelcache.serving.kserve.io
         fieldPaths:
           - webhooks.*.clientConfig.service.namespace
       - fieldPaths:
-        - webhooks.*.clientConfig.service.namespace
+          - webhooks.*.clientConfig.service.namespace
         select:
           kind: ValidatingWebhookConfiguration
           name: llminferenceservice.serving.kserve.io
       - fieldPaths:
-        - webhooks.*.clientConfig.service.namespace
+          - webhooks.*.clientConfig.service.namespace
         select:
           kind: ValidatingWebhookConfiguration
           name: llminferenceserviceconfig.serving.kserve.io
@@ -71,13 +71,13 @@ replacements:
           - spec.commonName
           - spec.dnsNames.0
         options:
-          delimiter: '.'
+          delimiter: "."
           index: 1
       - fieldPaths:
-        - spec.commonName
-        - spec.dnsNames.0
+          - spec.commonName
+          - spec.dnsNames.0
         options:
-          delimiter: '.'
+          delimiter: "."
           index: 1
         select:
           kind: Certificate
@@ -89,7 +89,7 @@ replacements:
         fieldPaths:
           - metadata.annotations.[cert-manager.io/inject-ca-from]
         options:
-          delimiter: '/'
+          delimiter: "/"
           index: 0
       - select:
           kind: MutatingWebhookConfiguration
@@ -97,7 +97,7 @@ replacements:
         fieldPaths:
           - metadata.annotations.[cert-manager.io/inject-ca-from]
         options:
-          delimiter: '/'
+          delimiter: "/"
           index: 0
       - select:
           kind: ValidatingWebhookConfiguration
@@ -105,7 +105,7 @@ replacements:
         fieldPaths:
           - metadata.annotations.[cert-manager.io/inject-ca-from]
         options:
-          delimiter: '/'
+          delimiter: "/"
           index: 0
       - select:
           kind: ValidatingWebhookConfiguration
@@ -113,7 +113,7 @@ replacements:
         fieldPaths:
           - metadata.annotations.[cert-manager.io/inject-ca-from]
         options:
-          delimiter: '/'
+          delimiter: "/"
           index: 0
       - select:
           kind: ValidatingWebhookConfiguration
@@ -121,7 +121,7 @@ replacements:
         fieldPaths:
           - metadata.annotations.[cert-manager.io/inject-ca-from]
         options:
-          delimiter: '/'
+          delimiter: "/"
           index: 0
       - select:
           kind: ValidatingWebhookConfiguration
@@ -129,7 +129,7 @@ replacements:
         fieldPaths:
           - metadata.annotations.[cert-manager.io/inject-ca-from]
         options:
-          delimiter: '/'
+          delimiter: "/"
           index: 0
       - select:
           kind: ValidatingWebhookConfiguration
@@ -137,7 +137,7 @@ replacements:
         fieldPaths:
           - metadata.annotations.[cert-manager.io/inject-ca-from]
         options:
-          delimiter: '/'
+          delimiter: "/"
           index: 0
       - select:
           kind: ValidatingWebhookConfiguration
@@ -145,12 +145,12 @@ replacements:
         fieldPaths:
           - metadata.annotations.[cert-manager.io/inject-ca-from]
         options:
-          delimiter: '/'
+          delimiter: "/"
           index: 0
       - fieldPaths:
           - metadata.annotations.[cert-manager.io/inject-ca-from]
         options:
-          delimiter: '/'
+          delimiter: "/"
           index: 0
         select:
           kind: ValidatingWebhookConfiguration
@@ -158,60 +158,60 @@ replacements:
       - fieldPaths:
           - metadata.annotations.[cert-manager.io/inject-ca-from]
         options:
-          delimiter: '/'
+          delimiter: "/"
           index: 0
         select:
           kind: ValidatingWebhookConfiguration
           name: llminferenceserviceconfig.serving.kserve.io
 # Replace llmisvc webhook service name
-  - source:
+- source:
       fieldPath: metadata.name
       kind: Service
       name: llmisvc-webhook-server-service
       version: v1
     targets:
-    - fieldPaths:
-      - webhooks.*.clientConfig.service.name
-      select:
-        kind: ValidatingWebhookConfiguration
-        name: llminferenceservice.serving.kserve.io
-    - fieldPaths:
-      - webhooks.*.clientConfig.service.name
-      select:
-        kind: ValidatingWebhookConfiguration
-        name: llminferenceserviceconfig.serving.kserve.io
-    - fieldPaths:
-      - spec.commonName
-      - spec.dnsNames.0
-      options:
-        delimiter: '.'
-        index: 0
-      select:
-        kind: Certificate
-        name: llmisvc-serving-cert
-        namespace: kserve
-  # Replace llmisvc service account name
-  - source:
+      - fieldPaths:
+          - webhooks.*.clientConfig.service.name
+        select:
+          kind: ValidatingWebhookConfiguration
+          name: llminferenceservice.serving.kserve.io
+      - fieldPaths:
+          - webhooks.*.clientConfig.service.name
+        select:
+          kind: ValidatingWebhookConfiguration
+          name: llminferenceserviceconfig.serving.kserve.io
+      - fieldPaths:
+          - spec.commonName
+          - spec.dnsNames.0
+        options:
+          delimiter: "."
+          index: 0
+        select:
+          kind: Certificate
+          name: llmisvc-serving-cert
+          namespace: kserve
+# Replace llmisvc service account name
+- source:
       fieldPath: metadata.name
       kind: ServiceAccount
       name: llmisvc-controller-manager
       version: v1
     targets:
-    - fieldPaths:
-      - subjects.*.name
-      select:
-        kind: ClusterRoleBinding
-        name: llmisvc-manager-rolebinding
-    - fieldPaths:
-      - subjects.*.name
-      select:
-        kind: RoleBinding
-        name: llmisvc-leader-election-rolebinding
-    - fieldPaths:
-      - spec.template.spec.serviceAccountName
-      select:
-        kind: Deployment
-        name: llmisvc-controller-manager
+      - fieldPaths:
+          - subjects.*.name
+        select:
+          kind: ClusterRoleBinding
+          name: llmisvc-manager-rolebinding
+      - fieldPaths:
+          - subjects.*.name
+        select:
+          kind: RoleBinding
+          name: llmisvc-leader-election-rolebinding
+      - fieldPaths:
+          - spec.template.spec.serviceAccountName
+        select:
+          kind: Deployment
+          name: llmisvc-controller-manager
 patches:
 - path: patches/statefulset.yaml
 - path: patches/namespace.yaml
