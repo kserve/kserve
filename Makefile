@@ -372,13 +372,8 @@ helm-generate-kserve: helmify yq
 	@python3 hack/fix_helm_template_syntax.py charts/kserve-resources/templates/*.yaml
 	@mkdir -p charts/kserve-resources
 	@cp build-helm/kserve-chart/values.yaml charts/kserve-resources/values.yaml
-	# Generate Chart.yaml with version/appVersion at top (not buried in comments)
-	@echo "apiVersion: v2" > charts/kserve-resources/Chart.yaml
-	@echo "name: kserve-resources" >> charts/kserve-resources/Chart.yaml
-	@echo "version: $(KSERVE_VERSION)" >> charts/kserve-resources/Chart.yaml
-	@echo "description: $(KSERVE_CHART_DESCRIPTION)" >> charts/kserve-resources/Chart.yaml
-	@echo "type: application" >> charts/kserve-resources/Chart.yaml
-	@echo "appVersion: \"$(KSERVE_VERSION)\"" >> charts/kserve-resources/Chart.yaml
+	# Generate Chart.yaml using Python script (preserves exact master format)
+	@python3 hack/generate_chart_yaml.py $(KSERVE_VERSION) kserve-resources
 	# Fix template names in all template files to match chart name
 	@find charts/kserve-resources/templates -type f \( -name "*.yaml" -o -name "*.tpl" \) | xargs sed -i 's/kserve-chart\./kserve-resources./g' 2>/dev/null || true
 	@echo "Note: Chart.yaml is preserved (contains version and metadata)"
