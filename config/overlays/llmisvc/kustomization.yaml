@@ -34,24 +34,24 @@ replacements:
     - spec.commonName
     - spec.dnsNames.0
     options:
-      delimiter: "."
+      delimiter: '.'
       index: 1
     select:
       kind: Certificate
       name: llmisvc-serving-cert
       namespace: kserve
   - fieldPaths:
-    - metadata.annotations.[cert-manager.io/inject-ca-from]
+      - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
-      delimiter: "/"
+      delimiter: '/'
       index: 0
     select:
       kind: ValidatingWebhookConfiguration
       name: llminferenceservice.serving.kserve.io
   - fieldPaths:
-    - metadata.annotations.[cert-manager.io/inject-ca-from]
+      - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
-      delimiter: "/"
+      delimiter: '/'
       index: 0
     select:
       kind: ValidatingWebhookConfiguration
@@ -77,7 +77,7 @@ replacements:
     - spec.commonName
     - spec.dnsNames.0
     options:
-      delimiter: "."
+      delimiter: '.'
       index: 0
     select:
       kind: Certificate
