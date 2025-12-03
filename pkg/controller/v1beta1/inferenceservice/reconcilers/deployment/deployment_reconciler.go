@@ -84,6 +84,9 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 	var workerNodeGpuCount string
 	multiNodeEnabled := false
 
+	// Ensure componentMeta has the correct "app" label (respect user's choice or use default)
+	setAppLabelOrDefault(&componentMeta, constants.GetRawServiceLabel(componentMeta.Name))
+
 	defaultDeployment := createRawDefaultDeployment(componentMeta, componentExt, podSpec, deployConfig)
 	if workerPodSpec != nil {
 		multiNodeEnabled = true
@@ -116,19 +119,26 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 		}
 
 		// Update GPU resource of default podSpec
-		if err := addGPUResourceToDeployment(defaultDeployment, constants.InferenceServiceContainerName, headNodeGpuCount); err != nil {
-			return nil, err
+		if headNodeGpuCount != "" {
+			if err := addGPUResourceToDeployment(defaultDeployment, constants.InferenceServiceContainerName, headNodeGpuCount); err != nil {
+				return nil, err
+			}
 		}
 	}
 	deploymentList = append(deploymentList, defaultDeployment)
 
 	// workerNode deployment
 	if multiNodeEnabled {
-		workerDeployment := createRawWorkerDeployment(workerComponentMeta, componentExt, workerPodSpec, componentMeta.Name, workerNodeReplicas, deployConfig)
+		// Ensure workerComponentMeta has the correct "app" label
+		setAppLabelOrDefault(&workerComponentMeta, constants.GetRawWorkerServiceLabel(componentMeta.Name))
+
+		workerDeployment := createRawWorkerDeployment(workerComponentMeta, componentExt, workerPodSpec, workerNodeReplicas, deployConfig)
 
 		// Update GPU resource of workerPodSpec
-		if err := addGPUResourceToDeployment(workerDeployment, constants.WorkerContainerName, workerNodeGpuCount); err != nil {
-			return nil, err
+		if workerNodeGpuCount != "" {
+			if err := addGPUResourceToDeployment(workerDeployment, constants.WorkerContainerName, workerNodeGpuCount); err != nil {
+				return nil, err
+			}
 		}
 		deploymentList = append(deploymentList, workerDeployment)
 	}
@@ -136,20 +146,38 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 	return deploymentList, nil
 }
 
+// setAppLabelOrDefault ensures componentMeta has the correct "app" label.
+// If the user has already specified an "app" label, it keeps that value.
+// Otherwise, it sets the label to the provided defaultLabel.
+// It handles nil Labels map initialization automatically.
+func setAppLabelOrDefault(componentMeta *metav1.ObjectMeta, defaultLabel string) {
+	// Initialize Labels map if it's nil
+	if componentMeta.Labels == nil {
+		componentMeta.Labels = make(map[string]string)
+	}
+
+	// If user already specified an "app" label, keep it; otherwise use default
+	if _, exists := componentMeta.Labels["app"]; !exists || componentMeta.Labels["app"] == "" {
+		componentMeta.Labels["app"] = defaultLabel
+	}
+}
+
 func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
 	deployConfig *v1beta1.DeployConfig,
 ) *appsv1.Deployment {
+	// componentMeta.Labels["app"] is already set correctly by the caller
+	appLabel := componentMeta.Labels["app"]
+
 	podMetadata := componentMeta
-	podMetadata.Labels["app"] = constants.GetRawServiceLabel(componentMeta.Name)
 	setDefaultPodSpec(podSpec)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: componentMeta,
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": constants.GetRawServiceLabel(componentMeta.Name),
+					"app": appLabel,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
@@ -175,19 +203,20 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 
 func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, predictorName string, replicas int32,
+	podSpec *corev1.PodSpec, replicas int32,
 	deployConfig *v1beta1.DeployConfig,
 ) *appsv1.Deployment {
+	// componentMeta.Labels["app"] is already set correctly by the caller
+	appLabel := componentMeta.Labels["app"]
+
 	podMetadata := componentMeta
-	workerPredictorName := constants.GetRawWorkerServiceLabel(predictorName)
-	podMetadata.Labels["app"] = workerPredictorName
 	setDefaultPodSpec(podSpec)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: componentMeta,
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": workerPredictorName,
+					"app": appLabel,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
