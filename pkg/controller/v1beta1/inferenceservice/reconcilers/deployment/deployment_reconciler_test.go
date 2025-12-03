@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
@@ -1437,6 +1438,176 @@ func TestCreateRawDeploymentWithPrecedence(t *testing.T) {
 			assert.NotNil(t, deployment.Spec.Strategy.RollingUpdate, tt.description)
 			assert.Equal(t, tt.expectedMaxSurge, deployment.Spec.Strategy.RollingUpdate.MaxSurge, tt.description+" - MaxSurge")
 			assert.Equal(t, tt.expectedMaxUnavailable, deployment.Spec.Strategy.RollingUpdate.MaxUnavailable, tt.description+" - MaxUnavailable")
+		})
+	}
+}
+
+func TestAppLabelRespectedInDeployments(t *testing.T) {
+	tests := []struct {
+		name                    string
+		userSpecifiedAppLabel   string
+		componentName           string
+		expectedDeploymentLabel string
+		expectedPodLabel        string
+		expectedSelectorLabel   string
+	}{
+		{
+			name:                    "User specifies custom app label",
+			userSpecifiedAppLabel:   "my-custom-app",
+			componentName:           "my-model-predictor",
+			expectedDeploymentLabel: "my-custom-app",
+			expectedPodLabel:        "my-custom-app",
+			expectedSelectorLabel:   "my-custom-app",
+		},
+		{
+			name:                    "User does not specify app label - use default",
+			userSpecifiedAppLabel:   "",
+			componentName:           "my-model-predictor",
+			expectedDeploymentLabel: "isvc.my-model-predictor",
+			expectedPodLabel:        "isvc.my-model-predictor",
+			expectedSelectorLabel:   "isvc.my-model-predictor",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create componentMeta with optional user-specified app label
+			componentMeta := metav1.ObjectMeta{
+				Name:      tt.componentName,
+				Namespace: "default",
+				Labels:    make(map[string]string),
+			}
+			if tt.userSpecifiedAppLabel != "" {
+				componentMeta.Labels["app"] = tt.userSpecifiedAppLabel
+			}
+
+			podSpec := &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  constants.InferenceServiceContainerName,
+						Image: "test-image",
+					},
+				},
+			}
+
+			deployConfig := &v1beta1.DeployConfig{
+				DefaultDeploymentMode: "Standard",
+			}
+
+			// Call createRawDeployment which should set the app label correctly
+			deployments, err := createRawDeployment(componentMeta, metav1.ObjectMeta{}, &v1beta1.ComponentExtensionSpec{}, podSpec, nil, deployConfig)
+			require.NoError(t, err)
+			assert.NotNil(t, deployments)
+			assert.Len(t, deployments, 1)
+
+			deployment := deployments[0]
+
+			// Verify Deployment metadata label
+			assert.Equal(t, tt.expectedDeploymentLabel, deployment.ObjectMeta.Labels["app"],
+				"Deployment metadata should have correct app label")
+
+			// Verify Pod template label
+			assert.Equal(t, tt.expectedPodLabel, deployment.Spec.Template.ObjectMeta.Labels["app"],
+				"Pod template should have correct app label")
+
+			// Verify Selector matchLabels
+			assert.Equal(t, tt.expectedSelectorLabel, deployment.Spec.Selector.MatchLabels["app"],
+				"Deployment selector should match the app label")
+		})
+	}
+}
+
+func TestAppLabelRespectedInWorkerDeployments(t *testing.T) {
+	tests := []struct {
+		name                    string
+		userSpecifiedAppLabel   string
+		componentName           string
+		expectedDeploymentLabel string
+		expectedPodLabel        string
+		expectedSelectorLabel   string
+	}{
+		{
+			name:                    "User specifies custom app label for worker",
+			userSpecifiedAppLabel:   "my-custom-worker-app",
+			componentName:           "my-model-predictor",
+			expectedDeploymentLabel: "my-custom-worker-app",
+			expectedPodLabel:        "my-custom-worker-app",
+			expectedSelectorLabel:   "my-custom-worker-app",
+		},
+		{
+			name:                    "User does not specify app label for worker - use default",
+			userSpecifiedAppLabel:   "",
+			componentName:           "my-model-predictor",
+			expectedDeploymentLabel: "isvc.my-model-predictor-worker",
+			expectedPodLabel:        "isvc.my-model-predictor-worker",
+			expectedSelectorLabel:   "isvc.my-model-predictor-worker",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create componentMeta for head node
+			componentMeta := metav1.ObjectMeta{
+				Name:      tt.componentName,
+				Namespace: "default",
+				Labels:    make(map[string]string),
+			}
+
+			// Create workerComponentMeta with optional user-specified app label
+			workerComponentMeta := metav1.ObjectMeta{
+				Name:      tt.componentName + "-worker",
+				Namespace: "default",
+				Labels:    make(map[string]string),
+			}
+			if tt.userSpecifiedAppLabel != "" {
+				workerComponentMeta.Labels["app"] = tt.userSpecifiedAppLabel
+			}
+
+			headPodSpec := &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  constants.InferenceServiceContainerName,
+						Image: "test-image",
+						Env: []corev1.EnvVar{
+							{Name: constants.RayNodeCountEnvName, Value: "2"},
+						},
+					},
+				},
+			}
+
+			workerPodSpec := &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  constants.WorkerContainerName,
+						Image: "test-worker-image",
+					},
+				},
+			}
+
+			deployConfig := &v1beta1.DeployConfig{
+				DefaultDeploymentMode: "Standard",
+			}
+
+			// Call createRawDeployment with worker pod spec
+			deployments, err := createRawDeployment(componentMeta, workerComponentMeta, &v1beta1.ComponentExtensionSpec{}, headPodSpec, workerPodSpec, deployConfig)
+			require.NoError(t, err)
+			assert.NotNil(t, deployments)
+			assert.Len(t, deployments, 2) // Head + Worker
+
+			// Get worker deployment (second one)
+			workerDeployment := deployments[1]
+
+			// Verify Worker Deployment metadata label
+			assert.Equal(t, tt.expectedDeploymentLabel, workerDeployment.ObjectMeta.Labels["app"],
+				"Worker Deployment metadata should have correct app label")
+
+			// Verify Worker Pod template label
+			assert.Equal(t, tt.expectedPodLabel, workerDeployment.Spec.Template.ObjectMeta.Labels["app"],
+				"Worker Pod template should have correct app label")
+
+			// Verify Worker Selector matchLabels
+			assert.Equal(t, tt.expectedSelectorLabel, workerDeployment.Spec.Selector.MatchLabels["app"],
+				"Worker Deployment selector should match the app label")
 		})
 	}
 }
