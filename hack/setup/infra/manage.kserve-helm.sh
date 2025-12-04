@@ -77,14 +77,43 @@ KSERVE_CRD_RELEASE_NAME="kserve-crd"
 KSERVE_RELEASE_NAME="kserve"
 CRD_DIR_NAME="kserve-crd"
 CORE_DIR_NAME="kserve-resources"
-TARGET_DEPLOYMENT_NAMES=(
-    "kserve-controller-manager"
-)
 # DEPLOYMENT_MODE, GATEWAY_NETWORK_LAYER, LLMISVC, EMBED_MANIFESTS are defined in global-vars.env
 USE_LOCAL_CHARTS="${USE_LOCAL_CHARTS:-false}"
 CHARTS_DIR="${REPO_ROOT}/charts"
 SET_KSERVE_VERSION="${SET_KSERVE_VERSION:-}"
 # VARIABLES END
+
+# Function to get deployment name from Helm chart template
+# This extracts the actual deployment name from the rendered Helm chart
+calculate_deployment_name() {
+    local release_name="$1"
+    local chart_name="$2"
+    local suffix="$3"
+    
+    # Determine chart path - check if USE_LOCAL_CHARTS is set and charts directory exists
+    local chart_path
+    if [ "${USE_LOCAL_CHARTS:-false}" = "true" ] && [ -d "./charts/${chart_name}" ]; then
+        chart_path="./charts/${chart_name}"
+    elif [ -n "${CHARTS_DIR:-}" ] && [ -d "${CHARTS_DIR}/${chart_name}" ]; then
+        chart_path="${CHARTS_DIR}/${chart_name}"
+    else
+        # Fallback to suffix if chart path not found (for backwards compatibility)
+        echo "${suffix}"
+        return
+    fi
+    
+    # Extract deployment name from Helm chart template
+    # Look for the deployment with the matching suffix in the name
+    local deployment_name=$(helm template "${release_name}" "${chart_path}" --namespace "${KSERVE_NAMESPACE:-kserve}" 2>/dev/null | \
+        grep -A 3 "kind: Deployment" | grep "name:" | grep "${suffix}" | head -1 | awk '{print $2}' || echo "")
+    
+    # Fallback to suffix if extraction fails (for backwards compatibility)
+    if [ -z "$deployment_name" ]; then
+        deployment_name="${suffix}"
+    fi
+    
+    echo "${deployment_name}"
+}
 
 # INCLUDE_IN_GENERATED_SCRIPT_START
 # Set Helm release names and target pod labels based on LLMISVC
@@ -94,7 +123,9 @@ if [ "${LLMISVC}" = "true" ]; then
     CORE_DIR_NAME="kserve-llmisvc-resources"
     KSERVE_CRD_RELEASE_NAME="kserve-llmisvc-crd"
     KSERVE_RELEASE_NAME="kserve-llmisvc"
-    TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
+    TARGET_DEPLOYMENT_NAMES=("$(calculate_deployment_name "${KSERVE_RELEASE_NAME}" "${CORE_DIR_NAME}" "llmisvc-controller-manager")")
+else
+    TARGET_DEPLOYMENT_NAMES=("$(calculate_deployment_name "${KSERVE_RELEASE_NAME}" "${CORE_DIR_NAME}" "kserve-controller-manager")")
 fi
 
 if [ "${SET_KSERVE_VERSION}" != "" ]; then
@@ -192,7 +223,7 @@ install() {
         # Install KServe resources
         log_info "Installing KServe resources..."
         helm install "${KSERVE_RELEASE_NAME}" \
-            oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
+            oci://ghcr.io/kserve/charts/${CORE_DIR_NAME} \
             --version "${KSERVE_VERSION}" \
             --namespace "${KSERVE_NAMESPACE}" \
             --create-namespace \
@@ -225,7 +256,7 @@ install() {
             log_info "  - ${update}"
         done
         update_isvc_config "${config_updates[@]}"
-        kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
+        kubectl rollout restart deployment "${TARGET_DEPLOYMENT_NAMES[0]}" -n ${KSERVE_NAMESPACE}
     else
         log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
     fi

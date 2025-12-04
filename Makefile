@@ -4,6 +4,10 @@ include Makefile.tools.mk
 # Load dependency versions
 include kserve-deps.env
 
+# Helm chart metadata
+KSERVE_CHART_DESCRIPTION ?= Helm chart for deploying kserve resources
+KSERVE_LLMISVC_CHART_DESCRIPTION ?= Helm chart for deploying LLMInferenceService resources
+
 # Base Image URL
 BASE_IMG ?= python:3.11-slim-bookworm
 PMML_BASE_IMG ?= eclipse-temurin:21-jdk-noble
@@ -175,12 +179,26 @@ manifests: controller-gen yq
 	rm charts/kserve-llmisvc-crd-minimal/templates/kustomization.yaml
 	# Generate llmisvc rbac
 	@$(CONTROLLER_GEN) rbac:roleName=llmisvc-manager-role paths={./pkg/controller/v1alpha1/llmisvc} output:rbac:artifacts:config=config/rbac/llmisvc
-	# Copy the cluster role to the helm chart
-	cat config/rbac/llmisvc/role.yaml > charts/kserve-llmisvc-resources/templates/clusterrole.yaml
-	cat config/rbac/llmisvc/leader_election_role.yaml > charts/kserve-llmisvc-resources/templates/leader_election_role.yaml
-	# Copy llmisvc crd
+	# Note: RBAC Helm templates are now generated via helm-generate-llmisvc/kserve targets (includes bindings)
+	# Copy llmisvc crd to kserve-llmisvc-crd chart
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/kserve-llmisvc-crd/templates/
 	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/kserve-llmisvc-crd/templates/
+	# Copy main KServe CRDs to kserve-crd chart (for combined deployments)
+	cp config/crd/full/serving.kserve.io_inferenceservices.yaml charts/kserve-crd/templates/
+	cp config/crd/full/serving.kserve.io_trainedmodels.yaml charts/kserve-crd/templates/
+	cp config/crd/full/serving.kserve.io_clusterservingruntimes.yaml charts/kserve-crd/templates/
+	cp config/crd/full/serving.kserve.io_servingruntimes.yaml charts/kserve-crd/templates/
+	cp config/crd/full/serving.kserve.io_inferencegraphs.yaml charts/kserve-crd/templates/
+	cp config/crd/full/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd/templates/
+	cp config/crd/full/serving.kserve.io_localmodelcaches.yaml charts/kserve-crd/templates/
+	cp config/crd/full/serving.kserve.io_localmodelnodegroups.yaml charts/kserve-crd/templates/
+	cp config/crd/full/serving.kserve.io_localmodelnodes.yaml charts/kserve-crd/templates/
+	# Copy llmisvc crd to kserve-crd chart (for combined deployments)
+	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/kserve-crd/templates/
+	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/kserve-crd/templates/
+	# Generate Helm charts for KServe
+	@echo "Generating KServe Helm charts..."
+	@$(MAKE) helm-generate-kserve
     # Copy Test inferenceconfig configmap to test overlay
 	cp config/configmap/inferenceservice.yaml config/overlays/test/configmap/inferenceservice.yaml
 
@@ -325,8 +343,94 @@ deploy-dev-huggingface: docker-push-huggingface
 deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 	kubectl apply --server-side=true -k config/overlays/dev-image-config
-	
-deploy-helm:
+
+.PHONY: helm-generate-kserve
+helm-generate-kserve: helmify yq
+	@echo "=========================================="
+	@echo "Generating KServe Helm chart (includes LLMISvc, 100% automated)"
+	@echo "=========================================="
+
+	# Generate combined KServe + LLMISvc from config/default
+	@echo "Generating combined KServe+LLMISvc templates from config/default..."
+	@mkdir -p build-helm
+	@rm -rf build-helm/kserve-chart
+	@kubectl kustomize config/default > build-helm/kserve-all.yaml
+	# Filter out ConfigMap (we'll copy it directly from source, untouched by helmify)
+	# Use -crd-dir to extract CRDs to crds/ directory (not templated)
+	@$(YQ) eval 'select(.kind != "ConfigMap" or .metadata.name != "inferenceservice-config")' build-helm/kserve-all.yaml > build-helm/kserve-all-no-cm.yaml
+	@cat build-helm/kserve-all-no-cm.yaml | $(HELMIFY) -original-name -crd-dir build-helm/kserve-chart
+
+	# Escape embedded Go templates (for LLMISvc ConfigMaps)
+	@echo "Escaping KServe-specific Go templates..."
+	@./hack/escape_helm_templates.py build-helm/kserve-chart/templates/*.yaml
+
+	# Copy EVERYTHING to actual chart (100% automated)
+	@echo "Copying all generated templates and values..."
+	@mkdir -p charts/kserve-resources/templates/localmodel
+	@mkdir -p charts/kserve-resources/templates/localmodelnode
+	# Copy templates but exclude CRDs (they're in crds/ directory and managed separately)
+	@cp -r build-helm/kserve-chart/templates/* charts/kserve-resources/templates/
+	# Remove helmify-generated ConfigMap (we'll copy the original instead)
+	@rm -f charts/kserve-resources/templates/inferenceservice-config.yaml
+	@rm -f charts/kserve-resources/templates/configmap.yaml
+	# Copy config-llm files directly from Kustomize source (preserves initContainers)
+	@echo "Copying config-llm files directly from Kustomize source..."
+	@for file in config/llmisvcconfig/config-llm-*.yaml; do \
+		if [ -f "$$file" ]; then \
+			cp "$$file" charts/kserve-resources/templates/kserve-$$(basename "$$file"); \
+		fi; \
+	done
+	# Escape Go templates in config-llm files (they contain KServe runtime templates)
+	@echo "Escaping Go templates in config-llm files..."
+	@./hack/escape_helm_templates.py charts/kserve-resources/templates/kserve-config-llm-*.yaml
+	# Fix helmify output: ensure {{- if }} syntax is correct (helmify sometimes generates {{ if instead of {{- if)
+	@echo "Fixing Helm template syntax..."
+	@python3 hack/fix_helm_template_syntax.py charts/kserve-resources/templates/*.yaml
+	@mkdir -p charts/kserve-resources
+	@cp build-helm/kserve-chart/values.yaml charts/kserve-resources/values.yaml
+	# Generate Chart.yaml using Python script (preserves exact master format)
+	@python3 hack/generate_chart_yaml.py $(KSERVE_VERSION) kserve-resources
+	# Fix template names in all template files to match chart name
+	@find charts/kserve-resources/templates -type f \( -name "*.yaml" -o -name "*.tpl" \) | xargs sed -i 's/kserve-chart\./kserve-resources./g' 2>/dev/null || true
+	@echo "Note: Chart.yaml is preserved (contains version and metadata)"
+
+	# CRDs are already in crds/ directory (not templated) thanks to -crd-dir flag
+	# Copy ConfigMap directly from config path (no templating needed)
+	@echo "Copying inferenceservice-config ConfigMap from config path..."
+	@cp config/configmap/inferenceservice.yaml charts/kserve-resources/templates/inferenceservice-config.yaml
+	# Remove namespace field (Helm will set it via .Release.Namespace)
+	@sed -i '/^  namespace:/d' charts/kserve-resources/templates/inferenceservice-config.yaml
+	# Escape embedded Go templates (KServe runtime templates, not Helm templates)
+	@echo "Escaping Go templates in ConfigMap..."
+	@./hack/escape_helm_templates.py charts/kserve-resources/templates/inferenceservice-config.yaml
+
+	# Fix malformed Certificate dnsNames
+	@echo "Fixing Certificate templates..."
+	@./hack/fix_certificate_dnsnames.py
+
+	# Fix ServiceAccount duplicates (remove duplicates, keep only first one)
+	@echo "Fixing ServiceAccount duplicates..."
+	@if [ -f charts/kserve-resources/templates/serviceaccount.yaml ]; then \
+		python3 -c "content = open('charts/kserve-resources/templates/serviceaccount.yaml').read(); docs = [d.strip() for d in content.split('---') if d.strip()]; sa_docs = [d for d in docs if 'kind: ServiceAccount' in d]; other_docs = [d for d in docs if 'kind: ServiceAccount' not in d]; fixed = ([sa_docs[0]] if sa_docs else []) + other_docs; open('charts/kserve-resources/templates/serviceaccount.yaml', 'w').write('---\n'.join(fixed) if len(fixed) > 1 else (fixed[0] if fixed else ''))" 2>/dev/null || true; \
+	fi
+
+	# Remove disabled fields that helmify added but don't exist in source files
+	@echo "Removing templated 'disabled' fields that don't exist in source..."
+	@python3 -c "import re; content = open('charts/kserve-resources/templates/clusterservingruntimes.yaml').read(); content = re.sub(r'^  disabled: {{ .Values\.kserve\.servingruntime\..*\.disabled }}$$\n', '', content, flags=re.MULTILINE); open('charts/kserve-resources/templates/clusterservingruntimes.yaml', 'w').write(content)" 2>/dev/null || true
+
+	# Extract servingruntime values from kustomization.yaml (helmify doesn't extract these)
+	@echo "Extracting servingruntime values from kustomization.yaml..."
+	python3 hack/extract_runtime_values.py config/runtimes/kustomization.yaml config/runtimes charts/kserve-resources/values.yaml
+
+	# Validate
+	@echo "Validating Helm chart..."
+	@helm lint charts/kserve-resources
+	@helm template test charts/kserve-resources --dry-run > /dev/null
+
+	@echo "✅ KServe Helm chart fully generated (includes LLMISvc, 100% automated, 0% manual)"
+	@echo "   Output: charts/kserve-resources/"
+
+deploy-helm: manifests helm-generate-kserve
 	USE_LOCAL_CHARTS=true ./hack/setup/infra/manage.kserve-helm.sh
 
 undeploy:
