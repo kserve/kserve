@@ -5,10 +5,9 @@ namespace: kserve
 
 resources:
 - namespace.yaml
-- certificate.yaml
 - ../../crd/full/llmisvc
 - ../../configmap
-- ../../llmisvc
+- ../../llmisvc # includes certmanager/llmisvc with llmisvc-selfsigned-issuer
 
 generatorOptions:
   disableNameSuffixHash: true

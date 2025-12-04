@@ -10,6 +10,12 @@ metadata:
     control-plane: llmisvc-controller-manager
     controller-tools.k8s.io: "1.0"
 spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       control-plane: llmisvc-controller-manager
