@@ -53,7 +53,7 @@ find_repo_root() {
         echo "$PWD"
         return 0
     else
-        echo "Error: Could not find git repository root" >&2
+        log_error "Could not find git repository root"
         exit 1
     fi
 }
@@ -73,7 +73,7 @@ detect_os() {
     case "$(uname -s)" in
         Linux*)  os="linux" ;;
         Darwin*) os="darwin" ;;
-        *)       echo "Unsupported OS" >&2; exit 1 ;;
+        *)       log_error "Unsupported OS detected: $(uname -s)" ; exit 1 ;;
     esac
     echo "$os"
 }
@@ -83,10 +83,26 @@ detect_arch() {
     case "$(uname -m)" in
         x86_64)  arch="amd64" ;;
         aarch64|arm64) arch="arm64" ;;
-        *)       echo "Unsupported architecture" >&2; exit 1 ;;
+        *)       log_error "Unsupported architecture detected: $(uname -m)" ; exit 1 ;;
     esac
     echo "$arch"
 }
+
+cleanup_bin_dir() {
+    # Remove BIN_DIR if it was created by this script
+    if [[ "${BIN_DIR_CREATED_BY_SCRIPT:-false}" == "true" ]] && [[ -d "${BIN_DIR:-}" ]]; then
+        log_info "Cleaning up BIN_DIR: ${BIN_DIR}"
+        rm -rf "${BIN_DIR}"
+    fi
+}
+
+cleanup() {
+    # Call all cleanup functions
+    cleanup_bin_dir
+}
+
+# Set up trap to run cleanup on exit
+trap cleanup EXIT
 
 # Color codes (disable if NO_COLOR is set or not a terminal)
 if [[ -z "${NO_COLOR:-}" ]] && [[ -t 1 ]]; then
@@ -104,7 +120,7 @@ else
 fi
 
 log_info() {
-    echo -e "${BLUE}[INFO]${RESET} $*"
+    echo -e "${BLUE}[INFO]${RESET} $*" >&2
 }
 
 log_error() {
@@ -112,11 +128,11 @@ log_error() {
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${RESET} $*"
+    echo -e "${GREEN}[SUCCESS]${RESET} $*" >&2
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${RESET} $*"
+    echo -e "${YELLOW}[WARNING]${RESET} $*" >&2
 }
 
 
@@ -462,7 +478,15 @@ set_env_with_priority() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 REPO_ROOT="$(find_repo_root "${SCRIPT_DIR}" "true")"
 export REPO_ROOT
-export BIN_DIR="${REPO_ROOT}/bin"
+
+# Set up BIN_DIR - use repo bin if it exists, otherwise use temp directory
+if [[ -d "${REPO_ROOT}/bin" ]]; then
+    export BIN_DIR="${REPO_ROOT}/bin"
+else
+    export BIN_DIR="$(mktemp -d)"
+    log_info "Using temp BIN_DIR: ${BIN_DIR}"
+fi
+
 export PATH="${BIN_DIR}:${PATH}"
 
 UNINSTALL="${UNINSTALL:-false}"
@@ -486,7 +510,7 @@ export RELEASE
 #================================================
 
 GOLANGCI_LINT_VERSION=v1.64.8
-CONTROLLER_TOOLS_VERSION=v0.16.2
+CONTROLLER_TOOLS_VERSION=v0.19.0
 ENVTEST_VERSION=latest
 YQ_VERSION=v4.28.1
 HELM_VERSION=v3.16.3
@@ -502,7 +526,7 @@ ENVOY_AI_GATEWAY_VERSION=v0.3.0
 KNATIVE_OPERATOR_VERSION=v1.16.0
 KNATIVE_SERVING_VERSION=1.15.2
 KEDA_OTEL_ADDON_VERSION=v0.0.6
-KSERVE_VERSION=v0.16.0-rc1
+KSERVE_VERSION=v0.16.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.16.1
 OPENTELEMETRY_OPERATOR_VERSION=0.113.0
@@ -738,7 +762,7 @@ install_cert_manager() {
             return 0
         else
             log_info "Reinstalling cert-manager..."
-            uninstall
+            uninstall_cert_manager
         fi
     fi
 
@@ -782,7 +806,7 @@ install_istio() {
             return 0
         else
             log_info "Reinstalling Istio..."
-            uninstall
+            uninstall_istio
         fi
     fi
 
@@ -836,10 +860,10 @@ install_istio_ingress_class() {
     if kubectl get ingressclass "istio" &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
             log_info "Istio IngressClass 'istio' already exists. Use --reinstall to recreate."
-            exit 0
+            return 0
         else
             log_info "Recreating Istio IngressClass 'istio'..."
-            uninstall
+            uninstall_istio_ingress_class
         fi
     fi
 
@@ -878,7 +902,7 @@ install_keda() {
             return 0
         else
             log_info "Reinstalling KEDA..."
-            uninstall
+            uninstall_keda
         fi
     fi
 
@@ -922,7 +946,7 @@ install_keda_otel_addon() {
             return 0
         else
             log_info "Reinstalling KEDA OTel add-on..."
-            uninstall
+            uninstall_keda_otel_addon
         fi
     fi
 
@@ -960,7 +984,7 @@ install_opentelemetry() {
             return 0
         else
             log_info "Reinstalling OpenTelemetry Operator..."
-            uninstall
+            uninstall_opentelemetry
         fi
     fi
 
@@ -1015,7 +1039,7 @@ install_kserve() {
             return 0
         else
             log_info "Reinstalling KServe..."
-            uninstall
+            uninstall_kserve
         fi
     fi
 
@@ -1074,7 +1098,7 @@ install_kserve() {
         # Install KServe resources
         log_info "Installing KServe resources..."
         helm install "${KSERVE_RELEASE_NAME}" \
-            oci://ghcr.io/kserve/charts/${CORE_DIR_NAME} \
+            oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
             --version "${KSERVE_VERSION}" \
             --namespace "${KSERVE_NAMESPACE}" \
             --create-namespace \
@@ -1213,7 +1237,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: clusterservingruntimes.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -5404,7 +5428,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: clusterstoragecontainers.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -6176,7 +6200,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: inferencegraphs.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -6829,7 +6853,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: inferenceservices.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -29643,7 +29667,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: llminferenceserviceconfigs.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -49813,7 +49837,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: llminferenceservices.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -70137,7 +70161,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: localmodelcaches.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -70223,7 +70247,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: localmodelnodegroups.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -70915,7 +70939,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: localmodelnodes.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -70976,7 +71000,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: servingruntimes.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -75167,7 +75191,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: trainedmodels.serving.kserve.io
 spec:
   group: serving.kserve.io

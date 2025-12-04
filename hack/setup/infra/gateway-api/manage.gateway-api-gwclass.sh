@@ -49,7 +49,7 @@ install() {
     if kubectl get gatewayclass "${GATEWAYCLASS_NAME}" &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
             log_info "GatewayClass '${GATEWAYCLASS_NAME}' already exists. Use --reinstall to recreate."
-            exit 0
+            return 0
         else
             log_info "Recreating GatewayClass '${GATEWAYCLASS_NAME}'..."
             uninstall

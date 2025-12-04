@@ -136,8 +136,16 @@ def process_component(comp_config: dict[str, Any], infra_dir: Path, method: Opti
     suffix = name.replace("-", "_")
     install_func = f"install_{suffix}"
     uninstall_func = f"uninstall_{suffix}"
+
+    # Rename install function and its calls
     install_code = bash_parser.rename_bash_function(install_raw, "install", install_func)
+    # Also rename any calls to uninstall within install function
+    install_code = bash_parser.rename_bash_function(install_code, "uninstall", uninstall_func)
+
+    # Rename uninstall function and its calls
     uninstall_code = bash_parser.rename_bash_function(uninstall_raw, "uninstall", uninstall_func)
+    # Also rename any calls to install within uninstall function (less common but possible)
+    uninstall_code = bash_parser.rename_bash_function(uninstall_code, "install", install_func)
 
     return {
         "name": name,
