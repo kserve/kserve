@@ -192,7 +192,7 @@ install() {
         # Install KServe resources
         log_info "Installing KServe resources..."
         helm install "${KSERVE_RELEASE_NAME}" \
-            oci://ghcr.io/kserve/charts/${CORE_DIR_NAME} \
+            oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
             --version "${KSERVE_VERSION}" \
             --namespace "${KSERVE_NAMESPACE}" \
             --create-namespace \

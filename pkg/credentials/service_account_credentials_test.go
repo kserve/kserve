@@ -81,14 +81,42 @@ func TestS3CredentialBuilder(t *testing.T) {
 			"awsSecretAccessKey": {},
 		},
 	}
+	existingServiceAccountWithProtocol := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default-with-protocol",
+			Namespace: "default",
+		},
+		Secrets: []corev1.ObjectReference{
+			{
+				Name:      "s3-secret-with-protocol",
+				Namespace: "default",
+			},
+		},
+	}
+	existingS3SecretWithProtocol := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "s3-secret-with-protocol",
+			Namespace: "default",
+			Annotations: map[string]string{
+				s3.InferenceServiceS3SecretEndpointAnnotation: "http://s3.aws.com",
+				s3.InferenceServiceS3SecretSSLAnnotation:      "0",
+			},
+		},
+		Data: map[string][]byte{
+			"awsAccessKeyID":     {},
+			"awsSecretAccessKey": {},
+		},
+	}
 	scenarios := map[string]struct {
 		serviceAccount        *corev1.ServiceAccount
+		secret                *corev1.Secret
 		inputConfiguration    *knservingv1.Configuration
 		expectedConfiguration *knservingv1.Configuration
 		shouldFail            bool
 	}{
 		"Build s3 secrets envs": {
 			serviceAccount: existingServiceAccount,
+			secret:         existingS3Secret,
 			inputConfiguration: &knservingv1.Configuration{
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
@@ -166,12 +194,92 @@ func TestS3CredentialBuilder(t *testing.T) {
 			},
 			shouldFail: false,
 		},
+		"Build s3 secrets envs with protocol": {
+			serviceAccount: existingServiceAccountWithProtocol,
+			secret:         existingS3SecretWithProtocol,
+			inputConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{
+										Env: []corev1.EnvVar{
+											{
+												Name: s3.AWSAccessKeyId,
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
+															Name: "s3-secret-with-protocol",
+														},
+														Key: "awsAccessKeyID",
+													},
+												},
+											},
+											{
+												Name: s3.AWSSecretAccessKey,
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
+															Name: "s3-secret-with-protocol",
+														},
+														Key: "awsSecretAccessKey",
+													},
+												},
+											},
+											{
+												Name:  s3.S3UseHttps,
+												Value: "0",
+											},
+											{
+												Name:  s3.S3Endpoint,
+												Value: "s3.aws.com",
+											},
+											{
+												Name:  s3.AWSEndpointUrl,
+												Value: "http://s3.aws.com",
+											},
+											{
+												Name:  s3.S3VerifySSL,
+												Value: "0",
+											},
+											{
+												Name:  s3.AWSAnonymousCredential,
+												Value: "false",
+											},
+											{
+												Name:  s3.AWSRegion,
+												Value: "us-east-2",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldFail: false,
+		},
 	}
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-		g.Expect(c.Create(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(t.Context(), existingS3Secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), scenario.serviceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
 
 		err := builder.CreateSecretVolumeAndEnv(
 			t.Context(),
@@ -193,8 +301,8 @@ func TestS3CredentialBuilder(t *testing.T) {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
-		g.Expect(c.Delete(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(t.Context(), existingS3Secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), scenario.serviceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
 	}
 }
 
@@ -224,6 +332,30 @@ func TestS3CredentialBuilderWithSecretData(t *testing.T) {
 		},
 	}
 
+	existingServiceAccountWithProtocol := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default-with-protocol",
+			Namespace: "default",
+		},
+		Secrets: []corev1.ObjectReference{
+			{
+				Name:      "s3-secret-with-protocol",
+				Namespace: "default",
+			},
+		},
+	}
+	existingS3SecretWithProtocol := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "s3-secret-with-protocol",
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			"awsAccessKeyID":     {},
+			"awsSecretAccessKey": {},
+			s3.S3Endpoint:        []byte("http://s3.aws.com"),
+			s3.S3VerifySSL:       []byte("0"),
+		},
+	}
 	scenarios := map[string]struct {
 		serviceAccount        *corev1.ServiceAccount
 		secret                *corev1.Secret
@@ -311,6 +443,86 @@ func TestS3CredentialBuilderWithSecretData(t *testing.T) {
 			},
 			shouldFail: false,
 		},
+		"Build s3 secrets data envs with protocol": {
+			serviceAccount: existingServiceAccountWithProtocol,
+			secret:         existingS3SecretWithProtocol,
+			inputConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{
+										Env: []corev1.EnvVar{
+											{
+												Name: s3.AWSAccessKeyId,
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
+															Name: "s3-secret-with-protocol",
+														},
+														Key: "awsAccessKeyID",
+													},
+												},
+											},
+											{
+												Name: s3.AWSSecretAccessKey,
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
+															Name: "s3-secret-with-protocol",
+														},
+														Key: "awsSecretAccessKey",
+													},
+												},
+											},
+											{
+												Name:  s3.S3UseHttps,
+												Value: "0",
+											},
+											{
+												Name:  s3.S3Endpoint,
+												Value: "s3.aws.com",
+											},
+											{
+												Name:  s3.AWSEndpointUrl,
+												Value: "http://s3.aws.com",
+											},
+											{
+												Name:  s3.S3VerifySSL,
+												Value: "0",
+											},
+											{
+												Name:  s3.AWSAnonymousCredential,
+												Value: "false",
+											},
+											{
+												Name:  s3.AWSRegion,
+												Value: "us-east-2",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldFail: false,
+		},
 	}
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
@@ -364,12 +576,36 @@ func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 			"awsSecretAccessKey": {},
 		},
 	}
+	existingServiceAccountWithProtocol := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default-with-protocol",
+			Namespace: "default",
+		},
+	}
+	existingS3SecretWithProtocol := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "s3-secret-with-protocol",
+			Namespace: "default",
+			Annotations: map[string]string{
+				s3.InferenceServiceS3SecretEndpointAnnotation: "http://s3.aws.com",
+				s3.InferenceServiceS3SecretSSLAnnotation:      "0",
+			},
+		},
+		Data: map[string][]byte{
+			"awsAccessKeyID":     {},
+			"awsSecretAccessKey": {},
+		},
+	}
 	scenarios := map[string]struct {
+		serviceAccount        *corev1.ServiceAccount
+		secret                *corev1.Secret
 		inputConfiguration    *knservingv1.Configuration
 		expectedConfiguration *knservingv1.Configuration
 		shouldFail            bool
 	}{
 		"Build s3 secrets envs": {
+			serviceAccount: existingServiceAccount,
+			secret:         existingS3Secret,
 			inputConfiguration: &knservingv1.Configuration{
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
@@ -447,72 +683,9 @@ func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 			},
 			shouldFail: false,
 		},
-	}
-
-	builder := NewCredentialBuilder(c, clientset, configMap)
-	for name, scenario := range scenarios {
-		g.Expect(c.Create(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(t.Context(), existingS3Secret)).NotTo(gomega.HaveOccurred())
-		annotations := map[string]string{
-			"serving.kserve.io/storageSecretName": "s3-secret",
-		}
-		err := builder.CreateSecretVolumeAndEnv(
-			t.Context(),
-			existingServiceAccount.Namespace,
-			annotations,
-			existingServiceAccount.Name,
-			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
-			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
-		)
-		if scenario.shouldFail && err == nil {
-			t.Errorf("Test %q failed: returned success but expected error", name)
-		}
-		// Validate
-		if !scenario.shouldFail {
-			if err != nil {
-				t.Errorf("Test %q failed: returned error: %v", name, err)
-			}
-			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
-				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
-			}
-		}
-		g.Expect(c.Delete(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(t.Context(), existingS3Secret)).NotTo(gomega.HaveOccurred())
-	}
-}
-
-func TestS3CredentialBuilderWithStorageSecretData(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	existingServiceAccount := &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "default",
-			Namespace: "default",
-		},
-	}
-	existingS3Secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "s3-secret",
-			Namespace: "default",
-		},
-		Data: map[string][]byte{
-			"awsAccessKeyID":     {},
-			"awsSecretAccessKey": {},
-			s3.S3Endpoint:        []byte("s3.aws.com"),
-		},
-	}
-
-	scenarios := map[string]struct {
-		serviceAccount        *corev1.ServiceAccount
-		secret                *corev1.Secret
-		secretName            string
-		inputConfiguration    *knservingv1.Configuration
-		expectedConfiguration *knservingv1.Configuration
-		shouldFail            bool
-	}{
-		"Build s3 secret data envs": {
-			serviceAccount: existingServiceAccount,
-			secret:         existingS3Secret,
-			secretName:     existingS3Secret.Name,
+		"Build s3 secrets envs with protocol": {
+			serviceAccount: existingServiceAccountWithProtocol,
+			secret:         existingS3SecretWithProtocol,
 			inputConfiguration: &knservingv1.Configuration{
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
@@ -539,7 +712,7 @@ func TestS3CredentialBuilderWithStorageSecretData(t *testing.T) {
 												ValueFrom: &corev1.EnvVarSource{
 													SecretKeyRef: &corev1.SecretKeySelector{
 														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret",
+															Name: "s3-secret-with-protocol",
 														},
 														Key: "awsAccessKeyID",
 													},
@@ -550,7 +723,7 @@ func TestS3CredentialBuilderWithStorageSecretData(t *testing.T) {
 												ValueFrom: &corev1.EnvVarSource{
 													SecretKeyRef: &corev1.SecretKeySelector{
 														LocalObjectReference: corev1.LocalObjectReference{
-															Name: "s3-secret",
+															Name: "s3-secret-with-protocol",
 														},
 														Key: "awsSecretAccessKey",
 													},
@@ -558,7 +731,7 @@ func TestS3CredentialBuilderWithStorageSecretData(t *testing.T) {
 											},
 											{
 												Name:  s3.S3UseHttps,
-												Value: "1",
+												Value: "0",
 											},
 											{
 												Name:  s3.S3Endpoint,
@@ -566,11 +739,11 @@ func TestS3CredentialBuilderWithStorageSecretData(t *testing.T) {
 											},
 											{
 												Name:  s3.AWSEndpointUrl,
-												Value: "https://s3.aws.com",
+												Value: "http://s3.aws.com",
 											},
 											{
 												Name:  s3.S3VerifySSL,
-												Value: "1",
+												Value: "0",
 											},
 											{
 												Name:  s3.AWSAnonymousCredential,
@@ -597,7 +770,246 @@ func TestS3CredentialBuilderWithStorageSecretData(t *testing.T) {
 		g.Expect(c.Create(t.Context(), scenario.serviceAccount)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Create(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
 		annotations := map[string]string{
-			"serving.kserve.io/storageSecretName": scenario.secretName,
+			"serving.kserve.io/storageSecretName": scenario.secret.Name,
+		}
+		err := builder.CreateSecretVolumeAndEnv(
+			t.Context(),
+			scenario.serviceAccount.Namespace,
+			annotations,
+			scenario.serviceAccount.Name,
+			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
+			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
+		)
+		if scenario.shouldFail && err == nil {
+			t.Errorf("Test %q failed: returned success but expected error", name)
+		}
+		// Validate
+		if !scenario.shouldFail {
+			if err != nil {
+				t.Errorf("Test %q failed: returned error: %v", name, err)
+			}
+			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
+				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
+			}
+		}
+		g.Expect(c.Delete(t.Context(), scenario.serviceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
+	}
+}
+
+func TestS3CredentialBuilderWithStorageSecretData(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	existingServiceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default",
+			Namespace: "default",
+		},
+	}
+	existingS3Secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "s3-secret",
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			"awsAccessKeyID":     {},
+			"awsSecretAccessKey": {},
+			s3.S3Endpoint:        []byte("s3.aws.com"),
+		},
+	}
+
+	existingServiceAccountWithProtocol := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default-with-protocol",
+			Namespace: "default",
+		},
+	}
+	existingS3SecretWithProtocol := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "s3-secret-with-protocol",
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			"awsAccessKeyID":     {},
+			"awsSecretAccessKey": {},
+			s3.S3Endpoint:        []byte("http://s3.aws.com"),
+			s3.S3VerifySSL:       []byte("0"),
+		},
+	}
+	scenarios := map[string]struct {
+		serviceAccount        *corev1.ServiceAccount
+		secret                *corev1.Secret
+		inputConfiguration    *knservingv1.Configuration
+		expectedConfiguration *knservingv1.Configuration
+		shouldFail            bool
+	}{
+		"Build s3 secret data envs": {
+			serviceAccount: existingServiceAccount,
+			secret:         existingS3Secret,
+			inputConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{
+										Env: []corev1.EnvVar{
+											{
+												Name: s3.AWSAccessKeyId,
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
+															Name: "s3-secret",
+														},
+														Key: "awsAccessKeyID",
+													},
+												},
+											},
+											{
+												Name: s3.AWSSecretAccessKey,
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
+															Name: "s3-secret",
+														},
+														Key: "awsSecretAccessKey",
+													},
+												},
+											},
+											{
+												Name:  s3.S3UseHttps,
+												Value: "1",
+											},
+											{
+												Name:  s3.S3Endpoint,
+												Value: "s3.aws.com",
+											},
+											{
+												Name:  s3.AWSEndpointUrl,
+												Value: "https://s3.aws.com",
+											},
+											{
+												Name:  s3.S3VerifySSL,
+												Value: "1",
+											},
+											{
+												Name:  s3.AWSAnonymousCredential,
+												Value: "false",
+											},
+											{
+												Name:  s3.AWSRegion,
+												Value: "us-east-2",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldFail: false,
+		},
+		"Build s3 secret data envs with protocol": {
+			serviceAccount: existingServiceAccountWithProtocol,
+			secret:         existingS3SecretWithProtocol,
+			inputConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{
+										Env: []corev1.EnvVar{
+											{
+												Name: s3.AWSAccessKeyId,
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
+															Name: "s3-secret-with-protocol",
+														},
+														Key: "awsAccessKeyID",
+													},
+												},
+											},
+											{
+												Name: s3.AWSSecretAccessKey,
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
+															Name: "s3-secret-with-protocol",
+														},
+														Key: "awsSecretAccessKey",
+													},
+												},
+											},
+											{
+												Name:  s3.S3UseHttps,
+												Value: "0",
+											},
+											{
+												Name:  s3.S3Endpoint,
+												Value: "s3.aws.com",
+											},
+											{
+												Name:  s3.AWSEndpointUrl,
+												Value: "http://s3.aws.com",
+											},
+											{
+												Name:  s3.S3VerifySSL,
+												Value: "0",
+											},
+											{
+												Name:  s3.AWSAnonymousCredential,
+												Value: "false",
+											},
+											{
+												Name:  s3.AWSRegion,
+												Value: "us-east-2",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldFail: false,
+		},
+	}
+
+	builder := NewCredentialBuilder(c, clientset, configMap)
+	for name, scenario := range scenarios {
+		g.Expect(c.Create(t.Context(), scenario.serviceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
+		annotations := map[string]string{
+			"serving.kserve.io/storageSecretName": scenario.secret.Name,
 		}
 		err := builder.CreateSecretVolumeAndEnv(
 			t.Context(),
@@ -634,6 +1046,18 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 				s3.InferenceServiceS3SecretEndpointAnnotation: "s3.aws.com",
 				s3.InferenceServiceS3UseAnonymousCredential:   "true",
 				AwsIrsaAnnotationKey:                          "arn:aws:iam::123456789012:role/s3access",
+			},
+		},
+	}
+	existingServiceAccountWithProtocol := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default-with-protocol",
+			Namespace: "default",
+			Annotations: map[string]string{
+				s3.InferenceServiceS3SecretEndpointAnnotation: "http://s3.aws.com",
+				s3.InferenceServiceS3UseAnonymousCredential:   "true",
+				AwsIrsaAnnotationKey:                          "arn:aws:iam::123456789012:role/s3access",
+				s3.InferenceServiceS3SecretSSLAnnotation:      "0",
 			},
 		},
 	}
@@ -700,11 +1124,68 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 			},
 			shouldFail: false,
 		},
+		"Build s3 service account envs with protocol": {
+			serviceAccount: existingServiceAccountWithProtocol,
+			inputConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{
+										Env: []corev1.EnvVar{
+											{
+												Name:  s3.S3UseHttps,
+												Value: "0",
+											},
+											{
+												Name:  s3.S3Endpoint,
+												Value: "s3.aws.com",
+											},
+											{
+												Name:  s3.AWSEndpointUrl,
+												Value: "http://s3.aws.com",
+											},
+											{
+												Name:  s3.S3VerifySSL,
+												Value: "0",
+											},
+											{
+												Name:  s3.AWSAnonymousCredential,
+												Value: "true",
+											},
+											{
+												Name:  s3.AWSRegion,
+												Value: "us-east-2",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldFail: false,
+		},
 	}
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-		g.Expect(c.Create(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), scenario.serviceAccount)).NotTo(gomega.HaveOccurred())
 
 		err := builder.CreateSecretVolumeAndEnv(
 			t.Context(),
@@ -726,7 +1207,7 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
-		g.Expect(c.Delete(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), scenario.serviceAccount)).NotTo(gomega.HaveOccurred())
 	}
 }
 

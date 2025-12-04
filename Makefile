@@ -95,7 +95,7 @@ generate-quick-install-scripts: validate-infra-scripts $(PYTHON_VENV)
 	@$(PYTHON_BIN)/python hack/setup/scripts/install-script-generator/generator.py
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen yq generate-quick-install-scripts
+manifests: controller-gen yq
 	@$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full	
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths={./pkg/controller/v1alpha1/inferencegraph,./pkg/controller/v1alpha1/trainedmodel,./pkg/controller/v1beta1/...} output:rbac:artifacts:config=config/rbac
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
@@ -209,7 +209,7 @@ uv-lock: $(UV)
 
 
 # This runs all necessary steps to prepare for a commit.
-precommit: sync-deps vet tidy go-lint py-fmt py-lint generate manifests uv-lock
+precommit: sync-deps vet tidy go-lint py-fmt py-lint generate manifests uv-lock generate-quick-install-scripts
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit
@@ -260,13 +260,21 @@ deploy: manifests
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	echo > ../certmanager/certificate.yaml; \
-	else git checkout HEAD -- ../certmanager/certificate.yaml; fi;
+	echo > ../certmanager/llmisvc/certificate.yaml; \
+	else git checkout HEAD -- ../certmanager/certificate.yaml ../certmanager/llmisvc/certificate.yaml; fi;
 	kubectl apply --server-side=true -k config/default
-	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
+	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
+		./hack/self-signed-ca.sh; \
+		./hack/self-signed-ca.sh --service llmisvc-webhook-server-service \
+			--secret llmisvc-webhook-server-cert \
+			--webhookDeployment llmisvc-controller-manager \
+			--validatingWebhookName llminferenceservice.serving.kserve.io \
+			--validatingWebhookName llminferenceserviceconfig.serving.kserve.io; \
+	fi;
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 	kubectl wait --for=condition=ready pod -l control-plane=llmisvc-controller-manager -n kserve --timeout=300s
 	kubectl apply  --server-side=true  -k config/clusterresources
-	git checkout HEAD -- config/certmanager/certificate.yaml
+	git checkout HEAD -- config/certmanager/certificate.yaml config/certmanager/llmisvc/certificate.yaml
 
 
 deploy-dev: manifests
@@ -279,14 +287,22 @@ deploy-dev: manifests
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	echo > ../certmanager/certificate.yaml; \
-	else git checkout HEAD -- ../certmanager/certificate.yaml; fi;
+	echo > ../certmanager/llmisvc/certificate.yaml; \
+	else git checkout HEAD -- ../certmanager/certificate.yaml ../certmanager/llmisvc/certificate.yaml; fi;
 	kubectl apply --server-side=true --force-conflicts -k config/overlays/development
-	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
+	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
+		./hack/self-signed-ca.sh; \
+		./hack/self-signed-ca.sh --service llmisvc-webhook-server-service \
+			--secret llmisvc-webhook-server-cert \
+			--webhookDeployment llmisvc-controller-manager \
+			--validatingWebhookName llminferenceservice.serving.kserve.io \
+			--validatingWebhookName llminferenceserviceconfig.serving.kserve.io; \
+	fi;
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 	kubectl wait --for=condition=ready pod -l control-plane=llmisvc-controller-manager -n kserve --timeout=300s
 	kubectl apply --server-side=true --force-conflicts -k config/clusterresources
-	git checkout HEAD -- config/certmanager/certificate.yaml
+	git checkout HEAD -- config/certmanager/certificate.yaml config/certmanager/llmisvc/certificate.yaml
 
 deploy-dev-sklearn: docker-push-sklearn
 	./hack/serving_runtime_image_patch.sh "kserve-sklearnserver.yaml" "${KO_DOCKER_REPO}/${SKLEARN_IMG}"
