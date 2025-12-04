@@ -11,6 +11,7 @@ CONTROLLER_GEN = $(LOCALBIN)/controller-gen
 ENVTEST = $(LOCALBIN)/setup-envtest
 YQ = $(LOCALBIN)/yq
 HELM_DOCS = $(LOCALBIN)/helm-docs
+HELMIFY = $(LOCALBIN)/helmify
 BLACK_FMT = $(PYTHON_BIN)/black
 FLAKE8_LINT = $(PYTHON_BIN)/flake8
 UV = $(PYTHON_BIN)/uv
@@ -46,12 +47,18 @@ helm-docs: $(HELM_DOCS)
 $(HELM_DOCS): $(LOCALBIN)
 	$(call go-install-tool,$(HELM_DOCS),github.com/norwoodj/helm-docs/cmd/helm-docs,$(HELM_DOCS_VERSION))
 
+## Download helmify locally if necessary.
+.PHONY: helmify
+helmify: $(HELMIFY)
+$(HELMIFY): $(LOCALBIN)
+	$(call go-install-tool,$(HELMIFY),github.com/arttor/helmify/cmd/helmify,$(HELMIFY_VERSION))
+
 $(PYTHON_VENV): | $(LOCALBIN)
 	python3 -m venv $(PYTHON_VENV)
 	$(PYTHON_BIN)/pip install --upgrade pip
 
 $(BLACK_FMT) $(FLAKE8_LINT): $(PYTHON_VENV)
-	$(PYTHON_BIN)/pip install black==$(BLACK_FMT_VERSION) flake8==$(FLAKE8_LINT_VERSION)
+	$(PYTHON_BIN)/pip install black==$(BLACK_FMT_VERSION) flake8==$(FLAKE8_LINT_VERSION) PyYAML>=6.0
 
 $(UV): $(PYTHON_VENV)
 	$(PYTHON_BIN)/pip install uv==$(UV_VERSION)
