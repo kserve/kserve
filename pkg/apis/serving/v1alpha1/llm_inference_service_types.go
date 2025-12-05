@@ -29,6 +29,7 @@ import (
 // It orchestrates the creation of underlying Kubernetes resources like Deployments and Services,
 // and configures networking for exposing the model.
 // +k8s:openapi-gen=true
+// +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"
