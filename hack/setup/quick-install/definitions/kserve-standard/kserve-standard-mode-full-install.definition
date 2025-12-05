@@ -12,7 +12,6 @@ COMPONENTS:
   - name: keda-otel-addon
   # LLMISVC
   - name: external-lb
-  - name: gateway-api-crd
   - name: envoy-gateway
   - name: envoy-ai-gateway
   - name: gateway-api-gwclass

@@ -8,7 +8,7 @@ TOOLS:
 COMPONENTS:
   - name: external-lb
   - name: cert-manager
-  - name: gateway-api-crd
+  - name: gateway-api-extension-crd
   - name: envoy-gateway
   - name: envoy-ai-gateway
   - name: gateway-api-gwclass

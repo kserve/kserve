@@ -15,9 +15,9 @@
 # limitations under the License.
 
 # Install Gateway API CRDs
-# Usage: install-crd.sh [--reinstall|--uninstall]
-#   or:  REINSTALL=true install-crd.sh
-#   or:  UNINSTALL=true install-crd.sh
+# Usage: manage.gateway-api-crd-only.sh [--reinstall|--uninstall]
+#   or:  REINSTALL=true manage.gateway-api-crd-only.sh
+#   or:  UNINSTALL=true manage.gateway-api-crd-only.sh
 
 # INIT
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
@@ -37,7 +37,6 @@ fi
 uninstall() {
     log_info "Uninstalling Gateway API CRDs..."
     kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml" --ignore-not-found=true 2>/dev/null || true
-    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml" --ignore-not-found=true 2>/dev/null || true
     log_success "Gateway API CRDs uninstalled"
 }
 
@@ -62,18 +61,6 @@ install() {
         "gatewayclasses.gateway.networking.k8s.io"
 
     log_success "Gateway API CRDs are ready!"
-
-    log_info "Installing Gateway Inference Extension CRDs ${GIE_VERSION}..."
-    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml"
-
-    log_success "Successfully installed Gateway Inference Extension CRDs ${GIE_VERSION}"
-
-    wait_for_crds "60s" \
-        "inferencepools.inference.networking.x-k8s.io" \
-        "inferencemodels.inference.networking.x-k8s.io"
-
-    log_success "Gateway Inference Extension CRDs are ready!"
-
 }
 
 if [ "$UNINSTALL" = true ]; then

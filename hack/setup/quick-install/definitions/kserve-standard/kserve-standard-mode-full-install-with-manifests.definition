@@ -14,11 +14,11 @@ COMPONENTS:
   - name: keda-otel-addon
   # LLMISVC
   - name: external-lb
-  - name: gateway-api-crd
+  - name: gateway-api-extension-crd
   - name: envoy-gateway
   - name: envoy-ai-gateway
   - name: gateway-api-gwclass
-  - name: gateway-api-gw  
+  - name: gateway-api-gw
   - name: lws-operator
   - name: kserve
     env:
