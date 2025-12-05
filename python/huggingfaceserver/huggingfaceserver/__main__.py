@@ -71,7 +71,7 @@ def is_vllm_backend_enabled(
 
 
 try:
-    from vllm.utils import FlexibleArgumentParser
+    from vllm.utils.argparse_utils import FlexibleArgumentParser
 
     parser = FlexibleArgumentParser(parents=[kserve.model_server.parser])
 except ImportError:
