@@ -10124,6 +10124,25 @@ spec:
                     type: object
                   scheduler:
                     properties:
+                      config:
+                        properties:
+                          inline:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                          ref:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                default: ""
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                            x-kubernetes-map-type: atomic
+                        type: object
                       pool:
                         properties:
                           ref:
@@ -30390,6 +30409,25 @@ spec:
                     type: object
                   scheduler:
                     properties:
+                      config:
+                        properties:
+                          inline:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                          ref:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                default: ""
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                            x-kubernetes-map-type: atomic
+                        type: object
                       pool:
                         properties:
                           ref:

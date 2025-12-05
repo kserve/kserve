@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
@@ -155,15 +156,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("Setting up LLMInferenceService controller")
-	llmEventBroadcaster := record.NewBroadcaster()
-	llmEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
-	if err = (&llmisvc.LLMISVCReconciler{
-		Client:        mgr.GetClient(),
-		Clientset:     clientSet,
-		EventRecorder: llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceController"}),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceService")
+	llmInferenceServiceValidator := &llmisvcvalidation.LLMInferenceServiceValidator{}
+	if err = llmInferenceServiceValidator.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice")
 		os.Exit(1)
 	}
 
@@ -175,9 +170,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	llmInferenceServiceValidator := &llmisvcvalidation.LLMInferenceServiceValidator{}
-	if err = llmInferenceServiceValidator.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice")
+	setupLog.Info("Setting up LLMInferenceService controller")
+	llmEventBroadcaster := record.NewBroadcaster()
+	llmEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
+	if err = (&llmisvc.LLMISVCReconciler{
+		Client:        mgr.GetClient(),
+		Clientset:     clientSet,
+		EventRecorder: llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceController"}),
+		Validator: func(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
+			_, err := llmInferenceServiceValidator.ValidateCreate(ctx, llmSvc)
+			return err
+		},
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceService")
 		os.Exit(1)
 	}
 
