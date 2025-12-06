@@ -284,25 +284,29 @@ deploy-dev: manifests
 	kubectl apply --server-side=true --force-conflicts -k config/crd
 	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
 	./hack/image_patch_dev.sh development
-	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
-	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
-	echo > ../certmanager/certificate.yaml; \
-	echo > ../certmanager/llmisvc/certificate.yaml; \
-	else git checkout HEAD -- ../certmanager/certificate.yaml ../certmanager/llmisvc/certificate.yaml; fi;
-	kubectl apply --server-side=true --force-conflicts -k config/overlays/development
-	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
-		./hack/self-signed-ca.sh; \
-		./hack/self-signed-ca.sh --service llmisvc-webhook-server-service \
-			--secret llmisvc-webhook-server-cert \
-			--webhookDeployment llmisvc-controller-manager \
-			--validatingWebhookName llminferenceservice.serving.kserve.io \
-			--validatingWebhookName llminferenceserviceconfig.serving.kserve.io; \
-	fi;
-	# TODO: Add runtimes as part of default deployment
+	
+	@echo "Deploy KServe and LLMInferenceService"
+	hack/setup/infra/manage.cert-manager-helm.sh
+	KSERVE_OVERYLAY_DIR=development hack/setup/infra/manage.kserve-kustomize.sh
+	
+	@echo "Create ClusterServingRuntimes as part of default deployment"
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 	kubectl wait --for=condition=ready pod -l control-plane=llmisvc-controller-manager -n kserve --timeout=300s
 	kubectl apply --server-side=true --force-conflicts -k config/clusterresources
-	git checkout HEAD -- config/certmanager/certificate.yaml config/certmanager/llmisvc/certificate.yaml
+
+# Quick redeploy after code changes (rebuild images and update deployments)
+redeploy-dev-image:
+	./hack/image_patch_dev.sh development
+	kubectl apply --server-side=true --force-conflicts -k config/overlays/development
+	
+	kubectl rollout restart deployment/kserve-controller-manager -n kserve
+	kubectl rollout status deployment/kserve-controller-manager -n kserve --timeout=300s
+	
+	kubectl rollout restart deployment/llmisvc-controller-manager -n kserve
+	kubectl rollout status deployment/llmisvc-controller-manager -n kserve --timeout=300s
+	
+	@echo "Deployments updated successfully"
+	kubectl get pods -n kserve
 
 deploy-dev-sklearn: docker-push-sklearn
 	./hack/serving_runtime_image_patch.sh "kserve-sklearnserver.yaml" "${KO_DOCKER_REPO}/${SKLEARN_IMG}"
