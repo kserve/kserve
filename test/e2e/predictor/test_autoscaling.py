@@ -34,6 +34,8 @@ from kserve import (
     V1beta1MetricsSpec,
     V1beta1PodMetricSource,
     V1beta1PodMetrics,
+    V1beta1ExtMetricAuthentication,
+    V1beta1AuthenticationRef,
 )
 
 
@@ -572,6 +574,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
 
     trigger_metadata = scaledobject_resp["items"][0]["spec"]["triggers"][0]["metadata"]
     trigger_type = scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"]
+    authentication_ref = scaledobject_resp["items"][0]["spec"]["triggers"][0]["authenticationRef"]
     assert trigger_type == "prometheus"
     assert trigger_metadata["query"] == "http_requests_per_second"
     assert trigger_metadata["serverAddress"] == "https://thanos-querier.openshift-monitoring.svc.cluster.local:9092"
