@@ -330,7 +330,7 @@ func mergeSpecs(ctx context.Context, base, override v1alpha1.LLMInferenceService
 
 	// This ensures that only explicitly set fields in the override are applied, preventing
 	// zero-valued fields from overwriting meaningful base values.
-	override.SetDefaults(ctx)
+	// Note: SetDefaults method was removed from LLMInferenceServiceSpec
 
 	overrideJSON, err := json.Marshal(override)
 	if err != nil {

@@ -982,6 +982,7 @@ func TestOauthProxyUpstreamTimeout(t *testing.T) {
 				tt.args.componentExt,
 				tt.args.podSpec,
 				tt.args.workerPodSpec,
+				nil, // deployConfig
 			)
 			require.NoError(t, err)
 			require.NotEmpty(t, deployments)
