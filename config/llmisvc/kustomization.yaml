@@ -4,13 +4,15 @@ kind: Kustomization
 namespace: kserve
 
 resources:
-  - service.yaml
-  - manager.yaml
-  - gateway-inference-extension.yaml
-  - ../certmanager/llmisvc
-  - ../rbac/llmisvc
-  - ../llmisvcconfig
-  - ../webhook/llmisvc
+- service.yaml
+- manager.yaml
+# Gateway Inference Extension CRDs are installed separately (not part of llmisvc app)
+# - gateway-inference-extension.yaml
+- ../certmanager/llmisvc
+- ../rbac/llmisvc
+- ../llmisvcconfig
+- ../webhook/llmisvc
+# Note: ../configmap is a shared resource included at overlay level
 
 replacements:
 # Replace the namespace with the namespace of the controller manager.
@@ -19,7 +21,7 @@ replacements:
     kind: Deployment
     name: llmisvc-controller-manager
     version: v1
-  targets:  
+  targets:
   - fieldPaths:
     - webhooks.*.clientConfig.service.namespace
     select:
@@ -34,24 +36,24 @@ replacements:
     - spec.commonName
     - spec.dnsNames.0
     options:
-      delimiter: '.'
+      delimiter: "."
       index: 1
     select:
       kind: Certificate
       name: llmisvc-serving-cert
       namespace: kserve
   - fieldPaths:
-      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
-      delimiter: '/'
+      delimiter: "/"
       index: 0
     select:
       kind: ValidatingWebhookConfiguration
       name: llminferenceservice.serving.kserve.io
   - fieldPaths:
-      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
-      delimiter: '/'
+      delimiter: "/"
       index: 0
     select:
       kind: ValidatingWebhookConfiguration
@@ -77,7 +79,7 @@ replacements:
     - spec.commonName
     - spec.dnsNames.0
     options:
-      delimiter: '.'
+      delimiter: "."
       index: 0
     select:
       kind: Certificate
@@ -104,7 +106,7 @@ replacements:
     - spec.template.spec.serviceAccountName
     select:
       kind: Deployment
-      name: llmisvc-controller-manager    
+      name: llmisvc-controller-manager
 patches:
 - path: llmisvc_validatingwebhook_cainjection_patch.yaml
 - path: llmisvcconfig_validatingwebhook_cainjection_patch.yaml

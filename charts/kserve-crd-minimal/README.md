@@ -1,13 +1,10 @@
 # kserve-crd-minimal
 
-Helm chart for deploying minimal kserve crds without validation
-
 ![Version: v0.16.0](https://img.shields.io/badge/Version-v0.16.0-informational?style=flat-square)
 
-## Installing the Chart
+Helm chart for deploying minimal kserve crds without validation
 
-To install the chart, run the following:
+## Source Code
 
-```console
-$ helm install kserve-crd-minimal oci://ghcr.io/kserve/charts/kserve-crd-minimal --version v0.16.0
-```
+* <http://github.com/kserve/kserve>
+
