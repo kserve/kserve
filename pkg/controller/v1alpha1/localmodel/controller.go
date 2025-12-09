@@ -550,32 +550,71 @@ func (c *LocalModelReconciler) DeleteModelFromNode(ctx context.Context, localmod
 	return nil
 }
 
+// createLocalModelInfo creates a LocalModelInfo from the LocalModelCache spec
+func createLocalModelInfo(localModel *v1alpha1.LocalModelCache) v1alpha1.LocalModelInfo {
+	return v1alpha1.LocalModelInfo{
+		ModelName:          localModel.Name,
+		SourceModelUri:     localModel.Spec.SourceModelUri,
+		ServiceAccountName: localModel.Spec.ServiceAccountName,
+		Storage:            localModel.Spec.Storage,
+	}
+}
+
 // UpdateLocalModelNode updates the source model uri of the localmodelnode from the localmodel
 func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1.LocalModelCache) error {
 	var patch client.Patch
 	updated := false
 	for i, modelInfo := range localmodelNode.Spec.LocalModels {
 		if modelInfo.ModelName == localModel.Name {
-			if modelInfo.SourceModelUri == localModel.Spec.SourceModelUri {
+			// Check if any field has changed
+			needsUpdate := modelInfo.SourceModelUri != localModel.Spec.SourceModelUri ||
+				modelInfo.ServiceAccountName != localModel.Spec.ServiceAccountName ||
+				!storageSpecEqual(modelInfo.Storage, localModel.Spec.Storage)
+			if !needsUpdate {
 				return nil
 			}
-			// Update the source model uri
-			c.Log.Info("Unexpected update to sourceModelURI", "node", localmodelNode.Name, "model", localModel.Name)
+			// Update the local model info
+			c.Log.Info("Updating localModelInfo", "node", localmodelNode.Name, "model", localModel.Name)
 			updated = true
 			patch = client.MergeFrom(localmodelNode.DeepCopy())
-			localmodelNode.Spec.LocalModels[i].SourceModelUri = localModel.Spec.SourceModelUri
+			localmodelNode.Spec.LocalModels[i] = createLocalModelInfo(localModel)
 			break
 		}
 	}
 	if !updated {
 		patch = client.MergeFrom(localmodelNode.DeepCopy())
-		localmodelNode.Spec.LocalModels = append(localmodelNode.Spec.LocalModels, v1alpha1.LocalModelInfo{ModelName: localModel.Name, SourceModelUri: localModel.Spec.SourceModelUri})
+		localmodelNode.Spec.LocalModels = append(localmodelNode.Spec.LocalModels, createLocalModelInfo(localModel))
 	}
 	if err := c.Client.Patch(ctx, localmodelNode, patch); err != nil {
 		c.Log.Error(err, "Update localmodelnode", "name", localmodelNode.Name)
 		return err
 	}
 	return nil
+}
+
+// storageSpecEqual compares two LocalModelStorageSpec for equality
+func storageSpecEqual(a, b *v1alpha1.LocalModelStorageSpec) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	// Compare StorageKey
+	if (a.StorageKey == nil) != (b.StorageKey == nil) {
+		return false
+	}
+	if a.StorageKey != nil && *a.StorageKey != *b.StorageKey {
+		return false
+	}
+	// Compare Parameters
+	if (a.Parameters == nil) != (b.Parameters == nil) {
+		return false
+	}
+	if a.Parameters != nil && !maps.Equal(*a.Parameters, *b.Parameters) {
+		return false
+	}
+	return true
 }
 
 func nodeStatusFromLocalModelStatus(modelStatus v1alpha1.ModelStatus) v1alpha1.NodeStatus {
@@ -626,7 +665,7 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 					ObjectMeta: metav1.ObjectMeta{
 						Name: node.Name,
 					},
-					Spec: v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{{ModelName: localModel.Name, SourceModelUri: localModel.Spec.SourceModelUri}}},
+					Spec: v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{createLocalModelInfo(localModel)}},
 				}
 				if err := c.Client.Create(ctx, localModelNode); err != nil {
 					c.Log.Error(err, "Create localmodelnode", "name", node.Name)

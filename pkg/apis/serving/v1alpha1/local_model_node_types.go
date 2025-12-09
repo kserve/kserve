@@ -23,6 +23,12 @@ type LocalModelInfo struct {
 	SourceModelUri string `json:"sourceModelUri" validate:"required"`
 	// Model name. Used as the subdirectory name to store this model on local file system
 	ModelName string `json:"modelName" validate:"required"`
+	// ServiceAccountName specifies the service account to use for credential lookup.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// Storage configuration for credentials and storage parameters.
+	// +optional
+	Storage *LocalModelStorageSpec `json:"storage,omitempty"`
 }
 
 // +k8s:openapi-gen=true
