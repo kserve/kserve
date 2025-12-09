@@ -37,9 +37,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	llmisvcvalidation "github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc/validation"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	llmisvcvalidation "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/validation"
 
-	"github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc"
+	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 )
 
 var (
@@ -51,6 +52,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha2.AddToScheme(scheme))
 }
 
 type Options struct {
