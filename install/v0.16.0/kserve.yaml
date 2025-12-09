@@ -74588,7 +74588,7 @@ spec:
           - "9002"
           - --grpcHealthPort
           - "9003"
-          image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.2.0
+          image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.3.0
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
