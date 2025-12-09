@@ -44,7 +44,7 @@ fi
 
 # VARIABLES
 PLATFORM="${PLATFORM:-$(detect_platform)}"
-TEMPLATE_DIR="${SCRIPT_DIR}/templates"
+TEMPLATE_DIR="${REPO_ROOT}/hack/setup/infra/external-lb/templates"
 # VARIABLES END
 
 uninstall() {
