@@ -172,6 +172,13 @@ var _ = Describe("LocalModelNode controller", func() {
         		"jobNamespace": "kserve-localmodel-jobs",
                 "defaultJobImage": "kserve/storage-initializer:latest"
             }`,
+			"storageInitializer": `{
+				"image": "kserve/storage-initializer:latest",
+				"cpuRequest": "100m",
+				"cpuLimit": "1",
+				"memoryRequest": "200Mi",
+				"memoryLimit": "1Gi"
+			}`,
 		}
 	)
 
@@ -179,7 +186,9 @@ var _ = Describe("LocalModelNode controller", func() {
 		It("Should create download jobs, update model status from jobs, and handle model deletion", func() {
 			ctx := context.Background()
 			fsMock.clear()
-			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
+			// Use storage key (hash of URI) for folder name, as the controller does
+			storageKey := v1alpha1.GetStorageKey(sourceModelUri)
+			fsMock.mockModel(&MockFileInfo{name: storageKey, isDir: true})
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
@@ -249,12 +258,13 @@ var _ = Describe("LocalModelNode controller", func() {
 			}, timeout, interval).Should(BeTrue(), "Download job should be created")
 
 			// Now let's update the job status to be successful
-			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
+			fsMock.mockModel(&MockFileInfo{name: storageKey, isDir: true})
 			job := &jobs.Items[0]
 			job.Status.Succeeded = 1
 			Expect(k8sClient.Status().Update(ctx, job)).Should(Succeed())
 
 			// LocalModelNode status should be updated
+			// Status key is just modelName for cluster-scoped models
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode)
 				if err != nil {
@@ -286,6 +296,8 @@ var _ = Describe("LocalModelNode controller", func() {
 		})
 		It("Should recreate download jobs if the model is missing from local disk", func() {
 			fsMock.clear()
+			// Use storage key (hash of URI) for folder name
+			storageKey := v1alpha1.GetStorageKey(sourceModelUri)
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 			configMap := &corev1.ConfigMap{
@@ -357,7 +369,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			}, timeout, interval).Should(BeTrue(), "Download job should be created")
 
 			// Now let's update the job status to be successful
-			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
+			fsMock.mockModel(&MockFileInfo{name: storageKey, isDir: true})
 			job := &jobs.Items[0]
 			job.Status.Succeeded = 1
 			Expect(k8sClient.Status().Update(ctx, job)).Should(Succeed())
@@ -405,8 +417,10 @@ var _ = Describe("LocalModelNode controller", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 
-			// Mock readDir to return a fake model folder
-			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
+			// Mock readDir to return a fake model folder with a storage key-like name
+			// Since the LocalModelNode has no models in the spec, any folder should be deleted
+			orphanedStorageKey := "abc123def456"
+			fsMock.mockModel(&MockFileInfo{name: orphanedStorageKey, isDir: true})
 
 			nodeName = "worker" // Definied in controller.go, representing the name of the current node
 			node := &corev1.Node{
@@ -445,7 +459,7 @@ var _ = Describe("LocalModelNode controller", func() {
 					return false
 				}
 				for _, dir := range dirs {
-					if dir.Name() == modelName {
+					if dir.Name() == orphanedStorageKey {
 						return false
 					}
 				}
@@ -457,6 +471,8 @@ var _ = Describe("LocalModelNode controller", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 			fsMock.clear()
+			// Use storage key (hash of URI) for folder name
+			storageKey := v1alpha1.GetStorageKey(sourceModelUri)
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
@@ -467,8 +483,8 @@ var _ = Describe("LocalModelNode controller", func() {
 			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(ctx, configMap)
 
-			// Mock readDir to return a fake model folder
-			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
+			// Mock readDir to return a fake model folder using storage key
+			fsMock.mockModel(&MockFileInfo{name: storageKey, isDir: true})
 
 			nodeGroup := &v1alpha1.LocalModelNodeGroup{
 				ObjectMeta: metav1.ObjectMeta{
@@ -723,6 +739,390 @@ var _ = Describe("LocalModelNode controller", func() {
 				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
 				return err == nil && len(jobs.Items) == 1
 			}, timeout, interval).Should(BeTrue(), "Download job should be created with storage key")
+		})
+
+		It("Should create download job in model namespace for namespace-scoped LocalModelNamespaceCache", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			fsMock.clear()
+
+			// Create test namespace for the namespace-scoped model
+			modelNamespace := fmt.Sprintf("test-model-ns-%d", time.Now().UnixNano())
+			testNs := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: modelNamespace,
+				},
+			}
+			Expect(k8sClient.Create(ctx, testNs)).Should(Succeed())
+			defer k8sClient.Delete(ctx, testNs)
+
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: map[string]string{
+					"localModel": `{
+						"jobNamespace": "kserve-localmodel-jobs",
+						"defaultJobImage": "kserve/storage-initializer:latest"
+					}`,
+					"storageInitializer": `{
+						"image": "kserve/storage-initializer:latest",
+						"cpuRequest": "100m",
+						"cpuLimit": "1",
+						"memoryRequest": "200Mi",
+						"memoryLimit": "1Gi"
+					}`,
+				},
+			}
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu",
+				},
+				Spec: localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			nodeName = "worker-ns-model"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{
+						{
+							Type:   corev1.NodeReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			// Create LocalModelNode with namespace-scoped model (Namespace field set)
+			nsModelName := "ns-llama"
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+				},
+				Spec: v1alpha1.LocalModelNodeSpec{
+					LocalModels: []v1alpha1.LocalModelInfo{
+						{
+							SourceModelUri: sourceModelUri,
+							ModelName:      nsModelName,
+							Namespace:      modelNamespace, // This makes it a namespace-scoped model
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			// Wait for the download job to be created IN THE MODEL'S NAMESPACE
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{
+				"model":          nsModelName,
+				"node":           nodeName,
+				"modelNamespace": modelNamespace,
+			}
+			Eventually(func() bool {
+				// Job should be in the model's namespace, not the default jobNamespace
+				err := k8sClient.List(ctx, jobs, client.InNamespace(modelNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 1
+			}, timeout, interval).Should(BeTrue(), "Download job should be created in the model's namespace")
+
+			// Verify job labels include modelNamespace
+			job := &jobs.Items[0]
+			Expect(job.Labels["modelNamespace"]).To(Equal(modelNamespace))
+			Expect(job.Labels["model"]).To(Equal(nsModelName))
+		})
+
+		It("Should use namespace/modelName as status key for namespace-scoped models", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			fsMock.clear()
+
+			// Create test namespace
+			modelNamespace := fmt.Sprintf("test-status-ns-%d", time.Now().UnixNano())
+			testNs := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: modelNamespace,
+				},
+			}
+			Expect(k8sClient.Create(ctx, testNs)).Should(Succeed())
+			defer k8sClient.Delete(ctx, testNs)
+
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: map[string]string{
+					"localModel": `{
+						"jobNamespace": "kserve-localmodel-jobs",
+						"defaultJobImage": "kserve/storage-initializer:latest"
+					}`,
+					"storageInitializer": `{
+						"image": "kserve/storage-initializer:latest",
+						"cpuRequest": "100m",
+						"cpuLimit": "1",
+						"memoryRequest": "200Mi",
+						"memoryLimit": "1Gi"
+					}`,
+				},
+			}
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu",
+				},
+				Spec: localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			nodeName = "worker-status-key"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{
+						{
+							Type:   corev1.NodeReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			// Create LocalModelNode with namespace-scoped model
+			nsModelName := "ns-status-model"
+			storageKey := v1alpha1.GetStorageKey(sourceModelUri)
+			fsMock.mockModel(&MockFileInfo{name: storageKey, isDir: true})
+
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+				},
+				Spec: v1alpha1.LocalModelNodeSpec{
+					LocalModels: []v1alpha1.LocalModelInfo{
+						{
+							SourceModelUri: sourceModelUri,
+							ModelName:      nsModelName,
+							Namespace:      modelNamespace, // Namespace-scoped model
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			// Wait for job to be created
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{
+				"model": nsModelName,
+				"node":  nodeName,
+			}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, jobs, client.InNamespace(modelNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 1
+			}, timeout, interval).Should(BeTrue(), "Download job should be created")
+
+			// Update job status to succeeded
+			job := &jobs.Items[0]
+			job.Status.Succeeded = 1
+			Expect(k8sClient.Status().Update(ctx, job)).Should(Succeed())
+
+			// Verify status uses namespace/modelName as key
+			expectedStatusKey := modelNamespace + "/" + nsModelName
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode)
+				if err != nil {
+					return false
+				}
+				// Status key should be namespace/modelName for namespace-scoped models
+				modelStatus, ok := localModelNode.Status.ModelStatus[expectedStatusKey]
+				if !ok {
+					fmt.Fprintf(GinkgoWriter, "Status keys: %v\n", localModelNode.Status.ModelStatus)
+					return false
+				}
+				return modelStatus == v1alpha1.ModelDownloaded
+			}, timeout, interval).Should(BeTrue(), "Status should use namespace/modelName as key")
+		})
+
+		It("Should track both cluster-scoped and namespace-scoped models with separate status entries", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			fsMock.clear()
+
+			// Create test namespace
+			modelNamespace := fmt.Sprintf("test-mixed-ns-%d", time.Now().UnixNano())
+			testNs := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: modelNamespace,
+				},
+			}
+			Expect(k8sClient.Create(ctx, testNs)).Should(Succeed())
+			defer k8sClient.Delete(ctx, testNs)
+
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: map[string]string{
+					"localModel": `{
+						"jobNamespace": "kserve-localmodel-jobs",
+						"defaultJobImage": "kserve/storage-initializer:latest"
+					}`,
+					"storageInitializer": `{
+						"image": "kserve/storage-initializer:latest",
+						"cpuRequest": "100m",
+						"cpuLimit": "1",
+						"memoryRequest": "200Mi",
+						"memoryLimit": "1Gi"
+					}`,
+				},
+			}
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu",
+				},
+				Spec: localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			nodeName = "worker-mixed"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{
+						{
+							Type:   corev1.NodeReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			// Create LocalModelNode with both cluster-scoped and namespace-scoped models
+			clusterModelName := "cluster-model"
+			nsModelName := "ns-model"
+			clusterUri := "s3://bucket/cluster-model"
+			nsUri := "s3://bucket/ns-model"
+
+			// Mock both model folders (using storage keys)
+			clusterStorageKey := v1alpha1.GetStorageKey(clusterUri)
+			nsStorageKey := v1alpha1.GetStorageKey(nsUri)
+			fsMock.mockModel(&MockFileInfo{name: clusterStorageKey, isDir: true})
+			fsMock.mockModel(&MockFileInfo{name: nsStorageKey, isDir: true})
+
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+				},
+				Spec: v1alpha1.LocalModelNodeSpec{
+					LocalModels: []v1alpha1.LocalModelInfo{
+						{
+							SourceModelUri: clusterUri,
+							ModelName:      clusterModelName,
+							Namespace:      "", // Cluster-scoped (empty namespace)
+						},
+						{
+							SourceModelUri: nsUri,
+							ModelName:      nsModelName,
+							Namespace:      modelNamespace, // Namespace-scoped
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			// Wait for jobs to be created in both namespaces
+			clusterJobs := &batchv1.JobList{}
+			clusterLabelSelector := map[string]string{
+				"model": clusterModelName,
+				"node":  nodeName,
+			}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, clusterJobs, client.InNamespace(jobNamespace), client.MatchingLabels(clusterLabelSelector))
+				return err == nil && len(clusterJobs.Items) == 1
+			}, timeout, interval).Should(BeTrue(), "Cluster-scoped job should be in default jobNamespace")
+
+			nsJobs := &batchv1.JobList{}
+			nsLabelSelector := map[string]string{
+				"model": nsModelName,
+				"node":  nodeName,
+			}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, nsJobs, client.InNamespace(modelNamespace), client.MatchingLabels(nsLabelSelector))
+				return err == nil && len(nsJobs.Items) == 1
+			}, timeout, interval).Should(BeTrue(), "Namespace-scoped job should be in model's namespace")
+
+			// Update both jobs to succeeded
+			clusterJob := &clusterJobs.Items[0]
+			clusterJob.Status.Succeeded = 1
+			Expect(k8sClient.Status().Update(ctx, clusterJob)).Should(Succeed())
+
+			nsJob := &nsJobs.Items[0]
+			nsJob.Status.Succeeded = 1
+			Expect(k8sClient.Status().Update(ctx, nsJob)).Should(Succeed())
+
+			// Verify status has separate entries for both models
+			expectedClusterKey := clusterModelName              // Cluster-scoped uses just modelName
+			expectedNsKey := modelNamespace + "/" + nsModelName // Namespace-scoped uses namespace/modelName
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode)
+				if err != nil {
+					return false
+				}
+				// Should have 2 status entries
+				if len(localModelNode.Status.ModelStatus) != 2 {
+					fmt.Fprintf(GinkgoWriter, "Status entries: %d, expected 2\n", len(localModelNode.Status.ModelStatus))
+					return false
+				}
+				// Check cluster-scoped model status
+				clusterStatus, ok := localModelNode.Status.ModelStatus[expectedClusterKey]
+				if !ok || clusterStatus != v1alpha1.ModelDownloaded {
+					fmt.Fprintf(GinkgoWriter, "Cluster status missing or not downloaded\n")
+					return false
+				}
+				// Check namespace-scoped model status
+				nsStatus, ok := localModelNode.Status.ModelStatus[expectedNsKey]
+				if !ok || nsStatus != v1alpha1.ModelDownloaded {
+					fmt.Fprintf(GinkgoWriter, "Namespace status missing or not downloaded\n")
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue(), "Status should have separate entries for cluster and namespace-scoped models")
 		})
 	})
 })

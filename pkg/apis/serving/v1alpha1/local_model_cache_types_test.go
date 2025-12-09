@@ -23,6 +23,67 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
+func TestGetStorageKey(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	cases := []struct {
+		name        string
+		uri1        string
+		uri2        string
+		shouldMatch bool
+	}{
+		{
+			name:        "same URI returns same key",
+			uri1:        "hf://meta-llama/meta-llama-3-8b-instruct",
+			uri2:        "hf://meta-llama/meta-llama-3-8b-instruct",
+			shouldMatch: true,
+		},
+		{
+			name:        "different URIs return different keys",
+			uri1:        "hf://meta-llama/meta-llama-3-8b-instruct",
+			uri2:        "hf://mistral/mistral-7b-instruct",
+			shouldMatch: false,
+		},
+		{
+			name:        "gs URIs same bucket same model",
+			uri1:        "gs://bucket/model",
+			uri2:        "gs://bucket/model",
+			shouldMatch: true,
+		},
+		{
+			name:        "gs URIs different paths",
+			uri1:        "gs://bucket/model1",
+			uri2:        "gs://bucket/model2",
+			shouldMatch: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			key1 := GetStorageKey(tc.uri1)
+			key2 := GetStorageKey(tc.uri2)
+			g.Expect(key1).To(gomega.HaveLen(16)) // Should be 16 chars
+			g.Expect(key2).To(gomega.HaveLen(16))
+			if tc.shouldMatch {
+				g.Expect(key1).To(gomega.Equal(key2))
+			} else {
+				g.Expect(key1).NotTo(gomega.Equal(key2))
+			}
+		})
+	}
+}
+
+func TestGetStorageKeyConsistency(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	uri := "hf://meta-llama/meta-llama-3-8b-instruct"
+	// Ensure calling GetStorageKey multiple times returns the same result
+	key1 := GetStorageKey(uri)
+	key2 := GetStorageKey(uri)
+	key3 := GetStorageKey(uri)
+	g.Expect(key1).To(gomega.Equal(key2))
+	g.Expect(key2).To(gomega.Equal(key3))
+}
+
 func TestLocalModelCache_MatchStorageURI(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	uriSpec := LocalModelCacheSpec{

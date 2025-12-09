@@ -598,10 +598,108 @@
             "default": ""
           }
         },
+        "serviceAccountName": {
+          "description": "ServiceAccountName specifies the service account to use for credential lookup. The service account should have secrets attached that contain the credentials for accessing the model storage (e.g., HuggingFace token, S3 credentials).",
+          "type": "string"
+        },
         "sourceModelUri": {
           "description": "Original StorageUri",
           "type": "string",
           "default": ""
+        },
+        "storage": {
+          "description": "Storage configuration for credentials and storage parameters.",
+          "$ref": "#/definitions/v1alpha1.LocalModelStorageSpec"
+        }
+      }
+    },
+    "v1alpha1.LocalModelNamespaceCache": {
+      "description": "LocalModelNamespaceCache is a namespace-scoped version of LocalModelCache. It allows InferenceServices only in the same namespace to use the cached model.",
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.LocalModelNamespaceCacheSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.LocalModelCacheStatus"
+        }
+      }
+    },
+    "v1alpha1.LocalModelNamespaceCacheList": {
+      "description": "LocalModelNamespaceCacheList contains a list of LocalModelNamespaceCache",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.LocalModelNamespaceCache"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.LocalModelNamespaceCacheSpec": {
+      "description": "LocalModelNamespaceCacheSpec defines the spec for namespace-scoped local model cache",
+      "type": "object",
+      "required": [
+        "sourceModelUri",
+        "modelSize",
+        "nodeGroups"
+      ],
+      "properties": {
+        "modelSize": {
+          "description": "Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.",
+          "$ref": "#/definitions/resource.Quantity"
+        },
+        "nodeGroups": {
+          "description": "group of nodes to cache the model on.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "serviceAccountName": {
+          "description": "ServiceAccountName specifies the service account to use for credential lookup. The service account should have secrets attached that contain the credentials for accessing the model storage (e.g., HuggingFace token, S3 credentials).",
+          "type": "string"
+        },
+        "sourceModelUri": {
+          "description": "Original StorageUri",
+          "type": "string",
+          "default": ""
+        },
+        "storage": {
+          "description": "Storage configuration for credentials and storage parameters.",
+          "$ref": "#/definitions/v1alpha1.LocalModelStorageSpec"
         }
       }
     },
@@ -746,6 +844,24 @@
           "items": {
             "default": {},
             "$ref": "#/definitions/v1alpha1.LocalModelInfo"
+          }
+        }
+      }
+    },
+    "v1alpha1.LocalModelStorageSpec": {
+      "description": "LocalModelStorageSpec defines credential and storage configuration for model download",
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "The Storage Key in the secret for this object.",
+          "type": "string"
+        },
+        "parameters": {
+          "description": "Parameters to override the default storage credentials and config.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
           }
         }
       }
