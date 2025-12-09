@@ -510,7 +510,7 @@ export RELEASE
 #================================================
 
 GOLANGCI_LINT_VERSION=v1.64.8
-CONTROLLER_TOOLS_VERSION=v0.16.2
+CONTROLLER_TOOLS_VERSION=v0.19.0
 ENVTEST_VERSION=latest
 YQ_VERSION=v4.28.1
 HELM_VERSION=v3.16.3
@@ -526,7 +526,7 @@ ENVOY_AI_GATEWAY_VERSION=v0.3.0
 KNATIVE_OPERATOR_VERSION=v1.16.0
 KNATIVE_SERVING_VERSION=1.15.2
 KEDA_OTEL_ADDON_VERSION=v0.0.6
-KSERVE_VERSION=v0.16.0-rc1
+KSERVE_VERSION=v0.16.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.16.1
 OPENTELEMETRY_OPERATOR_VERSION=0.113.0
@@ -559,7 +559,7 @@ KSERVE_CUSTOM_ISVC_CONFIGS="${KSERVE_CUSTOM_ISVC_CONFIGS:-}"
 
 ADDON_RELEASE_NAME="keda-otel-scaler"
 PLATFORM="${PLATFORM:-$(detect_platform)}"
-TEMPLATE_DIR="${SCRIPT_DIR}/templates"
+TEMPLATE_DIR="${REPO_ROOT}/hack/setup/infra/external-lb/templates"
 GATEWAYCLASS_NAME="${GATEWAYCLASS_NAME:-envoy}"
 CONTROLLER_NAME="${CONTROLLER_NAME:-gateway.envoyproxy.io/gatewayclass-controller}"
 GATEWAY_NAME="kserve-ingress-gateway"
@@ -985,37 +985,25 @@ install_external_lb() {
 }
 
 # ----------------------------------------
-# CLI/Component: gateway-api-crd
+# CLI/Component: gateway-api-extension-crd
 # ----------------------------------------
 
-uninstall_gateway_api_crd() {
-    log_info "Uninstalling Gateway API CRDs..."
-    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml" --ignore-not-found=true 2>/dev/null || true
+uninstall_gateway_api_extension_crd() {
+    log_info "Uninstalling Gateway Inference Extension CRDs..."
     kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml" --ignore-not-found=true 2>/dev/null || true
-    log_success "Gateway API CRDs uninstalled"
+    log_success "Gateway Inference Extension CRDs uninstalled"
 }
 
-install_gateway_api_crd() {
-    if kubectl get crd gateways.gateway.networking.k8s.io &>/dev/null; then
+install_gateway_api_extension_crd() {
+    if kubectl get crd inferencepools.inference.networking.x-k8s.io &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
-            log_info "Gateway API CRDs are already installed. Use --reinstall to reinstall."
+            log_info "Gateway Inference Extension CRDs are already installed. Use --reinstall to reinstall."
             return 0
         else
-            log_info "Reinstalling Gateway API CRDs..."
-            uninstall_gateway_api_crd
+            log_info "Reinstalling Gateway Inference Extension CRDs..."
+            uninstall_gateway_api_extension_crd
         fi
     fi
-
-    log_info "Installing Gateway API CRDs ${GATEWAY_API_VERSION}..."
-    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml"
-
-    log_success "Successfully installed Gateway API CRDs ${GATEWAY_API_VERSION}"
-
-    wait_for_crds "60s" \
-        "gateways.gateway.networking.k8s.io" \
-        "gatewayclasses.gateway.networking.k8s.io"
-
-    log_success "Gateway API CRDs are ready!"
 
     log_info "Installing Gateway Inference Extension CRDs ${GIE_VERSION}..."
     kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml"
@@ -1027,7 +1015,6 @@ install_gateway_api_crd() {
         "inferencemodels.inference.networking.x-k8s.io"
 
     log_success "Gateway Inference Extension CRDs are ready!"
-
 }
 
 # ----------------------------------------
@@ -1331,13 +1318,31 @@ install_kserve() {
 
         # Install KServe resources
         log_info "Installing KServe resources..."
-        helm install "${KSERVE_RELEASE_NAME}" \
-            oci://ghcr.io/kserve/charts/${CORE_DIR_NAME} \
+        if ! helm install "${KSERVE_RELEASE_NAME}" \
+            oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
             --version "${KSERVE_VERSION}" \
             --namespace "${KSERVE_NAMESPACE}" \
             --create-namespace \
             --wait \
-            ${KSERVE_EXTRA_ARGS:-}
+            ${KSERVE_EXTRA_ARGS:-}; then
+
+            # If installation fails, try using helm upgrade after kserve controller is Ready
+            log_info "Install failed, attempting upgrade instead..."
+
+            for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
+                    wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "120s"
+            done
+            if ! helm upgrade "${KSERVE_RELEASE_NAME}" \
+                oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
+                --version "${KSERVE_VERSION}" \
+                --namespace "${KSERVE_NAMESPACE}" \
+                --wait \
+                ${KSERVE_EXTRA_ARGS:-}; then
+
+                log_error "Failed to install/upgrade KServe ${KSERVE_VERSION}"
+                exit 1
+            fi
+        fi
 
         log_success "Successfully installed KServe ${KSERVE_VERSION}"
     fi
@@ -1367,7 +1372,11 @@ install_kserve() {
         update_isvc_config "${config_updates[@]}"
         kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
     else
-        log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        if [ "${LLMISVC}" = "true" ]; then
+            log_info "No configuration updates needed for LLMISVC (GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        else
+            log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        fi
     fi
 
     for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
@@ -1393,7 +1402,7 @@ main() {
         uninstall_gateway_api_gwclass
         uninstall_envoy_ai_gateway
         uninstall_envoy_gateway
-        uninstall_gateway_api_crd
+        uninstall_gateway_api_extension_crd
         uninstall_external_lb
         uninstall_keda_otel_addon
         uninstall_keda
@@ -1420,7 +1429,7 @@ main() {
     install_keda
     install_keda_otel_addon
     install_external_lb
-    install_gateway_api_crd
+    install_gateway_api_extension_crd
     install_envoy_gateway
     install_envoy_ai_gateway
     install_gateway_api_gwclass
@@ -1434,8 +1443,8 @@ main() {
             CRD_DIR_NAME="kserve-llmisvc-crd"
             CORE_DIR_NAME="kserve-llmisvc-resources"
             KSERVE_CRD_RELEASE_NAME="kserve-llmisvc-crd"
-            KSERVE_RELEASE_NAME="kserve-llmisvc"
-            TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
+            KSERVE_RELEASE_NAME="kserve-llmisvc-resources"
+            TARGET_DEPLOYMENT_NAMES=("kserve-llmisvc-controller-manager")
         fi
         
         if [ "${SET_KSERVE_VERSION}" != "" ]; then
@@ -1481,7 +1490,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: clusterservingruntimes.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -5672,7 +5681,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: clusterstoragecontainers.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -6444,7 +6453,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: inferencegraphs.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -7097,7 +7106,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: inferenceservices.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -29911,7 +29920,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: llminferenceserviceconfigs.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -50081,7 +50090,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: llminferenceservices.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -70405,7 +70414,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: localmodelcaches.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -70491,7 +70500,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: localmodelnodegroups.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -71183,7 +71192,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: localmodelnodes.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -71244,7 +71253,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: servingruntimes.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -75435,7 +75444,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: trainedmodels.serving.kserve.io
 spec:
   group: serving.kserve.io

@@ -510,7 +510,7 @@ export RELEASE
 #================================================
 
 GOLANGCI_LINT_VERSION=v1.64.8
-CONTROLLER_TOOLS_VERSION=v0.16.2
+CONTROLLER_TOOLS_VERSION=v0.19.0
 ENVTEST_VERSION=latest
 YQ_VERSION=v4.28.1
 HELM_VERSION=v3.16.3
@@ -526,7 +526,7 @@ ENVOY_AI_GATEWAY_VERSION=v0.3.0
 KNATIVE_OPERATOR_VERSION=v1.16.0
 KNATIVE_SERVING_VERSION=1.15.2
 KEDA_OTEL_ADDON_VERSION=v0.0.6
-KSERVE_VERSION=v0.16.0-rc1
+KSERVE_VERSION=v0.16.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.16.1
 OPENTELEMETRY_OPERATOR_VERSION=0.113.0
@@ -1097,13 +1097,31 @@ install_kserve() {
 
         # Install KServe resources
         log_info "Installing KServe resources..."
-        helm install "${KSERVE_RELEASE_NAME}" \
-            oci://ghcr.io/kserve/charts/${CORE_DIR_NAME} \
+        if ! helm install "${KSERVE_RELEASE_NAME}" \
+            oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
             --version "${KSERVE_VERSION}" \
             --namespace "${KSERVE_NAMESPACE}" \
             --create-namespace \
             --wait \
-            ${KSERVE_EXTRA_ARGS:-}
+            ${KSERVE_EXTRA_ARGS:-}; then
+
+            # If installation fails, try using helm upgrade after kserve controller is Ready
+            log_info "Install failed, attempting upgrade instead..."
+
+            for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
+                    wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "120s"
+            done
+            if ! helm upgrade "${KSERVE_RELEASE_NAME}" \
+                oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
+                --version "${KSERVE_VERSION}" \
+                --namespace "${KSERVE_NAMESPACE}" \
+                --wait \
+                ${KSERVE_EXTRA_ARGS:-}; then
+
+                log_error "Failed to install/upgrade KServe ${KSERVE_VERSION}"
+                exit 1
+            fi
+        fi
 
         log_success "Successfully installed KServe ${KSERVE_VERSION}"
     fi
@@ -1133,7 +1151,11 @@ install_kserve() {
         update_isvc_config "${config_updates[@]}"
         kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
     else
-        log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        if [ "${LLMISVC}" = "true" ]; then
+            log_info "No configuration updates needed for LLMISVC (GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        else
+            log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        fi
     fi
 
     for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
@@ -1191,8 +1213,8 @@ main() {
             CRD_DIR_NAME="kserve-llmisvc-crd"
             CORE_DIR_NAME="kserve-llmisvc-resources"
             KSERVE_CRD_RELEASE_NAME="kserve-llmisvc-crd"
-            KSERVE_RELEASE_NAME="kserve-llmisvc"
-            TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
+            KSERVE_RELEASE_NAME="kserve-llmisvc-resources"
+            TARGET_DEPLOYMENT_NAMES=("kserve-llmisvc-controller-manager")
         fi
         
         if [ "${SET_KSERVE_VERSION}" != "" ]; then
@@ -1237,7 +1259,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: clusterservingruntimes.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -5428,7 +5450,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: clusterstoragecontainers.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -6200,7 +6222,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: inferencegraphs.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -6853,7 +6875,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: inferenceservices.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -29667,7 +29689,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: llminferenceserviceconfigs.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -49837,7 +49859,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: llminferenceservices.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -70161,7 +70183,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: localmodelcaches.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -70247,7 +70269,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: localmodelnodegroups.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -70939,7 +70961,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: localmodelnodes.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -71000,7 +71022,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: servingruntimes.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -75191,7 +75213,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: trainedmodels.serving.kserve.io
 spec:
   group: serving.kserve.io
