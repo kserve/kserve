@@ -280,7 +280,7 @@ jobs:
           /mnt/python/huggingfaceserver-cpu-venv/bin/python -m pip install pytest pytest-cov
           bash tests/setup_vllm.sh
           source /mnt/python/huggingfaceserver-cpu-venv/bin/activate
-          /mnt/python/huggingfaceserver-cpu-venv/bin/python -m pytest --cov=huggingfaceserver -vv -k 'not test_vllm' --ignore=test_health_check.py
+          /mnt/python/huggingfaceserver-cpu-venv/bin/python -m pytest --cov=huggingfaceserver -vv -k 'not test_vllm'
           # TODO: The following tests need to be reworked since IPEX support is relatively new for both vLLM and KServe
           # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_chat_with_reasoning.py
           # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_chat_with_tools.py
