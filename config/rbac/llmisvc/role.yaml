@@ -95,7 +95,6 @@ rules:
   - inference.networking.k8s.io
   - inference.networking.x-k8s.io
   resources:
-  - inferencemodels
   - inferenceobjectives
   - inferencepools
   verbs:
