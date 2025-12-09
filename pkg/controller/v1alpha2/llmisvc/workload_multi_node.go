@@ -134,6 +134,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 	}
 	if llmSvc.Spec.Template == nil {
 		// When there is no leader template, workers become part of the InferencePool selector.
+		workerLabels["app"] = kmeta.ChildName(llmSvc.GetName(), "-predictor")
 		workerLabels["kserve.io/component"] = "workload"
 		workerLabels["llm-d.ai/role"] = "decode"
 	}
@@ -142,11 +143,12 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		role = "both"
 	}
 	leaderLabels := map[string]string{
-		"app.kubernetes.io/component": "llminferenceservice-workload-leader",
-		"app.kubernetes.io/name":      llmSvc.GetName(),
-		"app.kubernetes.io/part-of":   "llminferenceservice",
-		"kserve.io/component":         "workload",
-		"llm-d.ai/role":               role,
+		"app":                          kmeta.ChildName(llmSvc.GetName(), "-predictor"),
+		"app.kubernetes.io/component":  "llminferenceservice-workload-leader",
+		"app.kubernetes.io/name":       llmSvc.GetName(),
+		"app.kubernetes.io/part-of":    "llminferenceservice",
+		"kserve.io/component":          "workload",
+		"llm-d.ai/role":                role,
 	}
 
 	expected := &lwsapi.LeaderWorkerSet{
@@ -247,15 +249,17 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 	}
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template == nil {
 		// When there is no leader template, workers become part of the InferencePool selector.
+		workerLabels["app"] = kmeta.ChildName(llmSvc.GetName(), "-predictor")
 		workerLabels["kserve.io/component"] = "workload"
 		workerLabels["llm-d.ai/role"] = "prefill"
 	}
 	leaderLabels := map[string]string{
-		"app.kubernetes.io/component": "llminferenceservice-workload-leader-prefill",
-		"app.kubernetes.io/name":      llmSvc.GetName(),
-		"app.kubernetes.io/part-of":   "llminferenceservice",
-		"kserve.io/component":         "workload",
-		"llm-d.ai/role":               "prefill",
+		"app":                          kmeta.ChildName(llmSvc.GetName(), "-predictor"),
+		"app.kubernetes.io/component":  "llminferenceservice-workload-leader-prefill",
+		"app.kubernetes.io/name":       llmSvc.GetName(),
+		"app.kubernetes.io/part-of":    "llminferenceservice",
+		"kserve.io/component":          "workload",
+		"llm-d.ai/role":                "prefill",
 	}
 
 	expected := &lwsapi.LeaderWorkerSet{
