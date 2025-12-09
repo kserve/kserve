@@ -21,10 +21,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/utils/ptr"
@@ -236,6 +239,46 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 				}
 			}
 		}
+	}
+
+	// Resolve the external Scheduler configuration.
+	if llmSvcCfg.Spec.Router != nil &&
+		llmSvcCfg.Spec.Router.Scheduler != nil &&
+		llmSvcCfg.Spec.Router.Scheduler.Config != nil &&
+		llmSvcCfg.Spec.Router.Scheduler.Config.Ref != nil {
+		cm := &corev1.ConfigMap{}
+		if err := r.Client.Get(ctx, client.ObjectKey{Namespace: llmSvc.GetNamespace(), Name: llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Name}, cm); err != nil {
+			if apierrors.IsNotFound(err) && strings.HasPrefix(llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Name, "config-scheduler-") {
+				cm = &corev1.ConfigMap{}
+				if err := r.Client.Get(ctx, client.ObjectKey{Namespace: constants.KServeNamespace, Name: llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Name}, cm); err != nil {
+					return nil, fmt.Errorf("failed to get scheduler config %q from namespaces [%q, %q]: %w", llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Name, llmSvc.Namespace, constants.KServeNamespace, err)
+				}
+			}
+			return llmSvcCfg, fmt.Errorf("failed to get ConfigMap %s/%s: %w", llmSvc.GetNamespace(), llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Name, err)
+		}
+		if llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Key == "" {
+			llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Key = "epp"
+		}
+		cfg, ok := cm.Data[llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Key]
+		if !ok {
+			return llmSvcCfg, fmt.Errorf("ConfigMap %s/%s doesn't have key %q in data",
+				cm.GetNamespace(),
+				cm.GetName(),
+				llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Key,
+			)
+		}
+		llmSvcCfg.Spec.Router.Scheduler.Config.Inline = &runtime.RawExtension{Raw: []byte(cfg)}
+	}
+
+	err = r.Validator(ctx, &v1alpha1.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      llmSvc.Name,
+			Namespace: llmSvc.GetNamespace(),
+		},
+		Spec: llmSvcCfg.Spec,
+	})
+	if err != nil {
+		return llmSvcCfg, err
 	}
 
 	return llmSvcCfg, nil

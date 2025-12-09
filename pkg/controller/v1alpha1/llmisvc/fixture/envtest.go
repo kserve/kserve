@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc/validation"
@@ -58,6 +59,10 @@ func SetupTestEnv() *pkgtest.Client {
 			Clientset: clientSet,
 			// TODO fix it to be set up similar to main.go, for now it's stub
 			EventRecorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "v1beta1Controllers"}),
+			Validator: func(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
+				_, err := (&validation.LLMInferenceServiceValidator{}).ValidateCreate(ctx, llmSvc)
+				return err
+			},
 		}
 		return llmCtrl.SetupWithManager(mgr)
 	}
