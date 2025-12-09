@@ -1,4 +1,4 @@
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-scheduler
@@ -7,13 +7,19 @@ spec:
     scheduler:
       pool:
         spec:
-          extensionRef:
+          endpointPickerRef:
             failureMode: FailOpen
             kind: Service
             name: |-
               {{ "{{" }} ChildName .ObjectMeta.Name `-epp-service` {{ "}}" }}
-          selector: {}
-          targetPortNumber: 8000
+            port:
+              number: 9002
+          selector:
+            matchLabels:
+              app: |-
+                {{ "{{" }} ChildName .ObjectMeta.Name `-predictor` {{ "}}" }}
+          targetPorts:
+            - number: 8000
       template:
         containers:
           - name: main
@@ -27,7 +33,7 @@ spec:
               - containerPort: 9090
                 name: metrics
                 protocol: TCP
-            image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.2.0
+            image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.3.0
             imagePullPolicy: IfNotPresent
             livenessProbe:
               failureThreshold: 3
