@@ -534,5 +534,195 @@ var _ = Describe("LocalModelNode controller", func() {
 				return len(jobs.Items) == 0
 			}, timeout, interval).Should(BeTrue(), "Download job should be deleted")
 		})
+		It("Should inject service account credentials when specified in LocalModelInfo", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			fsMock.clear()
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: map[string]string{
+					"localModel": `{
+						"jobNamespace": "kserve-localmodel-jobs",
+						"defaultJobImage": "kserve/storage-initializer:latest"
+					}`,
+					"storageInitializer": `{
+						"image": "kserve/storage-initializer:latest",
+						"cpuRequest": "100m",
+						"cpuLimit": "1",
+						"memoryRequest": "200Mi",
+						"memoryLimit": "1Gi"
+					}`,
+				},
+			}
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			// Create a service account
+			serviceAccountName := "model-downloader"
+			serviceAccount := &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceAccountName,
+					Namespace: modelCacheNamespace,
+				},
+			}
+			Expect(k8sClient.Create(ctx, serviceAccount)).Should(Succeed())
+			defer k8sClient.Delete(ctx, serviceAccount)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu",
+				},
+				Spec: localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			nodeName = "worker-creds"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{
+						{
+							Type:   corev1.NodeReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			// Create LocalModelNode with serviceAccountName set
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+				},
+				Spec: v1alpha1.LocalModelNodeSpec{
+					LocalModels: []v1alpha1.LocalModelInfo{
+						{
+							SourceModelUri:     "hf://meta-llama/Meta-Llama-3-8B",
+							ModelName:          "llama3",
+							ServiceAccountName: serviceAccountName,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			// Wait for the download job to be created
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{
+				"model": "llama3",
+				"node":  nodeName,
+			}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 1
+			}, timeout, interval).Should(BeTrue(), "Download job should be created")
+
+			// Verify that the job uses StorageInitializerConfig for container spec
+			job := &jobs.Items[0]
+			Expect(job.Spec.Template.Spec.Containers).To(HaveLen(1))
+			container := job.Spec.Template.Spec.Containers[0]
+			Expect(container.Image).To(Equal("kserve/storage-initializer:latest"))
+			Expect(container.Args).To(Equal([]string{"hf://meta-llama/Meta-Llama-3-8B", "/mnt/models"}))
+		})
+
+		It("Should use storage key credentials when specified in LocalModelInfo", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			fsMock.clear()
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: map[string]string{
+					"localModel": `{
+						"jobNamespace": "kserve-localmodel-jobs",
+						"defaultJobImage": "kserve/storage-initializer:latest"
+					}`,
+					"storageInitializer": `{
+						"image": "kserve/storage-initializer:latest",
+						"cpuRequest": "100m",
+						"cpuLimit": "1",
+						"memoryRequest": "200Mi",
+						"memoryLimit": "1Gi"
+					}`,
+				},
+			}
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu",
+				},
+				Spec: localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			nodeName = "worker-storage-key"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{
+						{
+							Type:   corev1.NodeReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			// Create LocalModelNode with storage key set
+			storageKey := "my-s3-credentials"
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+				},
+				Spec: v1alpha1.LocalModelNodeSpec{
+					LocalModels: []v1alpha1.LocalModelInfo{
+						{
+							SourceModelUri: "s3://my-bucket/my-model",
+							ModelName:      "s3-model",
+							Storage: &v1alpha1.LocalModelStorageSpec{
+								StorageKey: &storageKey,
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			// Wait for the download job to be created
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{
+				"model": "s3-model",
+				"node":  nodeName,
+			}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 1
+			}, timeout, interval).Should(BeTrue(), "Download job should be created with storage key")
+		})
 	})
 })
