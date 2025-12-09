@@ -17,11 +17,20 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// GetStorageKey returns a deterministic hash of the sourceModelUri for folder naming.
+// This enables storage deduplication - all models with the same URI share the same folder.
+func GetStorageKey(sourceModelUri string) string {
+	hash := sha256.Sum256([]byte(sourceModelUri))
+	return hex.EncodeToString(hash[:])[:16] // Use first 16 chars of hash
+}
 
 // LocalModelStorageSpec defines credential and storage configuration for model download
 // +k8s:openapi-gen=true

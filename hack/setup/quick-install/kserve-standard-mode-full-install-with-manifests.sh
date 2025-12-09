@@ -70448,11 +70448,22 @@ spec:
                   type: string
                 minItems: 1
                 type: array
+              serviceAccountName:
+                type: string
               sourceModelUri:
                 type: string
                 x-kubernetes-validations:
                 - message: StorageUri is immutable
                   rule: self == oldSelf
+              storage:
+                properties:
+                  key:
+                    type: string
+                  parameters:
+                    additionalProperties:
+                      type: string
+                    type: object
+                type: object
             required:
             - modelSize
             - nodeGroups
@@ -71220,8 +71231,21 @@ spec:
                   properties:
                     modelName:
                       type: string
+                    namespace:
+                      type: string
+                    serviceAccountName:
+                      type: string
                     sourceModelUri:
                       type: string
+                    storage:
+                      properties:
+                        key:
+                          type: string
+                        parameters:
+                          additionalProperties:
+                            type: string
+                          type: object
+                      type: object
                   required:
                   - modelName
                   - sourceModelUri
@@ -75713,6 +75737,7 @@ rules:
   - serving.kserve.io
   resources:
   - localmodelcaches
+  - localmodelnamespacecaches
   - localmodelnodes
   verbs:
   - create
@@ -75726,6 +75751,7 @@ rules:
   - serving.kserve.io
   resources:
   - localmodelcaches/status
+  - localmodelnamespacecaches/status
   verbs:
   - get
   - patch
@@ -75753,6 +75779,8 @@ rules:
   - ""
   resources:
   - nodes
+  - secrets
+  - serviceaccounts
   verbs:
   - get
   - list
