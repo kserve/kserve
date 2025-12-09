@@ -134,7 +134,7 @@ func createHTTPRouteRule(routeMatches []gwapiv1.HTTPRouteMatch, filters []gwapiv
 						Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 						Name:      gwapiv1.ObjectName(serviceName),
 						Namespace: (*gwapiv1.Namespace)(&namespace),
-						Port:      (*gwapiv1.PortNumber)(&port),
+						Port:      &port,
 					},
 				},
 			},
