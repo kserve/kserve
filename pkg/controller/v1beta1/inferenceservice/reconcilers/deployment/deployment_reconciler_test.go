@@ -62,6 +62,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				Namespace: "default-predictor-namespace",
 				Annotations: map[string]string{
 					"annotation": "annotation-value",
+					constants.OpenshiftServingCertAnnotation: "default-predictor-serving-cert",
 				},
 				Labels: map[string]string{
 					constants.DeploymentMode:  string(constants.Standard),
@@ -94,6 +95,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				Namespace: "default-predictor-namespace",
 				Annotations: map[string]string{
 					"annotation": "annotation-value",
+					constants.OpenshiftServingCertAnnotation: "default-predictor-serving-cert",
 				},
 				Labels: map[string]string{
 					constants.DeploymentMode:  string(constants.Standard),
@@ -105,6 +107,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				Namespace: "worker-predictor-namespace",
 				Annotations: map[string]string{
 					"annotation": "annotation-value",
+					constants.OpenshiftServingCertAnnotation: "worker-predictor-serving-cert",
 				},
 				Labels: map[string]string{
 					constants.DeploymentMode:  string(constants.Standard),
@@ -178,6 +181,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Namespace: "default-predictor-namespace",
 					Annotations: map[string]string{
 						"annotation": "annotation-value",
+						constants.OpenshiftServingCertAnnotation: "default-predictor-serving-cert",
 					},
 					Labels: map[string]string{
 						constants.RawDeploymentAppLabel: "isvc.default-predictor",
@@ -204,6 +208,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							Namespace: "default-predictor-namespace",
 							Annotations: map[string]string{
 								"annotation": "annotation-value",
+								constants.OpenshiftServingCertAnnotation: "default-predictor-serving-cert",
 							},
 							Labels: map[string]string{
 								constants.RawDeploymentAppLabel: "isvc.default-predictor",
@@ -251,6 +256,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Namespace: "default-predictor-namespace",
 					Annotations: map[string]string{
 						"annotation": "annotation-value",
+						constants.OpenshiftServingCertAnnotation: "default-predictor-serving-cert",
 					},
 					Labels: map[string]string{
 						"app":                               "isvc.default-predictor",
@@ -277,6 +283,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							Namespace: "default-predictor-namespace",
 							Annotations: map[string]string{
 								"annotation": "annotation-value",
+								constants.OpenshiftServingCertAnnotation: "default-predictor-serving-cert",
 							},
 							Labels: map[string]string{
 								"app":                               "isvc.default-predictor",
@@ -333,6 +340,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Namespace: "worker-predictor-namespace",
 					Annotations: map[string]string{
 						"annotation": "annotation-value",
+						constants.OpenshiftServingCertAnnotation: "worker-predictor-serving-cert",
 					},
 					Labels: map[string]string{
 						constants.RawDeploymentAppLabel: "isvc.default-predictor-worker",
@@ -360,6 +368,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							Namespace: "worker-predictor-namespace",
 							Annotations: map[string]string{
 								"annotation": "annotation-value",
+								constants.OpenshiftServingCertAnnotation: "worker-predictor-serving-cert",
 							},
 							Labels: map[string]string{
 								constants.RawDeploymentAppLabel: "isvc.default-predictor-worker",
