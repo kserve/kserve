@@ -44321,7 +44321,7 @@ spec:
             namespace: '{{ .GlobalConfig.IngressGatewayNamespace }}'
           rules:
           - backendRefs:
-            - group: inference.networking.x-k8s.io
+            - group: inference.networking.k8s.io
               kind: InferencePool
               name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
               port: 8000
