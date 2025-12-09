@@ -200,6 +200,13 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 ) *appsv1.Deployment {
 	podMetadata := componentMeta
 	podMetadata.Labels["app"] = constants.GetRawServiceLabel(componentMeta.Name)
+
+	// Add OpenShift serving cert annotation to pod template for ODH/OpenShift TLS support
+	if podMetadata.Annotations == nil {
+		podMetadata.Annotations = make(map[string]string)
+	}
+	podMetadata.Annotations[constants.OpenshiftServingCertAnnotation] = componentMeta.Name + constants.ServingCertSecretSuffix
+
 	setDefaultPodSpec(podSpec)
 
 	deployment := &appsv1.Deployment{
@@ -324,6 +331,13 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 	podMetadata := componentMeta
 	workerPredictorName := constants.GetRawWorkerServiceLabel(predictorName)
 	podMetadata.Labels["app"] = workerPredictorName
+
+	// Add OpenShift serving cert annotation to pod template for ODH/OpenShift TLS support
+	if podMetadata.Annotations == nil {
+		podMetadata.Annotations = make(map[string]string)
+	}
+	podMetadata.Annotations[constants.OpenshiftServingCertAnnotation] = componentMeta.Name + constants.ServingCertSecretSuffix
+
 	setDefaultPodSpec(podSpec)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: componentMeta,
