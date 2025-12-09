@@ -11,16 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import sys
 import unittest
 import requests
 from unittest.mock import patch, MagicMock
-import health_check as health_check
+
+# Mock ray module before importing health_check to avoid ImportError in CPU environments
+# where ray is not installed due to torch version conflicts with vLLM
+sys.modules["ray"] = MagicMock()
+import health_check  # noqa: E402
 
 
 class TestHealthCheck(unittest.TestCase):
+    @patch("health_check.ray.is_initialized", return_value=False)
     @patch("health_check.ray.init")
-    def test_initialize_ray_cluster(self, mock_ray_init):
+    def test_initialize_ray_cluster(self, mock_ray_init, mock_is_initialized):
         mock_ray_init.return_value = MagicMock()
         result = health_check.initialize_ray_cluster("auto")
         mock_ray_init.assert_called_once_with(address="auto")
