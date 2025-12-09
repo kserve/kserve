@@ -31,8 +31,21 @@ spec:
                   properties:
                     modelName:
                       type: string
+                    namespace:
+                      type: string
+                    serviceAccountName:
+                      type: string
                     sourceModelUri:
                       type: string
+                    storage:
+                      properties:
+                        key:
+                          type: string
+                        parameters:
+                          additionalProperties:
+                            type: string
+                          type: object
+                      type: object
                   required:
                   - modelName
                   - sourceModelUri
