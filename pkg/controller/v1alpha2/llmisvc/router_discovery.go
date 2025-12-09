@@ -351,8 +351,15 @@ func nonReadyHTTPRouteTopLevelCondition(route *gwapiv1.HTTPRoute) (*metav1.Condi
 // InferencePools manage collections of inference workloads for load balancing
 // They must be accepted by their parent Gateways to be considered operational
 func IsInferencePoolReady(pool *igwapi.InferencePool) bool {
-	if pool == nil || len(pool.Status.Parents) == 0 {
+	if pool == nil {
 		return false
+	}
+
+	// If no parents have been set, consider the pool ready if it exists and has a valid spec
+	// This handles cases where no Gateway controller is populating the status
+	if len(pool.Status.Parents) == 0 {
+		// Pool is ready if it exists with a valid selector and target ports
+		return len(pool.Spec.Selector.MatchLabels) > 0 && len(pool.Spec.TargetPorts) > 0
 	}
 
 	// Check for any non-ready conditions across all parents
