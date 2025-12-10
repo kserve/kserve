@@ -903,7 +903,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.15.2"
+version = "0.16.0rc0"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "cloudevents" },
@@ -1842,7 +1842,7 @@ wheels = [
 
 [[package]]
 name = "sklearnserver"
-version = "0.15.2"
+version = "0.16.0rc0"
 source = { virtual = "." }
 dependencies = [
     { name = "joblib" },

@@ -8,7 +8,7 @@ dependencies = [
     "kserve",
 ]
 name = "success_200_isvc"
-version = "0.15.2"
+version = "0.16.0rc0"
 description = "Custom isvc that always returns 200 with a JSON SUCCESS message"
 
 [dependency-groups]

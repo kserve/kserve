@@ -191,19 +191,22 @@ func getExpectedIsvcStatus(serviceKey types.NamespacedName, protocol, host, comp
 		Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 			v1beta1.PredictorComponent: {
 				LatestCreatedRevision: "",
-				// uncomment when the status improvement from upstream is synced.
-				// URL: &apis.URL{
-				//	Scheme: compProto,
-				//	Host:   componentHost,
-				// },
+				// Status improvement from upstream is now synced
+				// Component URLs always use http scheme (internal service communication)
+				URL: &apis.URL{
+					Scheme: "http",
+					Host:   componentHost,
+				},
 			},
 		},
 		ModelStatus: v1beta1.ModelStatus{
 			TransitionStatus:    "InProgress",
 			ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+			ModelCopies:         &v1beta1.ModelCopies{},
 		},
-		DeploymentMode:     string(constants.Standard),
-		ServingRuntimeName: "tf-serving-raw",
+		DeploymentMode:            string(constants.Standard),
+		ServingRuntimeName:        "tf-serving-raw",
+		ClusterServingRuntimeName: "",
 	}
 }
 

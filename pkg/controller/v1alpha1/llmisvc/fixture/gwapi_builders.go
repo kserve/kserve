@@ -17,9 +17,11 @@ limitations under the License.
 package fixture
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -282,6 +284,34 @@ func WithBackendRefs(refs ...gwapiv1.HTTPBackendRef) HTTPRouteRuleOption {
 	}
 }
 
+func BackendRefInferencePool(name string) gwapiv1.HTTPBackendRef {
+	return gwapiv1.HTTPBackendRef{
+		BackendRef: gwapiv1.BackendRef{
+			BackendObjectReference: gwapiv1.BackendObjectReference{
+				Group: ptr.To(gwapiv1.Group("inference.networking.x-k8s.io")),
+				Kind:  ptr.To(gwapiv1.Kind("InferencePool")),
+				Name:  gwapiv1.ObjectName(name),
+				Port:  ptr.To(gwapiv1.PortNumber(8000)),
+			},
+			Weight: ptr.To(int32(1)),
+		},
+	}
+}
+
+func BackendRefService(name string) gwapiv1.HTTPBackendRef {
+	return gwapiv1.HTTPBackendRef{
+		BackendRef: gwapiv1.BackendRef{
+			BackendObjectReference: gwapiv1.BackendObjectReference{
+				Group: ptr.To(gwapiv1.Group("")),
+				Kind:  ptr.To(gwapiv1.Kind("Service")),
+				Name:  gwapiv1.ObjectName(name),
+				Port:  ptr.To(gwapiv1.PortNumber(8000)),
+			},
+			Weight: ptr.To(int32(1)),
+		},
+	}
+}
+
 func WithTimeouts(backendTimeout, requestTimeout string) HTTPRouteRuleOption {
 	return func(rule *gwapiv1.HTTPRouteRule) {
 		rule.Timeouts = &gwapiv1.HTTPRouteTimeouts{
@@ -360,5 +390,220 @@ func GatewayParentRef(name, namespace string) gwapiv1.ParentReference {
 		Kind:      ptr.To(gwapiv1.Kind("Gateway")),
 		Name:      gwapiv1.ObjectName(name),
 		Namespace: ptr.To(gwapiv1.Namespace(namespace)),
+	}
+}
+
+// WithGatewayCondition creates a GatewayOption that sets specific status conditions
+func WithGatewayCondition(conditionType string, status metav1.ConditionStatus, reason, message string) GatewayOption {
+	return func(gw *gwapiv1.Gateway) {
+		condition := metav1.Condition{
+			Type:    conditionType,
+			Status:  status,
+			Reason:  reason,
+			Message: message,
+		}
+		gw.Status.Conditions = append(gw.Status.Conditions, condition)
+	}
+}
+
+// WithProgrammedCondition is a convenience function for setting the Programmed condition
+func WithProgrammedCondition(status metav1.ConditionStatus, reason, message string) GatewayOption {
+	return WithGatewayCondition(string(gwapiv1.GatewayConditionProgrammed), status, reason, message)
+}
+
+// HTTPRoute Status Options
+
+// WithHTTPRouteParentStatus adds parent status to the HTTPRoute
+func WithHTTPRouteParentStatus(parentRef gwapiv1.ParentReference, controllerName string, conditions ...metav1.Condition) HTTPRouteOption {
+	return func(route *gwapiv1.HTTPRoute) {
+		parentStatus := gwapiv1.RouteParentStatus{
+			ParentRef:      parentRef,
+			ControllerName: gwapiv1.GatewayController(controllerName),
+			Conditions:     conditions,
+		}
+		route.Status.RouteStatus.Parents = append(route.Status.RouteStatus.Parents, parentStatus)
+	}
+}
+
+// WithHTTPRouteReadyStatus sets the HTTPRoute status to ready for all parent refs
+func WithHTTPRouteReadyStatus(controllerName string) HTTPRouteOption {
+	return func(route *gwapiv1.HTTPRoute) {
+		if len(route.Spec.ParentRefs) > 0 {
+			route.Status.RouteStatus.Parents = make([]gwapiv1.RouteParentStatus, len(route.Spec.ParentRefs))
+			for i, parentRef := range route.Spec.ParentRefs {
+				route.Status.RouteStatus.Parents[i] = gwapiv1.RouteParentStatus{
+					ParentRef:      parentRef,
+					ControllerName: gwapiv1.GatewayController(controllerName),
+					Conditions: []metav1.Condition{
+						{
+							Type:               string(gwapiv1.RouteConditionAccepted),
+							Status:             metav1.ConditionTrue,
+							Reason:             "Accepted",
+							Message:            "HTTPRoute accepted",
+							LastTransitionTime: metav1.Now(),
+						},
+						{
+							Type:               string(gwapiv1.RouteConditionResolvedRefs),
+							Status:             metav1.ConditionTrue,
+							Reason:             "ResolvedRefs",
+							Message:            "HTTPRoute references resolved",
+							LastTransitionTime: metav1.Now(),
+						},
+					},
+				}
+			}
+		}
+	}
+}
+
+// WithGatewayReadyStatus sets the Gateway status to ready (Accepted and Programmed)
+func WithGatewayReadyStatus() GatewayOption {
+	return func(gw *gwapiv1.Gateway) {
+		gw.Status.Conditions = []metav1.Condition{
+			{
+				Type:               string(gwapiv1.GatewayConditionAccepted),
+				Status:             metav1.ConditionTrue,
+				Reason:             "Accepted",
+				Message:            "Gateway accepted",
+				LastTransitionTime: metav1.Now(),
+			},
+			{
+				Type:               string(gwapiv1.GatewayConditionProgrammed),
+				Status:             metav1.ConditionTrue,
+				Reason:             "Ready",
+				Message:            "Gateway is ready",
+				LastTransitionTime: metav1.Now(),
+			},
+		}
+	}
+}
+
+// Advanced fixture patterns for custom conditions
+
+// WithCustomHTTPRouteConditions allows setting custom conditions on HTTPRoute parent status
+func WithCustomHTTPRouteConditions(parentRef gwapiv1.ParentReference, controllerName string, conditions ...metav1.Condition) HTTPRouteOption {
+	return WithHTTPRouteParentStatus(parentRef, controllerName, conditions...)
+}
+
+// WithGatewayNotReadyStatus sets the Gateway status to not ready (for negative testing)
+func WithGatewayNotReadyStatus(reason, message string) GatewayOption {
+	return func(gw *gwapiv1.Gateway) {
+		gw.Status.Conditions = []metav1.Condition{
+			{
+				Type:               string(gwapiv1.GatewayConditionAccepted),
+				Status:             metav1.ConditionTrue,
+				Reason:             "Accepted",
+				Message:            "Gateway accepted",
+				LastTransitionTime: metav1.Now(),
+			},
+			{
+				Type:               string(gwapiv1.GatewayConditionProgrammed),
+				Status:             metav1.ConditionFalse,
+				Reason:             reason,
+				Message:            message,
+				LastTransitionTime: metav1.Now(),
+			},
+		}
+	}
+}
+
+// WithHTTPRouteNotReadyStatus sets the HTTPRoute status to not ready (for negative testing)
+func WithHTTPRouteNotReadyStatus(controllerName, reason, message string) HTTPRouteOption {
+	return func(route *gwapiv1.HTTPRoute) {
+		if len(route.Spec.ParentRefs) > 0 {
+			route.Status.RouteStatus.Parents = make([]gwapiv1.RouteParentStatus, len(route.Spec.ParentRefs))
+			for i, parentRef := range route.Spec.ParentRefs {
+				route.Status.RouteStatus.Parents[i] = gwapiv1.RouteParentStatus{
+					ParentRef:      parentRef,
+					ControllerName: gwapiv1.GatewayController(controllerName),
+					Conditions: []metav1.Condition{
+						{
+							Type:               string(gwapiv1.RouteConditionAccepted),
+							Status:             metav1.ConditionFalse,
+							Reason:             reason,
+							Message:            message,
+							LastTransitionTime: metav1.Now(),
+						},
+					},
+				}
+			}
+		}
+	}
+}
+
+type InferencePoolOption ObjectOption[*igwapi.InferencePool]
+
+func InferencePool(name string, opts ...InferencePoolOption) *igwapi.InferencePool {
+	pool := &igwapi.InferencePool{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: igwapi.InferencePoolSpec{
+			Selector:         make(map[igwapi.LabelKey]igwapi.LabelValue),
+			TargetPortNumber: 8000,
+		},
+		Status: igwapi.InferencePoolStatus{
+			Parents: []igwapi.PoolStatus{},
+		},
+	}
+
+	for _, opt := range opts {
+		opt(pool)
+	}
+
+	return pool
+}
+
+func WithSelector(key, value string) InferencePoolOption {
+	return func(pool *igwapi.InferencePool) {
+		if pool.Spec.Selector == nil {
+			pool.Spec.Selector = make(map[igwapi.LabelKey]igwapi.LabelValue)
+		}
+		pool.Spec.Selector[igwapi.LabelKey(key)] = igwapi.LabelValue(value)
+	}
+}
+
+func WithTargetPort(port int32) InferencePoolOption {
+	return func(pool *igwapi.InferencePool) {
+		pool.Spec.TargetPortNumber = port
+	}
+}
+
+func WithExtensionRef(group, kind, name string) InferencePoolOption {
+	return func(pool *igwapi.InferencePool) {
+		pool.Spec.EndpointPickerConfig = igwapi.EndpointPickerConfig{
+			ExtensionRef: &igwapi.Extension{
+				ExtensionReference: igwapi.ExtensionReference{
+					Group: ptr.To(igwapi.Group(group)),
+					Kind:  ptr.To(igwapi.Kind(kind)),
+					Name:  igwapi.ObjectName(name),
+				},
+				ExtensionConnection: igwapi.ExtensionConnection{
+					FailureMode: ptr.To(igwapi.FailOpen),
+				},
+			},
+		}
+	}
+}
+
+func WithInferencePoolReadyStatus() InferencePoolOption {
+	return func(pool *igwapi.InferencePool) {
+		pool.Status.Parents = []igwapi.PoolStatus{
+			{
+				GatewayRef: corev1.ObjectReference{
+					APIVersion: gwapiv1.GroupVersion.String(),
+					Kind:       "Gateway",
+					Name:       "gateway",
+				},
+				Conditions: []metav1.Condition{
+					{
+						Type:               string(igwapi.InferencePoolConditionAccepted),
+						Status:             metav1.ConditionTrue,
+						Reason:             string(igwapi.InferencePoolReasonAccepted),
+						LastTransitionTime: metav1.Now(),
+					},
+				},
+			},
+		}
 	}
 }

@@ -5041,11 +5041,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			transformer := map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 				v1beta1.TransformerComponent: {
 					LatestCreatedRevision: "",
-					// uncomment when the status improvement from upstream is synced.
-					// URL: &apis.URL{
-					//	Scheme: "http",
-					//	Host:   "raw-foo-trans-transformer-default.example.com",
-					// },
+					// Status improvement from upstream is now synced
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   "raw-foo-trans-transformer-default.example.com",
+					},
 				},
 			}
 			expectedIsvcStatus.Components[v1beta1.TransformerComponent] = transformer[v1beta1.TransformerComponent]
@@ -5806,11 +5806,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			explainer := map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 				v1beta1.ExplainerComponent: {
 					LatestCreatedRevision: "",
-					// uncomment when the status improvement from upstream is synced.
-					// URL: &apis.URL{
-					//	Scheme: "http",
-					//	Host:   "raw-foo-exp-explainer-default.example.com",
-					// },
+					// Status improvement from upstream is now synced
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   "raw-foo-exp-explainer-default.example.com",
+					},
 				},
 			}
 			expectedIsvcStatus.Components[v1beta1.ExplainerComponent] = explainer[v1beta1.ExplainerComponent]
@@ -7077,11 +7077,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			transformer := map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 				v1beta1.TransformerComponent: {
 					LatestCreatedRevision: "",
-					// uncomment when the status improvement from upstream is synced.
-					// URL: &apis.URL{
-					//	Scheme: "http",
-					//	Host:   "raw-foo-trans-path-transformer-default.example.com",
-					// },
+					// Status improvement from upstream is now synced
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   "raw-foo-trans-path-transformer-default.example.com",
+					},
 				},
 			}
 			expectedIsvcStatus.Components[v1beta1.TransformerComponent] = transformer[v1beta1.TransformerComponent]
@@ -7922,7 +7922,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-exp-path-default.example.com",
-				"raw-foo-exp-predictor-default.example.com", "")
+				"raw-foo-exp-path-predictor-default.example.com", "")
 			expectedIsvcStatus.Conditions = append([]apis.Condition{
 				{
 					Type:     v1beta1.ExplainerReady,
@@ -7933,11 +7933,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			explainer := map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 				v1beta1.ExplainerComponent: {
 					LatestCreatedRevision: "",
-					// uncomment when the status improvement from upstream is synced.
-					// URL: &apis.URL{
-					//	Scheme: "http",
-					//	Host:   "raw-foo-exp-explainer-default.example.com",
-					// },
+					// Status improvement from upstream is now synced
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   "raw-foo-exp-path-explainer-default.example.com",
+					},
 				},
 			}
 			expectedIsvcStatus.Components[v1beta1.ExplainerComponent] = explainer[v1beta1.ExplainerComponent]

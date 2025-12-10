@@ -29,18 +29,20 @@ from kserve import (
     V1beta1AutoScalingSpec,
     V1beta1ResourceMetricSource,
     V1beta1MetricTarget,
-    V1beta1ExtMetricAuthentication,
     V1beta1ExternalMetricSource,
     V1beta1ExternalMetrics,
     V1beta1MetricsSpec,
     V1beta1PodMetricSource,
     V1beta1PodMetrics,
+    V1beta1ExtMetricAuthentication,
     V1beta1AuthenticationRef,
 )
 
 
 from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict_isvc
+import time
+import asyncio
 
 TARGET = "autoscaling.knative.dev/target"
 METRIC = "autoscaling.knative.dev/metric"
@@ -60,8 +62,8 @@ async def test_sklearn_kserve_concurrency(rest_v1_client):
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -106,8 +108,8 @@ async def test_sklearn_kserve_rps(rest_v1_client):
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -152,8 +154,8 @@ async def test_sklearn_kserve_cpu(rest_v1_client):
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -200,8 +202,8 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -257,8 +259,8 @@ async def test_sklearn_rolling_update():
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -344,8 +346,8 @@ async def test_sklearn_env_update():
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
             env=envs,
         ),
@@ -421,7 +423,7 @@ async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer)
     service_name = "isvc-sklearn-keda-scale-new-spec"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
-        max_replicas=5,
+        max_replicas=3,
         auto_scaling=V1beta1AutoScalingSpec(
             metrics=[
                 V1beta1MetricsSpec(
@@ -438,8 +440,7 @@ async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer)
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
             ),
         ),
     )
@@ -503,7 +504,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     service_name = "isvc-sklearn-keda-scale-new-spec-2"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
-        max_replicas=5,
+        max_replicas=3,
         auto_scaling=V1beta1AutoScalingSpec(
             metrics=[
                 V1beta1MetricsSpec(
@@ -529,8 +530,8 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
             ),
         ),
     )
@@ -572,10 +573,8 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     )
 
     trigger_metadata = scaledobject_resp["items"][0]["spec"]["triggers"][0]["metadata"]
-    authentication_ref = scaledobject_resp["items"][0]["spec"]["triggers"][0][
-        "authenticationRef"
-    ]
     trigger_type = scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"]
+    authentication_ref = scaledobject_resp["items"][0]["spec"]["triggers"][0]["authenticationRef"]
     assert trigger_type == "prometheus"
     assert trigger_metadata["query"] == "http_requests_per_second"
     assert trigger_metadata["serverAddress"] == "https://thanos-querier.openshift-monitoring.svc.cluster.local:9092"
@@ -594,12 +593,14 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
 @pytest.mark.asyncio(scope="session")
 async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_layer):
     """
-    Test KEDA-Otel-Add-On autoscaling with InferenceService (auto_scaling) spec
+    Test KEDA-Otel-Add-On autoscaling with InferenceService (auto_scaling) spec,
+    including scale up and scale down behavior by generating load.
     """
+
     service_name = "isvc-sklearn-keda-otel-add-on"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
-        max_replicas=5,
+        max_replicas=3,
         auto_scaling=V1beta1AutoScalingSpec(
             metrics=[
                 V1beta1MetricsSpec(
@@ -607,10 +608,10 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
                     podmetric=V1beta1PodMetricSource(
                         metric=V1beta1PodMetrics(
                             backend="opentelemetry",
-                            metric_names=["http_requests_per_second"],
-                            query="http_requests_per_second",
+                            metric_names=["process_cpu_seconds_total"],
+                            query="process_cpu_seconds_total",
                         ),
-                        target=V1beta1MetricTarget(type="Value", value=50),
+                        target=V1beta1MetricTarget(type="Value", value=8),
                     ),
                 )
             ]
@@ -618,8 +619,7 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "25m", "memory": "128Mi"},
             ),
         ),
     )
@@ -653,6 +653,7 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     api_instance = kserve_client.api_instance
 
+    # Check Otel Collector config
     otelp_collector_resp = api_instance.list_namespaced_custom_object(
         group="opentelemetry.io",
         version="v1beta1",
@@ -672,9 +673,9 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
         ][0]
         == "localhost:8080"
     )
-
     assert otel_exporter["otlp"]["endpoint"] == "keda-otel-scaler.keda.svc:4317"
 
+    # Check KEDA ScaledObject
     scaledobject_resp = api_instance.list_namespaced_custom_object(
         group="keda.sh",
         version="v1alpha1",
@@ -686,11 +687,56 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
     trigger_metadata = scaledobject_resp["items"][0]["spec"]["triggers"][0]["metadata"]
     trigger_type = scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"]
     assert trigger_type == "external"
-    assert trigger_metadata["metricQuery"] == 'sum(http_requests_per_second{namespace="kserve-ci-e2e-test", deployment="isvc-sklearn-keda-otel-add-on-predictor"})'
-    assert trigger_metadata["scalerAddress"] == "keda-otel-scaler.keda.svc:4318"
-    assert trigger_metadata["targetValue"] == "50.000000"
-    res = await predict_isvc(
-        rest_v1_client, service_name, INPUT, network_layer=network_layer
+    assert (
+        trigger_metadata["metricQuery"]
+        == 'sum(process_cpu_seconds_total{namespace="kserve-ci-e2e-test", deployment="isvc-sklearn-keda-otel-add-on-predictor"})'
     )
-    assert res["predictions"] == [1, 1]
+    assert trigger_metadata["scalerAddress"] == "keda-otel-scaler.keda.svc:4318"
+    assert trigger_metadata["targetValue"] == "8"
+
+    # Initial pod count should be min_replicas
+    def get_pod_count():
+        pods = kserve_client.core_api.list_namespaced_pod(
+            KSERVE_TEST_NAMESPACE,
+            label_selector=f"serving.kserve.io/inferenceservice={service_name}",
+        )
+        running_pods = [
+            p for p in pods.items if p.status.phase in ["Running", "Pending"]
+        ]
+        return len(running_pods)
+
+    # Wait for pod count to reach expected value, with timeout
+    def wait_for_pod_count(expected, timeout=180):
+        start = time.time()
+        while time.time() - start < timeout:
+            count = get_pod_count()
+            if count >= expected:
+                return True
+            time.sleep(5)
+        return False
+
+    async def send_load_until_scaled(num_requests, concurrency, target_pods):
+        sem = asyncio.Semaphore(concurrency)
+        sent_requests = 0
+
+        async def send_one():
+            async with sem:
+                res = await predict_isvc(
+                    rest_v1_client, service_name, INPUT, network_layer=network_layer
+                )
+                assert res["predictions"] == [1, 1]
+
+        tasks = []
+        while sent_requests < num_requests:
+            if get_pod_count() >= target_pods:
+                break
+            batch = min(concurrency, num_requests - sent_requests)
+            tasks = [send_one() for _ in range(batch)]
+            await asyncio.gather(*tasks)
+            sent_requests += batch
+
+    await send_load_until_scaled(100, concurrency=10, target_pods=2)
+    scaled_up = wait_for_pod_count(2, timeout=900)
+    assert scaled_up, "Failed to scale up pods"
+
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

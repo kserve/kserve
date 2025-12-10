@@ -115,7 +115,14 @@ func NewRawKubeReconciler(ctx context.Context,
 		log.Error(err1, "failed to get service config")
 	}
 
-	depl, err := deployment.NewDeploymentReconciler(ctx, client, clientset, scheme, resourceType, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
+	// Get deploy config
+	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
+	if err != nil {
+		log.Error(err, "failed to get deploy config")
+		deployConfig = nil // Use nil if config is not available
+	}
+
+	depl, err := deployment.NewDeploymentReconciler(ctx, client, clientset, scheme, resourceType, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec, deployConfig)
 	if err != nil {
 		return nil, err
 	}
