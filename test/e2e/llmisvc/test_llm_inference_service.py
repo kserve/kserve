@@ -233,6 +233,7 @@ class TestCase:
                 ],
                 prompt="This test simulates DP+EP that can run on CPU, the idea is to test the LWS-based deployment, "
                 "but without the resources requirements for DP+EP (GPUs and ROCe/IB).",
+                wait_timeout=1800,
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_multi_node],
         ),
