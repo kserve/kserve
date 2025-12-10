@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.24 AS builder
+FROM registry.access.redhat.com/ubi9/go-toolset:1.24 as builder
 
 # Copy in the go src
 WORKDIR /go/src/github.com/kserve/kserve

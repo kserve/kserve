@@ -13,10 +13,11 @@ resources:
 - ../rbac
 - ../manager
 - ../webhook
-- ../certmanager
-- ../localmodels
-- ../localmodelnodes
+# - ../certmanager # not needed, because ODH is using OpenShift's serving certificates for WebHooks
+# - ../localmodels # This is commented out for 2.16
+# - ../localmodelnodes
 - ../llmisvc
+- network-policies.yaml # ODH specific
 
 generatorOptions:
   disableNameSuffixHash: true
@@ -300,6 +301,7 @@ patches:
 - path: cainjection_conversion_webhook.yaml
 - path: llmisvc_validatingwebhook_cainjection_patch.yaml
 - path: llmisvcconfig_validatingwebhook_cainjection_patch.yaml
+- path: llmisvc_svc_webhook_cainjection_patch.yaml
 - path: llmisvc_manager_image_patch.yaml
 # - path: localmodel_manager_image_patch.yaml
 # - path: localmodelnode_agent_image_patch.yaml
