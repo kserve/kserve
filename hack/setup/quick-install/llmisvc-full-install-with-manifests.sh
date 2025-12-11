@@ -530,7 +530,7 @@ KSERVE_VERSION=v0.16.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.16.1
 OPENTELEMETRY_OPERATOR_VERSION=0.113.0
-LWS_VERSION=v0.6.2
+LWS_VERSION=v0.7.0
 GATEWAY_API_VERSION=v1.2.1
 GIE_VERSION=v0.3.0
 
@@ -1210,11 +1210,18 @@ install_kserve_helm() {
         config_updates+=("deploy.defaultDeploymentMode=\"${DEPLOYMENT_MODE}\"")
     fi
 
-    # Enable Gateway API if needed
-    if [ "${GATEWAY_NETWORK_LAYER}" != "false" ]; then
-        log_info "Adding Gateway API updates: enableGatewayApi=true, className=${GATEWAY_NETWORK_LAYER}"
-        config_updates+=("ingress.ingressGateway.enableGatewayApi=true")
-        config_updates+=("ingress.ingressGateway.className=\"${GATEWAY_NETWORK_LAYER}\"")
+    # Enable Gateway API for KServe(ISVC) if needed
+    if [ "${GATEWAY_NETWORK_LAYER}" != "false" ] && [ "${LLMISVC}" != "true" ]; then
+        log_info "Adding Gateway API updates: enableGatewayApi=true, ingressClassName=${GATEWAY_NETWORK_LAYER}"
+        config_updates+=("ingress.enableGatewayApi=true")
+        config_updates+=("ingress.ingressClassName=\"${GATEWAY_NETWORK_LAYER}\"")
+    fi
+
+    # Add custom configurations if provided
+    if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
+        log_info "Adding custom configurations: ${KSERVE_CUSTOM_ISVC_CONFIGS}"
+        IFS='|' read -ra custom_configs <<< "${KSERVE_CUSTOM_ISVC_CONFIGS}"
+        config_updates+=("${custom_configs[@]}")
     fi
 
     # Apply all config updates at once if there are any
@@ -1224,7 +1231,9 @@ install_kserve_helm() {
             log_info "  - ${update}"
         done
         update_isvc_config "${config_updates[@]}"
-        kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
+        if [ "${LLMISVC}" != "true" ]; then
+            kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
+        fi
     else
         if [ "${LLMISVC}" = "true" ]; then
             log_info "No configuration updates needed for LLMISVC (GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
@@ -1233,9 +1242,14 @@ install_kserve_helm() {
         fi
     fi
 
+    log_success "Successfully installed KServe"
+
+    # Wait for all controller managers to be ready
+    log_info "Waiting for KServe controllers to be ready..."
     for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
         wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "300s"
     done
+
     log_success "KServe is ready!"
 }
 
