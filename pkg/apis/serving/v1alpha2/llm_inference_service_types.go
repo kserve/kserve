@@ -38,6 +38,7 @@ import (
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="URLs",type="string",JSONPath=".status.addresses[*].url",priority=1
 // +kubebuilder:resource:path=llminferenceservices,shortName=llmisvc
+// +kubebuilder:storageversion
 type LLMInferenceService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -50,6 +51,7 @@ type LLMInferenceService struct {
 // It acts as a template to provide base configurations that can be inherited by multiple LLMInferenceService instances.
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
+// +kubebuilder:storageversion
 type LLMInferenceServiceConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
