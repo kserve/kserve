@@ -47,9 +47,11 @@ skip_serverless() {
 : "${ODH_MODEL_CONTROLLER_IMAGE:=quay.io/opendatahub/odh-model-controller:fast}"
 : "${ERROR_404_ISVC_IMAGE:=error-404-isvc:latest}"
 : "${SUCCESS_200_ISVC_IMAGE:=success-200-isvc:latest}"
+: "${LLMISVC_CONTROLLER_IMAGE:=kserve/llmisvc-controller:latest}"
 
 echo "SKLEARN_IMAGE=$SKLEARN_IMAGE"
 echo "KSERVE_CONTROLLER_IMAGE=$KSERVE_CONTROLLER_IMAGE"
+echo "LLMISVC_CONTROLLER_IMAGE=$LLMISVC_CONTROLLER_IMAGE"
 echo "KSERVE_AGENT_IMAGE=$KSERVE_AGENT_IMAGE"
 echo "KSERVE_ROUTER_IMAGE=$KSERVE_ROUTER_IMAGE"
 echo "STORAGE_INITIALIZER_IMAGE=$STORAGE_INITIALIZER_IMAGE"
@@ -126,6 +128,7 @@ kustomize build $PROJECT_ROOT/config/overlays/test |
   sed "s|kserve/agent:latest|${KSERVE_AGENT_IMAGE}|" |
   sed "s|kserve/router:latest|${KSERVE_ROUTER_IMAGE}|" |
   sed "s|kserve/kserve-controller:latest|${KSERVE_CONTROLLER_IMAGE}|" |
+  sed "s|kserve/llmisvc-controller:latest|${LLMISVC_CONTROLLER_IMAGE}|" |
   oc apply --server-side=true --force-conflicts -f -
 
 # Install DSC/DSCI for test. (sometimes there is timing issue when it is under the same kustomization so it is separated)

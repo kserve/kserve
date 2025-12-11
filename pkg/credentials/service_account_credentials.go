@@ -219,9 +219,25 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(ctx context.Context, namesp
 		return nil
 	}
 
+	err = c.CreateSecretVolumeAndEnvFromServiceAccount(ctx, serviceAccount, annotations, container, volumes)
+	if err != nil {
+		log.Error(err, "Failed to create secret volume and env from service account %s in namespace %s", serviceAccountName, namespace)
+		return err
+	}
+
+	return nil
+}
+
+func (c *CredentialBuilder) CreateSecretVolumeAndEnvFromServiceAccount(ctx context.Context, serviceAccount *corev1.ServiceAccount, annotations map[string]string,
+	container *corev1.Container, volumes *[]corev1.Volume,
+) error {
+	if serviceAccount == nil || serviceAccount.Name == "" || serviceAccount.Namespace == "" {
+		log.Error(nil, "Invalid service account spec received. Missing name and/or namespace.")
+		return errors.New("invalid service account spec received. Missing name and/or namespace")
+	}
 	for annotationKey := range serviceAccount.Annotations {
 		if annotationKey == AwsIrsaAnnotationKey {
-			log.Info("AWS IAM Role annotation found, setting service account envs for s3", "ServiceAccountName", serviceAccountName)
+			log.Info("AWS IAM Role annotation found, setting service account envs for s3", "ServiceAccountName", serviceAccount.Name)
 			envs := s3.BuildServiceAccountEnvs(serviceAccount, &c.config.S3)
 			container.Env = append(container.Env, envs...)
 		}
@@ -230,7 +246,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(ctx context.Context, namesp
 	// secret name annotation takes precedence
 	if annotations != nil && c.config.StorageSecretNameAnnotation != "" {
 		if secretName, ok := annotations[c.config.StorageSecretNameAnnotation]; ok {
-			err := c.mountSecretCredential(ctx, secretName, namespace, container, volumes)
+			err := c.mountSecretCredential(ctx, secretName, serviceAccount.Namespace, container, volumes)
 			if err != nil {
 				log.Error(err, "Failed to amount the secret credentials", "secretName", secretName)
 				return err
@@ -241,7 +257,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(ctx context.Context, namesp
 
 	// Find the secret references from service account
 	for _, secretRef := range serviceAccount.Secrets {
-		err := c.mountSecretCredential(ctx, secretRef.Name, namespace, container, volumes)
+		err := c.mountSecretCredential(ctx, secretRef.Name, serviceAccount.Namespace, container, volumes)
 		if err != nil {
 			return err
 		}

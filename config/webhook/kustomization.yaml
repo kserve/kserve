@@ -4,3 +4,5 @@ kind: Kustomization
 resources:
 - manifests.yaml
 - service.yaml
+- llmisvc/manifests.yaml
+- llmisvc/service.yaml
