@@ -143,12 +143,12 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		role = "both"
 	}
 	leaderLabels := map[string]string{
-		"app":                          kmeta.ChildName(llmSvc.GetName(), "-predictor"),
-		"app.kubernetes.io/component":  "llminferenceservice-workload-leader",
-		"app.kubernetes.io/name":       llmSvc.GetName(),
-		"app.kubernetes.io/part-of":    "llminferenceservice",
-		"kserve.io/component":          "workload",
-		"llm-d.ai/role":                role,
+		"app":                         kmeta.ChildName(llmSvc.GetName(), "-predictor"),
+		"app.kubernetes.io/component": "llminferenceservice-workload-leader",
+		"app.kubernetes.io/name":      llmSvc.GetName(),
+		"app.kubernetes.io/part-of":   "llminferenceservice",
+		"kserve.io/component":         "workload",
+		"llm-d.ai/role":               role,
 	}
 
 	expected := &lwsapi.LeaderWorkerSet{
@@ -254,12 +254,12 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 		workerLabels["llm-d.ai/role"] = "prefill"
 	}
 	leaderLabels := map[string]string{
-		"app":                          kmeta.ChildName(llmSvc.GetName(), "-predictor"),
-		"app.kubernetes.io/component":  "llminferenceservice-workload-leader-prefill",
-		"app.kubernetes.io/name":       llmSvc.GetName(),
-		"app.kubernetes.io/part-of":    "llminferenceservice",
-		"kserve.io/component":          "workload",
-		"llm-d.ai/role":                "prefill",
+		"app":                         kmeta.ChildName(llmSvc.GetName(), "-predictor"),
+		"app.kubernetes.io/component": "llminferenceservice-workload-leader-prefill",
+		"app.kubernetes.io/name":      llmSvc.GetName(),
+		"app.kubernetes.io/part-of":   "llminferenceservice",
+		"kserve.io/component":         "workload",
+		"llm-d.ai/role":               "prefill",
 	}
 
 	expected := &lwsapi.LeaderWorkerSet{

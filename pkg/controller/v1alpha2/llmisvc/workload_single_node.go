@@ -407,9 +407,9 @@ func (r *LLMISVCReconciler) expectedSingleNodeRoleBinding(llmSvc *v1alpha2.LLMIn
 
 func (r *LLMISVCReconciler) singleNodeLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 	return map[string]string{
-		"app":                          kmeta.ChildName(llmSvc.GetName(), "-predictor"),
-		"app.kubernetes.io/component":  "llminferenceservice-workload",
-		"app.kubernetes.io/name":       llmSvc.GetName(),
-		"app.kubernetes.io/part-of":    "llminferenceservice",
+		"app":                         kmeta.ChildName(llmSvc.GetName(), "-predictor"),
+		"app.kubernetes.io/component": "llminferenceservice-workload",
+		"app.kubernetes.io/name":      llmSvc.GetName(),
+		"app.kubernetes.io/part-of":   "llminferenceservice",
 	}
 }

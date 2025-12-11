@@ -524,8 +524,6 @@ github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10/go.mod h1
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRIccs7FGNTlIRMkT8wgtp5eCXdBlqhYGL6U=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/prashantv/gostub v1.1.0 h1:BTyx3RfQjRHnUWaGF9oQos79AlQ5k8WNktv7VGvVH4g=
-github.com/prashantv/gostub v1.1.0/go.mod h1:A5zLQHz7ieHGG7is6LLXLz7I8+3LZzsrV0P1IAHhP5U=
 github.com/prometheus-operator/prometheus-operator v0.76.2 h1:B+UcRc7py+zpow2H+q2V8sPF3jmsQNreJujBt36wZ+Q=
 github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.76.2 h1:BpGDC87A2SaxbKgONsFLEX3kRcRJee2aLQbjXsuz0hA=
 github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.76.2/go.mod h1:Rd8YnCqz+2FYsiGmE2DMlaLjQRB4v2jFNnzCt9YY4IM=
@@ -668,8 +666,6 @@ go.opentelemetry.io/otel/trace v1.38.0/go.mod h1:j1P9ivuFsTceSWe1oY+EeW3sc+Pp42s
 go.opentelemetry.io/proto/otlp v1.7.1 h1:gTOMpGDb0WTBOP8JaO72iL3auEZhVmAQg4ipjOVAtj4=
 go.opentelemetry.io/proto/otlp v1.7.1/go.mod h1:b2rVh6rfI/s2pHWNlB7ILJcRALpcNDzKhACevjI+ZnE=
 go.uber.org/atomic v1.4.0/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
-go.uber.org/automaxprocs v1.6.0 h1:O3y2/QNTOdbF+e/dpXNNW7Rx2hZ4sTIPyybbxyNqTUs=
-go.uber.org/automaxprocs v1.6.0/go.mod h1:ifeIMSnPZuznNm6jmdzmU3/bfk01Fe2fotchwEFJ8r8=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
 go.uber.org/multierr v1.1.0/go.mod h1:wR5kodmAFQ0UK8QlbwjlSNy0Z68gJhDJUG5sjR94q/0=
@@ -1072,8 +1068,8 @@ sigs.k8s.io/gateway-api-inference-extension v1.2.0 h1:7H+ijrUImnW2ubcTakNgV723xD
 sigs.k8s.io/gateway-api-inference-extension v1.2.0/go.mod h1:/HWeqxuOMjFM56YwJ2Spt3qceK7Spz4hk6ZfXYgE9a8=
 sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 h1:IpInykpT6ceI+QxKBbEflcR5EXP7sU1kvOlxwZh5txg=
 sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730/go.mod h1:mdzfpAEoE6DHQEN0uh9ZbOCuHbLK5wOm7dK4ctXE9Tg=
-sigs.k8s.io/lws v0.6.2 h1:5ulPJDaLBI9zk6ayGO2Lfg9P/FBL3C1LsmHmJVqvHvo=
-sigs.k8s.io/lws v0.6.2/go.mod h1:7nbwcpHwdDticuWPTDe6Va5OpjasS0MoVeVD61N5Y0c=
+sigs.k8s.io/lws v0.7.0 h1:qWfzX8+UBak+Hq0+m/PuE3uO0mp/3dmm5q/h/7z31A8=
+sigs.k8s.io/lws v0.7.0/go.mod h1:WLg0CkyJTRQWMUOUam6qi9qRmcj3LAIWQUT81d4BGr4=
 sigs.k8s.io/randfill v1.0.0 h1:JfjMILfT8A6RbawdsK2JXGBR5AQVfd+9TbzrlneTyrU=
 sigs.k8s.io/randfill v1.0.0/go.mod h1:XeLlZ/jmk4i1HRopwe7/aU3H5n1zNUcX6TM94b3QxOY=
 sigs.k8s.io/structured-merge-diff/v6 v6.3.0 h1:jTijUJbW353oVOd9oTlifJqOGEkUw2jB/fXCbTiQEco=

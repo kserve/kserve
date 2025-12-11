@@ -123,27 +123,38 @@ manifests: controller-gen yq
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
 
 	# Remove validation for the LLMInferenceServiceConfig API so that we can use Go templates to inject values at runtime.
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.matches.items.properties.path.x-kubernetes-validations)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.filters.items.properties.urlRewrite.properties.path.x-kubernetes-validations)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.parentRefs.items.properties.namespace.pattern)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	# Note: v1alpha1 is at index 0, v1alpha2 is at index 1. These rules target v1alpha2 which has the full InferencePoolSpec.
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.matches.items.properties.path.x-kubernetes-validations)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.filters.items.properties.urlRewrite.properties.path.x-kubernetes-validations)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.parentRefs.items.properties.namespace.pattern)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
 	# Remove pattern validation from InferencePool selector matchLabels to allow Go templates
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.additionalProperties.pattern)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.additionalProperties.maxLength)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.additionalProperties.minLength)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.maxProperties)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.minProperties)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	# Remove validation for the LLMInferenceServiceConfig API so that we can override only specific values.
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.additionalProperties.pattern)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.additionalProperties.maxLength)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.additionalProperties.minLength)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.maxProperties)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.pool.properties.spec.properties.selector.properties.matchLabels.minProperties)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	# Remove validation for the LLMInferenceServiceConfig API so that we can override only specific values (both versions).
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	# Remove validation for the LLMInferenceService API so that we can override only specific values.
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	# Remove validation for the LLMInferenceService API so that we can override only specific values (both versions).
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
 
 	# DO NOT COPY to helm chart. It needs to be created before the Envoy Gateway or you will need to restart the Envoy Gateway controller.
 	# The llmisvc helm chart needs to be installed after the Envoy Gateway as well, so it needs to be created before the llmisvc helm chart.

@@ -10,7 +10,7 @@ webhooks:
       service:
         name: llmisvc-webhook-server-service
         namespace: {{ .Release.Namespace }}
-        path: /validate-serving-kserve-io-v1alpha1-llminferenceservice
+        path: /validate-serving-kserve-io-v1alpha2-llminferenceservice
     failurePolicy: Fail
     name: llminferenceservice.kserve-webhook-server.validator
     sideEffects: None
@@ -20,6 +20,7 @@ webhooks:
           - serving.kserve.io
         apiVersions:
           - v1alpha1
+          - v1alpha2
         operations:
           - CREATE
           - UPDATE
@@ -38,7 +39,7 @@ webhooks:
       service:
         name: llmisvc-webhook-server-service
         namespace: {{ .Release.Namespace }}
-        path: /validate-serving-kserve-io-v1alpha1-llminferenceserviceconfig
+        path: /validate-serving-kserve-io-v1alpha2-llminferenceserviceconfig
     failurePolicy: Fail
     name: llminferenceserviceconfig.kserve-webhook-server.validator
     sideEffects: None
@@ -48,6 +49,7 @@ webhooks:
           - serving.kserve.io
         apiVersions:
           - v1alpha1
+          - v1alpha2
         operations:
           - CREATE
           - UPDATE

@@ -34,7 +34,7 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 )
 
-// +kubebuilder:webhook:path=/validate-serving-kserve-io-v1alpha1-llminferenceservice,mutating=false,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha1,name=llminferenceservice.kserve-webhook-server.validator,admissionReviewVersions=v1;v1beta1
+// +kubebuilder:webhook:path=/validate-serving-kserve-io-v1alpha2-llminferenceservice,mutating=false,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha2,name=llminferenceservice.kserve-webhook-server.validator,admissionReviewVersions=v1;v1beta1
 
 // LLMInferenceServiceValidator is responsible for validating the LLMInferenceService resource
 // when it is created, updated, or deleted.
