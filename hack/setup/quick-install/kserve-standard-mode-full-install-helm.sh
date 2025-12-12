@@ -530,7 +530,7 @@ KSERVE_VERSION=v0.16.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.16.1
 OPENTELEMETRY_OPERATOR_VERSION=0.113.0
-LWS_VERSION=v0.6.2
+LWS_VERSION=v0.7.0
 GATEWAY_API_VERSION=v1.2.1
 GIE_VERSION=v0.3.0
 
@@ -559,7 +559,7 @@ KSERVE_CUSTOM_ISVC_CONFIGS="${KSERVE_CUSTOM_ISVC_CONFIGS:-}"
 
 ADDON_RELEASE_NAME="keda-otel-scaler"
 PLATFORM="${PLATFORM:-$(detect_platform)}"
-TEMPLATE_DIR="${SCRIPT_DIR}/templates"
+TEMPLATE_DIR="${REPO_ROOT}/hack/setup/infra/external-lb/templates"
 GATEWAYCLASS_NAME="${GATEWAYCLASS_NAME:-envoy}"
 CONTROLLER_NAME="${CONTROLLER_NAME:-gateway.envoyproxy.io/gatewayclass-controller}"
 GATEWAY_NAME="kserve-ingress-gateway"
@@ -985,52 +985,6 @@ install_external_lb() {
 }
 
 # ----------------------------------------
-# CLI/Component: gateway-api-crd
-# ----------------------------------------
-
-uninstall_gateway_api_crd() {
-    log_info "Uninstalling Gateway API CRDs..."
-    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml" --ignore-not-found=true 2>/dev/null || true
-    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml" --ignore-not-found=true 2>/dev/null || true
-    log_success "Gateway API CRDs uninstalled"
-}
-
-install_gateway_api_crd() {
-    if kubectl get crd gateways.gateway.networking.k8s.io &>/dev/null; then
-        if [ "$REINSTALL" = false ]; then
-            log_info "Gateway API CRDs are already installed. Use --reinstall to reinstall."
-            return 0
-        else
-            log_info "Reinstalling Gateway API CRDs..."
-            uninstall_gateway_api_crd
-        fi
-    fi
-
-    log_info "Installing Gateway API CRDs ${GATEWAY_API_VERSION}..."
-    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml"
-
-    log_success "Successfully installed Gateway API CRDs ${GATEWAY_API_VERSION}"
-
-    wait_for_crds "60s" \
-        "gateways.gateway.networking.k8s.io" \
-        "gatewayclasses.gateway.networking.k8s.io"
-
-    log_success "Gateway API CRDs are ready!"
-
-    log_info "Installing Gateway Inference Extension CRDs ${GIE_VERSION}..."
-    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml"
-
-    log_success "Successfully installed Gateway Inference Extension CRDs ${GIE_VERSION}"
-
-    wait_for_crds "60s" \
-        "inferencepools.inference.networking.x-k8s.io" \
-        "inferencemodels.inference.networking.x-k8s.io"
-
-    log_success "Gateway Inference Extension CRDs are ready!"
-
-}
-
-# ----------------------------------------
 # CLI/Component: envoy-gateway
 # ----------------------------------------
 
@@ -1331,13 +1285,31 @@ install_kserve() {
 
         # Install KServe resources
         log_info "Installing KServe resources..."
-        helm install "${KSERVE_RELEASE_NAME}" \
+        if ! helm install "${KSERVE_RELEASE_NAME}" \
             oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
             --version "${KSERVE_VERSION}" \
             --namespace "${KSERVE_NAMESPACE}" \
             --create-namespace \
             --wait \
-            ${KSERVE_EXTRA_ARGS:-}
+            ${KSERVE_EXTRA_ARGS:-}; then
+
+            # If installation fails, try using helm upgrade after kserve controller is Ready
+            log_info "Install failed, attempting upgrade instead..."
+
+            for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
+                    wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "120s"
+            done
+            if ! helm upgrade "${KSERVE_RELEASE_NAME}" \
+                oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
+                --version "${KSERVE_VERSION}" \
+                --namespace "${KSERVE_NAMESPACE}" \
+                --wait \
+                ${KSERVE_EXTRA_ARGS:-}; then
+
+                log_error "Failed to install/upgrade KServe ${KSERVE_VERSION}"
+                exit 1
+            fi
+        fi
 
         log_success "Successfully installed KServe ${KSERVE_VERSION}"
     fi
@@ -1351,11 +1323,18 @@ install_kserve() {
         config_updates+=("deploy.defaultDeploymentMode=\"${DEPLOYMENT_MODE}\"")
     fi
 
-    # Enable Gateway API if needed
-    if [ "${GATEWAY_NETWORK_LAYER}" != "false" ]; then
-        log_info "Adding Gateway API updates: enableGatewayApi=true, className=${GATEWAY_NETWORK_LAYER}"
-        config_updates+=("ingress.ingressGateway.enableGatewayApi=true")
-        config_updates+=("ingress.ingressGateway.className=\"${GATEWAY_NETWORK_LAYER}\"")
+    # Enable Gateway API for KServe(ISVC) if needed
+    if [ "${GATEWAY_NETWORK_LAYER}" != "false" ] && [ "${LLMISVC}" != "true" ]; then
+        log_info "Adding Gateway API updates: enableGatewayApi=true, ingressClassName=${GATEWAY_NETWORK_LAYER}"
+        config_updates+=("ingress.enableGatewayApi=true")
+        config_updates+=("ingress.ingressClassName=\"${GATEWAY_NETWORK_LAYER}\"")
+    fi
+
+    # Add custom configurations if provided
+    if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
+        log_info "Adding custom configurations: ${KSERVE_CUSTOM_ISVC_CONFIGS}"
+        IFS='|' read -ra custom_configs <<< "${KSERVE_CUSTOM_ISVC_CONFIGS}"
+        config_updates+=("${custom_configs[@]}")
     fi
 
     # Apply all config updates at once if there are any
@@ -1365,14 +1344,25 @@ install_kserve() {
             log_info "  - ${update}"
         done
         update_isvc_config "${config_updates[@]}"
-        kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
+        if [ "${LLMISVC}" != "true" ]; then
+            kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
+        fi
     else
-        log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        if [ "${LLMISVC}" = "true" ]; then
+            log_info "No configuration updates needed for LLMISVC (GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        else
+            log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        fi
     fi
 
+    log_success "Successfully installed KServe"
+
+    # Wait for all controller managers to be ready
+    log_info "Waiting for KServe controllers to be ready..."
     for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
         wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "300s"
     done
+
     log_success "KServe is ready!"
 }
 
@@ -1393,7 +1383,6 @@ main() {
         uninstall_gateway_api_gwclass
         uninstall_envoy_ai_gateway
         uninstall_envoy_gateway
-        uninstall_gateway_api_crd
         uninstall_external_lb
         uninstall_keda_otel_addon
         uninstall_keda
@@ -1420,7 +1409,6 @@ main() {
     install_keda
     install_keda_otel_addon
     install_external_lb
-    install_gateway_api_crd
     install_envoy_gateway
     install_envoy_ai_gateway
     install_gateway_api_gwclass
@@ -1434,8 +1422,8 @@ main() {
             CRD_DIR_NAME="kserve-llmisvc-crd"
             CORE_DIR_NAME="kserve-llmisvc-resources"
             KSERVE_CRD_RELEASE_NAME="kserve-llmisvc-crd"
-            KSERVE_RELEASE_NAME="kserve-llmisvc"
-            TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
+            KSERVE_RELEASE_NAME="kserve-llmisvc-resources"
+            TARGET_DEPLOYMENT_NAMES=("kserve-llmisvc-controller-manager")
         fi
         
         if [ "${SET_KSERVE_VERSION}" != "" ]; then
