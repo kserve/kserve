@@ -24,6 +24,7 @@ set -o pipefail
 
 find_repo_root() {
     local current_dir="${1:-$(pwd)}"
+    local skip="${2:-false}"
 
     while [[ "$current_dir" != "/" ]]; do
         if [[ -d "${current_dir}/.git" ]]; then
@@ -33,8 +34,15 @@ find_repo_root() {
         current_dir="$(dirname "$current_dir")"
     done
 
-    echo "Error: Could not find git repository root" >&2
-    exit 1
+    # Git repository not found
+    if [[ "$skip" == "true" ]]; then
+        log_warning "Could not find git repository root, using current directory: $PWD"
+        echo "$PWD"
+        return 0
+    else
+        log_error "Could not find git repository root"
+        exit 1
+    fi
 }
 
 ensure_dir() {
@@ -52,7 +60,7 @@ detect_os() {
     case "$(uname -s)" in
         Linux*)  os="linux" ;;
         Darwin*) os="darwin" ;;
-        *)       echo "Unsupported OS" >&2; exit 1 ;;
+        *)       log_error "Unsupported OS detected: $(uname -s)" ; exit 1 ;;
     esac
     echo "$os"
 }
@@ -62,10 +70,26 @@ detect_arch() {
     case "$(uname -m)" in
         x86_64)  arch="amd64" ;;
         aarch64|arm64) arch="arm64" ;;
-        *)       echo "Unsupported architecture" >&2; exit 1 ;;
+        *)       log_error "Unsupported architecture detected: $(uname -m)" ; exit 1 ;;
     esac
     echo "$arch"
 }
+
+cleanup_bin_dir() {
+    # Remove BIN_DIR if it was created by this script
+    if [[ "${BIN_DIR_CREATED_BY_SCRIPT:-false}" == "true" ]] && [[ -d "${BIN_DIR:-}" ]]; then
+        log_info "Cleaning up BIN_DIR: ${BIN_DIR}"
+        rm -rf "${BIN_DIR}"
+    fi
+}
+
+cleanup() {
+    # Call all cleanup functions
+    cleanup_bin_dir
+}
+
+# Set up trap to run cleanup on exit
+trap cleanup EXIT
 
 # Color codes (disable if NO_COLOR is set or not a terminal)
 if [[ -z "${NO_COLOR:-}" ]] && [[ -t 1 ]]; then
@@ -83,7 +107,7 @@ else
 fi
 
 log_info() {
-    echo -e "${BLUE}[INFO]${RESET} $*"
+    echo -e "${BLUE}[INFO]${RESET} $*" >&2
 }
 
 log_error() {
@@ -91,11 +115,11 @@ log_error() {
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${RESET} $*"
+    echo -e "${GREEN}[SUCCESS]${RESET} $*" >&2
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${RESET} $*"
+    echo -e "${YELLOW}[WARNING]${RESET} $*" >&2
 }
 
 
@@ -399,8 +423,15 @@ version_gte() {
 if [[ -z "${REPO_ROOT:-}" ]]; then
     REPO_ROOT="$(find_repo_root "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")")"
     export REPO_ROOT
-    export BIN_DIR="${REPO_ROOT}/bin"
-    ensure_dir "${BIN_DIR}"
+
+    # Set up BIN_DIR - use repo bin if it exists, otherwise use temp directory
+    if [[ -d "${REPO_ROOT}/bin" ]]; then
+        export BIN_DIR="${REPO_ROOT}/bin"
+    else
+        export BIN_DIR="$(mktemp -d)"
+        log_info "Using temp BIN_DIR: ${BIN_DIR}"
+    fi
+
     export PATH="${BIN_DIR}:${PATH}"
 fi
 

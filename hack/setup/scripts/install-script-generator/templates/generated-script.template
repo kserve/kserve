@@ -1,0 +1,157 @@
+#!/bin/bash
+
+# Copyright 2025 The KServe Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# {{DESCRIPTION}}
+#
+# AUTO-GENERATED from: {{TEMPLATE_NAME}}
+# DO NOT EDIT MANUALLY
+#
+# To regenerate:
+#   ./scripts/generate-install-script.py {{TEMPLATE_NAME}}
+#
+# Usage: {{FILE_NAME}}.sh [--reinstall|--uninstall]
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+#================================================
+# Helper Functions (from common.sh)
+#================================================
+
+{{COMMON_FUNCTIONS}}
+
+# Set environment variable based on priority order:
+# Priority: 1. Runtime env > 2. Component env > 3. Global env > 4. Component default
+# Usage: set_env_with_priority VAR_NAME COMPONENT_ENV_VALUE GLOBAL_ENV_VALUE DEFAULT_VALUE
+set_env_with_priority() {
+    local var_name="$1"
+    local component_value="$2"
+    local global_value="$3"
+    local default_value="$4"
+
+    # Get current value
+    local current_value
+    eval "current_value=\${${var_name}}"
+
+    # If current value differs from default/component/global, it must be runtime - keep it
+    if [ -n "$current_value" ] && [ "$current_value" != "$default_value" ] &&
+       [ "$current_value" != "$component_value" ] && [ "$current_value" != "$global_value" ]; then
+        # This is a runtime value, keep it
+        return
+    fi
+
+    # Apply priority: component env > global env > default
+    if [ -n "$component_value" ]; then
+        export "$var_name=$component_value"
+    elif [ -n "$global_value" ]; then
+        export "$var_name=$global_value"
+    fi
+    # If both are empty, variable keeps its default value
+}
+
+#================================================
+# Determine repository root using find_repo_root
+#================================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
+REPO_ROOT="$(find_repo_root "${SCRIPT_DIR}" "true")"
+export REPO_ROOT
+
+# Set up BIN_DIR - use repo bin if it exists, otherwise use temp directory
+if [[ -d "${REPO_ROOT}/bin" ]]; then
+    export BIN_DIR="${REPO_ROOT}/bin"
+else
+    export BIN_DIR="$(mktemp -d)"
+    log_info "Using temp BIN_DIR: ${BIN_DIR}"
+fi
+
+export PATH="${BIN_DIR}:${PATH}"
+
+UNINSTALL="${UNINSTALL:-false}"
+REINSTALL="${REINSTALL:-false}"
+
+if [[ "$*" == *"--uninstall"* ]]; then
+    UNINSTALL=true
+elif [[ "$*" == *"--reinstall"* ]]; then
+    REINSTALL=true
+fi
+
+export REINSTALL
+export UNINSTALL
+
+# RELEASE mode (from definition file)
+RELEASE="{{RELEASE}}"
+export RELEASE
+
+#================================================
+# Version Dependencies (from kserve-deps.env)
+#================================================
+
+{{KSERVE_DEPS_CONTENT}}
+
+#================================================
+# Global Variables (from global-vars.env)
+#================================================
+# These provide default namespace values that can be overridden
+# by environment variables or GLOBAL_ENV settings below
+
+{{GLOBAL_VARS_CONTENT}}
+
+#================================================
+# Component-Specific Variables
+#================================================
+
+{{COMPONENT_VARIABLES}}
+
+#================================================
+# Component Functions
+#================================================
+
+{{COMPONENT_FUNCTIONS}}
+
+#================================================
+# Main Installation Logic
+#================================================
+
+main() {
+    if [ "$UNINSTALL" = true ]; then
+        echo "=========================================="
+        echo "Uninstalling components..."
+        echo "=========================================="
+{{UNINSTALL_CALLS}}
+        echo "=========================================="
+        echo "✅ Uninstallation completed!"
+        echo "=========================================="
+        exit 0
+    fi
+
+    echo "=========================================="
+    echo "{{DESCRIPTION}}"
+    echo "=========================================="
+
+{{DEFINITION_GLOBAL_ENV}}
+
+{{INSTALL_CALLS}}
+
+    echo "=========================================="
+    echo "✅ Installation completed successfully!"
+    echo "=========================================="
+}
+
+{{KSERVE_MANIFEST_FUNCTIONS}}
+
+main "$@"

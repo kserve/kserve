@@ -1,0 +1,22 @@
+DESCRIPTION: Install KServe Standard Mode/LLMISvc dependencies using helm
+RELEASE: true
+
+TOOLS:
+  - helm
+  - kustomize
+  - yq
+  
+COMPONENTS:
+  - name: cert-manager
+  - name: keda
+  - name: keda-otel-addon
+  # LLMISVC
+  - name: external-lb
+  - name: envoy-gateway
+  - name: envoy-ai-gateway
+  - name: gateway-api-gwclass
+  - name: gateway-api-gw  
+  - name: lws-operator
+  - name: kserve
+    env:
+      DEPLOYMENT_MODE: Standard

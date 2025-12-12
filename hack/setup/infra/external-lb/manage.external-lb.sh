@@ -44,7 +44,7 @@ fi
 
 # VARIABLES
 PLATFORM="${PLATFORM:-$(detect_platform)}"
-TEMPLATE_DIR="${SCRIPT_DIR}/templates"
+TEMPLATE_DIR="${REPO_ROOT}/hack/setup/infra/external-lb/templates"
 # VARIABLES END
 
 uninstall() {
@@ -101,7 +101,7 @@ install() {
                 log_info "cloud-provider-kind is already running"
             else
                 log_info "Starting cloud-provider-kind..."
-                cloud-provider-kind > /dev/null 2>&1 &
+                nohup cloud-provider-kind > /dev/null 2>&1 &
                 sleep 2
 
                 if pgrep -f cloud-provider-kind > /dev/null; then
@@ -141,7 +141,7 @@ install() {
 
         openshift|kubernetes)
             log_info "Platform ${PLATFORM} does not require external LB setup. Skipping."
-            exit 0
+            return 0
             ;;
 
         *)

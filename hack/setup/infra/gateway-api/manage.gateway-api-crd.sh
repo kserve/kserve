@@ -15,9 +15,9 @@
 # limitations under the License.
 
 # Install Gateway API CRDs
-# Usage: install-crd.sh [--reinstall|--uninstall]
-#   or:  REINSTALL=true install-crd.sh
-#   or:  UNINSTALL=true install-crd.sh
+# Usage: manage.gateway-api-crd-only.sh [--reinstall|--uninstall]
+#   or:  REINSTALL=true manage.gateway-api-crd-only.sh
+#   or:  UNINSTALL=true manage.gateway-api-crd-only.sh
 
 # INIT
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
