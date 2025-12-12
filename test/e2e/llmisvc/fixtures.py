@@ -334,7 +334,6 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--port",
                         "8000",
-                        "--disable-log-requests",
                         # SSL disabled to match HTTP-only Gateway setup
                         # "--enable-ssl-refresh",
                         # "--ssl-certfile",
@@ -378,7 +377,6 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--port",
                         "8000",
-                        "--disable-log-requests",
                         "--enable-ssl-refresh",
                         "--ssl-certfile",
                         "/etc/ssl/certs/tls.crt",

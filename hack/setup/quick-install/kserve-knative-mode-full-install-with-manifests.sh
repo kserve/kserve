@@ -77042,7 +77042,6 @@ spec:
       - '{{ .Spec.Model.Name }}'
       - --port
       - "8001"
-      - --disable-log-requests
       command:
       - vllm
       - serve
@@ -77240,12 +77239,11 @@ spec:
         \ else\n      echo \"[Infer RoCE] No active HCAs found, skipping GID_INDEX
         inference.\"\n  fi\nfi\n\nSTART_RANK=0\neval \"vllm serve \\\n  /mnt/models
         \\\n  --served-model-name \"{{ .Spec.Model.Name }}\" \\\n  --port 8001 \\\n
-        \ --api-server-count ${VLLM_API_SERVER_COUNT:-8} \\\n  --disable-log-requests
-        \\\n  {{- if .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }}
-        \\\n  {{- if .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor
-        }}{{- end }} \\\n  --data-parallel-size {{ or .Spec.Parallelism.Data 1 }}
-        \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \\\n
-        \ --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
+        \ --api-server-count ${VLLM_API_SERVER_COUNT:-8} \\\n  {{- if .Spec.Parallelism.Expert
+        -}}--enable-expert-parallel{{- end }} \\\n  {{- if .Spec.Parallelism.Tensor
+        -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
+        {{ or .Spec.Parallelism.Data 1 }} \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal
+        1 }} \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
         {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{
         else }}5555{{- end }} \\\n  --data-parallel-start-rank $START_RANK \\\n  ${VLLM_ADDITIONAL_ARGS}
         \\\n  --trust-remote-code\"\n  # BackendTLSPolicy is not implemented yet so
@@ -77446,12 +77444,11 @@ spec:
         \ else\n      echo \"[Infer RoCE] No active HCAs found, skipping GID_INDEX
         inference.\"\n  fi\nfi\n\nSTART_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Parallelism.DataLocal
         1 }} ))\neval \"vllm serve \\\n  /mnt/models \\\n  --served-model-name \"{{
-        .Spec.Model.Name }}\" \\\n  --port 8001 \\\n  --disable-log-requests \\\n
-        \ {{- if .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \\\n
-        \ {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor
-        }}{{- end }} \\\n  --data-parallel-size {{ or .Spec.Parallelism.Data 1 }}
-        \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \\\n
-        \ --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
+        .Spec.Model.Name }}\" \\\n  --port 8001 \\\n  {{- if .Spec.Parallelism.Expert
+        }}--enable-expert-parallel{{- end }} \\\n  {{- if .Spec.Parallelism.Tensor
+        }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
+        {{ or .Spec.Parallelism.Data 1 }} \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal
+        1 }} \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
         {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{
         else }}5555{{- end }} \\\n  --data-parallel-start-rank $START_RANK \\\n  ${VLLM_ADDITIONAL_ARGS}
         \\\n  --trust-remote-code \\\n  --headless\"\n  # BackendTLSPolicy is not
@@ -77528,7 +77525,6 @@ spec:
         - '{{ .Spec.Model.Name }}'
         - --port
         - "8000"
-        - --disable-log-requests
         command:
         - vllm
         - serve
@@ -77679,7 +77675,7 @@ spec:
           GID_INDEX inference.\"\n  fi\nfi\n\nSTART_RANK=0\neval \"vllm serve \\\n
           \ /mnt/models \\\n  --served-model-name \"{{ .Spec.Model.Name }}\" \\\n
           \ --port 8000 \\\n  --api-server-count ${VLLM_API_SERVER_COUNT:-8} \\\n
-          \ --disable-log-requests \\\n  {{- if .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{-
+          \ {{- if .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{-
           end }} \\\n  {{- if .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size
           {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
           {{ or .Spec.Prefill.Parallelism.Data 1 }} \\\n  --data-parallel-size-local
@@ -77835,18 +77831,18 @@ spec:
           GID_INDEX inference.\"\n  fi\nfi\n\nSTART_RANK=$(( ${LWS_WORKER_INDEX:-0}
           * {{ or .Spec.Prefill.Parallelism.DataLocal 1 }} ))\neval \"vllm serve \\\n
           \ /mnt/models \\\n  --served-model-name \"{{ .Spec.Model.Name }}\" \\\n
-          \ --port 8000 \\\n  --disable-log-requests \\\n  {{- if .Spec.Prefill.Parallelism.Expert
-          }}--enable-expert-parallel{{- end }} \\\n  {{- if .Spec.Prefill.Parallelism.Tensor
-          }}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }}
-          \\\n  --data-parallel-size {{ or .Spec.Prefill.Parallelism.Data 1 }} \\\n
-          \ --data-parallel-size-local {{ or .Spec.Prefill.Parallelism.DataLocal 1
-          }} \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
-          {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort
-          }}{{ else }}5555{{- end }} \\\n  --data-parallel-start-rank $START_RANK
-          \\\n  ${VLLM_ADDITIONAL_ARGS} \\\n  --trust-remote-code \\\n  --headless\"
-          \               \n  # BackendTLSPolicy is not implemented yet so disable
-          SSL for now\n  # --enable-ssl-refresh \\\n  # --ssl-certfile \\\n  # /etc/ssl/certs/tls.crt
-          \\\n  # --ssl-keyfile \\\n  # /etc/ssl/certs/tls.key\""
+          \ --port 8000 \\\n  {{- if .Spec.Prefill.Parallelism.Expert }}--enable-expert-parallel{{-
+          end }} \\\n  {{- if .Spec.Prefill.Parallelism.Tensor }}--tensor-parallel-size
+          {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
+          {{ or .Spec.Prefill.Parallelism.Data 1 }} \\\n  --data-parallel-size-local
+          {{ or .Spec.Prefill.Parallelism.DataLocal 1 }} \\\n  --data-parallel-address
+          $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort
+          }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \\\n
+          \ --data-parallel-start-rank $START_RANK \\\n  ${VLLM_ADDITIONAL_ARGS} \\\n
+          \ --trust-remote-code \\\n  --headless\"                \n  # BackendTLSPolicy
+          is not implemented yet so disable SSL for now\n  # --enable-ssl-refresh
+          \\\n  # --ssl-certfile \\\n  # /etc/ssl/certs/tls.crt \\\n  # --ssl-keyfile
+          \\\n  # /etc/ssl/certs/tls.key\""
         command:
         - /bin/bash
         - -c
@@ -78039,7 +78035,6 @@ spec:
       - '{{ .Spec.Model.Name }}'
       - --port
       - "8000"
-      - --disable-log-requests
       command:
       - vllm
       - serve
@@ -78188,12 +78183,11 @@ spec:
         \ else\n      echo \"[Infer RoCE] No active HCAs found, skipping GID_INDEX
         inference.\"\n  fi\nfi\n\nSTART_RANK=0\neval \"vllm serve \\\n  /mnt/models
         \\\n  --served-model-name \"{{ .Spec.Model.Name }}\" \\\n  --port 8000 \\\n
-        \ --api-server-count ${VLLM_API_SERVER_COUNT:-8} \\\n  --disable-log-requests
-        \\\n  {{- if .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }}
-        \\\n  {{- if .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor
-        }}{{- end }} \\\n  --data-parallel-size {{ or .Spec.Parallelism.Data 1 }}
-        \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \\\n
-        \ --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
+        \ --api-server-count ${VLLM_API_SERVER_COUNT:-8} \\\n  {{- if .Spec.Parallelism.Expert
+        -}}--enable-expert-parallel{{- end }} \\\n  {{- if .Spec.Parallelism.Tensor
+        -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
+        {{ or .Spec.Parallelism.Data 1 }} \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal
+        1 }} \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
         {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{
         else }}5555{{- end }} \\\n  --data-parallel-start-rank $START_RANK \\\n  ${VLLM_ADDITIONAL_ARGS}
         \\\n  --trust-remote-code\"\n  # BackendTLSPolicy is not implemented yet so
@@ -78343,12 +78337,11 @@ spec:
         \ else\n      echo \"[Infer RoCE] No active HCAs found, skipping GID_INDEX
         inference.\"\n  fi\nfi\n\nSTART_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Parallelism.DataLocal
         1 }} ))\neval \"vllm serve \\\n  /mnt/models \\\n  --served-model-name \"{{
-        .Spec.Model.Name }}\" \\\n  --port 8000 \\\n  --disable-log-requests \\\n
-        \ {{- if .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \\\n
-        \ {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor
-        }}{{- end }} \\\n  --data-parallel-size {{ or .Spec.Parallelism.Data 1 }}
-        \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \\\n
-        \ --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
+        .Spec.Model.Name }}\" \\\n  --port 8000 \\\n  {{- if .Spec.Parallelism.Expert
+        }}--enable-expert-parallel{{- end }} \\\n  {{- if .Spec.Parallelism.Tensor
+        }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
+        {{ or .Spec.Parallelism.Data 1 }} \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal
+        1 }} \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
         {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{
         else }}5555{{- end }} \\\n  --data-parallel-start-rank $START_RANK \\\n  ${VLLM_ADDITIONAL_ARGS}
         \\\n  --trust-remote-code \\\n  --headless\"\n  # BackendTLSPolicy is not

@@ -20,7 +20,6 @@ spec:
           - "{{`{{ .Spec.Model.Name }}`}}"
           - --port
           - "8000"
-          - --disable-log-requests
           # - --enable-ssl-refresh
           # - --ssl-certfile
           # - /etc/ssl/certs/tls.crt

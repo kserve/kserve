@@ -20,7 +20,6 @@ spec:
           - "{{ .Spec.Model.Name }}"
           - --port
           - "8000"
-          - --disable-log-requests
           # BackendTLSPolicy is not implemented yet so disable SSL for now
           # - --enable-ssl-refresh
           # - --ssl-certfile
