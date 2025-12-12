@@ -30,6 +30,7 @@ jobs:
         run: |
           go mod download
           cd qpext && go mod download
+          pip install PyYAML>=6.0
 
       - name: Check
         shell: bash
