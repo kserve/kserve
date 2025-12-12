@@ -144,7 +144,12 @@ func (r *LLMISVCReconciler) reconcileSchedulerServiceAccount(ctx context.Context
 
 func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	scheduler := r.expectedSchedulerDeployment(ctx, llmSvc)
-	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
+	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
+		if isStopped {
+			llmSvc.MarkSchedulerWorkloadNotReady("Stopped", "Service is stopped")
+		} else {
+			llmSvc.MarkSchedulerWorkloadUnset()
+		}
 		return Delete(ctx, r, llmSvc, scheduler)
 	}
 	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, scheduler, semanticDeploymentIsEqual); err != nil {

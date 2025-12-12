@@ -282,13 +282,6 @@ func (r *LLMISVCReconciler) EvaluateGatewayConditions(ctx context.Context, llmSv
 		return nil
 	}
 
-	// Check if there's already a validation failure condition set
-	condition := llmSvc.GetStatus().GetCondition(v1alpha1.GatewaysReady)
-	if condition != nil && condition.IsFalse() && condition.Reason == RefsInvalidReason {
-		logger.Info("Gateway validation failed, skipping readiness evaluation", "reason", condition.Reason, "message", condition.Message)
-		return nil
-	}
-
 	gateways, err := r.CollectReferencedGateways(ctx, llmSvc)
 	if err != nil {
 		llmSvc.MarkGatewaysNotReady("GatewayFetchError", "Failed to fetch referenced Gateways: %v", err.Error())
@@ -378,13 +371,6 @@ func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llm
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil || llmSvc.Spec.Router.Route.HTTP == nil {
 		logger.Info("No HTTPRoute configuration found, clearing HTTPRoutesReady condition")
 		llmSvc.MarkHTTPRoutesReadyUnset()
-		return nil
-	}
-
-	// Check if there's already a validation failure condition set
-	condition := llmSvc.GetStatus().GetCondition(v1alpha1.HTTPRoutesReady)
-	if condition != nil && condition.IsFalse() && condition.Reason == RefsInvalidReason {
-		logger.Info("HTTPRoute validation failed, skipping readiness evaluation", "reason", condition.Reason, "message", condition.Message)
 		return nil
 	}
 
