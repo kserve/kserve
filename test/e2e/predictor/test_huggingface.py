@@ -371,6 +371,8 @@ async def test_huggingface_v2_token_classification(rest_v2_client):
                 "--tokenizer_revision",
                 "4c534963167c08d4b8ff1f88733cf2930f86add0",
                 "--disable_special_tokens",
+                "--backend",
+                "huggingface",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "2Gi"},

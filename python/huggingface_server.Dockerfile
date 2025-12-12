@@ -1,4 +1,4 @@
-ARG CUDA_VERSION=12.8.1
+ARG CUDA_VERSION=12.9.1
 ARG VENV_PATH=prod_venv
 ARG PYTHON_VERSION=3.12
 ARG WORKSPACE_DIR=/kserve-workspace
@@ -8,7 +8,7 @@ ARG WORKSPACE_DIR=/kserve-workspace
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04 AS base
 
 ARG WORKSPACE_DIR
-ARG CUDA_VERSION=12.8.1
+ARG CUDA_VERSION=12.9.1
 ARG PYTHON_VERSION=3.12
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -52,11 +52,9 @@ WORKDIR ${WORKSPACE_DIR}
 FROM base AS build
 
 ARG WORKSPACE_DIR
-ARG VLLM_VERSION=0.9.2
+ARG VLLM_VERSION=0.11.2
 ARG LMCACHE_VERSION=0.3.0
-ARG FLASHINFER_VERSION=0.2.6.post1
-# Need a separate CUDA arch list for flashinfer because '7.0' is not supported by flashinfer
-ARG FLASHINFER_CUDA_ARCH_LIST="7.5 8.0 8.6 8.9 9.0+PTX"
+ARG FLASHINFER_VERSION=0.5.2
 
 WORKDIR ${WORKSPACE_DIR}
 
@@ -96,18 +94,12 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install lmcache==${LMCACHE_VE
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install flashinfer
+# https://docs.flashinfer.ai/installation.html
 RUN --mount=type=cache,target=/root/.cache/pip \
-  # FlashInfer already has a wheel for PyTorch 2.7.0 and CUDA 12.8.
-  if [[ "$CUDA_VERSION" == 12.8* ]]; then \
-    pip install https://download.pytorch.org/whl/cu128/flashinfer/flashinfer_python-${FLASHINFER_VERSION}%2Bcu128torch2.7-cp39-abi3-linux_x86_64.whl; \
-  else \
-    export TORCH_CUDA_ARCH_LIST="${FLASHINFER_CUDA_ARCH_LIST}" && \
-    git clone --branch v${FLASHINFER_VERSION} --recursive https://github.com/flashinfer-ai/flashinfer.git && \
-    cd flashinfer && \
-    python3 -m flashinfer.aot && \
-    pip install --no-build-isolation . && \
-    cd .. && rm -rf flashinfer; \
-  fi
+    pip install flashinfer-cubin==${FLASHINFER_VERSION} && \
+    pip install flashinfer-jit-cache==${FLASHINFER_VERSION} \
+        --extra-index-url https://flashinfer.ai/whl/cu$(echo ${CUDA_VERSION} | cut -d. -f1,2 | tr -d '.') && \
+    flashinfer show-config
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
@@ -120,7 +112,7 @@ RUN mkdir -p third_party/library && python3 pip-licenses.py
 FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu22.04 AS prod
 
 ARG WORKSPACE_DIR
-ARG CUDA_VERSION=12.8.1
+ARG CUDA_VERSION=12.9.1
 ARG PYTHON_VERSION=3.12
 ENV DEBIAN_FRONTEND=noninteractive
 

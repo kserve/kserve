@@ -32,7 +32,6 @@ from server import RemoteOpenAIServer
 
 MODEL = "Qwen/Qwen2-1.5B-Instruct"
 MODEL_NAME = "test-model"
-GUIDED_DECODING_BACKENDS = ["outlines", "lm-format-enforcer", "xgrammar"]
 
 
 @pytest.fixture(scope="module")
@@ -465,10 +464,7 @@ async def test_chat_completion_stream_options(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("guided_decoding_backend", GUIDED_DECODING_BACKENDS)
-async def test_guided_choice_chat(
-    client: openai.AsyncOpenAI, guided_decoding_backend: str, sample_guided_choice
-):
+async def test_guided_choice_chat(client: openai.AsyncOpenAI, sample_guided_choice):
     messages = [
         {"role": "system", "content": "you are a helpful assistant"},
         {
@@ -483,7 +479,6 @@ async def test_guided_choice_chat(
         temperature=0.7,
         extra_body=dict(
             guided_choice=sample_guided_choice,
-            guided_decoding_backend=guided_decoding_backend,
         ),
     )
     choice1 = chat_completion.choices[0].message.content
@@ -498,7 +493,6 @@ async def test_guided_choice_chat(
         temperature=0.7,
         extra_body=dict(
             guided_choice=sample_guided_choice,
-            guided_decoding_backend=guided_decoding_backend,
         ),
     )
     choice2 = chat_completion.choices[0].message.content
@@ -507,10 +501,7 @@ async def test_guided_choice_chat(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("guided_decoding_backend", GUIDED_DECODING_BACKENDS)
-async def test_guided_json_chat(
-    client: openai.AsyncOpenAI, guided_decoding_backend: str, sample_json_schema
-):
+async def test_guided_json_chat(client: openai.AsyncOpenAI, sample_json_schema):
     messages = [
         {"role": "system", "content": "you are a helpful assistant"},
         {
@@ -525,7 +516,6 @@ async def test_guided_json_chat(
         max_completion_tokens=1000,
         extra_body=dict(
             guided_json=sample_json_schema,
-            guided_decoding_backend=guided_decoding_backend,
         ),
     )
     message = chat_completion.choices[0].message
@@ -543,7 +533,6 @@ async def test_guided_json_chat(
         max_completion_tokens=1000,
         extra_body=dict(
             guided_json=sample_json_schema,
-            guided_decoding_backend=guided_decoding_backend,
         ),
     )
     message = chat_completion.choices[0].message
@@ -555,10 +544,7 @@ async def test_guided_json_chat(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("guided_decoding_backend", GUIDED_DECODING_BACKENDS)
-async def test_guided_regex_chat(
-    client: openai.AsyncOpenAI, guided_decoding_backend: str, sample_regex
-):
+async def test_guided_regex_chat(client: openai.AsyncOpenAI, sample_regex):
     messages = [
         {"role": "system", "content": "you are a helpful assistant"},
         {
@@ -571,7 +557,7 @@ async def test_guided_regex_chat(
         messages=messages,
         max_completion_tokens=20,
         extra_body=dict(
-            guided_regex=sample_regex, guided_decoding_backend=guided_decoding_backend
+            guided_regex=sample_regex,
         ),
     )
     ip1 = chat_completion.choices[0].message.content
@@ -585,7 +571,7 @@ async def test_guided_regex_chat(
         messages=messages,
         max_completion_tokens=20,
         extra_body=dict(
-            guided_regex=sample_regex, guided_decoding_backend=guided_decoding_backend
+            guided_regex=sample_regex,
         ),
     )
     ip2 = chat_completion.choices[0].message.content
@@ -613,9 +599,8 @@ async def test_guided_decoding_type_error_chat(client: openai.AsyncOpenAI):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("guided_decoding_backend", GUIDED_DECODING_BACKENDS)
 async def test_guided_choice_chat_logprobs(
-    client: openai.AsyncOpenAI, guided_decoding_backend: str, sample_guided_choice
+    client: openai.AsyncOpenAI, sample_guided_choice
 ):
     messages = [
         {"role": "system", "content": "you are a helpful assistant"},
@@ -632,7 +617,6 @@ async def test_guided_choice_chat_logprobs(
         top_logprobs=5,
         extra_body=dict(
             guided_choice=sample_guided_choice,
-            guided_decoding_backend=guided_decoding_backend,
         ),
     )
 
@@ -646,10 +630,7 @@ async def test_guided_choice_chat_logprobs(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("guided_decoding_backend", GUIDED_DECODING_BACKENDS)
-async def test_named_tool_use(
-    client: openai.AsyncOpenAI, guided_decoding_backend: str, sample_json_schema
-):
+async def test_named_tool_use(client: openai.AsyncOpenAI, sample_json_schema):
     messages = [
         {"role": "system", "content": "you are a helpful assistant"},
         {
@@ -676,7 +657,6 @@ async def test_named_tool_use(
             }
         ],
         tool_choice={"type": "function", "function": {"name": "dummy_function_name"}},
-        extra_body=dict(guided_decoding_backend=guided_decoding_backend),
     )
     message = chat_completion.choices[0].message
     assert len(message.content) == 0
@@ -706,7 +686,6 @@ async def test_named_tool_use(
             }
         ],
         tool_choice={"type": "function", "function": {"name": "dummy_function_name"}},
-        extra_body=dict(guided_decoding_backend=guided_decoding_backend),
         stream=True,
     )
 
@@ -1059,7 +1038,6 @@ async def test_some_logprobs(client: openai.AsyncOpenAI, model_name: str):
 async def test_too_many_completion_logprobs(
     client: openai.AsyncOpenAI, model_name: str
 ):
-
     with pytest.raises(
         (openai.BadRequestError, openai.APIError)
     ):  # test using token IDs
@@ -1437,10 +1415,7 @@ async def test_logits_bias(client: openai.AsyncOpenAI):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("guided_decoding_backend", ["outlines", "lm-format-enforcer"])
-async def test_guided_regex_completion(
-    client: openai.AsyncOpenAI, guided_decoding_backend: str, sample_regex
-):
+async def test_guided_regex_completion(client: openai.AsyncOpenAI, sample_regex):
     completion = await client.completions.create(
         model=MODEL_NAME,
         prompt=f"Give an example IPv4 address with this regex: {sample_regex}",
@@ -1448,7 +1423,7 @@ async def test_guided_regex_completion(
         temperature=1.0,
         max_tokens=20,
         extra_body=dict(
-            guided_regex=sample_regex, guided_decoding_backend=guided_decoding_backend
+            guided_regex=sample_regex,
         ),
     )
 
@@ -1459,9 +1434,8 @@ async def test_guided_regex_completion(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("guided_decoding_backend", ["outlines", "lm-format-enforcer"])
 async def test_guided_choice_completion(
-    client: openai.AsyncOpenAI, guided_decoding_backend: str, sample_guided_choice
+    client: openai.AsyncOpenAI, sample_guided_choice
 ):
     completion = await client.completions.create(
         model=MODEL_NAME,
@@ -1471,7 +1445,6 @@ async def test_guided_choice_completion(
         max_tokens=10,
         extra_body=dict(
             guided_choice=sample_guided_choice,
-            guided_decoding_backend=guided_decoding_backend,
         ),
     )
 
@@ -1483,7 +1456,6 @@ async def test_guided_choice_completion(
 
 @pytest.mark.asyncio
 async def test_guided_grammar(client: openai.AsyncOpenAI, sample_sql_statements):
-
     completion = await client.completions.create(
         model=MODEL_NAME,
         prompt=(
@@ -1543,10 +1515,8 @@ async def test_echo_logprob_completion(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("guided_decoding_backend", ["outlines", "lm-format-enforcer"])
 async def test_guided_decoding_type_error(
     client: openai.AsyncOpenAI,
-    guided_decoding_backend: str,
     sample_json_schema,
     sample_regex,
 ):
@@ -1555,7 +1525,7 @@ async def test_guided_decoding_type_error(
             model=MODEL_NAME,
             prompt="Give an example JSON that fits this schema: 42",
             extra_body=dict(
-                guided_json=42, guided_decoding_backend=guided_decoding_backend
+                guided_json=42,
             ),
         )
 

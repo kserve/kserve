@@ -2,8 +2,7 @@
 
 set -e
 
-TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
-VLLM_VERSION=v0.9.2
+VLLM_VERSION=v0.11.2
 VLLM_DIR=vllm-clone
 VLLM_TARGET_DEVICE="${VLLM_TARGET_DEVICE:-cpu}"
 
@@ -17,21 +16,21 @@ case $VLLM_TARGET_DEVICE in
       ;;
 esac
 
-source /mnt/python/huggingfaceserver-cpu-venv/bin/activate
+VENV_PATH="${VENV_PATH:-/mnt/python/huggingfaceserver-cpu-venv}"
+source ${VENV_PATH}/bin/activate
 mkdir $VLLM_DIR
 cd $VLLM_DIR
 
 git clone --branch $VLLM_VERSION --depth 1 https://github.com/vllm-project/vllm.git .
-pip install --upgrade pip
 
 case $VLLM_TARGET_DEVICE in
     cpu)
-        pip uninstall -y torch torchvision torchaudio && \
-        pip install -r requirements/cpu-build.txt -r requirements/cpu.txt --extra-index-url ${TORCH_EXTRA_INDEX_URL}
+        uv pip install -r requirements/cpu-build.txt --torch-backend cpu --index-strategy unsafe-best-match
+        uv pip install -r requirements/cpu.txt --torch-backend cpu --index-strategy unsafe-best-match
         ;;
 esac
 
-PIP_EXTRA_INDEX_URL=${TORCH_EXTRA_INDEX_URL} VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE} python -m pip install -v .
+VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE} uv pip install . --no-build-isolation --index-strategy unsafe-best-match
 
 cd ..
 rm -rf $VLLM_DIR
