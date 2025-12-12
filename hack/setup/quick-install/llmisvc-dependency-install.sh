@@ -530,7 +530,7 @@ KSERVE_VERSION=v0.16.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.16.1
 OPENTELEMETRY_OPERATOR_VERSION=0.113.0
-LWS_VERSION=v0.6.2
+LWS_VERSION=v0.7.0
 GATEWAY_API_VERSION=v1.2.1
 GIE_VERSION=v0.3.0
 
@@ -558,7 +558,7 @@ KSERVE_CUSTOM_ISVC_CONFIGS="${KSERVE_CUSTOM_ISVC_CONFIGS:-}"
 #================================================
 
 PLATFORM="${PLATFORM:-$(detect_platform)}"
-TEMPLATE_DIR="${SCRIPT_DIR}/templates"
+TEMPLATE_DIR="${REPO_ROOT}/hack/setup/infra/external-lb/templates"
 GATEWAYCLASS_NAME="${GATEWAYCLASS_NAME:-envoy}"
 CONTROLLER_NAME="${CONTROLLER_NAME:-gateway.envoyproxy.io/gatewayclass-controller}"
 GATEWAY_NAME="kserve-ingress-gateway"
@@ -829,37 +829,25 @@ install_cert_manager() {
 }
 
 # ----------------------------------------
-# CLI/Component: gateway-api-crd
+# CLI/Component: gateway-api-extension-crd
 # ----------------------------------------
 
-uninstall_gateway_api_crd() {
-    log_info "Uninstalling Gateway API CRDs..."
-    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml" --ignore-not-found=true 2>/dev/null || true
+uninstall_gateway_api_extension_crd() {
+    log_info "Uninstalling Gateway Inference Extension CRDs..."
     kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml" --ignore-not-found=true 2>/dev/null || true
-    log_success "Gateway API CRDs uninstalled"
+    log_success "Gateway Inference Extension CRDs uninstalled"
 }
 
-install_gateway_api_crd() {
-    if kubectl get crd gateways.gateway.networking.k8s.io &>/dev/null; then
+install_gateway_api_extension_crd() {
+    if kubectl get crd inferencepools.inference.networking.x-k8s.io &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
-            log_info "Gateway API CRDs are already installed. Use --reinstall to reinstall."
+            log_info "Gateway Inference Extension CRDs are already installed. Use --reinstall to reinstall."
             return 0
         else
-            log_info "Reinstalling Gateway API CRDs..."
-            uninstall_gateway_api_crd
+            log_info "Reinstalling Gateway Inference Extension CRDs..."
+            uninstall_gateway_api_extension_crd
         fi
     fi
-
-    log_info "Installing Gateway API CRDs ${GATEWAY_API_VERSION}..."
-    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml"
-
-    log_success "Successfully installed Gateway API CRDs ${GATEWAY_API_VERSION}"
-
-    wait_for_crds "60s" \
-        "gateways.gateway.networking.k8s.io" \
-        "gatewayclasses.gateway.networking.k8s.io"
-
-    log_success "Gateway API CRDs are ready!"
 
     log_info "Installing Gateway Inference Extension CRDs ${GIE_VERSION}..."
     kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml"
@@ -871,7 +859,6 @@ install_gateway_api_crd() {
         "inferencemodels.inference.networking.x-k8s.io"
 
     log_success "Gateway Inference Extension CRDs are ready!"
-
 }
 
 # ----------------------------------------
@@ -1099,7 +1086,7 @@ main() {
         uninstall_gateway_api_gwclass
         uninstall_envoy_ai_gateway
         uninstall_envoy_gateway
-        uninstall_gateway_api_crd
+        uninstall_gateway_api_extension_crd
         uninstall_cert_manager
         uninstall_external_lb
         
@@ -1120,7 +1107,7 @@ main() {
     install_yq
     install_external_lb
     install_cert_manager
-    install_gateway_api_crd
+    install_gateway_api_extension_crd
     install_envoy_gateway
     install_envoy_ai_gateway
     install_gateway_api_gwclass
