@@ -236,8 +236,8 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 
 	// Reconcile cabundleConfigMap
-	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset, r.Scheme)
-	if err := caBundleConfigMapReconciler.Reconcile(ctx, isvc); err != nil {
+	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset)
+	if err := caBundleConfigMapReconciler.Reconcile(ctx, isvc.Namespace); err != nil {
 		return reconcile.Result{}, err
 	}
 

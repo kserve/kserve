@@ -48,6 +48,7 @@ var configMap = &corev1.ConfigMap{
 				"s3VerifySSL": "1",
 				"s3UseVirtualBucket": "",
 				"s3UseAnonymousCredential": "false",
+				"s3CABundleConfigMap": "",
 				"s3CABundle": ""
 			}
 		}`,
