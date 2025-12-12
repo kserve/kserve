@@ -18,6 +18,8 @@ package v1alpha1
 
 import (
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
+	igwapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
@@ -273,13 +275,32 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 		}
 		if src.Scheduler.Pool != nil {
 			dst.Scheduler.Pool = &v1alpha2.InferencePoolSpec{
-				Ref: src.Scheduler.Pool.Ref,
-				// Note: v1alpha1 InferencePoolSpec doesn't have Spec field
+				Ref:  src.Scheduler.Pool.Ref,
+				Spec: convertInferencePoolSpecToV1(src.Scheduler.Pool.Spec),
 			}
 		}
 	}
 
 	return dst
+}
+
+// convertInferencePoolSpecToV1 converts igwapi v1alpha2 InferencePoolSpec to igwapi v1 InferencePoolSpec
+// using the built-in conversion from the gateway-api-inference-extension library.
+func convertInferencePoolSpecToV1(src *igwapiv1alpha2.InferencePoolSpec) *igwapiv1.InferencePoolSpec {
+	if src == nil {
+		return nil
+	}
+
+	// Use the built-in conversion by wrapping in temporary InferencePool objects
+	srcPool := &igwapiv1alpha2.InferencePool{Spec: *src}
+	dstPool := &igwapiv1.InferencePool{}
+
+	if err := srcPool.ConvertTo(dstPool); err != nil {
+		// Fallback: return empty spec on error (should not happen in practice)
+		return &igwapiv1.InferencePoolSpec{}
+	}
+
+	return &dstPool.Spec
 }
 
 func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
@@ -325,11 +346,30 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 		}
 		if src.Scheduler.Pool != nil {
 			dst.Scheduler.Pool = &InferencePoolSpec{
-				Ref: src.Scheduler.Pool.Ref,
-				// Note: v1alpha2 InferencePoolSpec.Spec is not converted (lossy)
+				Ref:  src.Scheduler.Pool.Ref,
+				Spec: convertInferencePoolSpecFromV1(src.Scheduler.Pool.Spec),
 			}
 		}
 	}
 
 	return dst
+}
+
+// convertInferencePoolSpecFromV1 converts igwapi v1 InferencePoolSpec to igwapi v1alpha2 InferencePoolSpec
+// using the built-in conversion from the gateway-api-inference-extension library.
+func convertInferencePoolSpecFromV1(src *igwapiv1.InferencePoolSpec) *igwapiv1alpha2.InferencePoolSpec {
+	if src == nil {
+		return nil
+	}
+
+	// Use the built-in conversion by wrapping in temporary InferencePool objects
+	srcPool := &igwapiv1.InferencePool{Spec: *src}
+	dstPool := &igwapiv1alpha2.InferencePool{}
+
+	if err := dstPool.ConvertFrom(srcPool); err != nil {
+		// Fallback: return empty spec on error (should not happen in practice)
+		return &igwapiv1alpha2.InferencePoolSpec{}
+	}
+
+	return &dstPool.Spec
 }

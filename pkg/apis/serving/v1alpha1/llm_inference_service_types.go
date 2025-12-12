@@ -21,20 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
-)
-
-// Criticality defines how important it is to serve the model compared to other models.
-// +kubebuilder:validation:Enum=Critical;Standard;Sheddable
-type Criticality string
-
-const (
-	// Critical - Requests to this model should be shed last.
-	Critical Criticality = "Critical"
-	// Standard - Requests to this model will be queued or shed before critical traffic.
-	Standard Criticality = "Standard"
-	// Sheddable - Requests to this model should be shed before critical and standard traffic.
-	Sheddable Criticality = "Sheddable"
 )
 
 // LLMInferenceService is the Schema for the llminferenceservices API, representing a single LLM deployment.
@@ -141,9 +129,8 @@ type LLMModelSpec struct {
 
 	// Criticality defines how important it is to serve the model compared to other models.
 	// This is used by the Inference Gateway scheduler.
-	// Deprecated: This field is deprecated in v1alpha1 and removed in v1alpha2.
 	// +optional
-	Criticality *Criticality `json:"criticality,omitempty"`
+	Criticality *string `json:"criticality,omitempty"`
 
 	// LoRA (Low-Rank Adaptation) adapters configurations.
 	// Allows for specifying one or more LoRA adapters to be applied to the base model.
@@ -248,6 +235,10 @@ type SchedulerSpec struct {
 // InferencePoolSpec defines the configuration for an InferencePool.
 // 'Spec' and 'Ref' are mutually exclusive.
 type InferencePoolSpec struct {
+	// Spec defines an inline InferencePool specification.
+	// +optional
+	Spec *igwapi.InferencePoolSpec `json:"spec,omitempty"`
+
 	// Ref is a reference to an existing InferencePool.
 	// +optional
 	Ref *corev1.LocalObjectReference `json:"ref,omitempty"`
