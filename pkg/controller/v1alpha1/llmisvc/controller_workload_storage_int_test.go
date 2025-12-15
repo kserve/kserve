@@ -70,7 +70,7 @@ var (
            		"s3UseAccelerate": "",
            		"s3UseAnonymousCredential": "",
            		"s3CABundleConfigMap": "local-s3-custom-certs",
-           		"s3CABundle": "/path/to/localcerts"
+           		"s3CABundle": "/path/to/localcerts.crt"
        		}
     	}` // #nosec G101
 )
@@ -545,7 +545,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 					Namespace: nsName,
 				},
 				Data: map[string]string{
-					"cabundle.crt": "test-cert",
+					"localcerts.crt": "test-cert",
 				},
 			}
 			Expect(envTest.Client.Create(ctx, localCaBundleconfigMap)).To(Succeed())
@@ -645,67 +645,17 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			validateStorageInitializerIsConfigured(expectedPrefillDeployment, "s3://user-id/repo-id:tag")
 
 			// validate the storage initializer credentials are properly set
-			expectedEnvVars := []corev1.EnvVar{
-				{
-					Name: s3.AWSAccessKeyId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: secretName,
-							},
-							Key: s3.AWSAccessKeyId,
-						},
-					},
-				},
-				{
-					Name: s3.AWSSecretAccessKey,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: secretName,
-							},
-							Key: s3.AWSSecretAccessKey,
-						},
-					},
-				},
-				{
-					Name:  s3.S3UseHttps,
-					Value: s3UseHttps,
-				},
-				{
-					Name:  s3.S3Endpoint,
-					Value: s3Endpoint,
-				},
-				{
-					Name:  s3.AWSAnonymousCredential,
-					Value: s3Anon,
-				},
-				{
-					Name:  s3.AWSEndpointUrl,
-					Value: "http://" + s3Endpoint,
-				},
-				{
-					Name:  s3.AWSRegion,
-					Value: s3Region,
-				},
-				{
-					Name:  s3.AWSCABundleConfigMap,
-					Value: localCaBundleConfigMapName,
-				},
-				{
-					Name:  s3.AWSCABundle,
-					Value: "/path/to/localcerts",
-				},
-				{
-					Name:  constants.CaBundleConfigMapNameEnvVarKey,
-					Value: localCaBundleConfigMapName,
-				},
-				{
-					Name:  constants.CaBundleVolumeMountPathEnvVarKey,
-					Value: "/path/to",
-				},
-			}
-
+			expectedEnvVars := createExpectedS3ConfigEnvVars(
+				secretName,
+				s3UseHttps,
+				s3Endpoint,
+				s3Anon,
+				"http://"+s3Endpoint,
+				s3Region,
+				localCaBundleConfigMapName,
+				"/path/to",
+				"/path/to/localcerts.crt",
+			)
 			validateStorageInitializerCredentials(expectedMainDeployment, expectedEnvVars)
 			validateStorageInitializerCredentials(expectedPrefillDeployment, expectedEnvVars)
 
@@ -777,7 +727,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 					Namespace: nsName,
 				},
 				Data: map[string]string{
-					"cabundle.crt": "test-cert",
+					"s3.crt": "test-cert",
 				},
 			}
 			Expect(envTest.Client.Create(ctx, s3CaBundleconfigMap)).To(Succeed())
@@ -879,66 +829,17 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			validateStorageInitializerIsConfigured(expectedPrefillDeployment, "s3://bucket/model")
 
 			// validate the storage initializer credentials are properly set
-			expectedEnvVars := []corev1.EnvVar{
-				{
-					Name: s3.AWSAccessKeyId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: credentialSecret.Name,
-							},
-							Key: s3.AWSAccessKeyIdName,
-						},
-					},
-				},
-				{
-					Name: s3.AWSSecretAccessKey,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: credentialSecret.Name,
-							},
-							Key: s3.AWSSecretAccessKeyName,
-						},
-					},
-				},
-				{
-					Name:  s3.S3UseHttps,
-					Value: s3UseHttps,
-				},
-				{
-					Name:  s3.S3Endpoint,
-					Value: s3Endpoint,
-				},
-				{
-					Name:  s3.AWSAnonymousCredential,
-					Value: s3Anon,
-				},
-				{
-					Name:  s3.AWSEndpointUrl,
-					Value: "http://" + s3Endpoint,
-				},
-				{
-					Name:  s3.AWSRegion,
-					Value: s3Region,
-				},
-				{
-					Name:  s3.AWSCABundleConfigMap,
-					Value: s3CaBundleConfigMapName,
-				},
-				{
-					Name:  s3.AWSCABundle,
-					Value: "/path/to/s3.crt",
-				},
-				{
-					Name:  constants.CaBundleConfigMapNameEnvVarKey,
-					Value: s3CaBundleConfigMapName,
-				},
-				{
-					Name:  constants.CaBundleVolumeMountPathEnvVarKey,
-					Value: "/path/to",
-				},
-			}
+			expectedEnvVars := createExpectedS3ConfigEnvVars(
+				credentialSecret.Name,
+				s3UseHttps,
+				s3Endpoint,
+				s3Anon,
+				"http://"+s3Endpoint,
+				s3Region,
+				s3CaBundleConfigMapName,
+				"/path/to",
+				"/path/to/s3.crt",
+			)
 			validateStorageInitializerCredentials(expectedMainDeployment, expectedEnvVars)
 			validateStorageInitializerCredentials(expectedPrefillDeployment, expectedEnvVars)
 
@@ -1010,7 +911,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 					Namespace: nsName,
 				},
 				Data: map[string]string{
-					"cabundle.crt": "test-cert",
+					"s3.crt": "test-cert",
 				},
 			}
 			Expect(envTest.Client.Create(ctx, s3CaBundleconfigMap)).To(Succeed())
@@ -1095,44 +996,17 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			validateStorageInitializerIsConfigured(expectedPrefillDeployment, "s3://bucket/model")
 
 			// validate the storage initializer credentials are properly set
-			expectedEnvVars := []corev1.EnvVar{
-				{
-					Name:  s3.S3UseHttps,
-					Value: s3UseHttps,
-				},
-				{
-					Name:  s3.S3Endpoint,
-					Value: s3Endpoint,
-				},
-				{
-					Name:  s3.AWSAnonymousCredential,
-					Value: s3Anon,
-				},
-				{
-					Name:  s3.AWSEndpointUrl,
-					Value: "http://" + s3Endpoint,
-				},
-				{
-					Name:  s3.AWSRegion,
-					Value: s3Region,
-				},
-				{
-					Name:  s3.AWSCABundleConfigMap,
-					Value: s3CaBundleConfigMapName,
-				},
-				{
-					Name:  s3.AWSCABundle,
-					Value: "/path/to/s3.crt",
-				},
-				{
-					Name:  constants.CaBundleConfigMapNameEnvVarKey,
-					Value: s3CaBundleConfigMapName,
-				},
-				{
-					Name:  constants.CaBundleVolumeMountPathEnvVarKey,
-					Value: "/path/to",
-				},
-			}
+			expectedEnvVars := createExpectedS3ConfigEnvVars(
+				"",
+				s3UseHttps,
+				s3Endpoint,
+				s3Anon,
+				"http://"+s3Endpoint,
+				s3Region,
+				s3CaBundleConfigMapName,
+				"/path/to",
+				"/path/to/s3.crt",
+			)
 			validateStorageInitializerCredentials(expectedMainDeployment, expectedEnvVars)
 			validateStorageInitializerCredentials(expectedPrefillDeployment, expectedEnvVars)
 
@@ -1720,7 +1594,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 					Namespace: nsName,
 				},
 				Data: map[string]string{
-					"cabundle.crt": "test-cert",
+					"localcerts.crt": "test-cert",
 				},
 			}
 			Expect(envTest.Client.Create(ctx, localCaBundleconfigMap)).To(Succeed())
@@ -1838,67 +1712,17 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			validateStorageInitializerIsConfiguredForLWS(expectedPrefillLWS, "s3://user-id/repo-id:tag")
 
 			// validate the storage initializer credentials are properly set
-			expectedEnvVars := []corev1.EnvVar{
-				{
-					Name: s3.AWSAccessKeyId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: secretName,
-							},
-							Key: s3.AWSAccessKeyId,
-						},
-					},
-				},
-				{
-					Name: s3.AWSSecretAccessKey,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: secretName,
-							},
-							Key: s3.AWSSecretAccessKey,
-						},
-					},
-				},
-				{
-					Name:  s3.S3UseHttps,
-					Value: s3UseHttps,
-				},
-				{
-					Name:  s3.S3Endpoint,
-					Value: s3Endpoint,
-				},
-				{
-					Name:  s3.AWSAnonymousCredential,
-					Value: s3Anon,
-				},
-				{
-					Name:  s3.AWSEndpointUrl,
-					Value: "http://" + s3Endpoint,
-				},
-				{
-					Name:  s3.AWSRegion,
-					Value: s3Region,
-				},
-				{
-					Name:  s3.AWSCABundleConfigMap,
-					Value: localCaBundleConfigMapName,
-				},
-				{
-					Name:  s3.AWSCABundle,
-					Value: "/path/to/localcerts",
-				},
-				{
-					Name:  constants.CaBundleConfigMapNameEnvVarKey,
-					Value: localCaBundleConfigMapName,
-				},
-				{
-					Name:  constants.CaBundleVolumeMountPathEnvVarKey,
-					Value: "/path/to",
-				},
-			}
-
+			expectedEnvVars := createExpectedS3ConfigEnvVars(
+				secretName,
+				s3UseHttps,
+				s3Endpoint,
+				s3Anon,
+				"http://"+s3Endpoint,
+				s3Region,
+				localCaBundleConfigMapName,
+				"/path/to",
+				"/path/to/localcerts.crt",
+			)
 			validateStorageInitializerCredentialsForLWS(expectedMainLWS, expectedEnvVars)
 			validateStorageInitializerCredentialsForLWS(expectedPrefillLWS, expectedEnvVars)
 
@@ -1970,7 +1794,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 					Namespace: nsName,
 				},
 				Data: map[string]string{
-					"cabundle.crt": "test-cert",
+					"s3.crt": "test-cert",
 				},
 			}
 			Expect(envTest.Client.Create(ctx, s3CaBundleconfigMap)).To(Succeed())
@@ -2091,66 +1915,17 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			validateStorageInitializerIsConfiguredForLWS(expectedPrefillLWS, "s3://bucket/model")
 
 			// validate the storage initializer credentials are properly set
-			expectedEnvVars := []corev1.EnvVar{
-				{
-					Name: s3.AWSAccessKeyId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: credentialSecret.Name,
-							},
-							Key: s3.AWSAccessKeyIdName,
-						},
-					},
-				},
-				{
-					Name: s3.AWSSecretAccessKey,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: credentialSecret.Name,
-							},
-							Key: s3.AWSSecretAccessKeyName,
-						},
-					},
-				},
-				{
-					Name:  s3.S3UseHttps,
-					Value: s3UseHttps,
-				},
-				{
-					Name:  s3.S3Endpoint,
-					Value: s3Endpoint,
-				},
-				{
-					Name:  s3.AWSAnonymousCredential,
-					Value: s3Anon,
-				},
-				{
-					Name:  s3.AWSEndpointUrl,
-					Value: "http://" + s3Endpoint,
-				},
-				{
-					Name:  s3.AWSRegion,
-					Value: s3Region,
-				},
-				{
-					Name:  s3.AWSCABundleConfigMap,
-					Value: s3CaBundleConfigMapName,
-				},
-				{
-					Name:  s3.AWSCABundle,
-					Value: "/path/to/s3.crt",
-				},
-				{
-					Name:  constants.CaBundleConfigMapNameEnvVarKey,
-					Value: s3CaBundleConfigMapName,
-				},
-				{
-					Name:  constants.CaBundleVolumeMountPathEnvVarKey,
-					Value: "/path/to",
-				},
-			}
+			expectedEnvVars := createExpectedS3ConfigEnvVars(
+				credentialSecret.Name,
+				s3UseHttps,
+				s3Endpoint,
+				s3Anon,
+				"http://"+s3Endpoint,
+				s3Region,
+				s3CaBundleConfigMapName,
+				"/path/to",
+				"/path/to/s3.crt",
+			)
 			validateStorageInitializerCredentialsForLWS(expectedMainLWS, expectedEnvVars)
 			validateStorageInitializerCredentialsForLWS(expectedPrefillLWS, expectedEnvVars)
 
@@ -2222,7 +1997,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 					Namespace: nsName,
 				},
 				Data: map[string]string{
-					"cabundle.crt": "test-cert",
+					"s3.crt": "test-cert",
 				},
 			}
 			Expect(envTest.Client.Create(ctx, s3CaBundleconfigMap)).To(Succeed())
@@ -2326,44 +2101,17 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			validateStorageInitializerIsConfiguredForLWS(expectedPrefillLWS, "s3://bucket/model")
 
 			// validate the storage initializer credentials are properly set
-			expectedEnvVars := []corev1.EnvVar{
-				{
-					Name:  s3.S3UseHttps,
-					Value: s3UseHttps,
-				},
-				{
-					Name:  s3.S3Endpoint,
-					Value: s3Endpoint,
-				},
-				{
-					Name:  s3.AWSAnonymousCredential,
-					Value: s3Anon,
-				},
-				{
-					Name:  s3.AWSEndpointUrl,
-					Value: "http://" + s3Endpoint,
-				},
-				{
-					Name:  s3.AWSRegion,
-					Value: s3Region,
-				},
-				{
-					Name:  s3.AWSCABundleConfigMap,
-					Value: s3CaBundleConfigMapName,
-				},
-				{
-					Name:  s3.AWSCABundle,
-					Value: "/path/to/s3.crt",
-				},
-				{
-					Name:  constants.CaBundleConfigMapNameEnvVarKey,
-					Value: s3CaBundleConfigMapName,
-				},
-				{
-					Name:  constants.CaBundleVolumeMountPathEnvVarKey,
-					Value: "/path/to",
-				},
-			}
+			expectedEnvVars := createExpectedS3ConfigEnvVars(
+				"",
+				s3UseHttps,
+				s3Endpoint,
+				s3Anon,
+				"http://"+s3Endpoint,
+				s3Region,
+				s3CaBundleConfigMapName,
+				"/path/to",
+				"/path/to/s3.crt",
+			)
 			validateStorageInitializerCredentialsForLWS(expectedMainLWS, expectedEnvVars)
 			validateStorageInitializerCredentialsForLWS(expectedPrefillLWS, expectedEnvVars)
 
@@ -2589,4 +2337,126 @@ func restoreInferenceServiceConfig(ctx context.Context) {
 	restoredIsvcConfigMap := client.MergeFrom(isvcConfigMap.DeepCopy())
 	isvcConfigMap.Data = InferenceServiceCfgMap(constants.KServeNamespace).Data
 	Expect(envTest.Client.Patch(ctx, isvcConfigMap, restoredIsvcConfigMap)).To(Succeed())
+}
+
+func createExpectedS3ConfigEnvVars(
+	credentialSecretName string,
+	s3UseHttps string,
+	s3Endpoint string,
+	s3Anon string,
+	s3EndpointUrl string,
+	s3Region string,
+	s3CaBundleConfigMapName string,
+	s3CABundleDirPath string,
+	s3CABundleFilePath string,
+) []corev1.EnvVar {
+	envVars := []corev1.EnvVar{}
+	if credentialSecretName != "" {
+		envVars = append(
+			envVars,
+			[]corev1.EnvVar{
+				{
+					Name: s3.AWSAccessKeyId,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: credentialSecretName,
+							},
+							Key: s3.AWSAccessKeyIdName,
+						},
+					},
+				},
+				{
+					Name: s3.AWSSecretAccessKey,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: credentialSecretName,
+							},
+							Key: s3.AWSSecretAccessKeyName,
+						},
+					},
+				},
+			}...,
+		)
+	}
+	if s3UseHttps != "" {
+		envVars = append(
+			envVars,
+			corev1.EnvVar{
+				Name:  s3.S3UseHttps,
+				Value: s3UseHttps,
+			},
+		)
+	}
+	if s3Endpoint != "" {
+		envVars = append(
+			envVars,
+			corev1.EnvVar{
+				Name:  s3.S3Endpoint,
+				Value: s3Endpoint,
+			},
+		)
+	}
+	if s3Anon != "" {
+		envVars = append(
+			envVars,
+			corev1.EnvVar{
+				Name:  s3.AWSAnonymousCredential,
+				Value: s3Anon,
+			},
+		)
+	}
+	if s3EndpointUrl != "" {
+		envVars = append(
+			envVars,
+			corev1.EnvVar{
+				Name:  s3.AWSEndpointUrl,
+				Value: s3EndpointUrl,
+			},
+		)
+	}
+	if s3Region != "" {
+		envVars = append(
+			envVars,
+			corev1.EnvVar{
+				Name:  s3.AWSRegion,
+				Value: s3Region,
+			},
+		)
+	}
+	if s3CaBundleConfigMapName != "" {
+		envVars = append(
+			envVars,
+			[]corev1.EnvVar{
+				{
+					Name:  s3.AWSCABundleConfigMap,
+					Value: s3CaBundleConfigMapName,
+				},
+				{
+					Name:  constants.CaBundleConfigMapNameEnvVarKey,
+					Value: s3CaBundleConfigMapName,
+				},
+			}...,
+		)
+	}
+	if s3CABundleDirPath != "" {
+		envVars = append(
+			envVars,
+			corev1.EnvVar{
+				Name:  constants.CaBundleVolumeMountPathEnvVarKey,
+				Value: s3CABundleDirPath,
+			},
+		)
+	}
+	if s3CABundleFilePath != "" {
+		envVars = append(
+			envVars,
+			corev1.EnvVar{
+				Name:  s3.AWSCABundle,
+				Value: s3CABundleFilePath,
+			},
+		)
+	}
+	return envVars
 }
