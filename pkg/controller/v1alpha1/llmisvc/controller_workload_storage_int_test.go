@@ -2339,6 +2339,7 @@ func restoreInferenceServiceConfig(ctx context.Context) {
 	Expect(envTest.Client.Patch(ctx, isvcConfigMap, restoredIsvcConfigMap)).To(Succeed())
 }
 
+//nolint:unparam // keeping params for test flexibility
 func createExpectedS3ConfigEnvVars(
 	credentialSecretName string,
 	s3UseHttps string,

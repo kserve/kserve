@@ -42225,8 +42225,8 @@ data:
     configures whether to use anonymous credentials to download the model or not.\n
     \         \"s3UseAnonymousCredential\": \"\",\n\n          # s3CABundleConfigMap
     specifies the mounted CA bundle config map name.\n          \"s3CABundleConfigMap\":
-    \"\",\n          \n          # s3CABundle specifies the mounted path for the config
-    map when used with a configured CA bundle config map.\n          # s3CABundle
+    \"\",\n          \n          # s3CABundle specifies the full path (mount path + file name) for the
+    mounted config map data when used with a configured CA bundle config map.\n          # s3CABundle
     specifies the path to a certificate bundle to use for HTTPS certificate validation
     when used absent of a configured CA bundle config map.\n          \"s3CABundle\":
     \"\"\n      }\n   }\n \n # ====================================== INGRESS CONFIGURATION

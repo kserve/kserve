@@ -227,7 +227,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | kserve.storage.resources.requests.cpu | string | `"100m"` |  |
 | kserve.storage.resources.requests.memory | string | `"100Mi"` |  |
 | kserve.storage.s3 | object | `{"CABundle":"","CABundleConfigMap":"","accessKeyIdName":"AWS_ACCESS_KEY_ID","endpoint":"","region":"","secretAccessKeyName":"AWS_SECRET_ACCESS_KEY","useAnonymousCredential":"","useHttps":"","useVirtualBucket":"","verifySSL":""}` | Configurations for S3 storage |
-| kserve.storage.s3.CABundle | string | `""` | When used with a configured CA bundle config map, specifies the mounted path for the config map. When used absent of a configured CA bundle config map, specifies the path to a certificate bundle to use for HTTPS certificate validation. |
+| kserve.storage.s3.CABundle | string | `""` | When used with a configured CA bundle config map, specifies the full path (mount path + file name) for the mounted config map data. When used absent of a configured CA bundle config map, specifies the path to a certificate bundle to use for HTTPS certificate validation. |
 | kserve.storage.s3.CABundleConfigMap | string | `""` | Mounted CA bundle config map name. |
 | kserve.storage.s3.accessKeyIdName | string | `"AWS_ACCESS_KEY_ID"` | AWS S3 static access key id. |
 | kserve.storage.s3.endpoint | string | `""` | AWS S3 endpoint. |
