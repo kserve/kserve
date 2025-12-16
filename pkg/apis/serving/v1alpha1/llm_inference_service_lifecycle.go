@@ -141,6 +141,10 @@ func (in *LLMInferenceService) MarkSchedulerWorkloadNotReady(reason, messageForm
 	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(SchedulerWorkloadReady, reason, messageFormat, messageA...)
 }
 
+func (in *LLMInferenceService) MarkSchedulerWorkloadUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(SchedulerWorkloadReady)
+}
+
 func (in *LLMInferenceService) MarkGatewaysReady() {
 	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(GatewaysReady)
 }
