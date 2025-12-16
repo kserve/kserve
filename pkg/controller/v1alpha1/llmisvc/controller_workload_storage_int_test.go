@@ -54,21 +54,9 @@ var (
 			"caBundleVolumeMountPath": "/path/to/globalcerts"
 		}`
 	isvcConfigPatchCredentials = `{
-       		"storageSpecSecretName": "storage-config",
-       		"storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
-       		"gcs": {
-           		"gcsCredentialFileName": "gcloud-application-credentials.json"
-       		},
        		"s3": {
            		"s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
            		"s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY",
-           		"s3Endpoint": "",
-           		"s3UseHttps": "",
-           		"s3Region": "",
-           		"s3VerifySSL": "",
-           		"s3UseVirtualBucket": "",
-           		"s3UseAccelerate": "",
-           		"s3UseAnonymousCredential": "",
            		"s3CABundleConfigMap": "local-s3-custom-certs",
            		"s3CABundle": "/path/to/localcerts.crt"
        		}
@@ -751,8 +739,8 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 					},
 				},
 				StringData: map[string]string{
-					s3.AWSAccessKeyIdName:     "test-id",
-					s3.AWSSecretAccessKeyName: "test-secret",
+					s3.AWSAccessKeyId:     "test-id",
+					s3.AWSSecretAccessKey: "test-secret",
 				},
 			}
 			Expect(envTest.Client.Create(ctx, credentialSecret)).To(Succeed())
@@ -1818,8 +1806,8 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 					},
 				},
 				StringData: map[string]string{
-					s3.AWSAccessKeyIdName:     "test-id",
-					s3.AWSSecretAccessKeyName: "test-secret",
+					s3.AWSAccessKeyId:     "test-id",
+					s3.AWSSecretAccessKey: "test-secret",
 				},
 			}
 			Expect(envTest.Client.Create(ctx, credentialSecret)).To(Succeed())
@@ -2363,7 +2351,7 @@ func createExpectedS3ConfigEnvVars(
 							LocalObjectReference: corev1.LocalObjectReference{
 								Name: credentialSecretName,
 							},
-							Key: s3.AWSAccessKeyIdName,
+							Key: s3.AWSAccessKeyId,
 						},
 					},
 				},
@@ -2374,7 +2362,7 @@ func createExpectedS3ConfigEnvVars(
 							LocalObjectReference: corev1.LocalObjectReference{
 								Name: credentialSecretName,
 							},
-							Key: s3.AWSSecretAccessKeyName,
+							Key: s3.AWSSecretAccessKey,
 						},
 					},
 				},
