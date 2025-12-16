@@ -69,6 +69,8 @@ type LLMISVCReconciler struct {
 	client.Client
 	record.EventRecorder
 	Clientset kubernetes.Interface
+
+	Validator func(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
