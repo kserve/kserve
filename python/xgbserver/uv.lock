@@ -2623,7 +2623,7 @@ test = [
 requires-dist = [
     { name = "kserve", directory = "../kserve" },
     { name = "kserve-storage", directory = "../storage" },
-    { name = "xgboost", specifier = "~=2.1.1" },
+    { name = "xgboost", specifier = ">=2.1.1" },
 ]
 
 [package.metadata.requires-dev]
