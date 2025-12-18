@@ -410,7 +410,7 @@ func saveCriticalityToAnnotations(meta *metav1.ObjectMeta, model *LLMModelSpec) 
 		if meta.Annotations == nil {
 			meta.Annotations = make(map[string]string)
 		}
-		meta.Annotations[ModelCriticalityAnnotationKey] = *model.Criticality
+		meta.Annotations[ModelCriticalityAnnotationKey] = string(*model.Criticality)
 	}
 
 	// Save LoRA adapter criticalities
@@ -419,7 +419,7 @@ func saveCriticalityToAnnotations(meta *metav1.ObjectMeta, model *LLMModelSpec) 
 		hasCriticality := false
 		for i, adapter := range model.LoRA.Adapters {
 			if adapter.Criticality != nil && *adapter.Criticality != "" {
-				loraCriticalities[i] = *adapter.Criticality
+				loraCriticalities[i] = string(*adapter.Criticality)
 				hasCriticality = true
 			}
 		}
@@ -443,7 +443,8 @@ func restoreCriticalityFromAnnotations(meta *metav1.ObjectMeta, model *LLMModelS
 
 	// Restore model criticality
 	if criticality, ok := meta.Annotations[ModelCriticalityAnnotationKey]; ok && criticality != "" {
-		model.Criticality = &criticality
+		c := Criticality(criticality)
+		model.Criticality = &c
 		delete(meta.Annotations, ModelCriticalityAnnotationKey)
 	}
 
@@ -454,7 +455,8 @@ func restoreCriticalityFromAnnotations(meta *metav1.ObjectMeta, model *LLMModelS
 			if model.LoRA != nil {
 				for i := range model.LoRA.Adapters {
 					if criticality, exists := loraCriticalities[i]; exists {
-						model.LoRA.Adapters[i].Criticality = &criticality
+						c := Criticality(criticality)
+						model.LoRA.Adapters[i].Criticality = &c
 					}
 				}
 			}

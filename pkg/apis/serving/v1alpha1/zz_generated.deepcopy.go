@@ -706,7 +706,7 @@ func (in *LLMModelSpec) DeepCopyInto(out *LLMModelSpec) {
 	}
 	if in.Criticality != nil {
 		in, out := &in.Criticality, &out.Criticality
-		*out = new(string)
+		*out = new(Criticality)
 		**out = **in
 	}
 	if in.LoRA != nil {
