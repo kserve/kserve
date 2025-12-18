@@ -38,8 +38,6 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	llmisvcvalidation "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/validation"
-
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 )
 
@@ -169,17 +167,29 @@ func main() {
 		os.Exit(1)
 	}
 
-	llmConfigValidator := &llmisvcvalidation.LLMInferenceServiceConfigValidator{
-		ClientSet: clientSet,
-	}
-	if err = llmConfigValidator.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig")
+	// Register v1alpha1 validators
+	v1alpha1LLMValidator := &v1alpha1.LLMInferenceServiceValidator{}
+	if err = v1alpha1LLMValidator.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice-v1alpha1")
 		os.Exit(1)
 	}
 
-	llmInferenceServiceValidator := &llmisvcvalidation.LLMInferenceServiceValidator{}
-	if err = llmInferenceServiceValidator.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice")
+	v1alpha1ConfigValidator := &v1alpha1.LLMInferenceServiceConfigValidator{}
+	if err = v1alpha1ConfigValidator.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig-v1alpha1")
+		os.Exit(1)
+	}
+
+	// Register v1alpha2 validators
+	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{}
+	if err = v1alpha2LLMValidator.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice-v1alpha2")
+		os.Exit(1)
+	}
+
+	v1alpha2ConfigValidator := &v1alpha2.LLMInferenceServiceConfigValidator{}
+	if err = v1alpha2ConfigValidator.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig-v1alpha2")
 		os.Exit(1)
 	}
 

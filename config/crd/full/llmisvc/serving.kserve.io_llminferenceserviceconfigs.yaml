@@ -38,6 +38,10 @@ spec:
                 model:
                   properties:
                     criticality:
+                      enum:
+                        - Critical
+                        - Standard
+                        - Sheddable
                       type: string
                     lora:
                       properties:
