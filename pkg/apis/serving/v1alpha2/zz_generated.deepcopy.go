@@ -22,7 +22,7 @@ package v1alpha2
 
 import (
 	"k8s.io/api/core/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	apiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	apisv1 "sigs.k8s.io/gateway-api/apis/v1"
