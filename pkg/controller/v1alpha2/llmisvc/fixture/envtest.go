@@ -28,9 +28,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
-	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/validation"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -63,20 +64,26 @@ func SetupTestEnv() *pkgtest.Client {
 	}
 
 	webhookManifests := pkgtest.WithWebhookManifests(filepath.Join(pkgtest.ProjectRoot(), "test", "webhooks"))
-	webhooks := func(cfg *rest.Config, mgr ctrl.Manager) error {
-		clientSet, err := kubernetes.NewForConfig(cfg)
-		if err != nil {
-			return err
-		}
-		llmInferenceServiceConfigValidator := validation.LLMInferenceServiceConfigValidator{
-			ClientSet: clientSet,
-		}
-		if err := llmInferenceServiceConfigValidator.SetupWithManager(mgr); err != nil {
+	webhooks := func(_ *rest.Config, mgr ctrl.Manager) error {
+		// Register v1alpha1 validators
+		v1alpha1LLMValidator := &v1alpha1.LLMInferenceServiceValidator{}
+		if err := v1alpha1LLMValidator.SetupWithManager(mgr); err != nil {
 			return err
 		}
 
-		llmInferenceServiceValidator := validation.LLMInferenceServiceValidator{}
-		return llmInferenceServiceValidator.SetupWithManager(mgr)
+		v1alpha1ConfigValidator := &v1alpha1.LLMInferenceServiceConfigValidator{}
+		if err := v1alpha1ConfigValidator.SetupWithManager(mgr); err != nil {
+			return err
+		}
+
+		// Register v1alpha2 validators
+		v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{}
+		if err := v1alpha2LLMValidator.SetupWithManager(mgr); err != nil {
+			return err
+		}
+
+		v1alpha2ConfigValidator := &v1alpha2.LLMInferenceServiceConfigValidator{}
+		return v1alpha2ConfigValidator.SetupWithManager(mgr)
 	}
 
 	envTest := pkgtest.NewEnvTest(webhookManifests).
