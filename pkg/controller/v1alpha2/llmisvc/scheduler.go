@@ -23,8 +23,6 @@ import (
 	"slices"
 	"sort"
 
-	// "k8s.io/utils/ptr"
-
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -49,9 +47,6 @@ func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1al
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
 		return err
 	}
-	// if err := r.reconcileSchedulerInferenceModel(ctx, llmSvc); err != nil {
-	// 	return err
-	// }
 	if err := r.reconcileSchedulerDeployment(ctx, llmSvc); err != nil {
 		return err
 	}
