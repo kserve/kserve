@@ -17,11 +17,21 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"encoding/json"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 	igwapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+)
+
+const (
+	// ModelCriticalityAnnotationKey stores the model criticality when converting to v1alpha2.
+	ModelCriticalityAnnotationKey = "internal.serving.kserve.io/model-criticality"
+	// LoRACriticalitiesAnnotationKey stores LoRA adapter criticalities as JSON when converting to v1alpha2.
+	LoRACriticalitiesAnnotationKey = "internal.serving.kserve.io/lora-criticalities"
 )
 
 // ConvertTo converts this LLMInferenceService (v1alpha1) to the Hub version (v1alpha2).
@@ -30,6 +40,9 @@ func (src *LLMInferenceService) ConvertTo(dstRaw conversion.Hub) error {
 
 	// ObjectMeta
 	dst.ObjectMeta = src.ObjectMeta
+
+	// Preserve criticality values in annotations
+	saveCriticalityToAnnotations(&dst.ObjectMeta, &src.Spec.Model)
 
 	// Spec conversion
 	dst.Spec = convertSpecToV1Alpha2(&src.Spec)
@@ -54,6 +67,9 @@ func (dst *LLMInferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 	// Spec conversion
 	dst.Spec = convertSpecFromV1Alpha2(&src.Spec)
 
+	// Restore criticality values from annotations
+	restoreCriticalityFromAnnotations(&dst.ObjectMeta, &dst.Spec.Model)
+
 	// Status conversion
 	dst.Status = LLMInferenceServiceStatus{
 		URL:           src.Status.URL,
@@ -71,6 +87,9 @@ func (src *LLMInferenceServiceConfig) ConvertTo(dstRaw conversion.Hub) error {
 	// ObjectMeta
 	dst.ObjectMeta = src.ObjectMeta
 
+	// Preserve criticality values in annotations
+	saveCriticalityToAnnotations(&dst.ObjectMeta, &src.Spec.Model)
+
 	// Spec conversion
 	dst.Spec = convertSpecToV1Alpha2(&src.Spec)
 
@@ -86,6 +105,9 @@ func (dst *LLMInferenceServiceConfig) ConvertFrom(srcRaw conversion.Hub) error {
 
 	// Spec conversion
 	dst.Spec = convertSpecFromV1Alpha2(&src.Spec)
+
+	// Restore criticality values from annotations
+	restoreCriticalityFromAnnotations(&dst.ObjectMeta, &dst.Spec.Model)
 
 	return nil
 }
@@ -140,7 +162,7 @@ func convertModelSpecToV1Alpha2(src *LLMModelSpec) v1alpha2.LLMModelSpec {
 	dst := v1alpha2.LLMModelSpec{
 		URI:  src.URI,
 		Name: src.Name,
-		// Note: Criticality field is dropped in v1alpha2
+		// Note: Criticality is preserved via annotations in ConvertTo/ConvertFrom
 	}
 
 	if src.LoRA != nil {
@@ -154,7 +176,7 @@ func convertModelSpecFromV1Alpha2(src *v1alpha2.LLMModelSpec) LLMModelSpec {
 	dst := LLMModelSpec{
 		URI:  src.URI,
 		Name: src.Name,
-		// Note: Criticality field doesn't exist in v1alpha2, will be nil
+		// Note: Criticality is restored from annotations in ConvertTo/ConvertFrom
 	}
 
 	if src.LoRA != nil {
@@ -372,4 +394,70 @@ func convertInferencePoolSpecFromV1(src *igwapiv1.InferencePoolSpec) *igwapiv1al
 	}
 
 	return &dstPool.Spec
+}
+
+// saveCriticalityToAnnotations stores criticality values in annotations to prevent data loss
+// when converting from v1alpha1 to v1alpha2.
+func saveCriticalityToAnnotations(meta *metav1.ObjectMeta, model *LLMModelSpec) {
+	// Save model criticality
+	if model.Criticality != nil && *model.Criticality != "" {
+		if meta.Annotations == nil {
+			meta.Annotations = make(map[string]string)
+		}
+		meta.Annotations[ModelCriticalityAnnotationKey] = *model.Criticality
+	}
+
+	// Save LoRA adapter criticalities
+	if model.LoRA != nil && len(model.LoRA.Adapters) > 0 {
+		loraCriticalities := make(map[int]string)
+		hasCriticality := false
+		for i, adapter := range model.LoRA.Adapters {
+			if adapter.Criticality != nil && *adapter.Criticality != "" {
+				loraCriticalities[i] = *adapter.Criticality
+				hasCriticality = true
+			}
+		}
+		if hasCriticality {
+			if meta.Annotations == nil {
+				meta.Annotations = make(map[string]string)
+			}
+			if data, err := json.Marshal(loraCriticalities); err == nil {
+				meta.Annotations[LoRACriticalitiesAnnotationKey] = string(data)
+			}
+		}
+	}
+}
+
+// restoreCriticalityFromAnnotations restores criticality values from annotations
+// when converting from v1alpha2 to v1alpha1.
+func restoreCriticalityFromAnnotations(meta *metav1.ObjectMeta, model *LLMModelSpec) {
+	if meta.Annotations == nil {
+		return
+	}
+
+	// Restore model criticality
+	if criticality, ok := meta.Annotations[ModelCriticalityAnnotationKey]; ok && criticality != "" {
+		model.Criticality = &criticality
+		delete(meta.Annotations, ModelCriticalityAnnotationKey)
+	}
+
+	// Restore LoRA adapter criticalities
+	if loraData, ok := meta.Annotations[LoRACriticalitiesAnnotationKey]; ok && loraData != "" {
+		var loraCriticalities map[int]string
+		if err := json.Unmarshal([]byte(loraData), &loraCriticalities); err == nil {
+			if model.LoRA != nil {
+				for i := range model.LoRA.Adapters {
+					if criticality, exists := loraCriticalities[i]; exists {
+						model.LoRA.Adapters[i].Criticality = &criticality
+					}
+				}
+			}
+		}
+		delete(meta.Annotations, LoRACriticalitiesAnnotationKey)
+	}
+
+	// Clean up empty annotations map
+	if len(meta.Annotations) == 0 {
+		meta.Annotations = nil
+	}
 }
