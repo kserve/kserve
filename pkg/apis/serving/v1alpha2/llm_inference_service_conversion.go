@@ -16,6 +16,14 @@ limitations under the License.
 
 package v1alpha2
 
+import "sigs.k8s.io/controller-runtime/pkg/conversion"
+
+// Compile-time interface compliance checks.
+var (
+	_ conversion.Hub = &LLMInferenceService{}
+	_ conversion.Hub = &LLMInferenceServiceConfig{}
+)
+
 // Hub marks LLMInferenceService as the Hub type (storage version) for conversion.
 func (*LLMInferenceService) Hub() {}
 
