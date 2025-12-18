@@ -25,6 +25,21 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+// Criticality defines how important it is to serve the model compared to other models.
+// Criticality is intentionally a bounded enum to contain the possibilities that need to
+// be supported by the load balancing algorithm.
+// +kubebuilder:validation:Enum=Critical;Standard;Sheddable
+type Criticality string
+
+const (
+	// Critical - Requests to this model should be shed last.
+	Critical Criticality = "Critical"
+	// Standard - Requests to this model will be queued or shed before critical traffic.
+	Standard Criticality = "Standard"
+	// Sheddable - Requests to this model should be shed before critical and standard traffic.
+	Sheddable Criticality = "Sheddable"
+)
+
 // LLMInferenceService is the Schema for the llminferenceservices API, representing a single LLM deployment.
 // It orchestrates the creation of underlying Kubernetes resources like Deployments and Services,
 // and configures networking for exposing the model.
@@ -130,7 +145,7 @@ type LLMModelSpec struct {
 	// Criticality defines how important it is to serve the model compared to other models.
 	// This is used by the Inference Gateway scheduler.
 	// +optional
-	Criticality *string `json:"criticality,omitempty"`
+	Criticality *Criticality `json:"criticality,omitempty"`
 
 	// LoRA (Low-Rank Adaptation) adapters configurations.
 	// Allows for specifying one or more LoRA adapters to be applied to the base model.
