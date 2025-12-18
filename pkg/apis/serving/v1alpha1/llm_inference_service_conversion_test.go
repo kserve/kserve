@@ -27,7 +27,7 @@ import (
 )
 
 func TestLLMInferenceServiceConversion_PreservesCriticality(t *testing.T) {
-	criticality := "Critical"
+	criticality := Critical
 	modelName := "test-model"
 
 	src := &LLMInferenceService{
@@ -51,7 +51,7 @@ func TestLLMInferenceServiceConversion_PreservesCriticality(t *testing.T) {
 
 	// Verify the criticality is stored in annotations
 	assert.NotNil(t, dst.ObjectMeta.Annotations)
-	assert.Equal(t, criticality, dst.ObjectMeta.Annotations[ModelCriticalityAnnotationKey])
+	assert.Equal(t, string(criticality), dst.ObjectMeta.Annotations[ModelCriticalityAnnotationKey])
 
 	// Convert back to v1alpha1
 	restored := &LLMInferenceService{}
@@ -68,9 +68,9 @@ func TestLLMInferenceServiceConversion_PreservesCriticality(t *testing.T) {
 }
 
 func TestLLMInferenceServiceConversion_PreservesLoRACriticalities(t *testing.T) {
-	modelCriticality := "Critical"
-	adapter1Criticality := "Standard"
-	adapter2Criticality := "Sheddable"
+	modelCriticality := Critical
+	adapter1Criticality := Standard
+	adapter2Criticality := Sheddable
 	modelName := "base-model"
 	adapter1Name := "adapter-1"
 	adapter2Name := "adapter-2"
@@ -110,7 +110,7 @@ func TestLLMInferenceServiceConversion_PreservesLoRACriticalities(t *testing.T) 
 
 	// Verify criticalities are stored in annotations
 	assert.NotNil(t, dst.ObjectMeta.Annotations)
-	assert.Equal(t, modelCriticality, dst.ObjectMeta.Annotations[ModelCriticalityAnnotationKey])
+	assert.Equal(t, string(modelCriticality), dst.ObjectMeta.Annotations[ModelCriticalityAnnotationKey])
 	assert.Contains(t, dst.ObjectMeta.Annotations, LoRACriticalitiesAnnotationKey)
 
 	// Convert back to v1alpha1
@@ -175,7 +175,7 @@ func TestLLMInferenceServiceConversion_NoCriticality(t *testing.T) {
 }
 
 func TestLLMInferenceServiceConfigConversion_PreservesCriticality(t *testing.T) {
-	criticality := "Standard"
+	criticality := Standard
 	modelName := "config-model"
 
 	src := &LLMInferenceServiceConfig{
@@ -199,7 +199,7 @@ func TestLLMInferenceServiceConfigConversion_PreservesCriticality(t *testing.T) 
 
 	// Verify the criticality is stored in annotations
 	assert.NotNil(t, dst.ObjectMeta.Annotations)
-	assert.Equal(t, criticality, dst.ObjectMeta.Annotations[ModelCriticalityAnnotationKey])
+	assert.Equal(t, string(criticality), dst.ObjectMeta.Annotations[ModelCriticalityAnnotationKey])
 
 	// Convert back to v1alpha1
 	restored := &LLMInferenceServiceConfig{}
@@ -212,7 +212,7 @@ func TestLLMInferenceServiceConfigConversion_PreservesCriticality(t *testing.T) 
 }
 
 func TestLLMInferenceServiceConversion_PreservesExistingAnnotations(t *testing.T) {
-	criticality := "Critical"
+	criticality := Critical
 	modelName := "test-model"
 	existingAnnotation := "existing-value"
 
@@ -240,7 +240,7 @@ func TestLLMInferenceServiceConversion_PreservesExistingAnnotations(t *testing.T
 
 	// Verify both annotations exist
 	assert.Equal(t, existingAnnotation, dst.ObjectMeta.Annotations["existing-annotation"])
-	assert.Equal(t, criticality, dst.ObjectMeta.Annotations[ModelCriticalityAnnotationKey])
+	assert.Equal(t, string(criticality), dst.ObjectMeta.Annotations[ModelCriticalityAnnotationKey])
 
 	// Convert back to v1alpha1
 	restored := &LLMInferenceService{}
