@@ -34,6 +34,12 @@ const (
 	LoRACriticalitiesAnnotationKey = "internal.serving.kserve.io/lora-criticalities"
 )
 
+// Compile-time interface compliance checks.
+var (
+	_ conversion.Convertible = &LLMInferenceService{}
+	_ conversion.Convertible = &LLMInferenceServiceConfig{}
+)
+
 // ConvertTo converts this LLMInferenceService (v1alpha1) to the Hub version (v1alpha2).
 func (src *LLMInferenceService) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v1alpha2.LLMInferenceService)
