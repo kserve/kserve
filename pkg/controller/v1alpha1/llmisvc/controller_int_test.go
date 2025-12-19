@@ -702,9 +702,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 						return nil
 					}).WithContext(ctx).Should(Succeed(), "Should have no managed HTTPRoutes with router when ")
 
-					Eventually(LLMInferenceServiceIsReady(llmSvc, func(g Gomega, current *v1alpha1.LLMInferenceService) {
-						g.Expect(current.Status).To(HaveCondition(string(v1alpha1.HTTPRoutesReady), "True"))
-					})).WithContext(ctx).Should(Succeed())
+					Eventually(LLMInferenceServiceIsReady(llmSvc)).WithContext(ctx).Should(Succeed())
 				},
 				Entry("should delete HTTPRoutes when spec.Router is set to nil",
 					"router-spec-nil",
@@ -859,6 +857,248 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					g.Expect(routerCondition).ToNot(BeNil())
 					g.Expect(routerCondition.Reason).To(Equal(llmisvc.RefsInvalidReason))
 					g.Expect(routerCondition.Message).To(ContainSubstring(fmt.Sprintf("HTTPRoute %s/non-existent-route does not exist", nsName)))
+
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+			})
+		})
+	})
+
+	Context("Stale condition cleanup", func() {
+		When("Gateway is created after LLMInferenceService references it", func() {
+			It("should clear stale GatewaysReady condition when Gateway is created", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-stale-gateway-condition"
+				nsName := kmeta.ChildName(svcName, "-test")
+				namespace := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nsName,
+					},
+				}
+				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+				defer func() {
+					envTest.DeleteAll(namespace)
+				}()
+
+				// Create HTTPRoute first so HTTPRoute validation passes (focus on Gateway stale condition)
+				httpRoute := HTTPRoute("my-route", []HTTPRouteOption{
+					InNamespace[*gwapiv1.HTTPRoute](nsName),
+				}...)
+				Expect(envTest.Client.Create(ctx, httpRoute)).To(Succeed())
+				defer func() {
+					Expect(envTest.Delete(ctx, httpRoute)).To(Succeed())
+				}()
+
+				// Create LLMInferenceService referencing a Gateway that doesn't exist yet
+				// Must use WithHTTPRouteRefs (custom gateway requires custom routes, not managed routes)
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha1.LLMInferenceService](nsName),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithHTTPRouteRefs(HTTPRouteRef("my-route")),
+					WithGatewayRefs(LLMGatewayRef("my-gateway", nsName)),
+				)
+
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				}()
+
+				// Verify GatewaysReady is False with RefsInvalid
+				Eventually(func(g Gomega, ctx context.Context) error {
+					updatedLLMSvc := &v1alpha1.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), updatedLLMSvc)).To(Succeed())
+
+					gatewaysCondition := updatedLLMSvc.Status.GetCondition(v1alpha1.GatewaysReady)
+					g.Expect(gatewaysCondition).ToNot(BeNil())
+					g.Expect(gatewaysCondition.IsFalse()).To(BeTrue())
+					g.Expect(gatewaysCondition.Reason).To(Equal(llmisvc.RefsInvalidReason))
+					g.Expect(gatewaysCondition.Message).To(ContainSubstring("my-gateway does not exist"))
+
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+
+				// when - Create the Gateway
+				gateway := Gateway("my-gateway",
+					InNamespace[*gwapiv1.Gateway](nsName),
+					WithListener(gwapiv1.HTTPProtocolType),
+					WithAddresses("203.0.113.1"),
+				)
+				Expect(envTest.Client.Create(ctx, gateway)).To(Succeed())
+				ensureGatewayReady(ctx, envTest.Client, gateway)
+				defer func() {
+					Expect(envTest.Delete(ctx, gateway)).To(Succeed())
+				}()
+
+				// then - GatewaysReady stale condition should be cleared (no longer RefsInvalid)
+				Eventually(func(g Gomega, ctx context.Context) error {
+					updatedLLMSvc := &v1alpha1.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), updatedLLMSvc)).To(Succeed())
+
+					gatewaysCondition := updatedLLMSvc.Status.GetCondition(v1alpha1.GatewaysReady)
+					// Condition should either be nil (cleared) or True (gateway is ready)
+					if gatewaysCondition != nil {
+						g.Expect(gatewaysCondition.Reason).ToNot(Equal(llmisvc.RefsInvalidReason),
+							"Stale GatewaysReady condition with RefsInvalid should be cleared")
+					}
+
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+			})
+		})
+
+		When("HTTPRoute is created after LLMInferenceService references it", func() {
+			It("should clear stale HTTPRoutesReady condition when HTTPRoute is created", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-stale-httproute-condition"
+				nsName := kmeta.ChildName(svcName, "-test")
+				namespace := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nsName,
+					},
+				}
+				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+				defer func() {
+					envTest.DeleteAll(namespace)
+				}()
+
+				// Create the Gateway first so gateway validation passes
+				gateway := Gateway("my-gateway",
+					InNamespace[*gwapiv1.Gateway](nsName),
+					WithListener(gwapiv1.HTTPProtocolType),
+					WithAddresses("203.0.113.1"),
+				)
+				Expect(envTest.Client.Create(ctx, gateway)).To(Succeed())
+				ensureGatewayReady(ctx, envTest.Client, gateway)
+				defer func() {
+					Expect(envTest.Delete(ctx, gateway)).To(Succeed())
+				}()
+
+				// Create LLMInferenceService referencing an HTTPRoute that doesn't exist yet
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha1.LLMInferenceService](nsName),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithHTTPRouteRefs(HTTPRouteRef("my-route")),
+					WithGatewayRefs(LLMGatewayRef("my-gateway", nsName)),
+				)
+
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				}()
+
+				// Verify HTTPRoutesReady is False with RefsInvalid
+				Eventually(func(g Gomega, ctx context.Context) error {
+					updatedLLMSvc := &v1alpha1.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), updatedLLMSvc)).To(Succeed())
+
+					httpRoutesCondition := updatedLLMSvc.Status.GetCondition(v1alpha1.HTTPRoutesReady)
+					g.Expect(httpRoutesCondition).ToNot(BeNil())
+					g.Expect(httpRoutesCondition.IsFalse()).To(BeTrue())
+					g.Expect(httpRoutesCondition.Reason).To(Equal(llmisvc.RefsInvalidReason))
+					g.Expect(httpRoutesCondition.Message).To(ContainSubstring("my-route does not exist"))
+
+					// GatewaysReady should NOT have stale RefsInvalid (gateway exists now)
+					gatewaysCondition := updatedLLMSvc.Status.GetCondition(v1alpha1.GatewaysReady)
+					if gatewaysCondition != nil {
+						g.Expect(gatewaysCondition.Reason).ToNot(Equal(llmisvc.RefsInvalidReason),
+							"GatewaysReady should not have stale RefsInvalid when gateway exists")
+					}
+
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+
+				// when - Create the HTTPRoute
+				httpRoute := HTTPRoute("my-route", []HTTPRouteOption{
+					InNamespace[*gwapiv1.HTTPRoute](nsName),
+					WithParentRef(GatewayParentRef("my-gateway", nsName)),
+					WithHTTPRouteRule(
+						HTTPRouteRuleWithBackendAndTimeouts(svcName+"-kserve-workload-svc", 8000, "/", "0s", "0s"),
+					),
+				}...)
+				Expect(envTest.Client.Create(ctx, httpRoute)).To(Succeed())
+				ensureHTTPRouteReady(ctx, envTest.Client, httpRoute)
+				defer func() {
+					Expect(envTest.Delete(ctx, httpRoute)).To(Succeed())
+				}()
+
+				// then - HTTPRoutesReady stale condition should be cleared
+				Eventually(func(g Gomega, ctx context.Context) error {
+					updatedLLMSvc := &v1alpha1.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), updatedLLMSvc)).To(Succeed())
+
+					httpRoutesCondition := updatedLLMSvc.Status.GetCondition(v1alpha1.HTTPRoutesReady)
+					// Condition should either be nil (cleared) or True (route is ready)
+					if httpRoutesCondition != nil {
+						g.Expect(httpRoutesCondition.Reason).ToNot(Equal(llmisvc.RefsInvalidReason),
+							"Stale HTTPRoutesReady condition with RefsInvalid should be cleared")
+					}
+
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+			})
+		})
+
+		When("scheduler configuration is removed", func() {
+			It("should clear SchedulerWorkloadReady condition when scheduler is no longer configured", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-stale-scheduler-condition"
+				nsName := kmeta.ChildName(svcName, "-test")
+				namespace := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: nsName,
+					},
+				}
+				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+				Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+				defer func() {
+					envTest.DeleteAll(namespace)
+				}()
+
+				// Create LLMInferenceService with scheduler
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha1.LLMInferenceService](nsName),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithManagedRoute(),
+					WithManagedGateway(),
+					WithManagedScheduler(),
+				)
+
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				}()
+
+				ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
+
+				// Verify SchedulerWorkloadReady condition exists
+				Eventually(func(g Gomega, ctx context.Context) error {
+					updatedLLMSvc := &v1alpha1.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), updatedLLMSvc)).To(Succeed())
+
+					schedulerCondition := updatedLLMSvc.Status.GetCondition(v1alpha1.SchedulerWorkloadReady)
+					g.Expect(schedulerCondition).ToNot(BeNil(), "SchedulerWorkloadReady condition should exist when scheduler is configured")
+
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+
+				// when - Remove scheduler configuration
+				errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+						llmSvc.Spec.Router.Scheduler = nil
+						return nil
+					})
+					return errUpdate
+				})
+				Expect(errRetry).ToNot(HaveOccurred())
+
+				// then - SchedulerWorkloadReady condition should be cleared
+				Eventually(func(g Gomega, ctx context.Context) error {
+					updatedLLMSvc := &v1alpha1.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), updatedLLMSvc)).To(Succeed())
+
+					schedulerCondition := updatedLLMSvc.Status.GetCondition(v1alpha1.SchedulerWorkloadReady)
+					g.Expect(schedulerCondition).To(BeNil(),
+						"SchedulerWorkloadReady condition should be cleared when scheduler is not configured")
 
 					return nil
 				}).WithContext(ctx).Should(Succeed())

@@ -25,6 +25,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/network"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -39,6 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // reconcileRouter handles the networking and routing components for the LLM service
@@ -96,7 +98,8 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 	expectedHTTPRoute := r.expectedHTTPRoute(ctx, llmSvc)
 
 	// Clean up if router or routes are not configured
-	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
+	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
+		_ = r.updateRoutingStatus(ctx, llmSvc)
 		return Delete(ctx, r, llmSvc, expectedHTTPRoute)
 	}
 
@@ -187,6 +190,23 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService, routes ...*gwapiv1.HTTPRoute) error {
 	logger := log.FromContext(ctx)
 
+	if utils.GetForceStopRuntime(llmSvc) {
+		llmSvc.Status.Addresses = nil
+		llmSvc.Status.Address = nil
+		llmSvc.MarkHTTPRoutesNotReady("Stopped", "Service is stopped")
+		return nil
+	}
+
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
+		llmSvc.Status.Addresses = []duckv1.Addressable{{
+			URL: apis.HTTPS(network.GetServiceHostname(
+				kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"),
+				llmSvc.GetNamespace(),
+			)),
+		}}
+		return nil
+	}
+
 	var urls []*apis.URL
 	for _, route := range routes {
 		discoverURL, err := DiscoverURLs(ctx, r.Client, route)
@@ -205,6 +225,7 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 	externalURLs := FilterExternalURLs(urls)
 	if len(externalURLs) == 0 {
 		logger.Info("no public URL discovered")
+		llmSvc.Status.URL = nil
 	} else {
 		llmSvc.Status.URL = externalURLs[0]
 	}
@@ -249,16 +270,15 @@ func semanticHTTPRouteIsEqual(e *gwapiv1.HTTPRoute, c *gwapiv1.HTTPRoute) bool {
 func (r *LLMISVCReconciler) EvaluateGatewayConditions(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	logger := log.FromContext(ctx).WithName("evaluateGatewayConditions")
 
-	// If no router or gateway configuration, skip Gateway evaluation
-	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Gateway == nil || !llmSvc.Spec.Router.Gateway.HasRefs() {
-		logger.Info("No Gateway references found, skipping Gateway condition evaluation")
+	if utils.GetForceStopRuntime(llmSvc) {
+		llmSvc.MarkGatewaysNotReady("Stopped", "Service is stopped")
 		return nil
 	}
 
-	// Check if there's already a validation failure condition set
-	condition := llmSvc.GetStatus().GetCondition(v1alpha1.GatewaysReady)
-	if condition != nil && condition.IsFalse() && condition.Reason == RefsInvalidReason {
-		logger.Info("Gateway validation failed, skipping readiness evaluation", "reason", condition.Reason, "message", condition.Message)
+	// If no router or gateway configuration, mark as ready to clear any previous stopped state
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Gateway == nil || !llmSvc.Spec.Router.Gateway.HasRefs() {
+		logger.Info("No Gateway references found, skipping Gateway condition evaluation")
+		llmSvc.MarkGatewaysReadyUnset()
 		return nil
 	}
 
@@ -342,17 +362,15 @@ func (r *LLMISVCReconciler) CollectReferencedGateways(ctx context.Context, llmSv
 func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	logger := log.FromContext(ctx).WithName("evaluateHTTPRouteConditions")
 
-	// If no router or route configuration, mark HTTPRoutes as ready (no routes to evaluate)
-	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil || llmSvc.Spec.Router.Route.HTTP == nil {
-		logger.Info("No HTTPRoute configuration found, marking HTTPRoutesReady as True")
-		llmSvc.MarkHTTPRoutesReady()
+	if utils.GetForceStopRuntime(llmSvc) {
+		llmSvc.MarkHTTPRoutesNotReady("Stopped", "Service is stopped")
 		return nil
 	}
 
-	// Check if there's already a validation failure condition set
-	condition := llmSvc.GetStatus().GetCondition(v1alpha1.HTTPRoutesReady)
-	if condition != nil && condition.IsFalse() && condition.Reason == RefsInvalidReason {
-		logger.Info("HTTPRoute validation failed, skipping readiness evaluation", "reason", condition.Reason, "message", condition.Message)
+	// If no router or route configuration, mark HTTPRoutes as ready (no routes to evaluate)
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil || llmSvc.Spec.Router.Route.HTTP == nil {
+		logger.Info("No HTTPRoute configuration found, clearing HTTPRoutesReady condition")
+		llmSvc.MarkHTTPRoutesReadyUnset()
 		return nil
 	}
 
@@ -414,10 +432,15 @@ func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llm
 func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
 	logger := log.FromContext(ctx).WithName("EvaluateInferencePoolConditions")
 
+	if utils.GetForceStopRuntime(llmSvc) {
+		llmSvc.MarkInferencePoolNotReady("Stopped", "Service is stopped")
+		return nil
+	}
+
 	// If no router or scheduler configuration, mark Inference Pools as ready (no Inference Pools to evaluate)
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
-		logger.V(2).Info("Scheduler is disabled, marking InferencePoolReady as True")
-		llmSvc.MarkInferencePoolReady()
+		logger.V(2).Info("Scheduler is disabled, clearing InferencePoolReady condition")
+		llmSvc.MarkInferencePoolReadyUnset()
 		return nil
 	}
 

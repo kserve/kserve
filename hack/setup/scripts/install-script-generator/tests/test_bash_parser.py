@@ -116,6 +116,84 @@ class TestBashParser(unittest.TestCase):
         self.assertIn("log_info 'Installing'", renamed)
         self.assertIn("kubectl apply -f manifest.yaml", renamed)
 
+    def test_rename_bash_function_with_function_calls(self):
+        """Test renaming function calls within function body."""
+        func_code = """install() {
+    if [ "$REINSTALL" = true ]; then
+        uninstall
+    fi
+    echo 'Installing'
+}"""
+        renamed = bash_parser.rename_bash_function(func_code, "install", "install_external_lb")
+        self.assertIn("install_external_lb() {", renamed)
+        # Original uninstall call should remain unchanged
+        self.assertIn("uninstall", renamed)
+
+    def test_rename_bash_function_rename_cross_function_calls(self):
+        """Test renaming calls to other functions within function body."""
+        func_code = """install() {
+    if [ "$REINSTALL" = true ]; then
+        uninstall
+    fi
+    echo 'Installing'
+}"""
+        # First rename install to install_external_lb
+        renamed = bash_parser.rename_bash_function(func_code, "install", "install_external_lb")
+        # Then rename uninstall calls to uninstall_external_lb
+        renamed = bash_parser.rename_bash_function(renamed, "uninstall", "uninstall_external_lb")
+
+        self.assertIn("install_external_lb() {", renamed)
+        self.assertIn("uninstall_external_lb", renamed)
+        # Original uninstall should be gone
+        self.assertNotIn("uninstall\n", renamed)
+
+    def test_rename_bash_function_word_boundary(self):
+        """Test that rename respects word boundaries."""
+        func_code = """install() {
+    echo 'uninstall_old'
+    uninstall
+    echo 'reinstall'
+}"""
+        renamed = bash_parser.rename_bash_function(func_code, "uninstall", "uninstall_component")
+
+        # Should rename standalone 'uninstall' call
+        self.assertIn("uninstall_component", renamed)
+        # Should NOT rename 'uninstall' when part of other words
+        self.assertIn("uninstall_old", renamed)
+        self.assertIn("reinstall", renamed)
+
+    def test_rename_bash_function_preserve_command_arguments(self):
+        """Test that rename doesn't affect function names used as command arguments."""
+        func_code = """install() {
+    if [ "$REINSTALL" = true ]; then
+        uninstall
+    fi
+    helm install cert-manager jetstack/cert-manager
+    kubectl apply -f install.yaml
+    helm uninstall old-release
+}"""
+        renamed = bash_parser.rename_bash_function(func_code, "install", "install_cert_manager")
+
+        # Should rename function definition
+        self.assertIn("install_cert_manager() {", renamed)
+        # uninstall call should remain unchanged (we're only renaming install)
+        self.assertIn("uninstall", renamed)
+        # Should NOT rename 'install' in 'helm install'
+        self.assertIn("helm install cert-manager", renamed)
+        # Should NOT rename 'install' in 'install.yaml'
+        self.assertIn("kubectl apply -f install.yaml", renamed)
+
+        # Now rename uninstall calls
+        renamed = bash_parser.rename_bash_function(renamed, "uninstall", "uninstall_cert_manager")
+        # Should rename standalone uninstall call
+        self.assertIn("uninstall_cert_manager", renamed)
+        # The standalone 'uninstall' at the start of a line should now be renamed
+        self.assertIn("        uninstall_cert_manager", renamed)
+        # But 'uninstall' as part of 'helm uninstall' should NOT be renamed
+        self.assertIn("helm uninstall old-release", renamed)
+        # The original standalone 'uninstall' should be gone
+        self.assertNotIn("        uninstall\n", renamed)
+
     def test_deduplicate_variables_simple(self):
         """Test deduplicating variable declarations."""
         variables = [

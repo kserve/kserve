@@ -50,7 +50,7 @@ def extract_bash_function(script_file: Path, func_name: str) -> str:
 
 
 def rename_bash_function(func_code: str, old_name: str, new_name: str) -> str:
-    """Rename bash function.
+    """Rename bash function and its calls within the code.
 
     Args:
         func_code: Original function code
@@ -58,14 +58,33 @@ def rename_bash_function(func_code: str, old_name: str, new_name: str) -> str:
         new_name: New function name
 
     Returns:
-        Function code with renamed function
+        Function code with renamed function definition and calls
     """
     if not func_code:
         return func_code
 
     lines = func_code.split('\n')
+
+    # Rename function definition
     if lines and lines[0].startswith(f"{old_name}() {{"):
         lines[0] = f"{new_name}() {{"
+
+    # Rename function calls within the body
+    # Pattern matches function calls that appear:
+    # - At start of line (with optional leading whitespace)
+    # - After command separators: ; | & ( etc. (with optional whitespace)
+    # But NOT after other commands (like 'helm install' or 'kubectl apply')
+    # The pattern captures the prefix separately to preserve it
+    pattern = re.compile(
+        r'(^[ \t]*|[;|&(][ \t]*)(' + re.escape(old_name) + r')\b(?=\s|$|;|\||&|\))'
+    )
+
+    def replace_func(match):
+        # Preserve the prefix (whitespace/separator) and replace only the function name
+        return match.group(1) + new_name
+
+    for i in range(1, len(lines)):  # Skip first line (function definition)
+        lines[i] = pattern.sub(replace_func, lines[i])
 
     return '\n'.join(lines)
 

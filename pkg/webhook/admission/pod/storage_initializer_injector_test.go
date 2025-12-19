@@ -4832,3 +4832,167 @@ func TestStorageInitializerWithUserDefinedCABundleEnvVars(t *testing.T) {
 		})
 	}
 }
+
+// TestInjectModelcarMultiNode tests the multinode scenario fixes for OCI model storage
+func TestInjectModelcarMultiNode(t *testing.T) {
+	t.Run("Test InjectModelcar with worker-container only (multi-node scenario)", func(t *testing.T) {
+		pod := createTestPodForModelcarWithWorkerContainer()
+		injector := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{}}
+
+		err := injector.InjectModelcar(pod)
+		require.NoError(t, err)
+
+		// Verify that modelcar was injected for worker container
+		modelcarContainer := utils.GetContainerWithName(&pod.Spec, constants.ModelcarContainerName)
+		assert.NotNil(t, modelcarContainer, "Modelcar container should be created")
+
+		workerContainer := utils.GetContainerWithName(&pod.Spec, constants.WorkerContainerName)
+		assert.NotNil(t, workerContainer, "Worker container should exist")
+
+		// Verify that worker container has the correct volume mounts
+		found := false
+		for _, mount := range workerContainer.VolumeMounts {
+			if mount.Name == constants.StorageInitializerVolumeName {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "Worker container should have storage initializer volume mount")
+
+		// Verify that the volume was created
+		assert.Len(t, pod.Spec.Volumes, 1, "Should have exactly one volume")
+		assert.Equal(t, constants.StorageInitializerVolumeName, pod.Spec.Volumes[0].Name)
+	})
+
+	t.Run("Test InjectModelcar error when no valid container found", func(t *testing.T) {
+		pod := createTestPodForModelcarNoValidContainer()
+		injector := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{}}
+
+		err := injector.InjectModelcar(pod)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Invalid configuration: cannot find container: kserve-container")
+	})
+
+	t.Run("Test InjectModelcar prioritizes kserve-container over worker-container", func(t *testing.T) {
+		pod := createTestPodForModelcarWithBothContainers()
+		injector := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{}}
+
+		err := injector.InjectModelcar(pod)
+		require.NoError(t, err)
+
+		// Both containers should have volume mounts but kserve-container should be prioritized
+		kserveContainer := utils.GetContainerWithName(&pod.Spec, constants.InferenceServiceContainerName)
+		workerContainer := utils.GetContainerWithName(&pod.Spec, constants.WorkerContainerName)
+
+		assert.NotNil(t, kserveContainer)
+		assert.NotNil(t, workerContainer)
+
+		// Check that kserve-container got the volume mount
+		kserveHasMount := false
+		for _, mount := range kserveContainer.VolumeMounts {
+			if mount.Name == constants.StorageInitializerVolumeName {
+				kserveHasMount = true
+				break
+			}
+		}
+		assert.True(t, kserveHasMount, "kserve-container should have storage initializer volume mount")
+	})
+
+	t.Run("Test InjectModelcar with transformer and worker containers", func(t *testing.T) {
+		pod := createTestPodForModelcarWithWorkerAndTransformer()
+		injector := &StorageInitializerInjector{config: &kserveTypes.StorageInitializerConfig{}}
+
+		err := injector.InjectModelcar(pod)
+		require.NoError(t, err)
+
+		// Check both worker and transformer containers got volume mounts
+		workerContainer := utils.GetContainerWithName(&pod.Spec, constants.WorkerContainerName)
+		transformerContainer := utils.GetContainerWithName(&pod.Spec, constants.TransformerContainerName)
+
+		assert.NotNil(t, workerContainer)
+		assert.NotNil(t, transformerContainer)
+
+		// Both should have volume mounts
+		workerHasMount := false
+		for _, mount := range workerContainer.VolumeMounts {
+			if mount.Name == constants.StorageInitializerVolumeName {
+				workerHasMount = true
+				break
+			}
+		}
+		assert.True(t, workerHasMount, "Worker container should have storage initializer volume mount")
+
+		transformerHasMount := false
+		for _, mount := range transformerContainer.VolumeMounts {
+			if mount.Name == constants.StorageInitializerVolumeName {
+				transformerHasMount = true
+				break
+			}
+		}
+		assert.True(t, transformerHasMount, "Transformer container should have storage initializer volume mount")
+	})
+}
+
+// Helper functions for multi-node testing
+
+func createTestPodForModelcarWithWorkerContainer() *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				constants.StorageInitializerSourceUriInternalAnnotationKey: constants.OciURIPrefix + "myrepo/mymodelimage",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.WorkerContainerName},
+			},
+		},
+	}
+}
+
+func createTestPodForModelcarNoValidContainer() *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				constants.StorageInitializerSourceUriInternalAnnotationKey: constants.OciURIPrefix + "myrepo/mymodelimage",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "some-other-container"},
+			},
+		},
+	}
+}
+
+func createTestPodForModelcarWithBothContainers() *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				constants.StorageInitializerSourceUriInternalAnnotationKey: constants.OciURIPrefix + "myrepo/mymodelimage",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+				{Name: constants.WorkerContainerName},
+			},
+		},
+	}
+}
+
+func createTestPodForModelcarWithWorkerAndTransformer() *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				constants.StorageInitializerSourceUriInternalAnnotationKey: constants.OciURIPrefix + "myrepo/mymodelimage",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.WorkerContainerName},
+				{Name: constants.TransformerContainerName},
+			},
+		},
+	}
+}
