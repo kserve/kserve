@@ -587,7 +587,7 @@ class HuggingfaceGenerativeModel(
             stop_sequences = [
                 self._tokenizer.encode(
                     seq, return_tensors=TensorType.PYTORCH, add_special_tokens=False
-                )[0]
+                )[0].to(self._device)
                 for seq in stop
             ]
             stop_sequence_stopping_criteria = StopSequenceStoppingCriteria(
