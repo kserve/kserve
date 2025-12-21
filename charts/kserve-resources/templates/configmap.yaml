@@ -171,6 +171,7 @@ data:
               "s3VerifySSL": "",
               "s3UseVirtualBucket": "",
               "s3UseAnonymousCredential": "",
+               "s3CABundleConfigMap": "",
               "s3CABundle": ""
           }
        }
@@ -228,7 +229,11 @@ data:
               # s3UseAnonymousCredential configures whether to use anonymous credentials to download the model or not.
               "s3UseAnonymousCredential": "",
 
-              # s3CABundle specifies the path to a certificate bundle to use for HTTPS certificate validation.
+              # s3CABundleConfigMap specifies the mounted CA bundle config map name.
+              "s3CABundleConfigMap": "",
+
+              # s3CABundle specifies the full path (mount path + file name) for the mounted config map data when used with a configured CA bundle config map.
+              # s3CABundle specifies the path to a certificate bundle to use for HTTPS certificate validation when used absent of a configured CA bundle config map.
               "s3CABundle": ""
           }
        }
@@ -597,6 +602,7 @@ data:
            "s3VerifySSL": "{{ .Values.kserve.storage.s3.verifySSL }}",
            "s3UseVirtualBucket": "{{ .Values.kserve.storage.s3.useVirtualBucket }}",
            "s3UseAnonymousCredential": "{{ .Values.kserve.storage.s3.useAnonymousCredential }}",
+           "s3CABundleConfigMap": "{{ .Values.kserve.storage.s3.CABundleConfigMap }}",
            "s3CABundle": "{{ .Values.kserve.storage.s3.CABundle }}"
        }
     }

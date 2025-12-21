@@ -137,7 +137,13 @@ func InferenceServiceCfgMap(ns string) *corev1.ConfigMap {
 				"memoryModelcar": "15Mi",
 				"enableModelcar": true
 			}`,
-	}
+		"credentials": `{
+				"s3": {
+					"s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
+					"s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY"
+				}
+			}`,
+	} // #nosec G101
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.InferenceServiceConfigMapName,
