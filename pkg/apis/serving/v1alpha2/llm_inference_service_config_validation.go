@@ -18,7 +18,9 @@ package v1alpha2
 
 import (
 	"context"
+	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -39,6 +41,9 @@ type LLMInferenceServiceConfigValidator struct {
 	// ConfigValidationFunc is an optional function for additional validation logic.
 	// This can be set by the controller to inject validation that depends on controller packages.
 	ConfigValidationFunc func(ctx context.Context, config *LLMInferenceServiceConfig) error
+	// WellKnownConfigChecker is an optional function to check if a config name is a well-known config.
+	// This is used to emit warnings when modifying or deleting well-known configs.
+	WellKnownConfigChecker func(name string) bool
 }
 
 var _ webhook.CustomValidator = &LLMInferenceServiceConfigValidator{}
@@ -60,19 +65,48 @@ func (l *LLMInferenceServiceConfigValidator) ValidateCreate(ctx context.Context,
 	return warnings, l.validate(ctx, config)
 }
 
-func (l *LLMInferenceServiceConfigValidator) ValidateUpdate(ctx context.Context, _, newObj runtime.Object) (admission.Warnings, error) {
+func (l *LLMInferenceServiceConfigValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	logger := log.FromContext(ctx)
 	warnings := admission.Warnings{}
-	config, err := utils.Convert[*LLMInferenceServiceConfig](newObj)
+
+	oldConfig, err := utils.Convert[*LLMInferenceServiceConfig](oldObj)
+	if err != nil {
+		return warnings, err
+	}
+	newConfig, err := utils.Convert[*LLMInferenceServiceConfig](newObj)
 	if err != nil {
 		return warnings, err
 	}
 
-	return warnings, l.validate(ctx, config)
+	// Warn if modifying a well-known config
+	if l.WellKnownConfigChecker != nil && l.WellKnownConfigChecker(oldConfig.Name) &&
+		!equality.Semantic.DeepDerivative(oldConfig.Spec, newConfig.Spec) {
+		warning := fmt.Sprintf("modifying well-known config %s/%s is not recommended. Consider creating a custom config instead",
+			oldConfig.Namespace, oldConfig.Name)
+		logger.Info(warning)
+		warnings = append(warnings, warning)
+	}
+
+	return warnings, l.validate(ctx, newConfig)
 }
 
-func (l *LLMInferenceServiceConfigValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
-	// No validation needed for deletion
-	return admission.Warnings{}, nil
+func (l *LLMInferenceServiceConfigValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	logger := log.FromContext(ctx)
+	warnings := admission.Warnings{}
+
+	config, err := utils.Convert[*LLMInferenceServiceConfig](obj)
+	if err != nil {
+		return warnings, err
+	}
+
+	// Warn if deleting a well-known config
+	if l.WellKnownConfigChecker != nil && l.WellKnownConfigChecker(config.Name) {
+		warning := fmt.Sprintf("deleting well-known config %s/%s is not recommended", config.Namespace, config.Name)
+		logger.Info(warning)
+		warnings = append(warnings, warning)
+	}
+
+	return warnings, nil
 }
 
 func (l *LLMInferenceServiceConfigValidator) validate(ctx context.Context, config *LLMInferenceServiceConfig) error {
