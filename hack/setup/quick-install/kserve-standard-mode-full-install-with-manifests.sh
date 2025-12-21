@@ -282,7 +282,7 @@ wait_for_crd() {
     sleep 2
 
     # Retry logic to handle race condition where .status.conditions may not be initialized yet
-    local max_retries=3
+    local max_retries=10
     local retry=0
     while [ $retry -lt $max_retries ]; do
         if kubectl wait --for=condition=Established --timeout="$timeout" crd/"$crd_name" 2>/dev/null; then
@@ -325,75 +325,63 @@ update_isvc_config() {
 
     log_info "Updating inferenceservice-config..."
 
-    local temp=$(mktemp)
-    kubectl get configmap inferenceservice-config -n "${KSERVE_NAMESPACE}" -o json > "$temp"
-
-    # Group updates by data_key to avoid multiple updates to the same key
-    declare -A data_key_updates
+    # Prepare updates as JSON array
+    local updates_file
+    updates_file=$(mktemp)
 
     for arg in "$@"; do
         local key="${arg%%=*}"
-        local value="${arg#*=}"
-
-        # Split "ingress.enableGatewayApi" -> data_key="ingress", json_path="enableGatewayApi"
+        local raw_value="${arg#*=}"
         local data_key="${key%%.*}"
         local json_path="${key#*.}"
+        local value_json="$raw_value"
 
-        # Append to the list of updates for this data_key
-        if [ -z "${data_key_updates[$data_key]:-}" ]; then
-            data_key_updates[$data_key]="$json_path=$value"
-        else
-            data_key_updates[$data_key]="${data_key_updates[$data_key]}|$json_path=$value"
-        fi
-    done
-
-    # Process each data_key once with all its updates
-    for data_key in "${!data_key_updates[@]}"; do
-        # Get current JSON from data field (stored as string)
-        local current=$(jq -r ".data.\"$data_key\"" "$temp")
-
-        # Skip if the key doesn't exist or is null
-        if [ "$current" = "null" ] || [ -z "$current" ]; then
-            log_info "  ⊘ Skipping all updates for '$data_key' (not found in ConfigMap)"
-            continue
+        # Smart type detection: auto-quote strings, keep numbers/booleans/JSON as-is
+        if [[ ! $raw_value =~ ^\" ]] \
+           && [[ ! $raw_value =~ ^-?[0-9]+(\.[0-9]+)?$ ]] \
+           && [[ ! $raw_value =~ ^(true|false|null)$ ]] \
+           && [[ ! $raw_value =~ ^[{\[] ]]; then
+            value_json=$(jq -Rn --arg v "$raw_value" '$v')
         fi
 
-        # Apply all updates for this data_key
-        local updated="$current"
-        IFS='|' read -ra updates <<< "${data_key_updates[$data_key]}"
-        for update in "${updates[@]}"; do
-            local json_path="${update%%=*}"
-            local value="${update#*=}"
+        jq -n \
+            --arg data_key "$data_key" \
+            --arg path "$json_path" \
+            --argjson value "$value_json" \
+            '{data_key:$data_key, path:$path, value:$value}' >> "$updates_file"
 
-            # Smart quote handling for string values
-            # If value doesn't start with " and is not a number/boolean, add double quotes
-            if [[ ! $value =~ ^\" ]] && [[ ! $value =~ ^[0-9]+(\.[0-9]+)?$ ]] && [[ ! $value =~ ^(true|false|null)$ ]]; then
-                value="\"$value\""
-            fi
-
-            # Check if the nested path exists, create if missing
-            local parent_path="${json_path%.*}"
-            if [ "$parent_path" != "$json_path" ]; then
-                # There's a parent path, check if it exists
-                if ! echo "$updated" | jq -e ".$parent_path" >/dev/null 2>&1; then
-                    log_info "  + Creating nested path '$parent_path' in $data_key"
-                    # Create all intermediate paths as empty objects
-                    updated=$(echo "$updated" | jq ".$parent_path = {}")
-                fi
-            fi
-
-            # Update the nested field
-            updated=$(echo "$updated" | jq ".$json_path = $value")
-            log_info "  ✓ $data_key.$json_path = $value"
-        done
-
-        # Put it back as JSON string (preserve pretty-print format like original ConfigMap)
-        pretty_json=$(echo "$updated" | jq '.')
-        jq --arg updated "$pretty_json" ".data.\"$data_key\" = \$updated" "$temp" > "$temp.new" && mv "$temp.new" "$temp"
+        log_info "  ✓ $data_key.$json_path = $value_json"
     done
 
-    kubectl apply -f "$temp"
-    rm -f "$temp"
+    local updates_json
+    updates_json=$(jq -s '.' "$updates_file")
+    rm -f "$updates_file"
+
+    # Apply all updates with a single jq invocation
+    kubectl get configmap inferenceservice-config -n "${KSERVE_NAMESPACE}" -o json |
+        jq --argjson updates "$updates_json" '
+            # Helper function to safely set nested paths, creating intermediate objects as needed
+            def setpath_safe($parts; $value):
+                reduce range(0; ($parts|length)-1) as $i (.;
+                    $parts[:$i+1] as $prefix
+                    | if getpath($prefix) == null then setpath($prefix; {}) else . end
+                )
+                | setpath($parts; $value);
+
+            # Apply each update
+            reduce $updates[] as $item (.;
+                if .data[$item.data_key] == null or .data[$item.data_key] == "" then
+                    .
+                else
+                    .data[$item.data_key] |= (
+                        fromjson
+                        | setpath_safe($item.path | split("."); $item.value)
+                        | tojson
+                    )
+                end
+            )
+        ' |
+        kubectl apply -f -
 
     log_success "ConfigMap updated successfully"
 }
@@ -77273,7 +77261,6 @@ spec:
       - '{{ .Spec.Model.Name }}'
       - --port
       - "8001"
-      - --disable-log-requests
       command:
       - vllm
       - serve
@@ -77471,12 +77458,11 @@ spec:
         \ else\n      echo \"[Infer RoCE] No active HCAs found, skipping GID_INDEX
         inference.\"\n  fi\nfi\n\nSTART_RANK=0\neval \"vllm serve \\\n  /mnt/models
         \\\n  --served-model-name \"{{ .Spec.Model.Name }}\" \\\n  --port 8001 \\\n
-        \ --api-server-count ${VLLM_API_SERVER_COUNT:-8} \\\n  --disable-log-requests
-        \\\n  {{- if .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }}
-        \\\n  {{- if .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor
-        }}{{- end }} \\\n  --data-parallel-size {{ or .Spec.Parallelism.Data 1 }}
-        \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \\\n
-        \ --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
+        \ --api-server-count ${VLLM_API_SERVER_COUNT:-8} \\\n  {{- if .Spec.Parallelism.Expert
+        -}}--enable-expert-parallel{{- end }} \\\n  {{- if .Spec.Parallelism.Tensor
+        -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
+        {{ or .Spec.Parallelism.Data 1 }} \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal
+        1 }} \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
         {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{
         else }}5555{{- end }} \\\n  --data-parallel-start-rank $START_RANK \\\n  ${VLLM_ADDITIONAL_ARGS}
         \\\n  --trust-remote-code\"\n  # BackendTLSPolicy is not implemented yet so
@@ -77677,12 +77663,11 @@ spec:
         \ else\n      echo \"[Infer RoCE] No active HCAs found, skipping GID_INDEX
         inference.\"\n  fi\nfi\n\nSTART_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Parallelism.DataLocal
         1 }} ))\neval \"vllm serve \\\n  /mnt/models \\\n  --served-model-name \"{{
-        .Spec.Model.Name }}\" \\\n  --port 8001 \\\n  --disable-log-requests \\\n
-        \ {{- if .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \\\n
-        \ {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor
-        }}{{- end }} \\\n  --data-parallel-size {{ or .Spec.Parallelism.Data 1 }}
-        \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \\\n
-        \ --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
+        .Spec.Model.Name }}\" \\\n  --port 8001 \\\n  {{- if .Spec.Parallelism.Expert
+        }}--enable-expert-parallel{{- end }} \\\n  {{- if .Spec.Parallelism.Tensor
+        }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
+        {{ or .Spec.Parallelism.Data 1 }} \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal
+        1 }} \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
         {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{
         else }}5555{{- end }} \\\n  --data-parallel-start-rank $START_RANK \\\n  ${VLLM_ADDITIONAL_ARGS}
         \\\n  --trust-remote-code \\\n  --headless\"\n  # BackendTLSPolicy is not
@@ -77759,7 +77744,6 @@ spec:
         - '{{ .Spec.Model.Name }}'
         - --port
         - "8000"
-        - --disable-log-requests
         command:
         - vllm
         - serve
@@ -77910,7 +77894,7 @@ spec:
           GID_INDEX inference.\"\n  fi\nfi\n\nSTART_RANK=0\neval \"vllm serve \\\n
           \ /mnt/models \\\n  --served-model-name \"{{ .Spec.Model.Name }}\" \\\n
           \ --port 8000 \\\n  --api-server-count ${VLLM_API_SERVER_COUNT:-8} \\\n
-          \ --disable-log-requests \\\n  {{- if .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{-
+          \ {{- if .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{-
           end }} \\\n  {{- if .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size
           {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
           {{ or .Spec.Prefill.Parallelism.Data 1 }} \\\n  --data-parallel-size-local
@@ -78066,18 +78050,18 @@ spec:
           GID_INDEX inference.\"\n  fi\nfi\n\nSTART_RANK=$(( ${LWS_WORKER_INDEX:-0}
           * {{ or .Spec.Prefill.Parallelism.DataLocal 1 }} ))\neval \"vllm serve \\\n
           \ /mnt/models \\\n  --served-model-name \"{{ .Spec.Model.Name }}\" \\\n
-          \ --port 8000 \\\n  --disable-log-requests \\\n  {{- if .Spec.Prefill.Parallelism.Expert
-          }}--enable-expert-parallel{{- end }} \\\n  {{- if .Spec.Prefill.Parallelism.Tensor
-          }}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }}
-          \\\n  --data-parallel-size {{ or .Spec.Prefill.Parallelism.Data 1 }} \\\n
-          \ --data-parallel-size-local {{ or .Spec.Prefill.Parallelism.DataLocal 1
-          }} \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
-          {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort
-          }}{{ else }}5555{{- end }} \\\n  --data-parallel-start-rank $START_RANK
-          \\\n  ${VLLM_ADDITIONAL_ARGS} \\\n  --trust-remote-code \\\n  --headless\"
-          \               \n  # BackendTLSPolicy is not implemented yet so disable
-          SSL for now\n  # --enable-ssl-refresh \\\n  # --ssl-certfile \\\n  # /etc/ssl/certs/tls.crt
-          \\\n  # --ssl-keyfile \\\n  # /etc/ssl/certs/tls.key\""
+          \ --port 8000 \\\n  {{- if .Spec.Prefill.Parallelism.Expert }}--enable-expert-parallel{{-
+          end }} \\\n  {{- if .Spec.Prefill.Parallelism.Tensor }}--tensor-parallel-size
+          {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
+          {{ or .Spec.Prefill.Parallelism.Data 1 }} \\\n  --data-parallel-size-local
+          {{ or .Spec.Prefill.Parallelism.DataLocal 1 }} \\\n  --data-parallel-address
+          $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort
+          }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \\\n
+          \ --data-parallel-start-rank $START_RANK \\\n  ${VLLM_ADDITIONAL_ARGS} \\\n
+          \ --trust-remote-code \\\n  --headless\"                \n  # BackendTLSPolicy
+          is not implemented yet so disable SSL for now\n  # --enable-ssl-refresh
+          \\\n  # --ssl-certfile \\\n  # /etc/ssl/certs/tls.crt \\\n  # --ssl-keyfile
+          \\\n  # /etc/ssl/certs/tls.key\""
         command:
         - /bin/bash
         - -c
@@ -78270,7 +78254,6 @@ spec:
       - '{{ .Spec.Model.Name }}'
       - --port
       - "8000"
-      - --disable-log-requests
       command:
       - vllm
       - serve
@@ -78419,12 +78402,11 @@ spec:
         \ else\n      echo \"[Infer RoCE] No active HCAs found, skipping GID_INDEX
         inference.\"\n  fi\nfi\n\nSTART_RANK=0\neval \"vllm serve \\\n  /mnt/models
         \\\n  --served-model-name \"{{ .Spec.Model.Name }}\" \\\n  --port 8000 \\\n
-        \ --api-server-count ${VLLM_API_SERVER_COUNT:-8} \\\n  --disable-log-requests
-        \\\n  {{- if .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }}
-        \\\n  {{- if .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor
-        }}{{- end }} \\\n  --data-parallel-size {{ or .Spec.Parallelism.Data 1 }}
-        \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \\\n
-        \ --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
+        \ --api-server-count ${VLLM_API_SERVER_COUNT:-8} \\\n  {{- if .Spec.Parallelism.Expert
+        -}}--enable-expert-parallel{{- end }} \\\n  {{- if .Spec.Parallelism.Tensor
+        -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
+        {{ or .Spec.Parallelism.Data 1 }} \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal
+        1 }} \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
         {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{
         else }}5555{{- end }} \\\n  --data-parallel-start-rank $START_RANK \\\n  ${VLLM_ADDITIONAL_ARGS}
         \\\n  --trust-remote-code\"\n  # BackendTLSPolicy is not implemented yet so
@@ -78574,12 +78556,11 @@ spec:
         \ else\n      echo \"[Infer RoCE] No active HCAs found, skipping GID_INDEX
         inference.\"\n  fi\nfi\n\nSTART_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Parallelism.DataLocal
         1 }} ))\neval \"vllm serve \\\n  /mnt/models \\\n  --served-model-name \"{{
-        .Spec.Model.Name }}\" \\\n  --port 8000 \\\n  --disable-log-requests \\\n
-        \ {{- if .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \\\n
-        \ {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor
-        }}{{- end }} \\\n  --data-parallel-size {{ or .Spec.Parallelism.Data 1 }}
-        \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \\\n
-        \ --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
+        .Spec.Model.Name }}\" \\\n  --port 8000 \\\n  {{- if .Spec.Parallelism.Expert
+        }}--enable-expert-parallel{{- end }} \\\n  {{- if .Spec.Parallelism.Tensor
+        }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
+        {{ or .Spec.Parallelism.Data 1 }} \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal
+        1 }} \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
         {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{
         else }}5555{{- end }} \\\n  --data-parallel-start-rank $START_RANK \\\n  ${VLLM_ADDITIONAL_ARGS}
         \\\n  --trust-remote-code \\\n  --headless\"\n  # BackendTLSPolicy is not

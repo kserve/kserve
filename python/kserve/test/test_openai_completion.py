@@ -322,7 +322,10 @@ class TestOpenAIParamsConversion:
                 prompt=chat_completion_create_params.messages[0]["content"],
             )
         )
-        assert converted_params == completion_create_params
+        expected_params = completion_create_params.model_copy(
+            update={"request_id": converted_params.request_id}
+        )
+        assert converted_params == expected_params
 
 
 class TestOpenAIProxyModelCompletion:
