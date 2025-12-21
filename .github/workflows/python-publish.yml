@@ -11,7 +11,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  publish-kserve:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+      - name: KServe - Build and publish
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          cd python/kserve
+          uv build
+          uv publish
+  publish-storage:
     runs-on: ubuntu-latest
 
     steps:
@@ -31,13 +52,5 @@ jobs:
           UV_PUBLISH_TOKEN: ${{ secrets.KSERVE_STORAGE_PYPI_TOKEN }}
         run: |
           cd python/storage
-          uv build
-          uv publish
-
-      - name: KServe - Build and publish
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
-        run: |
-          cd python/kserve
           uv build
           uv publish
