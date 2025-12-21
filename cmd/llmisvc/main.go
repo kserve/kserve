@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
@@ -174,7 +175,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	v1alpha1ConfigValidator := &v1alpha1.LLMInferenceServiceConfigValidator{}
+	v1alpha1ConfigValidator := &v1alpha1.LLMInferenceServiceConfigValidator{
+		ConfigValidationFunc: createV1Alpha1ConfigValidationFunc(clientSet),
+		WellKnownConfigChecker: func(name string) bool {
+			return llmisvc.WellKnownDefaultConfigs.Has(name)
+		},
+	}
 	if err = v1alpha1ConfigValidator.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig-v1alpha1")
 		os.Exit(1)
@@ -187,7 +193,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	v1alpha2ConfigValidator := &v1alpha2.LLMInferenceServiceConfigValidator{}
+	v1alpha2ConfigValidator := &v1alpha2.LLMInferenceServiceConfigValidator{
+		ConfigValidationFunc: createV1Alpha2ConfigValidationFunc(clientSet),
+		WellKnownConfigChecker: func(name string) bool {
+			return llmisvc.WellKnownDefaultConfigs.Has(name)
+		},
+	}
 	if err = v1alpha2ConfigValidator.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig-v1alpha2")
 		os.Exit(1)
@@ -206,5 +217,40 @@ func main() {
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "unable to run the manager")
 		os.Exit(1)
+	}
+}
+
+// createV1Alpha1ConfigValidationFunc creates a validation function for v1alpha1 LLMInferenceServiceConfig.
+// It converts the config to v1alpha2 and validates using the v1alpha2 llmisvc package.
+func createV1Alpha1ConfigValidationFunc(clientSet kubernetes.Interface) func(ctx context.Context, config *v1alpha1.LLMInferenceServiceConfig) error {
+	return func(ctx context.Context, config *v1alpha1.LLMInferenceServiceConfig) error {
+		// Convert v1alpha1 config to v1alpha2 for validation
+		v2Config := &v1alpha2.LLMInferenceServiceConfig{}
+		if err := config.ConvertTo(v2Config); err != nil {
+			return err
+		}
+
+		// Load controller config and validate template
+		cfg, err := llmisvc.LoadConfig(ctx, clientSet)
+		if err != nil {
+			return err
+		}
+
+		_, err = llmisvc.ReplaceVariables(llmisvc.LLMInferenceServiceSample(), v2Config, cfg)
+		return err
+	}
+}
+
+// createV1Alpha2ConfigValidationFunc creates a validation function for v1alpha2 LLMInferenceServiceConfig.
+func createV1Alpha2ConfigValidationFunc(clientSet kubernetes.Interface) func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
+	return func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
+		// Load controller config and validate template
+		cfg, err := llmisvc.LoadConfig(ctx, clientSet)
+		if err != nil {
+			return err
+		}
+
+		_, err = llmisvc.ReplaceVariables(llmisvc.LLMInferenceServiceSample(), config, cfg)
+		return err
 	}
 }
