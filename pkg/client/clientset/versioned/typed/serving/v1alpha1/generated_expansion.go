@@ -28,6 +28,8 @@ type LLMInferenceServiceExpansion interface{}
 
 type LocalModelCacheExpansion interface{}
 
+type LocalModelNamespaceCacheExpansion interface{}
+
 type LocalModelNodeExpansion interface{}
 
 type LocalModelNodeGroupExpansion interface{}
