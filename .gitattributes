@@ -1,1 +1,2 @@
 *.sh linguist-vendored
+python/kserve/kserve/models/** linguist-generated=true
