@@ -35,6 +35,7 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmp"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -502,4 +503,23 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 		}
 	}
 	return r.DeploymentList, nil
+}
+
+// GetWorkloads returns Deployments as generic Objects for controller references
+func (r *DeploymentReconciler) GetWorkloads() []metav1.Object {
+	workloads := make([]metav1.Object, len(r.DeploymentList))
+	for i, dep := range r.DeploymentList {
+		workloads[i] = dep
+	}
+	return workloads
+}
+
+// SetControllerReferences sets owner references on all Deployments
+func (r *DeploymentReconciler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
+	for _, deployment := range r.DeploymentList {
+		if err := controllerutil.SetControllerReference(owner, deployment, scheme); err != nil {
+			return err
+		}
+	}
+	return nil
 }
