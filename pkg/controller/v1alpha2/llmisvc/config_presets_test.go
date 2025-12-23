@@ -55,7 +55,7 @@ func TestPresetFiles(t *testing.T) {
 		"config-llm-decode-worker-data-parallel.yaml": {
 			expected: &v1alpha2.LLMInferenceServiceConfig{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "serving.kserve.io/v1alpha1",
+					APIVersion: "serving.kserve.io/v1alpha2",
 					Kind:       "LLMInferenceServiceConfig",
 				},
 				ObjectMeta: metav1.ObjectMeta{
@@ -94,7 +94,7 @@ func TestPresetFiles(t *testing.T) {
 							InitContainers: []corev1.Container{
 								{
 									Name:  "llm-d-routing-sidecar",
-									Image: "ghcr.io/llm-d/llm-d-routing-sidecar:v0.2.0",
+									Image: "ghcr.io/llm-d/llm-d-routing-sidecar:v0.4.0",
 									Args: []string{
 										"--port=8000",
 										"--vllm-port=8001",
@@ -170,7 +170,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:    "main",
-									Image:   "ghcr.io/llm-d/llm-d-dev:v0.2.2",
+									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.4.0",
 									Command: []string{"/bin/bash", "-c"},
 									Ports: []corev1.ContainerPort{
 										{
@@ -292,7 +292,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:    "main",
-									Image:   "ghcr.io/llm-d/llm-d-dev:v0.2.2",
+									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.4.0",
 									Command: []string{"/bin/bash", "-c"},
 									Ports: []corev1.ContainerPort{
 										{

@@ -328,7 +328,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					InNamespace[*igwapi.InferencePool](nsName),
 					WithSelector("app", "workload"),
 					WithTargetPort(8000),
-					WithExtensionRef("", "Service", kmeta.ChildName(svcName, "-epp-service")),
+					WithExtensionRef("", "Service", kmeta.ChildName(svcName, "-epp-service"), 9002),
 					WithInferencePoolReadyStatus(),
 				)
 
