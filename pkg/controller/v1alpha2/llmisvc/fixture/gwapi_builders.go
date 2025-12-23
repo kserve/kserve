@@ -570,12 +570,13 @@ func WithTargetPort(port int32) InferencePoolOption {
 	}
 }
 
-func WithEndpointPickerRef(group, kind, name string) InferencePoolOption {
+func WithEndpointPickerRef(group, kind, name string, port int32) InferencePoolOption {
 	return func(pool *igwapi.InferencePool) {
 		pool.Spec.EndpointPickerRef = igwapi.EndpointPickerRef{
 			Group:       ptr.To(igwapi.Group(group)),
 			Kind:        igwapi.Kind(kind),
 			Name:        igwapi.ObjectName(name),
+			Port:        &igwapi.Port{Number: igwapi.PortNumber(port)},
 			FailureMode: igwapi.EndpointPickerFailOpen,
 		}
 	}
@@ -583,8 +584,8 @@ func WithEndpointPickerRef(group, kind, name string) InferencePoolOption {
 
 // WithExtensionRef is deprecated - use WithEndpointPickerRef instead.
 // Kept for backward compatibility.
-func WithExtensionRef(group, kind, name string) InferencePoolOption {
-	return WithEndpointPickerRef(group, kind, name)
+func WithExtensionRef(group, kind, name string, port int32) InferencePoolOption {
+	return WithEndpointPickerRef(group, kind, name, port)
 }
 
 func WithInferencePoolReadyStatus() InferencePoolOption {
