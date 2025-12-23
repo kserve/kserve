@@ -1,3 +1,7 @@
 alibi-detect>=0.4.0
+httplib2>=0.20.2
+ipywidgets
 matplotlib>=3.1.1
+notebook
+tensorflow>=2.2.0, !=2.6.0, !=2.6.1, <2.13.0
 tqdm>=4.45.0
