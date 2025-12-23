@@ -25,6 +25,7 @@ venv/
 **/.DS_Store
  
 # editor and IDE paraphernalia
+.cursor
 .idea
 .editorconfig
 .vscode
