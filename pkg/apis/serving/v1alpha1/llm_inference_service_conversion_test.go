@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 
@@ -47,7 +48,7 @@ func TestLLMInferenceServiceConversion_PreservesCriticality(t *testing.T) {
 	// Convert to v1alpha2 (hub)
 	dst := &v1alpha2.LLMInferenceService{}
 	err := src.ConvertTo(dst)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify the criticality is stored in annotations
 	assert.NotNil(t, dst.ObjectMeta.Annotations)
@@ -56,7 +57,7 @@ func TestLLMInferenceServiceConversion_PreservesCriticality(t *testing.T) {
 	// Convert back to v1alpha1
 	restored := &LLMInferenceService{}
 	err = restored.ConvertFrom(dst)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify the criticality is restored
 	assert.NotNil(t, restored.Spec.Model.Criticality)
@@ -106,7 +107,7 @@ func TestLLMInferenceServiceConversion_PreservesLoRACriticalities(t *testing.T) 
 	// Convert to v1alpha2 (hub)
 	dst := &v1alpha2.LLMInferenceService{}
 	err := src.ConvertTo(dst)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify criticalities are stored in annotations
 	assert.NotNil(t, dst.ObjectMeta.Annotations)
@@ -116,7 +117,7 @@ func TestLLMInferenceServiceConversion_PreservesLoRACriticalities(t *testing.T) 
 	// Convert back to v1alpha1
 	restored := &LLMInferenceService{}
 	err = restored.ConvertFrom(dst)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify the model criticality is restored
 	assert.NotNil(t, restored.Spec.Model.Criticality)
@@ -157,7 +158,7 @@ func TestLLMInferenceServiceConversion_NoCriticality(t *testing.T) {
 	// Convert to v1alpha2 (hub)
 	dst := &v1alpha2.LLMInferenceService{}
 	err := src.ConvertTo(dst)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify no criticality annotation is created
 	if dst.ObjectMeta.Annotations != nil {
@@ -168,7 +169,7 @@ func TestLLMInferenceServiceConversion_NoCriticality(t *testing.T) {
 	// Convert back to v1alpha1
 	restored := &LLMInferenceService{}
 	err = restored.ConvertFrom(dst)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify criticality remains nil
 	assert.Nil(t, restored.Spec.Model.Criticality)
@@ -195,7 +196,7 @@ func TestLLMInferenceServiceConfigConversion_PreservesCriticality(t *testing.T) 
 	// Convert to v1alpha2 (hub)
 	dst := &v1alpha2.LLMInferenceServiceConfig{}
 	err := src.ConvertTo(dst)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify the criticality is stored in annotations
 	assert.NotNil(t, dst.ObjectMeta.Annotations)
@@ -204,7 +205,7 @@ func TestLLMInferenceServiceConfigConversion_PreservesCriticality(t *testing.T) 
 	// Convert back to v1alpha1
 	restored := &LLMInferenceServiceConfig{}
 	err = restored.ConvertFrom(dst)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify the criticality is restored
 	assert.NotNil(t, restored.Spec.Model.Criticality)
@@ -236,7 +237,7 @@ func TestLLMInferenceServiceConversion_PreservesExistingAnnotations(t *testing.T
 	// Convert to v1alpha2 (hub)
 	dst := &v1alpha2.LLMInferenceService{}
 	err := src.ConvertTo(dst)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify both annotations exist
 	assert.Equal(t, existingAnnotation, dst.ObjectMeta.Annotations["existing-annotation"])
@@ -245,7 +246,7 @@ func TestLLMInferenceServiceConversion_PreservesExistingAnnotations(t *testing.T
 	// Convert back to v1alpha1
 	restored := &LLMInferenceService{}
 	err = restored.ConvertFrom(dst)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Verify the criticality is restored
 	assert.NotNil(t, restored.Spec.Model.Criticality)

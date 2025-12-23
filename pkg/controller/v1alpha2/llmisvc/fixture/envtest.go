@@ -64,14 +64,38 @@ func SetupTestEnv() *pkgtest.Client {
 	}
 
 	webhookManifests := pkgtest.WithWebhookManifests(filepath.Join(pkgtest.ProjectRoot(), "test", "webhooks"))
-	webhooks := func(_ *rest.Config, mgr ctrl.Manager) error {
+	webhooks := func(cfg *rest.Config, mgr ctrl.Manager) error {
+		clientSet, err := kubernetes.NewForConfig(cfg)
+		if err != nil {
+			return err
+		}
+
+		// Create validation function for config template validation
+		v2ConfigValidationFunc := func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
+			llmisvcConfig, err := llmisvc.LoadConfig(ctx, clientSet)
+			if err != nil {
+				return err
+			}
+			_, err = llmisvc.ReplaceVariables(llmisvc.LLMInferenceServiceSample(), config, llmisvcConfig)
+			return err
+		}
+		v1ConfigValidationFunc := func(ctx context.Context, config *v1alpha1.LLMInferenceServiceConfig) error {
+			v2Config := &v1alpha2.LLMInferenceServiceConfig{}
+			if err := config.ConvertTo(v2Config); err != nil {
+				return err
+			}
+			return v2ConfigValidationFunc(ctx, v2Config)
+		}
+
 		// Register v1alpha1 validators
 		v1alpha1LLMValidator := &v1alpha1.LLMInferenceServiceValidator{}
 		if err := v1alpha1LLMValidator.SetupWithManager(mgr); err != nil {
 			return err
 		}
 
-		v1alpha1ConfigValidator := &v1alpha1.LLMInferenceServiceConfigValidator{}
+		v1alpha1ConfigValidator := &v1alpha1.LLMInferenceServiceConfigValidator{
+			ConfigValidationFunc: v1ConfigValidationFunc,
+		}
 		if err := v1alpha1ConfigValidator.SetupWithManager(mgr); err != nil {
 			return err
 		}
@@ -82,7 +106,9 @@ func SetupTestEnv() *pkgtest.Client {
 			return err
 		}
 
-		v1alpha2ConfigValidator := &v1alpha2.LLMInferenceServiceConfigValidator{}
+		v1alpha2ConfigValidator := &v1alpha2.LLMInferenceServiceConfigValidator{
+			ConfigValidationFunc: v2ConfigValidationFunc,
+		}
 		return v1alpha2ConfigValidator.SetupWithManager(mgr)
 	}
 
