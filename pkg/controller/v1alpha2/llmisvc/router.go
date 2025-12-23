@@ -289,7 +289,6 @@ func (r *LLMISVCReconciler) EvaluateGatewayConditions(ctx context.Context, llmSv
 		return nil
 	}
 
-
 	gateways, err := r.CollectReferencedGateways(ctx, llmSvc)
 	if err != nil {
 		llmSvc.MarkGatewaysNotReady("GatewayFetchError", "Failed to fetch referenced Gateways: %v", err.Error())
@@ -388,7 +387,6 @@ func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llm
 		logger.Info("HTTPRoute validation failed, skipping readiness evaluation", "reason", condition.Reason, "message", condition.Message)
 		return nil
 	}
-
 
 	// Collect all HTTPRoutes (both referenced and managed)
 	var allRoutes []*gwapiv1.HTTPRoute

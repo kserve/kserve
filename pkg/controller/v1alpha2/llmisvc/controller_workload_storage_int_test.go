@@ -579,27 +579,27 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			modelURL, err := apis.ParseURL("s3://user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
 
-			llmSvc := &v1alpha1.LLMInferenceService{
+			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
 					Namespace: nsName,
 				},
-				Spec: v1alpha1.LLMInferenceServiceSpec{
-					Model: v1alpha1.LLMModelSpec{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
 						Name: ptr.To("foo"),
 						URI:  *modelURL,
 					},
-					WorkloadSpec: v1alpha1.WorkloadSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							ServiceAccountName: serviceAccountName,
 						},
 					},
-					Router: &v1alpha1.RouterSpec{
-						Route:     &v1alpha1.GatewayRoutesSpec{},
-						Gateway:   &v1alpha1.GatewaySpec{},
-						Scheduler: &v1alpha1.SchedulerSpec{},
+					Router: &v1alpha2.RouterSpec{
+						Route:     &v1alpha2.GatewayRoutesSpec{},
+						Gateway:   &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{},
 					},
-					Prefill: &v1alpha1.WorkloadSpec{
+					Prefill: &v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							ServiceAccountName: serviceAccountName,
 						},
@@ -1628,17 +1628,17 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			modelURL, err := apis.ParseURL("s3://user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
 
-			llmSvc := &v1alpha1.LLMInferenceService{
+			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
 					Namespace: nsName,
 				},
-				Spec: v1alpha1.LLMInferenceServiceSpec{
-					Model: v1alpha1.LLMModelSpec{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
 						Name: ptr.To("foo"),
 						URI:  *modelURL,
 					},
-					WorkloadSpec: v1alpha1.WorkloadSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							ServiceAccountName: serviceAccountName,
 							Containers:         []corev1.Container{},
@@ -1647,17 +1647,17 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 							ServiceAccountName: serviceAccountName,
 							Containers:         []corev1.Container{},
 						},
-						Parallelism: &v1alpha1.ParallelismSpec{
+						Parallelism: &v1alpha2.ParallelismSpec{
 							Data:      ptr.To[int32](1),
 							DataLocal: ptr.To[int32](1),
 						},
 					},
-					Router: &v1alpha1.RouterSpec{
-						Route:     &v1alpha1.GatewayRoutesSpec{},
-						Gateway:   &v1alpha1.GatewaySpec{},
-						Scheduler: &v1alpha1.SchedulerSpec{},
+					Router: &v1alpha2.RouterSpec{
+						Route:     &v1alpha2.GatewayRoutesSpec{},
+						Gateway:   &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{},
 					},
-					Prefill: &v1alpha1.WorkloadSpec{
+					Prefill: &v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							ServiceAccountName: serviceAccountName,
 							Containers:         []corev1.Container{},
@@ -1666,7 +1666,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 							ServiceAccountName: serviceAccountName,
 							Containers:         []corev1.Container{},
 						},
-						Parallelism: &v1alpha1.ParallelismSpec{
+						Parallelism: &v1alpha2.ParallelismSpec{
 							Data:      ptr.To[int32](1),
 							DataLocal: ptr.To[int32](1),
 						},

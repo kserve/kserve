@@ -450,7 +450,7 @@ func TestMergeSpecs(t *testing.T) {
 						Scheduler: &v1alpha2.SchedulerSpec{
 							Pool: &v1alpha2.InferencePoolSpec{
 								Spec: &igwapi.InferencePoolSpec{
-									TargetPorts: []igwapi.Port{},
+									TargetPorts: nil,
 									EndpointPickerRef: igwapi.EndpointPickerRef{
 										FailureMode: igwapi.EndpointPickerFailClose,
 									},
@@ -495,7 +495,7 @@ func TestMergeSpecs(t *testing.T) {
 					Scheduler: &v1alpha2.SchedulerSpec{
 						Pool: &v1alpha2.InferencePoolSpec{
 							Spec: &igwapi.InferencePoolSpec{
-								TargetPorts: []igwapi.Port{},
+								TargetPorts: nil,
 								EndpointPickerRef: igwapi.EndpointPickerRef{
 									FailureMode: igwapi.EndpointPickerFailClose,
 								},
