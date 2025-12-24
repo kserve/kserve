@@ -488,6 +488,82 @@ func (r *InferenceServiceReconciler) clusterServingRuntimeFunc(ctx context.Conte
 	return requests
 }
 
+func (r *InferenceServiceReconciler) podInitContainersFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	pod, ok := obj.(*corev1.Pod)
+	if !ok || pod == nil {
+		return nil
+	}
+	// Lookup by PodTemplateSpec labels
+	if isvcName, found := pod.Labels[constants.InferenceServicePodLabelKey]; found && isvcName != "" {
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Namespace: pod.Namespace,
+					Name:      isvcName, // Reconcile the InferenceService that manages this pod
+				},
+			},
+		}
+	}
+	// If label is missing, this pod is not managed by an InferenceService
+	return nil
+}
+
+// servingRuntimesPredicate returns a predicate that filters ServingRuntime updates
+// to only include those where the Spec has changed.
+func servingRuntimesPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldServingRuntime := e.ObjectOld.(*v1alpha1.ServingRuntime)
+			newServingRuntime := e.ObjectNew.(*v1alpha1.ServingRuntime)
+			return !reflect.DeepEqual(oldServingRuntime.Spec, newServingRuntime.Spec)
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+}
+
+// clusterServingRuntimesPredicate returns a predicate that filters ClusterServingRuntime updates
+// to only include those where the Spec has changed.
+// TODO: Find a way to distinguish if the ServingRuntime is a ClusterServingRuntime or not
+func clusterServingRuntimesPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldClusterServingRuntime := e.ObjectOld.(*v1alpha1.ClusterServingRuntime)
+			newClusterServingRuntime := e.ObjectNew.(*v1alpha1.ClusterServingRuntime)
+			return !reflect.DeepEqual(oldClusterServingRuntime.Spec, newClusterServingRuntime.Spec)
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+}
+
+// podInitContainersPredicate returns a predicate that filters pod updates to only
+// include those where InitContainerStatuses have changed for pods with the InferenceService label.
+func podInitContainersPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			// Only process pods managed by InferenceServices
+			newPod, ok := e.ObjectNew.(*corev1.Pod)
+			if !ok || newPod == nil {
+				return false
+			}
+			// Check if pod has the InferenceService label
+			_, found := newPod.Labels[constants.InferenceServicePodLabelKey]
+			if !found {
+				return false
+			}
+			// Only watch pod status changes, not spec changes
+			oldPod := e.ObjectOld.(*corev1.Pod)
+			return !equality.Semantic.DeepEqual(oldPod.Status.InitContainerStatuses, newPod.Status.InitContainerStatuses)
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+}
+
 func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1.DeployConfig, ingressConfig *v1beta1.IngressConfig) error {
 	r.ClientConfig = mgr.GetConfig()
 	ctx := context.Background()
@@ -526,29 +602,6 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		return nil
 	}); err != nil {
 		return err
-	}
-
-	servingRuntimesPredicate := predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldServingRuntime := e.ObjectOld.(*v1alpha1.ServingRuntime)
-			newServingRuntime := e.ObjectNew.(*v1alpha1.ServingRuntime)
-			return !reflect.DeepEqual(oldServingRuntime.Spec, newServingRuntime.Spec)
-		},
-		CreateFunc:  func(e event.CreateEvent) bool { return false },
-		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
-		GenericFunc: func(e event.GenericEvent) bool { return false },
-	}
-
-	// TODO: Find a way to distinguish if the ServingRuntime is a ClusterServingRuntime or not
-	clusterServingRuntimesPredicate := predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldClusterServingRuntime := e.ObjectOld.(*v1alpha1.ClusterServingRuntime)
-			newClusterServingRuntime := e.ObjectNew.(*v1alpha1.ClusterServingRuntime)
-			return !reflect.DeepEqual(oldClusterServingRuntime.Spec, newClusterServingRuntime.Spec)
-		},
-		CreateFunc:  func(e event.CreateEvent) bool { return false },
-		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
-		GenericFunc: func(e event.GenericEvent) bool { return false },
 	}
 
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
@@ -607,8 +660,9 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		ctrlBuilder = ctrlBuilder.Owns(&netv1.Ingress{})
 	}
 
-	return ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate)).
-		Watches(&v1alpha1.ClusterServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.clusterServingRuntimeFunc), builder.WithPredicates(clusterServingRuntimesPredicate)).
+	return ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate())).
+		Watches(&v1alpha1.ClusterServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.clusterServingRuntimeFunc), builder.WithPredicates(clusterServingRuntimesPredicate())).
+		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.podInitContainersFunc), builder.WithPredicates(podInitContainersPredicate())).
 		Complete(r)
 }
 
