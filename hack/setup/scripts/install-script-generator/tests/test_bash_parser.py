@@ -287,6 +287,98 @@ function test() {
         # Should return original content
         self.assertEqual(result, content)
 
+    def test_extract_default_from_var_declaration_simple(self):
+        """Test basic extraction of default value from variable declaration."""
+        var_lines = ['DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-Knative}"']
+        result = bash_parser.extract_default_from_var_declaration("DEPLOYMENT_MODE", var_lines)
+        self.assertEqual(result, "Knative")
+
+    def test_extract_default_from_var_declaration_multiple_lines(self):
+        """Test extraction when variable is in a list with other variables."""
+        var_lines = [
+            'NAMESPACE="${NAMESPACE:-kserve}"',
+            'DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-Serverless}"',
+            'VERSION="${VERSION:-v0.15.0}"'
+        ]
+        result = bash_parser.extract_default_from_var_declaration("DEPLOYMENT_MODE", var_lines)
+        self.assertEqual(result, "Serverless")
+
+    def test_extract_default_from_var_declaration_not_found(self):
+        """Test when variable doesn't exist."""
+        var_lines = ['OTHER_VAR="${OTHER_VAR:-value}"']
+        result = bash_parser.extract_default_from_var_declaration("MISSING_VAR", var_lines)
+        self.assertEqual(result, "")
+
+    def test_extract_default_from_var_declaration_empty_list(self):
+        """Test with empty variable list."""
+        var_lines = []
+        result = bash_parser.extract_default_from_var_declaration("ANY_VAR", var_lines)
+        self.assertEqual(result, "")
+
+    def test_extract_default_from_var_declaration_no_default_pattern(self):
+        """Test when variable exists but doesn't match the default pattern."""
+        var_lines = [
+            'SIMPLE_VAR="hardcoded"',
+            'NAMESPACE=kserve',
+            'DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-Knative}"'
+        ]
+        result = bash_parser.extract_default_from_var_declaration("SIMPLE_VAR", var_lines)
+        self.assertEqual(result, "")
+        result = bash_parser.extract_default_from_var_declaration("DEPLOYMENT_MODE", var_lines)
+        self.assertEqual(result, "Knative")
+
+    def test_extract_default_from_var_declaration_with_spaces(self):
+        """Test extraction with leading/trailing whitespace."""
+        var_lines = [
+            '   DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-Knative}"   ',
+            '\tNAMESPACE="${NAMESPACE:-kserve}"\t'
+        ]
+        result = bash_parser.extract_default_from_var_declaration("DEPLOYMENT_MODE", var_lines)
+        self.assertEqual(result, "Knative")
+        result = bash_parser.extract_default_from_var_declaration("NAMESPACE", var_lines)
+        self.assertEqual(result, "kserve")
+
+    def test_extract_default_from_var_declaration_special_chars_in_default(self):
+        """Test defaults containing special characters."""
+        var_lines = [
+            'VERSION="${VERSION:-v1.2.3-rc1}"',
+            'URL="${URL:-https://example.com/path}"',
+            'PATH_VAR="${PATH_VAR:-/usr/local/bin}"'
+        ]
+        result = bash_parser.extract_default_from_var_declaration("VERSION", var_lines)
+        self.assertEqual(result, "v1.2.3-rc1")
+        result = bash_parser.extract_default_from_var_declaration("URL", var_lines)
+        self.assertEqual(result, "https://example.com/path")
+        result = bash_parser.extract_default_from_var_declaration("PATH_VAR", var_lines)
+        self.assertEqual(result, "/usr/local/bin")
+
+    def test_extract_default_from_var_declaration_empty_default(self):
+        """Test when default value is empty."""
+        var_lines = ['VAR="${VAR:-}"']
+        result = bash_parser.extract_default_from_var_declaration("VAR", var_lines)
+        self.assertEqual(result, "")
+
+    def test_extract_default_from_var_declaration_duplicate_var_names(self):
+        """Test when same variable appears multiple times (should return first match)."""
+        var_lines = [
+            'NAMESPACE="${NAMESPACE:-first}"',
+            'VERSION="${VERSION:-v1.0}"',
+            'NAMESPACE="${NAMESPACE:-second}"'
+        ]
+        result = bash_parser.extract_default_from_var_declaration("NAMESPACE", var_lines)
+        self.assertEqual(result, "first")
+
+    def test_extract_default_from_var_declaration_case_sensitive(self):
+        """Test that variable name matching is case-sensitive."""
+        var_lines = [
+            'namespace="${namespace:-lowercase}"',
+            'NAMESPACE="${NAMESPACE:-uppercase}"'
+        ]
+        result = bash_parser.extract_default_from_var_declaration("NAMESPACE", var_lines)
+        self.assertEqual(result, "uppercase")
+        result = bash_parser.extract_default_from_var_declaration("namespace", var_lines)
+        self.assertEqual(result, "lowercase")
+
 
 if __name__ == '__main__':
     unittest.main()
