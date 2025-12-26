@@ -134,6 +134,8 @@ _worker_s3_resource = None
 _AZURE_MAX_FILE_CONCURRENCY = int(os.getenv("AZURE_MAX_FILE_CONCURRENCY", "4"))
 _AZURE_MAX_CHUNK_CONCURRENCY = int(os.getenv("AZURE_MAX_CHUNK_CONCURRENCY", "4"))
 
+_MLFLOW_PREFIX = "mlflow://"
+
 
 def _should_download(
     relative_path: str,
@@ -398,6 +400,8 @@ class Storage(object):
                 model_dir = Storage._download_oci(uri, out_dir)
             elif re.search(_GIT_RE, uri):
                 model_dir = Storage._download_git_repo(uri, out_dir)
+            elif uri.startswith(_MLFLOW_PREFIX):
+                model_dir = Storage._download_mlflow(uri, out_dir)
             # "catch-all" pattern, should always be last
             elif re.search(_URI_RE, uri):
                 model_dir = Storage._download_from_uri(uri, out_dir)
@@ -405,7 +409,7 @@ class Storage(object):
                 raise Exception(
                     "Cannot recognize storage type for "
                     + uri
-                    + "\n'%s', '%s', '%s', '%s', '%s', '%s' and '%s' are the current available storage types."
+                    + "\n'%s', '%s', '%s', '%s', '%s', '%s', '%s' and '%s' are the current available storage types."
                     % (
                         _GCS_PREFIX,
                         _S3_PREFIX,
@@ -414,6 +418,7 @@ class Storage(object):
                         _HF_PREFIX,
                         _MS_PREFIX,
                         _OCI_PREFIX,
+                        _MLFLOW_PREFIX,
                     )
                 )
 
@@ -461,6 +466,16 @@ class Storage(object):
                 with open(f"{temp_dir}/{key}", mode) as f:
                     f.write(value)
                     f.flush()
+
+        if storage_secret_json.get("type", "") == "mlflow":
+            for env_var, key in (
+                ("MLFLOW_TRACKING_URI", "tracking_uri"),
+                ("MLFLOW_TRACKING_USERNAME", "tracking_username"),
+                ("MLFLOW_TRACKING_PASSWORD", "tracking_password"),
+                ("MLFLOW_TRACKING_TOKEN", "tracking_token"),
+            ):
+                if key in storage_secret_json:
+                    os.environ[env_var] = storage_secret_json.get(key)
 
     @staticmethod
     def get_S3_config():
@@ -1717,3 +1732,33 @@ class Storage(object):
             ) from e
         os.remove(file_path)
         return target_dir
+
+    @staticmethod
+    def _download_mlflow(uri, out_dir: str) -> str:
+        import mlflow
+        from mlflow.exceptions import MlflowException
+
+        mlflow_tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
+        if mlflow_tracking_uri is None:
+            raise ValueError("Cannot find MLFlow tracking Uri")
+        mlflow.set_tracking_uri(mlflow_tracking_uri)
+
+        if (
+            os.getenv("MLFLOW_TRACKING_USERNAME") is not None
+            and os.getenv("MLFLOW_TRACKING_PASSWORD") is not None
+            and os.getenv("MLFLOW_TRACKING_TOKEN") is not None
+        ):
+            raise ValueError(
+                "Tracking Token cannot be set with Username/Password combo"
+            )
+
+        models = uri[len(_MLFLOW_PREFIX) :]
+        logger.info(f"Downloading {models} from {mlflow_tracking_uri}")
+        if not models:
+            raise ValueError("Model uri cannot be empty")
+        try:
+            mlflow.artifacts.download_artifacts(artifact_uri=models, dst_path=out_dir)
+        except MlflowException:
+            raise RuntimeError("Failed to download model from MLFlow")
+            pass
+        return out_dir
