@@ -199,11 +199,15 @@ install() {
         update_isvc_config "${config_updates[@]}"
         if [ "${LLMISVC}" != "true" ]; then
             kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
-        fi   
+        fi
     else
-        log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        if [ "${LLMISVC}" = "true" ]; then
+            log_info "No configuration updates needed for LLMISVC (GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        else
+            log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        fi
     fi
-    
+
     log_success "Successfully installed KServe"
 
     # Wait for all controller managers to be ready
@@ -212,10 +216,10 @@ install() {
         wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "300s"
     done
 
+    log_success "KServe is ready!"
     if [ ${INSTALL_RUNTIMES} = "true" ]; then
         kubectl apply --server-side=true -k config/runtimes
     fi
-    log_success "KServe is ready!"
 }
 
 if [ "$UNINSTALL" = true ]; then

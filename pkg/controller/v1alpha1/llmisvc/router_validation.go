@@ -69,6 +69,9 @@ func (r *LLMISVCReconciler) validateRouterReferences(ctx context.Context, llmSvc
 		}
 		return fmt.Errorf("gateway reference validation failed: %w", err)
 	}
+	// Clear stale GatewaysReady condition from previous validation failures
+	// The actual readiness will be evaluated later in EvaluateGatewayConditions
+	llmSvc.MarkGatewaysReadyUnset()
 
 	if err := r.validateHTTPRouteReferences(ctx, llmSvc); err != nil {
 		if IsValidationError(err) {
@@ -78,6 +81,8 @@ func (r *LLMISVCReconciler) validateRouterReferences(ctx context.Context, llmSvc
 		}
 		return fmt.Errorf("HTTPRoute reference validation failed: %w", err)
 	}
+	// Clear stale HTTPRoutesReady condition from previous validation failures
+	llmSvc.MarkHTTPRoutesReadyUnset()
 
 	if err := r.validateManagedHTTPRouteSpec(ctx, llmSvc); err != nil {
 		if IsValidationError(err) {
