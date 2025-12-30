@@ -255,6 +255,18 @@ func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec
 	annotationClass := annotations[autoscaling.ClassAnnotationKey]
 	autoscalerClass := annotations[constants.AutoscalerClass]
 
+	// Validate that External and PodMetric source types require KEDA autoscaler class
+	if compExtSpec != nil && compExtSpec.AutoScaling != nil {
+		for _, metric := range compExtSpec.AutoScaling.Metrics {
+			if metric.Type == ExternalMetricSourceType || metric.Type == PodMetricSourceType {
+				if autoscalerClass != string(constants.AutoscalerClassKeda) {
+					return fmt.Errorf("external and pod metrics require the autoscaler class to be set to %q, but got %q",
+						constants.AutoscalerClassKeda, autoscalerClass)
+				}
+			}
+		}
+	}
+
 	switch deploymentMode {
 	case string(constants.Standard):
 		switch autoscalerClass {
