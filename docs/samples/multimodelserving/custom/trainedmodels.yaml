@@ -1,0 +1,21 @@
+apiVersion: "serving.kserve.io/v1alpha1"
+kind: "TrainedModel"
+metadata:
+  name: "model1-custom"
+spec:
+  inferenceService: "custom-model-mms"
+  model:
+    storageUri: "${MODEL1_STORAGE_URI}"
+    framework: "custom"
+    memory: "256Mi"
+---
+apiVersion: "serving.kserve.io/v1alpha1"
+kind: "TrainedModel"
+metadata:
+  name: "model2-custom"
+spec:
+  inferenceService: "custom-model-mms"
+  model:
+    storageUri: "${MODEL2_STORAGE_URI}"
+    framework: "custom"
+    memory: "256Mi"
