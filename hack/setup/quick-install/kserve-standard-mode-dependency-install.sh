@@ -520,8 +520,8 @@ ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.16.1
 OPENTELEMETRY_OPERATOR_VERSION=0.113.0
 LWS_VERSION=v0.7.0
-GATEWAY_API_VERSION=v1.2.1
-GIE_VERSION=v0.3.0
+GATEWAY_API_VERSION=v1.3.1-0.20251106052652-079e4774d76b
+GIE_VERSION=v1.2.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -991,7 +991,7 @@ install_gateway_api_extension_crd() {
 
     wait_for_crds "60s" \
         "inferencepools.inference.networking.x-k8s.io" \
-        "inferencemodels.inference.networking.x-k8s.io"
+        "inferenceobjectives.inference.networking.x-k8s.io"
 
     log_success "Gateway Inference Extension CRDs are ready!"
 }

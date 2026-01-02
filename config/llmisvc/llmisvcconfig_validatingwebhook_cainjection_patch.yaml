@@ -5,4 +5,4 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: $(kserveNamespace)/llmisvc-serving-cert
 webhooks:
-  - name: llminferenceserviceconfig.kserve-webhook-server.validator
+  - name: llminferenceserviceconfig.kserve-webhook-server.v1alpha2.validator

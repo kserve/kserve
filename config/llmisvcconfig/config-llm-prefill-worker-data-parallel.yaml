@@ -1,4 +1,4 @@
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-prefill-worker-data-parallel
@@ -6,7 +6,7 @@ spec:
   prefill:
     template:
       containers:
-        - image: ghcr.io/llm-d/llm-d-dev:v0.2.2
+        - image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
           imagePullPolicy: IfNotPresent
           name: main
           ports:
@@ -222,7 +222,7 @@ spec:
             secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
     worker:
       containers:
-        - image: ghcr.io/llm-d/llm-d-dev:v0.2.2
+        - image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
           imagePullPolicy: IfNotPresent
           name: main
           ports:
