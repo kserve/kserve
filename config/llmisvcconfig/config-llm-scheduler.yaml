@@ -66,6 +66,8 @@ spec:
               - "9002"
               - --grpc-health-port
               - "9003"
+              - --kv-cache-usage-percentage-metric
+              - "vllm:kv_cache_usage_perc"
               # BackendTLSPolicy is not implemented yet so disable SSL for now
               # - --secure-serving
               # - --model-server-metrics-scheme
