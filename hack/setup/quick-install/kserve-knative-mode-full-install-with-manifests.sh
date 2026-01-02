@@ -40,7 +40,7 @@ find_repo_root() {
     local skip="${2:-false}"
 
     while [[ "$current_dir" != "/" ]]; do
-        if [[ -d "${current_dir}/.git" ]]; then
+        if [[ -e "${current_dir}/.git" ]]; then
             echo "$current_dir"
             return 0
         fi
