@@ -123,14 +123,13 @@ echo "😀 Successfully installed Cert Manager"
 
 if [ $installKeda = true ]; then
    #Install KEDA
-   helm repo add kedacore https://kedacore.github.io/charts
+   helm repo add kedacore https://kedacore.github.io/charts --force-update
    helm install keda kedacore/keda --version ${KEDA_VERSION} --namespace keda --create-namespace --wait
-   echo "😀 Successfully installed KEDA"
 
-   helm install my-opentelemetry-operator open-telemetry/opentelemetry-operator -n opentelemetry-operator --create-namespace\
-  --set "manager.collectorImage.repository=otel/opentelemetry-collector-contrib"
+   helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts --force-update
+   helm install my-opentelemetry-operator open-telemetry/opentelemetry-operator -n opentelemetry-operator --create-namespace \
+      --set "manager.collectorImage.repository=otel/opentelemetry-collector-contrib"
 
-   
    helm upgrade -i kedify-otel oci://ghcr.io/kedify/charts/otel-add-on --version=v0.0.6 --namespace keda --wait --set validatingAdmissionPolicy.enabled=false
    echo "😀 Successfully installed KEDA"
 fi
