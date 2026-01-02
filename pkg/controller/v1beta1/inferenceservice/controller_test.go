@@ -77,6 +77,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"CaBundleConfigMapName": "",
 				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
 			}`,
+		"deploy": `{
+				"defaultDeploymentMode": "Knative"
+			}`,
 	}
 
 	Context("with knative configured to not allow zero initial scale", func() {
