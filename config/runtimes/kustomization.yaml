@@ -13,6 +13,7 @@ resources:
 - kserve-torchserve.yaml
 - kserve-huggingfaceserver.yaml
 - kserve-huggingfaceserver-multinode.yaml
+- kserve-vllmserver.yaml
 
 images:
   # SMS Only Runtimes
@@ -59,3 +60,11 @@ images:
 - name: huggingfaceserver-gpu
   newName: kserve/huggingfaceserver
   newTag: latest-gpu
+  
+- name: vllmserver
+  newName: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo
+  newTag: latest
+
+- name: vllmserver-gpu
+  newName: vllm/vllm-openai
+  newTag: latest
