@@ -10,6 +10,7 @@ webhooks:
         namespace: $(kserveNamespace)
         path: /validate-serving-kserve-io-v1alpha1-llminferenceservice
     failurePolicy: Fail
+    matchPolicy: Exact
     name: llminferenceservice.kserve-webhook-server.v1alpha1.validator
     sideEffects: None
     admissionReviewVersions: [ "v1", "v1beta1" ]
@@ -29,6 +30,7 @@ webhooks:
         namespace: $(kserveNamespace)
         path: /validate-serving-kserve-io-v1alpha2-llminferenceservice
     failurePolicy: Fail
+    matchPolicy: Exact
     name: llminferenceservice.kserve-webhook-server.v1alpha2.validator
     sideEffects: None
     admissionReviewVersions: [ "v1", "v1beta1" ]
@@ -55,6 +57,7 @@ webhooks:
         namespace: $(kserveNamespace)
         path: /validate-serving-kserve-io-v1alpha1-llminferenceserviceconfig
     failurePolicy: Fail
+    matchPolicy: Exact
     name: llminferenceserviceconfig.kserve-webhook-server.v1alpha1.validator
     sideEffects: None
     admissionReviewVersions: [ "v1", "v1beta1" ]
@@ -75,6 +78,7 @@ webhooks:
         namespace: $(kserveNamespace)
         path: /validate-serving-kserve-io-v1alpha2-llminferenceserviceconfig
     failurePolicy: Fail
+    matchPolicy: Exact
     name: llminferenceserviceconfig.kserve-webhook-server.v1alpha2.validator
     sideEffects: None
     admissionReviewVersions: [ "v1", "v1beta1" ]
