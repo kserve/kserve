@@ -19,9 +19,12 @@ spec:
       image: huggingfaceserver:replace
       args:
         - --model_name={{.Name}}
+        - --allowed-media-domains=*.huggingface.co,*.githubusercontent.com
       env:
         - name: LMCACHE_USE_EXPERIMENTAL
           value: "True"
+        - name: VLLM_MEDIA_URL_ALLOW_REDIRECTS
+          value: "0"
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false

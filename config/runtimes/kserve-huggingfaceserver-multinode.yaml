@@ -38,10 +38,13 @@ spec:
 
         python -m huggingfaceserver ${MODEL_DIR_ARG} --tensor-parallel-size=${TENSOR_PARALLEL_SIZE} --pipeline-parallel-size=${PIPELINE_PARALLEL_SIZE} $0 $@
       args:
-      - --model_name={{.Name}}       
+      - --model_name={{.Name}}
+      - --allowed-media-domains=*.huggingface.co,*.githubusercontent.com
       env:
         - name: RAY_PORT
-          value: "6379"        
+          value: "6379"
+        - name: VLLM_MEDIA_URL_ALLOW_REDIRECTS
+          value: "0"        
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
