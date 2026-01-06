@@ -207,9 +207,25 @@ uv-lock: $(UV)
 		esac; \
 	done
 
+.PHONY: ensure-go-version-upgrade ensure-golangci-go-version
+ensure-go-version-upgrade: ensure-golangci-go-version
+
+ensure-golangci-go-version: yq	
+	@GO_GOMOD_VERSION="$$(grep -m1 '^go ' go.mod | cut -d' ' -f2 | cut -d. -f1-2)"; \
+	GO_GOLANGCI_VERSION="$$($(YQ) -r '.run.go // ""' .golangci.yml | cut -d. -f1-2)"; \
+	if [ -z "$${GO_GOLANGCI_VERSION}" ]; then \
+		echo "INFO: '.golangci.yml:run.go' is not set; defaulting to $$GO_GOMOD_VERSION."; \
+		GO_GOLANGCI_VERSION="$${GO_GOMOD_VERSION}"; \
+	fi; \
+	if [ "$${GO_GOMOD_VERSION}" != "$${GO_GOLANGCI_VERSION}" ]; then \
+		echo "ERROR: go.mod uses Go $$GO_GOMOD_VERSION but .golangci.yml uses $$GO_GOLANGCI_VERSION"; \
+		echo "Please update '.golangci.yml:run.go' to $$GO_GOMOD_VERSION (major.minor) and rerun 'make precommit'."; \
+		exit 1; \
+	fi
+
 
 # This runs all necessary steps to prepare for a commit.
-precommit: sync-deps vet tidy go-lint py-fmt py-lint generate manifests uv-lock generate-quick-install-scripts
+precommit: ensure-go-version-upgrade sync-deps vet tidy go-lint py-fmt py-lint generate manifests uv-lock generate-quick-install-scripts
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit
