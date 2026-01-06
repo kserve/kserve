@@ -69,7 +69,7 @@ install() {
     log_info "Adding OpenTelemetry Helm repository..."
     helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts --force-update
 
-    log_info "Installing OpenTelemetry Operator..."
+    log_info "Installing OpenTelemetry Operator.."
     helm install "${OTEL_RELEASE_NAME}" open-telemetry/opentelemetry-operator \
         --namespace "${OTEL_NAMESPACE}" \
         --create-namespace \
