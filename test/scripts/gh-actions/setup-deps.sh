@@ -112,7 +112,6 @@ if [[ $DEPLOYMENT_MODE == "raw" ]]; then
     ${REPO_ROOT}/hack/setup/infra/manage.keda-helm.sh
 
     # Install OpenTelemetry Operator with specific collector image
-    export OTEL_OPERATOR_EXTRA_ARGS="--set manager.collectorImage.repository=otel/opentelemetry-collector-contrib"
     ${REPO_ROOT}/hack/setup/infra/manage.opentelemetry-helm.sh
 
     # Install KEDA OTel add-on with validating admission policy disabled
