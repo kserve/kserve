@@ -18,13 +18,17 @@ import numpy as np
 import pandas as pd
 import pytest
 from google.protobuf.json_format import MessageToDict
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock, AsyncMock
+import asyncio
 
 from kserve import Model, ModelServer
 from kserve.errors import InvalidInput
 from kserve.protocol.grpc import grpc_predict_v2_pb2, servicer
 from kserve.protocol.infer_type import serialize_byte_tensor, InferResponse
 from kserve.utils.utils import get_predict_response
+from kserve.protocol.dataplane import DataPlane
+from kserve.protocol.grpc.server import GRPCProcess, GRPCServer
+from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 
 
 class DummyModel(Model):
@@ -678,3 +682,118 @@ async def test_grpc_raw_inputs_with_contents_specified(mock_to_headers, server):
     with pytest.raises(InvalidInput):
         response, _, _, _ = model_infer_method.termination()
         _ = await response
+
+###########################################################
+# Test for gprc server start
+###########################################################
+@pytest.mark.asyncio
+async def test_grpc_server_start():
+    data_plane = MagicMock(spec=DataPlane)
+    model_repo = MagicMock(spec=ModelRepositoryExtension)
+
+    kwargs = {
+        "grpc_max_send_message_length": 1024,
+        "grpc_max_receive_message_length": 2048,
+    }
+
+    mock_grpc_server = AsyncMock()
+    mock_grpc_server.start = AsyncMock()
+    mock_grpc_server.wait_for_termination = AsyncMock()
+    mock_grpc_server.add_insecure_port = MagicMock()
+
+    with patch("kserve.protocol.grpc.server.aio.server", return_value=mock_grpc_server) as mock_aio_server, \
+         patch(
+             "kserve.protocol.grpc.server.grpc_predict_v2_pb2_grpc.add_GRPCInferenceServiceServicer_to_server"
+         ) as mock_add_servicer:
+
+        server = GRPCServer(
+            port=8081,
+            data_plane=data_plane,
+            model_repository_extension=model_repo,
+            kwargs=kwargs,
+        )
+
+        # Run start but cancel before wait_for_termination blocks forever
+        start_task = asyncio.create_task(server.start(max_workers=4))
+        await asyncio.sleep(0)
+        start_task.cancel()
+
+        # Assertions
+        mock_aio_server.assert_called_once()
+        mock_add_servicer.assert_called_once()
+        mock_grpc_server.add_insecure_port.assert_called_once_with("[::]:8081")
+        mock_grpc_server.start.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_grpc_server_stop():
+    server = GRPCServer(
+        port=8081,
+        data_plane=MagicMock(),
+        model_repository_extension=MagicMock(),
+        kwargs={},
+        grace_period=10,
+    )
+
+    mock_grpc_server = AsyncMock()
+    mock_grpc_server.stop = AsyncMock()
+    server._server = mock_grpc_server
+
+    await server.stop()
+
+    mock_grpc_server.stop.assert_called_once_with(grace=10)
+
+@pytest.mark.asyncio
+async def test_grpc_server_stop_without_server():
+    server = GRPCServer(
+        port=8081,
+        data_plane=MagicMock(),
+        model_repository_extension=MagicMock(),
+        kwargs={},
+    )
+
+    # Should not raise
+    await server.stop()
+
+def test_grpc_process_run():
+    data_plane = MagicMock(spec=DataPlane)
+    model_repo = MagicMock(spec=ModelRepositoryExtension)
+
+    process = GRPCProcess(
+        port=9000,
+        max_threads=8,
+        data_plane=data_plane,
+        model_repository_extension=model_repo,
+        kwargs={},
+    )
+
+    with patch("kserve.protocol.grpc.server.GRPCServer") as mock_server_cls, \
+         patch("kserve.protocol.grpc.server.asyncio.run") as mock_asyncio_run:
+
+        mock_server = MagicMock()
+        mock_server_cls.return_value = mock_server
+
+        process.run()
+
+        mock_server_cls.assert_called_once_with(
+            9000,
+            data_plane,
+            model_repo,
+            kwargs={},
+        )
+        mock_asyncio_run.assert_called_once()
+
+def test_grpc_process_stop():
+    process = GRPCProcess(
+        port=9000,
+        max_threads=4,
+        data_plane=MagicMock(),
+        model_repository_extension=MagicMock(),
+        kwargs={},
+    )
+
+    mock_server = MagicMock()
+    process._server = mock_server
+
+    process.stop()
+
+    mock_server.stop.assert_called_once()
