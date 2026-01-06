@@ -508,6 +508,7 @@ BLACK_FMT_VERSION=24.3
 FLAKE8_LINT_VERSION=7.1
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
+KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
 ENVOY_GATEWAY_VERSION=v1.5.0
 ENVOY_AI_GATEWAY_VERSION=v0.3.0
@@ -42172,11 +42173,12 @@ data:
     \         \"s3SecretAccessKeyName\": \"AWS_SECRET_ACCESS_KEY\",\n          \"s3Endpoint\":
     \"\",\n          \"s3UseHttps\": \"\",\n          \"s3Region\": \"\",\n          \"s3VerifySSL\":
     \"\",\n          \"s3UseVirtualBucket\": \"\",\n          \"s3UseAccelerate\":
-    \"\",\n          \"s3UseAnonymousCredential\": \"\",\n          \"s3CABundle\":
-    \"\"\n      }\n   }\n # This is a global configuration used for downloading models
-    from the cloud storage.\n # You can override this configuration by specifying
-    the annotations on service account or static secret.\n # https://kserve.github.io/website/master/modelserving/storage/s3/s3/\n
-    # For a quick reference about AWS ENV variables:\n # AWS Cli: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html\n
+    \"\",\n          \"s3UseAnonymousCredential\": \"\",\n          \"s3CABundleConfigMap\":
+    \"\",\n          \"s3CABundle\": \"\"\n      }\n   }\n # This is a global configuration
+    used for downloading models from the cloud storage.\n # You can override this
+    configuration by specifying the annotations on service account or static secret.\n
+    # https://kserve.github.io/website/master/modelserving/storage/s3/s3/\n # For
+    a quick reference about AWS ENV variables:\n # AWS Cli: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html\n
     # Boto: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#using-environment-variables\n
     #\n # The `s3AccessKeyIDName` and `s3SecretAccessKeyName` fields are only used
     from this configmap when static credentials (IAM User Access Key Secret)\n # are
@@ -42210,8 +42212,12 @@ data:
     \         # s3UseAccelerate configures whether to use transfer acceleration.\n
     \         \"s3UseAccelerate\": \"\",\n           \n          # s3UseAnonymousCredential
     configures whether to use anonymous credentials to download the model or not.\n
-    \         \"s3UseAnonymousCredential\": \"\",\n          \n          # s3CABundle
-    specifies the path to a certificate bundle to use for HTTPS certificate validation.\n
+    \         \"s3UseAnonymousCredential\": \"\",\n\n          # s3CABundleConfigMap
+    specifies the mounted CA bundle config map name.\n          \"s3CABundleConfigMap\":
+    \"\",\n\n          # s3CABundle specifies the full path (mount path + file name)
+    for the mounted config map data when used with a configured CA bundle config map.\n
+    \         # s3CABundle specifies the path to a certificate bundle to use for HTTPS
+    certificate validation when used absent of a configured CA bundle config map.\n
     \         \"s3CABundle\": \"\"\n      }\n   }\n \n # ======================================
     INGRESS CONFIGURATION ======================================\n # Example\n ingress:
     |-\n   {    \n       \"enableGatewayApi\": false,\n       \"kserveIngressGateway\":
@@ -42441,6 +42447,7 @@ data:
            "s3UseVirtualBucket": "",
            "s3UseAccelerate": "",
            "s3UseAnonymousCredential": "",
+           "s3CABundleConfigMap": "",
            "s3CABundle": ""
        }
     }

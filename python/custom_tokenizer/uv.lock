@@ -500,6 +500,7 @@ dev = [{ name = "black", extras = ["colorama"], specifier = "~=24.3.0" }]
 test = [
     { name = "avro", specifier = ">=1.11.0,<2.0.0" },
     { name = "grpcio-testing", specifier = ">=1.60.0,<2.0.0" },
+    { name = "httpx-retries", specifier = ">=0.4.5,<1.0.0" },
     { name = "jinja2", specifier = ">=3.1.4,<4.0.0" },
     { name = "mypy", specifier = ">=0.991,<1.0" },
     { name = "portforward", specifier = ">=0.6.2,<1.0.0" },

@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
 
 	"knative.dev/pkg/reconciler"
 
@@ -134,6 +135,12 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 		// Do not reconcile, because llmisvc is being deleted.
 		return ctrl.Result{}, nil
+	}
+
+	// Reconcile cabundleConfigMap
+	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset)
+	if err := caBundleConfigMapReconciler.Reconcile(ctx, original.Namespace); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	// Work with a copy to avoid modifying the original until status update
