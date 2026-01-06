@@ -58,6 +58,7 @@ case "$NETWORK_LAYER" in
 esac
 
 ${REPO_ROOT}/hack/setup/cli/install-yq.sh
+${REPO_ROOT}/hack/setup/cli/install-helm.sh
 ${REPO_ROOT}/hack/setup/infra/manage.cert-manager-helm.sh
 
 # Install Gateway API CRDs if needed
