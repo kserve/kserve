@@ -17,7 +17,6 @@ import json
 import os
 import time
 import uuid
-from typing import Optional, Set
 
 import pytest
 from kubernetes import client
@@ -92,9 +91,7 @@ def create_invalid_s3_secret(namespace: str, secret_name: str):
     return core_api.create_namespaced_secret(namespace, secret)
 
 
-def create_service_account_with_secret(
-    namespace: str, sa_name: str, secret_name: str
-):
+def create_service_account_with_secret(namespace: str, sa_name: str, secret_name: str):
     core_api = client.CoreV1Api()
 
     sa = client.V1ServiceAccount(
@@ -133,7 +130,7 @@ def wait_for_isvc_failure_status(
     name: str,
     timeout_seconds: int = 120,
     poll_interval: float = 2.0,
-) -> Optional[dict]:
+) -> dict | None:
     start_time = time.time()
     while time.time() - start_time < timeout_seconds:
         try:
@@ -180,7 +177,7 @@ def get_controller_logs(since_seconds: int) -> str:
 RECONCILE_LOG_MESSAGE = "Reconciling inference service"
 
 
-def parse_reconciled_isvcs_from_logs(logs: str) -> Set[str]:
+def parse_reconciled_isvcs_from_logs(logs: str) -> set[str]:
     reconciled = set()
     for line in logs.strip().split("\n"):
         if RECONCILE_LOG_MESSAGE not in line:
@@ -302,7 +299,9 @@ async def test_event_storm_prevention_init_container_isolation(rest_v1_client):
             spec=V1beta1InferenceServiceSpec(predictor=secondary_predictor),
         )
 
-        logger.info("Creating secondary ISVC with invalid credentials: %s", secondary_name)
+        logger.info(
+            "Creating secondary ISVC with invalid credentials: %s", secondary_name
+        )
         kserve_client.create(secondary_isvc)
 
         # Step 4: Wait for secondary ISVC to report failure
@@ -465,9 +464,9 @@ async def test_quick_reconciliation_on_init_container_failure():
 
         # Validate failure info contains expected fields
         last_failure = failure_status.get("lastFailureInfo", {})
-        assert last_failure.get("reason") is not None, (
-            "lastFailureInfo.reason should be populated"
-        )
+        assert (
+            last_failure.get("reason") is not None
+        ), "lastFailureInfo.reason should be populated"
 
         # The transition status should indicate blocked by failed load
         transition_status = failure_status.get("transitionStatus")
@@ -482,9 +481,9 @@ async def test_quick_reconciliation_on_init_container_failure():
         if ready_condition:
             logger.info("Ready condition: %s", ready_condition)
             # The service should not be ready due to init container failure
-            assert ready_condition.get("status") != "True", (
-                "ISVC should not be Ready when init container fails"
-            )
+            assert (
+                ready_condition.get("status") != "True"
+            ), "ISVC should not be Ready when init container fails"
 
         # Validate reasonable time to failure detection
         # The pod watch should trigger reconciliation quickly when init container status changes
