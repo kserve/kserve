@@ -348,7 +348,6 @@ func (r *LLMISVCReconciler) reconcileMultiNodeMainServiceAccount(ctx context.Con
 		if err := Reconcile(ctx, r, llmSvc, &corev1.ServiceAccount{}, serviceAccount, semanticServiceAccountIsEqual); err != nil {
 			return fmt.Errorf("failed to reconcile multi node service account %s/%s: %w", serviceAccount.GetNamespace(), serviceAccount.GetName(), err)
 		}
-		return nil
 	}
 	if err := r.reconcileMultiNodeMainRole(ctx, llmSvc, config); err != nil {
 		return err
