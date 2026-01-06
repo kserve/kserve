@@ -207,9 +207,25 @@ uv-lock: $(UV)
 		esac; \
 	done
 
+.PHONY: ensure-go-version-upgrade ensure-golangci-go-version
+ensure-go-version-upgrade: ensure-golangci-go-version
+
+ensure-golangci-go-version: yq	
+	@GO_GOMOD_VERSION="$$(grep -m1 '^go ' go.mod | cut -d' ' -f2 | cut -d. -f1-2)"; \
+	GO_GOLANGCI_VERSION="$$($(YQ) -r '.run.go // ""' .golangci.yml | cut -d. -f1-2)"; \
+	if [ -z "$${GO_GOLANGCI_VERSION}" ]; then \
+		echo "INFO: '.golangci.yml:run.go' is not set; defaulting to $$GO_GOMOD_VERSION."; \
+		GO_GOLANGCI_VERSION="$${GO_GOMOD_VERSION}"; \
+	fi; \
+	if [ "$${GO_GOMOD_VERSION}" != "$${GO_GOLANGCI_VERSION}" ]; then \
+		echo "ERROR: go.mod uses Go $$GO_GOMOD_VERSION but .golangci.yml uses $$GO_GOLANGCI_VERSION"; \
+		echo "Please update '.golangci.yml:run.go' to $$GO_GOMOD_VERSION (major.minor) and rerun 'make precommit'."; \
+		exit 1; \
+	fi
+
 
 # This runs all necessary steps to prepare for a commit.
-precommit: sync-deps vet tidy go-lint py-fmt py-lint generate manifests uv-lock generate-quick-install-scripts
+precommit: ensure-go-version-upgrade sync-deps vet tidy go-lint py-fmt py-lint generate manifests uv-lock generate-quick-install-scripts
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit
@@ -284,25 +300,29 @@ deploy-dev: manifests
 	kubectl apply --server-side=true --force-conflicts -k config/crd
 	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
 	./hack/image_patch_dev.sh development
-	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
-	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
-	echo > ../certmanager/certificate.yaml; \
-	echo > ../certmanager/llmisvc/certificate.yaml; \
-	else git checkout HEAD -- ../certmanager/certificate.yaml ../certmanager/llmisvc/certificate.yaml; fi;
-	kubectl apply --server-side=true --force-conflicts -k config/overlays/development
-	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
-		./hack/self-signed-ca.sh; \
-		./hack/self-signed-ca.sh --service llmisvc-webhook-server-service \
-			--secret llmisvc-webhook-server-cert \
-			--webhookDeployment llmisvc-controller-manager \
-			--validatingWebhookName llminferenceservice.serving.kserve.io \
-			--validatingWebhookName llminferenceserviceconfig.serving.kserve.io; \
-	fi;
-	# TODO: Add runtimes as part of default deployment
+	
+	@echo "Deploy KServe and LLMInferenceService"
+	hack/setup/infra/manage.cert-manager-helm.sh
+	KSERVE_OVERYLAY_DIR=development hack/setup/infra/manage.kserve-kustomize.sh
+	
+	@echo "Create ClusterServingRuntimes as part of default deployment"
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 	kubectl wait --for=condition=ready pod -l control-plane=llmisvc-controller-manager -n kserve --timeout=300s
 	kubectl apply --server-side=true --force-conflicts -k config/clusterresources
-	git checkout HEAD -- config/certmanager/certificate.yaml config/certmanager/llmisvc/certificate.yaml
+
+# Quick redeploy after code changes (rebuild images and update deployments)
+redeploy-dev-image:
+	./hack/image_patch_dev.sh development
+	kubectl apply --server-side=true --force-conflicts -k config/overlays/development
+	
+	kubectl rollout restart deployment/kserve-controller-manager -n kserve
+	kubectl rollout status deployment/kserve-controller-manager -n kserve --timeout=300s
+	
+	kubectl rollout restart deployment/llmisvc-controller-manager -n kserve
+	kubectl rollout status deployment/llmisvc-controller-manager -n kserve --timeout=300s
+	
+	@echo "Deployments updated successfully"
+	kubectl get pods -n kserve
 
 deploy-dev-sklearn: docker-push-sklearn
 	./hack/serving_runtime_image_patch.sh "kserve-sklearnserver.yaml" "${KO_DOCKER_REPO}/${SKLEARN_IMG}"
