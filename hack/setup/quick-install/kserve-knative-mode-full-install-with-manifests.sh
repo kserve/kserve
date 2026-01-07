@@ -508,6 +508,7 @@ BLACK_FMT_VERSION=24.3
 FLAKE8_LINT_VERSION=7.1
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
+KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
 ENVOY_GATEWAY_VERSION=v1.5.0
 ENVOY_AI_GATEWAY_VERSION=v0.3.0
@@ -517,7 +518,7 @@ KEDA_OTEL_ADDON_VERSION=v0.0.6
 KSERVE_VERSION=v0.16.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.16.1
-OPENTELEMETRY_OPERATOR_VERSION=0.113.0
+OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.7.0
 GATEWAY_API_VERSION=v1.2.1
 GIE_VERSION=v0.3.0
@@ -979,7 +980,7 @@ install_opentelemetry() {
     log_info "Adding OpenTelemetry Helm repository..."
     helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts --force-update
 
-    log_info "Installing OpenTelemetry Operator..."
+    log_info "Installing OpenTelemetry Operator.."
     helm install "${OTEL_RELEASE_NAME}" open-telemetry/opentelemetry-operator \
         --namespace "${OTEL_NAMESPACE}" \
         --create-namespace \
