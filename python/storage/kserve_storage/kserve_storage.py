@@ -132,6 +132,7 @@ _LAYER_MEDIA_TYPE_MODES = {
 _LAYER_ZSTD_MEDIA_TYPES = {
     "application/vnd.oci.image.layer.v1.tar+zstd",
 }
+_MLFLOW_PREFIX = "mlflow://"
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
@@ -143,8 +144,6 @@ _worker_s3_resource = None
 # Azure async download configuration
 _AZURE_MAX_FILE_CONCURRENCY = int(os.getenv("AZURE_MAX_FILE_CONCURRENCY", "4"))
 _AZURE_MAX_CHUNK_CONCURRENCY = int(os.getenv("AZURE_MAX_CHUNK_CONCURRENCY", "4"))
-
-_MLFLOW_PREFIX = "mlflow://"
 
 
 def _should_download(
@@ -1770,13 +1769,16 @@ class Storage(object):
                 "Tracking Token cannot be set with Username/Password combo"
             )
 
-        models = uri[len(_MLFLOW_PREFIX) :]
-        logger.info(f"Downloading {models} from {mlflow_tracking_uri}")
-        if not models:
+        model_uri = uri[len(_MLFLOW_PREFIX) :]
+        logger.info(f"Downloading {model_uri} from {mlflow_tracking_uri}")
+        if not model_uri:
             raise ValueError("Model uri cannot be empty")
         try:
-            mlflow.artifacts.download_artifacts(artifact_uri=models, dst_path=out_dir)
+            model_info = mlflow.models.get_model_info(model_uri)
+            artifact_path = model_info.artifact_path[len("mlflow-artifacts:/") :]
+            uri = f"{mlflow_tracking_uri}/api/2.0/mlflow-artifacts/artifacts/{artifact_path}/model.pkl"
+            logger.info(f"Resolved MLflow URI: {uri}")
+            Storage._download_from_uri(uri, out_dir)
         except MlflowException:
             raise RuntimeError("Failed to download model from MLFlow")
-            pass
         return out_dir
