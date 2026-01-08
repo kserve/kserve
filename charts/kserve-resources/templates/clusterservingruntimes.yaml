@@ -720,3 +720,101 @@ spec:
     imagePullSecrets:
       {{- toYaml . | nindent 4 }}
     {{- end }}
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-vllmserver
+spec:
+  disabled: {{ .Values.kserve.servingruntime.vllmserver.disabled }}
+  annotations:
+    prometheus.kserve.io/port: '8000'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: vllm
+      version: "1"
+      autoSelect: true
+      priority: 1
+  protocolVersions:
+    - v2
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.vllmserver.image }}:{{ .Values.kserve.servingruntime.vllmserver.tag }}"
+      command:
+        - "bash"
+        - "-c"
+        - |
+          export MODEL=${MODEL_DIR}
+          if [[ -z ${MODEL_DIR} ]] && [[ ! -z ${MODEL_ID} ]]
+          then
+            export MODEL=${MODEL_ID}
+          fi
+          
+          vllm serve ${MODEL} --host 0.0.0.0 --port 8000 $@
+        - "bash"
+      env:
+        - name: LMCACHE_USE_EXPERIMENTAL
+          value: "{{ .Values.kserve.servingruntime.vllmserver.lmcacheUseExperimental }}"
+        - name: VLLM_GPU_IMAGE
+          value: "{{ .Values.kserve.servingruntime.vllmserver.gpuImage }}:{{ .Values.kserve.servingruntime.vllmserver.gpuImageTag }}"
+      ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+      securityContext:
+          {{- with .Values.kserve.servingruntime.vllmserver.securityContext}}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        failureThreshold: 2
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 15
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        failureThreshold: 2
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 15
+      startupProbe:
+        httpGet:
+          path: /health
+          port: 8000
+        failureThreshold: 40
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 30
+        initialDelaySeconds: 60
+      {{- if .Values.kserve.servingruntime.vllmserver.devShm.enabled }}
+      volumeMounts:
+        - name: devshm
+          mountPath: /dev/shm
+      {{- end }}
+  {{- if .Values.kserve.servingruntime.vllmserver.devShm.enabled }}
+  volumes:
+    - name: devshm
+      emptyDir:
+        medium: Memory
+        {{- with .Values.kserve.servingruntime.vllmserver.devShm.sizeLimit }}
+        sizeLimit: {{ . }}
+        {{- end }}
+  {{- end }}
+  {{- with .Values.kserve.servingruntime.vllmserver.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if .Values.kserve.servingruntime.vllmserver.hostIPC.enabled }}
+  hostIPC: true
+  {{- end }}

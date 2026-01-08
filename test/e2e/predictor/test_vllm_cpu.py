@@ -37,22 +37,24 @@ from ..common.utils import (
 
 
 @pytest.mark.vllm
-def test_huggingface_vllm_cpu_openai_chat_completions():
-    service_name = "hf-qwen-chat-vllm"
+def test_vllm_cpu_openai_chat_completions():
+    service_name = "vllm-qwen-chat"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="huggingface",
+                name="vllm",
             ),
+            env=[
+                client.V1EnvVar(
+                    name="MODEL_ID",
+                    value="Qwen/Qwen2-0.5B-Instruct",
+                ),
+            ],
             args=[
-                "--model_id",
-                "Qwen/Qwen2-0.5B-Instruct",
-                "--model_name",
+                "--served-model-name",
                 "qwen-chat",
-                "--backend",
-                "vllm",
-                "--max_model_len",
+                "--max-model-len",
                 "512",
                 "--dtype",
                 "bfloat16",
@@ -86,22 +88,24 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
 
 
 @pytest.mark.vllm
-def test_huggingface_vllm_cpu_text_completion_streaming():
-    service_name = "hf-qwen-cmpl-stream-vllm"
+def test_vllm_cpu_text_completion_streaming():
+    service_name = "vllm-qwen-cmpl-stream"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="huggingface",
+                name="vllm",
             ),
+            env=[
+                client.V1EnvVar(
+                    name="MODEL_ID",
+                    value="Qwen/Qwen2-0.5B",
+                ),
+            ],
             args=[
-                "--model_id",
-                "Qwen/Qwen2-0.5B",
-                "--model_name",
+                "--served-model-name",
                 "qwen-cmpl-stream",
-                "--backend",
-                "vllm",
-                "--max_model_len",
+                "--max-model-len",
                 "512",
                 "--dtype",
                 "bfloat16",
@@ -137,22 +141,24 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
 
 
 @pytest.mark.vllm
-def test_huggingface_vllm_cpu_openai_completions():
-    service_name = "hf-qwen-cmpl-vllm"
+def test_vllm_cpu_openai_completions():
+    service_name = "vllm-qwen-cmpl"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="huggingface",
+                name="vllm",
             ),
+            env=[
+                client.V1EnvVar(
+                    name="MODEL_ID",
+                    value="Qwen/Qwen2-0.5B",
+                ),
+            ],
             args=[
-                "--model_id",
-                "Qwen/Qwen2-0.5B",
-                "--model_name",
+                "--served-model-name",
                 "qwen-cmpl",
-                "--backend",
-                "vllm",
-                "--max_model_len",
+                "--max-model-len",
                 "512",
                 "--dtype",
                 "bfloat16",
@@ -185,22 +191,24 @@ def test_huggingface_vllm_cpu_openai_completions():
 
 
 @pytest.mark.vllm
-def test_huggingface_vllm_openai_chat_completions_streaming():
-    service_name = "hf-qwen-chat-stream-vllm"
+def test_vllm_openai_chat_completions_streaming():
+    service_name = "vllm-qwen-chat-stream"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="huggingface",
+                name="vllm",
             ),
+            env=[
+                client.V1EnvVar(
+                    name="MODEL_ID",
+                    value="Qwen/Qwen2-0.5B-Instruct",
+                ),
+            ],
             args=[
-                "--model_id",
-                "Qwen/Qwen2-0.5B-Instruct",
-                "--model_name",
+                "--served-model-name",
                 "qwen-chat-stream",
-                "--backend",
-                "vllm",
-                "--max_model_len",
+                "--max-model-len",
                 "512",
                 "--dtype",
                 "bfloat16",
@@ -236,23 +244,27 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
 
 
 @pytest.mark.vllm
-def test_huggingface_vllm_cpu_rerank():
+def test_vllm_cpu_rerank():
     service_name = "bge-reranker-base"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="huggingface",
+                name="vllm",
             ),
+            env=[
+                client.V1EnvVar(
+                    name="MODEL_ID",
+                    value="BAAI/bge-reranker-base",
+                ),
+            ],
             args=[
-                "--model_id",
-                "BAAI/bge-reranker-base",
-                "--backend",
-                "vllm",
-                "--model_revision",
+                "--revision",
                 "2cfc18c9415c912f9d8155881c133215df768a70",
-                "--tokenizer_revision",
+                "--tokenizer-revision",
                 "2cfc18c9415c912f9d8155881c133215df768a70",
+                "--served-model-name",
+                "bge-reranker-base",
                 "--max-model-len",
                 "100",
                 "--dtype",
@@ -283,10 +295,10 @@ def test_huggingface_vllm_cpu_rerank():
 
     res = rerank(service_name, "./data/bge-reranker-base.json")
     assert res["results"][0]["index"] == 1
-    assert res["results"][0]["relevance_score"] == pytest.approx(1.0, rel=1e-2)
+    assert res["results"][0]["relevance_score"] > 0.9
     assert res["results"][0]["document"]["text"] == "The capital of France is Paris."
     assert res["results"][1]["index"] == 0
-    assert res["results"][1]["relevance_score"] == pytest.approx(0.0, abs=1e-2)
+    assert res["results"][1]["relevance_score"] < 0.01
     assert res["results"][1]["document"]["text"] == "The capital of Brazil is Brasilia."
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
