@@ -1288,7 +1288,7 @@ main() {
     install_gateway_api_gw
     install_lws_operator
     (
-        set_env_with_priority "LLMISVC" "true" "" ""
+        set_env_with_priority "LLMISVC" "true" "" "false"
         # Set Helm release names and target pod labels based on LLMISVC
         if [ "${LLMISVC}" = "true" ]; then
             log_info "LLMISVC is enabled"
@@ -1304,7 +1304,7 @@ main() {
             KSERVE_VERSION="${SET_KSERVE_VERSION}"
         fi
 
-        install_kserve_manifest
+        install_kserve_helm
     )
 
     echo "=========================================="

@@ -1227,7 +1227,7 @@ main() {
             log_info "Setting KServe version to ${SET_KSERVE_VERSION}"
             KSERVE_VERSION="${SET_KSERVE_VERSION}"
         fi
-        install_kserve_manifest
+        install_kserve
     )
 
     echo "=========================================="
