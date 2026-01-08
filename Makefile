@@ -79,7 +79,7 @@ tidy:
 
 .PHONY: sync-deps
 sync-deps:
-	@hack/setup/scripts/generate-versions-from-gomod.sh
+	@@python3 hack/setup/scripts/generate-versions-from-gomod.py
 
 go-lint: golangci-lint
 	@$(GOLANGCI_LINT) run --fix
