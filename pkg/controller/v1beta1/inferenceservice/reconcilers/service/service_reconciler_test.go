@@ -114,8 +114,9 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Name:      "default-predictor",
 					Namespace: "default-predictor-namespace",
 					Labels: map[string]string{
-						constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
-						constants.DeploymentMode:  string(constants.Standard),
+						constants.RawDeploymentAppLabel: "isvc.default-predictor",
+						constants.AutoscalerClass:       string(constants.DefaultAutoscalerClass),
+						constants.DeploymentMode:        string(constants.Standard),
 					},
 					Annotations: map[string]string{
 						"annotation": "annotation-value",
@@ -274,7 +275,146 @@ func runTestServiceCreate(serviceConfig *v1beta1.ServiceConfig, expectedClusterI
 	podSpec := &corev1.PodSpec{}
 
 	service := createService(componentMeta, componentExt, podSpec, false, serviceConfig)
-	assert.Equal(t, componentMeta, service[0].ObjectMeta, "Expected ObjectMeta to be equal")
+
+	// The ObjectMeta should now include the app label that was added by createService
+	expectedMeta := metav1.ObjectMeta{
+		Name:      "test-service",
+		Namespace: "default",
+		Labels: map[string]string{
+			"app": "isvc.test-service",
+		},
+	}
+	assert.Equal(t, expectedMeta, service[0].ObjectMeta, "Expected ObjectMeta to be equal")
 	assert.Equal(t, map[string]string{"app": "isvc.test-service"}, service[0].Spec.Selector, "Expected Selector to be equal")
 	assert.Equal(t, expectedClusterIP, service[0].Spec.ClusterIP, "Expected ClusterIP to be equal")
+}
+
+func TestAppLabelRespectedInServices(t *testing.T) {
+	tests := []struct {
+		name                  string
+		userSpecifiedAppLabel string
+		componentName         string
+		expectedServiceLabel  string
+		expectedSelectorLabel string
+	}{
+		{
+			name:                  "User specifies custom app label",
+			userSpecifiedAppLabel: "my-custom-app",
+			componentName:         "my-model-predictor",
+			expectedServiceLabel:  "my-custom-app",
+			expectedSelectorLabel: "my-custom-app",
+		},
+		{
+			name:                  "User does not specify app label - use default",
+			userSpecifiedAppLabel: "",
+			componentName:         "my-model-predictor",
+			expectedServiceLabel:  "isvc.my-model-predictor",
+			expectedSelectorLabel: "isvc.my-model-predictor",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create componentMeta with optional user-specified app label
+			componentMeta := metav1.ObjectMeta{
+				Name:      tt.componentName,
+				Namespace: "default",
+				Labels:    make(map[string]string),
+			}
+			if tt.userSpecifiedAppLabel != "" {
+				componentMeta.Labels["app"] = tt.userSpecifiedAppLabel
+			}
+
+			podSpec := &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  constants.InferenceServiceContainerName,
+						Image: "test-image",
+						Ports: []corev1.ContainerPort{
+							{
+								Name:          "http",
+								ContainerPort: 8080,
+								Protocol:      corev1.ProtocolTCP,
+							},
+						},
+					},
+				},
+			}
+
+			// Call createService which should set the app label correctly
+			services := createService(componentMeta, &v1beta1.ComponentExtensionSpec{}, podSpec, false, emptyServiceConfig)
+			assert.NotNil(t, services)
+			assert.Len(t, services, 1)
+
+			service := services[0]
+
+			// Verify Service metadata label
+			assert.Equal(t, tt.expectedServiceLabel, service.ObjectMeta.Labels["app"],
+				"Service metadata should have correct app label")
+
+			// Verify Service selector
+			assert.Equal(t, tt.expectedSelectorLabel, service.Spec.Selector["app"],
+				"Service selector should match the app label")
+		})
+	}
+}
+
+func TestAppLabelRespectedInHeadlessServices(t *testing.T) {
+	tests := []struct {
+		name                  string
+		userSpecifiedAppLabel string
+		componentName         string
+		expectedServiceLabel  string
+		expectedSelectorLabel string
+	}{
+		{
+			name:                  "User specifies custom app label for headless service",
+			userSpecifiedAppLabel: "my-custom-headless-app",
+			componentName:         "my-model-predictor",
+			expectedServiceLabel:  "my-custom-headless-app",
+			expectedSelectorLabel: "my-custom-headless-app",
+		},
+		{
+			name:                  "User does not specify app label for headless service - use default",
+			userSpecifiedAppLabel: "",
+			componentName:         "my-model-predictor",
+			expectedServiceLabel:  "isvc.my-model-predictor",
+			expectedSelectorLabel: "isvc.my-model-predictor",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create componentMeta with optional user-specified app label
+			componentMeta := metav1.ObjectMeta{
+				Name:      tt.componentName,
+				Namespace: "default",
+				Labels: map[string]string{
+					constants.InferenceServiceGenerationPodLabelKey: "1",
+				},
+			}
+			if tt.userSpecifiedAppLabel != "" {
+				componentMeta.Labels["app"] = tt.userSpecifiedAppLabel
+			}
+
+			// Set the app label correctly (respect user's choice or use default)
+			// This simulates what createService does before calling createHeadlessSvc
+			setAppLabelOrDefault(&componentMeta, constants.GetRawServiceLabel(tt.componentName))
+
+			// Test createHeadlessSvc directly
+			headlessService := createHeadlessSvc(componentMeta)
+
+			// Verify Headless Service metadata label
+			assert.Equal(t, tt.expectedServiceLabel, headlessService.ObjectMeta.Labels["app"],
+				"Headless Service metadata should have correct app label")
+
+			// Verify Headless Service selector
+			assert.Equal(t, tt.expectedSelectorLabel, headlessService.Spec.Selector["app"],
+				"Headless Service selector should match the app label")
+
+			// Verify it's actually headless
+			assert.Equal(t, "None", headlessService.Spec.ClusterIP,
+				"Headless Service should have ClusterIP set to None")
+		})
+	}
 }
