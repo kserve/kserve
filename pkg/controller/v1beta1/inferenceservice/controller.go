@@ -482,12 +482,14 @@ func (r *InferenceServiceReconciler) clusterServingRuntimeFunc(ctx context.Conte
 				continue
 			}
 		}
-		requests = append(requests, reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Namespace: isvc.Namespace,
-				Name:      isvc.Name,
-			},
-		})
+		if isvc.Status.ClusterServingRuntimeName == clusterServingRuntimeObj.Name {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: isvc.Namespace,
+					Name:      isvc.Name,
+				},
+			})
+		}
 	}
 	return requests
 }
