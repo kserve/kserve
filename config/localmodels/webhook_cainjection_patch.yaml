@@ -3,6 +3,6 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: localmodelcache.serving.kserve.io
   annotations:
-    cert-manager.io/inject-ca-from: $(kserveNamespace)/serving-cert
+    cert-manager.io/inject-ca-from: $(kserveNamespace)/localmodel-serving-cert
 webhooks:
   - name: localmodelcache.kserve-webhook-server.validator

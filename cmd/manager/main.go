@@ -50,7 +50,6 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
 	v1beta1controller "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice"
 	"github.com/kserve/kserve/pkg/utils"
-	"github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 	"github.com/kserve/kserve/pkg/webhook/admission/servingruntime"
 )
@@ -326,14 +325,6 @@ func main() {
 		WithValidator(&v1beta1.InferenceServiceValidator{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "v1beta1")
-		os.Exit(1)
-	}
-
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.LocalModelCache{}).
-		WithValidator(&localmodelcache.LocalModelCacheValidator{Client: mgr.GetClient()}).
-		Complete(); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "localmodelcache")
 		os.Exit(1)
 	}
 
