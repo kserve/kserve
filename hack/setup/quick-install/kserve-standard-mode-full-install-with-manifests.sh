@@ -76934,6 +76934,18 @@ spec:
   selector:
     control-plane: llmisvc-controller-manager
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: localmodel-webhook-server-service
+  namespace: kserve
+spec:
+  ports:
+  - port: 443
+    targetPort: webhook-server
+  selector:
+    control-plane: kserve-localmodel-controller-manager
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -77091,12 +77103,21 @@ spec:
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
       securityContext:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       serviceAccountName: kserve-localmodel-controller-manager
       terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: localmodel-webhook-server-cert
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -77278,6 +77299,20 @@ spec:
     kind: Issuer
     name: selfsigned-issuer
   secretName: llmisvc-webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: localmodel-serving-cert
+  namespace: kserve
+spec:
+  commonName: localmodel-webhook-server-service.kserve.svc
+  dnsNames:
+  - localmodel-webhook-server-service.kserve.svc
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: localmodel-webhook-server-cert
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -78883,7 +78918,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: kserve/serving-cert
+    cert-manager.io/inject-ca-from: kserve/localmodel-serving-cert
   creationTimestamp: null
   name: localmodelcache.serving.kserve.io
 webhooks:
@@ -78891,7 +78926,7 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: kserve-webhook-server-service
+      name: localmodel-webhook-server-service
       namespace: kserve
       path: /validate-serving-kserve-io-v1alpha1-localmodelcache
   failurePolicy: Fail

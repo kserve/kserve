@@ -52,4 +52,13 @@ spec:
           requests:
             cpu: 100m
             memory: 200Mi
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
       terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: localmodel-webhook-server-cert
