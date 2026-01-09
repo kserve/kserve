@@ -1,4 +1,4 @@
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-scheduler
@@ -7,13 +7,21 @@ spec:
     scheduler:
       pool:
         spec:
-          extensionRef:
+          endpointPickerRef:
             failureMode: FailOpen
             kind: Service
             name: |-
               {{ "{{" }} ChildName .ObjectMeta.Name `-epp-service` {{ "}}" }}
-          selector: {}
-          targetPortNumber: 8000
+            port:
+              number: 9002
+          selector:
+            matchLabels:
+              app.kubernetes.io/name: |-
+                {{`{{ .ObjectMeta.Name }}`}}
+              app.kubernetes.io/part-of: llminferenceservice
+              kserve.io/component: workload
+          targetPorts:
+            - number: 8000
       template:
         containers:
           - name: main
@@ -27,7 +35,7 @@ spec:
               - containerPort: 9090
                 name: metrics
                 protocol: TCP
-            image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.2.0
+            image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.4.0
             imagePullPolicy: IfNotPresent
             livenessProbe:
               failureThreshold: 3
@@ -48,22 +56,24 @@ spec:
               successThreshold: 1
               timeoutSeconds: 1
             args:
-              - --poolName
+              - --pool-name
               - "{{ "{{" }} ChildName .ObjectMeta.Name `-inference-pool` {{ "}}" }}"
-              - --poolNamespace
+              - --pool-namespace
               - "{{`{{ .ObjectMeta.Namespace }}`}}"
               - --zap-encoder
               - json
-              - --grpcPort
+              - --grpc-port
               - "9002"
-              - --grpcHealthPort
+              - --grpc-health-port
               - "9003"
+              - --kv-cache-usage-percentage-metric
+              - "vllm:kv_cache_usage_perc"
               # BackendTLSPolicy is not implemented yet so disable SSL for now
-              # - --secureServing
-              # - --modelServerMetricsScheme
+              # - --secure-serving
+              # - --model-server-metrics-scheme
               # - "https"
-              # - --modelServerMetricsHttpsInsecureSkipVerify
-              # - --certPath
+              # - --model-server-metrics-https-insecure-skip-verify
+              # - --cert-path
               # - "/etc/ssl/certs"
             resources:
               requests:
