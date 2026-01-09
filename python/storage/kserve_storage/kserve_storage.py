@@ -977,11 +977,9 @@ class Storage(object):
         if not model_uri:
             raise ValueError("Model uri cannot be empty")
         try:
-            model_info = mlflow.models.get_model_info(model_uri)
-            artifact_path = model_info.artifact_path[len("mlflow-artifacts:/") :]
-            uri = f"{mlflow_tracking_uri}/api/2.0/mlflow-artifacts/artifacts/{artifact_path}/model.pkl"
-            logger.info(f"Resolved MLflow URI: {uri}")
-            Storage._download_from_uri(uri, out_dir)
+            mlflow.artifacts.download_artifacts(
+                artifact_uri=model_uri, dst_path=out_dir
+            )
         except MlflowException:
             raise RuntimeError("Failed to download model from MLFlow")
         return out_dir
