@@ -13,7 +13,7 @@ webhooks:
         path: /validate-serving-kserve-io-v1alpha1-llminferenceservice
     failurePolicy: Fail
     matchPolicy: Exact
-    name: llminferenceservice.kserve-webhook-server.v1alpha1.validator
+    name: llminferenceservice.kserve-webhook-server.validator
     sideEffects: None
     admissionReviewVersions: [ "v1", "v1beta1" ]
     rules:
@@ -62,7 +62,7 @@ webhooks:
         path: /validate-serving-kserve-io-v1alpha1-llminferenceserviceconfig
     failurePolicy: Fail
     matchPolicy: Exact
-    name: llminferenceserviceconfig.kserve-webhook-server.v1alpha1.validator
+    name: llminferenceserviceconfig.kserve-webhook-server.validator
     sideEffects: None
     admissionReviewVersions: [ "v1", "v1beta1" ]
     rules:
