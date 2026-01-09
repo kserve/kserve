@@ -77088,6 +77088,10 @@ spec:
         image: kserve/kserve-localmodel-controller:latest
         imagePullPolicy: Always
         name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
         resources:
           limits:
             cpu: 100m
