@@ -10137,6 +10137,25 @@ spec:
                     type: object
                   scheduler:
                     properties:
+                      config:
+                        properties:
+                          inline:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                          ref:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                default: ""
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                            x-kubernetes-map-type: atomic
+                        type: object
                       pool:
                         properties:
                           ref:
@@ -30403,6 +30422,25 @@ spec:
                     type: object
                   scheduler:
                     properties:
+                      config:
+                        properties:
+                          inline:
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                          ref:
+                            properties:
+                              key:
+                                type: string
+                              name:
+                                default: ""
+                                type: string
+                              optional:
+                                type: boolean
+                            required:
+                            - key
+                            type: object
+                            x-kubernetes-map-type: atomic
+                        type: object
                       pool:
                         properties:
                           ref:
@@ -41884,8 +41922,11 @@ rules:
   - ""
   resources:
   - configmaps
+  - pods
   verbs:
   - get
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -41894,14 +41935,6 @@ rules:
   - create
   - patch
   - update
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
 - apiGroups:
   - ""
   resources:
