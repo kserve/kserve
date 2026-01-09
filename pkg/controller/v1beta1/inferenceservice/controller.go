@@ -233,7 +233,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// Setup reconcilers
-	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
+	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name, "namespace", isvc.Namespace)
 
 	// Reconcile cabundleConfigMap
 	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset)
@@ -327,6 +327,10 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			if result, err := reconciler.Reconcile(ctx, isvc); err != nil {
 				return result, errors.Wrapf(err, "fails to reconcile ingress")
 			} else if result.Requeue || result.RequeueAfter > 0 {
+				// Persist status before requeue so deployment errors are visible on the ISVC
+				if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
+					r.Log.Error(err, "Error updating status before requeue")
+				}
 				return result, nil
 			}
 		} else {
