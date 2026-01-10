@@ -2142,7 +2142,7 @@ func TestIngressReconciler_Reconcile(t *testing.T) {
 				ingressConfig: tt.fields.ingressConfig,
 				isvcConfig:    tt.fields.isvcConfig,
 			}
-			err := r.Reconcile(t.Context(), tt.args.isvc)
+			_, err := r.Reconcile(t.Context(), tt.args.isvc)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Reconcile() error = %v, wantErr %v", err, tt.wantErr)
 				return
