@@ -24,6 +24,7 @@ import (
 	"github.com/kserve/kserve/pkg/credentials/azure"
 	"github.com/kserve/kserve/pkg/credentials/gcs"
 	"github.com/kserve/kserve/pkg/credentials/hdfs"
+	"github.com/kserve/kserve/pkg/credentials/mlflow"
 	"github.com/kserve/kserve/pkg/credentials/s3"
 
 	"github.com/google/go-cmp/cmp"
@@ -2355,4 +2356,147 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			t.Errorf("Failed to delete secret %s because of: %v", tc.secret.Name, err)
 		}
 	}
+}
+
+func TestMLFlowCredentialBuilder(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	customOnlyServiceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mlflow-sa",
+			Namespace: "default",
+		},
+		Secrets: []corev1.ObjectReference{
+			{
+				Name:      "mlflow-secret",
+				Namespace: "default",
+			},
+		},
+	}
+	customMLFlowSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mlflow-secret",
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			mlflow.MLFlowTrackingUri:      []byte("https://mlflow.example.com"),
+			mlflow.MLFlowTrackingUsername: []byte("user"),
+			mlflow.MLFlowTrackingPassword: []byte("password"),
+			mlflow.MLFlowTrackingToken:    []byte("token123"),
+		},
+	}
+
+	scenarios := map[string]struct {
+		serviceAccount        *corev1.ServiceAccount
+		inputConfiguration    *knservingv1.Configuration
+		expectedConfiguration *knservingv1.Configuration
+		shouldFail            bool
+	}{
+		"Build MLFlow secrets envs": {
+			serviceAccount: customOnlyServiceAccount,
+			inputConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedConfiguration: &knservingv1.Configuration{
+				Spec: knservingv1.ConfigurationSpec{
+					Template: knservingv1.RevisionTemplateSpec{
+						Spec: knservingv1.RevisionSpec{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{
+										Env: []corev1.EnvVar{
+											{
+												Name: mlflow.MLFlowTrackingUri,
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
+															Name: "mlflow-secret",
+														},
+														Key: mlflow.MLFlowTrackingUri,
+													},
+												},
+											},
+											{
+												Name: mlflow.MLFlowTrackingUsername,
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
+															Name: "mlflow-secret",
+														},
+														Key: mlflow.MLFlowTrackingUsername,
+													},
+												},
+											},
+											{
+												Name: mlflow.MLFlowTrackingPassword,
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
+															Name: "mlflow-secret",
+														},
+														Key: mlflow.MLFlowTrackingPassword,
+													},
+												},
+											},
+											{
+												Name: mlflow.MLFlowTrackingToken,
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
+															Name: "mlflow-secret",
+														},
+														Key: mlflow.MLFlowTrackingToken,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			shouldFail: false,
+		},
+	}
+
+	g.Expect(c.Create(t.Context(), customMLFlowSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+
+	builder := NewCredentialBuilder(c, clientset, configMap)
+	for name, scenario := range scenarios {
+		err := builder.CreateSecretVolumeAndEnv(
+			t.Context(),
+			scenario.serviceAccount.Namespace,
+			nil,
+			scenario.serviceAccount.Name,
+			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
+			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
+		)
+		if scenario.shouldFail && err == nil {
+			t.Errorf("Test %q failed: returned success but expected error", name)
+		}
+		// Validate
+		if !scenario.shouldFail {
+			if err != nil {
+				t.Errorf("Test %q failed: returned error: %v", name, err)
+			}
+			if diff := cmp.Diff(scenario.expectedConfiguration, scenario.inputConfiguration); diff != "" {
+				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
+			}
+		}
+	}
+
+	g.Expect(c.Delete(t.Context(), customMLFlowSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 }
