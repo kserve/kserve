@@ -556,8 +556,7 @@ func podInitContainersPredicate() predicate.Funcs {
 				return false
 			}
 			// Check if pod has the InferenceService label
-			_, found := newPod.Labels[constants.InferenceServicePodLabelKey]
-			if !found {
+			if _, found := newPod.Labels[constants.InferenceServicePodLabelKey]; !found {
 				return false
 			}
 			// Only watch pod status changes, not spec changes
