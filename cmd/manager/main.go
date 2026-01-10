@@ -122,6 +122,13 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	setupLog.Info("Setting up manager")
+
+	cacheOpts, err := v1beta1controller.NewCacheOptions()
+	if err != nil {
+		setupLog.Error(err, "unable to create cache options")
+		os.Exit(1)
+	}
+
 	mgr, err := manager.New(cfg, manager.Options{
 		Metrics: metricsserver.Options{
 			BindAddress: options.metricsAddr,
@@ -132,6 +139,7 @@ func main() {
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       LeaderLockName,
 		HealthProbeBindAddress: options.probeAddr,
+		Cache:                  cacheOpts,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to set up overall controller manager")
