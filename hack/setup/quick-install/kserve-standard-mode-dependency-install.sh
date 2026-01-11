@@ -517,7 +517,7 @@ KNATIVE_SERVING_VERSION=1.15.2
 KEDA_OTEL_ADDON_VERSION=v0.0.6
 KSERVE_VERSION=v0.16.0
 ISTIO_VERSION=1.27.1
-KEDA_VERSION=2.16.1
+KEDA_VERSION=2.17.2
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.7.0
 GATEWAY_API_VERSION=v1.2.1
@@ -547,6 +547,7 @@ KSERVE_CUSTOM_ISVC_CONFIGS="${KSERVE_CUSTOM_ISVC_CONFIGS:-}"
 #================================================
 
 ADDON_RELEASE_NAME="keda-otel-scaler"
+OTEL_RELEASE_NAME="my-opentelemetry-operator"
 PLATFORM="${PLATFORM:-$(detect_platform)}"
 TEMPLATE_DIR="${REPO_ROOT}/hack/setup/infra/external-lb/templates"
 GATEWAYCLASS_NAME="${GATEWAYCLASS_NAME:-envoy}"
@@ -571,13 +572,14 @@ install_helm() {
 
     log_info "Installing Helm ${HELM_VERSION} for ${os}/${arch}..."
 
-    if command -v helm &>/dev/null; then
-        local current_version=$(helm version --template='{{.Version}}' 2>/dev/null)
-        if [[ -n "$current_version" ]] && version_gte "$current_version" "$HELM_VERSION"; then
-            log_info "Helm ${current_version} is already installed (>= ${HELM_VERSION})"
+    # Check if helm is already installed in BIN_DIR with the exact required version
+    if [[ -f "${BIN_DIR}/helm" ]]; then
+        local current_version=$("${BIN_DIR}/helm" version --template='{{.Version}}' 2>/dev/null)
+        if [[ "$current_version" == "$HELM_VERSION" ]]; then
+            log_info "Helm ${current_version} is already installed in ${BIN_DIR}"
             return 0
         fi
-        [[ -n "$current_version" ]] && log_info "Upgrading Helm from ${current_version} to ${HELM_VERSION}..."
+        [[ -n "$current_version" ]] && log_info "Replacing Helm ${current_version} with ${HELM_VERSION} in ${BIN_DIR}..."
     fi
 
     local temp_dir=$(mktemp -d)
@@ -851,6 +853,48 @@ install_keda_otel_addon() {
     wait_for_pods "${KEDA_NAMESPACE}" "app.kubernetes.io/instance=${ADDON_RELEASE_NAME}" "300s"
 
     log_success "KEDA OTel add-on is ready!"
+}
+
+# ----------------------------------------
+# CLI/Component: opentelemetry
+# ----------------------------------------
+
+uninstall_opentelemetry() {
+    log_info "Uninstalling OpenTelemetry Operator..."
+    helm uninstall "${OTEL_RELEASE_NAME}" -n "${OTEL_NAMESPACE}" 2>/dev/null || true
+    kubectl delete all --all -n "${OTEL_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
+    kubectl delete namespace "${OTEL_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
+    log_success "OpenTelemetry Operator uninstalled"
+}
+
+install_opentelemetry() {
+    if helm list -n "${OTEL_NAMESPACE}" 2>/dev/null | grep -q "${OTEL_RELEASE_NAME}"; then
+        if [ "$REINSTALL" = false ]; then
+            log_info "OpenTelemetry Operator is already installed. Use --reinstall to reinstall."
+            return 0
+        else
+            log_info "Reinstalling OpenTelemetry Operator..."
+            uninstall_opentelemetry
+        fi
+    fi
+
+    log_info "Adding OpenTelemetry Helm repository..."
+    helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts --force-update
+
+    log_info "Installing OpenTelemetry Operator ${OPENTELEMETRY_OPERATOR_VERSION}..."
+    helm install "${OTEL_RELEASE_NAME}" open-telemetry/opentelemetry-operator \
+        --namespace "${OTEL_NAMESPACE}" \
+        --create-namespace \
+        --version "${OPENTELEMETRY_OPERATOR_VERSION}" \
+        --wait \
+        --set "manager.collectorImage.repository=otel/opentelemetry-collector-contrib" \
+        ${OTEL_OPERATOR_EXTRA_ARGS:-}
+
+    log_success "Successfully installed OpenTelemetry Operator via Helm"
+
+    wait_for_pods "${OTEL_NAMESPACE}" "app.kubernetes.io/name=opentelemetry-operator" "300s"
+
+    log_success "OpenTelemetry Operator is ready!"
 }
 
 # ----------------------------------------
@@ -1223,6 +1267,7 @@ main() {
         uninstall_envoy_gateway
         uninstall_gateway_api_extension_crd
         uninstall_external_lb
+        uninstall_opentelemetry
         uninstall_keda_otel_addon
         uninstall_keda
         uninstall_cert_manager
@@ -1247,6 +1292,7 @@ main() {
     install_cert_manager
     install_keda
     install_keda_otel_addon
+    install_opentelemetry
     install_external_lb
     install_gateway_api_extension_crd
     install_envoy_gateway

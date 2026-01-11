@@ -10,6 +10,7 @@ COMPONENTS:
   - name: cert-manager
   - name: keda
   - name: keda-otel-addon
+  - name: opentelemetry
   # LLMISVC
   - name: external-lb
   - name: envoy-gateway
