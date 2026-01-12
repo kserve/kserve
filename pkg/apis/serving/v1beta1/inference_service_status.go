@@ -703,17 +703,10 @@ func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatu
 		if cs.Name == constants.StorageInitializerContainerName {
 			switch {
 			case cs.State.Running != nil:
-				// Double check that we aren't missing an error because the cs is looping between an error state and running
-				if cs.LastTerminationState.Terminated != nil {
-					// Requeue the Predictor reconcile loop if there was a previous error reported
-					// to make sure we aren't just temporarily in the cs.State.Running case before moving to the cs.State.Terminated case
-					return false
-				} else {
-					// If there is no previous error, we should be okay to move into the Loading state
-					ss.UpdateModelRevisionStates(Loading, nil)
-					return true
-				}
-
+				// Init container is running (e.g., downloading model from storage)
+				// Continue polling to detect failures quickly when the container terminates
+				ss.UpdateModelRevisionStates(Loading, nil)
+				return false
 			case cs.State.Terminated != nil && cs.State.Terminated.Reason == constants.StateReasonError:
 				ss.UpdateModelRevisionStates(FailedToLoad, &FailureInfo{
 					Reason:   ModelLoadFailed,
@@ -728,6 +721,11 @@ func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatu
 					ExitCode: cs.LastTerminationState.Terminated.ExitCode,
 				})
 				return true
+			case cs.State.Waiting != nil:
+				// Init container is waiting to start (e.g., PodInitializing, ContainerCreating, image pull)
+				// Signal that a requeue is needed to check status again
+				ss.UpdateModelRevisionStates(Pending, nil)
+				return false
 			}
 		}
 	}

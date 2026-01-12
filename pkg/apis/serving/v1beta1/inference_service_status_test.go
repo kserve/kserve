@@ -937,6 +937,87 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 			},
 			expectedReturnValue: true,
 		},
+		"storage initializer in waiting state": {
+			isvcStatus: &InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: corev1.ConditionFalse,
+						},
+					},
+				},
+				Address: &duckv1.Addressable{},
+				URL:     &apis.URL{},
+				Components: map[ComponentType]ComponentStatusSpec{
+					PredictorComponent: {
+						LatestRolledoutRevision: "test-predictor-default-0001",
+					},
+				},
+				ModelStatus: ModelStatus{},
+			},
+			statusSpec: ComponentStatusSpec{
+				LatestReadyRevision:       "",
+				LatestCreatedRevision:     "",
+				PreviousRolledoutRevision: "",
+				LatestRolledoutRevision:   "",
+				Traffic:                   nil,
+				URL:                       nil,
+				RestURL:                   nil,
+				GrpcURL:                   nil,
+				Address:                   nil,
+			},
+			podList: &corev1.PodList{
+				TypeMeta: metav1.TypeMeta{},
+				ListMeta: metav1.ListMeta{},
+				Items: []corev1.Pod{
+					{
+						TypeMeta: metav1.TypeMeta{},
+						ObjectMeta: metav1.ObjectMeta{
+							Name: constants.StorageInitializerContainerName,
+						},
+						Spec: corev1.PodSpec{},
+						Status: corev1.PodStatus{
+							InitContainerStatuses: []corev1.ContainerStatus{
+								{
+									Name: constants.StorageInitializerContainerName,
+									State: corev1.ContainerState{
+										Waiting: &corev1.ContainerStateWaiting{
+											Reason: "PodInitializing",
+										},
+									},
+									LastTerminationState: corev1.ContainerState{},
+									Ready:                false,
+									RestartCount:         0,
+									Image:                "",
+									ImageID:              "",
+									ContainerID:          "",
+									Started:              proto.Bool(false),
+								},
+							},
+						},
+					},
+				},
+			},
+			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
+			expectedRevisionStates: &ModelRevisionStates{
+				ActiveModelState: "",
+				TargetModelState: Pending,
+			},
+			expectedTransitionStatus: InProgress,
+			expectedFailureInfo:      nil,
+			expectedReturnValue:      false, // should trigger requeue
+		},
 		"storage initializer in running state": {
 			isvcStatus: &InferenceServiceStatus{
 				Status: duckv1.Status{
@@ -1016,9 +1097,11 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 			},
 			expectedTransitionStatus: InProgress,
 			expectedFailureInfo:      nil,
-			expectedReturnValue:      true,
+			expectedReturnValue:      false, // should trigger requeue to detect failures quickly
 		},
 		"storage initializer in running state but it has a previous error": {
+			// Even with a previous termination error, the state is set to Loading while the
+			// init container is running. The requeue ensures we detect failures quickly.
 			isvcStatus: &InferenceServiceStatus{
 				Status: duckv1.Status{
 					Conditions: duckv1.Conditions{
@@ -1099,10 +1182,13 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					},
 				},
 			},
-			expectedRevisionStates:   nil, // This field is not changed in this use case
-			expectedTransitionStatus: "",  // This field is not changed in this use case
-			expectedFailureInfo:      nil, // This field is not changed in this use case
-			expectedReturnValue:      false,
+			expectedRevisionStates: &ModelRevisionStates{
+				ActiveModelState: "",
+				TargetModelState: Loading,
+			},
+			expectedTransitionStatus: InProgress,
+			expectedFailureInfo:      nil,
+			expectedReturnValue:      false, // should trigger requeue to detect failures quickly
 		},
 		"kserve container is ready": {
 			isvcStatus: &InferenceServiceStatus{

@@ -22,6 +22,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -241,9 +242,8 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 
 	if isvc.Status.PropagateModelStatus(statusSpec, predictorPods, rawDeployment, kstatus) {
 		return ctrl.Result{}, nil
-	} else {
-		return ctrl.Result{Requeue: true}, nil
 	}
+	return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
 func (p *Predictor) reconcileModelConfig(ctx context.Context, isvc *v1beta1.InferenceService) error {
