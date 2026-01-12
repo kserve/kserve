@@ -45,6 +45,21 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+        livenessProbe:
+          failureThreshold: 5
+          initialDelaySeconds: 30
+          httpGet:
+            path: /healthz
+            port: 8081
+          timeoutSeconds: 5
+        readinessProbe:
+          initialDelaySeconds: 30
+          failureThreshold: 5
+          periodSeconds: 5
+          httpGet:
+            path: /readyz
+            port: 8081
+          timeoutSeconds: 5                
         resources:
           limits:
             cpu: 100m

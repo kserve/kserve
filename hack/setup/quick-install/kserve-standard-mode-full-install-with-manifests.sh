@@ -77087,11 +77087,26 @@ spec:
               fieldPath: metadata.namespace
         image: kserve/kserve-localmodel-controller:latest
         imagePullPolicy: Always
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
         name: manager
         ports:
         - containerPort: 9443
           name: webhook-server
           protocol: TCP
+        readinessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 5
         resources:
           limits:
             cpu: 100m
