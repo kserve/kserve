@@ -263,6 +263,10 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile component")
 		}
 		if result.Requeue || result.RequeueAfter > 0 {
+			// Persist status before requeue so deployment status and traffic are visible on the ISVC
+			if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
+				r.Log.Error(err, "Error updating status before requeue")
+			}
 			return result, nil
 		}
 	}
