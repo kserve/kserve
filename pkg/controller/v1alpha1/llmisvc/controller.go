@@ -251,7 +251,7 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Secret{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Service{}, builder.WithPredicates(childResourcesPredicate)).
-		Watches(&corev1.ConfigMap{}, r.enqueueOnConfigMapChange(logger), builder.WithPredicates(childResourcesPredicate))
+		Watches(&corev1.ConfigMap{}, r.enqueueOnConfigMapChange(logger))
 
 	if err := gwapiv1.Install(mgr.GetScheme()); err != nil {
 		return fmt.Errorf("failed to add GIE APIs to scheme: %w", err)
