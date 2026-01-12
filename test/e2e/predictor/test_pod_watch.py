@@ -483,9 +483,10 @@ async def test_event_storm_prevention_init_container_isolation(
             # Primary check: Log analysis to detect reconciliation invocations
             # This catches even no-op reconciliations that don't change resourceVersion
             # Filter logs by namespace to ignore reconciliations from other tests
-            elapsed_seconds = (
-                int(time.time() - log_start_time) + 1
-            )  # +1 for safety margin
+            # Use int() truncation to ensure we don't fetch logs from before
+            # the baseline. Missing a fraction of a second at the end is fine
+            # since we're checking for events that should NOT be present.
+            elapsed_seconds = int(time.time() - log_start_time)
             new_logs = get_controller_logs(elapsed_seconds)
             reconciled_isvcs = parse_reconciled_isvcs_from_logs(
                 new_logs, namespace_filter=namespace
