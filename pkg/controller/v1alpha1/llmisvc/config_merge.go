@@ -297,15 +297,19 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		}
 	}
 
-	err = r.Validator(ctx, &v1alpha1.LLMInferenceService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      llmSvc.Name,
-			Namespace: llmSvc.GetNamespace(),
-		},
-		Spec: llmSvcCfg.Spec,
-	})
-	if err != nil {
-		return llmSvcCfg, err
+	// Skip validation when we're only using the result for matching (not for reconciliation).
+	// When skipClearSchedulerConfigRef is true, both Inline and Ref may be set, which would fail validation.
+	if !options.skipClearSchedulerConfigRef {
+		err = r.Validator(ctx, &v1alpha1.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      llmSvc.Name,
+				Namespace: llmSvc.GetNamespace(),
+			},
+			Spec: llmSvcCfg.Spec,
+		})
+		if err != nil {
+			return llmSvcCfg, err
+		}
 	}
 
 	return llmSvcCfg, nil

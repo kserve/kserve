@@ -18,6 +18,7 @@ package llmisvc_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -365,8 +366,6 @@ schedulingProfiles:
 			Expect(found).To(BeTrue(), "Expected initial config in scheduler deployment")
 			Expect(configText).To(ContainSubstring("initial-plugin"))
 
-			initialResourceVersion := expectedDeployment.ResourceVersion
-
 			// when - update ConfigMap
 			updatedConfigData := `
 apiVersion: inference.networking.x-k8s.io/v1alpha1
@@ -389,8 +388,9 @@ schedulingProfiles:
 			Expect(errRetry).ToNot(HaveOccurred())
 
 			// then - verify the deployment is updated with new config
+			updatedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
-				updatedDeployment := &appsv1.Deployment{}
+				updatedDeployment = &appsv1.Deployment{}
 				if err := envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-router-scheduler",
 					Namespace: nsName,
@@ -398,16 +398,12 @@ schedulingProfiles:
 					return err
 				}
 
-				// Check if deployment was actually updated (resource version changed)
-				g.Expect(updatedDeployment.ResourceVersion).ToNot(Equal(initialResourceVersion),
-					"Expected deployment to be updated after ConfigMap change")
-
 				// Check for updated config using helper function
 				configText, found := getSchedulerConfigText(updatedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --configText in updated deployment")
 				g.Expect(configText).To(ContainSubstring("updated-plugin"))
 				return nil
-			}).WithContext(ctx).Should(Succeed())
+			}).WithContext(ctx).Should(Succeed(), fmt.Sprintf("Expected to find updated scheduler config in updated deployment %#v", updatedDeployment))
 		})
 	})
 
