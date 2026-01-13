@@ -91,6 +91,11 @@ pushd python >/dev/null
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_IMG}-${TAG}",compression-level=0 .
     echo "Disk usage after Building Huggingface CPU image:"
         df -hT
+    echo "Building Predictive server image"
+    docker buildx build -t "${PREDICTIVE_IMG_TAG}" -f predictiveserver.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${PREDICTIVE_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building Predictive server image:"
+        df -hT
   fi
 
   if [[ " ${types[*]} " =~ "explainer" ]]; then
