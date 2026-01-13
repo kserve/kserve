@@ -49,16 +49,20 @@ class V1alpha1LocalModelCacheSpec(object):
     openapi_types = {
         'model_size': 'ResourceQuantity',
         'node_groups': 'list[str]',
-        'source_model_uri': 'str'
+        'service_account_name': 'str',
+        'source_model_uri': 'str',
+        'storage': 'V1alpha1LocalModelStorageSpec'
     }
 
     attribute_map = {
         'model_size': 'modelSize',
         'node_groups': 'nodeGroups',
-        'source_model_uri': 'sourceModelUri'
+        'service_account_name': 'serviceAccountName',
+        'source_model_uri': 'sourceModelUri',
+        'storage': 'storage'
     }
 
-    def __init__(self, model_size=None, node_groups=None, source_model_uri='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, model_size=None, node_groups=None, service_account_name=None, source_model_uri='', storage=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1LocalModelCacheSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -66,12 +70,18 @@ class V1alpha1LocalModelCacheSpec(object):
 
         self._model_size = None
         self._node_groups = None
+        self._service_account_name = None
         self._source_model_uri = None
+        self._storage = None
         self.discriminator = None
 
         self.model_size = model_size
         self.node_groups = node_groups
+        if service_account_name is not None:
+            self.service_account_name = service_account_name
         self.source_model_uri = source_model_uri
+        if storage is not None:
+            self.storage = storage
 
     @property
     def model_size(self):
@@ -122,6 +132,29 @@ class V1alpha1LocalModelCacheSpec(object):
         self._node_groups = node_groups
 
     @property
+    def service_account_name(self):
+        """Gets the service_account_name of this V1alpha1LocalModelCacheSpec.  # noqa: E501
+
+        ServiceAccountName specifies the service account to use for credential lookup. The service account should have secrets attached that contain the credentials for accessing the model storage (e.g., HuggingFace token, S3 credentials).  # noqa: E501
+
+        :return: The service_account_name of this V1alpha1LocalModelCacheSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._service_account_name
+
+    @service_account_name.setter
+    def service_account_name(self, service_account_name):
+        """Sets the service_account_name of this V1alpha1LocalModelCacheSpec.
+
+        ServiceAccountName specifies the service account to use for credential lookup. The service account should have secrets attached that contain the credentials for accessing the model storage (e.g., HuggingFace token, S3 credentials).  # noqa: E501
+
+        :param service_account_name: The service_account_name of this V1alpha1LocalModelCacheSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._service_account_name = service_account_name
+
+    @property
     def source_model_uri(self):
         """Gets the source_model_uri of this V1alpha1LocalModelCacheSpec.  # noqa: E501
 
@@ -145,6 +178,27 @@ class V1alpha1LocalModelCacheSpec(object):
             raise ValueError("Invalid value for `source_model_uri`, must not be `None`")  # noqa: E501
 
         self._source_model_uri = source_model_uri
+
+    @property
+    def storage(self):
+        """Gets the storage of this V1alpha1LocalModelCacheSpec.  # noqa: E501
+
+
+        :return: The storage of this V1alpha1LocalModelCacheSpec.  # noqa: E501
+        :rtype: V1alpha1LocalModelStorageSpec
+        """
+        return self._storage
+
+    @storage.setter
+    def storage(self, storage):
+        """Sets the storage of this V1alpha1LocalModelCacheSpec.
+
+
+        :param storage: The storage of this V1alpha1LocalModelCacheSpec.  # noqa: E501
+        :type: V1alpha1LocalModelStorageSpec
+        """
+
+        self._storage = storage
 
     def to_dict(self):
         """Returns the model properties as a dict"""
