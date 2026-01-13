@@ -22,23 +22,22 @@ source "${SCRIPT_DIR}/../common.sh"
 install() {
     local os=$(detect_os)
     local arch=$(detect_arch)
-    local archive_name="helm-${HELM_VERSION}-${os}-${arch}.tar.gz"
-    local download_url="https://get.helm.sh/${archive_name}"
+    local binary_name="kind-${os}-${arch}"
+    local download_url="https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/${binary_name}"
 
-    log_info "Installing Helm ${HELM_VERSION} for ${os}/${arch}..."
+    log_info "Installing Kind ${KIND_VERSION} for ${os}/${arch}..."
 
-    # Check if helm is already installed in BIN_DIR with the exact required version
-    if [[ -f "${BIN_DIR}/helm" ]]; then
-        local current_version=$("${BIN_DIR}/helm" version --template='{{.Version}}' 2>/dev/null)
-        if [[ "$current_version" == "$HELM_VERSION" ]]; then
-            log_info "Helm ${current_version} is already installed in ${BIN_DIR}"
+    if command -v kind &>/dev/null; then
+        local current_version=$(kind version 2>/dev/null | grep -oP 'kind v[0-9.]+' | awk '{print $2}')
+        if [[ -n "$current_version" ]] && version_gte "$current_version" "$KIND_VERSION"; then
+            log_info "Kind ${current_version} is already installed (>= ${KIND_VERSION})"
             return 0
         fi
-        [[ -n "$current_version" ]] && log_info "Replacing Helm ${current_version} with ${HELM_VERSION} in ${BIN_DIR}..."
+        [[ -n "$current_version" ]] && log_info "Upgrading Kind from ${current_version} to ${KIND_VERSION}..."
     fi
 
     local temp_dir=$(mktemp -d)
-    local temp_file="${temp_dir}/${archive_name}"
+    local temp_file="${temp_dir}/kind"
 
     if command -v wget &>/dev/null; then
         wget -q "${download_url}" -O "${temp_file}"
@@ -50,28 +49,24 @@ install() {
         exit 1
     fi
 
-    tar -xzf "${temp_file}" -C "${temp_dir}"
-
-    local binary_path="${temp_dir}/${os}-${arch}/helm"
-
-    if [[ ! -f "${binary_path}" ]]; then
-        log_error "helm binary not found in archive" >&2
+    if [[ ! -f "${temp_file}" ]]; then
+        log_error "kind binary not downloaded" >&2
         rm -rf "${temp_dir}"
         exit 1
     fi
 
-    chmod +x "${binary_path}"
+    chmod +x "${temp_file}"
 
     if [[ -w "${BIN_DIR}" ]]; then
-        mv "${binary_path}" "${BIN_DIR}/helm"
+        mv "${temp_file}" "${BIN_DIR}/kind"
     else
-        sudo mv "${binary_path}" "${BIN_DIR}/helm"
+        sudo mv "${temp_file}" "${BIN_DIR}/kind"
     fi
 
     rm -rf "${temp_dir}"
 
-    log_success "Successfully installed Helm ${HELM_VERSION} to ${BIN_DIR}/helm"
-    helm version
+    log_success "Successfully installed Kind ${KIND_VERSION} to ${BIN_DIR}/kind"
+    kind version
 }
 
 install

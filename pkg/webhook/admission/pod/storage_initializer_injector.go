@@ -167,10 +167,26 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 		return nil
 	}
 
-	if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.InferenceServiceContainerName, mi.config); err != nil {
-		return err
+	// Find the kserve-container (this is the model inference server) and worker-container
+	userContainer := utils.GetContainerWithName(&pod.Spec, constants.InferenceServiceContainerName)
+	workerContainer := utils.GetContainerWithName(&pod.Spec, constants.WorkerContainerName)
+
+	if userContainer == nil {
+		if workerContainer == nil {
+			return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
+		} else {
+			// Use worker container for multi-node scenarios
+			if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.WorkerContainerName, mi.config); err != nil {
+				return err
+			}
+		}
+	} else {
+		if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.InferenceServiceContainerName, mi.config); err != nil {
+			return err
+		}
 	}
 
+	// Configure modelcar for transformer container if it exists
 	if utils.GetContainerWithName(&pod.Spec, constants.TransformerContainerName) != nil {
 		return utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.TransformerContainerName, mi.config)
 	}

@@ -53,9 +53,9 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 ARG TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
 ARG IPEX_EXTRA_INDEX_URL="https://pytorch-extension.intel.com/release-whl/stable/cpu/us/"
-ARG TORCH_VERSION=2.7.0
-ARG INTEL_EXTENSION_FOR_PYTORCH_VERSION=2.7.0
-ARG TORCHVISION_VERSION=0.22.0
+ARG TORCH_VERSION=2.9.0
+ARG INTEL_EXTENSION_FOR_PYTORCH_VERSION=2.8.0
+ARG TORCHVISION_VERSION=0.24.0
 
 # Install kserve using UV
 COPY kserve kserve
@@ -86,7 +86,7 @@ RUN pip install --no-cache --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-in
     intel-openmp
 
 # install vllm
-ARG VLLM_VERSION=0.9.2
+ARG VLLM_VERSION=0.11.2
 ARG VLLM_CPU_DISABLE_AVX512=true
 ENV VLLM_CPU_DISABLE_AVX512=${VLLM_CPU_DISABLE_AVX512}
 ARG VLLM_CPU_AVX512BF16=1

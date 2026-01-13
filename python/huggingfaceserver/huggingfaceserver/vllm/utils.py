@@ -20,9 +20,7 @@ from contextlib import asynccontextmanager
 from kserve.logging import logger
 
 try:
-    import vllm.envs as envs
     from vllm.engine.arg_utils import AsyncEngineArgs
-    from vllm.engine.async_llm_engine import AsyncLLMEngine
     from vllm.engine.protocol import EngineClient
     from vllm.entrypoints.openai.cli_args import make_arg_parser
     from vllm.model_executor.models import ModelRegistry
@@ -86,38 +84,22 @@ async def build_async_engine_client_from_engine_args(
     usage_context = UsageContext.OPENAI_API_SERVER
     vllm_config = engine_args.create_engine_config(usage_context=usage_context)
 
-    # V1 AsyncLLM.
-    if envs.VLLM_USE_V1:
-        if disable_frontend_multiprocessing:
-            logger.warning(
-                "V1 is enabled, but got --disable-frontend-multiprocessing. "
-                "To disable frontend multiprocessing, set VLLM_USE_V1=0."
-            )
+    if disable_frontend_multiprocessing:
+        logger.warning(
+            "V1 is enabled, but got --disable-frontend-multiprocessing. "
+            "To disable frontend multiprocessing, set VLLM_USE_V1=0."
+        )
 
-        from vllm.v1.engine.async_llm import AsyncLLM
+    from vllm.v1.engine.async_llm import AsyncLLM
 
-        async_llm: Optional[AsyncLLM] = None
-        try:
-            async_llm = AsyncLLM.from_vllm_config(
-                vllm_config=vllm_config,
-                usage_context=usage_context,
-                disable_log_requests=engine_args.disable_log_requests,
-                disable_log_stats=engine_args.disable_log_stats,
-            )
-            yield async_llm
-        finally:
-            logger.info("V1 AsyncLLM build complete")
-
-    # V0 AsyncLLMEngine.
-    else:
-        engine_client: Optional[EngineClient] = None
-        try:
-            engine_client = AsyncLLMEngine.from_vllm_config(
-                vllm_config=vllm_config,
-                usage_context=usage_context,
-                disable_log_requests=engine_args.disable_log_requests,
-                disable_log_stats=engine_args.disable_log_stats,
-            )
-            yield engine_client
-        finally:
-            logger.info("V0 AsyncLLMEngine build complete")
+    async_llm: Optional[AsyncLLM] = None
+    try:
+        async_llm = AsyncLLM.from_vllm_config(
+            vllm_config=vllm_config,
+            usage_context=usage_context,
+            disable_log_requests=engine_args.disable_log_requests,
+            disable_log_stats=engine_args.disable_log_stats,
+        )
+        yield async_llm
+    finally:
+        logger.info("V1 AsyncLLM build complete")

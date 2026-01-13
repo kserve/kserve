@@ -32,6 +32,8 @@ ignore-packages = [
   "nvidia-nccl-cu12", 
   "nvidia-nvjitlink-cu12", 
   "nvidia-nvtx-cu12", 
+  "nvidia-cutlass-dsl",
+  "nvidia-nvshmem-cu12",
   # Intel EULA
   "intel-openmp", "intel-cmplr-lib-ur",
   # Intel Simplified Software License

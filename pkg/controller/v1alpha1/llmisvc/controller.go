@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
 
 	"knative.dev/pkg/reconciler"
 
@@ -134,6 +135,12 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 		// Do not reconcile, because llmisvc is being deleted.
 		return ctrl.Result{}, nil
+	}
+
+	// Reconcile cabundleConfigMap
+	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset)
+	if err := caBundleConfigMapReconciler.Reconcile(ctx, original.Namespace); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	// Work with a copy to avoid modifying the original until status update
@@ -300,13 +307,21 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 				return reqs
 			}
 			for _, llmSvc := range llmSvcList.Items {
+				// Use a deep copy to avoid modifying the original object
+				llmSvcCopy := llmSvc.DeepCopy()
+				combinedCfg, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
+				if err != nil {
+					logger.Error(err, "Failed to combine base refs config", "llmSvc", llmSvc.Name)
+					continue
+				}
+
 				// Skip services that don't use gateways
-				if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Gateway == nil {
+				if combinedCfg.Spec.Router == nil || combinedCfg.Spec.Router.Gateway == nil {
 					continue
 				}
 
 				// Check if service uses the global default gateway
-				if !llmSvc.Spec.Router.Gateway.HasRefs() && sub.Name == cfg.IngressGatewayName && sub.Namespace == cfg.IngressGatewayNamespace {
+				if !combinedCfg.Spec.Router.Gateway.HasRefs() && sub.Name == cfg.IngressGatewayName && sub.Namespace == cfg.IngressGatewayNamespace {
 					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 						Namespace: llmSvc.Namespace,
 						Name:      llmSvc.Name,
@@ -315,7 +330,7 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 				}
 
 				// Check if service explicitly references this gateway
-				for _, ref := range llmSvc.Spec.Router.Gateway.Refs {
+				for _, ref := range combinedCfg.Spec.Router.Gateway.Refs {
 					if string(ref.Name) == sub.Name && string(ref.Namespace) == sub.Namespace {
 						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
 							Namespace: llmSvc.Namespace,

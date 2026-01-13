@@ -282,7 +282,7 @@ wait_for_crd() {
     sleep 2
 
     # Retry logic to handle race condition where .status.conditions may not be initialized yet
-    local max_retries=3
+    local max_retries=10
     local retry=0
     while [ $retry -lt $max_retries ]; do
         if kubectl wait --for=condition=Established --timeout="$timeout" crd/"$crd_name" 2>/dev/null; then
@@ -325,75 +325,63 @@ update_isvc_config() {
 
     log_info "Updating inferenceservice-config..."
 
-    local temp=$(mktemp)
-    kubectl get configmap inferenceservice-config -n "${KSERVE_NAMESPACE}" -o json > "$temp"
-
-    # Group updates by data_key to avoid multiple updates to the same key
-    declare -A data_key_updates
+    # Prepare updates as JSON array
+    local updates_file
+    updates_file=$(mktemp)
 
     for arg in "$@"; do
         local key="${arg%%=*}"
-        local value="${arg#*=}"
-
-        # Split "ingress.enableGatewayApi" -> data_key="ingress", json_path="enableGatewayApi"
+        local raw_value="${arg#*=}"
         local data_key="${key%%.*}"
         local json_path="${key#*.}"
+        local value_json="$raw_value"
 
-        # Append to the list of updates for this data_key
-        if [ -z "${data_key_updates[$data_key]:-}" ]; then
-            data_key_updates[$data_key]="$json_path=$value"
-        else
-            data_key_updates[$data_key]="${data_key_updates[$data_key]}|$json_path=$value"
-        fi
-    done
-
-    # Process each data_key once with all its updates
-    for data_key in "${!data_key_updates[@]}"; do
-        # Get current JSON from data field (stored as string)
-        local current=$(jq -r ".data.\"$data_key\"" "$temp")
-
-        # Skip if the key doesn't exist or is null
-        if [ "$current" = "null" ] || [ -z "$current" ]; then
-            log_info "  ⊘ Skipping all updates for '$data_key' (not found in ConfigMap)"
-            continue
+        # Smart type detection: auto-quote strings, keep numbers/booleans/JSON as-is
+        if [[ ! $raw_value =~ ^\" ]] \
+           && [[ ! $raw_value =~ ^-?[0-9]+(\.[0-9]+)?$ ]] \
+           && [[ ! $raw_value =~ ^(true|false|null)$ ]] \
+           && [[ ! $raw_value =~ ^[{\[] ]]; then
+            value_json=$(jq -Rn --arg v "$raw_value" '$v')
         fi
 
-        # Apply all updates for this data_key
-        local updated="$current"
-        IFS='|' read -ra updates <<< "${data_key_updates[$data_key]}"
-        for update in "${updates[@]}"; do
-            local json_path="${update%%=*}"
-            local value="${update#*=}"
+        jq -n \
+            --arg data_key "$data_key" \
+            --arg path "$json_path" \
+            --argjson value "$value_json" \
+            '{data_key:$data_key, path:$path, value:$value}' >> "$updates_file"
 
-            # Smart quote handling for string values
-            # If value doesn't start with " and is not a number/boolean, add double quotes
-            if [[ ! $value =~ ^\" ]] && [[ ! $value =~ ^[0-9]+(\.[0-9]+)?$ ]] && [[ ! $value =~ ^(true|false|null)$ ]]; then
-                value="\"$value\""
-            fi
-
-            # Check if the nested path exists, create if missing
-            local parent_path="${json_path%.*}"
-            if [ "$parent_path" != "$json_path" ]; then
-                # There's a parent path, check if it exists
-                if ! echo "$updated" | jq -e ".$parent_path" >/dev/null 2>&1; then
-                    log_info "  + Creating nested path '$parent_path' in $data_key"
-                    # Create all intermediate paths as empty objects
-                    updated=$(echo "$updated" | jq ".$parent_path = {}")
-                fi
-            fi
-
-            # Update the nested field
-            updated=$(echo "$updated" | jq ".$json_path = $value")
-            log_info "  ✓ $data_key.$json_path = $value"
-        done
-
-        # Put it back as JSON string (preserve pretty-print format like original ConfigMap)
-        pretty_json=$(echo "$updated" | jq '.')
-        jq --arg updated "$pretty_json" ".data.\"$data_key\" = \$updated" "$temp" > "$temp.new" && mv "$temp.new" "$temp"
+        log_info "  ✓ $data_key.$json_path = $value_json"
     done
 
-    kubectl apply -f "$temp"
-    rm -f "$temp"
+    local updates_json
+    updates_json=$(jq -s '.' "$updates_file")
+    rm -f "$updates_file"
+
+    # Apply all updates with a single jq invocation
+    kubectl get configmap inferenceservice-config -n "${KSERVE_NAMESPACE}" -o json |
+        jq --argjson updates "$updates_json" '
+            # Helper function to safely set nested paths, creating intermediate objects as needed
+            def setpath_safe($parts; $value):
+                reduce range(0; ($parts|length)-1) as $i (.;
+                    $parts[:$i+1] as $prefix
+                    | if getpath($prefix) == null then setpath($prefix; {}) else . end
+                )
+                | setpath($parts; $value);
+
+            # Apply each update
+            reduce $updates[] as $item (.;
+                if .data[$item.data_key] == null or .data[$item.data_key] == "" then
+                    .
+                else
+                    .data[$item.data_key] |= (
+                        fromjson
+                        | setpath_safe($item.path | split("."); $item.value)
+                        | tojson
+                    )
+                end
+            )
+        ' |
+        kubectl apply -f -
 
     log_success "ConfigMap updated successfully"
 }
@@ -520,6 +508,7 @@ BLACK_FMT_VERSION=24.3
 FLAKE8_LINT_VERSION=7.1
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
+KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
 ENVOY_GATEWAY_VERSION=v1.5.0
 ENVOY_AI_GATEWAY_VERSION=v0.3.0
@@ -528,9 +517,9 @@ KNATIVE_SERVING_VERSION=1.15.2
 KEDA_OTEL_ADDON_VERSION=v0.0.6
 KSERVE_VERSION=v0.16.0
 ISTIO_VERSION=1.27.1
-KEDA_VERSION=2.16.1
-OPENTELEMETRY_OPERATOR_VERSION=0.113.0
-LWS_VERSION=v0.6.2
+KEDA_VERSION=2.17.2
+OPENTELEMETRY_OPERATOR_VERSION=0.74.3
+LWS_VERSION=v0.7.0
 GATEWAY_API_VERSION=v1.2.1
 GIE_VERSION=v0.3.0
 
@@ -588,13 +577,14 @@ install_helm() {
 
     log_info "Installing Helm ${HELM_VERSION} for ${os}/${arch}..."
 
-    if command -v helm &>/dev/null; then
-        local current_version=$(helm version --template='{{.Version}}' 2>/dev/null)
-        if [[ -n "$current_version" ]] && version_gte "$current_version" "$HELM_VERSION"; then
-            log_info "Helm ${current_version} is already installed (>= ${HELM_VERSION})"
+    # Check if helm is already installed in BIN_DIR with the exact required version
+    if [[ -f "${BIN_DIR}/helm" ]]; then
+        local current_version=$("${BIN_DIR}/helm" version --template='{{.Version}}' 2>/dev/null)
+        if [[ "$current_version" == "$HELM_VERSION" ]]; then
+            log_info "Helm ${current_version} is already installed in ${BIN_DIR}"
             return 0
         fi
-        [[ -n "$current_version" ]] && log_info "Upgrading Helm from ${current_version} to ${HELM_VERSION}..."
+        [[ -n "$current_version" ]] && log_info "Replacing Helm ${current_version} with ${HELM_VERSION} in ${BIN_DIR}..."
     fi
 
     local temp_dir=$(mktemp -d)
@@ -991,16 +981,18 @@ install_opentelemetry() {
     log_info "Adding OpenTelemetry Helm repository..."
     helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts --force-update
 
-    log_info "Installing OpenTelemetry Operator..."
+    log_info "Installing OpenTelemetry Operator ${OPENTELEMETRY_OPERATOR_VERSION}..."
     helm install "${OTEL_RELEASE_NAME}" open-telemetry/opentelemetry-operator \
         --namespace "${OTEL_NAMESPACE}" \
         --create-namespace \
+        --version "${OPENTELEMETRY_OPERATOR_VERSION}" \
         --wait \
+        --set "manager.collectorImage.repository=otel/opentelemetry-collector-contrib" \
         ${OTEL_OPERATOR_EXTRA_ARGS:-}
 
     log_success "Successfully installed OpenTelemetry Operator via Helm"
 
-    wait_for_pods "${OTEL_NAMESPACE}" "app.kubernetes.io/instance=${OTEL_RELEASE_NAME}" "300s"
+    wait_for_pods "${OTEL_NAMESPACE}" "app.kubernetes.io/name=opentelemetry-operator" "300s"
 
     log_success "OpenTelemetry Operator is ready!"
 }
@@ -1097,13 +1089,31 @@ install_kserve() {
 
         # Install KServe resources
         log_info "Installing KServe resources..."
-        helm install "${KSERVE_RELEASE_NAME}" \
+        if ! helm install "${KSERVE_RELEASE_NAME}" \
             oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
             --version "${KSERVE_VERSION}" \
             --namespace "${KSERVE_NAMESPACE}" \
             --create-namespace \
             --wait \
-            ${KSERVE_EXTRA_ARGS:-}
+            ${KSERVE_EXTRA_ARGS:-}; then
+
+            # If installation fails, try using helm upgrade after kserve controller is Ready
+            log_info "Install failed, attempting upgrade instead..."
+
+            for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
+                    wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "120s"
+            done
+            if ! helm upgrade "${KSERVE_RELEASE_NAME}" \
+                oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
+                --version "${KSERVE_VERSION}" \
+                --namespace "${KSERVE_NAMESPACE}" \
+                --wait \
+                ${KSERVE_EXTRA_ARGS:-}; then
+
+                log_error "Failed to install/upgrade KServe ${KSERVE_VERSION}"
+                exit 1
+            fi
+        fi
 
         log_success "Successfully installed KServe ${KSERVE_VERSION}"
     fi
@@ -1117,11 +1127,18 @@ install_kserve() {
         config_updates+=("deploy.defaultDeploymentMode=\"${DEPLOYMENT_MODE}\"")
     fi
 
-    # Enable Gateway API if needed
-    if [ "${GATEWAY_NETWORK_LAYER}" != "false" ]; then
-        log_info "Adding Gateway API updates: enableGatewayApi=true, className=${GATEWAY_NETWORK_LAYER}"
-        config_updates+=("ingress.ingressGateway.enableGatewayApi=true")
-        config_updates+=("ingress.ingressGateway.className=\"${GATEWAY_NETWORK_LAYER}\"")
+    # Enable Gateway API for KServe(ISVC) if needed
+    if [ "${GATEWAY_NETWORK_LAYER}" != "false" ] && [ "${LLMISVC}" != "true" ]; then
+        log_info "Adding Gateway API updates: enableGatewayApi=true, ingressClassName=${GATEWAY_NETWORK_LAYER}"
+        config_updates+=("ingress.enableGatewayApi=true")
+        config_updates+=("ingress.ingressClassName=\"${GATEWAY_NETWORK_LAYER}\"")
+    fi
+
+    # Add custom configurations if provided
+    if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
+        log_info "Adding custom configurations: ${KSERVE_CUSTOM_ISVC_CONFIGS}"
+        IFS='|' read -ra custom_configs <<< "${KSERVE_CUSTOM_ISVC_CONFIGS}"
+        config_updates+=("${custom_configs[@]}")
     fi
 
     # Apply all config updates at once if there are any
@@ -1131,14 +1148,25 @@ install_kserve() {
             log_info "  - ${update}"
         done
         update_isvc_config "${config_updates[@]}"
-        kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
+        if [ "${LLMISVC}" != "true" ]; then
+            kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
+        fi
     else
-        log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        if [ "${LLMISVC}" = "true" ]; then
+            log_info "No configuration updates needed for LLMISVC (GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        else
+            log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        fi
     fi
 
+    log_success "Successfully installed KServe"
+
+    # Wait for all controller managers to be ready
+    log_info "Waiting for KServe controllers to be ready..."
     for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
         wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "300s"
     done
+
     log_success "KServe is ready!"
 }
 
@@ -1191,8 +1219,8 @@ main() {
             CRD_DIR_NAME="kserve-llmisvc-crd"
             CORE_DIR_NAME="kserve-llmisvc-resources"
             KSERVE_CRD_RELEASE_NAME="kserve-llmisvc-crd"
-            KSERVE_RELEASE_NAME="kserve-llmisvc"
-            TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
+            KSERVE_RELEASE_NAME="kserve-llmisvc-resources"
+            TARGET_DEPLOYMENT_NAMES=("kserve-llmisvc-controller-manager")
         fi
         
         if [ "${SET_KSERVE_VERSION}" != "" ]; then
@@ -76175,11 +76203,12 @@ data:
     \         \"s3SecretAccessKeyName\": \"AWS_SECRET_ACCESS_KEY\",\n          \"s3Endpoint\":
     \"\",\n          \"s3UseHttps\": \"\",\n          \"s3Region\": \"\",\n          \"s3VerifySSL\":
     \"\",\n          \"s3UseVirtualBucket\": \"\",\n          \"s3UseAccelerate\":
-    \"\",\n          \"s3UseAnonymousCredential\": \"\",\n          \"s3CABundle\":
-    \"\"\n      }\n   }\n # This is a global configuration used for downloading models
-    from the cloud storage.\n # You can override this configuration by specifying
-    the annotations on service account or static secret.\n # https://kserve.github.io/website/master/modelserving/storage/s3/s3/\n
-    # For a quick reference about AWS ENV variables:\n # AWS Cli: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html\n
+    \"\",\n          \"s3UseAnonymousCredential\": \"\",\n          \"s3CABundleConfigMap\":
+    \"\",\n          \"s3CABundle\": \"\"\n      }\n   }\n # This is a global configuration
+    used for downloading models from the cloud storage.\n # You can override this
+    configuration by specifying the annotations on service account or static secret.\n
+    # https://kserve.github.io/website/master/modelserving/storage/s3/s3/\n # For
+    a quick reference about AWS ENV variables:\n # AWS Cli: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html\n
     # Boto: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#using-environment-variables\n
     #\n # The `s3AccessKeyIDName` and `s3SecretAccessKeyName` fields are only used
     from this configmap when static credentials (IAM User Access Key Secret)\n # are
@@ -76213,8 +76242,12 @@ data:
     \         # s3UseAccelerate configures whether to use transfer acceleration.\n
     \         \"s3UseAccelerate\": \"\",\n           \n          # s3UseAnonymousCredential
     configures whether to use anonymous credentials to download the model or not.\n
-    \         \"s3UseAnonymousCredential\": \"\",\n          \n          # s3CABundle
-    specifies the path to a certificate bundle to use for HTTPS certificate validation.\n
+    \         \"s3UseAnonymousCredential\": \"\",\n\n          # s3CABundleConfigMap
+    specifies the mounted CA bundle config map name.\n          \"s3CABundleConfigMap\":
+    \"\",\n\n          # s3CABundle specifies the full path (mount path + file name)
+    for the mounted config map data when used with a configured CA bundle config map.\n
+    \         # s3CABundle specifies the path to a certificate bundle to use for HTTPS
+    certificate validation when used absent of a configured CA bundle config map.\n
     \         \"s3CABundle\": \"\"\n      }\n   }\n \n # ======================================
     INGRESS CONFIGURATION ======================================\n # Example\n ingress:
     |-\n   {    \n       \"enableGatewayApi\": false,\n       \"kserveIngressGateway\":
@@ -76444,6 +76477,7 @@ data:
            "s3UseVirtualBucket": "",
            "s3UseAccelerate": "",
            "s3UseAnonymousCredential": "",
+           "s3CABundleConfigMap": "",
            "s3CABundle": ""
        }
     }
@@ -77006,7 +77040,6 @@ spec:
       - '{{ .Spec.Model.Name }}'
       - --port
       - "8001"
-      - --disable-log-requests
       command:
       - vllm
       - serve
@@ -77211,12 +77244,11 @@ spec:
         \ else\n      echo \"[Infer RoCE] No active HCAs found, skipping GID_INDEX
         inference.\"\n  fi\nfi\n\nSTART_RANK=0\neval \"vllm serve \\\n  /mnt/models
         \\\n  --served-model-name \"{{ .Spec.Model.Name }}\" \\\n  --port 8001 \\\n
-        \ --api-server-count ${VLLM_API_SERVER_COUNT:-8} \\\n  --disable-log-requests
-        \\\n  {{- if .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }}
-        \\\n  {{- if .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor
-        }}{{- end }} \\\n  --data-parallel-size {{ or .Spec.Parallelism.Data 1 }}
-        \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \\\n
-        \ --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
+        \ --api-server-count ${VLLM_API_SERVER_COUNT:-8} \\\n  {{- if .Spec.Parallelism.Expert
+        -}}--enable-expert-parallel{{- end }} \\\n  {{- if .Spec.Parallelism.Tensor
+        -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
+        {{ or .Spec.Parallelism.Data 1 }} \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal
+        1 }} \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
         {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{
         else }}5555{{- end }} \\\n  --data-parallel-start-rank $START_RANK \\\n  ${VLLM_ADDITIONAL_ARGS}
         \\\n  --trust-remote-code\"\n  # BackendTLSPolicy is not implemented yet so
@@ -77424,12 +77456,11 @@ spec:
         \ else\n      echo \"[Infer RoCE] No active HCAs found, skipping GID_INDEX
         inference.\"\n  fi\nfi\n\nSTART_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Parallelism.DataLocal
         1 }} ))\neval \"vllm serve \\\n  /mnt/models \\\n  --served-model-name \"{{
-        .Spec.Model.Name }}\" \\\n  --port 8001 \\\n  --disable-log-requests \\\n
-        \ {{- if .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \\\n
-        \ {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor
-        }}{{- end }} \\\n  --data-parallel-size {{ or .Spec.Parallelism.Data 1 }}
-        \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \\\n
-        \ --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
+        .Spec.Model.Name }}\" \\\n  --port 8001 \\\n  {{- if .Spec.Parallelism.Expert
+        }}--enable-expert-parallel{{- end }} \\\n  {{- if .Spec.Parallelism.Tensor
+        }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
+        {{ or .Spec.Parallelism.Data 1 }} \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal
+        1 }} \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
         {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{
         else }}5555{{- end }} \\\n  --data-parallel-start-rank $START_RANK \\\n  ${VLLM_ADDITIONAL_ARGS}
         \\\n  --trust-remote-code \\\n  --headless\"\n  # BackendTLSPolicy is not
@@ -77531,7 +77562,6 @@ spec:
         - '{{ .Spec.Model.Name }}'
         - --port
         - "8000"
-        - --disable-log-requests
         command:
         - vllm
         - serve
@@ -77689,7 +77719,7 @@ spec:
           GID_INDEX inference.\"\n  fi\nfi\n\nSTART_RANK=0\neval \"vllm serve \\\n
           \ /mnt/models \\\n  --served-model-name \"{{ .Spec.Model.Name }}\" \\\n
           \ --port 8000 \\\n  --api-server-count ${VLLM_API_SERVER_COUNT:-8} \\\n
-          \ --disable-log-requests \\\n  {{- if .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{-
+          \ {{- if .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{-
           end }} \\\n  {{- if .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size
           {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
           {{ or .Spec.Prefill.Parallelism.Data 1 }} \\\n  --data-parallel-size-local
@@ -77852,18 +77882,18 @@ spec:
           GID_INDEX inference.\"\n  fi\nfi\n\nSTART_RANK=$(( ${LWS_WORKER_INDEX:-0}
           * {{ or .Spec.Prefill.Parallelism.DataLocal 1 }} ))\neval \"vllm serve \\\n
           \ /mnt/models \\\n  --served-model-name \"{{ .Spec.Model.Name }}\" \\\n
-          \ --port 8000 \\\n  --disable-log-requests \\\n  {{- if .Spec.Prefill.Parallelism.Expert
-          }}--enable-expert-parallel{{- end }} \\\n  {{- if .Spec.Prefill.Parallelism.Tensor
-          }}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }}
-          \\\n  --data-parallel-size {{ or .Spec.Prefill.Parallelism.Data 1 }} \\\n
-          \ --data-parallel-size-local {{ or .Spec.Prefill.Parallelism.DataLocal 1
-          }} \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
-          {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort
-          }}{{ else }}5555{{- end }} \\\n  --data-parallel-start-rank $START_RANK
-          \\\n  ${VLLM_ADDITIONAL_ARGS} \\\n  --trust-remote-code \\\n  --headless\"
-          \               \n  # BackendTLSPolicy is not implemented yet so disable
-          SSL for now\n  # --enable-ssl-refresh \\\n  # --ssl-certfile \\\n  # /etc/ssl/certs/tls.crt
-          \\\n  # --ssl-keyfile \\\n  # /etc/ssl/certs/tls.key\""
+          \ --port 8000 \\\n  {{- if .Spec.Prefill.Parallelism.Expert }}--enable-expert-parallel{{-
+          end }} \\\n  {{- if .Spec.Prefill.Parallelism.Tensor }}--tensor-parallel-size
+          {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
+          {{ or .Spec.Prefill.Parallelism.Data 1 }} \\\n  --data-parallel-size-local
+          {{ or .Spec.Prefill.Parallelism.DataLocal 1 }} \\\n  --data-parallel-address
+          $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort
+          }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \\\n
+          \ --data-parallel-start-rank $START_RANK \\\n  ${VLLM_ADDITIONAL_ARGS} \\\n
+          \ --trust-remote-code \\\n  --headless\"                \n  # BackendTLSPolicy
+          is not implemented yet so disable SSL for now\n  # --enable-ssl-refresh
+          \\\n  # --ssl-certfile \\\n  # /etc/ssl/certs/tls.crt \\\n  # --ssl-keyfile
+          \\\n  # /etc/ssl/certs/tls.key\""
         command:
         - /bin/bash
         - -c
@@ -78081,7 +78111,6 @@ spec:
       - '{{ .Spec.Model.Name }}'
       - --port
       - "8000"
-      - --disable-log-requests
       command:
       - vllm
       - serve
@@ -78237,12 +78266,11 @@ spec:
         \ else\n      echo \"[Infer RoCE] No active HCAs found, skipping GID_INDEX
         inference.\"\n  fi\nfi\n\nSTART_RANK=0\neval \"vllm serve \\\n  /mnt/models
         \\\n  --served-model-name \"{{ .Spec.Model.Name }}\" \\\n  --port 8000 \\\n
-        \ --api-server-count ${VLLM_API_SERVER_COUNT:-8} \\\n  --disable-log-requests
-        \\\n  {{- if .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }}
-        \\\n  {{- if .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor
-        }}{{- end }} \\\n  --data-parallel-size {{ or .Spec.Parallelism.Data 1 }}
-        \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \\\n
-        \ --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
+        \ --api-server-count ${VLLM_API_SERVER_COUNT:-8} \\\n  {{- if .Spec.Parallelism.Expert
+        -}}--enable-expert-parallel{{- end }} \\\n  {{- if .Spec.Parallelism.Tensor
+        -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
+        {{ or .Spec.Parallelism.Data 1 }} \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal
+        1 }} \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
         {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{
         else }}5555{{- end }} \\\n  --data-parallel-start-rank $START_RANK \\\n  ${VLLM_ADDITIONAL_ARGS}
         \\\n  --trust-remote-code\"\n  # BackendTLSPolicy is not implemented yet so
@@ -78399,12 +78427,11 @@ spec:
         \ else\n      echo \"[Infer RoCE] No active HCAs found, skipping GID_INDEX
         inference.\"\n  fi\nfi\n\nSTART_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or .Spec.Parallelism.DataLocal
         1 }} ))\neval \"vllm serve \\\n  /mnt/models \\\n  --served-model-name \"{{
-        .Spec.Model.Name }}\" \\\n  --port 8000 \\\n  --disable-log-requests \\\n
-        \ {{- if .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \\\n
-        \ {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor
-        }}{{- end }} \\\n  --data-parallel-size {{ or .Spec.Parallelism.Data 1 }}
-        \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \\\n
-        \ --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
+        .Spec.Model.Name }}\" \\\n  --port 8000 \\\n  {{- if .Spec.Parallelism.Expert
+        }}--enable-expert-parallel{{- end }} \\\n  {{- if .Spec.Parallelism.Tensor
+        }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \\\n  --data-parallel-size
+        {{ or .Spec.Parallelism.Data 1 }} \\\n  --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal
+        1 }} \\\n  --data-parallel-address $(LWS_LEADER_ADDRESS) \\\n  --data-parallel-rpc-port
         {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{
         else }}5555{{- end }} \\\n  --data-parallel-start-rank $START_RANK \\\n  ${VLLM_ADDITIONAL_ARGS}
         \\\n  --trust-remote-code \\\n  --headless\"\n  # BackendTLSPolicy is not
