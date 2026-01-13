@@ -405,6 +405,7 @@ schedulingProfiles:
 apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
+- type: single-profile-handler
 - type: queue-scorer
 - type: prefix-cache-scorer
 - type: max-score-picker
