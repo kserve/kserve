@@ -100,7 +100,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"Annotations": gomega.HaveKeyWithValue(constants.ModelFrameworkAnnotationKey, constants.SupportedModelTensorflow),
+				"Annotations": gomega.HaveKeyWithValue(constants.ModelFormatAnnotationKey, constants.SupportedModelTensorflow),
 			},
 		},
 		"When annotations is nil in raw deployment": {
@@ -159,8 +159,8 @@ func TestInferenceServiceDefaults(t *testing.T) {
 			},
 			matcher: map[string]types.GomegaMatcher{
 				"Annotations": gomega.Equal(map[string]string{
-					constants.DeploymentMode:              string(constants.Standard),
-					constants.ModelFrameworkAnnotationKey: constants.SupportedModelTensorflow,
+					constants.DeploymentMode:           string(constants.Standard),
+					constants.ModelFormatAnnotationKey: constants.SupportedModelTensorflow,
 				}),
 			},
 		},
@@ -219,7 +219,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"Annotations": gomega.HaveKeyWithValue(constants.ModelFrameworkAnnotationKey, constants.SupportedModelONNX),
+				"Annotations": gomega.HaveKeyWithValue(constants.ModelFormatAnnotationKey, constants.SupportedModelONNX),
 			},
 		},
 		"PMML": {
@@ -277,7 +277,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"Annotations": gomega.HaveKeyWithValue(constants.ModelFrameworkAnnotationKey, constants.SupportedModelPMML),
+				"Annotations": gomega.HaveKeyWithValue(constants.ModelFormatAnnotationKey, constants.SupportedModelPMML),
 			},
 		},
 		"Paddle": {
@@ -335,7 +335,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"Annotations": gomega.HaveKeyWithValue(constants.ModelFrameworkAnnotationKey, constants.SupportedModelPaddle),
+				"Annotations": gomega.HaveKeyWithValue(constants.ModelFormatAnnotationKey, constants.SupportedModelPaddle),
 			},
 		},
 	}

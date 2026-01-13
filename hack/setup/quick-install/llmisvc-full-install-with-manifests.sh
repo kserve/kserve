@@ -42096,41 +42096,41 @@ data:
     reconciliation loop to be triggered if the annotations is \n    # configured here
     are used.\n    # Default values are:\n    #  \"autoscaling.knative.dev/min-scale\",\n
     \   #  \"autoscaling.knative.dev/max-scale\",\n    #  \"internal.serving.kserve.io/storage-initializer-sourceuri\",\n
-    \   #  \"kubectl.kubernetes.io/last-applied-configuration\"\n    # Any new value
-    will be appended to the list.\n    \"serviceAnnotationDisallowedList\": [\n      \"my.custom.annotation/1\"
-    \ \n    ],\n    # ServiceLabelDisallowedList is a list of labels that are not
-    allowed to be propagated to Knative revisions\n    # which prevents the reconciliation
-    loop to be triggered if the labels is configured here are used.\n    \"serviceLabelDisallowedList\":
-    [\n      \"my.custom.label.1\"  \n    ]\n  } \n# Example - setting custom resource\ninferenceService:
-    |-\n  {\n    \"resource\": {\n      \"cpuLimit\": \"1\",\n      \"memoryLimit\":
-    \"2Gi\",\n      \"cpuRequest\": \"1\",\n      \"memoryRequest\": \"2Gi\"\n    }\n
-    \ }\n# Example - setting custom resource\ninferenceService: |-\n  {\n    # resource
-    contains the default resource configuration for the inference service.\n    #
-    you can override this configuration by specifying the resources in the inference
-    service yaml.\n    # If you want to unbound the resource (limits and requests),
-    you can set the value to null or \"\" \n    # or just remove the specific field
-    from the config.\n    \"resource\": {\n       # cpuLimit is the limits.cpu to
-    set for the inference service.\n       \"cpuLimit\": \"1\",\n\n       # memoryLimit
-    is the limits.memory to set for the inference service.\n       \"memoryLimit\":
-    \"2Gi\",\n\n       # cpuRequest is the requests.cpu to set for the inference service.\n
-    \      \"cpuRequest\": \"1\",\n\n       # memoryRequest is the requests.memory
-    to set for the inference service.\n       \"memoryRequest\": \"2Gi\"\n    }\n
-    }\n# ====================================== MultiNode CONFIGURATION ======================================\n#
-    Example   \nmultiNode: |-\n  {\n    \"customGPUResourceTypeList\": [\n      \"custom.com/gpu\"\n
-    \   ]\n  }\n# Example of multinode configuration\nmultiNode: |-\n  {      \n    #
-    CustomGPUResourceTypeList is a list of custom GPU resource types intended to identify
-    the GPU type of a resource,\n    # not to restrict the user from using a specific
-    GPU type.\n    # The MultiNode runtime pod will dynamically add GPU resources
-    based on the registered GPU types.\n    \"customGPUResourceTypeList\": [\n      \"custom.com/gpu\"\n
-    \   ]\n  }  \n # ====================================== OTelCollector CONFIGURATION
-    ======================================\n # Example\n opentelemetryCollector: |-\n
-    \  {\n     # scrapeInterval is the interval at which the OpenTelemetry Collector
-    will scrape the metrics.\n     \"scrapeInterval\": \"5s\",\n     # metricScalerEndpoint
-    is the endpoint from which the KEDA's ScaledObject will scrape the metrics.\n
-    \    \"metricScalerEndpoint\": \"keda-otel-scaler.keda.svc:4318\",\n     # metricReceiverEndpoint
-    is the endpoint from which the OpenTelemetry Collector will scrape the metrics.\n
-    \     \"metricReceiverEndpoint\": \"keda-otel-scaler.keda.svc:4317\"\n   }\n\n
-    # ====================================== AUTOSCALER CONFIGURATION ======================================\n
+    \   #  \"kubectl.kubernetes.io/last-applied-configuration\",\n    #  \"modelFormat\"\n
+    \   # Any new value will be appended to the list.\n    \"serviceAnnotationDisallowedList\":
+    [\n      \"my.custom.annotation/1\"  \n    ],\n    # ServiceLabelDisallowedList
+    is a list of labels that are not allowed to be propagated to Knative revisions\n
+    \   # which prevents the reconciliation loop to be triggered if the labels is
+    configured here are used.\n    \"serviceLabelDisallowedList\": [\n      \"my.custom.label.1\"
+    \ \n    ]\n  } \n# Example - setting custom resource\ninferenceService: |-\n  {\n
+    \   \"resource\": {\n      \"cpuLimit\": \"1\",\n      \"memoryLimit\": \"2Gi\",\n
+    \     \"cpuRequest\": \"1\",\n      \"memoryRequest\": \"2Gi\"\n    }\n  }\n#
+    Example - setting custom resource\ninferenceService: |-\n  {\n    # resource contains
+    the default resource configuration for the inference service.\n    # you can override
+    this configuration by specifying the resources in the inference service yaml.\n
+    \   # If you want to unbound the resource (limits and requests), you can set the
+    value to null or \"\" \n    # or just remove the specific field from the config.\n
+    \   \"resource\": {\n       # cpuLimit is the limits.cpu to set for the inference
+    service.\n       \"cpuLimit\": \"1\",\n\n       # memoryLimit is the limits.memory
+    to set for the inference service.\n       \"memoryLimit\": \"2Gi\",\n\n       #
+    cpuRequest is the requests.cpu to set for the inference service.\n       \"cpuRequest\":
+    \"1\",\n\n       # memoryRequest is the requests.memory to set for the inference
+    service.\n       \"memoryRequest\": \"2Gi\"\n    }\n }\n# ======================================
+    MultiNode CONFIGURATION ======================================\n# Example   \nmultiNode:
+    |-\n  {\n    \"customGPUResourceTypeList\": [\n      \"custom.com/gpu\"\n    ]\n
+    \ }\n# Example of multinode configuration\nmultiNode: |-\n  {      \n    # CustomGPUResourceTypeList
+    is a list of custom GPU resource types intended to identify the GPU type of a
+    resource,\n    # not to restrict the user from using a specific GPU type.\n    #
+    The MultiNode runtime pod will dynamically add GPU resources based on the registered
+    GPU types.\n    \"customGPUResourceTypeList\": [\n      \"custom.com/gpu\"\n    ]\n
+    \ }  \n # ====================================== OTelCollector CONFIGURATION ======================================\n
+    # Example\n opentelemetryCollector: |-\n   {\n     # scrapeInterval is the interval
+    at which the OpenTelemetry Collector will scrape the metrics.\n     \"scrapeInterval\":
+    \"5s\",\n     # metricScalerEndpoint is the endpoint from which the KEDA's ScaledObject
+    will scrape the metrics.\n     \"metricScalerEndpoint\": \"keda-otel-scaler.keda.svc:4318\",\n
+    \    # metricReceiverEndpoint is the endpoint from which the OpenTelemetry Collector
+    will scrape the metrics.\n      \"metricReceiverEndpoint\": \"keda-otel-scaler.keda.svc:4317\"\n
+    \  }\n\n # ====================================== AUTOSCALER CONFIGURATION ======================================\n
     # Example\n autoscaler: |-\n   {\n     # scaleUpStabilizationWindowSeconds is
     the stabilization window in seconds for scale up.\n     \"scaleUpStabilizationWindowSeconds\":
     \"0\",\n     # scaleDownStabilizationWindowSeconds is the stabilization window

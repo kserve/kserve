@@ -258,8 +258,8 @@ func (isvc *InferenceService) setPredictorModelDefaults() {
 				isvc.ObjectMeta.Annotations = make(map[string]string)
 			}
 			// Only set if not already present (allow user override)
-			if _, exists := isvc.ObjectMeta.Annotations[constants.ModelFrameworkAnnotationKey]; !exists {
-				isvc.ObjectMeta.Annotations[constants.ModelFrameworkAnnotationKey] = modelFormat
+			if _, exists := isvc.ObjectMeta.Annotations[constants.ModelFormatAnnotationKey]; !exists {
+				isvc.ObjectMeta.Annotations[constants.ModelFormatAnnotationKey] = modelFormat
 			}
 		}
 	}

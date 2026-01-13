@@ -129,7 +129,7 @@ var (
 	LoggerCredentialPathKey                     = KServeAPIGroupName + "/logger-secret-path"
 	LoggerCredentialFileKey                     = KServeAPIGroupName + "/logger-secret-file"
 	DisableAutoUpdateAnnotationKey              = KServeAPIGroupName + "/disable-auto-update"
-	ModelFrameworkAnnotationKey                 = "modelFormat"
+	ModelFormatAnnotationKey                    = "modelFormat"
 )
 
 // InferenceService Internal Annotations
@@ -440,7 +440,7 @@ var (
 		autoscaling.MaxScaleAnnotationKey,
 		StorageInitializerSourceUriInternalAnnotationKey,
 		"kubectl.kubernetes.io/last-applied-configuration",
-                ModelFrameworkAnnotationKey,
+		ModelFormatAnnotationKey,
 	}
 
 	RevisionTemplateLabelDisallowedList = []string{
