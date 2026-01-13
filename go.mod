@@ -199,3 +199,6 @@ exclude google.golang.org/grpc/stats/opentelemetry v0.0.0-00010101000000-0000000
 
 // Currently, KEDA requires 0.19 but GIE uses 0.21
 replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.19.7
+
+// CVE-2025-68156: Update expr-lang/expr to v1.17.7
+replace github.com/expr-lang/expr => github.com/expr-lang/expr v1.17.7
