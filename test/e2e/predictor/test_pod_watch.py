@@ -20,7 +20,7 @@ import uuid
 from contextlib import contextmanager
 
 import pytest
-from kubernetes import client, config
+from kubernetes import client
 from kubernetes.client import V1ResourceRequirements
 
 from kserve import (
@@ -101,7 +101,7 @@ def dump_debug_info(
             "pods": get_pods_for_isvc(isvc_name, namespace),
             "controller_logs": get_controller_logs_for_isvc(isvc_name, namespace),
         }
-        logger.error(
+        logger.info(
             "DEBUG DUMP %s/%s:\n%s",
             namespace,
             isvc_name,
@@ -140,47 +140,6 @@ def managed_isvc(kserve_client: KServeClient, isvc: V1beta1InferenceService):
         except Exception as e:
             if not error_occurred:
                 logger.warning("Failed to delete ISVC %s: %s", name, e)
-
-
-@pytest.fixture(scope="module")
-def core_api():
-    """Provide a CoreV1Api client with kubeconfig loaded."""
-    config.load_kube_config()
-    return client.CoreV1Api()
-
-
-@pytest.fixture
-def isolated_namespace(core_api):
-    """
-    Create a dedicated namespace for tests that require isolation from other
-    concurrent tests. This ensures that reconciliation events from other ISVCs
-    in the shared test namespace don't interfere with isolation-sensitive tests.
-    """
-    ns_name = f"kserve-isolated-{uuid.uuid4().hex[:8]}"
-
-    # Create namespace with labels matching the main test namespace
-    ns = client.V1Namespace(
-        metadata=client.V1ObjectMeta(
-            name=ns_name,
-            labels={
-                "purpose": "kserve-e2e-isolated-test",
-            },
-        )
-    )
-    logger.info("Creating isolated namespace: %s", ns_name)
-    core_api.create_namespace(ns)
-
-    yield ns_name
-
-    # Cleanup: delete namespace (this also deletes all resources in it)
-    logger.info("Deleting isolated namespace: %s", ns_name)
-    try:
-        core_api.delete_namespace(
-            ns_name,
-            body=client.V1DeleteOptions(propagation_policy="Foreground"),
-        )
-    except client.ApiException as e:
-        logger.warning("Failed to delete namespace %s: %s", ns_name, e)
 
 
 def get_isvc_resource_version(
@@ -329,66 +288,27 @@ def get_controller_logs(since_seconds: int) -> str:
         ) from e
 
 
-RECONCILE_LOG_MESSAGE = "Reconciling inference service"
-
-
-def parse_reconciled_isvcs_from_logs(
-    logs: str,
-    namespace_filter: str | None = None,
-) -> set[str]:
-    reconciled = set()
-    for line in logs.strip().split("\n"):
-        if RECONCILE_LOG_MESSAGE not in line:
-            continue
-        try:
-            entry = json.loads(line)
-        except json.JSONDecodeError as e:
-            raise ValueError(
-                f"Failed to parse controller log line as JSON. "
-                f"Expected structured JSON logs but got: {line!r}"
-            ) from e
-        if entry.get("msg") == RECONCILE_LOG_MESSAGE:
-            isvc_name = entry.get("isvc")
-            log_namespace = entry.get("namespace")
-            if isvc_name:
-                # Apply namespace filter if specified
-                if namespace_filter is None or log_namespace == namespace_filter:
-                    reconciled.add(isvc_name)
-    return reconciled
-
-
 @pytest.mark.predictor
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_event_storm_prevention_init_container_isolation(
-    rest_v1_client, isolated_namespace
-):
+async def test_event_storm_prevention_init_container_isolation(rest_v1_client):
     """
-    Test that init container status changes on one ISVC don't trigger reconciliation
-    of unrelated ISVCs (event storm prevention).
+    Test that init container status changes on one ISVC don't cause unwanted modifications
+    to unrelated ISVCs (event storm prevention).
 
-    This test uses a dedicated isolated namespace to ensure that reconciliation
-    events from other concurrent tests don't interfere with the isolation check.
-
-    This test uses a dual verification approach:
-
-    1. Primary check (log analysis): Parses controller logs to detect if the primary
-       ISVC's Reconcile function was invoked. This catches both no-op reconciliations
-       and reconciliations that result in changes.
-
-    2. Secondary check (resourceVersion): Verifies the primary ISVC's resourceVersion
-       didn't change, which would indicate the resource was actually modified.
+    The controller may reconcile an ISVC for legitimate reasons (e.g.,
+    HTTPRoute status updates from Istio, deployment status changes) without making any
+    changes. This is acceptable. The real concern is if the secondary ISVC's events
+    cause the primary ISVC to be MODIFIED (resourceVersion change).
 
     Test flow:
     1. Creates a "primary" ISVC that will successfully load a model from GCS
     2. Waits for the primary ISVC to become ready
-    3. Records baseline: resourceVersion and controller log position
+    3. Records baseline resourceVersion
     4. Creates a "secondary" ISVC with invalid S3 credentials that will fail
     5. Waits for the secondary ISVC to show failure status
-    6. Verifies the primary ISVC was NOT reconciled during the secondary's failure
-       using both log analysis and resourceVersion checks
+    6. Verifies the primary ISVC's resourceVersion is unchanged
     """
-    namespace = isolated_namespace
     suffix = str(uuid.uuid4())[:6]
     primary_name = f"isvc-primary-{suffix}"
     secondary_name = f"isvc-secondary-{suffix}"
@@ -414,32 +334,27 @@ async def test_event_storm_prevention_init_container_isolation(
     primary_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(name=primary_name, namespace=namespace),
+        metadata=client.V1ObjectMeta(
+            name=primary_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
         spec=V1beta1InferenceServiceSpec(predictor=primary_predictor),
     )
 
     with managed_isvc(kserve_client, primary_isvc):
         # Step 1: Wait for primary ISVC to be ready (created by managed_isvc)
-        logger.info("Created primary ISVC: %s in namespace %s", primary_name, namespace)
-        kserve_client.wait_isvc_ready(primary_name, namespace=namespace)
+        logger.info("Created primary ISVC: %s", primary_name)
+        kserve_client.wait_isvc_ready(primary_name, namespace=KSERVE_TEST_NAMESPACE)
         logger.info("Primary ISVC is ready")
 
-        # Record baseline: resourceVersion and timestamp for log filtering
-        primary_rv_before = get_isvc_resource_version(
-            kserve_client, primary_name, namespace
-        )
-        log_start_time = time.time()
-        logger.info(
-            "Baseline recorded - resourceVersion: %s, log start time: %.2f",
-            primary_rv_before,
-            log_start_time,
-        )
+        # Record baseline resourceVersion
+        primary_rv_before = get_isvc_resource_version(kserve_client, primary_name)
+        logger.info("Baseline recorded - resourceVersion: %s", primary_rv_before)
 
-        # Step 2: Create invalid S3 credentials in the isolated namespace
+        # Step 2: Create invalid S3 credentials
         logger.info("Creating invalid S3 secret and service account")
-        create_invalid_s3_secret(namespace, invalid_secret_name)
+        create_invalid_s3_secret(KSERVE_TEST_NAMESPACE, invalid_secret_name)
         create_service_account_with_secret(
-            namespace, invalid_sa_name, invalid_secret_name
+            KSERVE_TEST_NAMESPACE, invalid_sa_name, invalid_secret_name
         )
 
         # Step 3: Create secondary ISVC with invalid S3 credentials
@@ -458,7 +373,9 @@ async def test_event_storm_prevention_init_container_isolation(
         secondary_isvc = V1beta1InferenceService(
             api_version=constants.KSERVE_V1BETA1,
             kind=constants.KSERVE_KIND_INFERENCESERVICE,
-            metadata=client.V1ObjectMeta(name=secondary_name, namespace=namespace),
+            metadata=client.V1ObjectMeta(
+                name=secondary_name, namespace=KSERVE_TEST_NAMESPACE
+            ),
             spec=V1beta1InferenceServiceSpec(predictor=secondary_predictor),
         )
 
@@ -469,74 +386,35 @@ async def test_event_storm_prevention_init_container_isolation(
                 secondary_name,
             )
             secondary_failure = wait_for_isvc_failure_status(
-                kserve_client, secondary_name, namespace=namespace, timeout_seconds=180
+                kserve_client, secondary_name, timeout_seconds=180
             )
             if secondary_failure:
                 logger.info("Secondary ISVC failure detected: %s", secondary_failure)
 
-            # The secondary ISVC should show a failure (or at least not be ready)
-            # even if failure status takes time, init containers should have had status changes
-            await asyncio.sleep(10)  # Give time for any potential event storms
+            # Give time for any potential event storms to propagate
+            await asyncio.sleep(10)
 
-            # Step 5: Verify primary ISVC was not reconciled using dual approach
-
-            # Primary check: Log analysis to detect reconciliation invocations
-            # This catches even no-op reconciliations that don't change resourceVersion
-            # Filter logs by namespace to ignore reconciliations from other tests
-            # Use int() truncation to ensure we don't fetch logs from before
-            # the baseline. Missing a fraction of a second at the end is fine
-            # since we're checking for events that should NOT be present.
-            elapsed_seconds = int(time.time() - log_start_time)
-            new_logs = get_controller_logs(elapsed_seconds)
-            reconciled_isvcs = parse_reconciled_isvcs_from_logs(
-                new_logs, namespace_filter=namespace
-            )
+            # Step 5: Verify primary ISVC was not modified
+            # The controller may reconcile the primary ISVC for legitimate reasons
+            # (e.g., HTTPRoute status updates from Istio), but no-op reconciliations
+            # are fine. Only fail if resourceVersion changed (actual modification).
+            primary_rv_after = get_isvc_resource_version(kserve_client, primary_name)
             logger.info(
-                "ISVCs reconciled in namespace %s during test window: %s",
-                namespace,
-                reconciled_isvcs if reconciled_isvcs else "(none)",
-            )
-
-            # The secondary ISVC should have been reconciled (it's expected)
-            # but the primary ISVC should NOT have been reconciled
-            primary_was_reconciled = primary_name in reconciled_isvcs
-
-            # Secondary check: resourceVersion to detect actual modifications
-            primary_rv_after = get_isvc_resource_version(
-                kserve_client, primary_name, namespace
-            )
-            primary_was_modified = primary_rv_before != primary_rv_after
-            logger.info(
-                "Primary ISVC resourceVersion: before=%s, after=%s, modified=%s",
+                "Primary ISVC resourceVersion: before=%s, after=%s",
                 primary_rv_before,
                 primary_rv_after,
-                primary_was_modified,
             )
 
-            # Build comprehensive error message if either check fails
-            if primary_was_reconciled or primary_was_modified:
-                error_parts = []
-                if primary_was_reconciled:
-                    error_parts.append(
-                        f"Log analysis detected reconciliation of primary ISVC '{primary_name}'"
-                    )
-                if primary_was_modified:
-                    error_parts.append(
-                        f"ResourceVersion changed from {primary_rv_before} to {primary_rv_after}"
-                    )
-                error_parts.append(
-                    "This indicates potential event storm - init container status changes "
-                    "on secondary ISVC may have triggered reconciliation of unrelated primary ISVC."
-                )
-                error_parts.append(
-                    f"All reconciled ISVCs in namespace: {reconciled_isvcs}"
-                )
-                pytest.fail("\n".join(error_parts))
+            assert primary_rv_before == primary_rv_after, (
+                f"Primary ISVC '{primary_name}' was modified during secondary ISVC failure. "
+                f"ResourceVersion changed from {primary_rv_before} to {primary_rv_after}. "
+                "This indicates potential event storm - init container status changes "
+                "on secondary ISVC may have triggered modification of unrelated primary ISVC."
+            )
 
             logger.info(
-                "Event storm prevention validated: Primary ISVC was not reconciled "
-                "during secondary ISVC init container failures (verified via log analysis "
-                "and resourceVersion)"
+                "Event storm prevention validated: Primary ISVC was not modified "
+                "during secondary ISVC init container failures"
             )
 
 
