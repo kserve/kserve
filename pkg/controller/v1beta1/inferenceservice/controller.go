@@ -531,7 +531,6 @@ func servingRuntimesPredicate() predicate.Funcs {
 
 // clusterServingRuntimesPredicate returns a predicate that filters ClusterServingRuntime updates
 // to only include those where the Spec has changed.
-// TODO: Find a way to distinguish if the ServingRuntime is a ClusterServingRuntime or not
 func clusterServingRuntimesPredicate() predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
@@ -556,7 +555,7 @@ func podInitContainersPredicate() predicate.Funcs {
 				return false
 			}
 			// Check if pod has the InferenceService label
-			if _, found := newPod.Labels[constants.InferenceServicePodLabelKey]; !found {
+			if isvcName, found := newPod.Labels[constants.InferenceServicePodLabelKey]; !found || isvcName == "" {
 				return false
 			}
 			// Only watch pod status changes, not spec changes
