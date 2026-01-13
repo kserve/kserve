@@ -457,7 +457,6 @@ schedulingProfiles:
 			Expect(found).To(BeTrue(), "Expected default config in scheduler deployment")
 			// Default non-prefill config should contain these plugins
 			Expect(configText).To(ContainSubstring("queue-scorer"))
-			Expect(configText).To(ContainSubstring("kv-cache-utilization-scorer"))
 			Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
 			Expect(configText).To(ContainSubstring("max-score-picker"))
 			Expect(configText).To(ContainSubstring("name: default"))

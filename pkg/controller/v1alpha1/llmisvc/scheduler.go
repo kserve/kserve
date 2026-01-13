@@ -377,7 +377,6 @@ plugins:
 - type: prefill-filter
 - type: decode-filter
 - type: queue-scorer
-- type: kv-cache-utilization-scorer
 - type: prefix-cache-scorer
 - type: max-score-picker
 - type: pd-profile-handler
@@ -389,8 +388,6 @@ schedulingProfiles:
   - pluginRef: prefill-filter
   - pluginRef: queue-scorer
     weight: 2
-  - pluginRef: kv-cache-utilization-scorer
-    weight: 2
   - pluginRef: prefix-cache-scorer
     weight: 3
   - pluginRef: max-score-picker
@@ -398,8 +395,6 @@ schedulingProfiles:
   plugins:
   - pluginRef: decode-filter
   - pluginRef: queue-scorer
-    weight: 2
-  - pluginRef: kv-cache-utilization-scorer
     weight: 2
   - pluginRef: prefix-cache-scorer
     weight: 3
@@ -411,15 +406,12 @@ apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: queue-scorer
-- type: kv-cache-utilization-scorer
 - type: prefix-cache-scorer
 - type: max-score-picker
 schedulingProfiles:
 - name: default
   plugins:
   - pluginRef: queue-scorer
-    weight: 2
-  - pluginRef: kv-cache-utilization-scorer
     weight: 2
   - pluginRef: prefix-cache-scorer
     weight: 3
