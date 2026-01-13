@@ -56,10 +56,10 @@ _HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
 _HF_PREFIX = "hf://"
 _GIT_RE = [
-    # deliberately more specific than necessary to make the URL matching patterns discreet
+    # deliberately narrowly defined patterns to ensure git URLs don't overlap with other protocol patterns.
     r"https://.+\.git",
     r"ssh://.+\.git",
-    r"[^:/@]+@[^:/@]+:.+\.git"  # e.g. `git@github.com:kserve/kserve.git`
+    r"[^:/@]+@[^:/@]+:.+\.git",  # e.g. `git@github.com:kserve/kserve.git`. Strictly speaking not an URL, but overly common, warranting support
 ]
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
@@ -125,6 +125,7 @@ class Storage(object):
                 model_dir = Storage._download_hf(uri, out_dir)
             elif any(re.search(pattern, uri) for pattern in _GIT_RE):
                 model_dir = Storage._download_git_repo(uri, out_dir)
+            # "catch-all" pattern, should always be last
             elif re.search(_URI_RE, uri):
                 model_dir = Storage._download_from_uri(uri, out_dir)
             else:
@@ -824,13 +825,17 @@ class Storage(object):
 
         # Setup SSH configuration for GitHub authentication
         git_ssh_env = dict(os.environ)
-        git_ssh_env["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+        git_ssh_env["GIT_SSH_COMMAND"] = (
+            "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+        )
         if _GIT_SSH_KEY_PATH:
             if os.path.exists(_GIT_SSH_KEY_PATH):
                 git_ssh_env["GIT_SSH_COMMAND"] += f" -i {_GIT_SSH_KEY_PATH}"
             else:
-                logger.error(f"GIT_SSH_KEY_PATH {_GIT_SSH_KEY_PATH} does not exist; ignoring")
-        
+                logger.error(
+                    f"GIT_SSH_KEY_PATH {_GIT_SSH_KEY_PATH} does not exist; ignoring"
+                )
+
         try:
             # Clone the repository
             cmd = ["git", "clone", "--depth", "1", uri, out_dir]
@@ -838,10 +843,9 @@ class Storage(object):
             logger.info("git clone successful")
 
         except subprocess.CalledProcessError as e:
-            logger.error("git clone failed: %s", e.stderr)
-            raise RuntimeError(f"git clone {uri} failed: {e.stderr}")
+            error_msg = e.stderr or str(e)
+            raise RuntimeError(f"git clone {uri} failed: {error_msg}")
         except Exception as e:
-            logger.error("Unexpected error during git clone: %s", str(e))
             raise RuntimeError(f"git clone {uri} failed: {str(e)}")
 
         return out_dir
