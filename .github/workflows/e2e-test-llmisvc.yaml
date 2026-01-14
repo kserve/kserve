@@ -4,7 +4,9 @@ on:
   pull_request:
     paths:
       - "pkg/apis/serving/v1alpha1/llm*"
+      - "pkg/apis/serving/v1alpha2/llm*"
       - "pkg/controller/v1alpha1/llmisvc/**"
+      - "pkg/controller/v1alpha2/llmisvc/**"
       - "config/llmisvc/**"
       - "config/rbac/llmisvc/**"
       - "cmd/llmisvc/**"
