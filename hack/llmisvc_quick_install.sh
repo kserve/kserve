@@ -107,14 +107,25 @@ echo "😀 Successfully installed Cert Manager"
 # Need to install before Envoy Gateway
 ${SCRIPT_DIR}/setup/infra/gateway-api/manage.gateway-api-extension-crd.sh
 
-# Install Envoy Gateway
-echo "Installing Envoy Gateway ..."
+# Download Envoy Gateway values files for AI Gateway integration
+echo "Downloading Envoy Gateway configuration for AI Gateway integration ..."
+ENVOY_GW_VALUES_DIR=$(mktemp -d)
+curl -sL "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${ENVOY_AI_GATEWAY_VERSION#v}/manifests/envoy-gateway-values.yaml" -o "${ENVOY_GW_VALUES_DIR}/envoy-gateway-values.yaml"
+curl -sL "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${ENVOY_AI_GATEWAY_VERSION#v}/examples/inference-pool/envoy-gateway-values-addon.yaml" -o "${ENVOY_GW_VALUES_DIR}/envoy-gateway-values-addon.yaml"
+
+# Install Envoy Gateway with AI Gateway and InferencePool support
+echo "Installing Envoy Gateway with AI Gateway integration ..."
 helm upgrade -i eg oci://docker.io/envoyproxy/gateway-helm \
   --version ${ENVOY_GATEWAY_VERSION} \
   --namespace envoy-gateway-system \
-  --create-namespace
+  --create-namespace \
+  -f "${ENVOY_GW_VALUES_DIR}/envoy-gateway-values.yaml" \
+  -f "${ENVOY_GW_VALUES_DIR}/envoy-gateway-values-addon.yaml"
 echo "😀 Successfully installed Envoy Gateway"
 kubectl wait --timeout=2m -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available
+
+# Cleanup temp files
+rm -rf "${ENVOY_GW_VALUES_DIR}"
 
 # Install Envoy AI Gateway
 echo "Installing Envoy AI Gateway ..."
@@ -130,18 +141,7 @@ helm upgrade -i aieg oci://docker.io/envoyproxy/ai-gateway-helm \
 echo "😀 Successfully installed Envoy AI Gateway"
 kubectl wait --timeout=2m -n envoy-ai-gateway-system deployment/ai-gateway-controller --for=condition=Available
 
-# Configure Envoy Gateway for AI Gateway integration
-echo "Configuring Envoy Gateway for AI Gateway integration ..."
-kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${ENVOY_AI_GATEWAY_VERSION#v}/manifests/envoy-gateway-config/redis.yaml
-kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${ENVOY_AI_GATEWAY_VERSION#v}/manifests/envoy-gateway-config/config.yaml
-kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${ENVOY_AI_GATEWAY_VERSION#v}/manifests/envoy-gateway-config/rbac.yaml
-
-# Enable Gateway API Inference Extension support for Envoy Gateway
-echo "Enabling Gateway API Inference Extension support for Envoy Gateway ..."
-kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${ENVOY_AI_GATEWAY_VERSION#v}/examples/inference-pool/config.yaml
-kubectl rollout restart -n envoy-gateway-system deployment/envoy-gateway
-kubectl wait --timeout=2m -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available
-echo "😀 Successfully enabled Gateway API Inference Extension support for Envoy Gateway"
+echo "😀 Successfully configured Envoy Gateway with InferencePool support (inference.networking.k8s.io/v1)"
 
 # Create kserve namespace if it doesn't exist
 kubectl create namespace kserve --dry-run=client -o yaml | kubectl apply -f -

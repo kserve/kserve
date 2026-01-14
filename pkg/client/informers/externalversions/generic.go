@@ -22,6 +22,7 @@ import (
 	fmt "fmt"
 
 	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	v1alpha2 "github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
@@ -72,6 +73,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().ServingRuntimes().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("trainedmodels"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().TrainedModels().Informer()}, nil
+
+		// Group=serving.kserve.io, Version=v1alpha2
+	case v1alpha2.SchemeGroupVersion.WithResource("llminferenceservices"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha2().LLMInferenceServices().Informer()}, nil
 
 		// Group=serving.kserve.io, Version=v1beta1
 	case v1beta1.SchemeGroupVersion.WithResource("inferenceservices"):

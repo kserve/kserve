@@ -441,7 +441,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 ],
                                 "backendRefs": [
                                     {
-                                        "group": "inference.networking.x-k8s.io",
+                                        "group": "inference.networking.k8s.io",
                                         "kind": "InferencePool",
                                         "name": "custom-route-timeout-test-inference-pool",
                                         "namespace": KSERVE_TEST_NAMESPACE,
@@ -488,7 +488,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 ],
                                 "backendRefs": [
                                     {
-                                        "group": "inference.networking.x-k8s.io",
+                                        "group": "inference.networking.k8s.io",
                                         "kind": "InferencePool",
                                         "name": "custom-route-timeout-pd-test-inference-pool",
                                         "namespace": KSERVE_TEST_NAMESPACE,
@@ -552,9 +552,7 @@ LLMINFERENCESERVICE_CONFIGS = {
         },
     },
     "router-with-managed-route": {
-        "router": {
-            "route": {}
-        },
+        "router": {"route": {}},
     },
     "workload-llmd-simulator": {
         "replicas": 1,
@@ -575,7 +573,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "--ssl-certfile",
                         "/etc/ssl/certs/tls.crt",
                         "--ssl-keyfile",
-                        "/etc/ssl/certs/tls.key"
+                        "/etc/ssl/certs/tls.key",
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
@@ -584,7 +582,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                 }
             ]
         },
-    }
+    },
 }
 
 
@@ -605,7 +603,9 @@ def test_case(request):
         for func in tc.before_test:
             func()
     except Exception as before_test_error:
-        raise RuntimeError(f"Failed to execute before test hook: {before_test_error}") from before_test_error
+        raise RuntimeError(
+            f"Failed to execute before test hook: {before_test_error}"
+        ) from before_test_error
 
     try:
         # Validate base_refs defined in the test fixture exist in LLMINFERENCESERVICE_CONFIGS
@@ -666,9 +666,7 @@ def test_case(request):
             try:
                 func()
             except Exception as after_test_error:
-                logger.warning(
-                    f"Failed to execute after test hook: {after_test_error}"
-                )
+                logger.warning(f"Failed to execute after test hook: {after_test_error}")
 
         # Cleanup created configs
         for config_name in created_configs:
@@ -735,7 +733,9 @@ def generate_test_id(test_case) -> str:
 
 def create_router_resources(gateways, routes, kserve_client=None):
     if not kserve_client:
-        kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        kserve_client = KServeClient(
+            config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+        )
 
     gateways_created = []
     routes_created = []
@@ -755,25 +755,41 @@ def create_router_resources(gateways, routes, kserve_client=None):
 
 def delete_router_resources(gateways, routes, kserve_client=None):
     if not kserve_client:
-        kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        kserve_client = KServeClient(
+            config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+        )
 
     for route in routes:
         try:
-            logger.info(f"Cleaning up HttpRoute {route.get('metadata', {}).get('name')}")
-            delete_route(kserve_client, route.get("metadata", {}).get("name"),
-                         route.get("metadata", {}).get("namespace", "default"))
+            logger.info(
+                f"Cleaning up HttpRoute {route.get('metadata', {}).get('name')}"
+            )
+            delete_route(
+                kserve_client,
+                route.get("metadata", {}).get("name"),
+                route.get("metadata", {}).get("namespace", "default"),
+            )
             logger.info(f"✓ Deleted HttpRoute {route.get('metadata', {}).get('name')}")
         except Exception as e:
-            logger.warning(f"Failed to cleanup HttpRoute {route.get('metadata', {}).get('name')}: {e}")
+            logger.warning(
+                f"Failed to cleanup HttpRoute {route.get('metadata', {}).get('name')}: {e}"
+            )
 
     for gateway in gateways:
         try:
-            logger.info(f"Cleaning up Gateway {gateway.get('metadata', {}).get('name')}")
-            delete_gateway(kserve_client, gateway.get("metadata", {}).get("name"),
-                           gateway.get("metadata", {}).get("namespace", "default"))
+            logger.info(
+                f"Cleaning up Gateway {gateway.get('metadata', {}).get('name')}"
+            )
+            delete_gateway(
+                kserve_client,
+                gateway.get("metadata", {}).get("name"),
+                gateway.get("metadata", {}).get("namespace", "default"),
+            )
             logger.info(f"✓ Deleted Gateway {gateway.get('metadata', {}).get('name')}")
         except Exception as e:
-            logger.warning(f"Failed to cleanup Gateway {gateway.get('metadata', {}).get('name')}: {e}")
+            logger.warning(
+                f"Failed to cleanup Gateway {gateway.get('metadata', {}).get('name')}: {e}"
+            )
 
 
 def _create_or_update_llmisvc_config(kserve_client, llm_config, namespace=None):

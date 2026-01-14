@@ -42,9 +42,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	llmisvcvalidation "github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc/validation"
-
-	"github.com/kserve/kserve/pkg/controller/v1alpha1/llmisvc"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 )
 
 var (
@@ -56,6 +55,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha2.AddToScheme(scheme))
 }
 
 type Options struct {
@@ -185,17 +185,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	llmInferenceServiceValidator := &llmisvcvalidation.LLMInferenceServiceValidator{}
-	if err = llmInferenceServiceValidator.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice")
+	// Register v1alpha2 validators
+	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{}
+	if err = v1alpha2LLMValidator.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice-v1alpha2")
 		os.Exit(1)
 	}
 
-	llmConfigValidator := &llmisvcvalidation.LLMInferenceServiceConfigValidator{
-		ClientSet: clientSet,
-	}
-	if err = llmConfigValidator.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig")
+	// Register v1alpha1 validators
+	v1alpha1LLMValidator := &v1alpha1.LLMInferenceServiceValidator{}
+	if err = v1alpha1LLMValidator.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice-v1alpha1")
 		os.Exit(1)
 	}
 
@@ -206,12 +206,29 @@ func main() {
 		Client:        mgr.GetClient(),
 		Clientset:     clientSet,
 		EventRecorder: llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceController"}),
-		Validator: func(ctx context.Context, llmSvc *v1alpha1.LLMInferenceService) error {
-			_, err := llmInferenceServiceValidator.ValidateCreate(ctx, llmSvc)
+		Validator: func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+			_, err := v1alpha2LLMValidator.ValidateCreate(ctx, llmSvc)
 			return err
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceService")
+	}
+
+	v1alpha1ConfigValidator := &v1alpha1.LLMInferenceServiceConfigValidator{
+		ConfigValidationFunc:   createV1Alpha1ConfigValidationFunc(clientSet),
+		WellKnownConfigChecker: wellKnownConfigChecker,
+	}
+	if err = v1alpha1ConfigValidator.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig-v1alpha1")
+		os.Exit(1)
+	}
+
+	v1alpha2ConfigValidator := &v1alpha2.LLMInferenceServiceConfigValidator{
+		ConfigValidationFunc:   createV1Alpha2ConfigValidationFunc(clientSet),
+		WellKnownConfigChecker: wellKnownConfigChecker,
+	}
+	if err = v1alpha2ConfigValidator.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig-v1alpha2")
 		os.Exit(1)
 	}
 
@@ -228,5 +245,40 @@ func main() {
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "unable to run the manager")
 		os.Exit(1)
+	}
+}
+
+// wellKnownConfigChecker returns true if the given config name is a well-known config.
+func wellKnownConfigChecker(name string) bool {
+	return llmisvc.WellKnownDefaultConfigs.Has(name)
+}
+
+// validateLLMISVCConfig validates a v1alpha2 LLMInferenceServiceConfig by loading the controller
+// config and validating the template variables.
+func validateLLMISVCConfig(ctx context.Context, clientSet kubernetes.Interface, config *v1alpha2.LLMInferenceServiceConfig) error {
+	cfg, err := llmisvc.LoadConfig(ctx, clientSet)
+	if err != nil {
+		return err
+	}
+	_, err = llmisvc.ReplaceVariables(llmisvc.LLMInferenceServiceSample(), config, cfg)
+	return err
+}
+
+// createV1Alpha1ConfigValidationFunc creates a validation function for v1alpha1 LLMInferenceServiceConfig.
+// It converts the config to v1alpha2 and validates using the v1alpha2 llmisvc package.
+func createV1Alpha1ConfigValidationFunc(clientSet kubernetes.Interface) func(ctx context.Context, config *v1alpha1.LLMInferenceServiceConfig) error {
+	return func(ctx context.Context, config *v1alpha1.LLMInferenceServiceConfig) error {
+		v2Config := &v1alpha2.LLMInferenceServiceConfig{}
+		if err := config.ConvertTo(v2Config); err != nil {
+			return err
+		}
+		return validateLLMISVCConfig(ctx, clientSet, v2Config)
+	}
+}
+
+// createV1Alpha2ConfigValidationFunc creates a validation function for v1alpha2 LLMInferenceServiceConfig.
+func createV1Alpha2ConfigValidationFunc(clientSet kubernetes.Interface) func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
+	return func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
+		return validateLLMISVCConfig(ctx, clientSet, config)
 	}
 }
