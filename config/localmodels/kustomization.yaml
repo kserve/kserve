@@ -3,13 +3,23 @@ kind: Kustomization
 
 namespace: kserve
 
+labels:
+- pairs:
+    app.kubernetes.io/name: kserve
+    app.kubernetes.io/component: localmodel
+
 resources:
-- manager.yaml
-- ../webhook/localmodel
+- ../crd/full/localmodel
 - ../certmanager/localmodel
+- ../rbac/localmodel
+- manager.yaml
+- ../localmodelnodes
+- ../webhook/localmodel
 
 patches:
 - path: webhook_cainjection_patch.yaml
+- path: localmodel_manager_image_patch.yaml
+
 
 replacements:
 # Replace the namespace with the namespace of the controller manager.

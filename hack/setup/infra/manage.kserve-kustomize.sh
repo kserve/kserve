@@ -65,8 +65,12 @@ check_cli_exist kubectl
 
 # VARIABLES
 # KSERVE_NAMESPACE is defined in global-vars.env
-KSERVE_CRD_DIR="${REPO_ROOT}/config/crd/full"
-KSERVE_CONFIG_DIR="${REPO_ROOT}/config/default"
+KSERVE_CRD_DIRS=(
+    "${REPO_ROOT}/config/crd/full"
+    "${REPO_ROOT}/config/crd/full/llmisvc"
+    "${REPO_ROOT}/config/crd/full/localmodel"
+)
+KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/all"
 KSERVE_OVERYLAY_DIR="${KSERVE_OVERYLAY_DIR:-}"
 TARGET_DEPLOYMENT_NAMES=(
     "kserve-controller-manager"
@@ -84,8 +88,10 @@ if [ "${KSERVE_OVERYLAY_DIR}" != "" ]; then
 fi
 
 if [ "${LLMISVC}" = "true" ]; then
-    KSERVE_CRD_DIR="${REPO_ROOT}/config/crd/full/llmisvc"
-    KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/llmisvc"
+    KSERVE_CRD_DIRS=(
+        "${REPO_ROOT}/config/crd/full/llmisvc"
+    )
+    KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/standalone/llmisvc"
     TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
 fi
 
@@ -109,7 +115,9 @@ uninstall() {
         kubectl kustomize "${KSERVE_CONFIG_DIR}" | kubectl delete -f - --force --grace-period=0 2>/dev/null || true
 
         # Then uninstall CRDs
-        kubectl kustomize "${KSERVE_CRD_DIR}" | kubectl delete -f - --force --grace-period=0 2>/dev/null || true
+        for crd_dir in "${KSERVE_CRD_DIRS[@]}"; do
+            kubectl kustomize "${crd_dir}" | kubectl delete -f - --force --grace-period=0 2>/dev/null || true
+        done
     fi
 
     kubectl delete all --all -n "${KSERVE_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
@@ -143,11 +151,14 @@ install() {
     else
         # Development mode: use local kustomize build
         log_info "Installing KServe via Kustomize..."
-        log_info "📍 Using local config from ${KSERVE_CRD_DIR} and ${KSERVE_CONFIG_DIR}"
+        log_info "📍 Using local config from ${KSERVE_CRD_DIRS[*]} and ${KSERVE_CONFIG_DIR}"
 
         # Install CRDs first
         log_info "Installing KServe CRDs..."
-        kustomize build "${KSERVE_CRD_DIR}" | kubectl apply --server-side --force-conflicts -f -
+        for crd_dir in "${KSERVE_CRD_DIRS[@]}"; do
+            log_info "  - Installing CRDs from ${crd_dir}..."
+            kustomize build "${crd_dir}" | kubectl apply --server-side --force-conflicts -f -
+        done
 
         # Wait for CRDs to be established       
         if [ "${LLMISVC}" = "true" ]; then
