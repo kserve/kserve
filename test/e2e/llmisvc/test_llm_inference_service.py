@@ -41,7 +41,7 @@ from .test_resources import (
     ROUTER_GATEWAYS,
     ROUTER_ROUTES,
 )
-from .logging import log_execution
+from .logging import log_execution, logger
 
 KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
 
@@ -406,7 +406,9 @@ def wait_for_model_response(
             "prompt": test_case.prompt,
             "max_tokens": test_case.max_tokens,
         }
-        print(f"Calling LLM service at {completion_url} with payload {test_payload}")
+        logger.info(
+            f"Calling LLM service at {completion_url} with payload {test_payload}"
+        )
         try:
             response = requests.post(
                 completion_url,
@@ -415,7 +417,10 @@ def wait_for_model_response(
                 timeout=test_case.response_timeout,
             )
         except Exception as e:
+            logger.error(f"❌ Failed to call model: {e}")
             raise AssertionError(f"❌ Failed to call model: {e}") from e
+
+        logger.info(f"Model response is {response.status_code}")
 
         test_case.response_assertion(response)
         return response.text[: test_case.max_tokens]
@@ -423,6 +428,7 @@ def wait_for_model_response(
     return wait_for(assert_model_responds, timeout=timeout_seconds, interval=5.0)
 
 
+@log_execution
 def get_llm_service_url(
     kserve_client: KServeClient, llm_isvc: V1alpha1LLMInferenceService
 ):

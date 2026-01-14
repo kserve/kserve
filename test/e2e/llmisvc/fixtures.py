@@ -741,10 +741,9 @@ def test_case(request):
 def _get_model_name_from_configs(config_names):
     """Extract the model name from model config."""
     for config_name in config_names:
-        if config_name.startswith("model-"):
-            config = LLMINFERENCESERVICE_CONFIGS[config_name]
-            if "model" in config and "name" in config["model"]:
-                return config["model"]["name"]
+        config = LLMINFERENCESERVICE_CONFIGS[config_name]
+        if "model" in config and "name" in config["model"]:
+            return config["model"]["name"]
     return "default-model"
 
 
