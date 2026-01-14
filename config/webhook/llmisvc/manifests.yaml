@@ -10,7 +10,8 @@ webhooks:
         namespace: $(kserveNamespace)
         path: /validate-serving-kserve-io-v1alpha1-llminferenceservice
     failurePolicy: Fail
-    name: llminferenceservice.kserve-webhook-server.validator
+    matchPolicy: Exact
+    name: llminferenceservice.kserve-webhook-server.v1alpha1.validator
     sideEffects: None
     admissionReviewVersions: [ "v1", "v1beta1" ]
     rules:
@@ -18,6 +19,26 @@ webhooks:
           - serving.kserve.io
         apiVersions:
           - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - llminferenceservices
+  - clientConfig:
+      service:
+        name: $(webhookServiceName)
+        namespace: $(kserveNamespace)
+        path: /validate-serving-kserve-io-v1alpha2-llminferenceservice
+    failurePolicy: Fail
+    matchPolicy: Exact
+    name: llminferenceservice.kserve-webhook-server.v1alpha2.validator
+    sideEffects: None
+    admissionReviewVersions: [ "v1", "v1beta1" ]
+    rules:
+      - apiGroups:
+          - serving.kserve.io
+        apiVersions:
+          - v1alpha2
         operations:
           - CREATE
           - UPDATE
@@ -36,7 +57,8 @@ webhooks:
         namespace: $(kserveNamespace)
         path: /validate-serving-kserve-io-v1alpha1-llminferenceserviceconfig
     failurePolicy: Fail
-    name: llminferenceserviceconfig.kserve-webhook-server.validator
+    matchPolicy: Exact
+    name: llminferenceserviceconfig.kserve-webhook-server.v1alpha1.validator
     sideEffects: None
     admissionReviewVersions: [ "v1", "v1beta1" ]
     rules:
@@ -44,6 +66,27 @@ webhooks:
           - serving.kserve.io
         apiVersions:
           - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - llminferenceserviceconfigs
+  - clientConfig:
+      service:
+        name: $(webhookServiceName)
+        namespace: $(kserveNamespace)
+        path: /validate-serving-kserve-io-v1alpha2-llminferenceserviceconfig
+    failurePolicy: Fail
+    matchPolicy: Exact
+    name: llminferenceserviceconfig.kserve-webhook-server.v1alpha2.validator
+    sideEffects: None
+    admissionReviewVersions: [ "v1", "v1beta1" ]
+    rules:
+      - apiGroups:
+          - serving.kserve.io
+        apiVersions:
+          - v1alpha2
         operations:
           - CREATE
           - UPDATE
