@@ -243,11 +243,24 @@ func (isvc *InferenceService) setPredictorModelDefaults() {
 		isvc.assignPaddleRuntime()
 	}
 
-	if isvc.Spec.Predictor.Model != nil && isvc.Spec.Predictor.Model.ProtocolVersion == nil {
-		if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelTriton {
-			// set 'v2' as default protocol version for triton server
+	if isvc.Spec.Predictor.Model != nil {
+		// Set 'v2' as default protocol version for triton server
+		if isvc.Spec.Predictor.Model.ProtocolVersion == nil &&
+			isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelTriton {
 			protocolV2 := constants.ProtocolV2
 			isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV2
+		}
+
+		// Add framework annotation from modelFormat
+		if isvc.Spec.Predictor.Model.ModelFormat.Name != "" {
+			modelFormat := isvc.Spec.Predictor.Model.ModelFormat.Name
+			if isvc.ObjectMeta.Annotations == nil {
+				isvc.ObjectMeta.Annotations = make(map[string]string)
+			}
+			// Only set if not already present (allow user override)
+			if _, exists := isvc.ObjectMeta.Annotations[constants.ModelFormatAnnotationKey]; !exists {
+				isvc.ObjectMeta.Annotations[constants.ModelFormatAnnotationKey] = modelFormat
+			}
 		}
 	}
 }

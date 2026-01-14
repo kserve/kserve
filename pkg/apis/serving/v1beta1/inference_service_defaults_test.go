@@ -100,7 +100,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"Annotations": gomega.BeNil(),
+				"Annotations": gomega.HaveKeyWithValue(constants.ModelFormatAnnotationKey, constants.SupportedModelTensorflow),
 			},
 		},
 		"When annotations is nil in raw deployment": {
@@ -158,7 +158,10 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"Annotations": gomega.Equal(map[string]string{constants.DeploymentMode: string(constants.Standard)}),
+				"Annotations": gomega.Equal(map[string]string{
+					constants.DeploymentMode:           string(constants.Standard),
+					constants.ModelFormatAnnotationKey: constants.SupportedModelTensorflow,
+				}),
 			},
 		},
 		"ONNX": {
@@ -216,7 +219,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"Annotations": gomega.BeNil(),
+				"Annotations": gomega.HaveKeyWithValue(constants.ModelFormatAnnotationKey, constants.SupportedModelONNX),
 			},
 		},
 		"PMML": {
@@ -274,7 +277,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"Annotations": gomega.BeNil(),
+				"Annotations": gomega.HaveKeyWithValue(constants.ModelFormatAnnotationKey, constants.SupportedModelPMML),
 			},
 		},
 		"Paddle": {
@@ -332,7 +335,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"Annotations": gomega.BeNil(),
+				"Annotations": gomega.HaveKeyWithValue(constants.ModelFormatAnnotationKey, constants.SupportedModelPaddle),
 			},
 		},
 	}
