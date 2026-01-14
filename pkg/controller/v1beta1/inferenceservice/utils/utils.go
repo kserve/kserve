@@ -378,6 +378,11 @@ func UpdateImageTag(container *corev1.Container, runtimeVersion *string, serving
 				if !strings.HasSuffix(container.Image, "-gpu") {
 					container.Image = image + "-gpu"
 				}
+			} else if servingRuntime != nil && *servingRuntime == constants.VLLMServer {
+				// For vLLM server, use the GPU image from environment variable if GPU Enabled
+				if image, exists := utils.GetEnvVarValue(container.Env, "VLLM_GPU_IMAGE"); exists {
+					container.Image = image
+				}
 			}
 		}
 	}

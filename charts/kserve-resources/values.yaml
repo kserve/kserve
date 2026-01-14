@@ -373,6 +373,24 @@ kserve:
       shm:
         enabled: true
         sizeLimit: "3Gi"
+    vllmserver:
+      disabled: false
+      image: public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo
+      tag: latest
+      gpuImage: vllm/vllm-openai
+      gpuImageTag: latest
+      imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        capabilities:
+          drop:
+            - ALL
+      devShm:
+        enabled: false
+        sizeLimit: ""
+      hostIPC:
+        enabled: false
     tritonserver:
       disabled: false
       image: nvcr.io/nvidia/tritonserver

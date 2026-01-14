@@ -1273,6 +1273,106 @@ func TestUpdateImageTag(t *testing.T) {
 			servingRuntime: constants.TFServing,
 			expected:       "huggingfaceserver@sha256:abcdef1234567890",
 		},
+		"UpdateVLLMServerGPUImageTag": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllmserver:v0.1.0",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []corev1.EnvVar{
+					{Name: "PORT", Value: "8000"},
+					{Name: "MODELS_DIR", Value: "/mnt/models"},
+					{Name: "VLLM_GPU_IMAGE", Value: "vllmserver:v0.1.0-gpu"},
+				},
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						"nvidia.com/gpu": resource.MustParse("1"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.VLLMServer,
+			expected:       "vllmserver:v0.1.0-gpu",
+		},
+		"UpdateVLLMServerGPUImageTagWithProxy": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "localhost:8888/vllmserver:v0.1.0",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []corev1.EnvVar{
+					{Name: "PORT", Value: "8000"},
+					{Name: "MODELS_DIR", Value: "/mnt/models"},
+					{Name: "VLLM_GPU_IMAGE", Value: "localhost:8888/vllmserver:v0.1.0-gpu"},
+				},
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						"nvidia.com/gpu": resource.MustParse("1"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.VLLMServer,
+			expected:       "localhost:8888/vllmserver:v0.1.0-gpu",
+		},
+		"VLLMServerGPUWithoutVLLMGPUImageEnv": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllmserver:v0.1.0",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []corev1.EnvVar{
+					{Name: "PORT", Value: "8000"},
+					{Name: "MODELS_DIR", Value: "/mnt/models"},
+				},
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						"nvidia.com/gpu": resource.MustParse("1"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.VLLMServer,
+			expected:       "vllmserver:v0.1.0",
+		},
+		"VLLMServerCPUNoUpdate": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "vllmserver:v0.1.0",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []corev1.EnvVar{
+					{Name: "PORT", Value: "8000"},
+					{Name: "MODELS_DIR", Value: "/mnt/models"},
+					{Name: "VLLM_GPU_IMAGE", Value: "vllmserver:v0.1.0-gpu"},
+				},
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("2"),
+						corev1.ResourceMemory: resource.MustParse("4Gi"),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("1"),
+						corev1.ResourceMemory: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.VLLMServer,
+			expected:       "vllmserver:v0.1.0",
+		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
