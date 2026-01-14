@@ -94,12 +94,12 @@ schedulingProfiles:
 
 			// Verify the deployment uses the custom inline config
 			configText, found := getSchedulerConfigText(expectedDeployment)
-			Expect(found).To(BeTrue(), "Expected to find --configText with inline config in scheduler deployment")
+			Expect(found).To(BeTrue(), "Expected to find --config-text with inline config in scheduler deployment")
 			Expect(configText).To(ContainSubstring("custom-plugin"))
 			Expect(configText).To(ContainSubstring("customParam"))
 		})
 
-		It("should not override config when args already contain --configText or --configFile", func(ctx SpecContext) {
+		It("should not override config when args already contain --config-text or --configFile", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-config-already-set"
 			nsName := kmeta.ChildName(svcName, "-test")
@@ -115,7 +115,7 @@ schedulingProfiles:
 				envTest.DeleteAll(namespace)
 			}()
 
-			// Create scheduler template with existing --configText
+			// Create scheduler template with existing --config-text
 			modelConfig := LLMInferenceServiceConfig("model-config",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
 				WithConfigModelName("facebook/opt-125m"),
@@ -135,7 +135,7 @@ schedulingProfiles:
 								Name:  "main",
 								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.2.0",
 								Args: []string{
-									"--configText",
+									"--config-text",
 									"existing-config-from-template",
 									"--poolName",
 									"test-pool",
@@ -169,7 +169,7 @@ schedulingProfiles:
 				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
 			}()
 
-			// then - verify the scheduler deployment preserves the existing --configText from template
+			// then - verify the scheduler deployment preserves the existing --config-text from template
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
@@ -178,11 +178,11 @@ schedulingProfiles:
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
-			// Verify that the existing --configText is preserved (not overwritten or duplicated)
+			// Verify that the existing --config-text is preserved (not overwritten or duplicated)
 			configText, found := getSchedulerConfigText(expectedDeployment)
-			Expect(found).To(BeTrue(), "Expected to find --configText in scheduler deployment")
+			Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
 			Expect(configText).To(Equal("existing-config-from-template"))
-			Expect(countConfigTextArgs(expectedDeployment)).To(Equal(1), "Expected exactly one --configText argument")
+			Expect(countConfigTextArgs(expectedDeployment)).To(Equal(1), "Expected exactly one --config-text argument")
 		})
 	})
 
@@ -243,7 +243,7 @@ schedulingProfiles:
 
 			// Verify the deployment uses config from ConfigMap
 			configText, found := getSchedulerConfigText(expectedDeployment)
-			Expect(found).To(BeTrue(), "Expected to find --configText with ConfigMap config in scheduler deployment")
+			Expect(found).To(BeTrue(), "Expected to find --config-text with ConfigMap config in scheduler deployment")
 			Expect(configText).To(ContainSubstring("configmap-plugin"))
 			Expect(configText).To(ContainSubstring("configmap-profile"))
 		})
@@ -303,7 +303,7 @@ schedulingProfiles:
 
 			// Verify the deployment uses config from the custom key
 			configText, found := getSchedulerConfigText(expectedDeployment)
-			Expect(found).To(BeTrue(), "Expected to find --configText with custom key config")
+			Expect(found).To(BeTrue(), "Expected to find --config-text with custom key config")
 			Expect(configText).To(ContainSubstring("custom-key-plugin"))
 		})
 	})
@@ -400,7 +400,7 @@ schedulingProfiles:
 
 				// Check for updated config using helper function
 				configText, found := getSchedulerConfigText(updatedDeployment)
-				g.Expect(found).To(BeTrue(), "Expected to find --configText in updated deployment")
+				g.Expect(found).To(BeTrue(), "Expected to find --config-text in updated deployment")
 				g.Expect(configText).To(ContainSubstring("updated-plugin"))
 				return nil
 			}).WithContext(ctx).Should(Succeed(), fmt.Sprintf("Expected to find updated scheduler config in updated deployment %#v", updatedDeployment))
@@ -827,13 +827,13 @@ schedulingProfiles:
 // schedulerContainerName is the expected name of the main container in the scheduler deployment
 const schedulerContainerName = "main"
 
-// getSchedulerConfigText extracts the --configText argument value from a scheduler deployment.
+// getSchedulerConfigText extracts the --config-text argument value from a scheduler deployment.
 // Returns the config text and a boolean indicating whether it was found.
 func getSchedulerConfigText(deployment *appsv1.Deployment) (configText string, found bool) {
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		if container.Name == schedulerContainerName {
 			for i, arg := range container.Args {
-				if arg == "--configText" && i+1 < len(container.Args) {
+				if arg == "--config-text" && i+1 < len(container.Args) {
 					return container.Args[i+1], true
 				}
 			}
@@ -842,14 +842,14 @@ func getSchedulerConfigText(deployment *appsv1.Deployment) (configText string, f
 	return "", false
 }
 
-// countConfigTextArgs counts how many --configText arguments exist in the scheduler deployment.
+// countConfigTextArgs counts how many --config-text arguments exist in the scheduler deployment.
 // Used to verify that config is not duplicated.
 func countConfigTextArgs(deployment *appsv1.Deployment) int {
 	count := 0
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		if container.Name == schedulerContainerName {
 			for _, arg := range container.Args {
-				if arg == "--configText" {
+				if arg == "--config-text" {
 					count++
 				}
 			}
