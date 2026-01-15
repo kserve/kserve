@@ -18,6 +18,7 @@ package inferenceservice
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"testing"
 
@@ -154,3 +155,105 @@ var _ = BeforeSuite(func() {
 		Expect(err).ToNot(HaveOccurred())
 	}()
 })
+
+// getBaseTestConfigs returns the common test configuration shared by all deployment modes
+func getBaseTestConfigs() map[string]string {
+	return map[string]string{
+		"explainers": `{
+				"art": {
+					"image": "kserve/art-explainer",
+					"defaultImageVersion": "latest"
+				},
+				"alibi": {
+					"image": "kserve/alibi-explainer",
+					"defaultImageVersion": "latest"
+				}
+			}`,
+		"ingress": `{
+				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
+				"ingressGateway": "knative-serving/knative-ingress-gateway",
+				"localGateway": "knative-serving/knative-local-gateway",
+				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
+			}`,
+		"storageInitializer": `{
+				"image" : "kserve/storage-initializer:latest",
+				"memoryRequest": "100Mi",
+				"memoryLimit": "1Gi",
+				"cpuRequest": "100m",
+				"cpuLimit": "1",
+				"caBundleConfigMapName": "",
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+				"memoryModelcar": "15Mi"
+			}`,
+		"inferenceService": `{}`,
+	}
+}
+
+// getKnativeTestConfigs returns the default test configuration for Knative deployment mode tests
+func getKnativeTestConfigs() map[string]string {
+	return getBaseTestConfigs()
+}
+
+// getRawKubeTestConfigs returns the default test configuration for RawKube deployment mode tests with Gateway API enabled
+func getRawKubeTestConfigs() map[string]string {
+	return mergeJSONField(getBaseTestConfigs(), "ingress", map[string]interface{}{
+		"enableGatewayApi":         true,
+		"additionalIngressDomains": []string{"additional.example.com"},
+	})
+}
+
+// mergeJSONField merges additional fields into a specific JSON field in configs.
+// This allows partial updates to JSON configs without rewriting the entire JSON string.
+// The key parameter can be any config key (e.g., "ingress", "explainers", "storageInitializer").
+//
+// Examples:
+//
+//	// Merge into ingress config
+//	configs := mergeJSONField(getRawKubeTestConfigs(), "ingress", map[string]interface{}{
+//	    "disableIngressCreation": true,
+//	})
+//
+//	// Merge into explainers config
+//	configs := mergeJSONField(getBaseTestConfigs(), "explainers", map[string]interface{}{
+//	    "custom": map[string]interface{}{
+//	        "image": "custom-explainer:v1",
+//	    },
+//	})
+//
+//nolint:unparam
+func mergeJSONField(base map[string]string, key string, updates map[string]interface{}) map[string]string {
+	result := make(map[string]string)
+	// Copy base configs
+	for k, v := range base {
+		result[k] = v
+	}
+
+	// Get the existing JSON value
+	existingJSON := base[key]
+	if existingJSON == "" {
+		existingJSON = "{}"
+	}
+
+	// Unmarshal existing JSON
+	var existingData map[string]interface{}
+	if err := json.Unmarshal([]byte(existingJSON), &existingData); err != nil {
+		// If unmarshal fails, just use updates
+		existingData = make(map[string]interface{})
+	}
+
+	// Merge updates into existing data
+	for k, v := range updates {
+		existingData[k] = v
+	}
+
+	// Marshal back to JSON
+	mergedJSON, err := json.Marshal(existingData)
+	if err != nil {
+		// If marshal fails, return original
+		return result
+	}
+
+	result[key] = string(mergedJSON)
+	return result
+}

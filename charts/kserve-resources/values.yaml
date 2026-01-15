@@ -81,7 +81,11 @@ kserve:
       # -- Whether to use anonymous credentials to download the model or not, default to false.
       useAnonymousCredential: ""
 
-      # -- The path to the certificate bundle to use for HTTPS certificate validation.
+      # -- Mounted CA bundle config map name.
+      CABundleConfigMap: ""
+
+      # -- When used with a configured CA bundle config map, specifies the full path (mount path + file name) for the mounted config map data.
+      # When used absent of a configured CA bundle config map, specifies the path to a certificate bundle to use for HTTPS certificate validation.
       CABundle: ""
 
   metricsaggregator:
