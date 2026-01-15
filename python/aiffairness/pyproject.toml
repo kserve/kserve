@@ -3,7 +3,7 @@ authors = [
     {name = "Andrew Butler", email = "Andrew.Butler@ibm.com"},
 ]
 license = {text = "Apache-2.0"}
-requires-python = "<3.13,>=3.9"
+requires-python = "<3.14,>=3.10"
 dependencies = [
     "kserve @ file:///${PROJECT_ROOT}/../kserve",
     "aif360<1.0.0,>=0.6.1",

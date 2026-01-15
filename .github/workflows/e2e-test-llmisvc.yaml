@@ -4,7 +4,9 @@ on:
   pull_request:
     paths:
       - "pkg/apis/serving/v1alpha1/llm*"
+      - "pkg/apis/serving/v1alpha2/llm*"
       - "pkg/controller/v1alpha1/llmisvc/**"
+      - "pkg/controller/v1alpha2/llmisvc/**"
       - "config/llmisvc/**"
       - "config/rbac/llmisvc/**"
       - "cmd/llmisvc/**"
@@ -107,17 +109,17 @@ jobs:
 
           # Set environment variable to use local charts
           export USE_LOCAL_CHARTS=true
-          LLMISVC_CONTROLLER_IMG_TAG="${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${{ github.sha }}"
 
           # Use the quick install script to install all dependencies and LLMISvc
           ./hack/llmisvc_quick_install.sh
 
           # Update the deployment to use our built image with Never pull policy
+          # Use 'local-test' tag since that's what was loaded into minikube
           kubectl patch deployment kserve-llmisvc-controller-manager -n kserve \
-            -p '{"spec":{"template":{"spec":{"containers":[{"name":"manager","image":"'${LLMISVC_CONTROLLER_IMG_TAG}'","imagePullPolicy":"Never"}]}}}}'
+            -p '{"spec":{"template":{"spec":{"containers":[{"name":"manager","image":"kserve/llmisvc-controller:local-test","imagePullPolicy":"Never"}]}}}}'
 
-          # Wait for deployment to be ready
-          kubectl wait --for=condition=available --timeout=300s deployment/kserve-llmisvc-controller-manager -n kserve
+          # Wait for deployment rollout to complete (ensures new pod is ready, not just the old one)
+          kubectl rollout status deployment/kserve-llmisvc-controller-manager -n kserve --timeout=300s
 
       - name: Verify LLMISvc setup
         run: |
