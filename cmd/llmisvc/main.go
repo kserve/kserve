@@ -168,9 +168,6 @@ func main() {
 				&corev1.ConfigMap{}: {
 					Label: llmSvcCacheSelector,
 				},
-				&corev1.Service{}: {
-					Label: llmSvcCacheSelector,
-				},
 				&appsv1.Deployment{}: {
 					Label: llmSvcCacheSelector,
 				},
