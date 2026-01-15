@@ -1,4 +1,4 @@
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-router-route
@@ -16,7 +16,7 @@ spec:
                 {{`{{ .GlobalConfig.IngressGatewayNamespace }}`}}
           rules:
             - backendRefs:
-                - group: inference.networking.x-k8s.io
+                - group: inference.networking.k8s.io
                   kind: InferencePool
                   name: |-
                     {{ "{{" }} ChildName .ObjectMeta.Name `-inference-pool` {{ "}}" }}

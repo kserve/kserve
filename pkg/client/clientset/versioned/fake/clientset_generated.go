@@ -22,6 +22,8 @@ import (
 	clientset "github.com/kserve/kserve/pkg/client/clientset/versioned"
 	servingv1alpha1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	fakeservingv1alpha1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1alpha1/fake"
+	servingv1alpha2 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1alpha2"
+	fakeservingv1alpha2 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1alpha2/fake"
 	servingv1beta1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1beta1"
 	fakeservingv1beta1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1beta1/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -93,6 +95,11 @@ var (
 // ServingV1alpha1 retrieves the ServingV1alpha1Client
 func (c *Clientset) ServingV1alpha1() servingv1alpha1.ServingV1alpha1Interface {
 	return &fakeservingv1alpha1.FakeServingV1alpha1{Fake: &c.Fake}
+}
+
+// ServingV1alpha2 retrieves the ServingV1alpha2Client
+func (c *Clientset) ServingV1alpha2() servingv1alpha2.ServingV1alpha2Interface {
+	return &fakeservingv1alpha2.FakeServingV1alpha2{Fake: &c.Fake}
 }
 
 // ServingV1beta1 retrieves the ServingV1beta1Client
