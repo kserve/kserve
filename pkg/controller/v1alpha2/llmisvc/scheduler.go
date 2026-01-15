@@ -198,7 +198,7 @@ func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
 		podSpec := llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
 
-		desiredPorts := sets.New("grpc", "grpc-health", "metrics")
+		desiredPorts := sets.New("grpc", "grpc-health", "metrics", "zmq")
 
 		actualPorts := make(map[string]*corev1.ContainerPort)
 		for _, container := range podSpec.Containers {
