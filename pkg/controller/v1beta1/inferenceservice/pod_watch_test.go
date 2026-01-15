@@ -707,7 +707,7 @@ var _ = Describe("ServingRuntime Watch", func() {
 		})
 
 		It("should not reconcile ISVCs that use a different ClusterServingRuntime", func() {
-			// Create ISVC using clusterRuntime2
+			// Create ISVC using a different runtime
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "isvc-different-runtime",
@@ -725,17 +725,17 @@ var _ = Describe("ServingRuntime Watch", func() {
 			isvc.Status.ClusterServingRuntimeName = "cluster-runtime-other"
 			Expect(k8sClient.Status().Update(context.Background(), isvc)).To(Succeed())
 
-			// Create a ClusterServingRuntime object for "cluster-runtime-1"
+			// Create a ClusterServingRuntime object with a unique name not used by any ISVC
 			csr := &v1alpha1.ClusterServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "cluster-runtime-1",
+					Name: "cluster-runtime-unused",
 				},
 			}
 
 			// Call the mapper function
 			requests := reconciler.clusterServingRuntimeFunc(context.Background(), csr)
 
-			// Should return empty since no ISVC uses cluster-runtime-1
+			// Should return empty since no ISVC uses cluster-runtime-unused
 			Expect(requests).To(BeEmpty())
 		})
 
@@ -758,7 +758,7 @@ var _ = Describe("ServingRuntime Watch", func() {
 			Expect(k8sClient.Create(context.Background(), isvc)).To(Succeed())
 
 			// Set the ClusterServingRuntimeName and make it ready
-			isvc.Status.ClusterServingRuntimeName = "cluster-runtime-1"
+			isvc.Status.ClusterServingRuntimeName = "cluster-runtime-auto-update"
 			isvc.Status.SetCondition(v1beta1.PredictorReady, &knativeapis.Condition{
 				Type:   v1beta1.PredictorReady,
 				Status: corev1.ConditionTrue,
@@ -772,7 +772,7 @@ var _ = Describe("ServingRuntime Watch", func() {
 			// Create a ClusterServingRuntime object
 			csr := &v1alpha1.ClusterServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "cluster-runtime-1",
+					Name: "cluster-runtime-auto-update",
 				},
 			}
 
@@ -837,6 +837,85 @@ var _ = Describe("ServingRuntime Watch", func() {
 			Expect(requests).To(HaveLen(1))
 			Expect(requests[0].Name).To(Equal("isvc-serving-runtime-1"))
 			Expect(requests[0].Namespace).To(Equal(testNamespace))
+		})
+
+		It("should not reconcile ISVCs that use a different ServingRuntime", func() {
+			// Create ISVC using a different runtime
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "isvc-different-serving-runtime",
+					Namespace: testNamespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), isvc)).To(Succeed())
+
+			// Set the ServingRuntimeName in status to a different runtime
+			isvc.Status.ServingRuntimeName = "serving-runtime-other"
+			Expect(k8sClient.Status().Update(context.Background(), isvc)).To(Succeed())
+
+			// Create a ServingRuntime object with a unique name not used by any ISVC
+			sr := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "serving-runtime-unused",
+					Namespace: testNamespace,
+				},
+			}
+
+			// Call the mapper function
+			requests := reconciler.servingRuntimeFunc(context.Background(), sr)
+
+			// Should return empty since no ISVC uses serving-runtime-unused
+			Expect(requests).To(BeEmpty())
+		})
+
+		It("should not reconcile ISVCs with auto-update disabled when ready", func() {
+			// Create ISVC with auto-update disabled
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "isvc-serving-auto-update-disabled",
+					Namespace: testNamespace,
+					Annotations: map[string]string{
+						constants.DisableAutoUpdateAnnotationKey: "true",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						SKLearn: &v1beta1.SKLearnSpec{},
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.Background(), isvc)).To(Succeed())
+
+			// Set the ServingRuntimeName and make it ready
+			isvc.Status.ServingRuntimeName = "serving-runtime-auto-update"
+			isvc.Status.SetCondition(v1beta1.PredictorReady, &knativeapis.Condition{
+				Type:   v1beta1.PredictorReady,
+				Status: corev1.ConditionTrue,
+			})
+			isvc.Status.SetCondition(v1beta1.IngressReady, &knativeapis.Condition{
+				Type:   v1beta1.IngressReady,
+				Status: corev1.ConditionTrue,
+			})
+			Expect(k8sClient.Status().Update(context.Background(), isvc)).To(Succeed())
+
+			// Create a ServingRuntime object
+			sr := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "serving-runtime-auto-update",
+					Namespace: testNamespace,
+				},
+			}
+
+			// Call the mapper function
+			requests := reconciler.servingRuntimeFunc(context.Background(), sr)
+
+			// Should not reconcile the ISVC because auto-update is disabled and it's ready
+			Expect(requests).To(BeEmpty())
 		})
 	})
 })
