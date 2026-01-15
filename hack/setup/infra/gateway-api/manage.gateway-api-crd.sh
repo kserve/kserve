@@ -15,9 +15,9 @@
 # limitations under the License.
 
 # Install Gateway API CRDs
-# Usage: install-crd.sh [--reinstall|--uninstall]
-#   or:  REINSTALL=true install-crd.sh
-#   or:  UNINSTALL=true install-crd.sh
+# Usage: manage.gateway-api-crd-only.sh [--reinstall|--uninstall]
+#   or:  REINSTALL=true manage.gateway-api-crd-only.sh
+#   or:  UNINSTALL=true manage.gateway-api-crd-only.sh
 
 # INIT
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
@@ -34,10 +34,63 @@ elif [[ "$*" == *"--reinstall"* ]]; then
 fi
 # INIT END
 
+# Resolve the Gateway API version to an available GitHub release.
+# If the version is a pseudo-version (e.g., v1.3.1-0.20251106052652-079e4774d76b),
+# find the next available release version that is >= the base version.
+resolve_gateway_api_version() {
+    local version="$1"
+    local base_version
+
+    # Check if version is a pseudo-version (contains timestamp like -0.YYYYMMDD)
+    if [[ "$version" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-0\.[0-9]{14}- ]]; then
+        base_version="${BASH_REMATCH[1]}"
+        log_info "Detected pseudo-version ${version}, base version is ${base_version}"
+
+        # Fetch available releases from GitHub and find versions matching vX.Y.Z pattern
+        local releases
+        releases=$(curl -s "https://api.github.com/repos/kubernetes-sigs/gateway-api/releases" | \
+            grep -oE '"tag_name":\s*"v[0-9]+\.[0-9]+\.[0-9]+"' | \
+            grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | \
+            sort -V)
+
+        if [ -z "$releases" ]; then
+            log_warning "Failed to fetch releases from GitHub, trying version as-is"
+            echo "$version"
+            return
+        fi
+
+        # Find the smallest version >= base_version
+        local next_version=""
+        for release in $releases; do
+            local release_num="${release#v}"
+            if version_gte "$release_num" "$base_version"; then
+                next_version="$release"
+                break
+            fi
+        done
+
+        if [ -n "$next_version" ]; then
+            log_info "Using next available release: ${next_version}"
+            echo "$next_version"
+            return
+        fi
+
+        # Fallback to latest version if no suitable release found
+        local latest_version
+        latest_version=$(echo "$releases" | tail -1)
+        log_warning "No suitable release found >= v${base_version}, using latest: ${latest_version}"
+        echo "$latest_version"
+    else
+        # Version is a regular release tag, use as-is
+        echo "$version"
+    fi
+}
+
 uninstall() {
     log_info "Uninstalling Gateway API CRDs..."
-    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml" --ignore-not-found=true 2>/dev/null || true
-    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml" --ignore-not-found=true 2>/dev/null || true
+    local resolved_version
+    resolved_version=$(resolve_gateway_api_version "$GATEWAY_API_VERSION")
+    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${resolved_version}/standard-install.yaml" --ignore-not-found=true 2>/dev/null || true
     log_success "Gateway API CRDs uninstalled"
 }
 
@@ -52,28 +105,19 @@ install() {
         fi
     fi
 
-    log_info "Installing Gateway API CRDs ${GATEWAY_API_VERSION}..."
-    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml"
+    local resolved_version
+    resolved_version=$(resolve_gateway_api_version "$GATEWAY_API_VERSION")
 
-    log_success "Successfully installed Gateway API CRDs ${GATEWAY_API_VERSION}"
+    log_info "Installing Gateway API CRDs ${resolved_version}..."
+    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${resolved_version}/standard-install.yaml"
+
+    log_success "Successfully installed Gateway API CRDs ${resolved_version}"
 
     wait_for_crds "60s" \
         "gateways.gateway.networking.k8s.io" \
         "gatewayclasses.gateway.networking.k8s.io"
 
     log_success "Gateway API CRDs are ready!"
-
-    log_info "Installing Gateway Inference Extension CRDs ${GIE_VERSION}..."
-    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml"
-
-    log_success "Successfully installed Gateway Inference Extension CRDs ${GIE_VERSION}"
-
-    wait_for_crds "60s" \
-        "inferencepools.inference.networking.x-k8s.io" \
-        "inferencemodels.inference.networking.x-k8s.io"
-
-    log_success "Gateway Inference Extension CRDs are ready!"
-
 }
 
 if [ "$UNINSTALL" = true ]; then

@@ -15,15 +15,14 @@ Help() {
    echo
 }
 
-export GATEWAY_API_VERSION=v1.2.1
-export KSERVE_VERSION=v0.16.0
-export LLMISVC_VERSION=v0.16.0
-export LWS_VERSION=0.7.0
-export ENVOY_GATEWAY_VERSION=v1.5.0
-export ENVOY_AI_GATEWAY_VERSION=v0.3.0
 SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
-export CERT_MANAGER_VERSION=v1.16.1
 export SCRIPT_DIR
+
+source "${SCRIPT_DIR}/setup/common.sh"
+REPO_ROOT="$(find_repo_root "${SCRIPT_DIR}")"
+
+source "${REPO_ROOT}/kserve-deps.env"
+installKserve=true
 
 uninstall() {
    # Uninstall Cert Manager
@@ -105,20 +104,28 @@ helm install \
    --set crds.enabled=true
 echo "😀 Successfully installed Cert Manager"
 
-echo "Installing Gateway API CRDs ..."
-kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
-
 # Need to install before Envoy Gateway
-kubectl apply -f ${SCRIPT_DIR}/../config/llmisvc/gateway-inference-extension.yaml
+${SCRIPT_DIR}/setup/infra/gateway-api/manage.gateway-api-extension-crd.sh
 
-# Install Envoy Gateway
-echo "Installing Envoy Gateway ..."
+# Download Envoy Gateway values files for AI Gateway integration
+echo "Downloading Envoy Gateway configuration for AI Gateway integration ..."
+ENVOY_GW_VALUES_DIR=$(mktemp -d)
+curl -sL "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${ENVOY_AI_GATEWAY_VERSION#v}/manifests/envoy-gateway-values.yaml" -o "${ENVOY_GW_VALUES_DIR}/envoy-gateway-values.yaml"
+curl -sL "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${ENVOY_AI_GATEWAY_VERSION#v}/examples/inference-pool/envoy-gateway-values-addon.yaml" -o "${ENVOY_GW_VALUES_DIR}/envoy-gateway-values-addon.yaml"
+
+# Install Envoy Gateway with AI Gateway and InferencePool support
+echo "Installing Envoy Gateway with AI Gateway integration ..."
 helm upgrade -i eg oci://docker.io/envoyproxy/gateway-helm \
   --version ${ENVOY_GATEWAY_VERSION} \
   --namespace envoy-gateway-system \
-  --create-namespace
+  --create-namespace \
+  -f "${ENVOY_GW_VALUES_DIR}/envoy-gateway-values.yaml" \
+  -f "${ENVOY_GW_VALUES_DIR}/envoy-gateway-values-addon.yaml"
 echo "😀 Successfully installed Envoy Gateway"
 kubectl wait --timeout=2m -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available
+
+# Cleanup temp files
+rm -rf "${ENVOY_GW_VALUES_DIR}"
 
 # Install Envoy AI Gateway
 echo "Installing Envoy AI Gateway ..."
@@ -134,18 +141,7 @@ helm upgrade -i aieg oci://docker.io/envoyproxy/ai-gateway-helm \
 echo "😀 Successfully installed Envoy AI Gateway"
 kubectl wait --timeout=2m -n envoy-ai-gateway-system deployment/ai-gateway-controller --for=condition=Available
 
-# Configure Envoy Gateway for AI Gateway integration
-echo "Configuring Envoy Gateway for AI Gateway integration ..."
-kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${ENVOY_AI_GATEWAY_VERSION#v}/manifests/envoy-gateway-config/redis.yaml
-kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${ENVOY_AI_GATEWAY_VERSION#v}/manifests/envoy-gateway-config/config.yaml
-kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${ENVOY_AI_GATEWAY_VERSION#v}/manifests/envoy-gateway-config/rbac.yaml
-
-# Enable Gateway API Inference Extension support for Envoy Gateway
-echo "Enabling Gateway API Inference Extension support for Envoy Gateway ..."
-kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${ENVOY_AI_GATEWAY_VERSION#v}/examples/inference-pool/config.yaml
-kubectl rollout restart -n envoy-gateway-system deployment/envoy-gateway
-kubectl wait --timeout=2m -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available
-echo "😀 Successfully enabled Gateway API Inference Extension support for Envoy Gateway"
+echo "😀 Successfully configured Envoy Gateway with InferencePool support (inference.networking.k8s.io/v1)"
 
 # Create kserve namespace if it doesn't exist
 kubectl create namespace kserve --dry-run=client -o yaml | kubectl apply -f -
@@ -193,29 +189,6 @@ EOF
   fi
 fi
 
-# Create Gateway resource
-echo "Creating kserve-ingress-gateway ..."
-kubectl apply -f - <<EOF
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: kserve-ingress-gateway
-  namespace: kserve
-spec:
-  gatewayClassName: envoy
-  listeners:
-    - name: http
-      protocol: HTTP
-      port: 80
-      allowedRoutes:
-        namespaces:
-          from: All
-  infrastructure:
-    labels:
-      serving.kserve.io/gateway: kserve-ingress-gateway
-EOF
-echo "😀 Successfully created kserve-ingress-gateway"
-
 # Install Leader Worker Set (LWS)
 echo "Installing Leader Worker Set ..."
 helm install lws oci://registry.k8s.io/lws/charts/lws \
@@ -237,27 +210,8 @@ spec:
 EOF
 echo "😀 Successfully created GatewayClass for Envoy"
 
-if [ "${installLLMISvc}" = false ]; then
-   exit
-fi
+LLMISVC=true ${SCRIPT_DIR}/setup/infra/manage.kserve-helm.sh
 
-if [ "${USE_LOCAL_CHARTS}" = true ]; then
-   # Install LLMISvc using local charts (to avoid template function errors in published charts)
-   echo "Installing LLMISvc using local charts..."
-   echo "📍 Using local charts from $(pwd)/charts/"
-   # Install LLMISvc CRDs from local chart
-   helm install kserve-llmisvc-crd ./charts/kserve-llmisvc-crd --namespace kserve --create-namespace --wait
-
-   # Install LLMISvc resources from local chart  
-   helm install kserve-llmisvc ./charts/kserve-llmisvc-resources --namespace kserve --create-namespace --wait --set kserve.llmisvc.controller.tag=local-test --set kserve.llmisvc.controller.imagePullPolicy=Never
-   echo "😀 Successfully installed LLMISvc using local charts"
-
-else
-   echo "Installing LLMISvc ..."
-   helm install kserve-llmisvc-crd oci://ghcr.io/kserve/charts/kserve-llmisvc-crd --version ${LLMISVC_VERSION} --namespace kserve --create-namespace --wait
-   helm install kserve-llmisvc oci://ghcr.io/kserve/charts/kserve-llmisvc-resources --version ${LLMISVC_VERSION} --namespace kserve --create-namespace --wait
-
-fi
 echo "😀 Successfully installed LLMISvc"
 
 # Create Gateway resource

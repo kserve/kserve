@@ -62,7 +62,8 @@ data:
         #  "autoscaling.knative.dev/min-scale",
         #  "autoscaling.knative.dev/max-scale",
         #  "internal.serving.kserve.io/storage-initializer-sourceuri",
-        #  "kubectl.kubernetes.io/last-applied-configuration"
+        #  "kubectl.kubernetes.io/last-applied-configuration",
+        #  "modelFormat"
         # Any new value will be appended to the list.
         "serviceAnnotationDisallowedList": [
           "my.custom.annotation/1"  
@@ -218,6 +219,7 @@ data:
               "s3UseVirtualBucket": "",
               "s3UseAccelerate": "",
               "s3UseAnonymousCredential": "",
+              "s3CABundleConfigMap": "",
               "s3CABundle": ""
           }
        }
@@ -277,8 +279,12 @@ data:
                
               # s3UseAnonymousCredential configures whether to use anonymous credentials to download the model or not.
               "s3UseAnonymousCredential": "",
+
+              # s3CABundleConfigMap specifies the mounted CA bundle config map name.
+              "s3CABundleConfigMap": "",
               
-              # s3CABundle specifies the path to a certificate bundle to use for HTTPS certificate validation.
+              # s3CABundle specifies the full path (mount path + file name) for the mounted config map data when used with a configured CA bundle config map.
+              # s3CABundle specifies the path to a certificate bundle to use for HTTPS certificate validation when used absent of a configured CA bundle config map.
               "s3CABundle": ""
           }
        }
@@ -658,6 +664,7 @@ data:
            "s3UseVirtualBucket": "",
            "s3UseAccelerate": "",
            "s3UseAnonymousCredential": "",
+           "s3CABundleConfigMap": "",
            "s3CABundle": ""
        }
     }

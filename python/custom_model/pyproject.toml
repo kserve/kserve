@@ -3,11 +3,11 @@ authors = [
     {name = "The KServe Authors"},
 ]
 license = {text = "Apache-2.0"}
-requires-python = "<3.13,>=3.9"
+requires-python = "<3.13,>=3.10"
 dependencies = [
     "kserve[ray] @ file:///${PROJECT_ROOT}/../kserve",
-    "torchvision==0.21.0+cpu",
-    "torch==2.6.0+cpu",
+    "torchvision==0.24.0+cpu",
+    "torch==2.9.0+cpu",
     "pillow<11.0.0,>=10.3.0",
 ]
 name = "custom-model"
@@ -21,5 +21,5 @@ dev = [
 
 [tool.uv.sources]
 # For PyTorch CPU on Linux x86_64 with Python 3.11
-torch = { url = "https://download.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp311-cp311-linux_x86_64.whl" }
-torchvision = { url = "https://download.pytorch.org/whl/cpu/torchvision-0.21.0%2Bcpu-cp311-cp311-linux_x86_64.whl" }
+torch = { url = "https://download.pytorch.org/whl/cpu/torch-2.9.0%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl" }
+torchvision = { url = "https://download.pytorch.org/whl/cpu/torchvision-0.24.0%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl" }

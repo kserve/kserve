@@ -9,7 +9,7 @@ We strongly encourage you to report security vulnerabilities privately, before d
 You can use the following ways to report security vulnerabilities privately:
 
 - Using the KServe repository [GitHub Security Advisory](https://github.com/kserve/kserve/security/advisories/new).
-- Using our private security mailing list: kserve-security@lists.lfaidata.foundation.
+- Using our private security mailing list: kserve-security@lists.cncf.io.
 
 Please provide detailed information to help us understand and address the issue promptly.
 

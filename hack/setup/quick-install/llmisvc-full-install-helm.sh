@@ -53,7 +53,7 @@ find_repo_root() {
         echo "$PWD"
         return 0
     else
-        echo "Error: Could not find git repository root" >&2
+        log_error "Could not find git repository root"
         exit 1
     fi
 }
@@ -73,7 +73,7 @@ detect_os() {
     case "$(uname -s)" in
         Linux*)  os="linux" ;;
         Darwin*) os="darwin" ;;
-        *)       echo "Unsupported OS" >&2; exit 1 ;;
+        *)       log_error "Unsupported OS detected: $(uname -s)" ; exit 1 ;;
     esac
     echo "$os"
 }
@@ -83,10 +83,26 @@ detect_arch() {
     case "$(uname -m)" in
         x86_64)  arch="amd64" ;;
         aarch64|arm64) arch="arm64" ;;
-        *)       echo "Unsupported architecture" >&2; exit 1 ;;
+        *)       log_error "Unsupported architecture detected: $(uname -m)" ; exit 1 ;;
     esac
     echo "$arch"
 }
+
+cleanup_bin_dir() {
+    # Remove BIN_DIR if it was created by this script
+    if [[ "${BIN_DIR_CREATED_BY_SCRIPT:-false}" == "true" ]] && [[ -d "${BIN_DIR:-}" ]]; then
+        log_info "Cleaning up BIN_DIR: ${BIN_DIR}"
+        rm -rf "${BIN_DIR}"
+    fi
+}
+
+cleanup() {
+    # Call all cleanup functions
+    cleanup_bin_dir
+}
+
+# Set up trap to run cleanup on exit
+trap cleanup EXIT
 
 # Color codes (disable if NO_COLOR is set or not a terminal)
 if [[ -z "${NO_COLOR:-}" ]] && [[ -t 1 ]]; then
@@ -104,7 +120,7 @@ else
 fi
 
 log_info() {
-    echo -e "${BLUE}[INFO]${RESET} $*"
+    echo -e "${BLUE}[INFO]${RESET} $*" >&2
 }
 
 log_error() {
@@ -112,11 +128,11 @@ log_error() {
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${RESET} $*"
+    echo -e "${GREEN}[SUCCESS]${RESET} $*" >&2
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${RESET} $*"
+    echo -e "${YELLOW}[WARNING]${RESET} $*" >&2
 }
 
 
@@ -266,7 +282,7 @@ wait_for_crd() {
     sleep 2
 
     # Retry logic to handle race condition where .status.conditions may not be initialized yet
-    local max_retries=3
+    local max_retries=10
     local retry=0
     while [ $retry -lt $max_retries ]; do
         if kubectl wait --for=condition=Established --timeout="$timeout" crd/"$crd_name" 2>/dev/null; then
@@ -309,75 +325,63 @@ update_isvc_config() {
 
     log_info "Updating inferenceservice-config..."
 
-    local temp=$(mktemp)
-    kubectl get configmap inferenceservice-config -n "${KSERVE_NAMESPACE}" -o json > "$temp"
-
-    # Group updates by data_key to avoid multiple updates to the same key
-    declare -A data_key_updates
+    # Prepare updates as JSON array
+    local updates_file
+    updates_file=$(mktemp)
 
     for arg in "$@"; do
         local key="${arg%%=*}"
-        local value="${arg#*=}"
-
-        # Split "ingress.enableGatewayApi" -> data_key="ingress", json_path="enableGatewayApi"
+        local raw_value="${arg#*=}"
         local data_key="${key%%.*}"
         local json_path="${key#*.}"
+        local value_json="$raw_value"
 
-        # Append to the list of updates for this data_key
-        if [ -z "${data_key_updates[$data_key]:-}" ]; then
-            data_key_updates[$data_key]="$json_path=$value"
-        else
-            data_key_updates[$data_key]="${data_key_updates[$data_key]}|$json_path=$value"
-        fi
-    done
-
-    # Process each data_key once with all its updates
-    for data_key in "${!data_key_updates[@]}"; do
-        # Get current JSON from data field (stored as string)
-        local current=$(jq -r ".data.\"$data_key\"" "$temp")
-
-        # Skip if the key doesn't exist or is null
-        if [ "$current" = "null" ] || [ -z "$current" ]; then
-            log_info "  ⊘ Skipping all updates for '$data_key' (not found in ConfigMap)"
-            continue
+        # Smart type detection: auto-quote strings, keep numbers/booleans/JSON as-is
+        if [[ ! $raw_value =~ ^\" ]] \
+           && [[ ! $raw_value =~ ^-?[0-9]+(\.[0-9]+)?$ ]] \
+           && [[ ! $raw_value =~ ^(true|false|null)$ ]] \
+           && [[ ! $raw_value =~ ^[{\[] ]]; then
+            value_json=$(jq -Rn --arg v "$raw_value" '$v')
         fi
 
-        # Apply all updates for this data_key
-        local updated="$current"
-        IFS='|' read -ra updates <<< "${data_key_updates[$data_key]}"
-        for update in "${updates[@]}"; do
-            local json_path="${update%%=*}"
-            local value="${update#*=}"
+        jq -n \
+            --arg data_key "$data_key" \
+            --arg path "$json_path" \
+            --argjson value "$value_json" \
+            '{data_key:$data_key, path:$path, value:$value}' >> "$updates_file"
 
-            # Smart quote handling for string values
-            # If value doesn't start with " and is not a number/boolean, add double quotes
-            if [[ ! $value =~ ^\" ]] && [[ ! $value =~ ^[0-9]+(\.[0-9]+)?$ ]] && [[ ! $value =~ ^(true|false|null)$ ]]; then
-                value="\"$value\""
-            fi
-
-            # Check if the nested path exists, create if missing
-            local parent_path="${json_path%.*}"
-            if [ "$parent_path" != "$json_path" ]; then
-                # There's a parent path, check if it exists
-                if ! echo "$updated" | jq -e ".$parent_path" >/dev/null 2>&1; then
-                    log_info "  + Creating nested path '$parent_path' in $data_key"
-                    # Create all intermediate paths as empty objects
-                    updated=$(echo "$updated" | jq ".$parent_path = {}")
-                fi
-            fi
-
-            # Update the nested field
-            updated=$(echo "$updated" | jq ".$json_path = $value")
-            log_info "  ✓ $data_key.$json_path = $value"
-        done
-
-        # Put it back as JSON string (preserve pretty-print format like original ConfigMap)
-        pretty_json=$(echo "$updated" | jq '.')
-        jq --arg updated "$pretty_json" ".data.\"$data_key\" = \$updated" "$temp" > "$temp.new" && mv "$temp.new" "$temp"
+        log_info "  ✓ $data_key.$json_path = $value_json"
     done
 
-    kubectl apply -f "$temp"
-    rm -f "$temp"
+    local updates_json
+    updates_json=$(jq -s '.' "$updates_file")
+    rm -f "$updates_file"
+
+    # Apply all updates with a single jq invocation
+    kubectl get configmap inferenceservice-config -n "${KSERVE_NAMESPACE}" -o json |
+        jq --argjson updates "$updates_json" '
+            # Helper function to safely set nested paths, creating intermediate objects as needed
+            def setpath_safe($parts; $value):
+                reduce range(0; ($parts|length)-1) as $i (.;
+                    $parts[:$i+1] as $prefix
+                    | if getpath($prefix) == null then setpath($prefix; {}) else . end
+                )
+                | setpath($parts; $value);
+
+            # Apply each update
+            reduce $updates[] as $item (.;
+                if .data[$item.data_key] == null or .data[$item.data_key] == "" then
+                    .
+                else
+                    .data[$item.data_key] |= (
+                        fromjson
+                        | setpath_safe($item.path | split("."); $item.value)
+                        | tojson
+                    )
+                end
+            )
+        ' |
+        kubectl apply -f -
 
     log_success "ConfigMap updated successfully"
 }
@@ -462,7 +466,15 @@ set_env_with_priority() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")" && pwd)"
 REPO_ROOT="$(find_repo_root "${SCRIPT_DIR}" "true")"
 export REPO_ROOT
-export BIN_DIR="${REPO_ROOT}/bin"
+
+# Set up BIN_DIR - use repo bin if it exists, otherwise use temp directory
+if [[ -d "${REPO_ROOT}/bin" ]]; then
+    export BIN_DIR="${REPO_ROOT}/bin"
+else
+    export BIN_DIR="$(mktemp -d)"
+    log_info "Using temp BIN_DIR: ${BIN_DIR}"
+fi
+
 export PATH="${BIN_DIR}:${PATH}"
 
 UNINSTALL="${UNINSTALL:-false}"
@@ -486,7 +498,7 @@ export RELEASE
 #================================================
 
 GOLANGCI_LINT_VERSION=v1.64.8
-CONTROLLER_TOOLS_VERSION=v0.16.2
+CONTROLLER_TOOLS_VERSION=v0.19.0
 ENVTEST_VERSION=latest
 YQ_VERSION=v4.28.1
 HELM_VERSION=v3.16.3
@@ -496,19 +508,20 @@ BLACK_FMT_VERSION=24.3
 FLAKE8_LINT_VERSION=7.1
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
+KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
 ENVOY_GATEWAY_VERSION=v1.5.0
-ENVOY_AI_GATEWAY_VERSION=v0.3.0
+ENVOY_AI_GATEWAY_VERSION=v0.4.0
 KNATIVE_OPERATOR_VERSION=v1.16.0
 KNATIVE_SERVING_VERSION=1.15.2
 KEDA_OTEL_ADDON_VERSION=v0.0.6
-KSERVE_VERSION=v0.16.0-rc1
+KSERVE_VERSION=v0.16.0
 ISTIO_VERSION=1.27.1
-KEDA_VERSION=2.16.1
-OPENTELEMETRY_OPERATOR_VERSION=0.113.0
-LWS_VERSION=v0.6.2
-GATEWAY_API_VERSION=v1.2.1
-GIE_VERSION=v0.3.0
+KEDA_VERSION=2.17.2
+OPENTELEMETRY_OPERATOR_VERSION=0.74.3
+LWS_VERSION=v0.7.0
+GATEWAY_API_VERSION=v1.3.1-0.20251106052652-079e4774d76b
+GIE_VERSION=v1.2.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -534,7 +547,7 @@ KSERVE_CUSTOM_ISVC_CONFIGS="${KSERVE_CUSTOM_ISVC_CONFIGS:-}"
 #================================================
 
 PLATFORM="${PLATFORM:-$(detect_platform)}"
-TEMPLATE_DIR="${SCRIPT_DIR}/templates"
+TEMPLATE_DIR="${REPO_ROOT}/hack/setup/infra/external-lb/templates"
 GATEWAYCLASS_NAME="${GATEWAYCLASS_NAME:-envoy}"
 CONTROLLER_NAME="${CONTROLLER_NAME:-gateway.envoyproxy.io/gatewayclass-controller}"
 GATEWAY_NAME="kserve-ingress-gateway"
@@ -567,13 +580,14 @@ install_helm() {
 
     log_info "Installing Helm ${HELM_VERSION} for ${os}/${arch}..."
 
-    if command -v helm &>/dev/null; then
-        local current_version=$(helm version --template='{{.Version}}' 2>/dev/null)
-        if [[ -n "$current_version" ]] && version_gte "$current_version" "$HELM_VERSION"; then
-            log_info "Helm ${current_version} is already installed (>= ${HELM_VERSION})"
+    # Check if helm is already installed in BIN_DIR with the exact required version
+    if [[ -f "${BIN_DIR}/helm" ]]; then
+        local current_version=$("${BIN_DIR}/helm" version --template='{{.Version}}' 2>/dev/null)
+        if [[ "$current_version" == "$HELM_VERSION" ]]; then
+            log_info "Helm ${current_version} is already installed in ${BIN_DIR}"
             return 0
         fi
-        [[ -n "$current_version" ]] && log_info "Upgrading Helm from ${current_version} to ${HELM_VERSION}..."
+        [[ -n "$current_version" ]] && log_info "Replacing Helm ${current_version} with ${HELM_VERSION} in ${BIN_DIR}..."
     fi
 
     local temp_dir=$(mktemp -d)
@@ -697,7 +711,7 @@ uninstall_external_lb() {
 install_external_lb() {
     if [ "$REINSTALL" = true ]; then
         log_info "Reinstalling External LoadBalancer..."
-        uninstall
+        uninstall_external_lb
     fi
 
     log_info "Setting up External LoadBalancer for platform: ${PLATFORM}"
@@ -760,7 +774,7 @@ install_external_lb() {
 
         openshift|kubernetes)
             log_info "Platform ${PLATFORM} does not require external LB setup. Skipping."
-            exit 0
+            return 0
             ;;
 
         *)
@@ -791,7 +805,7 @@ install_cert_manager() {
             return 0
         else
             log_info "Reinstalling cert-manager..."
-            uninstall
+            uninstall_cert_manager
         fi
     fi
 
@@ -815,37 +829,25 @@ install_cert_manager() {
 }
 
 # ----------------------------------------
-# CLI/Component: gateway-api-crd
+# CLI/Component: gateway-api-extension-crd
 # ----------------------------------------
 
-uninstall_gateway_api_crd() {
-    log_info "Uninstalling Gateway API CRDs..."
-    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml" --ignore-not-found=true 2>/dev/null || true
+uninstall_gateway_api_extension_crd() {
+    log_info "Uninstalling Gateway Inference Extension CRDs..."
     kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml" --ignore-not-found=true 2>/dev/null || true
-    log_success "Gateway API CRDs uninstalled"
+    log_success "Gateway Inference Extension CRDs uninstalled"
 }
 
-install_gateway_api_crd() {
-    if kubectl get crd gateways.gateway.networking.k8s.io &>/dev/null; then
+install_gateway_api_extension_crd() {
+    if kubectl get crd inferencepools.inference.networking.x-k8s.io &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
-            log_info "Gateway API CRDs are already installed. Use --reinstall to reinstall."
+            log_info "Gateway Inference Extension CRDs are already installed. Use --reinstall to reinstall."
             return 0
         else
-            log_info "Reinstalling Gateway API CRDs..."
-            uninstall
+            log_info "Reinstalling Gateway Inference Extension CRDs..."
+            uninstall_gateway_api_extension_crd
         fi
     fi
-
-    log_info "Installing Gateway API CRDs ${GATEWAY_API_VERSION}..."
-    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml"
-
-    log_success "Successfully installed Gateway API CRDs ${GATEWAY_API_VERSION}"
-
-    wait_for_crds "60s" \
-        "gateways.gateway.networking.k8s.io" \
-        "gatewayclasses.gateway.networking.k8s.io"
-
-    log_success "Gateway API CRDs are ready!"
 
     log_info "Installing Gateway Inference Extension CRDs ${GIE_VERSION}..."
     kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${GIE_VERSION}/manifests.yaml"
@@ -854,10 +856,9 @@ install_gateway_api_crd() {
 
     wait_for_crds "60s" \
         "inferencepools.inference.networking.x-k8s.io" \
-        "inferencemodels.inference.networking.x-k8s.io"
+        "inferenceobjectives.inference.networking.x-k8s.io"
 
     log_success "Gateway Inference Extension CRDs are ready!"
-
 }
 
 # ----------------------------------------
@@ -880,7 +881,7 @@ install_envoy_gateway() {
             return 0
         else
             log_info "Reinstalling Envoy Gateway..."
-            uninstall
+            uninstall_envoy_gateway
         fi
     fi
 
@@ -925,7 +926,7 @@ install_envoy_ai_gateway() {
             return 0
         else
             log_info "Reinstalling Envoy AI Gateway..."
-            uninstall
+            uninstall_envoy_ai_gateway
         fi
     fi
 
@@ -971,10 +972,10 @@ install_gateway_api_gwclass() {
     if kubectl get gatewayclass "${GATEWAYCLASS_NAME}" &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
             log_info "GatewayClass '${GATEWAYCLASS_NAME}' already exists. Use --reinstall to recreate."
-            exit 0
+            return 0
         else
             log_info "Recreating GatewayClass '${GATEWAYCLASS_NAME}'..."
-            uninstall
+            uninstall_gateway_api_gwclass
         fi
     fi
 
@@ -1007,10 +1008,10 @@ install_gateway_api_gw() {
     if kubectl get gateway "${GATEWAY_NAME}" -n "${GATEWAY_NAMESPACE}" &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
             log_info "KServe Gateway '${GATEWAY_NAME}' already exists in namespace '${GATEWAY_NAMESPACE}'. Use --reinstall to recreate."
-            exit 0
+            return 0
         else
             log_info "Recreating KServe Gateway '${GATEWAY_NAME}'..."
-            uninstall
+            uninstall_gateway_api_gw
         fi
     fi
 
@@ -1055,7 +1056,7 @@ install_lws_operator() {
             return 0
         else
             log_info "Reinstalling LWS..."
-            uninstall
+            uninstall_lws_operator
         fi
     fi
 
@@ -1103,7 +1104,7 @@ install_kserve_helm() {
             return 0
         else
             log_info "Reinstalling KServe..."
-            uninstall
+            uninstall_kserve_helm
         fi
     fi
 
@@ -1161,13 +1162,31 @@ install_kserve_helm() {
 
         # Install KServe resources
         log_info "Installing KServe resources..."
-        helm install "${KSERVE_RELEASE_NAME}" \
-            oci://ghcr.io/kserve/charts/${CORE_DIR_NAME} \
+        if ! helm install "${KSERVE_RELEASE_NAME}" \
+            oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
             --version "${KSERVE_VERSION}" \
             --namespace "${KSERVE_NAMESPACE}" \
             --create-namespace \
             --wait \
-            ${KSERVE_EXTRA_ARGS:-}
+            ${KSERVE_EXTRA_ARGS:-}; then
+
+            # If installation fails, try using helm upgrade after kserve controller is Ready
+            log_info "Install failed, attempting upgrade instead..."
+
+            for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
+                    wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "120s"
+            done
+            if ! helm upgrade "${KSERVE_RELEASE_NAME}" \
+                oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
+                --version "${KSERVE_VERSION}" \
+                --namespace "${KSERVE_NAMESPACE}" \
+                --wait \
+                ${KSERVE_EXTRA_ARGS:-}; then
+
+                log_error "Failed to install/upgrade KServe ${KSERVE_VERSION}"
+                exit 1
+            fi
+        fi
 
         log_success "Successfully installed KServe ${KSERVE_VERSION}"
     fi
@@ -1181,11 +1200,18 @@ install_kserve_helm() {
         config_updates+=("deploy.defaultDeploymentMode=\"${DEPLOYMENT_MODE}\"")
     fi
 
-    # Enable Gateway API if needed
-    if [ "${GATEWAY_NETWORK_LAYER}" != "false" ]; then
-        log_info "Adding Gateway API updates: enableGatewayApi=true, className=${GATEWAY_NETWORK_LAYER}"
-        config_updates+=("ingress.ingressGateway.enableGatewayApi=true")
-        config_updates+=("ingress.ingressGateway.className=\"${GATEWAY_NETWORK_LAYER}\"")
+    # Enable Gateway API for KServe(ISVC) if needed
+    if [ "${GATEWAY_NETWORK_LAYER}" != "false" ] && [ "${LLMISVC}" != "true" ]; then
+        log_info "Adding Gateway API updates: enableGatewayApi=true, ingressClassName=${GATEWAY_NETWORK_LAYER}"
+        config_updates+=("ingress.enableGatewayApi=true")
+        config_updates+=("ingress.ingressClassName=\"${GATEWAY_NETWORK_LAYER}\"")
+    fi
+
+    # Add custom configurations if provided
+    if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
+        log_info "Adding custom configurations: ${KSERVE_CUSTOM_ISVC_CONFIGS}"
+        IFS='|' read -ra custom_configs <<< "${KSERVE_CUSTOM_ISVC_CONFIGS}"
+        config_updates+=("${custom_configs[@]}")
     fi
 
     # Apply all config updates at once if there are any
@@ -1195,14 +1221,25 @@ install_kserve_helm() {
             log_info "  - ${update}"
         done
         update_isvc_config "${config_updates[@]}"
-        kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
+        if [ "${LLMISVC}" != "true" ]; then
+            kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
+        fi
     else
-        log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        if [ "${LLMISVC}" = "true" ]; then
+            log_info "No configuration updates needed for LLMISVC (GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        else
+            log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+        fi
     fi
 
+    log_success "Successfully installed KServe"
+
+    # Wait for all controller managers to be ready
+    log_info "Waiting for KServe controllers to be ready..."
     for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
         wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "300s"
     done
+
     log_success "KServe is ready!"
 }
 
@@ -1223,7 +1260,7 @@ main() {
         uninstall_gateway_api_gwclass
         uninstall_envoy_ai_gateway
         uninstall_envoy_gateway
-        uninstall_gateway_api_crd
+        uninstall_gateway_api_extension_crd
         uninstall_cert_manager
         uninstall_external_lb
         
@@ -1244,7 +1281,7 @@ main() {
     install_yq
     install_external_lb
     install_cert_manager
-    install_gateway_api_crd
+    install_gateway_api_extension_crd
     install_envoy_gateway
     install_envoy_ai_gateway
     install_gateway_api_gwclass
@@ -1258,8 +1295,8 @@ main() {
             CRD_DIR_NAME="kserve-llmisvc-crd"
             CORE_DIR_NAME="kserve-llmisvc-resources"
             KSERVE_CRD_RELEASE_NAME="kserve-llmisvc-crd"
-            KSERVE_RELEASE_NAME="kserve-llmisvc"
-            TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
+            KSERVE_RELEASE_NAME="kserve-llmisvc-resources"
+            TARGET_DEPLOYMENT_NAMES=("kserve-llmisvc-controller-manager")
         fi
         
         if [ "${SET_KSERVE_VERSION}" != "" ]; then
