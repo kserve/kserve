@@ -172,40 +172,13 @@ This is handled automatically in `__main__.py` to prevent runtime errors with Li
 
 ### ClusterServingRuntime Configuration
 
-The Predictive Server runtime is defined in `config/runtimes/kserve-predictiveserver.yaml`:
+The Predictive Server runtime is defined in [config/runtimes/kserve-predictiveserver.yaml](../../../config/runtimes/kserve-predictiveserver.yaml).
 
-```yaml
-apiVersion: serving.kserve.io/v1alpha1
-kind: ClusterServingRuntime
-metadata:
-  name: kserve-predictiveserver
-spec:
-  supportedModelFormats:
-    - name: sklearn
-      version: "1"
-      autoSelect: true
-      priority: 3
-    - name: xgboost
-      version: "3"
-      autoSelect: true
-      priority: 3
-    - name: lightgbm
-      version: "3"
-      autoSelect: true
-      priority: 3
-  protocolVersions:
-    - v1
-    - v2
-  containers:
-    - name: kserve-container
-      image: kserve/predictiveserver:latest
-      args:
-        - --model_name={{.Name}}
-        - --model_dir=/mnt/models
-        - --http_port=8080
-        - --framework={{.Annotations.modelFormat}}  # Framework is selected here
-        - --nthread=1
-```
+Key points:
+
+- Supports sklearn (v1), xgboost (v2), and lightgbm (v4)
+- Framework is selected via `--framework={{.Annotations.modelFormat}}` argument
+- Priority set to 3 for all supported model formats
 
 ### InferenceService Examples
 
