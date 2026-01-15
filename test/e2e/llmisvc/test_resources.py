@@ -60,7 +60,7 @@ ROUTER_GATEWAYS = [
                 },
             ],
         },
-    }
+    },
 ]
 
 ROUTER_ROUTES = [
@@ -101,7 +101,7 @@ ROUTER_ROUTES = [
                     ],
                     "backendRefs": [
                         {
-                            "group": "inference.networking.x-k8s.io",
+                            "group": "inference.networking.k8s.io",
                             "kind": "InferencePool",
                             "name": "router-with-refs-test-inference-pool",
                             "namespace": KSERVE_TEST_NAMESPACE,
@@ -149,7 +149,7 @@ ROUTER_ROUTES = [
                     ],
                     "backendRefs": [
                         {
-                            "group": "inference.networking.x-k8s.io",
+                            "group": "inference.networking.k8s.io",
                             "kind": "InferencePool",
                             "name": "router-with-refs-test-inference-pool",
                             "namespace": KSERVE_TEST_NAMESPACE,
@@ -197,7 +197,7 @@ ROUTER_ROUTES = [
                     ],
                     "backendRefs": [
                         {
-                            "group": "inference.networking.x-k8s.io",
+                            "group": "inference.networking.k8s.io",
                             "kind": "InferencePool",
                             "name": "router-with-refs-pd-test-inference-pool",
                             "namespace": KSERVE_TEST_NAMESPACE,
@@ -245,7 +245,7 @@ ROUTER_ROUTES = [
                     ],
                     "backendRefs": [
                         {
-                            "group": "inference.networking.x-k8s.io",
+                            "group": "inference.networking.k8s.io",
                             "kind": "InferencePool",
                             "name": "router-with-refs-pd-test-inference-pool",
                             "namespace": KSERVE_TEST_NAMESPACE,
@@ -255,5 +255,5 @@ ROUTER_ROUTES = [
                 },
             ],
         },
-    }
+    },
 ]
