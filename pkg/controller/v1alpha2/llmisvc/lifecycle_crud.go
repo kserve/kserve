@@ -26,6 +26,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -177,3 +178,49 @@ func logLineForObject(obj client.Object) string {
 // SemanticEqual is a function type for comparing two objects to determine if they are equivalent
 // This allows custom comparison logic beyond simple equality checks
 type SemanticEqual[T client.Object] func(expected T, curr T) bool
+
+// GetOption is a functional option for the Get function
+type GetOption[T client.Object] func(*getOptions[T])
+
+type getOptions[T client.Object] struct {
+	fallback func(ctx context.Context, namespace, name string) (T, error)
+}
+
+// WithGetFallback configures Get to fall back to the API server if the resource
+// is not found in the cache. This is useful when the cache only includes resources
+// with specific labels, but you need to fetch resources without those labels.
+func WithGetFallback[T client.Object](getter func(ctx context.Context, namespace, name string) (T, error)) GetOption[T] {
+	return func(o *getOptions[T]) {
+		o.fallback = getter
+	}
+}
+
+func WithGetFallbackAPIServerConfigMap(c kubernetes.Interface) GetOption[*corev1.ConfigMap] {
+	return WithGetFallback[*corev1.ConfigMap](func(ctx context.Context, namespace, name string) (*corev1.ConfigMap, error) {
+		return c.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
+	})
+}
+
+// Get retrieves a Kubernetes resource by namespace and name.
+// It first tries the cached client, and optionally falls back to a direct API server
+// call if the resource is not found and WithGetFallback option is provided.
+// Returns the object (either from cache or fallback) and any error.
+func Get[T client.Object](ctx context.Context, c client.Client, key client.ObjectKey, obj T, opts ...GetOption[T]) (T, error) {
+	options := &getOptions[T]{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	if err := c.Get(ctx, key, obj); err != nil {
+		if !apierrors.IsNotFound(err) || options.fallback == nil {
+			return obj, fmt.Errorf("failed to get ConfigMap %s/%s from cached client: %w", key.Namespace, key.Name, err)
+		}
+		// Resource not in cache - try fallback.
+		r, err := options.fallback(ctx, key.Namespace, key.Name)
+		if err != nil {
+			return obj, fmt.Errorf("failed to get ConfigMap %s/%s from API Server: %w", key.Namespace, key.Name, err)
+		}
+		return r, nil
+	}
+	return obj, nil
+}

@@ -265,16 +265,17 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		llmSvcCfg.Spec.Router.Scheduler != nil &&
 		llmSvcCfg.Spec.Router.Scheduler.Config != nil &&
 		llmSvcCfg.Spec.Router.Scheduler.Config.Ref != nil {
-		cm := &corev1.ConfigMap{}
-		if err := r.Client.Get(ctx, client.ObjectKey{Namespace: llmSvc.GetNamespace(), Name: llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Name}, cm); err != nil {
+		cmName := llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Name
+		cm, err := Get(ctx, r.Client, client.ObjectKey{Namespace: llmSvc.GetNamespace(), Name: cmName}, &corev1.ConfigMap{}, WithGetFallbackAPIServerConfigMap(r.Clientset))
+		if err != nil {
 			if !apierrors.IsNotFound(err) {
-				return llmSvcCfg, fmt.Errorf("failed to get ConfigMap %s/%s: %w", llmSvc.GetNamespace(), llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Name, err)
+				return llmSvcCfg, fmt.Errorf("failed to get ConfigMap %s/%s: %w", llmSvc.GetNamespace(), cmName, err)
 			}
 
-			if strings.HasPrefix(llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Name, "config-scheduler-") {
-				cm = &corev1.ConfigMap{}
-				if err := r.Client.Get(ctx, client.ObjectKey{Namespace: constants.KServeNamespace, Name: llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Name}, cm); err != nil {
-					return nil, fmt.Errorf("failed to get scheduler config %q from namespaces [%q, %q]: %w", llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Name, llmSvc.Namespace, constants.KServeNamespace, err)
+			if strings.HasPrefix(cmName, "config-scheduler-") {
+				cm, err = Get(ctx, r.Client, client.ObjectKey{Namespace: constants.KServeNamespace, Name: cmName}, &corev1.ConfigMap{}, WithGetFallbackAPIServerConfigMap(r.Clientset))
+				if err != nil {
+					return nil, fmt.Errorf("failed to get scheduler config %q from namespaces [%q, %q]: %w", cmName, llmSvc.Namespace, constants.KServeNamespace, err)
 				}
 			}
 		}

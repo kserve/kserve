@@ -34,10 +34,6 @@ KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 SCHEDULER_CONFIGMAP_NAME = "scheduler-config-e2e"
 SCHEDULER_CONFIGMAP_KEY = "epp"
 
-# Label constants
-LABEL_PART_OF_KEY = "app.kubernetes.io/part-of"
-LABEL_PART_OF_VALUE = "llminferenceservice"
-
 LLMINFERENCESERVICE_CONFIGS = {
     "workload-single-cpu": {
         "template": {
@@ -971,9 +967,6 @@ def create_scheduler_configmap():
         metadata=client.V1ObjectMeta(
             name=SCHEDULER_CONFIGMAP_NAME,
             namespace=KSERVE_TEST_NAMESPACE,
-            labels={
-                LABEL_PART_OF_KEY: LABEL_PART_OF_VALUE,
-            },
         ),
         data={
             SCHEDULER_CONFIGMAP_KEY: SCHEDULER_CONFIG_YAML,
