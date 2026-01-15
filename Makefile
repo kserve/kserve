@@ -196,9 +196,9 @@ manifests: controller-gen yq
 	# Copy the cluster role to the helm chart
 	cat config/rbac/llmisvc/role.yaml > charts/kserve-llmisvc-resources/templates/clusterrole.yaml
 	cat config/rbac/llmisvc/leader_election_role.yaml > charts/kserve-llmisvc-resources/templates/leader_election_role.yaml
-	# Copy llmisvc crd
-	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml charts/kserve-llmisvc-crd/templates/
-	cp config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml charts/kserve-llmisvc-crd/templates/
+	# Copy llmisvc crd (with conversion webhook patches applied via kustomize)
+	kubectl kustomize config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceservices.yaml
+	kubectl kustomize config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
     # Copy Test inferenceconfig configmap to test overlay
 	cp config/configmap/inferenceservice.yaml config/overlays/test/configmap/inferenceservice.yaml
 
