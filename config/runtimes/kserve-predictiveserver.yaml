@@ -12,11 +12,11 @@ spec:
       autoSelect: true
       priority: 3
     - name: xgboost
-      version: "1"
+      version: "2"
       autoSelect: true
       priority: 3
     - name: lightgbm
-      version: "3"
+      version: "4"
       autoSelect: true
       priority: 3
   protocolVersions:
