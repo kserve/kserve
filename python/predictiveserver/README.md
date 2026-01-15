@@ -1,6 +1,6 @@
 # Predictive Server
 
-Unified model serving runtime for KServe that supports multiple ML frameworks (scikit-learn, XGBoost, LightGBM) in a single Docker image.
+Unified model serving runtime for KServe that supports multiple ML frameworks (scikit-learn, XGBoost, LightGBM) in a single container image.
 
 ## Overview
 
@@ -10,10 +10,10 @@ Predictive Server is a **wrapper runtime** that unifies three existing KServe mo
 - **XGBoost** (`xgbserver`): Support for `.bst`, `.json`, and `.ubj` model files
 - **LightGBM** (`lgbserver`): Support for `.bst` model files
 
-Instead of maintaining separate Docker images and deployments for each framework, Predictive Server provides a single runtime that delegates to the appropriate framework server based on the `--framework` argument. This approach:
+Instead of maintaining separate container images and deployments for each framework, Predictive Server provides a single runtime that delegates to the appropriate framework server based on the `--framework` argument. This approach:
 
 - **Eliminates code duplication**: Reuses existing, well-tested server implementations
-- **Simplifies deployment**: One Docker image instead of three
+- **Simplifies deployment**: One container image instead of three
 - **Maintains compatibility**: Uses the same underlying servers as individual runtimes
 - **Reduces maintenance**: Changes to individual servers automatically propagate
 
@@ -26,10 +26,12 @@ Instead of maintaining separate Docker images and deployments for each framework
 
 ## Quick Start Example
 
+### Deploy on Kubernetes
+
 1. **Deploy the ClusterServingRuntime:**
 
 ```bash
-kubectl apply -f ./config/runtimes/kserve-predictiveserver.yaml
+kubectl apply -k config/runtimes
 ```
 
 2. **Create an InferenceService:**
@@ -48,6 +50,9 @@ spec:
       storageUri: gs://kfserving-examples/models/sklearn/1.0/model
 EOF
 ```
+
+> **Note**: If other ClusterServingRuntimes or ServingRuntimes for sklearn, xgboost, or lightgbm already exist with higher priority values, those will be selected instead. Check existing runtimes with `kubectl get clusterservingruntimes` and ensure the predictive runtime has appropriate priority settings.
+
 
 3. **Wait for the InferenceService to be ready:**
 
@@ -90,18 +95,43 @@ curl -X POST http://localhost:8082/v2/models/sklearn-iris/infer \
   }'
 ```
 
-## Installation
+## Development Setup
 
 ```bash
-# Install using uv (recommended)
 cd python/predictiveserver
-uv pip install .
 
-# Or install with development dependencies
-uv pip install --group dev --group test
+# Create virtual environment
+uv venv
+
+# Activate virtual environment
+source .venv/bin/activate
+
+# Install dependencies
+make dev_install
 ```
 
 ## Usage
+
+### Download a sample model (optional)
+
+For local testing, you can download sample models:
+
+```bash
+# Scikit-learn model
+mkdir -p /tmp/models/sklearn/1.0/model
+curl -o /tmp/models/sklearn/1.0/model/model.joblib \
+  https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib
+
+# XGBoost model
+mkdir -p /tmp/models/xgboost/iris
+curl -o /tmp/models/xgboost/iris/model.bst \
+  https://storage.googleapis.com/kfserving-examples/models/xgboost/iris/model.bst
+
+# LightGBM model
+mkdir -p /tmp/models/lightgbm/iris
+curl -o /tmp/models/lightgbm/iris/model.bst \
+  https://storage.googleapis.com/kfserving-examples/models/lightgbm/iris/model.bst
+```
 
 ### Basic Usage
 
@@ -109,13 +139,13 @@ Start the server with a specific framework:
 
 ```bash
 # Scikit-learn model
-python -m predictiveserver --model_name sklearn-model --model_dir /path/to/sklearn/model --framework sklearn
+python -m predictiveserver --model_name sklearn-model --model_dir /tmp/models/sklearn/1.0/model --framework sklearn
 
 # XGBoost model
-python -m predictiveserver --model_name xgb-model --model_dir /path/to/xgboost/model --framework xgboost
+python -m predictiveserver --model_name xgb-model --model_dir /tmp/models/xgboost/iris --framework xgboost
 
 # LightGBM model
-python -m predictiveserver --model_name lgb-model --model_dir /path/to/lightgbm/model --framework lightgbm
+python -m predictiveserver --model_name lgb-model --model_dir /tmp/models/lightgbm/iris --framework lightgbm
 ```
 
 ### Command-line Arguments
@@ -154,21 +184,21 @@ spec:
     - name: sklearn
       version: "1"
       autoSelect: true
-      priority: 2
+      priority: 3
     - name: xgboost
       version: "3"
       autoSelect: true
-      priority: 2
+      priority: 3
     - name: lightgbm
       version: "3"
       autoSelect: true
-      priority: 2
+      priority: 3
   protocolVersions:
     - v1
     - v2
   containers:
     - name: kserve-container
-      image: quay.io/jooholee/predictiveserver:latest
+      image: kserve/predictiveserver:latest
       args:
         - --model_name={{.Name}}
         - --model_dir=/mnt/models
@@ -244,23 +274,28 @@ The Predictive Server uses a **facade/wrapper pattern** where:
 4. All framework models implement the same KServe `Model` interface
 5. Avoids code duplication by reusing existing, well-tested server implementations
 
-## Docker
+## Container
 
-Build the Docker image using the Makefile:
+Build the container image using the Makefile:
 
 ```bash
 # From kserve repository root
+# Use default image name (kserve/predictiveserver)
 make docker-build-predictive
 make docker-push-predictive
+
+# Or build with custom registry and image name
+KO_DOCKER_REPO=quay.io/myorg make docker-build-predictive
+KO_DOCKER_REPO=quay.io/myorg make docker-push-predictive
 ```
 
 Run the container:
 
 ```bash
-docker run -p 8080:8080 \
-  -v /path/to/models:/mnt/models \
-  predictiveserver:latest \
-  --model_name my-model \
+podman run -p 8080:8080 \
+  -v /tmp/models/sklearn/1.0/model:/mnt/models \
+  kserve/predictiveserver:latest \
+  --model_name sklearn-model \
   --model_dir /mnt/models \
   --framework sklearn
 ```
