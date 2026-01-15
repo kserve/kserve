@@ -697,11 +697,13 @@ var _ = Describe("ServingRuntime Watch", func() {
 				},
 			}
 
-			// Call the mapper function
-			requests := reconciler.clusterServingRuntimeFunc(context.Background(), csr)
+			// Wait for the cache to sync and verify the mapper returns the correct request.
+			// The cached client may not immediately reflect status updates.
+			Eventually(func() []reconcile.Request {
+				return reconciler.clusterServingRuntimeFunc(context.Background(), csr)
+			}).Should(HaveLen(1))
 
-			// Should only return request for isvc1, not isvc2
-			Expect(requests).To(HaveLen(1))
+			requests := reconciler.clusterServingRuntimeFunc(context.Background(), csr)
 			Expect(requests[0].Name).To(Equal("isvc-cluster-runtime-1"))
 			Expect(requests[0].Namespace).To(Equal(testNamespace))
 		})
@@ -830,11 +832,13 @@ var _ = Describe("ServingRuntime Watch", func() {
 				},
 			}
 
-			// Call the mapper function
-			requests := reconciler.servingRuntimeFunc(context.Background(), sr)
+			// Wait for the cache to sync and verify the mapper returns the correct request.
+			// The cached client may not immediately reflect status updates.
+			Eventually(func() []reconcile.Request {
+				return reconciler.servingRuntimeFunc(context.Background(), sr)
+			}).Should(HaveLen(1))
 
-			// Should only return request for isvc1, not isvc2
-			Expect(requests).To(HaveLen(1))
+			requests := reconciler.servingRuntimeFunc(context.Background(), sr)
 			Expect(requests[0].Name).To(Equal("isvc-serving-runtime-1"))
 			Expect(requests[0].Namespace).To(Equal(testNamespace))
 		})
