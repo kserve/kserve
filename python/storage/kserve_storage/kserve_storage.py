@@ -55,6 +55,12 @@ _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
 _HF_PREFIX = "hf://"
+_GIT_RE = [
+    # deliberately narrowly defined patterns to ensure git URLs don't overlap with other protocol patterns.
+    r"https://.+\.git",
+    r"ssh://.+\.git",
+    r"[^:/@]+@[^:/@]+:.+\.git",  # e.g. `git@github.com:kserve/kserve.git`. Strictly speaking not an URL, but overly common, warranting support
+]
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
@@ -66,6 +72,8 @@ _worker_s3_resource = None
 # Azure async download configuration
 _AZURE_MAX_FILE_CONCURRENCY = int(os.getenv("AZURE_MAX_FILE_CONCURRENCY", "4"))
 _AZURE_MAX_CHUNK_CONCURRENCY = int(os.getenv("AZURE_MAX_CHUNK_CONCURRENCY", "4"))
+# git ssh private key path
+_GIT_SSH_KEY_PATH = os.getenv("GIT_SSH_KEY_PATH")
 
 
 class Storage(object):
@@ -113,10 +121,13 @@ class Storage(object):
                 model_dir = Storage._download_azure_blob(uri, out_dir)
             elif any(re.search(pattern, uri) for pattern in _AZURE_FILE_RE):
                 model_dir = Storage._download_azure_file_share(uri, out_dir)
-            elif re.search(_URI_RE, uri):
-                model_dir = Storage._download_from_uri(uri, out_dir)
             elif uri.startswith(_HF_PREFIX):
                 model_dir = Storage._download_hf(uri, out_dir)
+            elif any(re.search(pattern, uri) for pattern in _GIT_RE):
+                model_dir = Storage._download_git_repo(uri, out_dir)
+            # "catch-all" pattern, should always be last
+            elif re.search(_URI_RE, uri):
+                model_dir = Storage._download_from_uri(uri, out_dir)
             else:
                 raise Exception(
                     "Cannot recognize storage type for "
@@ -802,6 +813,40 @@ class Storage(object):
     @staticmethod
     def _get_azure_storage_access_key():
         return os.getenv("AZURE_STORAGE_ACCESS_KEY")
+
+    @staticmethod
+    def _download_git_repo(uri: str, out_dir: str) -> str:
+        """Download a Git repository using git clone with SSH authentication support."""
+        import subprocess
+
+        logger.info("Downloading Git repository %s into %s", uri, out_dir)
+
+        # Setup SSH configuration for GitHub authentication
+        git_ssh_env = dict(os.environ)
+        git_ssh_env["GIT_SSH_COMMAND"] = (
+            "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+        )
+        if _GIT_SSH_KEY_PATH:
+            if os.path.exists(_GIT_SSH_KEY_PATH):
+                git_ssh_env["GIT_SSH_COMMAND"] += f" -i {_GIT_SSH_KEY_PATH}"
+            else:
+                logger.error(
+                    f"GIT_SSH_KEY_PATH {_GIT_SSH_KEY_PATH} does not exist; ignoring"
+                )
+
+        try:
+            # Clone the repository
+            cmd = ["git", "clone", "--depth", "1", uri, out_dir]
+            subprocess.run(cmd, check=True, env=git_ssh_env)
+            logger.info("git clone successful")
+
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr or str(e)
+            raise RuntimeError(f"git clone {uri} failed: {error_msg}")
+        except Exception as e:
+            raise RuntimeError(f"git clone {uri} failed: {str(e)}")
+
+        return out_dir
 
     @staticmethod
     def _download_local(uri, out_dir=None) -> str:
