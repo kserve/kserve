@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10, <3.13"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -555,7 +555,7 @@ name = "exceptiongroup"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0b/9f/a65090624ecf468cdca03533906e7c69ed7588582240cfe7cc9e770b50eb/exceptiongroup-1.3.0.tar.gz", hash = "sha256:b241f5885f560bc56a59ee63ca4c6a8bfa46ae4ad651af316d4e81817bb9fd88", size = 29749, upload-time = "2025-05-10T17:42:51.123Z" }
 wheels = [
@@ -1137,7 +1137,7 @@ wheels = [
 [[package]]
 name = "lgbserver"
 version = "0.16.0"
-source = { virtual = "../lgbserver" }
+source = { directory = "../lgbserver" }
 dependencies = [
     { name = "kserve" },
     { name = "kserve-storage" },
@@ -1566,10 +1566,10 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "kserve", directory = "../kserve" },
-    { name = "kserve-storage", virtual = "../storage" },
-    { name = "lgbserver", virtual = "../lgbserver" },
-    { name = "sklearnserver", virtual = "../sklearnserver" },
-    { name = "xgbserver", virtual = "../xgbserver" },
+    { name = "kserve-storage", directory = "../storage" },
+    { name = "lgbserver", directory = "../lgbserver" },
+    { name = "sklearnserver", directory = "../sklearnserver" },
+    { name = "xgbserver", directory = "../xgbserver" },
 ]
 
 [package.metadata.requires-dev]
@@ -2116,7 +2116,7 @@ wheels = [
 [[package]]
 name = "sklearnserver"
 version = "0.16.0"
-source = { virtual = "../sklearnserver" }
+source = { directory = "../sklearnserver" }
 dependencies = [
     { name = "joblib" },
     { name = "kserve" },
@@ -2471,7 +2471,7 @@ wheels = [
 [[package]]
 name = "xgbserver"
 version = "0.16.0"
-source = { virtual = "../xgbserver" }
+source = { directory = "../xgbserver" }
 dependencies = [
     { name = "kserve" },
     { name = "kserve-storage" },

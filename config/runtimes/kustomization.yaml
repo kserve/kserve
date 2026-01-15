@@ -4,7 +4,7 @@ kind: Kustomization
 resources:
 - kserve-tensorflow-serving.yaml
 - kserve-sklearnserver.yaml
-# - kserve-predictiveserver.yaml
+- kserve-predictiveserver.yaml
 - kserve-mlserver.yaml
 - kserve-xgbserver.yaml
 - kserve-tritonserver.yaml
