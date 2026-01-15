@@ -130,6 +130,31 @@ def deduplicate_variables(variables: list[str]) -> list[str]:
     return result
 
 
+def extract_default_from_var_declaration(var_name: str, var_lines: list[str]) -> str:
+    """Extract default value from bash variable declaration.
+
+    Searches for pattern: VAR_NAME="${VAR_NAME:-default_value}"
+
+    Args:
+        var_name: Variable name to search for
+        var_lines: List of bash variable declaration lines
+
+    Returns:
+        Default value if found, empty string otherwise
+
+    Example:
+        >>> lines = ['DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-Knative}"']
+        >>> extract_default_from_var_declaration("DEPLOYMENT_MODE", lines)
+        'Knative'
+    """
+    for line in var_lines:
+        # Match pattern: VAR="${VAR:-default}"
+        match = re.match(rf'^{var_name}="\${{{var_name}:-([^}}]*)}}"', line.strip())
+        if match:
+            return match.group(1)
+    return ""
+
+
 def inject_code_into_function(func_code: str, code_to_inject: str) -> str:
     """Inject code at the beginning of a bash function body.
 
