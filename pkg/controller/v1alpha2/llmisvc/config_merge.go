@@ -260,7 +260,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		}
 	}
 
-	// Resolve the external Scheduler configuration.
+// Resolve the external Scheduler configuration.
 	if llmSvcCfg.Spec.Router != nil &&
 		llmSvcCfg.Spec.Router.Scheduler != nil &&
 		llmSvcCfg.Spec.Router.Scheduler.Config != nil &&
@@ -312,6 +312,11 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			return llmSvcCfg, err
 		}
 	}
+
+	// Swap HTTPRoute backendRef based on migration state (v1alpha2 vs v1 InferencePool).
+	// If not migrated to v1, point to v1alpha2 pool for backwards compatibility.
+	// If migrated, keep pointing to v1 pool (default).
+	llmSvcCfg = r.adjustBackendRefForMigration(llmSvc, llmSvcCfg)
 
 	return llmSvcCfg, nil
 }
@@ -442,4 +447,48 @@ func isDefaultBackendRef(llmSvc *v1alpha2.LLMInferenceService, ref gwapiv1.Backe
 	return ptr.Deref[gwapiv1.Group](ref.Group, "") == igwapi.GroupName &&
 		ptr.Deref[gwapiv1.Kind](ref.Kind, "") == "InferencePool" &&
 		string(ref.Name) == defaultInfPoolName
+}
+
+// isV1InferencePoolBackendRef checks if the backendRef points to a v1 InferencePool
+func isV1InferencePoolBackendRef(ref gwapiv1.BackendRef) bool {
+	return ptr.Deref[gwapiv1.Group](ref.Group, "") == constants.InferencePoolV1APIGroupName &&
+		ptr.Deref[gwapiv1.Kind](ref.Kind, "") == "InferencePool"
+}
+
+// adjustBackendRefForMigration swaps the HTTPRoute backendRef based on InferencePool migration state.
+// If not yet migrated to v1 and v1alpha2 CRD is available, point to v1alpha2 pool.
+// If migrated or v1alpha2 is not available, keep pointing to v1 pool.
+func (r *LLMISVCReconciler) adjustBackendRefForMigration(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig) *v1alpha2.LLMInferenceServiceConfig {
+	// Skip if no HTTPRoute spec
+	if llmSvcCfg.Spec.Router == nil ||
+		llmSvcCfg.Spec.Router.Route == nil ||
+		!llmSvcCfg.Spec.Router.Route.HTTP.HasSpec() {
+		return llmSvcCfg
+	}
+
+	// Skip if no scheduler (using direct service backend)
+	if llmSvcCfg.Spec.Router.Scheduler == nil {
+		return llmSvcCfg
+	}
+
+	// If already migrated to v1 or v1alpha2 CRD is not available, use v1 pool (default behavior)
+	if isMigratedToV1(llmSvc) || !r.InferencePoolV1Alpha2Available {
+		return llmSvcCfg
+	}
+
+	// Not migrated and v1alpha2 CRD is available: swap to v1alpha2 pool
+	v1alpha2PoolName := kmeta.ChildName(llmSvc.GetName(), "-inference-pool-v1alpha2")
+
+	for i := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules {
+		for j := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs {
+			ref := &llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j]
+			// Only modify v1 InferencePool backendRefs
+			if isV1InferencePoolBackendRef(ref.BackendRef) {
+				ref.Group = ptr.To[gwapiv1.Group](gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName))
+				ref.Name = gwapiv1.ObjectName(v1alpha2PoolName)
+			}
+		}
+	}
+
+	return llmSvcCfg
 }
