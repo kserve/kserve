@@ -23,6 +23,7 @@ import (
 	"slices"
 	"sort"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -112,20 +113,29 @@ func (r *LLMISVCReconciler) reconcileSchedulerRoleBinding(ctx context.Context, l
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	serviceAccount := r.expectedSchedulerServiceAccount(llmSvc)
+	useExistingServiceAccount := false
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil && llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
+		useExistingServiceAccount = true
+	}
+
+	serviceAccount, err := r.expectedSchedulerServiceAccount(ctx, llmSvc)
+	if err != nil {
+		return fmt.Errorf("failed to create expected scheduler service account: %w", err)
+	}
 
 	if !llmSvc.DeletionTimestamp.IsZero() {
 		return r.reconcileSchedulerAuthDelegatorBinding(ctx, llmSvc, serviceAccount)
 	}
 
-	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
-		return Delete(ctx, r, llmSvc, serviceAccount)
-	}
+	if !useExistingServiceAccount {
+		if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
+			return Delete(ctx, r, llmSvc, serviceAccount)
+		}
 
-	if err := Reconcile(ctx, r, llmSvc, &corev1.ServiceAccount{}, serviceAccount, semanticServiceAccountIsEqual); err != nil {
-		return fmt.Errorf("failed to reconcile scheduler service account %s/%s: %w", serviceAccount.GetNamespace(), serviceAccount.GetName(), err)
+		if err := Reconcile(ctx, r, llmSvc, &corev1.ServiceAccount{}, serviceAccount, semanticServiceAccountIsEqual); err != nil {
+			return fmt.Errorf("failed to reconcile scheduler service account %s/%s: %w", serviceAccount.GetNamespace(), serviceAccount.GetName(), err)
+		}
 	}
-
 	if err := r.reconcileSchedulerAuthDelegatorBinding(ctx, llmSvc, serviceAccount); err != nil {
 		return err
 	}
@@ -372,7 +382,22 @@ schedulingProfiles:
 	}
 }
 
-func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(llmSvc *v1alpha2.LLMInferenceService) *corev1.ServiceAccount {
+func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, error) {
+	var existingServiceAccountName string
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil && llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
+		existingServiceAccountName = llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName
+	}
+
+	if existingServiceAccountName != "" {
+		log.FromContext(ctx).V(2).Info("Using existing service account for scheduler", "serviceAccountName", existingServiceAccountName)
+		existingServiceAccount := &corev1.ServiceAccount{}
+		err := r.Client.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch existing scheduler service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
+		}
+		return existingServiceAccount, nil
+	}
+
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-epp-sa"),
@@ -384,14 +409,7 @@ func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(llmSvc *v1alpha2.LLM
 		},
 	}
 
-	if llmSvc.Spec.Router != nil &&
-		llmSvc.Spec.Router.Scheduler != nil &&
-		llmSvc.Spec.Router.Scheduler.Template != nil &&
-		llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
-		sa.Name = llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName
-	}
-
-	return sa
+	return sa, nil
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerAuthDelegatorBinding(llmSvc *v1alpha2.LLMInferenceService, sa *corev1.ServiceAccount) *rbacv1.ClusterRoleBinding {
