@@ -10,15 +10,15 @@ spec:
     - name: sklearn
       version: "1"
       autoSelect: true
-      priority: 3
+      priority: 1
     - name: xgboost
       version: "2"
       autoSelect: true
-      priority: 3
+      priority: 1
     - name: lightgbm
       version: "4"
       autoSelect: true
-      priority: 3
+      priority: 1
   protocolVersions:
     - v1
     - v2
