@@ -211,14 +211,16 @@ func Get[T client.Object](ctx context.Context, c client.Client, key client.Objec
 		opt(options)
 	}
 
+	typeLogLine := logLineForObject(obj)
+
 	if err := c.Get(ctx, key, obj); err != nil {
 		if !apierrors.IsNotFound(err) || options.fallback == nil {
-			return obj, fmt.Errorf("failed to get ConfigMap %s/%s from cached client: %w", key.Namespace, key.Name, err)
+			return obj, fmt.Errorf("failed to get %s %s/%s from cached client: %w", typeLogLine, key.Namespace, key.Name, err)
 		}
 		// Resource not in cache - try fallback.
 		r, err := options.fallback(ctx, key.Namespace, key.Name)
 		if err != nil {
-			return obj, fmt.Errorf("failed to get ConfigMap %s/%s from API Server: %w", key.Namespace, key.Name, err)
+			return obj, fmt.Errorf("failed to get %s %s/%s from API Server: %w", typeLogLine, key.Namespace, key.Name, err)
 		}
 		return r, nil
 	}
