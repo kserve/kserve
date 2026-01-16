@@ -35,6 +35,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/utils"
@@ -159,15 +160,42 @@ func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, ll
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	expected := r.expectedSchedulerInferencePool(ctx, llmSvc)
-	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
-		return Delete(ctx, r, llmSvc, expected)
+	logger := log.FromContext(ctx)
+	shouldDelete := utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef()
+
+	// Reconcile v1 InferencePool if CRD is available
+	if r.InferencePoolV1Available {
+		expectedV1 := r.expectedSchedulerInferencePool(ctx, llmSvc)
+		if shouldDelete {
+			if err := Delete(ctx, r, llmSvc, expectedV1); err != nil {
+				return err
+			}
+		} else {
+			if err := Reconcile(ctx, r, llmSvc, &igwapi.InferencePool{}, expectedV1, semanticInferencePoolIsEqual); err != nil {
+				return err
+			}
+		}
 	}
 
-	if err := Reconcile(ctx, r, llmSvc, &igwapi.InferencePool{}, expected, semanticInferencePoolIsEqual); err != nil {
-		return err
+	// Reconcile v1alpha2 InferencePool if CRD is available and not yet migrated to v1
+	if r.InferencePoolV1Alpha2Available {
+		expectedV1Alpha2 := r.expectedSchedulerInferencePoolV1Alpha2(ctx, llmSvc)
+		if shouldDelete {
+			if err := Delete(ctx, r, llmSvc, expectedV1Alpha2); err != nil {
+				return err
+			}
+		} else {
+			if err := Reconcile(ctx, r, llmSvc, &igwapiv1alpha2.InferencePool{}, expectedV1Alpha2, semanticInferencePoolV1Alpha2IsEqual); err != nil {
+				return err
+			}
+		}
 	}
-	// TODO add inference pool condition propagation and then aggregate it into "RouterReady" similar to WorkloadReady.
+
+	logger.V(2).Info("InferencePool reconciliation complete",
+		"v1Available", r.InferencePoolV1Available,
+		"v1alpha2Available", r.InferencePoolV1Alpha2Available,
+		"migrated", isMigratedToV1(llmSvc))
+
 	return nil
 }
 
@@ -259,6 +287,33 @@ func (r *LLMISVCReconciler) expectedSchedulerInferencePool(ctx context.Context, 
 	}
 
 	log.FromContext(ctx).V(2).Info("Expected router InferencePool", "inferencepool", ip)
+
+	return ip
+}
+
+func (r *LLMISVCReconciler) expectedSchedulerInferencePoolV1Alpha2(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *igwapiv1alpha2.InferencePool {
+	labels := SchedulerLabels(llmSvc)
+
+	ip := &igwapiv1alpha2.InferencePool{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kmeta.ChildName(llmSvc.GetName(), "-inference-pool-v1alpha2"),
+			Namespace: llmSvc.GetNamespace(),
+			Labels:    labels,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
+		},
+	}
+
+	// Convert v1 spec to v1alpha2 using the built-in GIE conversion
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Pool != nil && llmSvc.Spec.Router.Scheduler.Pool.Spec != nil {
+		srcPool := &igwapi.InferencePool{Spec: *llmSvc.Spec.Router.Scheduler.Pool.Spec.DeepCopy()}
+		if err := ip.ConvertFrom(srcPool); err != nil {
+			log.FromContext(ctx).Error(err, "Failed to convert InferencePool spec to v1alpha2")
+		}
+	}
+
+	log.FromContext(ctx).V(2).Info("Expected router InferencePool v1alpha2", "inferencepool", ip)
 
 	return ip
 }
@@ -481,6 +536,12 @@ func semanticServiceIsEqual(expected *corev1.Service, current *corev1.Service) b
 }
 
 func semanticInferencePoolIsEqual(expected *igwapi.InferencePool, curr *igwapi.InferencePool) bool {
+	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
+		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
+		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
+}
+
+func semanticInferencePoolV1Alpha2IsEqual(expected *igwapiv1alpha2.InferencePool, curr *igwapiv1alpha2.InferencePool) bool {
 	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
