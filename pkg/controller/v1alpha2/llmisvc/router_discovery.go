@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -381,6 +382,52 @@ func nonReadyInferencePoolTopLevelCondition(pool *igwapi.InferencePool) (*metav1
 	for _, parent := range pool.Status.Parents {
 		// Look for the "Accepted" condition specific to InferencePools
 		cond := meta.FindStatusCondition(parent.Conditions, string(igwapi.InferencePoolConditionAccepted))
+		if cond == nil {
+			// Missing condition indicates the pool is not ready
+			return nil, true
+		}
+		// Check if condition is stale (based on older generation)
+		staleCondition := cond.ObservedGeneration > 0 && cond.ObservedGeneration < pool.Generation
+		if cond.Status != metav1.ConditionTrue || staleCondition {
+			return cond, false
+		}
+	}
+
+	return nil, false
+}
+
+// IsInferencePoolV1Alpha2Ready checks if a v1alpha2 InferencePool has been accepted by all parents
+// This mirrors the v1 IsInferencePoolReady function but for the v1alpha2 API
+func IsInferencePoolV1Alpha2Ready(pool *igwapiv1alpha2.InferencePool) bool {
+	if pool == nil {
+		return false
+	}
+
+	// If no parents have been set, consider the pool ready if it exists and has a valid spec
+	// This handles cases where no Gateway controller is populating the status
+	if len(pool.Status.Parents) == 0 {
+		// Pool is ready if it exists with a valid selector and target port
+		return len(pool.Spec.Selector) > 0 && pool.Spec.TargetPortNumber > 0
+	}
+
+	// Check for any non-ready conditions across all parents
+	if cond, missing := nonReadyInferencePoolV1Alpha2TopLevelCondition(pool); cond != nil || missing {
+		return false
+	}
+
+	return true
+}
+
+// nonReadyInferencePoolV1Alpha2TopLevelCondition checks for any non-ready conditions in a v1alpha2 InferencePool
+// Returns the first problematic condition or indicates missing conditions
+func nonReadyInferencePoolV1Alpha2TopLevelCondition(pool *igwapiv1alpha2.InferencePool) (*metav1.Condition, bool) {
+	if pool == nil {
+		return nil, true
+	}
+
+	for _, parent := range pool.Status.Parents {
+		// Look for the "Accepted" condition specific to InferencePools
+		cond := meta.FindStatusCondition(parent.Conditions, string(igwapiv1alpha2.InferencePoolConditionAccepted))
 		if cond == nil {
 			// Missing condition indicates the pool is not ready
 			return nil, true

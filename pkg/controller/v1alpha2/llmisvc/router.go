@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmeta"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -441,8 +442,9 @@ func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llm
 	return nil
 }
 
-// EvaluateInferencePoolConditions evaluates the readiness of all Inference Pools in the LLMInferenceService
-// and updates the InferencePoolReady condition accordingly
+// EvaluateInferencePoolConditions evaluates the readiness of InferencePools (both v1 and v1alpha2)
+// and updates the InferencePoolReady condition accordingly.
+// Ready if EITHER pool is ready (prioritizing v1). Auto-migrates when v1 becomes ready.
 func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	logger := log.FromContext(ctx).WithName("EvaluateInferencePoolConditions")
 
@@ -458,24 +460,26 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 		return nil
 	}
 
-	curr := &igwapi.InferencePool{}
-
+	// If using explicit pool reference, check that pool only
 	if llmSvc.Spec.Router.Scheduler.Pool != nil && llmSvc.Spec.Router.Scheduler.Pool.Ref != nil && llmSvc.Spec.Router.Scheduler.Pool.Ref.Name != "" {
-		poolRef := llmSvc.Spec.Router.Scheduler.Pool.Ref
-		err := r.Client.Get(ctx, types.NamespacedName{Namespace: llmSvc.Namespace, Name: poolRef.Name}, curr)
-		if err != nil {
-			err := fmt.Errorf("failed to fetch referenced Inference Pool %s/%s: %w", llmSvc.Namespace, poolRef.Name, err)
-			llmSvc.MarkInferencePoolNotReady("InferencePoolFetchError", err.Error())
-			return err
-		}
-	} else {
-		expected := r.expectedSchedulerInferencePool(ctx, llmSvc)
-		err := r.Client.Get(ctx, types.NamespacedName{Namespace: expected.Namespace, Name: expected.Name}, curr)
-		if err != nil {
-			err := fmt.Errorf("failed to fetch embedded Inference Pool %s/%s: %w", llmSvc.Namespace, llmSvc.Name, err)
-			llmSvc.MarkInferencePoolNotReady("InferencePoolFetchError", err.Error())
-			return err
-		}
+		return r.evaluateReferencedInferencePool(ctx, llmSvc)
+	}
+
+	// Otherwise, evaluate both managed v1 and v1alpha2 pools
+	return r.evaluateManagedInferencePools(ctx, llmSvc)
+}
+
+// evaluateReferencedInferencePool checks a user-provided pool reference (v1 only)
+func (r *LLMISVCReconciler) evaluateReferencedInferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+	logger := log.FromContext(ctx)
+	poolRef := llmSvc.Spec.Router.Scheduler.Pool.Ref
+
+	curr := &igwapi.InferencePool{}
+	err := r.Client.Get(ctx, types.NamespacedName{Namespace: llmSvc.Namespace, Name: poolRef.Name}, curr)
+	if err != nil {
+		err := fmt.Errorf("failed to fetch referenced Inference Pool %s/%s: %w", llmSvc.Namespace, poolRef.Name, err)
+		llmSvc.MarkInferencePoolNotReady("InferencePoolFetchError", err.Error())
+		return err
 	}
 
 	if !IsInferencePoolReady(curr) {
@@ -483,12 +487,8 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 		if topLevelCondition != nil {
 			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf(
 				"%s/%s: %v=%#v (reason %q, message %q)",
-				curr.Namespace,
-				curr.Name,
-				topLevelCondition.Type,
-				topLevelCondition.Status,
-				topLevelCondition.Reason,
-				topLevelCondition.Message,
+				curr.Namespace, curr.Name, topLevelCondition.Type, topLevelCondition.Status,
+				topLevelCondition.Reason, topLevelCondition.Message,
 			))
 		} else {
 			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf("The inference pool %s/%s is not ready", curr.Namespace, curr.Name))
@@ -497,6 +497,93 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 	}
 
 	llmSvc.MarkInferencePoolReady()
-	logger.V(2).Info("Inference Pool is ready", "pool", curr)
+	logger.V(2).Info("Referenced Inference Pool is ready", "pool", curr.Name)
+	return nil
+}
+
+// evaluateManagedInferencePools checks both v1 and v1alpha2 managed pools.
+// Ready if EITHER is ready (prioritizing v1). Triggers migration to v1 when v1 becomes ready.
+func (r *LLMISVCReconciler) evaluateManagedInferencePools(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+	logger := log.FromContext(ctx)
+
+	var v1Ready, v1alpha2Ready bool
+	var v1Pool *igwapi.InferencePool
+	var v1alpha2Pool *igwapiv1alpha2.InferencePool
+	var v1Err, v1alpha2Err error
+
+	// Check v1 pool if CRD is available
+	if r.InferencePoolV1Available {
+		expected := r.expectedSchedulerInferencePool(ctx, llmSvc)
+		v1Pool = &igwapi.InferencePool{}
+		v1Err = r.Client.Get(ctx, types.NamespacedName{Namespace: expected.Namespace, Name: expected.Name}, v1Pool)
+		if v1Err == nil {
+			v1Ready = IsInferencePoolReady(v1Pool)
+		} else if !apierrors.IsNotFound(v1Err) {
+			logger.Error(v1Err, "Failed to fetch v1 InferencePool", "name", expected.Name)
+		}
+	}
+
+	// Check v1alpha2 pool if CRD is available
+	if r.InferencePoolV1Alpha2Available {
+		expected := r.expectedSchedulerInferencePoolV1Alpha2(ctx, llmSvc)
+		v1alpha2Pool = &igwapiv1alpha2.InferencePool{}
+		v1alpha2Err = r.Client.Get(ctx, types.NamespacedName{Namespace: expected.Namespace, Name: expected.Name}, v1alpha2Pool)
+		if v1alpha2Err == nil {
+			v1alpha2Ready = IsInferencePoolV1Alpha2Ready(v1alpha2Pool)
+		} else if !apierrors.IsNotFound(v1alpha2Err) {
+			logger.Error(v1alpha2Err, "Failed to fetch v1alpha2 InferencePool", "name", expected.Name)
+		}
+	}
+
+	logger.V(2).Info("InferencePool readiness status",
+		"v1Ready", v1Ready, "v1alpha2Ready", v1alpha2Ready,
+		"migrated", isMigratedToV1(llmSvc))
+
+	// Trigger migration if v1 is ready and not yet migrated
+	if v1Ready && !isMigratedToV1(llmSvc) {
+		logger.Info("v1 InferencePool is ready, triggering migration")
+		setMigratedToV1(llmSvc)
+	}
+
+	// Ready if EITHER pool is ready (prioritizing v1)
+	if v1Ready || v1alpha2Ready {
+		llmSvc.MarkInferencePoolReady()
+		if v1Ready {
+			logger.V(2).Info("v1 InferencePool is ready", "pool", v1Pool.Name)
+		} else {
+			logger.V(2).Info("v1alpha2 InferencePool is ready", "pool", v1alpha2Pool.Name)
+		}
+		return nil
+	}
+
+	// Neither pool is ready - report status
+	// Prioritize reporting v1 pool status if v1 CRD is available
+	if r.InferencePoolV1Available && v1Pool != nil {
+		topLevelCondition, _ := nonReadyInferencePoolTopLevelCondition(v1Pool)
+		if topLevelCondition != nil {
+			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf(
+				"%s/%s: %v=%#v (reason %q, message %q)",
+				v1Pool.Namespace, v1Pool.Name, topLevelCondition.Type, topLevelCondition.Status,
+				topLevelCondition.Reason, topLevelCondition.Message,
+			))
+		} else {
+			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf("The inference pool %s/%s is not ready", v1Pool.Namespace, v1Pool.Name))
+		}
+	} else if r.InferencePoolV1Alpha2Available && v1alpha2Pool != nil {
+		topLevelCondition, _ := nonReadyInferencePoolV1Alpha2TopLevelCondition(v1alpha2Pool)
+		if topLevelCondition != nil {
+			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf(
+				"%s/%s: %v=%#v (reason %q, message %q)",
+				v1alpha2Pool.Namespace, v1alpha2Pool.Name, topLevelCondition.Type, topLevelCondition.Status,
+				topLevelCondition.Reason, topLevelCondition.Message,
+			))
+		} else {
+			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf("The inference pool %s/%s is not ready", v1alpha2Pool.Namespace, v1alpha2Pool.Name))
+		}
+	} else {
+		// No pools found
+		llmSvc.MarkInferencePoolNotReady("InferencePoolFetchError", "No InferencePool CRDs available or pools not found")
+	}
+
 	return nil
 }
