@@ -10,7 +10,7 @@ spec:
     - name: sklearn
       version: "1"
       autoSelect: true
-      priority: 1
+      priority: 2
   protocolVersions:
     - v1
     - v2

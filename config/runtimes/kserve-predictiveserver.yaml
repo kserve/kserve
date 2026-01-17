@@ -1,26 +1,35 @@
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
-  name: kserve-xgbserver
+  name: kserve-predictiveserver
 spec:
   annotations:
     prometheus.kserve.io/port: '8080'
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
+    - name: sklearn
+      version: "1"
+      autoSelect: true
+      priority: 1
     - name: xgboost
       version: "2"
       autoSelect: true
-      priority: 2
+      priority: 1
+    - name: lightgbm
+      version: "4"
+      autoSelect: true
+      priority: 1
   protocolVersions:
     - v1
     - v2
   containers:
     - name: kserve-container
-      image: kserve-xgbserver:replace
+      image: kserve-predictiveserver:replace
       args:
         - --model_name={{.Name}}
         - --model_dir=/mnt/models
         - --http_port=8080
+        - --framework={{.Annotations.modelFormat}}
         - --nthread=1
       securityContext:
         allowPrivilegeEscalation: false

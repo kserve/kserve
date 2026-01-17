@@ -15,6 +15,7 @@ ROUTER_IMG ?= router:latest
 SKLEARN_IMG ?= sklearnserver
 XGB_IMG ?= xgbserver
 LGB_IMG ?= lgbserver
+PREDICTIVE_IMG ?= predictiveserver
 PMML_IMG ?= pmmlserver
 PADDLE_IMG ?= paddleserver
 CUSTOM_MODEL_IMG ?= custom-model
@@ -357,6 +358,9 @@ deploy-dev-pmml : docker-push-pmml
 deploy-dev-paddle: docker-push-paddle
 	./hack/serving_runtime_image_patch.sh "kserve-paddleserver.yaml" "${KO_DOCKER_REPO}/${PADDLE_IMG}"
 
+deploy-dev-predictive: docker-push-predictive
+	./hack/serving_runtime_image_patch.sh "kserve-predictiveserver.yaml" "${KO_DOCKER_REPO}/${PREDICTIVE_IMG}"
+
 deploy-dev-huggingface: docker-push-huggingface
 	./hack/serving_runtime_image_patch.sh "kserve-huggingfaceserver.yaml" "${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG}"
 
@@ -425,6 +429,12 @@ docker-build-lgb:
 
 docker-push-lgb: docker-build-lgb
 	${ENGINE} push ${KO_DOCKER_REPO}/${LGB_IMG}
+
+docker-build-predictive:
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PREDICTIVE_IMG} -f predictiveserver.Dockerfile .
+
+docker-push-predictive: docker-build-predictive
+	cd python && ${ENGINE} buildx build ${ARCH} --push --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PREDICTIVE_IMG} -f predictiveserver.Dockerfile .
 
 docker-build-pmml:
 	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${PMML_BASE_IMG} -t ${KO_DOCKER_REPO}/${PMML_IMG} -f pmml.Dockerfile .

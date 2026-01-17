@@ -8,9 +8,9 @@ spec:
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: lightgbm
-      version: "3"
+      version: "4"
       autoSelect: true
-      priority: 1
+      priority: 2
   protocolVersions:
     - v1
     - v2
