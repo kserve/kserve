@@ -395,11 +395,6 @@ func (c *LocalModelNodeReconciler) cleanupJobs(ctx context.Context, localModelNo
 }
 
 func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	if req.Name != nodeName {
-		c.Log.Info("Skipping LocalModelNode because it is not for current node", "name", req.Name, "current node", nodeName)
-		return reconcile.Result{}, nil
-	}
-
 	c.Log.Info("Agent reconciling LocalModelNode", "name", req.Name, "node", nodeName)
 
 	// fsHelper is a global variable to allow mocking in tests
@@ -465,7 +460,18 @@ func (c *LocalModelNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Do not reconcile on status change, when a job is created and the status is updated, the next reconcile is triggered immediately and
 		// there is a chance that the job is not returned when we list jobs, causing the same job to be created twice.
 		// Keep AnnotationChangedPredicate because we use it to trigger reconciliation in the test
-		For(&v1alpha1.LocalModelNode{}, builder.WithPredicates(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}))).
+
+		For(&v1alpha1.LocalModelNode{}, builder.WithPredicates(
+			predicate.And(
+				predicate.NewPredicateFuncs(func(obj client.Object) bool {
+					return obj.GetName() == nodeName
+				}),
+				predicate.Or(
+					predicate.GenerationChangedPredicate{},
+					predicate.AnnotationChangedPredicate{},
+				),
+			),
+		)).
 		Owns(&batchv1.Job{}).
 		Complete(c)
 }
