@@ -4214,11 +4214,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), isvc)
 
+			revisionName := serviceName + "-predictor-" + namespace + "-00001"
 			pod := &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      serviceName + "-predictor-" + namespace + "-00001-deployment-76464ds2zpv",
+					Name:      revisionName + "-deployment-76464ds2zpv",
 					Namespace: namespace,
-					Labels:    map[string]string{"serving.knative.dev/revision": serviceName + "-predictor-" + namespace + "-00001"},
+					Labels: map[string]string{
+						constants.InferenceServicePodLabelKey: serviceName,
+						constants.RevisionLabel:               revisionName,
+					},
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
