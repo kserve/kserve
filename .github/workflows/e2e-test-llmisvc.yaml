@@ -19,7 +19,7 @@ concurrency:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  DOCKER_REPO: "kserve"
+  KO_DOCKER_REPO: "kserve"
   LLMISVC_CONTROLLER_IMG: "llmisvc-controller"
 
 jobs:
@@ -258,7 +258,7 @@ jobs:
       - name: Build LLMISvc controller image
         run: |
           echo "🏗️ Building LLMISvc controller image..."
-          LLMISVC_CONTROLLER_IMG_TAG=${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${GITHUB_SHA}
+          LLMISVC_CONTROLLER_IMG_TAG=${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${GITHUB_SHA}
 
           # Build the image and save it as a tar file
           docker buildx build -f llmisvc-controller.Dockerfile . \

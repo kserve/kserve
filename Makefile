@@ -4,32 +4,12 @@ include Makefile.tools.mk
 # Load dependency versions
 include kserve-deps.env
 
+# Load image configurations
+include kserve-images.env
+
 # Base Image URL
 BASE_IMG ?= python:3.11-slim-bookworm
 PMML_BASE_IMG ?= eclipse-temurin:21-jdk-noble
-
-# Image URL to use all building/pushing image targets
-IMG ?= kserve-controller:latest
-AGENT_IMG ?= agent:latest
-ROUTER_IMG ?= router:latest
-SKLEARN_IMG ?= sklearnserver
-XGB_IMG ?= xgbserver
-LGB_IMG ?= lgbserver
-PMML_IMG ?= pmmlserver
-PADDLE_IMG ?= paddleserver
-CUSTOM_MODEL_IMG ?= custom-model
-CUSTOM_MODEL_GRPC_IMG ?= custom-model-grpc
-CUSTOM_TRANSFORMER_IMG ?= image-transformer
-CUSTOM_TRANSFORMER_GRPC_IMG ?= custom-image-transformer-grpc
-HUGGINGFACE_SERVER_IMG ?= huggingfaceserver
-HUGGINGFACE_SERVER_CPU_IMG ?= huggingfaceserver-cpu
-AIF_IMG ?= aiffairness
-ART_IMG ?= art-explainer
-STORAGE_INIT_IMG ?= storage-initializer
-QPEXT_IMG ?= qpext:latest
-SUCCESS_200_ISVC_IMG ?= success-200-isvc
-ERROR_404_ISVC_IMG ?= error-404-isvc
-LLMISVC_IMG ?= kserve-llmisvc-controller:latest
 
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
@@ -80,6 +60,10 @@ tidy:
 .PHONY: sync-deps
 sync-deps:
 	@@python3 hack/setup/scripts/generate-versions-from-gomod.py
+
+.PHONY: sync-img-env
+sync-img-env:
+	@python3 hack/setup/scripts/generate-images-sh.py
 
 go-lint: golangci-lint
 	@$(GOLANGCI_LINT) run --fix
@@ -243,7 +227,7 @@ ensure-golangci-go-version: yq
 
 
 # This runs all necessary steps to prepare for a commit.
-precommit: ensure-go-version-upgrade sync-deps vet tidy go-lint py-fmt py-lint generate manifests uv-lock generate-quick-install-scripts
+precommit: ensure-go-version-upgrade sync-deps sync-img-env vet tidy go-lint py-fmt py-lint generate manifests uv-lock generate-quick-install-scripts
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit
@@ -358,7 +342,7 @@ deploy-dev-paddle: docker-push-paddle
 	./hack/serving_runtime_image_patch.sh "kserve-paddleserver.yaml" "${KO_DOCKER_REPO}/${PADDLE_IMG}"
 
 deploy-dev-huggingface: docker-push-huggingface
-	./hack/serving_runtime_image_patch.sh "kserve-huggingfaceserver.yaml" "${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG}"
+	./hack/serving_runtime_image_patch.sh "kserve-huggingfaceserver.yaml" "${KO_DOCKER_REPO}/${HUGGINGFACE_IMG}"
 
 deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
@@ -379,22 +363,34 @@ bump-version:
 
 # Build the docker image
 docker-build:
-	${ENGINE} buildx build ${ARCH} . -t ${KO_DOCKER_REPO}/${IMG}
+	${ENGINE} buildx build ${ARCH} . -t ${KO_DOCKER_REPO}/${CONTROLLER_IMG}
 	@echo "updating kustomize image patch file for manager resource"
 
 	# Use perl instead of sed to avoid OSX/Linux compatibility issue:
 	# https://stackoverflow.com/questions/34533893/sed-command-creating-unwanted-duplicates-of-file-with-e-extension
-	perl -pi -e 's@image: .*@image: '"${IMG}"'@' ./config/default/manager_image_patch.yaml
+	perl -pi -e 's@image: .*@image: '"${CONTROLLER_IMG}"'@' ./config/default/manager_image_patch.yaml
 
 # Push the docker image
 docker-push:
-	docker push ${KO_DOCKER_REPO}/${IMG}
+	docker push ${KO_DOCKER_REPO}/${CONTROLLER_IMG}
 
 docker-build-llmisvc:
-	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${LLMISVC_IMG} -f llmisvc-controller.Dockerfile .
+	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG} -f llmisvc-controller.Dockerfile .
 
 docker-push-llmisvc: docker-build-llmisvc
-	${ENGINE} buildx build ${ARCH} --push -t ${KO_DOCKER_REPO}/${LLMISVC_IMG} -f llmisvc-controller.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --push -t ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG} -f llmisvc-controller.Dockerfile .
+
+docker-build-localmodel:
+	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG} -f localmodel.Dockerfile .
+
+docker-push-localmodel: docker-build-localmodel
+	${ENGINE} buildx build ${ARCH} --push -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG} -f localmodel.Dockerfile .
+
+docker-build-localmodelnode-agent:
+	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG} -f localmodel-agent.Dockerfile .
+
+docker-push-localmodelnode-agent: docker-build-localmodelnode-agent
+	${ENGINE} buildx build ${ARCH} --push -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG} -f localmodel-agent.Dockerfile .
 
 docker-build-agent:
 	${ENGINE} buildx build ${ARCH} -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}
@@ -451,10 +447,10 @@ docker-push-custom-model-grpc: docker-build-custom-model-grpc
 	${ENGINE} push ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}
 
 docker-build-custom-transformer:
-	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${IMAGE_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
 
 docker-push-custom-transformer: docker-build-custom-transformer
-	${ENGINE} push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${IMAGE_TRANSFORMER_IMG}
 
 docker-build-custom-transformer-grpc:
 	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG} -f custom_transformer_grpc.Dockerfile .
@@ -502,10 +498,10 @@ docker-push-error-node-404: docker-build-error-node-404
 	${ENGINE} push ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG}
 
 docker-build-huggingface:
-	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG} -f huggingface_server.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${HUGGINGFACE_IMG} -f huggingface_server.Dockerfile .
 
 docker-push-huggingface: docker-build-huggingface
-	${ENGINE} push ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${HUGGINGFACE_IMG}
 
 docker-build-huggingface-cpu:
 	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_CPU_IMG} -f huggingface_server_cpu.Dockerfile .
