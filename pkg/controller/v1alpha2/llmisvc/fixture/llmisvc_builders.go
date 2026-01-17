@@ -21,8 +21,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
@@ -338,8 +340,109 @@ func WithConfigManagedRouter() LLMInferenceServiceConfigOption {
 	}
 }
 
+func WithConfigManagedScheduler() LLMInferenceServiceConfigOption {
+	return func(config *v1alpha2.LLMInferenceServiceConfig) {
+		if config.Spec.Router == nil {
+			config.Spec.Router = &v1alpha2.RouterSpec{}
+		}
+		config.Spec.Router.Scheduler = &v1alpha2.SchedulerSpec{}
+	}
+}
+
 func WithConfigWorkloadTemplate(podSpec *corev1.PodSpec) LLMInferenceServiceConfigOption {
 	return func(config *v1alpha2.LLMInferenceServiceConfig) {
 		config.Spec.Template = podSpec
+	}
+}
+
+// WithConfigSchedulerConfigInline sets an inline scheduler config on the LLMInferenceServiceConfig.
+// The configYAML is converted to JSON since RawExtension.Raw expects JSON bytes.
+func WithConfigSchedulerConfigInline(configYAML string) LLMInferenceServiceConfigOption {
+	return func(config *v1alpha2.LLMInferenceServiceConfig) {
+		ensureSchedulerSpec(&config.Spec)
+		jsonBytes, err := yaml.YAMLToJSON([]byte(configYAML))
+		if err != nil {
+			panic(err) // For test fixtures, panic is acceptable
+		}
+		config.Spec.Router.Scheduler.Config = &v1alpha2.SchedulerConfigSpec{
+			Inline: &runtime.RawExtension{Raw: jsonBytes},
+		}
+	}
+}
+
+// WithConfigSchedulerConfigRef sets a ConfigMap reference for scheduler config on LLMInferenceServiceConfig.
+// If key is empty, it defaults to "epp" at runtime.
+func WithConfigSchedulerConfigRef(configMapName, key string) LLMInferenceServiceConfigOption {
+	return func(config *v1alpha2.LLMInferenceServiceConfig) {
+		ensureSchedulerSpec(&config.Spec)
+		ref := &corev1.ConfigMapKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{Name: configMapName},
+		}
+		if key != "" {
+			ref.Key = key
+		}
+		config.Spec.Router.Scheduler.Config = &v1alpha2.SchedulerConfigSpec{
+			Ref: ref,
+		}
+	}
+}
+
+// WithSchedulerConfigInline sets an inline scheduler config on the LLMInferenceService.
+// The configYAML is converted to JSON since RawExtension.Raw expects JSON bytes.
+func WithSchedulerConfigInline(configYAML string) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		ensureSchedulerSpec(&llmSvc.Spec)
+		jsonBytes, err := yaml.YAMLToJSON([]byte(configYAML))
+		if err != nil {
+			panic(err) // For test fixtures, panic is acceptable
+		}
+		llmSvc.Spec.Router.Scheduler.Config = &v1alpha2.SchedulerConfigSpec{
+			Inline: &runtime.RawExtension{Raw: jsonBytes},
+		}
+	}
+}
+
+// WithSchedulerConfigRef sets a ConfigMap reference for scheduler config.
+// If key is empty, it defaults to "epp" at runtime.
+func WithSchedulerConfigRef(configMapName, key string) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		ensureSchedulerSpec(&llmSvc.Spec)
+		ref := &corev1.ConfigMapKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{Name: configMapName},
+		}
+		if key != "" {
+			ref.Key = key
+		}
+		llmSvc.Spec.Router.Scheduler.Config = &v1alpha2.SchedulerConfigSpec{
+			Ref: ref,
+		}
+	}
+}
+
+// ensureSchedulerSpec ensures the router and scheduler spec are initialized
+func ensureSchedulerSpec(spec *v1alpha2.LLMInferenceServiceSpec) {
+	if spec.Router == nil {
+		spec.Router = &v1alpha2.RouterSpec{}
+	}
+	if spec.Router.Scheduler == nil {
+		spec.Router.Scheduler = &v1alpha2.SchedulerSpec{}
+	}
+}
+
+// SchedulerConfigMap creates a ConfigMap with scheduler config data using the default "epp" key
+func SchedulerConfigMap(name, namespace, configData string) *corev1.ConfigMap {
+	return SchedulerConfigMapWithKey(name, namespace, "epp", configData)
+}
+
+// SchedulerConfigMapWithKey creates a ConfigMap with scheduler config data using a custom key
+func SchedulerConfigMapWithKey(name, namespace, key, configData string) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Data: map[string]string{
+			key: configData,
+		},
 	}
 }

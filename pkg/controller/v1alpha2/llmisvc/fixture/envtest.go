@@ -59,6 +59,10 @@ func SetupTestEnv() *pkgtest.Client {
 			Clientset: clientSet,
 			// TODO fix it to be set up similar to main.go, for now it's stub
 			EventRecorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "v1beta1Controllers"}),
+			Validator: func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+				_, err := (&v1alpha2.LLMInferenceServiceValidator{}).ValidateCreate(ctx, llmSvc)
+				return err
+			},
 		}
 		return llmCtrl.SetupWithManager(mgr)
 	}

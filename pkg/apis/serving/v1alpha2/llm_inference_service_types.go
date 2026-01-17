@@ -19,6 +19,7 @@ package v1alpha2
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -227,6 +228,17 @@ type SchedulerSpec struct {
 	// This configures the Endpoint Picker (EPP) Deployment.
 	// +optional
 	Template *corev1.PodSpec `json:"template,omitempty"`
+
+	// Config is the configuration for the EndpointPicker.
+	Config *SchedulerConfigSpec `json:"config,omitempty"`
+}
+
+type SchedulerConfigSpec struct {
+	// Inline EndpointPickerConfig
+	Inline *runtime.RawExtension `json:"inline,omitempty"`
+
+	// Ref is a reference to a ConfigMap key with EndpointPickerConfig.
+	Ref *corev1.ConfigMapKeySelector `json:"ref,omitempty"`
 }
 
 // InferencePoolSpec defines the configuration for an InferencePool.

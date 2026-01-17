@@ -96,7 +96,7 @@ fi
 
 # Install Cert Manager
 helm repo add jetstack https://charts.jetstack.io --force-update
-helm install \
+helm upgrade --install \
    cert-manager jetstack/cert-manager \
    --namespace cert-manager \
    --create-namespace \
@@ -191,7 +191,7 @@ fi
 
 # Install Leader Worker Set (LWS)
 echo "Installing Leader Worker Set ..."
-helm install lws oci://registry.k8s.io/lws/charts/lws \
+helm upgrade --install lws oci://registry.k8s.io/lws/charts/lws \
   --version=${LWS_VERSION} \
   --namespace lws-system \
   --create-namespace \

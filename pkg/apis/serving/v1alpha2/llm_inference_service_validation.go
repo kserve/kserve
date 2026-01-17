@@ -86,6 +86,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 
 	allErrs = append(allErrs, l.validateRouterCrossFieldConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
+	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
 	if len(allErrs) == 0 {
@@ -293,6 +294,54 @@ func (l *LLMInferenceServiceValidator) validateImmutableParallelism(basePath *fi
 			fmt.Sprintf("total parallelism size is immutable, previous size %d, curr size %d", pSize, cSize),
 		))
 	}
+	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateSchedulerConfig(svc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+
+	if svc.Spec.Router == nil ||
+		svc.Spec.Router.Scheduler == nil ||
+		svc.Spec.Router.Scheduler.Config == nil {
+		return allErrs
+	}
+
+	configPath := field.NewPath("spec", "router", "scheduler", "config")
+
+	if svc.Spec.Router.Scheduler.Config.Ref == nil && svc.Spec.Router.Scheduler.Config.Inline == nil {
+		allErrs = append(allErrs, field.Invalid(
+			configPath,
+			svc.Spec.Router.Scheduler.Config,
+			"either inline or ref is required",
+		))
+	}
+
+	if svc.Spec.Router.Scheduler.Config.Inline != nil && svc.Spec.Router.Scheduler.Config.Ref != nil {
+		allErrs = append(allErrs, field.Invalid(
+			configPath,
+			svc.Spec.Router.Scheduler.Config,
+			"both inline and ref are set, either specify inline or ref",
+		))
+	}
+
+	if svc.Spec.Router.Scheduler.Config.Inline != nil && len(svc.Spec.Router.Scheduler.Config.Inline.Raw) < 3 /* we expect at least a few characters '{...}' */ {
+		allErrs = append(allErrs, field.Invalid(
+			configPath.Child("inline"),
+			svc.Spec.Router.Scheduler.Config.Inline,
+			"inline configuration is invalid",
+		))
+	}
+
+	if svc.Spec.Router.Scheduler.Config.Ref != nil {
+		if svc.Spec.Router.Scheduler.Config.Ref.Name == "" {
+			allErrs = append(allErrs, field.Invalid(
+				configPath.Child("ref", "name"),
+				svc.Spec.Router.Scheduler.Config.Ref,
+				"name is empty",
+			))
+		}
+	}
+
 	return allErrs
 }
 

@@ -12,8 +12,11 @@ rules:
   - ""
   resources:
   - configmaps
+  - pods
   verbs:
   - get
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -22,14 +25,6 @@ rules:
   - create
   - patch
   - update
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
 - apiGroups:
   - ""
   resources:

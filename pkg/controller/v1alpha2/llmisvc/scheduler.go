@@ -309,37 +309,46 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 }
 
 func schedulerConfigText(llmSvc *v1alpha2.LLMInferenceService) string {
+	if llmSvc.Spec.Router != nil &&
+		llmSvc.Spec.Router.Scheduler != nil &&
+		llmSvc.Spec.Router.Scheduler.Config != nil &&
+		llmSvc.Spec.Router.Scheduler.Config.Inline != nil {
+		// We don't need to handle Ref as it's done as part of the config merge step.
+		return string(llmSvc.Spec.Router.Scheduler.Config.Inline.Raw)
+	}
+
 	switch {
 	case llmSvc.Spec.Prefill != nil:
+		// Always do P/D by default (threshold 0)
 		return `
 apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
-- type: pd-profile-handler
-  parameters:
-    threshold: 100
 - type: prefill-header-handler
 - type: prefill-filter
 - type: decode-filter
+- type: queue-scorer
 - type: prefix-cache-scorer
-- type: load-aware-scorer
 - type: max-score-picker
+- type: pd-profile-handler
+  parameters:
+    threshold: 0
 schedulingProfiles:
 - name: prefill
   plugins:
   - pluginRef: prefill-filter
+  - pluginRef: queue-scorer
+    weight: 2
   - pluginRef: prefix-cache-scorer
-    weight: 2.0
-  - pluginRef: load-aware-scorer
-    weight: 1.0
+    weight: 3
   - pluginRef: max-score-picker
 - name: decode
   plugins:
   - pluginRef: decode-filter
+  - pluginRef: queue-scorer
+    weight: 2
   - pluginRef: prefix-cache-scorer
-    weight: 2.0
-  - pluginRef: load-aware-scorer
-    weight: 1.0
+    weight: 3
   - pluginRef: max-score-picker
 `
 	default:
@@ -348,16 +357,16 @@ apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
+- type: queue-scorer
 - type: prefix-cache-scorer
-- type: load-aware-scorer
 - type: max-score-picker
 schedulingProfiles:
 - name: default
   plugins:
+  - pluginRef: queue-scorer
+    weight: 2
   - pluginRef: prefix-cache-scorer
-    weight: 2.0
-  - pluginRef: load-aware-scorer
-    weight: 1.0
+    weight: 3
   - pluginRef: max-score-picker
 `
 	}
