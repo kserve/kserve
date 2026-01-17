@@ -53,31 +53,7 @@ import (
 var _ = Describe("v1beta1 inference service controller", func() {
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 
-	configs := map[string]string{
-		"explainers": `{
-				"art": {
-					"image": "kserve/art-explainer",
-					"defaultImageVersion": "latest"
-				}
-			}`,
-		"ingress": `{
-				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
-				"ingressGateway": "knative-serving/knative-ingress-gateway",
-				"localGateway": "knative-serving/knative-local-gateway",
-				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
-			}`,
-		"storageInitializer": `{
-				"image" : "kserve/storage-initializer:latest",
-				"memoryRequest": "100Mi",
-				"memoryLimit": "1Gi",
-				"cpuRequest": "100m",
-				"cpuLimit": "1",
-				"cpuModelcar": "10m",
-				"memoryModelcar": "15Mi",
-				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs"
-			}`,
-	}
+	configs := getKnativeTestConfigs()
 
 	Context("with knative configured to not allow zero initial scale", func() {
 		When("a Knative InferenceService is created with an initial scale annotation and value of zero", func() {

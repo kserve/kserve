@@ -508,19 +508,20 @@ BLACK_FMT_VERSION=24.3
 FLAKE8_LINT_VERSION=7.1
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
+KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
 ENVOY_GATEWAY_VERSION=v1.5.0
-ENVOY_AI_GATEWAY_VERSION=v0.3.0
+ENVOY_AI_GATEWAY_VERSION=v0.4.0
 KNATIVE_OPERATOR_VERSION=v1.16.0
 KNATIVE_SERVING_VERSION=1.15.2
 KEDA_OTEL_ADDON_VERSION=v0.0.6
 KSERVE_VERSION=v0.16.0
 ISTIO_VERSION=1.27.1
-KEDA_VERSION=2.16.1
-OPENTELEMETRY_OPERATOR_VERSION=0.113.0
+KEDA_VERSION=2.17.2
+OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.7.0
-GATEWAY_API_VERSION=v1.2.1
-GIE_VERSION=v0.3.0
+GATEWAY_API_VERSION=v1.3.1-0.20251106052652-079e4774d76b
+GIE_VERSION=v1.2.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -566,13 +567,14 @@ install_helm() {
 
     log_info "Installing Helm ${HELM_VERSION} for ${os}/${arch}..."
 
-    if command -v helm &>/dev/null; then
-        local current_version=$(helm version --template='{{.Version}}' 2>/dev/null)
-        if [[ -n "$current_version" ]] && version_gte "$current_version" "$HELM_VERSION"; then
-            log_info "Helm ${current_version} is already installed (>= ${HELM_VERSION})"
+    # Check if helm is already installed in BIN_DIR with the exact required version
+    if [[ -f "${BIN_DIR}/helm" ]]; then
+        local current_version=$("${BIN_DIR}/helm" version --template='{{.Version}}' 2>/dev/null)
+        if [[ "$current_version" == "$HELM_VERSION" ]]; then
+            log_info "Helm ${current_version} is already installed in ${BIN_DIR}"
             return 0
         fi
-        [[ -n "$current_version" ]] && log_info "Upgrading Helm from ${current_version} to ${HELM_VERSION}..."
+        [[ -n "$current_version" ]] && log_info "Replacing Helm ${current_version} with ${HELM_VERSION} in ${BIN_DIR}..."
     fi
 
     local temp_dir=$(mktemp -d)
@@ -969,16 +971,18 @@ install_opentelemetry() {
     log_info "Adding OpenTelemetry Helm repository..."
     helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts --force-update
 
-    log_info "Installing OpenTelemetry Operator..."
+    log_info "Installing OpenTelemetry Operator ${OPENTELEMETRY_OPERATOR_VERSION}..."
     helm install "${OTEL_RELEASE_NAME}" open-telemetry/opentelemetry-operator \
         --namespace "${OTEL_NAMESPACE}" \
         --create-namespace \
+        --version "${OPENTELEMETRY_OPERATOR_VERSION}" \
         --wait \
+        --set "manager.collectorImage.repository=otel/opentelemetry-collector-contrib" \
         ${OTEL_OPERATOR_EXTRA_ARGS:-}
 
     log_success "Successfully installed OpenTelemetry Operator via Helm"
 
-    wait_for_pods "${OTEL_NAMESPACE}" "app.kubernetes.io/instance=${OTEL_RELEASE_NAME}" "300s"
+    wait_for_pods "${OTEL_NAMESPACE}" "app.kubernetes.io/name=opentelemetry-operator" "300s"
 
     log_success "OpenTelemetry Operator is ready!"
 }
