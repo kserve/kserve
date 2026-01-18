@@ -1,0 +1,57 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  annotations:
+    meta.helm.sh/release-name: kserve
+    meta.helm.sh/release-namespace: kserve
+  labels:
+    app.kubernetes.io/managed-by: Helm
+  name: kserve-openvino
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --model_name={{.Name}}
+    - --model_path=/mnt/models
+    - --port=9000
+    - --rest_port=8080
+    - --file_system_poll_wait_seconds=0
+    image: openvino/model_server:replace
+    name: kserve-container
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+      runAsUser: 5000
+  protocolVersions:
+  - v1
+  - v2
+  - grpc-v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: openvino
+    priority: 1
+    version: "10"
+  - autoSelect: true
+    name: onnx
+    priority: 2
+    version: "1"
+  - autoSelect: true
+    name: tensorflow
+    priority: 3
+    version: "1"
+  - autoSelect: true
+    name: huggingface
+
