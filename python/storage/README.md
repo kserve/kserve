@@ -139,6 +139,10 @@ These are all handled by the `huggingface_hub` package, you can see all the avai
 - `TLS_SKIP_VERIFY`: Skip TLS verification
 - `N_THREADS`: Number of download threads
 
+### Git Configuration
+
+- `GIT_SSH_KEY_PATH`: path of private ssh key used by git for cloning repositories (optional)
+
 ## Storage Configuration
 
 Storage configuration can be provided through environment variables:
