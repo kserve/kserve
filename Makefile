@@ -85,10 +85,14 @@ manifests: controller-gen yq
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodelnode-agent-role paths=./pkg/controller/v1alpha1/localmodelnode output:rbac:artifacts:config=config/rbac/localmodelnode
 	
-	# Move LLMISVC CRD to llmisvc folder
-	                   
+	# Move LLMISVC CRD to llmisvc folder	                   
 	mv config/crd/full/serving.kserve.io_llminferenceservices.yaml config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
 	mv config/crd/full/serving.kserve.io_llminferenceserviceconfigs.yaml config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	
+	# Move LocalModel CRD to localmodel folder
+	mv config/crd/full/serving.kserve.io_localmodelcaches.yaml config/crd/full/localmodel/serving.kserve.io_localmodelcaches.yaml
+	mv config/crd/full/serving.kserve.io_localmodelnodegroups.yaml config/crd/full/localmodel/serving.kserve.io_localmodelnodegroups.yaml
+	mv config/crd/full/serving.kserve.io_localmodelnodes.yaml config/crd/full/localmodel/serving.kserve.io_localmodelnodes.yaml
 	
 	# Copy the cluster role to the helm chart
 	cp config/rbac/auth_proxy_role.yaml charts/kserve-resources/templates/clusterrole.yaml
@@ -170,19 +174,31 @@ manifests: controller-gen yq
 	kubectl kustomize config/crd/full > test/crds/serving.kserve.io_all_crds.yaml
 	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
 	kubectl kustomize config/crd/full/llmisvc >> test/crds/serving.kserve.io_all_crds.yaml
-	# Copy the minimal crd to the helm chart
-	cp config/crd/minimal/*.yaml charts/kserve-crd-minimal/templates/
-	cp config/crd/minimal/llmisvc/*.yaml charts/kserve-llmisvc-crd-minimal/templates/
-	rm charts/kserve-crd-minimal/templates/kustomization.yaml
-	rm charts/kserve-llmisvc-crd-minimal/templates/kustomization.yaml
+	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
+	kubectl kustomize config/crd/full/localmodel >> test/crds/serving.kserve.io_all_crds.yaml
 	# Generate llmisvc rbac
 	@$(CONTROLLER_GEN) rbac:roleName=llmisvc-manager-role paths={./pkg/controller/v1alpha2/llmisvc} output:rbac:artifacts:config=config/rbac/llmisvc
 	# Copy the cluster role to the helm chart
 	cat config/rbac/llmisvc/role.yaml > charts/kserve-llmisvc-resources/templates/clusterrole.yaml
 	cat config/rbac/llmisvc/leader_election_role.yaml > charts/kserve-llmisvc-resources/templates/leader_election_role.yaml
+	
+	# Copy the minimal crd to the helm chart
+	cp config/crd/minimal/*.yaml charts/kserve-crd-minimal/templates/
+	cp config/crd/minimal/llmisvc/*.yaml charts/kserve-llmisvc-crd-minimal/templates/
+	cp -f config/crd/minimal/localmodel/*.yaml charts/kserve-crd-minimal/templates/
+	cp -f config/crd/minimal/localmodel/*.yaml charts/kserve-llmisvc-crd-minimal/templates/
+	rm charts/kserve-crd-minimal/templates/kustomization.yaml
+	rm charts/kserve-llmisvc-crd-minimal/templates/kustomization.yaml
+
+	# Copy the full crd to the helm chart
+	cp config/crd/full/*.yaml charts/kserve-crd/templates/
 	# Copy llmisvc crd (with conversion webhook patches applied via kustomize)
 	kubectl kustomize config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceservices.yaml
 	kubectl kustomize config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
+	cp -f config/crd/full/localmodel/*.yaml charts/kserve-crd/templates/
+	cp -f config/crd/full/localmodel/*.yaml charts/kserve-llmisvc-crd/templates/
+	rm charts/kserve-crd/templates/kustomization.yaml
+	rm charts/kserve-llmisvc-crd/templates/kustomization.yaml
     # Copy Test inferenceconfig configmap to test overlay
 	cp config/configmap/inferenceservice.yaml config/overlays/test/configmap/inferenceservice.yaml
 
