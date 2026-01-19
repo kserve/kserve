@@ -21,6 +21,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -602,6 +603,91 @@ func WithInferencePoolReadyStatus() InferencePoolOption {
 						Type:               string(igwapi.InferencePoolConditionAccepted),
 						Status:             metav1.ConditionTrue,
 						Reason:             string(igwapi.InferencePoolReasonAccepted),
+						LastTransitionTime: metav1.Now(),
+					},
+				},
+			},
+		}
+	}
+}
+
+// v1alpha2 InferencePool builders
+
+type InferencePoolV1Alpha2Option ObjectOption[*igwapiv1alpha2.InferencePool]
+
+func InferencePoolV1Alpha2(name string, opts ...InferencePoolV1Alpha2Option) *igwapiv1alpha2.InferencePool {
+	pool := &igwapiv1alpha2.InferencePool{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: igwapiv1alpha2.InferencePoolSpec{
+			Selector:         make(map[igwapiv1alpha2.LabelKey]igwapiv1alpha2.LabelValue),
+			TargetPortNumber: 8000,
+		},
+		Status: igwapiv1alpha2.InferencePoolStatus{
+			Parents: []igwapiv1alpha2.PoolStatus{},
+		},
+	}
+
+	for _, opt := range opts {
+		opt(pool)
+	}
+
+	return pool
+}
+
+func WithV1Alpha2Selector(key, value string) InferencePoolV1Alpha2Option {
+	return func(pool *igwapiv1alpha2.InferencePool) {
+		if pool.Spec.Selector == nil {
+			pool.Spec.Selector = make(map[igwapiv1alpha2.LabelKey]igwapiv1alpha2.LabelValue)
+		}
+		pool.Spec.Selector[igwapiv1alpha2.LabelKey(key)] = igwapiv1alpha2.LabelValue(value)
+	}
+}
+
+func WithV1Alpha2TargetPort(port int32) InferencePoolV1Alpha2Option {
+	return func(pool *igwapiv1alpha2.InferencePool) {
+		pool.Spec.TargetPortNumber = port
+	}
+}
+
+func WithInferencePoolV1Alpha2ReadyStatus() InferencePoolV1Alpha2Option {
+	return func(pool *igwapiv1alpha2.InferencePool) {
+		pool.Status.Parents = []igwapiv1alpha2.PoolStatus{
+			{
+				GatewayRef: igwapiv1alpha2.ParentGatewayReference{
+					Group: ptr.To(igwapiv1alpha2.Group("gateway.networking.k8s.io")),
+					Kind:  ptr.To(igwapiv1alpha2.Kind("Gateway")),
+					Name:  igwapiv1alpha2.ObjectName("gateway"),
+				},
+				Conditions: []metav1.Condition{
+					{
+						Type:               string(igwapiv1alpha2.InferencePoolConditionAccepted),
+						Status:             metav1.ConditionTrue,
+						Reason:             string(igwapiv1alpha2.InferencePoolReasonAccepted),
+						LastTransitionTime: metav1.Now(),
+					},
+				},
+			},
+		}
+	}
+}
+
+func WithInferencePoolV1Alpha2NotReadyStatus(reason, message string) InferencePoolV1Alpha2Option {
+	return func(pool *igwapiv1alpha2.InferencePool) {
+		pool.Status.Parents = []igwapiv1alpha2.PoolStatus{
+			{
+				GatewayRef: igwapiv1alpha2.ParentGatewayReference{
+					Group: ptr.To(igwapiv1alpha2.Group("gateway.networking.k8s.io")),
+					Kind:  ptr.To(igwapiv1alpha2.Kind("Gateway")),
+					Name:  igwapiv1alpha2.ObjectName("gateway"),
+				},
+				Conditions: []metav1.Condition{
+					{
+						Type:               string(igwapiv1alpha2.InferencePoolConditionAccepted),
+						Status:             metav1.ConditionFalse,
+						Reason:             reason,
+						Message:            message,
 						LastTransitionTime: metav1.Now(),
 					},
 				},

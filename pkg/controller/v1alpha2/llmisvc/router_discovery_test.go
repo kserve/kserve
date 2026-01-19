@@ -21,11 +21,13 @@ import (
 
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
@@ -778,4 +780,144 @@ func TestFilterURLs(t *testing.T) {
 			g.Expect(isInternal).To(Equal(!isExternal), "URL %s should be either internal or external, not both", urlStr)
 		}
 	})
+}
+
+func TestIsInferencePoolV1Alpha2Ready(t *testing.T) {
+	tests := []struct {
+		name     string
+		pool     *igwapiv1alpha2.InferencePool
+		expected bool
+	}{
+		{
+			name:     "nil pool",
+			pool:     nil,
+			expected: false,
+		},
+		{
+			name: "pool with no parents but valid spec",
+			pool: InferencePoolV1Alpha2("test-pool",
+				InNamespace[*igwapiv1alpha2.InferencePool]("test-ns"),
+				WithV1Alpha2Selector("app", "model-server"),
+				WithV1Alpha2TargetPort(8000),
+			),
+			expected: true,
+		},
+		{
+			name: "pool with no parents and empty selector",
+			pool: &igwapiv1alpha2.InferencePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pool",
+					Namespace: "test-ns",
+				},
+				Spec: igwapiv1alpha2.InferencePoolSpec{
+					Selector:         map[igwapiv1alpha2.LabelKey]igwapiv1alpha2.LabelValue{},
+					TargetPortNumber: 8000,
+				},
+				Status: igwapiv1alpha2.InferencePoolStatus{
+					Parents: []igwapiv1alpha2.PoolStatus{},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "pool with no parents and zero target port",
+			pool: &igwapiv1alpha2.InferencePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pool",
+					Namespace: "test-ns",
+				},
+				Spec: igwapiv1alpha2.InferencePoolSpec{
+					Selector:         map[igwapiv1alpha2.LabelKey]igwapiv1alpha2.LabelValue{"app": "test"},
+					TargetPortNumber: 0,
+				},
+				Status: igwapiv1alpha2.InferencePoolStatus{
+					Parents: []igwapiv1alpha2.PoolStatus{},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "pool with ready status",
+			pool: InferencePoolV1Alpha2("test-pool",
+				InNamespace[*igwapiv1alpha2.InferencePool]("test-ns"),
+				WithV1Alpha2Selector("app", "model-server"),
+				WithInferencePoolV1Alpha2ReadyStatus(),
+			),
+			expected: true,
+		},
+		{
+			name: "pool with not ready status",
+			pool: InferencePoolV1Alpha2("test-pool",
+				InNamespace[*igwapiv1alpha2.InferencePool]("test-ns"),
+				WithV1Alpha2Selector("app", "model-server"),
+				WithInferencePoolV1Alpha2NotReadyStatus("NotSupportedByGateway", "Gateway does not support InferencePool"),
+			),
+			expected: false,
+		},
+		{
+			name: "pool with missing accepted condition",
+			pool: &igwapiv1alpha2.InferencePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pool",
+					Namespace: "test-ns",
+				},
+				Spec: igwapiv1alpha2.InferencePoolSpec{
+					Selector:         map[igwapiv1alpha2.LabelKey]igwapiv1alpha2.LabelValue{"app": "test"},
+					TargetPortNumber: 8000,
+				},
+				Status: igwapiv1alpha2.InferencePoolStatus{
+					Parents: []igwapiv1alpha2.PoolStatus{
+						{
+							GatewayRef: igwapiv1alpha2.ParentGatewayReference{
+								Name: "gateway",
+							},
+							Conditions: []metav1.Condition{}, // No conditions
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "pool with stale condition (lower observed generation)",
+			pool: &igwapiv1alpha2.InferencePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-pool",
+					Namespace:  "test-ns",
+					Generation: 5,
+				},
+				Spec: igwapiv1alpha2.InferencePoolSpec{
+					Selector:         map[igwapiv1alpha2.LabelKey]igwapiv1alpha2.LabelValue{"app": "test"},
+					TargetPortNumber: 8000,
+				},
+				Status: igwapiv1alpha2.InferencePoolStatus{
+					Parents: []igwapiv1alpha2.PoolStatus{
+						{
+							GatewayRef: igwapiv1alpha2.ParentGatewayReference{
+								Name: "gateway",
+							},
+							Conditions: []metav1.Condition{
+								{
+									Type:               string(igwapiv1alpha2.InferencePoolConditionAccepted),
+									Status:             metav1.ConditionTrue,
+									Reason:             string(igwapiv1alpha2.InferencePoolReasonAccepted),
+									ObservedGeneration: 3, // Stale - lower than resource generation
+									LastTransitionTime: metav1.Now(),
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			result := llmisvc.IsInferencePoolV1Alpha2Ready(tt.pool)
+			g.Expect(result).To(Equal(tt.expected))
+		})
+	}
 }
