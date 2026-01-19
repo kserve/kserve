@@ -1412,3 +1412,51 @@ class TestModelServerWithPredictorConfig:
 
         # Context should handle None predictor config gracefully
         # The DataPlane should still be functional even without predictor config
+
+
+class TestUvicornEventLoopFeature:
+    """Tests for configurable event loop wiring in ModelServer."""
+
+    @pytest.mark.parametrize("event_loop", ["auto", "asyncio", "uvloop"])
+    def test_event_loop_passed_to_rest_server_single_worker(self, event_loop):
+        with mock.patch(
+            "kserve.model_server.RESTServer"
+        ) as mock_rest_server, mock.patch(
+            "kserve.model_server.GRPCServer"
+        ), mock.patch(
+            "kserve.model_server.ModelServer.setup_event_loop"
+        ), mock.patch(
+            "kserve.model_server.ModelServer.register_signal_handler"
+        ), mock.patch(
+            "kserve.model_server.ModelServer._serve"
+        ):
+            from kserve.model_server import ModelServer
+
+            server = ModelServer(workers=1, event_loop=event_loop)
+            server.start([])
+
+            mock_rest_server.assert_called_once()
+            _, kwargs = mock_rest_server.call_args
+            assert kwargs["event_loop"] == event_loop
+
+    @pytest.mark.parametrize("event_loop", ["auto", "asyncio", "uvloop"])
+    def test_event_loop_passed_to_rest_server_multiprocess(self, event_loop):
+        with mock.patch(
+            "kserve.model_server.RESTServerMultiProcess"
+        ) as mock_mp_server, mock.patch(
+            "kserve.model_server.GRPCServer"
+        ), mock.patch(
+            "kserve.model_server.ModelServer.setup_event_loop"
+        ), mock.patch(
+            "kserve.model_server.ModelServer.register_signal_handler"
+        ), mock.patch(
+            "kserve.model_server.ModelServer._serve"
+        ):
+            from kserve.model_server import ModelServer
+
+            server = ModelServer(workers=2, event_loop=event_loop)
+            server.start([])
+
+            mock_mp_server.assert_called_once()
+            _, kwargs = mock_mp_server.call_args
+            assert kwargs["event_loop"] == event_loop

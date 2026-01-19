@@ -15,7 +15,7 @@
 import logging
 from socket import socket
 import sys
-from typing import List, Optional
+from typing import List, Optional, Literal, cast, get_args
 
 import fastapi
 import uvicorn
@@ -62,6 +62,7 @@ class PrintTimings(TimingClient):
     def timing(self, metric_name, timing, tags):
         trace_logger.info(f"{metric_name}: {timing} {tags}")
 
+UvicornLoop = Literal["auto", "asyncio", "uvloop"]
 
 class RESTServer:
     def __init__(
@@ -73,10 +74,18 @@ class RESTServer:
         access_log_format: Optional[str] = None,
         workers: int = 1,
         grace_period: int = 30,
+        event_loop: str = 'auto'
     ):
         self.dataplane = data_plane
         self.model_repository_extension = model_repository_extension
         self.access_log_format = access_log_format
+        if event_loop not in get_args(UvicornLoop):
+            logger.error(
+                f"Invalid event loop specified: '{event_loop}'. "
+                f"Supported values are {get_args(UvicornLoop)}, "
+                f"Falling back to 'auto'."
+            )
+            event_loop = 'auto'
         self.config = uvicorn.Config(
             app,
             host="0.0.0.0",
@@ -86,7 +95,7 @@ class RESTServer:
             # configured by kserve.
             log_config=None,
             timeout_graceful_shutdown=grace_period,
-            loop="asyncio",
+            loop=cast(UvicornLoop, event_loop)
         )
         self._server = uvicorn.Server(self.config)
 
