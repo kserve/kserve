@@ -113,7 +113,7 @@ def get_llmisvc_value(config: dict[str, Any], components: list[dict[str, Any]]) 
     return llmisvc
 
 
-def select_kserve_directories(repo_root: Path, llmisvc: str) -> tuple[Path, Path]:
+def select_kserve_directories(repo_root: Path, llmisvc: str) -> tuple[list[Path], list[Path]]:
     """Select KServe CRD and config directories based on LLMISVC.
 
     Args:
@@ -121,16 +121,20 @@ def select_kserve_directories(repo_root: Path, llmisvc: str) -> tuple[Path, Path
         llmisvc: LLMISVC value ("true" or "false")
 
     Returns:
-        Tuple of (crd_dir, config_dir)
+        Tuple of (crd_dirs, config_dirs)
     """
     if llmisvc == "true":
-        crd_dir = repo_root / "config/crd/full/llmisvc"
-        config_dir = repo_root / "config/overlays/llmisvc"
+        crd_dirs = [repo_root / "config/crd/full/llmisvc"]
+        config_dirs = [repo_root / "config/overlays/standalone/llmisvc"]
     else:
-        crd_dir = repo_root / "config/crd"
-        config_dir = repo_root / "config/default"
+        crd_dirs = [
+            repo_root / "config/crd/full",
+            repo_root / "config/crd/full/llmisvc",
+            repo_root / "config/crd/full/localmodel",
+        ]
+        config_dirs = [repo_root / "config/overlays/all"]
 
-    return crd_dir, config_dir
+    return crd_dirs, config_dirs
 
 
 def build_kserve_manifests(repo_root: Path,
@@ -147,14 +151,26 @@ def build_kserve_manifests(repo_root: Path,
         Tuple of (crd_manifest, core_manifest)
     """
     llmisvc = get_llmisvc_value(config, components)
-    crd_dir, config_dir = select_kserve_directories(repo_root, llmisvc)
+    crd_dirs, config_dirs = select_kserve_directories(repo_root, llmisvc)
 
-    # Build CRD manifest
-    crd_manifest = run_kustomize_build(crd_dir)
+    # Build CRD manifests from all CRD directories
+    crd_manifests = []
+    for crd_dir in crd_dirs:
+        manifest = run_kustomize_build(crd_dir)
+        crd_manifests.append(manifest)
 
-    # Build core manifest (without CRDs)
-    full_manifest = run_kustomize_build(config_dir)
-    core_manifest = filter_out_crds(full_manifest)
+    # Combine all CRD manifests
+    crd_manifest = YAML_SEPARATOR.join(crd_manifests)
+
+    # Build core manifests from all config directories
+    core_manifests = []
+    for config_dir in config_dirs:
+        full_manifest = run_kustomize_build(config_dir)
+        core_manifest_part = filter_out_crds(full_manifest)
+        core_manifests.append(core_manifest_part)
+
+    # Combine all core manifests
+    core_manifest = YAML_SEPARATOR.join(core_manifests)
 
     return crd_manifest, core_manifest
 

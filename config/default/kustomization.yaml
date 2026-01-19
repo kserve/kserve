@@ -5,23 +5,19 @@ kind: Kustomization
 namespace: kserve
 
 # Labels to add to all resources and selectors.
-#commonLabels:
-#  app.kubernetes.io/name: kserve
+labels:
+- pairs:
+    app.kubernetes.io/name: kserve
+    app.kubernetes.io/component: kserve
 resources:
+- ../certmanager/kserve
 - ../crd
-- ../configmap
 - ../rbac
 - ../manager
 - ../webhook
-- ../certmanager
-- ../localmodels
-- ../localmodelnodes
-- ../llmisvc
 
 generatorOptions:
   disableNameSuffixHash: true
-
-
 
 replacements:
 # Replace with the name of the webhook service.
@@ -194,5 +190,3 @@ patches:
 - path: servingruntime_validationwebhook_cainjection_patch.yaml
 - path: manager_resources_patch.yaml
 - path: cainjection_conversion_webhook.yaml
-- path: localmodel_manager_image_patch.yaml
-- path: localmodelnode_agent_image_patch.yaml
