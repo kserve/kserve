@@ -558,7 +558,8 @@ func (r *LLMISVCReconciler) evaluateManagedInferencePools(ctx context.Context, l
 
 	// Neither pool is ready - report status
 	// Prioritize reporting v1 pool status if v1 CRD is available
-	if r.InferencePoolV1Available && v1Pool != nil {
+	switch {
+	case r.InferencePoolV1Available && v1Pool != nil:
 		topLevelCondition, _ := nonReadyInferencePoolTopLevelCondition(v1Pool)
 		if topLevelCondition != nil {
 			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf(
@@ -569,7 +570,7 @@ func (r *LLMISVCReconciler) evaluateManagedInferencePools(ctx context.Context, l
 		} else {
 			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf("The inference pool %s/%s is not ready", v1Pool.Namespace, v1Pool.Name))
 		}
-	} else if r.InferencePoolV1Alpha2Available && v1alpha2Pool != nil {
+	case r.InferencePoolV1Alpha2Available && v1alpha2Pool != nil:
 		topLevelCondition, _ := nonReadyInferencePoolV1Alpha2TopLevelCondition(v1alpha2Pool)
 		if topLevelCondition != nil {
 			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf(
@@ -580,7 +581,7 @@ func (r *LLMISVCReconciler) evaluateManagedInferencePools(ctx context.Context, l
 		} else {
 			llmSvc.MarkInferencePoolNotReady("InferencePoolNotReady", fmt.Sprintf("The inference pool %s/%s is not ready", v1alpha2Pool.Namespace, v1alpha2Pool.Name))
 		}
-	} else {
+	default:
 		// No pools found
 		llmSvc.MarkInferencePoolNotReady("InferencePoolFetchError", "No InferencePool CRDs available or pools not found")
 	}
