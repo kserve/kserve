@@ -471,6 +471,25 @@ const (
 	ModelMeshDeployment DeploymentModeType = "ModelMesh"
 )
 
+// ParseDeploymentMode parses deployment mode string from annotations and normalizes legacy modes
+func ParseDeploymentMode(mode string) DeploymentModeType {
+	if mode == "" {
+		return DefaultDeployment
+	}
+
+	deploymentMode := DeploymentModeType(mode)
+
+	// Normalize legacy modes
+	switch deploymentMode {
+	case LegacyRawDeployment:
+		return Standard
+	case LegacyServerless:
+		return Knative
+	default:
+		return deploymentMode
+	}
+}
+
 const (
 	DefaultNSKnativeServing = "knative-serving"
 )
