@@ -1,0 +1,40 @@
+[project]
+authors = [
+    {name = "Jooho Lee", email = "ljhiyh@gmail.com"},
+]
+license = {text = "Apache-2.0"}
+requires-python = "<3.13,>=3.10"
+dependencies = [
+    "kserve>=0.16.0",
+    "kserve-storage>=0.16.0",
+    # Framework-specific model servers
+    "sklearnserver>=0.16.0",
+    "xgbserver>=0.16.0",
+    "lgbserver>=0.16.0",
+]
+name = "predictiveserver"
+version = "0.16.0"
+description = "Unified Predictive Model Server supporting scikit-learn, LightGBM, and XGBoost for KServe."
+readme = "README.md"
+
+[dependency-groups]
+test = [
+    "pytest<8.0.0,>=7.4.4",
+    "pytest-cov<6.0.0,>=5.0.0",
+    "pytest-asyncio<1.0.0,>=0.23.4",
+    "mypy<1.0,>=0.991",
+]
+dev = [
+    "black[colorama]~=24.3.0",
+]
+
+[tool.uv.sources]
+kserve = { path = "../kserve", editable = false }
+kserve-storage = { path = "../storage", editable = false }
+sklearnserver = { path = "../sklearnserver", editable = false }
+xgbserver = { path = "../xgbserver", editable = false }
+lgbserver = { path = "../lgbserver", editable = false }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
