@@ -198,6 +198,11 @@ func LLMInferenceServiceSample() *v1alpha2.LLMInferenceService {
 										Name:          "grpc-health",
 										Protocol:      corev1.ProtocolTCP,
 									},
+									{
+										ContainerPort: 5557,
+										Name:          "zmq",
+										Protocol:      corev1.ProtocolTCP,
+									},
 								},
 								Resources: corev1.ResourceRequirements{
 									Requests: corev1.ResourceList{

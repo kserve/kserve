@@ -35,6 +35,9 @@ spec:
               - containerPort: 9090
                 name: metrics
                 protocol: TCP
+              - containerPort: 5557
+                name: zmq
+                protocol: TCP
             image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.4.0
             imagePullPolicy: IfNotPresent
             livenessProbe:

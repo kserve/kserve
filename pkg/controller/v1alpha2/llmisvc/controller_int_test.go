@@ -293,6 +293,26 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					return envTest.Client.Get(ctx, client.ObjectKey{Name: svcName + "-inference-pool", Namespace: llmSvc.GetNamespace()}, &ip)
 				}).WithContext(ctx).Should(Succeed())
 
+				// Verify the scheduler service (EPP service) has the expected ports including zmq
+				Eventually(func(g Gomega, ctx context.Context) error {
+					eppSvc := &corev1.Service{}
+					g.Expect(envTest.Client.Get(ctx, client.ObjectKey{Name: svcName + "-epp-service", Namespace: llmSvc.GetNamespace()}, eppSvc)).To(Succeed())
+
+					// Verify all expected ports are present (grpc, grpc-health, metrics, zmq)
+					portNames := make(map[string]int32)
+					for _, port := range eppSvc.Spec.Ports {
+						portNames[port.Name] = port.Port
+					}
+
+					g.Expect(portNames).To(HaveKeyWithValue("grpc", int32(9002)))
+					g.Expect(portNames).To(HaveKeyWithValue("grpc-health", int32(9003)))
+					g.Expect(portNames).To(HaveKeyWithValue("metrics", int32(9090)))
+					g.Expect(portNames).To(HaveKeyWithValue("zmq", int32(5557)))
+					g.Expect(eppSvc.Spec.Ports).To(HaveLen(4))
+
+					return nil
+				}).WithContext(ctx).Should(Succeed())
+
 				Eventually(LLMInferenceServiceIsReady(llmSvc, func(g Gomega, current *v1alpha2.LLMInferenceService) {
 					g.Expect(current.Status).To(HaveCondition(string(v1alpha2.HTTPRoutesReady), "True"))
 					g.Expect(current.Status).To(HaveCondition(string(v1alpha2.InferencePoolReady), "True"))
