@@ -200,6 +200,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Register conversion webhooks for Hub types (v1alpha2)
+	// This enables automatic API version conversion between v1alpha1 and v1alpha2
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha2.LLMInferenceService{}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create conversion webhook", "webhook", "llminferenceservice")
+		os.Exit(1)
+	}
+
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha2.LLMInferenceServiceConfig{}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create conversion webhook", "webhook", "llminferenceserviceconfig")
+		os.Exit(1)
+	}
+
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
