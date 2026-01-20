@@ -4,7 +4,9 @@ on:
   pull_request:
     paths:
       - "pkg/apis/serving/v1alpha1/llm*"
+      - "pkg/apis/serving/v1alpha2/llm*"
       - "pkg/controller/v1alpha1/llmisvc/**"
+      - "pkg/controller/v1alpha2/llmisvc/**"
       - "config/llmisvc/**"
       - "config/rbac/llmisvc/**"
       - "cmd/llmisvc/**"
@@ -17,7 +19,7 @@ concurrency:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  DOCKER_REPO: "kserve"
+  KO_DOCKER_REPO: "kserve"
   LLMISVC_CONTROLLER_IMG: "llmisvc-controller"
 
 jobs:
@@ -256,7 +258,7 @@ jobs:
       - name: Build LLMISvc controller image
         run: |
           echo "🏗️ Building LLMISvc controller image..."
-          LLMISVC_CONTROLLER_IMG_TAG=${DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${GITHUB_SHA}
+          LLMISVC_CONTROLLER_IMG_TAG=${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${GITHUB_SHA}
 
           # Build the image and save it as a tar file
           docker buildx build -f llmisvc-controller.Dockerfile . \

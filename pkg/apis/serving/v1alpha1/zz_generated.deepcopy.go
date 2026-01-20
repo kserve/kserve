@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	"sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	apisv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -706,7 +706,7 @@ func (in *LLMModelSpec) DeepCopyInto(out *LLMModelSpec) {
 	}
 	if in.Criticality != nil {
 		in, out := &in.Criticality, &out.Criticality
-		*out = new(v1alpha2.Criticality)
+		*out = new(Criticality)
 		**out = **in
 	}
 	if in.LoRA != nil {
