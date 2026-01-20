@@ -21,17 +21,17 @@ import (
 )
 
 const (
-	MLFlowTrackingUri      = "MLFLOW_TRACKING_URI"      // #nosec G101
-	MLFlowTrackingUsername = "MLFLOW_TRACKING_USERNAME" // #nosec G101
-	MLFlowTrackingPassword = "MLFLOW_TRACKING_PASSWORD" // #nosec G101
-	MLFlowTrackingToken    = "MLFLOW_TRACKING_TOKEN"    // #nosec G101
+	MLFlowTrackingUriEnv      = "MLFLOW_TRACKING_URI"      // #nosec G101
+	MLFlowTrackingUsernameEnv = "MLFLOW_TRACKING_USERNAME" // #nosec G101
+	MLFlowTrackingPasswordEnv = "MLFLOW_TRACKING_PASSWORD" // #nosec G101
+	MLFlowTrackingTokenEnv    = "MLFLOW_TRACKING_TOKEN"    // #nosec G101
 )
 
 var MLFlowEnvVars = []string{
-	MLFlowTrackingUri,
-	MLFlowTrackingUsername,
-	MLFlowTrackingPassword,
-	MLFlowTrackingToken,
+	MLFlowTrackingUriEnv,
+	MLFlowTrackingUsernameEnv,
+	MLFlowTrackingPasswordEnv,
+	MLFlowTrackingTokenEnv,
 }
 
 func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {

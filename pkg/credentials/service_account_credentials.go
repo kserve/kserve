@@ -333,7 +333,7 @@ func (c *CredentialBuilder) mountSecretCredential(ctx context.Context, secretNam
 		log.Info("Setting secret envs for huggingface", "HfSecret", secret.Name)
 		envs := hf.BuildSecretEnvs(secret)
 		container.Env = append(container.Env, envs...)
-	} else if _, ok := secret.Data[mlflow.MLFlowTrackingUri]; ok {
+	} else if _, ok := secret.Data[mlflow.MLFlowTrackingUriEnv]; ok {
 		log.Info("Setting secret envs for mlflow", "MLFlowSecret", secret.Name)
 		envs := mlflow.BuildSecretEnvs(secret)
 		container.Env = append(container.Env, envs...)
