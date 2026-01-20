@@ -55,12 +55,7 @@ _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
 _HF_PREFIX = "hf://"
-_GIT_RE = [
-    # deliberately narrowly defined patterns to ensure git URLs don't overlap with other protocol patterns.
-    r"https://.+\.git",
-    r"ssh://.+\.git",
-    r"[^:/@]+@[^:/@]+:.+\.git",  # e.g. `git@github.com:kserve/kserve.git`. Strictly speaking not an URL, but overly common, warranting support
-]
+_GIT_RE = r"https://.+\.git"
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
@@ -72,8 +67,6 @@ _worker_s3_resource = None
 # Azure async download configuration
 _AZURE_MAX_FILE_CONCURRENCY = int(os.getenv("AZURE_MAX_FILE_CONCURRENCY", "4"))
 _AZURE_MAX_CHUNK_CONCURRENCY = int(os.getenv("AZURE_MAX_CHUNK_CONCURRENCY", "4"))
-# git ssh private key path
-_GIT_SSH_KEY_PATH = os.getenv("GIT_SSH_KEY_PATH")
 
 
 class Storage(object):
@@ -123,7 +116,7 @@ class Storage(object):
                 model_dir = Storage._download_azure_file_share(uri, out_dir)
             elif uri.startswith(_HF_PREFIX):
                 model_dir = Storage._download_hf(uri, out_dir)
-            elif any(re.search(pattern, uri) for pattern in _GIT_RE):
+            elif re.search(_GIT_RE, uri):
                 model_dir = Storage._download_git_repo(uri, out_dir)
             # "catch-all" pattern, should always be last
             elif re.search(_URI_RE, uri):
@@ -816,33 +809,52 @@ class Storage(object):
 
     @staticmethod
     def _download_git_repo(uri: str, out_dir: str) -> str:
-        """Download a Git repository using git clone with SSH authentication support."""
-        import subprocess
+        """
+        Supports authentication via:
+        - Username in URL: https://username@host/repo.git
+        - Username from GIT_USERNAME environment variable
+        - Password from GIT_PASSWORD environment variable (from Kubernetes secret)
+        """
+        from dulwich import porcelain
+        from dulwich.errors import GitProtocolError
+        from urllib.parse import urlparse, urlunparse
 
         logger.info("Downloading Git repository %s into %s", uri, out_dir)
 
-        # Setup SSH configuration for GitHub authentication
-        git_ssh_env = dict(os.environ)
-        git_ssh_env["GIT_SSH_COMMAND"] = (
-            "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-        )
-        if _GIT_SSH_KEY_PATH:
-            if os.path.exists(_GIT_SSH_KEY_PATH):
-                git_ssh_env["GIT_SSH_COMMAND"] += f" -i {_GIT_SSH_KEY_PATH}"
-            else:
-                logger.error(
-                    f"GIT_SSH_KEY_PATH {_GIT_SSH_KEY_PATH} does not exist; ignoring"
-                )
+        parsed = urlparse(uri)
+        username = None
+        clean_uri = uri
+
+        # Extract username from URL if present (format: https://username@host/repo.git)
+        # Note: If password is in URL (https://user:pass@host/repo.git), it will be ignored
+        # as passwords should come from Kubernetes secrets via GIT_PASSWORD env var
+        if parsed.username:
+            username = parsed.username
+
+            # Reconstruct URI without username/password
+            netloc = parsed.hostname
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            clean_parsed = parsed._replace(netloc=netloc)
+            clean_uri = urlunparse(clean_parsed)
+
+        if not username:
+            username = os.getenv("GIT_USERNAME")
+
+        password = os.getenv("GIT_PASSWORD")
 
         try:
-            # Clone the repository
-            cmd = ["git", "clone", "--depth", "1", uri, out_dir]
-            subprocess.run(cmd, check=True, env=git_ssh_env)
+            clone_kwargs = {"depth": 1}
+            if username:
+                clone_kwargs["username"] = username
+            if password:
+                clone_kwargs["password"] = password
+
+            porcelain.clone(clean_uri, out_dir, **clone_kwargs)
             logger.info("git clone successful")
 
-        except subprocess.CalledProcessError as e:
-            error_msg = e.stderr or str(e)
-            raise RuntimeError(f"git clone {uri} failed: {error_msg}")
+        except GitProtocolError as e:
+            raise RuntimeError(f"git clone {uri} failed: {str(e)}")
         except Exception as e:
             raise RuntimeError(f"git clone {uri} failed: {str(e)}")
 

@@ -18,7 +18,6 @@ import tempfile
 import binascii
 import unittest.mock as mock
 import mimetypes
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -236,7 +235,7 @@ def test_http_uri_paths(uri, response, expected_error):
 
 
 def test_storage_blob_exception():
-    blob_path = "https://accountname.blob.core.windows.net/container/some/blob/"
+    blob_path = "https://localhost:1/container/some/blob/"
     with pytest.raises(Exception):
         Storage.download(blob_path)
 
@@ -293,118 +292,139 @@ def test_download_azure_file_share_called_with_matching_uri(
     mock_download_azure_file_share.assert_has_calls(expected_calls)
 
 
-# Git repository download tests
 git_repo_test_params = [
-    # (uri, use_ssh_key, expected_ssh_command_suffix)
-    ("https://github.com/user/repo.git", False, ""),
-    ("ssh://git@github.com/user/repo.git", False, ""),
-    ("git@github.com:kserve/kserve.git", False, ""),
-    ("git@bitbucket.org:user/repo.git", True, " -i {ssh_key_path}"),
-]
-
-
-@pytest.mark.parametrize("uri,use_ssh_key,expected_ssh_suffix", git_repo_test_params)
-@mock.patch("subprocess.run")
-def test_git_repo_download_success(
-    mock_subprocess_run, uri, use_ssh_key, expected_ssh_suffix
-):
-    """Test successful git repository downloads with various URI formats and SSH configurations."""
-    out_dir = "/tmp/test_model"
-
-    ssh_key_file = tempfile.NamedTemporaryFile()
-    ssh_key_file_name = None
-
-    if use_ssh_key:
-        ssh_key_file_name = ssh_key_file.name
-        expected_ssh_suffix = expected_ssh_suffix.format(ssh_key_path=ssh_key_file.name)
-
-    with mock.patch(STORAGE_MODULE + "._GIT_SSH_KEY_PATH", ssh_key_file_name):
-        result = Storage.download(uri, out_dir=out_dir)
-
-    assert result == out_dir
-
-    # Verify subprocess.run was called with correct arguments
-    expected_cmd = ["git", "clone", "--depth", "1", uri, out_dir]
-    mock_subprocess_run.assert_called_once()
-
-    call_args = mock_subprocess_run.call_args
-    assert call_args[0][0] == expected_cmd
-    assert call_args[1]["check"] is True
-
-    # Verify environment contains correct GIT_SSH_COMMAND
-    env = call_args[1]["env"]
-    expected_ssh_command = (
-        "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-        + expected_ssh_suffix
-    )
-    assert env["GIT_SSH_COMMAND"] == expected_ssh_command
-
-
-git_error_test_params = [
-    # (error_type, error_args, expected_message_part)
+    # (uri, username_in_url, username_env, password_env, expected_clean_uri)
     (
-        subprocess.CalledProcessError,
-        {
-            "returncode": 128,
-            "cmd": ["git", "clone"],
-            "stderr": "fatal: repository not found",
-        },
-        "fatal: repository not found",
+        "https://github.com/user/repo.git",
+        None,
+        None,
+        None,
+        "https://github.com/user/repo.git",
     ),
     (
-        subprocess.CalledProcessError,
-        {"returncode": 1, "cmd": ["git", "clone"], "stderr": None},
-        "Command '['git', 'clone']' returned non-zero exit status 1",
+        "https://username@github.com/user/repo.git",
+        "username",
+        None,
+        None,
+        "https://github.com/user/repo.git",
     ),
-    (OSError, ("Permission denied",), "Permission denied"),
+    (
+        "https://github.com/user/repo.git",
+        None,
+        "env_username",
+        "env_password",
+        "https://github.com/user/repo.git",
+    ),
+    (
+        "https://username@github.com/user/repo.git",
+        "username",
+        None,
+        "env_password",
+        "https://github.com/user/repo.git",
+    ),
 ]
 
 
 @pytest.mark.parametrize(
-    "error_type,error_args,expected_message_part", git_error_test_params
+    "uri,username_in_url,username_env,password_env,expected_clean_uri",
+    git_repo_test_params,
 )
-@mock.patch("subprocess.run")
-def test_git_repo_download_errors(
-    mock_subprocess_run, error_type, error_args, expected_message_part
+@mock.patch("dulwich.porcelain.clone")
+def test_git_repo_download_success(
+    mock_clone, uri, username_in_url, username_env, password_env, expected_clean_uri
 ):
-    """Test git clone error handling scenarios via main download() entry point."""
+    """Test successful git repository downloads with HTTPS authentication."""
+    out_dir = "/tmp/test_model"
+
+    env_vars = {}
+    if username_env:
+        env_vars["GIT_USERNAME"] = username_env
+    if password_env:
+        env_vars["GIT_PASSWORD"] = password_env
+
+    with mock.patch.dict(os.environ, env_vars):
+        result = Storage.download(uri, out_dir=out_dir)
+
+    assert result == out_dir
+
+    # Verify dulwich.porcelain.clone was called with correct arguments
+    mock_clone.assert_called_once()
+    call_args = mock_clone.call_args
+
+    # Check URI (should be clean URI without username)
+    assert call_args[0][0] == expected_clean_uri
+    assert call_args[0][1] == out_dir
+
+    # Check keyword arguments
+    kwargs = call_args[1]
+    assert kwargs["depth"] == 1
+
+    # Check username (from URL or env var)
+    expected_username = username_in_url or username_env
+    if expected_username:
+        assert kwargs["username"] == expected_username
+    else:
+        assert "username" not in kwargs
+
+    # Check password (from env var)
+    if password_env:
+        assert kwargs["password"] == password_env
+    else:
+        assert "password" not in kwargs
+
+
+@mock.patch("dulwich.porcelain.clone")
+def test_git_repo_download_git_protocol_error(mock_clone):
+    from dulwich.errors import GitProtocolError
+
     uri = "https://github.com/user/nonexistent.git"
     out_dir = "/tmp/test_model"
 
-    # Setup subprocess to raise the specified error
-    if isinstance(error_args, dict):
-        mock_subprocess_run.side_effect = error_type(**error_args)
-    else:
-        mock_subprocess_run.side_effect = error_type(*error_args)
+    mock_clone.side_effect = GitProtocolError("Authentication failed")
+
+    with pytest.raises(RuntimeError) as exc_info:
+        Storage.download(uri, out_dir=out_dir)
+
+    assert f"git clone {uri} failed:" in str(exc_info.value)
+    assert "Authentication failed" in str(exc_info.value)
+
+
+git_error_test_params = [
+    Exception("Repository not found"),
+    Exception("Authentication failed"),
+    Exception("Network error"),
+]
+
+
+@pytest.mark.parametrize("exception", git_error_test_params)
+@mock.patch("dulwich.porcelain.clone")
+def test_git_repo_download_errors(mock_clone, exception):
+    uri = "https://github.com/user/nonexistent.git"
+    out_dir = "/tmp/test_model"
+
+    # Setup dulwich to raise the specified error
+    mock_clone.side_effect = exception
 
     with pytest.raises(RuntimeError) as exc_info:
         Storage.download(uri, out_dir=out_dir)
 
     # Verify error message contains expected content
     assert f"git clone {uri} failed:" in str(exc_info.value)
-    assert expected_message_part in str(exc_info.value)
+    assert str(exception) in str(exc_info.value)
 
 
-@mock.patch("subprocess.run")
-@mock.patch(STORAGE_MODULE + ".logger.error")
-def test_git_repo_download_nonexistent_ssh_key(mock_logger_error, mock_subprocess_run):
-    """Test git clone when SSH key path is specified but doesn't exist."""
-    uri = "git@github.com:user/repo.git"
+@mock.patch("dulwich.porcelain.clone")
+def test_git_repo_download_public_repo_no_auth(mock_clone):
+    uri = "https://github.com/user/public-repo.git"
     out_dir = "/tmp/test_model"
-    nonexistent_path = "/nonexistent/ssh_key"
 
-    # Patch the global variable directly
-    with mock.patch(STORAGE_MODULE + "._GIT_SSH_KEY_PATH", nonexistent_path):
-        result = Storage.download(uri, out_dir=out_dir)
+    result = Storage.download(uri, out_dir=out_dir)
 
-    # Verify it still succeeds but logs error about missing key
     assert result == out_dir
-    mock_logger_error.assert_called_with(
-        f"GIT_SSH_KEY_PATH {nonexistent_path} does not exist; ignoring"
-    )
-
-    # Verify SSH command doesn't include the nonexistent key
-    call_args = mock_subprocess_run.call_args
-    env = call_args[1]["env"]
-    expected_ssh_cmd = "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-    assert env["GIT_SSH_COMMAND"] == expected_ssh_cmd
+    mock_clone.assert_called_once()
+    call_args = mock_clone.call_args
+    kwargs = call_args[1]
+    assert kwargs["depth"] == 1
+    # No username or password should be passed for public repos
+    assert "username" not in kwargs
+    assert "password" not in kwargs

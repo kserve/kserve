@@ -54,10 +54,6 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends git openssh-client && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
 COPY --from=builder --chown=kserve:kserve third_party third_party
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder storage storage
