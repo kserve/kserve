@@ -200,7 +200,7 @@ def get_predict_response(
         infer_outputs = result
         if isinstance(result, pd.DataFrame):
             infer_outputs = []
-            for label, row in result.iterrows():
+            for _label, row in result.iterrows():
                 infer_outputs.append(row.to_dict())
         elif isinstance(result, np.ndarray):
             infer_outputs = result.tolist()
