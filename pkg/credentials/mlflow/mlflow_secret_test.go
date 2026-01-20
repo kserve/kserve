@@ -30,15 +30,15 @@ func TestBuildSecretEnvs_WithToken(t *testing.T) {
 			Name: "mlflow-secret",
 		},
 		Data: map[string][]byte{
-			MLFlowTrackingUri: []byte("http://mlflow.example.com"),
+			MLFlowTrackingUriEnv: []byte("http://mlflow.example.com"),
 		},
 	}
 
 	envs := BuildSecretEnvs(secret)
 
 	assert.Len(t, envs, 1)
-	assert.Equal(t, MLFlowTrackingUri, envs[0].Name)
-	assert.Equal(t, MLFlowTrackingUri, envs[0].ValueFrom.SecretKeyRef.Key)
+	assert.Equal(t, MLFlowTrackingUriEnv, envs[0].Name)
+	assert.Equal(t, MLFlowTrackingUriEnv, envs[0].ValueFrom.SecretKeyRef.Key)
 	assert.Equal(t, secret.Name, envs[0].ValueFrom.SecretKeyRef.LocalObjectReference.Name)
 }
 

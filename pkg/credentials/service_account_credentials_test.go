@@ -2378,10 +2378,10 @@ func TestMLFlowCredentialBuilder(t *testing.T) {
 			Namespace: "default",
 		},
 		Data: map[string][]byte{
-			mlflow.MLFlowTrackingUri:      []byte("https://mlflow.example.com"),
-			mlflow.MLFlowTrackingUsername: []byte("user"),
-			mlflow.MLFlowTrackingPassword: []byte("password"),
-			mlflow.MLFlowTrackingToken:    []byte("token123"),
+			mlflow.MLFlowTrackingUriEnv:      []byte("https://mlflow.example.com"),
+			mlflow.MLFlowTrackingUsernameEnv: []byte("user"),
+			mlflow.MLFlowTrackingPasswordEnv: []byte("password"),
+			mlflow.MLFlowTrackingTokenEnv:    []byte("token123"),
 		},
 	}
 
@@ -2415,46 +2415,46 @@ func TestMLFlowCredentialBuilder(t *testing.T) {
 									{
 										Env: []corev1.EnvVar{
 											{
-												Name: mlflow.MLFlowTrackingUri,
+												Name: mlflow.MLFlowTrackingUriEnv,
 												ValueFrom: &corev1.EnvVarSource{
 													SecretKeyRef: &corev1.SecretKeySelector{
 														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "mlflow-secret",
 														},
-														Key: mlflow.MLFlowTrackingUri,
+														Key: mlflow.MLFlowTrackingUriEnv,
 													},
 												},
 											},
 											{
-												Name: mlflow.MLFlowTrackingUsername,
+												Name: mlflow.MLFlowTrackingUsernameEnv,
 												ValueFrom: &corev1.EnvVarSource{
 													SecretKeyRef: &corev1.SecretKeySelector{
 														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "mlflow-secret",
 														},
-														Key: mlflow.MLFlowTrackingUsername,
+														Key: mlflow.MLFlowTrackingUsernameEnv,
 													},
 												},
 											},
 											{
-												Name: mlflow.MLFlowTrackingPassword,
+												Name: mlflow.MLFlowTrackingPasswordEnv,
 												ValueFrom: &corev1.EnvVarSource{
 													SecretKeyRef: &corev1.SecretKeySelector{
 														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "mlflow-secret",
 														},
-														Key: mlflow.MLFlowTrackingPassword,
+														Key: mlflow.MLFlowTrackingPasswordEnv,
 													},
 												},
 											},
 											{
-												Name: mlflow.MLFlowTrackingToken,
+												Name: mlflow.MLFlowTrackingTokenEnv,
 												ValueFrom: &corev1.EnvVarSource{
 													SecretKeyRef: &corev1.SecretKeySelector{
 														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "mlflow-secret",
 														},
-														Key: mlflow.MLFlowTrackingToken,
+														Key: mlflow.MLFlowTrackingTokenEnv,
 													},
 												},
 											},
