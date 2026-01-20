@@ -1061,11 +1061,6 @@ install_envoy_gateway() {
 
 uninstall_envoy_ai_gateway() {
     log_info "Uninstalling Envoy AI Gateway..."
-    VERSION_NUMBER="${ENVOY_AI_GATEWAY_VERSION#v}"
-    kubectl delete -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/examples/inference-pool/config.yaml" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
-    kubectl delete -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/rbac.yaml" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
-    kubectl delete -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/config.yaml" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
-    kubectl delete -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/redis.yaml" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
     helm uninstall aieg -n envoy-ai-gateway-system 2>/dev/null || true
     helm uninstall aieg-crd -n envoy-ai-gateway-system 2>/dev/null || true
     kubectl delete all --all -n envoy-ai-gateway-system --force --grace-period=0 2>/dev/null || true
@@ -1087,31 +1082,19 @@ install_envoy_ai_gateway() {
     fi
 
     log_info "Installing Envoy AI Gateway CRDs ${ENVOY_AI_GATEWAY_VERSION}..."
-    helm install aieg-crd oci://docker.io/envoyproxy/ai-gateway-crds-helm \
+    helm upgrade -i aieg-crd oci://docker.io/envoyproxy/ai-gateway-crds-helm \
         --version "${ENVOY_AI_GATEWAY_VERSION}" \
         --namespace envoy-ai-gateway-system \
         --create-namespace
 
     log_info "Installing Envoy AI Gateway ${ENVOY_AI_GATEWAY_VERSION}..."
-    helm install aieg oci://docker.io/envoyproxy/ai-gateway-helm \
+    helm upgrade -i aieg oci://docker.io/envoyproxy/ai-gateway-helm \
         --version "${ENVOY_AI_GATEWAY_VERSION}" \
         --namespace envoy-ai-gateway-system \
         --create-namespace
 
-    wait_for_deployment "envoy-ai-gateway-system" "ai-gateway-controller" "180s"
-    log_success "Successfully installed Envoy AI Gateway ${ENVOY_AI_GATEWAY_VERSION} via Helm"
-
-    log_info "Configuring Envoy Gateway for AI Gateway integration..."
-    VERSION_NUMBER="${ENVOY_AI_GATEWAY_VERSION#v}"
-    kubectl apply -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/redis.yaml"
-    kubectl apply -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/config.yaml"
-    kubectl apply -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/rbac.yaml"
-
-    log_info "Enabling Gateway API Inference Extension support for Envoy Gateway..."
-    kubectl apply -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/examples/inference-pool/config.yaml"
-    kubectl rollout restart -n envoy-gateway-system deployment/envoy-gateway
-    wait_for_deployment "envoy-gateway-system" "envoy-gateway" "180s"
-    log_success "Envoy AI Gateway is ready!"
+    kubectl wait --timeout=2m -n envoy-ai-gateway-system deployment/ai-gateway-controller --for=condition=Available
+    log_success "Envoy AI Gateway ${ENVOY_AI_GATEWAY_VERSION} is ready!"
 }
 
 # ----------------------------------------
