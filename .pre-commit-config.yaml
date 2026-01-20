@@ -15,4 +15,4 @@ repos:
     rev: v0.8.6
     hooks:
       - id: ruff
-        args: [--config, pyproject.toml]
+        args: [--config, ruff.toml]
