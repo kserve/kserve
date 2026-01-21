@@ -2188,7 +2188,7 @@ func TestNewIngressReconciler(t *testing.T) {
 	isvcConfig := &v1beta1.InferenceServicesConfig{}
 
 	// Call constructor
-	reconciler := NewIngressReconciler(client, clientset, scheme, ingressConfig, isvcConfig)
+	reconciler := NewIngressReconciler(client, clientset, scheme, ingressConfig, isvcConfig, false)
 
 	// Assertions
 	g.Expect(reconciler).NotTo(gomega.BeNil())
@@ -2197,4 +2197,5 @@ func TestNewIngressReconciler(t *testing.T) {
 	g.Expect(reconciler.scheme).To(gomega.Equal(scheme))
 	g.Expect(reconciler.ingressConfig).To(gomega.Equal(ingressConfig))
 	g.Expect(reconciler.isvcConfig).To(gomega.Equal(isvcConfig))
+	g.Expect(reconciler.isVirtualServiceAvailable).To(gomega.Equal(false))
 }
