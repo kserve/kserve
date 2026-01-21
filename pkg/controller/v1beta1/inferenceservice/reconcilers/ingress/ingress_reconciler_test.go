@@ -2197,5 +2197,5 @@ func TestNewIngressReconciler(t *testing.T) {
 	g.Expect(reconciler.scheme).To(gomega.Equal(scheme))
 	g.Expect(reconciler.ingressConfig).To(gomega.Equal(ingressConfig))
 	g.Expect(reconciler.isvcConfig).To(gomega.Equal(isvcConfig))
-	g.Expect(reconciler.isVirtualServiceAvailable).To(gomega.Equal(false))
+	g.Expect(reconciler.isVirtualServiceAvailable).To(gomega.BeFalse())
 }
