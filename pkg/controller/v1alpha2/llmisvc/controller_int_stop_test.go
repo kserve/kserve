@@ -304,7 +304,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			// then - verify scheduler deployment is deleted
 			Eventually(func(g Gomega, ctx context.Context) bool {
 				err := envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-epp",
+					Name:      svcName + "-kserve-router-scheduler",
 					Namespace: nsName,
 				}, schedulerDeployment)
 				return err != nil && errors.IsNotFound(err)
