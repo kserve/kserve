@@ -794,13 +794,13 @@ func TestIsInferencePoolV1Alpha2Ready(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "pool with no parents but valid spec",
+			name: "pool with no parents - not ready because no Gateway controller has programmed it",
 			pool: InferencePoolV1Alpha2("test-pool",
 				InNamespace[*igwapiv1alpha2.InferencePool]("test-ns"),
 				WithV1Alpha2Selector("app", "model-server"),
 				WithV1Alpha2TargetPort(8000),
 			),
-			expected: true,
+			expected: false,
 		},
 		{
 			name: "pool with no parents and empty selector",

@@ -356,11 +356,9 @@ func IsInferencePoolReady(pool *igwapi.InferencePool) bool {
 		return false
 	}
 
-	// If no parents have been set, consider the pool ready if it exists and has a valid spec
-	// This handles cases where no Gateway controller is populating the status
+	// If no parents have been set, the pool is not ready - it hasn't been programmed by any Gateway controller
 	if len(pool.Status.Parents) == 0 {
-		// Pool is ready if it exists with a valid selector and target ports
-		return len(pool.Spec.Selector.MatchLabels) > 0 && len(pool.Spec.TargetPorts) > 0
+		return false
 	}
 
 	// Check for any non-ready conditions across all parents
@@ -403,11 +401,9 @@ func IsInferencePoolV1Alpha2Ready(pool *igwapiv1alpha2.InferencePool) bool {
 		return false
 	}
 
-	// If no parents have been set, consider the pool ready if it exists and has a valid spec
-	// This handles cases where no Gateway controller is populating the status
+	// If no parents have been set, the pool is not ready - it hasn't been programmed by any Gateway controller
 	if len(pool.Status.Parents) == 0 {
-		// Pool is ready if it exists with a valid selector and target port
-		return len(pool.Spec.Selector) > 0 && pool.Spec.TargetPortNumber > 0
+		return false
 	}
 
 	// Check for any non-ready conditions across all parents
