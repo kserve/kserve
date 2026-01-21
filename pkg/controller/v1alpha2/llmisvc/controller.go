@@ -253,8 +253,9 @@ func (r *LLMISVCReconciler) updateStatus(ctx context.Context, desired *v1alpha2.
 	})
 }
 
-// updateAnnotations updates the annotations of the LLMInferenceService with retry on conflict.
-// This is used to persist the migration annotation when transitioning to v1 InferencePool.
+// updateAnnotations merges the annotations from desired into the LLMInferenceService.
+// This preserves any annotations set by users (like stop annotation) while adding
+// controller-managed annotations (like migration annotation).
 func (r *LLMISVCReconciler) updateAnnotations(ctx context.Context, desired *v1alpha2.LLMInferenceService) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Always fetch the latest version to avoid conflicts
@@ -263,12 +264,23 @@ func (r *LLMISVCReconciler) updateAnnotations(ctx context.Context, desired *v1al
 			return err
 		}
 
-		// Skip update if annotations haven't changed
-		if equality.Semantic.DeepEqual(latest.Annotations, desired.Annotations) {
-			return nil
+		// Merge annotations: start with latest's annotations (preserving user-set ones)
+		// and add/update any from desired (controller-managed ones)
+		if latest.Annotations == nil {
+			latest.Annotations = make(map[string]string)
+		}
+		needsUpdate := false
+		for k, v := range desired.Annotations {
+			if latest.Annotations[k] != v {
+				latest.Annotations[k] = v
+				needsUpdate = true
+			}
 		}
 
-		latest.Annotations = desired.Annotations
+		// Skip update if nothing changed
+		if !needsUpdate {
+			return nil
+		}
 
 		if err := r.Client.Update(ctx, latest); err != nil {
 			return fmt.Errorf("failed to update annotations for LLMInferenceService: %w", err)
