@@ -294,23 +294,30 @@ func (r *LLMISVCReconciler) expectedSchedulerInferencePool(ctx context.Context, 
 func (r *LLMISVCReconciler) expectedSchedulerInferencePoolV1Alpha2(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *igwapiv1alpha2.InferencePool {
 	labels := SchedulerLabels(llmSvc)
 
-	ip := &igwapiv1alpha2.InferencePool{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-inference-pool-v1alpha2"),
-			Namespace: llmSvc.GetNamespace(),
-			Labels:    labels,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
-			},
+	// Define the desired ObjectMeta first
+	// Use the same name as v1 pool - they can coexist because they're different CRDs (different API groups)
+	desiredMeta := metav1.ObjectMeta{
+		Name:      kmeta.ChildName(llmSvc.GetName(), "-inference-pool"),
+		Namespace: llmSvc.GetNamespace(),
+		Labels:    labels,
+		OwnerReferences: []metav1.OwnerReference{
+			*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
 		},
 	}
 
+	ip := &igwapiv1alpha2.InferencePool{
+		ObjectMeta: desiredMeta,
+	}
+
 	// Convert v1 spec to v1alpha2 using the built-in GIE conversion
+	// Note: ConvertFrom overwrites ObjectMeta, so we must restore it after conversion
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Pool != nil && llmSvc.Spec.Router.Scheduler.Pool.Spec != nil {
 		srcPool := &igwapi.InferencePool{Spec: *llmSvc.Spec.Router.Scheduler.Pool.Spec.DeepCopy()}
 		if err := ip.ConvertFrom(srcPool); err != nil {
 			log.FromContext(ctx).Error(err, "Failed to convert InferencePool spec to v1alpha2")
 		}
+		// Restore the desired ObjectMeta after conversion (ConvertFrom overwrites it)
+		ip.ObjectMeta = desiredMeta
 	}
 
 	log.FromContext(ctx).V(2).Info("Expected router InferencePool v1alpha2", "inferencepool", ip)

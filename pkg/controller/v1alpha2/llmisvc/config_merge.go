@@ -477,15 +477,13 @@ func (r *LLMISVCReconciler) adjustBackendRefForMigration(llmSvc *v1alpha2.LLMInf
 	}
 
 	// Not migrated and v1alpha2 CRD is available: swap to v1alpha2 pool
-	v1alpha2PoolName := kmeta.ChildName(llmSvc.GetName(), "-inference-pool-v1alpha2")
-
+	// Both pools have the same name (they coexist as different CRDs), so we only change the API group
 	for i := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules {
 		for j := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs {
 			ref := &llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j]
-			// Only modify v1 InferencePool backendRefs
+			// Only modify v1 InferencePool backendRefs - change API group to v1alpha2
 			if isV1InferencePoolBackendRef(ref.BackendRef) {
 				ref.Group = ptr.To[gwapiv1.Group](gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName))
-				ref.Name = gwapiv1.ObjectName(v1alpha2PoolName)
 			}
 		}
 	}
