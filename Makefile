@@ -69,7 +69,7 @@ go-lint: golangci-lint
 	@$(GOLANGCI_LINT) run --fix
 
 py-lint: $(RUFF)
-	$(RUFF) check 
+	$(RUFF) check --config ruff.toml 
 
 validate-infra-scripts:
 	@python3 hack/setup/scripts/validate-install-scripts.py
