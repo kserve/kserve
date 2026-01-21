@@ -24,12 +24,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
-	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -535,21 +533,6 @@ func ensureV1Alpha2InferencePoolReady(ctx context.Context, c client.Client, pool
 		g.Expect(c.Get(ctx, client.ObjectKeyFromObject(pool), updatedPool)).To(Succeed())
 		return llmisvc.IsInferencePoolV1Alpha2Ready(updatedPool)
 	}).WithContext(ctx).Should(BeTrue())
-}
-
-// BackendRefInferencePoolV1Alpha2 creates a BackendRef matcher for v1alpha2 InferencePool
-func BackendRefInferencePoolV1Alpha2(name string) gwapiv1.HTTPBackendRef {
-	return gwapiv1.HTTPBackendRef{
-		BackendRef: gwapiv1.BackendRef{
-			BackendObjectReference: gwapiv1.BackendObjectReference{
-				Group: ptr.To(gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName)),
-				Kind:  ptr.To(gwapiv1.Kind("InferencePool")),
-				Name:  gwapiv1.ObjectName(name),
-				Port:  ptr.To(gwapiv1.PortNumber(8000)),
-			},
-			Weight: ptr.To(int32(1)),
-		},
-	}
 }
 
 // Helper to list managed InferencePools
