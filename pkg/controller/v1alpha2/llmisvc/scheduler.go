@@ -163,32 +163,12 @@ func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context,
 	logger := log.FromContext(ctx)
 	shouldDelete := utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef()
 
-	// Reconcile v1 InferencePool if CRD is available
-	if r.InferencePoolV1Available {
-		expectedV1 := r.expectedSchedulerInferencePool(ctx, llmSvc)
-		if shouldDelete {
-			if err := Delete(ctx, r, llmSvc, expectedV1); err != nil {
-				return err
-			}
-		} else {
-			if err := Reconcile(ctx, r, llmSvc, &igwapi.InferencePool{}, expectedV1, semanticInferencePoolIsEqual); err != nil {
-				return err
-			}
-		}
+	if err := r.reconcileV1InferencePool(ctx, llmSvc, shouldDelete); err != nil {
+		return err
 	}
 
-	// Reconcile v1alpha2 InferencePool if CRD is available and not yet migrated to v1
-	if r.InferencePoolV1Alpha2Available {
-		expectedV1Alpha2 := r.expectedSchedulerInferencePoolV1Alpha2(ctx, llmSvc)
-		if shouldDelete {
-			if err := Delete(ctx, r, llmSvc, expectedV1Alpha2); err != nil {
-				return err
-			}
-		} else {
-			if err := Reconcile(ctx, r, llmSvc, &igwapiv1alpha2.InferencePool{}, expectedV1Alpha2, semanticInferencePoolV1Alpha2IsEqual); err != nil {
-				return err
-			}
-		}
+	if err := r.reconcileV1Alpha2InferencePool(ctx, llmSvc, shouldDelete); err != nil {
+		return err
 	}
 
 	logger.V(2).Info("InferencePool reconciliation complete",
@@ -197,6 +177,32 @@ func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context,
 		"migrated", isMigratedToV1(llmSvc))
 
 	return nil
+}
+
+// reconcileV1InferencePool reconciles the v1 InferencePool if the CRD is available.
+func (r *LLMISVCReconciler) reconcileV1InferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shouldDelete bool) error {
+	if !r.InferencePoolV1Available {
+		return nil
+	}
+
+	expected := r.expectedSchedulerInferencePool(ctx, llmSvc)
+	if shouldDelete {
+		return Delete(ctx, r, llmSvc, expected)
+	}
+	return Reconcile(ctx, r, llmSvc, &igwapi.InferencePool{}, expected, semanticInferencePoolIsEqual)
+}
+
+// reconcileV1Alpha2InferencePool reconciles the v1alpha2 InferencePool if the CRD is available.
+func (r *LLMISVCReconciler) reconcileV1Alpha2InferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shouldDelete bool) error {
+	if !r.InferencePoolV1Alpha2Available {
+		return nil
+	}
+
+	expected := r.expectedSchedulerInferencePoolV1Alpha2(ctx, llmSvc)
+	if shouldDelete {
+		return Delete(ctx, r, llmSvc, expected)
+	}
+	return Reconcile(ctx, r, llmSvc, &igwapiv1alpha2.InferencePool{}, expected, semanticInferencePoolV1Alpha2IsEqual)
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
