@@ -443,3 +443,45 @@ func isDefaultBackendRef(llmSvc *v1alpha2.LLMInferenceService, ref gwapiv1.Backe
 		ptr.Deref[gwapiv1.Kind](ref.Kind, "") == "InferencePool" &&
 		string(ref.Name) == defaultInfPoolName
 }
+
+// isV1InferencePoolBackendRef checks if the backendRef points to a v1 InferencePool
+func isV1InferencePoolBackendRef(ref gwapiv1.BackendRef) bool {
+	return ptr.Deref[gwapiv1.Group](ref.Group, "") == constants.InferencePoolV1APIGroupName &&
+		ptr.Deref[gwapiv1.Kind](ref.Kind, "") == "InferencePool"
+}
+
+// adjustBackendRefForMigration swaps the HTTPRoute backendRef based on InferencePool migration state.
+// If not yet migrated to v1 and v1alpha2 CRD is available, point to v1alpha2 pool.
+// If migrated or v1alpha2 is not available, keep pointing to v1 pool.
+func (r *LLMISVCReconciler) adjustBackendRefForMigration(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig) *v1alpha2.LLMInferenceServiceConfig {
+	// Skip if no HTTPRoute spec
+	if llmSvcCfg.Spec.Router == nil ||
+		llmSvcCfg.Spec.Router.Route == nil ||
+		!llmSvcCfg.Spec.Router.Route.HTTP.HasSpec() {
+		return llmSvcCfg
+	}
+
+	// Skip if no scheduler (using direct service backend)
+	if llmSvcCfg.Spec.Router.Scheduler == nil {
+		return llmSvcCfg
+	}
+
+	// If already migrated to v1 or v1alpha2 CRD is not available, use v1 pool (default behavior)
+	if isMigratedToV1(llmSvc) || !r.InferencePoolV1Alpha2Available {
+		return llmSvcCfg
+	}
+
+	// Not migrated and v1alpha2 CRD is available: swap to v1alpha2 pool
+	// Both pools have the same name (they coexist as different CRDs), so we only change the API group
+	for i := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules {
+		for j := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs {
+			ref := &llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j]
+			// Only modify v1 InferencePool backendRefs - change API group to v1alpha2
+			if isV1InferencePoolBackendRef(ref.BackendRef) {
+				ref.Group = ptr.To[gwapiv1.Group](gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName))
+			}
+		}
+	}
+
+	return llmSvcCfg
+}
