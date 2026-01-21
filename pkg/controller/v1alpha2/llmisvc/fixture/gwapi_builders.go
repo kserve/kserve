@@ -297,6 +297,20 @@ func BackendRefInferencePool(name string) gwapiv1.HTTPBackendRef {
 	}
 }
 
+func BackendRefInferencePoolV1Alpha2(name string) gwapiv1.HTTPBackendRef {
+	return gwapiv1.HTTPBackendRef{
+		BackendRef: gwapiv1.BackendRef{
+			BackendObjectReference: gwapiv1.BackendObjectReference{
+				Group: ptr.To(gwapiv1.Group("inference.networking.x-k8s.io")),
+				Kind:  ptr.To(gwapiv1.Kind("InferencePool")),
+				Name:  gwapiv1.ObjectName(name),
+				Port:  ptr.To(gwapiv1.PortNumber(8000)),
+			},
+			Weight: ptr.To(int32(1)),
+		},
+	}
+}
+
 func BackendRefService(name string) gwapiv1.HTTPBackendRef {
 	return gwapiv1.HTTPBackendRef{
 		BackendRef: gwapiv1.BackendRef{

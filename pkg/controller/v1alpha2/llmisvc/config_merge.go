@@ -466,6 +466,12 @@ func (r *LLMISVCReconciler) adjustBackendRefForMigration(llmSvc *v1alpha2.LLMInf
 		return llmSvcCfg
 	}
 
+	// Skip if using external InferencePool reference (user manages the pool)
+	// Migration logic only applies to managed InferencePools created by the controller
+	if llmSvcCfg.Spec.Router.Scheduler.Pool.HasRef() {
+		return llmSvcCfg
+	}
+
 	// If already migrated to v1 or v1alpha2 CRD is not available, use v1 pool (default behavior)
 	if isMigratedToV1(llmSvc) || !r.InferencePoolV1Alpha2Available {
 		return llmSvcCfg
