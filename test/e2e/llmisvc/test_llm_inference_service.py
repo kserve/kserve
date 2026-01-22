@@ -34,6 +34,7 @@ from .fixtures import (  # noqa: F401
     delete_scheduler_configmap,
     generate_test_id,
     inject_k8s_proxy,
+    wait_for_inference_pools_ready,
     # Factory functions are not called explicitly, but they need to be imported to work
     test_case,  # noqa: F811
 )
@@ -308,6 +309,13 @@ def test_llm_inference_service(test_case: TestCase):  # noqa: F811
 
     try:
         create_llmisvc(kserve_client, test_case.llm_service)
+        # Wait for Gateway controller to program InferencePools
+        # This surfaces issues if the Gateway doesn't set status.parents
+        wait_for_inference_pools_ready(
+            llmisvc_name=service_name,
+            namespace=test_case.llm_service.metadata.namespace,
+            timeout_seconds=120,
+        )
         wait_for_llm_isvc_ready(
             kserve_client, test_case.llm_service, test_case.wait_timeout
         )
