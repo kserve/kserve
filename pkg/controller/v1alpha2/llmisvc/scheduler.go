@@ -113,12 +113,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerRoleBinding(ctx context.Context, l
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	useExistingServiceAccount := false
-	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil && llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
-		useExistingServiceAccount = true
-	}
-
-	serviceAccount, err := r.expectedSchedulerServiceAccount(ctx, llmSvc)
+	serviceAccount, useExistingServiceAccount, err := r.expectedSchedulerServiceAccount(ctx, llmSvc)
 	if err != nil {
 		return fmt.Errorf("failed to create expected scheduler service account: %w", err)
 	}
@@ -382,25 +377,29 @@ schedulingProfiles:
 	}
 }
 
-func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, error) {
+func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, bool, error) {
+	useExistingServiceAccount := false
+	expectedServiceAccountName := kmeta.ChildName(llmSvc.GetName(), "-epp-sa")
+
 	var existingServiceAccountName string
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil && llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
 		existingServiceAccountName = llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName
 	}
 
-	if existingServiceAccountName != "" {
+	if existingServiceAccountName != "" && existingServiceAccountName != expectedServiceAccountName {
+		useExistingServiceAccount = true
 		log.FromContext(ctx).V(2).Info("Using existing service account for scheduler", "serviceAccountName", existingServiceAccountName)
 		existingServiceAccount := &corev1.ServiceAccount{}
 		err := r.Client.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch existing scheduler service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
+			return nil, true, fmt.Errorf("failed to fetch existing scheduler service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
 		}
-		return existingServiceAccount, nil
+		return existingServiceAccount, useExistingServiceAccount, nil
 	}
 
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-epp-sa"),
+			Name:      expectedServiceAccountName,
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -409,7 +408,7 @@ func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(ctx context.Context,
 		},
 	}
 
-	return sa, nil
+	return sa, useExistingServiceAccount, nil
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerAuthDelegatorBinding(llmSvc *v1alpha2.LLMInferenceService, sa *corev1.ServiceAccount) *rbacv1.ClusterRoleBinding {

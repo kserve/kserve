@@ -184,7 +184,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 			Spec: *llmSvc.Spec.Template.DeepCopy(),
 		}
 
-		serviceAccount, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
+		serviceAccount, _, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create expected multi node service account: %w", err)
 		}
@@ -209,7 +209,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 	if llmSvc.Spec.Worker != nil {
 		expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec = *llmSvc.Spec.Worker.DeepCopy()
 
-		serviceAccount, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
+		serviceAccount, _, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create expected multi node service account: %w", err)
 		}
@@ -287,7 +287,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 		expected.Spec.Replicas = llmSvc.Spec.Prefill.Replicas
 		expected.Spec.LeaderWorkerTemplate.Size = llmSvc.Spec.Prefill.Parallelism.GetSize()
 
-		serviceAccount, err := r.expectedMultiNodePrefillServiceAccount(ctx, llmSvc)
+		serviceAccount, _, err := r.expectedMultiNodePrefillServiceAccount(ctx, llmSvc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create exptected multi node service account: %w", err)
 		}
@@ -329,14 +329,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 }
 
 func (r *LLMISVCReconciler) reconcileMultiNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	useExistingServiceAccount := false
-	if llmSvc.Spec.Template != nil && llmSvc.Spec.Template.ServiceAccountName != "" {
-		useExistingServiceAccount = true
-	} else if llmSvc.Spec.Worker != nil && llmSvc.Spec.Worker.ServiceAccountName != "" {
-		useExistingServiceAccount = true
-	}
-
-	serviceAccount, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
+	serviceAccount, useExistingServiceAccount, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
 	if err != nil {
 		return fmt.Errorf("failed to create expected multi node service account: %w", err)
 	}
@@ -357,14 +350,7 @@ func (r *LLMISVCReconciler) reconcileMultiNodeMainServiceAccount(ctx context.Con
 }
 
 func (r *LLMISVCReconciler) reconcileMultiNodePrefillServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	useExistingServiceAccount := false
-	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil && llmSvc.Spec.Prefill.Template.ServiceAccountName != "" {
-		useExistingServiceAccount = true
-	} else if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Worker != nil && llmSvc.Spec.Prefill.Worker.ServiceAccountName != "" {
-		useExistingServiceAccount = true
-	}
-
-	serviceAccount, err := r.expectedMultiNodePrefillServiceAccount(ctx, llmSvc)
+	serviceAccount, useExistingServiceAccount, err := r.expectedMultiNodePrefillServiceAccount(ctx, llmSvc)
 	if err != nil {
 		return fmt.Errorf("failed to create expected multi node service account: %w", err)
 	}
@@ -417,7 +403,10 @@ func (r *LLMISVCReconciler) reconcileMultiNodeMainRoleBinding(ctx context.Contex
 	return nil
 }
 
-func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, error) {
+func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, bool, error) {
+	useExistingServiceAccount := false
+	expectedServiceAccountName := kmeta.ChildName(llmSvc.GetName(), "-kserve-mn")
+
 	// An existing service account attached to the main leader template takes precedence over any attached to the prefill worker template.
 	var existingServiceAccountName string
 	if llmSvc.Spec.Template != nil && llmSvc.Spec.Template.ServiceAccountName != "" {
@@ -426,19 +415,20 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Cont
 		existingServiceAccountName = llmSvc.Spec.Worker.ServiceAccountName
 	}
 
-	if existingServiceAccountName != "" {
+	if existingServiceAccountName != "" && existingServiceAccountName != expectedServiceAccountName {
+		useExistingServiceAccount = true
 		log.FromContext(ctx).V(2).Info("Using existing service account for multi node main workload", "serviceAccountName", existingServiceAccountName)
 		existingServiceAccount := &corev1.ServiceAccount{}
 		err := r.Client.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch existing multi node main service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
+			return nil, useExistingServiceAccount, fmt.Errorf("failed to fetch existing multi node main service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
 		}
-		return existingServiceAccount, nil
+		return existingServiceAccount, useExistingServiceAccount, nil
 	}
 
 	expectedServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-mn"),
+			Name:      expectedServiceAccountName,
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -453,10 +443,13 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Cont
 	expectedServiceAccount.Labels["app.kubernetes.io/name"] = llmSvc.GetName()
 	expectedServiceAccount.Labels["app.kubernetes.io/part-of"] = "llminferenceservice"
 
-	return expectedServiceAccount, nil
+	return expectedServiceAccount, useExistingServiceAccount, nil
 }
 
-func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, error) {
+func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, bool, error) {
+	useExistingServiceAccount := false
+	expectedServiceAccountName := kmeta.ChildName(llmSvc.GetName(), "-kserve-mn-prefill")
+
 	// An existing service account attached to the prefill leader template takes precedence over any attached to the prefill worker template.
 	var existingServiceAccountName string
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil && llmSvc.Spec.Prefill.Template.ServiceAccountName != "" {
@@ -465,19 +458,20 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.C
 		existingServiceAccountName = llmSvc.Spec.Prefill.Worker.ServiceAccountName
 	}
 
-	if existingServiceAccountName != "" {
+	if existingServiceAccountName != "" && existingServiceAccountName != expectedServiceAccountName {
+		useExistingServiceAccount = true
 		log.FromContext(ctx).V(2).Info("Using existing service account for multi node prefill workload", "serviceAccountName", existingServiceAccountName)
 		existingServiceAccount := &corev1.ServiceAccount{}
 		err := r.Client.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch existing multi node prefill service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
+			return nil, useExistingServiceAccount, fmt.Errorf("failed to fetch existing multi node prefill service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
 		}
-		return existingServiceAccount, nil
+		return existingServiceAccount, useExistingServiceAccount, nil
 	}
 
 	expectedServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-mn-prefill"),
+			Name:      expectedServiceAccountName,
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -492,7 +486,7 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.C
 	expectedServiceAccount.Labels["app.kubernetes.io/name"] = llmSvc.GetName()
 	expectedServiceAccount.Labels["app.kubernetes.io/part-of"] = "llminferenceservice"
 
-	return expectedServiceAccount, nil
+	return expectedServiceAccount, useExistingServiceAccount, nil
 }
 
 func (r *LLMISVCReconciler) expectedMultiNodeMainRole(llmSvc *v1alpha2.LLMInferenceService) *rbacv1.Role {
