@@ -285,8 +285,6 @@ class Storage(object):
             Tuple of (success: bool, obj_key: str, error_message: str)
         """
         try:
-            global _worker_s3_resource
-
             if _worker_s3_resource is None:
                 return False, args[1], "S3 resource not initialized in worker process"
 
