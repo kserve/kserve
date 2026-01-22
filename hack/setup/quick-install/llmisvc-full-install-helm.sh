@@ -885,12 +885,17 @@ install_envoy_gateway() {
         fi
     fi
 
-    log_info "Installing Envoy Gateway ${ENVOY_GATEWAY_VERSION}..."
-    helm install eg oci://docker.io/envoyproxy/gateway-helm \
+    log_info "Installing Envoy Gateway ${ENVOY_GATEWAY_VERSION}...with token ratelimit and inference pool addons"
+    helm upgrade -i eg oci://docker.io/envoyproxy/gateway-helm \
         --version "${ENVOY_GATEWAY_VERSION}" \
         -n envoy-gateway-system \
         --create-namespace \
+        -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/${ENVOY_AI_GATEWAY_VERSION}/manifests/envoy-gateway-values.yaml \
+        -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/${ENVOY_AI_GATEWAY_VERSION}/examples/token_ratelimit/envoy-gateway-values-addon.yaml \
+        -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/${ENVOY_AI_GATEWAY_VERSION}/examples/inference-pool/envoy-gateway-values-addon.yaml \
         --wait
+
+    kubectl apply -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/${ENVOY_AI_GATEWAY_VERSION}/examples/token_ratelimit/redis.yaml
 
     log_success "Successfully installed Envoy Gateway ${ENVOY_GATEWAY_VERSION} via Helm"
 
