@@ -23,6 +23,7 @@ import (
 	"slices"
 	"sort"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -112,20 +113,24 @@ func (r *LLMISVCReconciler) reconcileSchedulerRoleBinding(ctx context.Context, l
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	serviceAccount := r.expectedSchedulerServiceAccount(llmSvc)
+	serviceAccount, useExistingServiceAccount, err := r.expectedSchedulerServiceAccount(ctx, llmSvc)
+	if err != nil {
+		return fmt.Errorf("failed to create expected scheduler service account: %w", err)
+	}
 
 	if !llmSvc.DeletionTimestamp.IsZero() {
 		return r.reconcileSchedulerAuthDelegatorBinding(ctx, llmSvc, serviceAccount)
 	}
 
-	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
-		return Delete(ctx, r, llmSvc, serviceAccount)
-	}
+	if !useExistingServiceAccount {
+		if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
+			return Delete(ctx, r, llmSvc, serviceAccount)
+		}
 
-	if err := Reconcile(ctx, r, llmSvc, &corev1.ServiceAccount{}, serviceAccount, semanticServiceAccountIsEqual); err != nil {
-		return fmt.Errorf("failed to reconcile scheduler service account %s/%s: %w", serviceAccount.GetNamespace(), serviceAccount.GetName(), err)
+		if err := Reconcile(ctx, r, llmSvc, &corev1.ServiceAccount{}, serviceAccount, semanticServiceAccountIsEqual); err != nil {
+			return fmt.Errorf("failed to reconcile scheduler service account %s/%s: %w", serviceAccount.GetNamespace(), serviceAccount.GetName(), err)
+		}
 	}
-
 	if err := r.reconcileSchedulerAuthDelegatorBinding(ctx, llmSvc, serviceAccount); err != nil {
 		return err
 	}
@@ -198,7 +203,7 @@ func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
 		podSpec := llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
 
-		desiredPorts := sets.New("grpc", "grpc-health", "metrics")
+		desiredPorts := sets.New("grpc", "grpc-health", "metrics", "zmq")
 
 		actualPorts := make(map[string]*corev1.ContainerPort)
 		for _, container := range podSpec.Containers {
@@ -309,37 +314,46 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 }
 
 func schedulerConfigText(llmSvc *v1alpha2.LLMInferenceService) string {
+	if llmSvc.Spec.Router != nil &&
+		llmSvc.Spec.Router.Scheduler != nil &&
+		llmSvc.Spec.Router.Scheduler.Config != nil &&
+		llmSvc.Spec.Router.Scheduler.Config.Inline != nil {
+		// We don't need to handle Ref as it's done as part of the config merge step.
+		return string(llmSvc.Spec.Router.Scheduler.Config.Inline.Raw)
+	}
+
 	switch {
 	case llmSvc.Spec.Prefill != nil:
+		// Always do P/D by default (threshold 0)
 		return `
 apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
-- type: pd-profile-handler
-  parameters:
-    threshold: 100
 - type: prefill-header-handler
 - type: prefill-filter
 - type: decode-filter
+- type: queue-scorer
 - type: prefix-cache-scorer
-- type: load-aware-scorer
 - type: max-score-picker
+- type: pd-profile-handler
+  parameters:
+    threshold: 0
 schedulingProfiles:
 - name: prefill
   plugins:
   - pluginRef: prefill-filter
+  - pluginRef: queue-scorer
+    weight: 2
   - pluginRef: prefix-cache-scorer
-    weight: 2.0
-  - pluginRef: load-aware-scorer
-    weight: 1.0
+    weight: 3
   - pluginRef: max-score-picker
 - name: decode
   plugins:
   - pluginRef: decode-filter
+  - pluginRef: queue-scorer
+    weight: 2
   - pluginRef: prefix-cache-scorer
-    weight: 2.0
-  - pluginRef: load-aware-scorer
-    weight: 1.0
+    weight: 3
   - pluginRef: max-score-picker
 `
 	default:
@@ -348,25 +362,44 @@ apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
+- type: queue-scorer
 - type: prefix-cache-scorer
-- type: load-aware-scorer
 - type: max-score-picker
 schedulingProfiles:
 - name: default
   plugins:
+  - pluginRef: queue-scorer
+    weight: 2
   - pluginRef: prefix-cache-scorer
-    weight: 2.0
-  - pluginRef: load-aware-scorer
-    weight: 1.0
+    weight: 3
   - pluginRef: max-score-picker
 `
 	}
 }
 
-func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(llmSvc *v1alpha2.LLMInferenceService) *corev1.ServiceAccount {
+func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, bool, error) {
+	useExistingServiceAccount := false
+	expectedServiceAccountName := kmeta.ChildName(llmSvc.GetName(), "-epp-sa")
+
+	var existingServiceAccountName string
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil && llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
+		existingServiceAccountName = llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName
+	}
+
+	if existingServiceAccountName != "" && existingServiceAccountName != expectedServiceAccountName {
+		useExistingServiceAccount = true
+		log.FromContext(ctx).V(2).Info("Using existing service account for scheduler", "serviceAccountName", existingServiceAccountName)
+		existingServiceAccount := &corev1.ServiceAccount{}
+		err := r.Client.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+		if err != nil {
+			return nil, true, fmt.Errorf("failed to fetch existing scheduler service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
+		}
+		return existingServiceAccount, useExistingServiceAccount, nil
+	}
+
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-epp-sa"),
+			Name:      expectedServiceAccountName,
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -375,14 +408,7 @@ func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(llmSvc *v1alpha2.LLM
 		},
 	}
 
-	if llmSvc.Spec.Router != nil &&
-		llmSvc.Spec.Router.Scheduler != nil &&
-		llmSvc.Spec.Router.Scheduler.Template != nil &&
-		llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
-		sa.Name = llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName
-	}
-
-	return sa
+	return sa, useExistingServiceAccount, nil
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerAuthDelegatorBinding(llmSvc *v1alpha2.LLMInferenceService, sa *corev1.ServiceAccount) *rbacv1.ClusterRoleBinding {
