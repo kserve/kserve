@@ -30,6 +30,8 @@ from .diagnostic import (
 from .fixtures import (  # noqa: F401
     create_router_resources,
     delete_router_resources,
+    create_scheduler_configmap,
+    delete_scheduler_configmap,
     generate_test_id,
     inject_k8s_proxy,
     # Factory functions are not called explicitly, but they need to be imported to work
@@ -39,7 +41,7 @@ from .test_resources import (
     ROUTER_GATEWAYS,
     ROUTER_ROUTES,
 )
-from .logging import log_execution
+from .logging import log_execution, logger
 
 KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
 
@@ -96,8 +98,12 @@ class TestCase:
         ),
         pytest.param(
             TestCase(
-                base_refs=["router-custom-route-timeout", "scheduler-managed",
-                           "workload-single-cpu", "model-fb-opt-125m"],
+                base_refs=[
+                    "router-custom-route-timeout",
+                    "scheduler-managed",
+                    "workload-single-cpu",
+                    "model-fb-opt-125m",
+                ],
                 prompt="KServe is a",
                 service_name="custom-route-timeout-test",
             ),
@@ -105,17 +111,26 @@ class TestCase:
         ),
         pytest.param(
             TestCase(
-                base_refs=["router-with-refs", "scheduler-managed", "workload-single-cpu", "model-fb-opt-125m"],
+                base_refs=[
+                    "router-with-refs",
+                    "scheduler-managed",
+                    "workload-single-cpu",
+                    "model-fb-opt-125m",
+                ],
                 prompt="KServe is a",
                 service_name="router-with-refs-test",
-                before_test=[lambda: create_router_resources(
-                    gateways=[ROUTER_GATEWAYS[0]],
-                    routes=[ROUTER_ROUTES[0], ROUTER_ROUTES[1]],
-                )],
-                after_test=[lambda: delete_router_resources(
-                    gateways=[ROUTER_GATEWAYS[0]],
-                    routes=[ROUTER_ROUTES[0], ROUTER_ROUTES[1]],
-                )],
+                before_test=[
+                    lambda: create_router_resources(
+                        gateways=[ROUTER_GATEWAYS[0]],
+                        routes=[ROUTER_ROUTES[0], ROUTER_ROUTES[1]],
+                    )
+                ],
+                after_test=[
+                    lambda: delete_router_resources(
+                        gateways=[ROUTER_GATEWAYS[0]],
+                        routes=[ROUTER_ROUTES[0], ROUTER_ROUTES[1]],
+                    )
+                ],
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
@@ -131,8 +146,12 @@ class TestCase:
         ),
         pytest.param(
             TestCase(
-                base_refs=["router-custom-route-timeout-pd",
-                           "scheduler-managed", "workload-pd-cpu", "model-fb-opt-125m"],
+                base_refs=[
+                    "router-custom-route-timeout-pd",
+                    "scheduler-managed",
+                    "workload-pd-cpu",
+                    "model-fb-opt-125m",
+                ],
                 prompt="You are an expert in Kubernetes-native machine learning serving platforms, with deep knowledge of the KServe project. "
                 "Explain the challenges of serving large-scale models, GPU scheduling, and how KServe integrates with capabilities like multi-model serving. "
                 "Provide a detailed comparison with open source alternatives, focusing on operational trade-offs.",
@@ -143,20 +162,29 @@ class TestCase:
         ),
         pytest.param(
             TestCase(
-                base_refs=["router-with-refs-pd", "scheduler-managed", "workload-pd-cpu", "model-fb-opt-125m"],
+                base_refs=[
+                    "router-with-refs-pd",
+                    "scheduler-managed",
+                    "workload-pd-cpu",
+                    "model-fb-opt-125m",
+                ],
                 prompt="You are an expert in Kubernetes-native machine learning serving platforms, with deep knowledge of the KServe project. "
                 "Explain the challenges of serving large-scale models, GPU scheduling, and how KServe integrates with capabilities like multi-model serving. "
                 "Provide a detailed comparison with open source alternatives, focusing on operational trade-offs.",
                 service_name="router-with-refs-pd-test",
                 response_assertion=assert_200_with_choices,
-                before_test=[lambda: create_router_resources(
-                    gateways=[ROUTER_GATEWAYS[1]],
-                    routes=[ROUTER_ROUTES[2], ROUTER_ROUTES[3]],
-                )],
-                after_test=[lambda: delete_router_resources(
-                    gateways=[ROUTER_GATEWAYS[1]],
-                    routes=[ROUTER_ROUTES[2], ROUTER_ROUTES[3]],
-                )],
+                before_test=[
+                    lambda: create_router_resources(
+                        gateways=[ROUTER_GATEWAYS[1]],
+                        routes=[ROUTER_ROUTES[2], ROUTER_ROUTES[3]],
+                    )
+                ],
+                after_test=[
+                    lambda: delete_router_resources(
+                        gateways=[ROUTER_GATEWAYS[1]],
+                        routes=[ROUTER_ROUTES[2], ROUTER_ROUTES[3]],
+                    )
+                ],
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
@@ -235,6 +263,33 @@ class TestCase:
                 "but without the resources requirements for DP+EP (GPUs and ROCe/IB).",
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_multi_node],
+        ),
+        # Scheduler config tests
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "scheduler-with-inline-config",
+                    "workload-llmd-simulator",
+                ],
+                prompt="KServe is a",
+                service_name="scheduler-inline-config-test",
+            ),
+            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+        ),
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "scheduler-with-configmap-ref",
+                    "workload-llmd-simulator",
+                ],
+                prompt="KServe is a",
+                service_name="scheduler-configmap-ref-test",
+                before_test=[create_scheduler_configmap],
+                after_test=[delete_scheduler_configmap],
+            ),
+            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
     ],
     indirect=["test_case"],
@@ -351,7 +406,9 @@ def wait_for_model_response(
             "prompt": test_case.prompt,
             "max_tokens": test_case.max_tokens,
         }
-        print(f"Calling LLM service at {completion_url} with payload {test_payload}")
+        logger.info(
+            f"Calling LLM service at {completion_url} with payload {test_payload}"
+        )
         try:
             response = requests.post(
                 completion_url,
@@ -360,7 +417,10 @@ def wait_for_model_response(
                 timeout=test_case.response_timeout,
             )
         except Exception as e:
+            logger.error(f"❌ Failed to call model: {e}")
             raise AssertionError(f"❌ Failed to call model: {e}") from e
+
+        logger.info(f"Model response is {response.status_code}")
 
         test_case.response_assertion(response)
         return response.text[: test_case.max_tokens]
@@ -368,6 +428,7 @@ def wait_for_model_response(
     return wait_for(assert_model_responds, timeout=timeout_seconds, interval=5.0)
 
 
+@log_execution
 def get_llm_service_url(
     kserve_client: KServeClient, llm_isvc: V1alpha1LLMInferenceService
 ):

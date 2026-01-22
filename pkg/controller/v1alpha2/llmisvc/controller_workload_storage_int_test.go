@@ -2132,7 +2132,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			expectedMainServiceAccount := &corev1.ServiceAccount{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-mn",
+					Name:      svcName + "-sa",
 					Namespace: nsName,
 				}, expectedMainServiceAccount)
 			}).WithContext(ctx).Should(Succeed())
@@ -2140,7 +2140,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			expectedPrefillServiceAccount := &corev1.ServiceAccount{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-kserve-mn-prefill",
+					Name:      svcName + "-sa",
 					Namespace: nsName,
 				}, expectedPrefillServiceAccount)
 			}).WithContext(ctx).Should(Succeed())
