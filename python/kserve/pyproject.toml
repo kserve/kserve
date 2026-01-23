@@ -19,7 +19,7 @@ dependencies = [
     "grpcio<2.0.0,>=1.64.1",
     "grpcio-tools<2.0.0,>=1.64.1",
     "grpc-interceptor<1.0.0,>=0.15.4",
-    "protobuf<6.0.0,>=5.27.1",
+    "protobuf<7.0.0,>=5.27.1",
     "prometheus-client<1.0.0,>=0.20.0",
     "orjson<4.0.0,>=3.10.15",
     "httpx<1.0.0,>=0.27.2",
@@ -66,7 +66,7 @@ ray = [
     "ray[serve]>=2.43.0",
 ]
 llm = [
-    "vllm==0.11.2",
+    "vllm==0.14.0",
 ]
 
 [dependency-groups]
