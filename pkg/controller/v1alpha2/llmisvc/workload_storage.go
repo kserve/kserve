@@ -54,19 +54,17 @@ const CaBundleVolumeName = "cabundle-cert"
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, podSpec *corev1.PodSpec, config *Config) error {
-	if llmSvc.Spec.StorageInitializer != nil &&
-		llmSvc.Spec.StorageInitializer.Enabled != nil &&
-		!*llmSvc.Spec.StorageInitializer.Enabled {
-		// Skip storage-initializer when explicitly disabled
-		return nil
-	}
-
 	modelUri := llmSvc.Spec.Model.URI.String()
 	schema, _, sepFound := strings.Cut(modelUri, "://")
 
 	if !sepFound {
 		return fmt.Errorf("invalid model URI: %s", modelUri)
 	}
+
+	// Check if storage-initializer is explicitly disabled
+	storageInitializerDisabled := llmSvc.Spec.StorageInitializer != nil &&
+		llmSvc.Spec.StorageInitializer.Enabled != nil &&
+		!*llmSvc.Spec.StorageInitializer.Enabled
 
 	switch schema + "://" {
 	case constants.PvcURIPrefix:
@@ -81,9 +79,17 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		return r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig)
 
 	case constants.HfURIPrefix:
+		if storageInitializerDisabled {
+			// Skip storage-initializer when explicitly disabled
+			return nil
+		}
 		return r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, podSpec, config.StorageConfig, config.CredentialConfig)
 
 	case constants.S3URIPrefix:
+		if storageInitializerDisabled {
+			// Skip storage-initializer when explicitly disabled
+			return nil
+		}
 		return r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, podSpec, config.StorageConfig, config.CredentialConfig)
 	}
 

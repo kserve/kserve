@@ -1173,6 +1173,150 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			validateNoStorageInitializer(expectedMainDeployment)
 			validateNoStorageInitializer(expectedPrefillDeployment)
 		})
+
+		It("should configure PVC storage even when storage-initializer is disabled", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-storage-pvc-si-disabled"
+			nsName := kmeta.ChildName(svcName, "-test")
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(namespace)
+			}()
+
+			modelURL, err := apis.ParseURL("pvc://facebook-models/opt-125m")
+			Expect(err).ToNot(HaveOccurred())
+
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      svcName,
+					Namespace: nsName,
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("foo"),
+						URI:  *modelURL,
+					},
+					StorageInitializer: &v1alpha2.StorageInitializerSpec{
+						Enabled: ptr.To(false),
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{},
+					Router: &v1alpha2.RouterSpec{
+						Route:     &v1alpha2.GatewayRoutesSpec{},
+						Gateway:   &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			}
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			// then
+			expectedMainDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: nsName,
+				}, expectedMainDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			expectedPrefillDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-prefill",
+					Namespace: nsName,
+				}, expectedPrefillDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			// Validate PVC storage is configured (not affected by storage-initializer flag)
+			validatePvcStorageIsConfigured(expectedMainDeployment)
+			validatePvcStorageIsConfigured(expectedPrefillDeployment)
+			// Validate NO storage-initializer was created
+			validateNoStorageInitializer(expectedMainDeployment)
+			validateNoStorageInitializer(expectedPrefillDeployment)
+		})
+
+		It("should configure OCI storage even when storage-initializer is disabled", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-storage-oci-si-disabled"
+			nsName := kmeta.ChildName(svcName, "-test")
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(namespace)
+			}()
+
+			modelURL, err := apis.ParseURL("oci://registry.io/user-id/repo-id:tag")
+			Expect(err).ToNot(HaveOccurred())
+
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      svcName,
+					Namespace: nsName,
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("foo"),
+						URI:  *modelURL,
+					},
+					StorageInitializer: &v1alpha2.StorageInitializerSpec{
+						Enabled: ptr.To(false),
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{},
+					Router: &v1alpha2.RouterSpec{
+						Route:     &v1alpha2.GatewayRoutesSpec{},
+						Gateway:   &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			}
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			// then
+			expectedMainDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: nsName,
+				}, expectedMainDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			expectedPrefillDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-prefill",
+					Namespace: nsName,
+				}, expectedPrefillDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			// Validate OCI storage is configured (not affected by storage-initializer flag)
+			validateOciStorageIsConfigured(expectedMainDeployment)
+			validateOciStorageIsConfigured(expectedPrefillDeployment)
+			// Validate NO storage-initializer was created
+			validateNoStorageInitializer(expectedMainDeployment)
+			validateNoStorageInitializer(expectedPrefillDeployment)
+		})
 	})
 
 	Context("Multi node", func() {
