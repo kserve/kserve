@@ -54,6 +54,13 @@ const CaBundleVolumeName = "cabundle-cert"
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, podSpec *corev1.PodSpec, config *Config) error {
+	if llmSvc.Spec.StorageInitializer != nil &&
+		llmSvc.Spec.StorageInitializer.Enabled != nil &&
+		!*llmSvc.Spec.StorageInitializer.Enabled {
+		// Skip storage-initializer when explicitly disabled
+		return nil
+	}
+
 	modelUri := llmSvc.Spec.Model.URI.String()
 	schema, _, sepFound := strings.Cut(modelUri, "://")
 
@@ -153,13 +160,6 @@ func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *cor
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
-	// Check if storage initializer is disabled
-	if llmSvc.Spec.StorageInitializer != nil &&
-		llmSvc.Spec.StorageInitializer.Enabled != nil &&
-		!*llmSvc.Spec.StorageInitializer.Enabled {
-		// Skip storage-initializer when explicitly disabled
-		return nil
-	}
 
 	if err := r.attachStorageInitializer(modelUri, podSpec, storageConfig); err != nil {
 		return err
@@ -208,13 +208,6 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
-	// Check if storage initializer is disabled
-	if llmSvc.Spec.StorageInitializer != nil &&
-		llmSvc.Spec.StorageInitializer.Enabled != nil &&
-		!*llmSvc.Spec.StorageInitializer.Enabled {
-		// Skip storage-initializer when explicitly disabled
-		return nil
-	}
 
 	if err := r.attachStorageInitializer(modelUri, podSpec, storageConfig); err != nil {
 		return err
