@@ -58,6 +58,17 @@ install() {
         fi
     fi
 
+    log_info "Updating Envoy Gateway ${ENVOY_GATEWAY_VERSION}...to add inference pool addons for Envoy AI Gateway"
+    helm upgrade -i eg oci://docker.io/envoyproxy/gateway-helm \
+        --version "${ENVOY_GATEWAY_VERSION}" \
+        -n envoy-gateway-system \
+        --create-namespace \
+        -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/${ENVOY_AI_GATEWAY_VERSION}/manifests/envoy-gateway-values.yaml \
+        -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/${ENVOY_AI_GATEWAY_VERSION}/examples/inference-pool/envoy-gateway-values-addon.yaml \
+        --wait
+    
+    log_success "Successfully Updated Envoy Gateway ${ENVOY_GATEWAY_VERSION} for Envoy AI Gateway"
+
     log_info "Installing Envoy AI Gateway CRDs ${ENVOY_AI_GATEWAY_VERSION}..."
     helm upgrade -i aieg-crd oci://docker.io/envoyproxy/ai-gateway-crds-helm \
         --version "${ENVOY_AI_GATEWAY_VERSION}" \
