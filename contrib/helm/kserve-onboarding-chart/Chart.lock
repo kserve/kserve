@@ -1,0 +1,9 @@
+dependencies:
+- name: cert-manager
+  repository: https://charts.jetstack.io
+  version: v1.13.0
+- name: prometheus
+  repository: https://prometheus-community.github.io/helm-charts
+  version: 25.12.0
+digest: sha256:1268b86e7bfce5bd894e537acf4dfe72eed6dddf8076cecc841a883e6aafd863
+generated: "2025-06-30T22:04:15.9066414+05:30"
