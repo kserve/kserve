@@ -91,6 +91,9 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 		}
 	}
 
+	// Ensure componentMeta has the correct "app" label (respect user's choice or use default)
+	setAppLabelOrDefault(&componentMeta, constants.GetRawServiceLabel(componentMeta.Name))
+
 	if !multiNodeEnabled {
 		// If multiNodeEnabled is false, only defaultSvc will be created.
 		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec, serviceConfig)
@@ -105,6 +108,22 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 	}
 
 	return svcList
+}
+
+// setAppLabelOrDefault ensures componentMeta has the correct "app" label.
+// If the user has already specified an "app" label, it keeps that value.
+// Otherwise, it sets the label to the provided defaultLabel.
+// It handles nil Labels map initialization automatically.
+func setAppLabelOrDefault(componentMeta *metav1.ObjectMeta, defaultLabel string) {
+	// Initialize Labels map if it's nil
+	if componentMeta.Labels == nil {
+		componentMeta.Labels = make(map[string]string)
+	}
+
+	// If user already specified an "app" label, keep it; otherwise use default
+	if _, exists := componentMeta.Labels["app"]; !exists || componentMeta.Labels["app"] == "" {
+		componentMeta.Labels["app"] = defaultLabel
+	}
 }
 
 func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
@@ -177,11 +196,14 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 		}
 	}
 
+	// componentMeta.Labels["app"] is already set correctly by the caller
+	appLabel := componentMeta.Labels["app"]
+
 	service := &corev1.Service{
 		ObjectMeta: componentMeta,
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"app": constants.GetRawServiceLabel(componentMeta.Name),
+				"app": appLabel,
 			},
 			Ports: servicePorts,
 		},
@@ -200,12 +222,14 @@ func createHeadlessSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
 	isvcGeneration := componentMeta.GetLabels()[constants.InferenceServiceGenerationPodLabelKey]
 	workerComponentMeta.Name = constants.GetHeadServiceName(predictorSvcName, isvcGeneration)
 	workerComponentMeta.Labels[constants.MultiNodeRoleLabelKey] = constants.MultiNodeHead
+	// componentMeta.Labels["app"] is already set correctly by the caller
+	appLabel := componentMeta.Labels["app"]
 
 	service := &corev1.Service{
 		ObjectMeta: *workerComponentMeta,
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"app": constants.GetRawServiceLabel(predictorSvcName),
+				"app": appLabel,
 				constants.InferenceServiceGenerationPodLabelKey: isvcGeneration,
 			},
 			ClusterIP:                "None", // Without this, it requires a Port but this Service does not need it.
