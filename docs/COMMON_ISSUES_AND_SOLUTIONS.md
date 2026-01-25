@@ -54,3 +54,18 @@ Issue Template
 - Author: Jooho Lee/jlee@redhat.com
 - Date: 2024-08-19
 - Related Issues/PRs: X
+
+---
+### VirtualService reconciliation attempts when Istio is not installed
+- Summary: KServe may attempt to reconcile Istio `VirtualService` resources even when the Istio VirtualService CRD is not available, causing reconciliation errors and failed deployments on non-Istio clusters (e.g., Kourier).
+- Symptoms:
+  - Controller logs show errors related to `VirtualService` operations (get/create/update/delete) and reconciliation terminates.
+  - InferenceService status does not progress and may report errors.
+- Cause:
+  - The InferenceService controller previously checked for the CRD's availability but didn't pass that information to the Ingress reconciler; the reconciler attempted VirtualService operations unconditionally.
+- Resolution:
+  - Upgrade to the version that includes the fix (this PR) which stores VirtualService CRD availability and skips VirtualService reconciliation when the CRD is absent.
+  - Workaround: install Istio VirtualService CRD in the cluster, or use a KServe release with the fix applied.
+- Author: Siva Sainath <siva.explores06@proton.me>
+- Date: 2026-01-21
+- Related Issues/PRs: [#4984](https://github.com/kserve/kserve/issues/4984)

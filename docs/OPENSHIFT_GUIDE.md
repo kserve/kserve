@@ -188,6 +188,8 @@ Key points:
 - Enables external access to KServe model serving endpoints
 - Supports features like traffic splitting and canary deployments
 
+Note: When using Kourier (or other non-Istio network layers), the Istio `VirtualService` CRD is typically not installed. KServe will detect the absence of the Istio VirtualService CRD and gracefully skip any VirtualService reconciliation steps — you should not see reconciliation errors related to `VirtualService` when Istio is not present.
+
 Let's naviagate through the installation steps:
 
 The Knative Kourier plugin version used at the time being is `knative-v1.17.0`

@@ -113,6 +113,8 @@ type InferenceServiceReconciler struct {
 	Log          logr.Logger
 	Scheme       *runtime.Scheme
 	Recorder     record.EventRecorder
+	// VirtualServiceAvailable indicates whether the Istio VirtualService CRD exists in the cluster.
+	VirtualServiceAvailable bool
 }
 
 func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -343,7 +345,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			}
 		}
 	} else {
-		reconciler := ingress.NewIngressReconciler(r.Client, r.Clientset, r.Scheme, ingressConfig, isvcConfig)
+		reconciler := ingress.NewIngressReconciler(r.Client, r.Clientset, r.Scheme, ingressConfig, isvcConfig, r.VirtualServiceAvailable)
 		r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
 		if err := reconciler.Reconcile(ctx, isvc); err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
@@ -591,6 +593,8 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	if err != nil {
 		return err
 	}
+	// Store the availability so Reconcile can pass it to the IngressReconciler.
+	r.VirtualServiceAvailable = vsFound
 
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1beta1.InferenceService{}, "spec.predictor.model.runtime", func(rawObj client.Object) []string {
 		isvc, ok := rawObj.(*v1beta1.InferenceService)
