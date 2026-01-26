@@ -62,7 +62,7 @@ class PrintTimings(TimingClient):
     def timing(self, metric_name, timing, tags):
         trace_logger.info(f"{metric_name}: {timing} {tags}")
 
-UvicornLoop = Literal["auto", "asyncio", "uvloop"]
+VALID_UVICORN_LOOPS = {"auto", "asyncio", "uvloop"}
 
 class RESTServer:
     def __init__(
@@ -79,10 +79,10 @@ class RESTServer:
         self.dataplane = data_plane
         self.model_repository_extension = model_repository_extension
         self.access_log_format = access_log_format
-        if event_loop not in get_args(UvicornLoop):
+        if event_loop not in VALID_UVICORN_LOOPS:
             logger.error(
                 f"Invalid event loop specified: '{event_loop}'. "
-                f"Supported values are {get_args(UvicornLoop)}, "
+                f"Supported values are {VALID_UVICORN_LOOPS}, "
                 f"Falling back to 'auto'."
             )
             event_loop = 'auto'
@@ -95,7 +95,7 @@ class RESTServer:
             # configured by kserve.
             log_config=None,
             timeout_graceful_shutdown=grace_period,
-            loop=cast(UvicornLoop, event_loop)
+            loop=event_loop
         )
         self._server = uvicorn.Server(self.config)
 

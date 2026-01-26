@@ -240,6 +240,7 @@ class ModelServer:
                                ASGI specs that don't describe how access logging should be implemented in detail
                                (please refer to this Uvicorn
                                [github issue](https://github.com/encode/uvicorn/issues/527) for more info).
+            event_loop: Uvicorn event loop. Default: ``'auto'``. It supports "auto", "asyncio", "uvloop".
             grace_period: The grace period in seconds to wait for the server to stop. Default: ``30``.
             predictor_config: Optional configuration for the predictor. Default: ``None``.
         """
