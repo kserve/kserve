@@ -65,6 +65,10 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 	storageInitializerDisabled := llmSvc.Spec.StorageInitializer != nil &&
 		llmSvc.Spec.StorageInitializer.Enabled != nil &&
 		!*llmSvc.Spec.StorageInitializer.Enabled
+	if storageInitializerDisabled {
+		// Skip storage-initializer when explicitly disabled
+		return nil
+	}
 
 	switch schema + "://" {
 	case constants.PvcURIPrefix:
@@ -79,17 +83,9 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		return r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig)
 
 	case constants.HfURIPrefix:
-		if storageInitializerDisabled {
-			// Skip storage-initializer when explicitly disabled
-			return nil
-		}
 		return r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, podSpec, config.StorageConfig, config.CredentialConfig)
 
 	case constants.S3URIPrefix:
-		if storageInitializerDisabled {
-			// Skip storage-initializer when explicitly disabled
-			return nil
-		}
 		return r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, podSpec, config.StorageConfig, config.CredentialConfig)
 	}
 
