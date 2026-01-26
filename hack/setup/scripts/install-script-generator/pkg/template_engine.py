@@ -60,8 +60,7 @@ def replace_placeholders(template: str, replacements: dict[str, str]) -> str:
     return result
 
 
-def generate_from_template(template_path: Path,
-                           replacements: dict[str, str]) -> str:
+def generate_from_template(template_path: Path, replacements: dict[str, str]) -> str:
     """Read template file and replace all placeholders.
 
     Args:

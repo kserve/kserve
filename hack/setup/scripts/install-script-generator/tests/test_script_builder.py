@@ -30,18 +30,12 @@ def test_build_component_variables_basic():
     components = [
         {
             "name": "cert-manager",
-            "variables": [
-                'NAMESPACE="cert-manager"',
-                'VERSION="v1.13.0"'
-            ]
+            "variables": ['NAMESPACE="cert-manager"', 'VERSION="v1.13.0"'],
         },
         {
             "name": "istio",
-            "variables": [
-                'ISTIO_VERSION="1.27.1"',
-                'NAMESPACE="istio-system"'
-            ]
-        }
+            "variables": ['ISTIO_VERSION="1.27.1"', 'NAMESPACE="istio-system"'],
+        },
     ]
     global_env = {}
 
@@ -57,10 +51,7 @@ def test_build_component_variables_with_global_env():
     components = [
         {
             "name": "cert-manager",
-            "variables": [
-                'NAMESPACE="cert-manager"',
-                'VERSION="v1.13.0"'
-            ]
+            "variables": ['NAMESPACE="cert-manager"', 'VERSION="v1.13.0"'],
         }
     ]
     global_env = {"NAMESPACE": "custom-namespace"}
@@ -68,27 +59,21 @@ def test_build_component_variables_with_global_env():
     result = script_builder.build_component_variables(components, global_env)
 
     # NAMESPACE should be excluded as it's in global_env
-    assert 'NAMESPACE=' not in result
+    assert "NAMESPACE=" not in result
     assert 'VERSION="v1.13.0"' in result
 
 
 def test_build_component_variables_deduplication():
     """Test that duplicate variables are removed."""
     components = [
-        {
-            "name": "comp1",
-            "variables": [
-                'VERSION="v1.0.0"',
-                'NAMESPACE="default"'
-            ]
-        },
+        {"name": "comp1", "variables": ['VERSION="v1.0.0"', 'NAMESPACE="default"']},
         {
             "name": "comp2",
             "variables": [
                 'VERSION="v2.0.0"',  # Duplicate, should keep first
-                'IMAGE="test"'
-            ]
-        }
+                'IMAGE="test"',
+            ],
+        },
     ]
     global_env = {}
 
@@ -107,13 +92,13 @@ def test_build_component_functions():
         {
             "name": "cert-manager",
             "install_code": "install_cert_manager() {\n    echo 'Installing'\n}",
-            "uninstall_code": "uninstall_cert_manager() {\n    echo 'Uninstalling'\n}"
+            "uninstall_code": "uninstall_cert_manager() {\n    echo 'Uninstalling'\n}",
         },
         {
             "name": "istio",
             "install_code": "install_istio() {\n    echo 'Installing Istio'\n}",
-            "uninstall_code": "uninstall_istio() {\n    echo 'Uninstalling Istio'\n}"
-        }
+            "uninstall_code": "uninstall_istio() {\n    echo 'Uninstalling Istio'\n}",
+        },
     ]
 
     result = script_builder.build_component_functions(components)
@@ -128,10 +113,7 @@ def test_build_component_functions():
 
 def test_build_definition_global_env():
     """Test building global env section."""
-    global_env = {
-        "KSERVE_NAMESPACE": "kserve",
-        "CERT_MANAGER_VERSION": "v1.13.0"
-    }
+    global_env = {"KSERVE_NAMESPACE": "kserve", "CERT_MANAGER_VERSION": "v1.13.0"}
 
     result = script_builder.build_definition_global_env(global_env)
 
@@ -180,15 +162,15 @@ def test_build_install_calls_basic():
             "install_func": "install_cert_manager",
             "env": {},
             "variables": [],
-            "include_section": []
+            "include_section": [],
         },
         {
             "name": "istio",
             "install_func": "install_istio",
             "env": {},
             "variables": [],
-            "include_section": []
-        }
+            "include_section": [],
+        },
     ]
     global_env = {}
 
@@ -205,8 +187,11 @@ def test_build_install_calls_with_env():
             "name": "kserve-helm",
             "install_func": "install_kserve_helm",
             "env": {"LLMISVC": "true", "NAMESPACE": "kserve"},
-            "variables": ['LLMISVC="${LLMISVC:-false}"', 'NAMESPACE="${NAMESPACE:-default}"'],
-            "include_section": []
+            "variables": [
+                'LLMISVC="${LLMISVC:-false}"',
+                'NAMESPACE="${NAMESPACE:-default}"',
+            ],
+            "include_section": [],
         }
     ]
     global_env = {"NAMESPACE": "global-ns"}
@@ -227,7 +212,7 @@ def test_build_install_calls_with_include_section():
             "install_func": "install_test",
             "env": {},
             "variables": [],
-            "include_section": ["# Helper function", "helper() { echo 'help'; }"]
+            "include_section": ["# Helper function", "helper() { echo 'help'; }"],
         }
     ]
     global_env = {}
@@ -242,18 +227,9 @@ def test_build_install_calls_with_include_section():
 def test_build_uninstall_calls():
     """Test building uninstall calls in reverse order."""
     components = [
-        {
-            "name": "cert-manager",
-            "uninstall_func": "uninstall_cert_manager"
-        },
-        {
-            "name": "istio",
-            "uninstall_func": "uninstall_istio"
-        },
-        {
-            "name": "keda",
-            "uninstall_func": "uninstall_keda"
-        }
+        {"name": "cert-manager", "uninstall_func": "uninstall_cert_manager"},
+        {"name": "istio", "uninstall_func": "uninstall_istio"},
+        {"name": "keda", "uninstall_func": "uninstall_keda"},
     ]
 
     result = script_builder.build_uninstall_calls(components)
@@ -267,12 +243,7 @@ def test_build_uninstall_calls():
 
 def test_build_uninstall_calls_single():
     """Test building uninstall calls with single component."""
-    components = [
-        {
-            "name": "cert-manager",
-            "uninstall_func": "uninstall_cert_manager"
-        }
-    ]
+    components = [{"name": "cert-manager", "uninstall_func": "uninstall_cert_manager"}]
 
     result = script_builder.build_uninstall_calls(components)
 
