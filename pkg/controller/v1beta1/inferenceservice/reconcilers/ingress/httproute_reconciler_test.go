@@ -2416,6 +2416,19 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		}
 	}
 
+	// Helper to create a predictor service (needed by createAddress)
+	predictorService := func(isvcName, namespace string) *corev1.Service {
+		return &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.PredictorServiceName(isvcName),
+				Namespace: namespace,
+			},
+			Spec: corev1.ServiceSpec{
+				ClusterIP: "10.0.0.1",
+			},
+		}
+	}
+
 	t.Run("Reconcile disables ingress creation for cluster-local label", func(t *testing.T) {
 		isvc := &v1beta1.InferenceService{
 			ObjectMeta: metav1.ObjectMeta{
@@ -2430,7 +2443,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 			},
 			Status: v1beta1.InferenceServiceStatus{},
 		}
-		client := fake.NewClientBuilder().WithScheme(s).Build()
+		client := fake.NewClientBuilder().WithScheme(s).WithObjects(predictorService("test-isvc", "default")).Build()
 		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
 		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -2453,7 +2466,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		}
 		clusterLocalConfig := *ingressConfig
 		clusterLocalConfig.IngressDomain = constants.ClusterLocalDomain
-		client := fake.NewClientBuilder().WithScheme(s).Build()
+		client := fake.NewClientBuilder().WithScheme(s).WithObjects(predictorService("test-isvc", "default")).Build()
 		reconciler := NewRawHTTPRouteReconciler(client, s, &clusterLocalConfig, isvcConfig)
 		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -2478,7 +2491,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 			Type:   v1beta1.PredictorReady,
 			Status: corev1.ConditionTrue,
 		})
-		client := fake.NewClientBuilder().WithScheme(s).Build()
+		client := fake.NewClientBuilder().WithScheme(s).WithObjects(predictorService("test-isvc", "default")).Build()
 		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
 		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -2633,7 +2646,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		})
 
 		// Create client without HTTPRoute objects - HTTPRoutes get created during reconciliation but have empty status
-		client := fake.NewClientBuilder().WithScheme(s).Build()
+		client := fake.NewClientBuilder().WithScheme(s).WithObjects(predictorService("test-isvc-requeue", "default")).Build()
 		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
 		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -2693,6 +2706,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 			WithObjects(
 				notReadyHTTPRoute,
 				readyHTTPRoute(isvc.Name, isvc.Namespace), // Top-level route is ready
+				predictorService("test-isvc-not-ready", "default"),
 			).
 			Build()
 
@@ -2820,12 +2834,22 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 			},
 		}
 
+		transformerService := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.TransformerServiceName("test-isvc-transformer"),
+				Namespace: "default",
+			},
+			Spec: corev1.ServiceSpec{
+				ClusterIP: "10.0.0.2",
+			},
+		}
 		client := fake.NewClientBuilder().
 			WithScheme(s).
 			WithObjects(
 				readyPredictorHTTPRoute,
 				notReadyTransformerHTTPRoute,
 				readyTopLevelHTTPRoute,
+				transformerService,
 			).
 			Build()
 
@@ -2947,6 +2971,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 				readyPredictorHTTPRoute,
 				notReadyExplainerHTTPRoute,
 				readyTopLevelHTTPRoute,
+				predictorService("test-isvc-explainer", "default"),
 			).
 			Build()
 
@@ -3039,6 +3064,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 			WithObjects(
 				readyPredictorHTTPRoute,
 				notReadyTopLevelHTTPRoute,
+				predictorService("test-isvc-toplevel", "default"),
 			).
 			Build()
 
@@ -3183,6 +3209,15 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 			},
 		}
 
+		transformerService := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.TransformerServiceName("test-isvc-all-ready"),
+				Namespace: "default",
+			},
+			Spec: corev1.ServiceSpec{
+				ClusterIP: "10.0.0.2",
+			},
+		}
 		client := fake.NewClientBuilder().
 			WithScheme(s).
 			WithObjects(
@@ -3190,6 +3225,7 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 				readyTransformerHTTPRoute,
 				readyExplainerHTTPRoute,
 				readyTopLevelHTTPRoute,
+				transformerService,
 			).
 			Build()
 
