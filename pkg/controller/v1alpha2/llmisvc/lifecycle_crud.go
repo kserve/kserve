@@ -103,7 +103,7 @@ func Delete[O client.Object, T client.Object](ctx context.Context, c clientWithR
 
 // Reconcile ensures a resource exists and matches the expected state
 // It creates the resource if it doesn't exist, or updates it if it differs from expected state
-func Reconcile[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, empty, expected T, isEqual SemanticEqual[T]) error {
+func Reconcile[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, empty, expected T, isEqual SemanticEqual[T], opts ...UpdateOption[T]) error {
 	typeLogLine := logLineForObject(expected)
 
 	// Try to fetch the current state of the resource
@@ -116,12 +116,17 @@ func Reconcile[O client.Object, T client.Object](ctx context.Context, c clientWi
 		return Create(ctx, c, owner, expected)
 	}
 	// Resource exists, update it if necessary
-	return Update(ctx, c, owner, curr, expected, isEqual)
+	return Update(ctx, c, owner, curr, expected, isEqual, opts...)
 }
 
 // Update modifies an existing Kubernetes resource to match the expected state
 // It validates ownership and only updates if the resource has actually changed
-func Update[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, curr, expected T, isEqual SemanticEqual[T]) error {
+func Update[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, curr, expected T, isEqual SemanticEqual[T], opts ...UpdateOption[T]) error {
+	options := &updateOptions[T]{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	typeLogLine := logLineForObject(expected)
 	isOwnerNil := reflect.ValueOf(owner).IsNil()
 
@@ -143,9 +148,16 @@ func Update[O client.Object, T client.Object](ctx context.Context, c clientWithR
 		}
 	}
 
+	expectedGiven := expected.DeepCopyObject().(T)
+
 	expected.SetResourceVersion(curr.GetResourceVersion())
 	if err := c.Update(ctx, expected, client.DryRunAll); err != nil {
 		return fmt.Errorf("failed to get defaults for %s %s/%s: %w", typeLogLine, expected.GetNamespace(), expected.GetName(), err)
+	}
+
+	// Apply after dry-run mutations (e.g., preserve fields from curr)
+	if options.afterDryRun != nil {
+		options.afterDryRun(expected, expectedGiven, curr)
 	}
 
 	if isEqual(expected, curr) {
@@ -178,6 +190,28 @@ func logLineForObject(obj client.Object) string {
 // SemanticEqual is a function type for comparing two objects to determine if they are equivalent
 // This allows custom comparison logic beyond simple equality checks
 type SemanticEqual[T client.Object] func(expected T, curr T) bool
+
+// UpdateOption is a functional option for the Update and Reconcile functions
+type UpdateOption[T client.Object] func(*updateOptions[T])
+
+type updateOptions[T client.Object] struct {
+	afterDryRun func(expected, expectedGiven, curr T)
+}
+
+// AfterDryRun configures Update to call the provided function after the dry-run
+// populates server-side defaults but before comparing expected with curr.
+// The callback receives:
+//   - expected: the object after dry-run (with server defaults applied) - modify this to take effect
+//   - expectedGiven: the original object before dry-run - use this to check what was originally set
+//   - curr: the current state of the resource in the cluster
+//
+// This allows preserving fields from curr that shouldn't be overwritten
+// (e.g., Replicas when the owner doesn't set it and HPA manages scaling).
+func AfterDryRun[T client.Object](fn func(expected, expectedGiven, curr T)) UpdateOption[T] {
+	return func(o *updateOptions[T]) {
+		o.afterDryRun = fn
+	}
+}
 
 // GetOption is a functional option for the Get function
 type GetOption[T client.Object] func(*getOptions[T])
