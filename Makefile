@@ -289,7 +289,9 @@ deploy: manifests
 	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
 	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
 	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
-	kubectl apply --server-side=true --force-conflicts -k config/crd
+	kubectl apply --server-side=true --force-conflicts -k config/crd/full
+	kubectl apply --server-side=true --force-conflicts -k config/crd/full/localmodel
+	kubectl apply --server-side=true --force-conflicts -k config/crd/full/llmisvc
 	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
 	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
@@ -315,11 +317,13 @@ deploy-dev: manifests
 	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
 	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
 	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
-	kubectl apply --server-side=true --force-conflicts -k config/crd
+	kubectl apply --server-side=true --force-conflicts -k config/crd/full
+	kubectl apply --server-side=true --force-conflicts -k config/crd/full/localmodel
+	kubectl apply --server-side=true --force-conflicts -k config/crd/full/llmisvc
 	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
 	./hack/image_patch_dev.sh development
 	
-	@echo "Deploy KServe and LLMInferenceService"
+	@echo "Deploy KServe,LocalModel and LLMInferenceService"
 	hack/setup/infra/manage.cert-manager-helm.sh
 	KSERVE_OVERYLAY_DIR=development hack/setup/infra/manage.kserve-kustomize.sh
 	

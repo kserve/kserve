@@ -22,7 +22,9 @@ import (
 	"flag"
 	"os"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -30,6 +32,8 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -143,6 +147,12 @@ func main() {
 		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
 	}
 
+	llmSvcCacheSelector, _ := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app.kubernetes.io/part-of": "llminferenceservice",
+		},
+	})
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
@@ -150,21 +160,32 @@ func main() {
 		HealthProbeBindAddress: options.probeAddr,
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       "llminferenceservice-kserve-controller-manager",
+		Cache: cache.Options{
+			ByObject: map[client.Object]cache.ByObject{
+				&corev1.Secret{}: {
+					Label: llmSvcCacheSelector,
+				},
+				&corev1.ConfigMap{}: {
+					Label: llmSvcCacheSelector,
+				},
+				&appsv1.Deployment{}: {
+					Label: llmSvcCacheSelector,
+				},
+				&corev1.Pod{}: {
+					Label: llmSvcCacheSelector,
+				},
+			},
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	setupLog.Info("Setting up LLMInferenceService controller")
-	llmEventBroadcaster := record.NewBroadcaster()
-	llmEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
-	if err = (&llmisvc.LLMISVCReconciler{
-		Client:        mgr.GetClient(),
-		Clientset:     clientSet,
-		EventRecorder: llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceController"}),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceService")
+	// Register v1alpha2 validators
+	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{}
+	if err = v1alpha2LLMValidator.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice-v1alpha2")
 		os.Exit(1)
 	}
 
@@ -175,19 +196,27 @@ func main() {
 		os.Exit(1)
 	}
 
+	setupLog.Info("Setting up LLMInferenceService controller")
+	llmEventBroadcaster := record.NewBroadcaster()
+	llmEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
+	if err = (&llmisvc.LLMISVCReconciler{
+		Client:        mgr.GetClient(),
+		Clientset:     clientSet,
+		EventRecorder: llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceController"}),
+		Validator: func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+			_, err := v1alpha2LLMValidator.ValidateCreate(ctx, llmSvc)
+			return err
+		},
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceService")
+	}
+
 	v1alpha1ConfigValidator := &v1alpha1.LLMInferenceServiceConfigValidator{
 		ConfigValidationFunc:   createV1Alpha1ConfigValidationFunc(clientSet),
 		WellKnownConfigChecker: wellKnownConfigChecker,
 	}
 	if err = v1alpha1ConfigValidator.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig-v1alpha1")
-		os.Exit(1)
-	}
-
-	// Register v1alpha2 validators
-	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{}
-	if err = v1alpha2LLMValidator.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice-v1alpha2")
 		os.Exit(1)
 	}
 

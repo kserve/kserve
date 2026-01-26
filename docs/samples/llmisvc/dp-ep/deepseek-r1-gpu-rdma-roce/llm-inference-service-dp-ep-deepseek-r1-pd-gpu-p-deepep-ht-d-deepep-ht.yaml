@@ -19,61 +19,7 @@ spec:
     expert: true
     tensor: 1
   router:
-    scheduler:
-      template:
-        containers:
-          # ALWAYS DO PD IN THIS EXAMPLE (THRESHOLD 0)
-          - name: main
-            args:
-              - -v=4 # Debug level
-              - --pool-name
-              - "{{ ChildName .ObjectMeta.Name `-inference-pool` }}"
-              - --pool-namespace
-              - "{{ .ObjectMeta.Namespace }}"
-              - --zap-encoder
-              - json
-              - --grpc-port
-              - "9002"
-              - --grpc-health-port
-              - "9003"
-              - --secure-serving
-              - --model-server-metrics-scheme
-              - https
-              - --model-server-metrics-https-insecure-skip-verify
-              - --cert-path
-              - /etc/ssl/certs
-              - --config-text
-              - |2
-              
-                apiVersion: inference.networking.x-k8s.io/v1alpha1
-                kind: EndpointPickerConfig
-                plugins:
-                - type: pd-profile-handler
-                  parameters:
-                    threshold: 0
-                - type: prefill-header-handler
-                - type: prefill-filter
-                - type: decode-filter
-                - type: prefix-cache-scorer
-                - type: load-aware-scorer
-                - type: max-score-picker
-                schedulingProfiles:
-                - name: prefill
-                  plugins:
-                  - pluginRef: prefill-filter
-                  - pluginRef: prefix-cache-scorer
-                    weight: 2.0
-                  - pluginRef: load-aware-scorer
-                    weight: 1.0
-                  - pluginRef: max-score-picker
-                - name: decode
-                  plugins:
-                  - pluginRef: decode-filter
-                  - pluginRef: prefix-cache-scorer
-                    weight: 2.0
-                  - pluginRef: load-aware-scorer
-                    weight: 1.0
-                  - pluginRef: max-score-picker
+    scheduler: { }
     route: { }
     gateway: { }
   template:

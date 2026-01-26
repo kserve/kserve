@@ -21,10 +21,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/utils/ptr"
@@ -80,11 +83,30 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configRouterRouteName,
 )
 
+// CombineOption is a functional option for combineBaseRefsConfig
+type CombineOption func(*combineOptions)
+
+type combineOptions struct {
+	skipClearSchedulerConfigRef bool
+}
+
+// WithSkipClearSchedulerConfigRef prevents clearing the scheduler config ref after resolving.
+// This is useful when the caller needs to check which ConfigMap was referenced.
+func WithSkipClearSchedulerConfigRef() CombineOption {
+	return func(o *combineOptions) {
+		o.skipClearSchedulerConfigRef = true
+	}
+}
+
 // combineBaseRefsConfig applies well-known config overlays to inject default values for various components, when some components are
 // enabled. These LLMInferenceServiceConfig resources must exist in either resource namespace (prioritized) or
 // SystemNamespace (e.g. `kserve`).
 // It determines which deployment pattern is being used (single node, multi-node, disaggregated) and applies appropriate defaults.
-func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reconcilerConfig *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
+func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reconcilerConfig *Config, opts ...CombineOption) (*v1alpha2.LLMInferenceServiceConfig, error) {
+	options := &combineOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
 	logger := log.FromContext(ctx).WithName("combineBaseRefsConfig")
 
 	// Creates the initial spec with the merged BaseRefs, so that we know what's "Enabled".
@@ -235,6 +257,59 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 					llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j].Name = gwapiv1.ObjectName(llmSvcCfg.Spec.Router.Scheduler.Pool.Ref.Name)
 				}
 			}
+		}
+	}
+
+	// Resolve the external Scheduler configuration.
+	if llmSvcCfg.Spec.Router != nil &&
+		llmSvcCfg.Spec.Router.Scheduler != nil &&
+		llmSvcCfg.Spec.Router.Scheduler.Config != nil &&
+		llmSvcCfg.Spec.Router.Scheduler.Config.Ref != nil {
+		cmName := llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Name
+		cm, err := Get(ctx, r.Client, client.ObjectKey{Namespace: llmSvc.GetNamespace(), Name: cmName}, &corev1.ConfigMap{}, WithGetFallbackAPIServerConfigMap(r.Clientset))
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return llmSvcCfg, fmt.Errorf("failed to get ConfigMap %s/%s: %w", llmSvc.GetNamespace(), cmName, err)
+			}
+
+			if strings.HasPrefix(cmName, "config-scheduler-") {
+				cm, err = Get(ctx, r.Client, client.ObjectKey{Namespace: constants.KServeNamespace, Name: cmName}, &corev1.ConfigMap{}, WithGetFallbackAPIServerConfigMap(r.Clientset))
+				if err != nil {
+					return nil, fmt.Errorf("failed to get scheduler config %q from namespaces [%q, %q]: %w", cmName, llmSvc.Namespace, constants.KServeNamespace, err)
+				}
+			}
+		}
+		if llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Key == "" {
+			llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Key = "epp"
+		}
+		cfg, ok := cm.Data[llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Key]
+		if !ok {
+			return llmSvcCfg, fmt.Errorf("ConfigMap %s/%s doesn't have key %q in data",
+				cm.GetNamespace(),
+				cm.GetName(),
+				llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Key,
+			)
+		}
+		llmSvcCfg.Spec.Router.Scheduler.Config.Inline = &runtime.RawExtension{Raw: []byte(cfg)}
+		// Clear the Ref since we've resolved it to Inline - the validator rejects having both set.
+		// Skip clearing if the caller needs to check which ConfigMap was referenced.
+		if !options.skipClearSchedulerConfigRef {
+			llmSvcCfg.Spec.Router.Scheduler.Config.Ref = nil
+		}
+	}
+
+	// Skip validation when we're only using the result for matching (not for reconciliation).
+	// When skipClearSchedulerConfigRef is true, both Inline and Ref may be set, which would fail validation.
+	if !options.skipClearSchedulerConfigRef {
+		err = r.Validator(ctx, &v1alpha2.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      llmSvc.Name,
+				Namespace: llmSvc.GetNamespace(),
+			},
+			Spec: llmSvcCfg.Spec,
+		})
+		if err != nil {
+			return llmSvcCfg, err
 		}
 	}
 

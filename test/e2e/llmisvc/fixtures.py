@@ -30,6 +30,10 @@ from .logging import logger
 KSERVE_PLURAL_LLMINFERENCESERVICECONFIG = "llminferenceserviceconfigs"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 
+# Scheduler config constants
+SCHEDULER_CONFIGMAP_NAME = "scheduler-config-e2e"
+SCHEDULER_CONFIGMAP_KEY = "epp"
+
 LLMINFERENCESERVICE_CONFIGS = {
     "workload-single-cpu": {
         "template": {
@@ -542,6 +546,46 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {},
         },
     },
+    "scheduler-with-inline-config": {
+        "router": {
+            "scheduler": {
+                "config": {
+                    "inline": {
+                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "kind": "EndpointPickerConfig",
+                        "plugins": [
+                            {"type": "single-profile-handler"},
+                            {"type": "queue-scorer"},
+                            {"type": "prefix-cache-scorer"},
+                            {"type": "max-score-picker"},
+                        ],
+                        "schedulingProfiles": [
+                            {
+                                "name": "default",
+                                "plugins": [
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {"pluginRef": "prefix-cache-scorer", "weight": 3},
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+    },
+    "scheduler-with-configmap-ref": {
+        "router": {
+            "scheduler": {
+                "config": {
+                    "ref": {
+                        "name": SCHEDULER_CONFIGMAP_NAME,
+                        "key": SCHEDULER_CONFIGMAP_KEY,
+                    },
+                },
+            },
+        },
+    },
     "router-with-gateway-ref": {
         "router": {
             "gateway": {
@@ -570,10 +614,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--mode",
                         "random",
-                        "--ssl-certfile",
-                        "/etc/ssl/certs/tls.crt",
-                        "--ssl-keyfile",
-                        "/etc/ssl/certs/tls.key",
+                        # "--ssl-certfile",
+                        # "/etc/ssl/certs/tls.crt",
+                        # "--ssl-keyfile",
+                        # "/etc/ssl/certs/tls.key",
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
@@ -693,10 +737,9 @@ def test_case(request):
 def _get_model_name_from_configs(config_names):
     """Extract the model name from model config."""
     for config_name in config_names:
-        if config_name.startswith("model-"):
-            config = LLMINFERENCESERVICE_CONFIGS[config_name]
-            if "model" in config and "name" in config["model"]:
-                return config["model"]["name"]
+        config = LLMINFERENCESERVICE_CONFIGS[config_name]
+        if "model" in config and "name" in config["model"]:
+            return config["model"]["name"]
     return "default-model"
 
 
@@ -892,3 +935,79 @@ def inject_k8s_proxy():
         client.Configuration._default.proxy = proxy_url
     else:
         logger.info("No HTTP proxy configured for k8s client")
+
+
+# Scheduler config YAML used for ConfigMap ref tests
+SCHEDULER_CONFIG_YAML = """apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: queue-scorer
+- type: prefix-cache-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+"""
+
+
+def create_scheduler_configmap():
+    """Create ConfigMap with scheduler configuration."""
+    inject_k8s_proxy()
+    core_v1 = client.CoreV1Api()
+
+    configmap = client.V1ConfigMap(
+        api_version="v1",
+        kind="ConfigMap",
+        metadata=client.V1ObjectMeta(
+            name=SCHEDULER_CONFIGMAP_NAME,
+            namespace=KSERVE_TEST_NAMESPACE,
+        ),
+        data={
+            SCHEDULER_CONFIGMAP_KEY: SCHEDULER_CONFIG_YAML,
+        },
+    )
+
+    try:
+        core_v1.create_namespaced_config_map(
+            namespace=KSERVE_TEST_NAMESPACE,
+            body=configmap,
+        )
+        logger.info(
+            f"Created ConfigMap {SCHEDULER_CONFIGMAP_NAME} in namespace {KSERVE_TEST_NAMESPACE}"
+        )
+    except client.rest.ApiException as e:
+        if e.status == 409:  # Already exists
+            core_v1.replace_namespaced_config_map(
+                name=SCHEDULER_CONFIGMAP_NAME,
+                namespace=KSERVE_TEST_NAMESPACE,
+                body=configmap,
+            )
+            logger.info(
+                f"Updated ConfigMap {SCHEDULER_CONFIGMAP_NAME} in namespace {KSERVE_TEST_NAMESPACE}"
+            )
+        else:
+            raise
+
+
+def delete_scheduler_configmap():
+    """Delete ConfigMap with scheduler configuration."""
+    inject_k8s_proxy()
+    core_v1 = client.CoreV1Api()
+
+    try:
+        core_v1.delete_namespaced_config_map(
+            name=SCHEDULER_CONFIGMAP_NAME,
+            namespace=KSERVE_TEST_NAMESPACE,
+        )
+        logger.info(
+            f"Deleted ConfigMap {SCHEDULER_CONFIGMAP_NAME} from namespace {KSERVE_TEST_NAMESPACE}"
+        )
+    except client.rest.ApiException as e:
+        if e.status != 404:  # Ignore not found
+            raise

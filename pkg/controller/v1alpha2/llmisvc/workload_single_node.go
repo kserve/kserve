@@ -115,7 +115,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 			log.FromContext(ctx).Info("Main container has a routing sidecar")
 
 			var err error
-			serviceAccount, err = r.expectedSingleNodeMainServiceAccount(ctx, llmSvc)
+			serviceAccount, _, err = r.expectedSingleNodeMainServiceAccount(ctx, llmSvc)
 			if err != nil {
 				return nil, fmt.Errorf("failed to created expected single node service account: %w", err)
 			}
@@ -280,16 +280,19 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainServiceAccount(ctx context.Co
 		return fmt.Errorf("failed to get expected main deployment: %w", err)
 	}
 
-	serviceAccount, err := r.expectedSingleNodeMainServiceAccount(ctx, llmSvc)
+	serviceAccount, useExistingServiceAccount, err := r.expectedSingleNodeMainServiceAccount(ctx, llmSvc)
 	if err != nil {
 		return fmt.Errorf("failed to created expected single node service account: %w", err)
 	}
-	if utils.GetForceStopRuntime(llmSvc) || !hasRoutingSidecar(expectedDeployment.Spec.Template.Spec) {
-		return Delete(ctx, r, llmSvc, serviceAccount)
-	}
 
-	if err := Reconcile(ctx, r, llmSvc, &corev1.ServiceAccount{}, serviceAccount, semanticServiceAccountIsEqual); err != nil {
-		return fmt.Errorf("failed to reconcile single node service account %s/%s: %w", serviceAccount.GetNamespace(), serviceAccount.GetName(), err)
+	if !useExistingServiceAccount {
+		if utils.GetForceStopRuntime(llmSvc) || !hasRoutingSidecar(expectedDeployment.Spec.Template.Spec) {
+			return Delete(ctx, r, llmSvc, serviceAccount)
+		}
+
+		if err := Reconcile(ctx, r, llmSvc, &corev1.ServiceAccount{}, serviceAccount, semanticServiceAccountIsEqual); err != nil {
+			return fmt.Errorf("failed to reconcile single node service account %s/%s: %w", serviceAccount.GetNamespace(), serviceAccount.GetName(), err)
+		}
 	}
 
 	if err := r.reconcileSingleNodeMainRole(ctx, llmSvc, config); err != nil {
@@ -335,10 +338,29 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainRoleBinding(ctx context.Conte
 	return nil
 }
 
-func (r *LLMISVCReconciler) expectedSingleNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, error) {
+func (r *LLMISVCReconciler) expectedSingleNodeMainServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, bool, error) {
+	useExistingServiceAccount := false
+	expectedServiceAccountName := kmeta.ChildName(llmSvc.GetName(), "-kserve")
+
+	var existingServiceAccountName string
+	if llmSvc.Spec.Template != nil && llmSvc.Spec.Template.ServiceAccountName != "" {
+		existingServiceAccountName = llmSvc.Spec.Template.ServiceAccountName
+	}
+
+	if existingServiceAccountName != "" && existingServiceAccountName != expectedServiceAccountName {
+		useExistingServiceAccount = true
+		log.FromContext(ctx).V(2).Info("Using existing service account for single node main workload", "serviceAccountName", existingServiceAccountName)
+		existingServiceAccount := &corev1.ServiceAccount{}
+		err := r.Client.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+		if err != nil {
+			return nil, useExistingServiceAccount, fmt.Errorf("failed to fetch existing single node main service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
+		}
+		return existingServiceAccount, useExistingServiceAccount, nil
+	}
+
 	expectedServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve"),
+			Name:      expectedServiceAccountName,
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -346,25 +368,12 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainServiceAccount(ctx context.Con
 		},
 	}
 
-	if llmSvc.Spec.Template != nil && llmSvc.Spec.Template.ServiceAccountName != "" {
-		existingServiceAccount := &corev1.ServiceAccount{}
-		err := r.Client.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch existing single node main service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Template.ServiceAccountName, err)
-		}
-		expectedServiceAccount.Annotations = existingServiceAccount.Annotations
-		expectedServiceAccount.Labels = existingServiceAccount.Labels
-		expectedServiceAccount.Secrets = existingServiceAccount.Secrets
-		expectedServiceAccount.ImagePullSecrets = existingServiceAccount.ImagePullSecrets
-		expectedServiceAccount.AutomountServiceAccountToken = existingServiceAccount.AutomountServiceAccountToken
-	}
-
 	if expectedServiceAccount.Labels == nil {
 		expectedServiceAccount.Labels = make(map[string]string)
 	}
 	maps.Copy(expectedServiceAccount.Labels, r.singleNodeLabels(llmSvc))
 
-	return expectedServiceAccount, nil
+	return expectedServiceAccount, useExistingServiceAccount, nil
 }
 
 func (r *LLMISVCReconciler) expectedSingleNodeRole(llmSvc *v1alpha2.LLMInferenceService) *rbacv1.Role {
