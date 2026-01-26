@@ -156,8 +156,8 @@ func Update[O client.Object, T client.Object](ctx context.Context, c clientWithR
 	}
 
 	// Apply after dry-run mutations (e.g., preserve fields from curr)
-	if options.afterDryRun != nil {
-		options.afterDryRun(expected, expectedGiven, curr)
+	for _, fn := range options.afterDryRunFns {
+		fn(expected, expectedGiven, curr)
 	}
 
 	if isEqual(expected, curr) {
@@ -194,22 +194,27 @@ type SemanticEqual[T client.Object] func(expected T, curr T) bool
 // UpdateOption is a functional option for the Update and Reconcile functions
 type UpdateOption[T client.Object] func(*updateOptions[T])
 
+// AfterDryRunFunc is a callback function type for AfterDryRun options.
+// It receives:
+//   - expected: the object after dry-run (with server defaults applied) - modify this to take effect
+//   - expectedGiven: the original object before dry-run - use this to check what was originally set
+//   - curr: the current state of the resource in the cluster
+type AfterDryRunFunc[T client.Object] func(expected, expectedGiven, curr T)
+
 type updateOptions[T client.Object] struct {
-	afterDryRun func(expected, expectedGiven, curr T)
+	afterDryRunFns []AfterDryRunFunc[T]
 }
 
 // AfterDryRun configures Update to call the provided function after the dry-run
 // populates server-side defaults but before comparing expected with curr.
-// The callback receives:
-//   - expected: the object after dry-run (with server defaults applied) - modify this to take effect
-//   - expectedGiven: the original object before dry-run - use this to check what was originally set
-//   - curr: the current state of the resource in the cluster
+//
+// Multiple AfterDryRun options can be provided and they will be applied in order.
 //
 // This allows preserving fields from curr that shouldn't be overwritten
 // (e.g., Replicas when the owner doesn't set it and HPA manages scaling).
-func AfterDryRun[T client.Object](fn func(expected, expectedGiven, curr T)) UpdateOption[T] {
+func AfterDryRun[T client.Object](fn AfterDryRunFunc[T]) UpdateOption[T] {
 	return func(o *updateOptions[T]) {
-		o.afterDryRun = fn
+		o.afterDryRunFns = append(o.afterDryRunFns, fn)
 	}
 }
 
