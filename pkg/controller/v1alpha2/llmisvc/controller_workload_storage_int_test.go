@@ -1174,7 +1174,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			validateNoStorageInitializer(expectedPrefillDeployment)
 		})
 
-		It("should configure PVC storage even when storage-initializer is disabled", func(ctx SpecContext) {
+		It("should NOT configure PVC storage when storage-initializer is disabled", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-pvc-si-disabled"
 			nsName := kmeta.ChildName(svcName, "-test")
@@ -1238,15 +1238,15 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				}, expectedPrefillDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
-			// Validate PVC storage is configured (not affected by storage-initializer flag)
-			validatePvcStorageIsConfigured(expectedMainDeployment)
-			validatePvcStorageIsConfigured(expectedPrefillDeployment)
+			// Validate NO PVC storage is configured when storage-initializer is disabled
+			validateNoPvcStorage(expectedMainDeployment)
+			validateNoPvcStorage(expectedPrefillDeployment)
 			// Validate NO storage-initializer was created
 			validateNoStorageInitializer(expectedMainDeployment)
 			validateNoStorageInitializer(expectedPrefillDeployment)
 		})
 
-		It("should configure OCI storage even when storage-initializer is disabled", func(ctx SpecContext) {
+		It("should NOT configure OCI storage when storage-initializer is disabled", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-oci-si-disabled"
 			nsName := kmeta.ChildName(svcName, "-test")
@@ -1310,9 +1310,9 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				}, expectedPrefillDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
-			// Validate OCI storage is configured (not affected by storage-initializer flag)
-			validateOciStorageIsConfigured(expectedMainDeployment)
-			validateOciStorageIsConfigured(expectedPrefillDeployment)
+			// Validate NO OCI storage is configured when storage-initializer is disabled
+			validateNoOciStorage(expectedMainDeployment)
+			validateNoOciStorage(expectedPrefillDeployment)
 			// Validate NO storage-initializer was created
 			validateNoStorageInitializer(expectedMainDeployment)
 			validateNoStorageInitializer(expectedPrefillDeployment)
@@ -2603,6 +2603,44 @@ func validateNoStorageInitializer(deployment *appsv1.Deployment) {
 	// Check that storage-initializer volume does NOT exist
 	for _, vol := range podSpec.Volumes {
 		Expect(vol.Name).NotTo(Equal(constants.StorageInitializerVolumeName))
+	}
+}
+
+func validateNoPvcStorage(deployment *appsv1.Deployment) {
+	podSpec := &deployment.Spec.Template.Spec
+	mainContainer := utils.GetContainerWithName(podSpec, "main")
+	Expect(mainContainer).ToNot(BeNil())
+
+	// Check that PVC volume does NOT exist
+	for _, vol := range podSpec.Volumes {
+		Expect(vol.Name).NotTo(Equal(constants.PvcSourceMountName))
+	}
+
+	// Check that PVC volume mount does NOT exist in main container
+	for _, mount := range mainContainer.VolumeMounts {
+		Expect(mount.Name).NotTo(Equal(constants.PvcSourceMountName))
+	}
+}
+
+func validateNoOciStorage(deployment *appsv1.Deployment) {
+	podSpec := &deployment.Spec.Template.Spec
+
+	// Check that modelcar container does NOT exist
+	modelcarContainer := utils.GetContainerWithName(podSpec, constants.ModelcarContainerName)
+	Expect(modelcarContainer).To(BeNil())
+
+	// Check that modelcar init container does NOT exist
+	modelcarInitContainer := utils.GetInitContainerWithName(podSpec, constants.ModelcarInitContainerName)
+	Expect(modelcarInitContainer).To(BeNil())
+
+	// Check that main container does NOT have async model init mode env var
+	mainContainer := utils.GetContainerWithName(podSpec, "main")
+	if mainContainer != nil {
+		for _, env := range mainContainer.Env {
+			if env.Name == constants.ModelInitModeEnvVarKey {
+				Expect(env.Value).NotTo(Equal("async"))
+			}
+		}
 	}
 }
 
