@@ -231,6 +231,10 @@ install() {
     if [ ${INSTALL_RUNTIMES} = "true" ]; then
         kubectl apply --server-side=true -k config/runtimes
     fi
+    if [ "${LLMISVC}" = "true" ]; then
+        log_info "Installing LLMISVC configs..."
+        kubectl apply --server-side=true -k config/llmisvcconfig
+    fi
 }
 
 if [ "$UNINSTALL" = true ]; then
