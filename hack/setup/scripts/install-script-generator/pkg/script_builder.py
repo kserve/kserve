@@ -109,16 +109,19 @@ def build_definition_global_env(global_env: dict[str, str]) -> str:
 
 def build_install_calls(components: list[dict[str, Any]],
                         global_env: dict[str, str],
-                        embed_manifests: bool = False) -> str:
+                        embed_manifests: bool = False,
+                        global_var_lines: list[str] = None) -> str:
     """Build install function calls with env handling.
 
     Uses set_env_with_priority helper function for proper env variable precedence.
-    When embed_manifests is True, uses install_kserve_manifest instead of install_kserve_* for KServe components.
+    For KServe components in EMBED_MANIFESTS mode, we call the normal install_kserve function
+    which handles embedded manifests internally AND applies config updates.
 
     Args:
         components: List of processed components
         global_env: Global environment variables
         embed_manifests: Whether EMBED_MANIFESTS mode is enabled
+        global_var_lines: Lines from global-vars.env for default extraction
 
     Returns:
         Install function calls as string
@@ -127,8 +130,9 @@ def build_install_calls(components: list[dict[str, Any]],
     for comp in components:
         # Determine actual install function to call
         install_func = comp["install_func"]
-        if embed_manifests and comp["name"] in ("kserve", "kserve-helm", "kserve-kustomize"):
-            install_func = "install_kserve_manifest"
+        # Note: DO NOT replace install_kserve with install_kserve_manifest
+        # The install_kserve function already handles EMBED_MANIFESTS mode internally
+        # and applies config updates (like DEPLOYMENT_MODE) after calling install_kserve_manifest
 
         if comp["env"]:
             env_calls = []
@@ -136,14 +140,12 @@ def build_install_calls(components: list[dict[str, Any]],
                 # Get global_env value if exists
                 global_val = global_env.get(k, "") if global_env else ""
 
-                # Extract default value from component variables
-                default_val = ""
-                for var_line in comp["variables"]:
-                    # Match pattern: VAR="${VAR:-default}"
-                    match = re.match(rf'^{k}="\${{{k}:-([^}}]*)}}"', var_line)
-                    if match:
-                        default_val = match.group(1)
-                        break
+                # Extract default value from component variables first
+                default_val = bash_parser.extract_default_from_var_declaration(k, comp["variables"])
+
+                # If not found in component variables, check global variables
+                if not default_val and global_var_lines:
+                    default_val = bash_parser.extract_default_from_var_declaration(k, global_var_lines)
 
                 env_calls.append(f'        set_env_with_priority "{k}" "{v}" "{global_val}" "{default_val}"')
             env_code = "\n".join(env_calls)
@@ -217,19 +219,20 @@ def generate_script_content(definition_file: Path,
     with open(common_sh) as f:
         common_functions = bash_parser.extract_common_functions(f.read())
 
+    # Read env files first (needed for install_calls generation)
+    kserve_deps_content = "\n".join(file_reader.read_env_file(repo_root / "kserve-deps.env"))
+    global_vars_lines = file_reader.read_env_file(
+        repo_root / "hack/setup/global-vars.env",
+        require_assignment=True
+    )
+    global_vars_content = "\n".join(global_vars_lines)
+
     # Build all sections
     component_variables = build_component_variables(components, config["global_env"])
     component_functions = build_component_functions(components)
     definition_global_env = build_definition_global_env(config["global_env"])
-    install_calls_str = build_install_calls(components, config["global_env"], config["embed_manifests"])
+    install_calls_str = build_install_calls(components, config["global_env"], config["embed_manifests"], global_vars_lines)
     uninstall_calls = build_uninstall_calls(components, config["embed_manifests"])
-
-    # Read env files
-    kserve_deps_content = "\n".join(file_reader.read_env_file(repo_root / "kserve-deps.env"))
-    global_vars_content = "\n".join(file_reader.read_env_file(
-        repo_root / "hack/setup/global-vars.env",
-        require_assignment=True
-    ))
 
     # Build replacements dictionary
     replacements = {
