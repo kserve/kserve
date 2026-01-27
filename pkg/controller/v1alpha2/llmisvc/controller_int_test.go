@@ -28,6 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -437,10 +438,22 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 				Expect(expectedHTTPRoute).To(BeControlledBy(llmSvc))
 				Expect(expectedHTTPRoute).To(HaveGatewayRefs(gwapiv1.ParentReference{Name: "kserve-ingress-gateway"}))
-				Expect(expectedHTTPRoute).To(HaveBackendRefs(BackendRefInferencePool(svcName + "-inference-pool")))
 				Expect(expectedHTTPRoute).To(Not(HaveBackendRefs(BackendRefService(svcName + "-kserve-workload-svc"))))
 
 				ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
+
+				// Wait for migration to complete - backendRef should eventually point to v1 InferencePool
+				// Note: With dual-pool migration, HTTPRoute initially points to v1alpha2 and swaps to v1 when ready
+				Eventually(func(g Gomega, ctx context.Context) {
+					routes, errList := managedRoutes(ctx, llmSvc)
+					g.Expect(errList).ToNot(HaveOccurred())
+					g.Expect(routes).To(HaveLen(1))
+					poolName := svcName + "-inference-pool"
+					g.Expect(&routes[0]).To(HaveBackendRefs(
+						BackendRefInferencePoolWithWeight(poolName, 1),
+						BackendRefInferencePoolV1Alpha2WithWeight(poolName, 0),
+					))
+				}).WithContext(ctx).Should(Succeed())
 
 				Eventually(func(g Gomega, ctx context.Context) error {
 					ip := igwapi.InferencePool{}
@@ -1486,10 +1499,23 @@ func ensureRouterManagedResourcesAreReady(ctx context.Context, c client.Client, 
 		if err != nil && !errors.IsNotFound(err) {
 			g.Expect(err).NotTo(gomega.HaveOccurred())
 		}
-		logf.FromContext(ctx).Info("Marking InferencePool resources ready", "inferencepools", infPools)
+		logf.FromContext(ctx).Info("Marking v1 InferencePool resources ready", "inferencepools", infPools)
 		for _, pool := range infPools.Items {
 			updatedPool := pool.DeepCopy()
 			WithInferencePoolReadyStatus()(updatedPool)
+			g.Expect(c.Status().Update(ctx, updatedPool)).To(gomega.Succeed())
+		}
+
+		// Also mark v1alpha2 InferencePools as ready (for dual-pool migration)
+		infPoolsV1Alpha2 := &igwapiv1alpha2.InferencePoolList{}
+		err = c.List(ctx, infPoolsV1Alpha2, infPoolsListOpts)
+		if err != nil && !errors.IsNotFound(err) {
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+		}
+		logf.FromContext(ctx).Info("Marking v1alpha2 InferencePool resources ready", "inferencepools", infPoolsV1Alpha2)
+		for _, pool := range infPoolsV1Alpha2.Items {
+			updatedPool := pool.DeepCopy()
+			WithInferencePoolV1Alpha2ReadyStatus()(updatedPool)
 			g.Expect(c.Status().Update(ctx, updatedPool)).To(gomega.Succeed())
 		}
 

@@ -1011,3 +1011,208 @@ def delete_scheduler_configmap():
     except client.rest.ApiException as e:
         if e.status != 404:  # Ignore not found
             raise
+
+
+# InferencePool API constants
+INFERENCE_POOL_GROUP = "inference.networking.k8s.io"
+INFERENCE_POOL_VERSION = "v1"
+INFERENCE_POOL_PLURAL = "inferencepools"
+
+
+def wait_for_inference_pools_ready(
+    llmisvc_name: str,
+    namespace: str = KSERVE_TEST_NAMESPACE,
+    timeout_seconds: int = 120,
+    interval_seconds: float = 5.0,
+):
+    """
+    Wait for InferencePools associated with an LLMInferenceService to be programmed
+    by the Gateway controller.
+
+    This is a diagnostic helper that waits for the Gateway controller to set
+    status.parents on InferencePools. If the Gateway controller doesn't program
+    the pools within the timeout, this raises an error with detailed diagnostics.
+
+    Args:
+        llmisvc_name: Name of the LLMInferenceService
+        namespace: Namespace where resources are created
+        timeout_seconds: Maximum time to wait for pools to be ready
+        interval_seconds: Polling interval
+
+    Raises:
+        TimeoutError: If pools are not programmed within the timeout, with diagnostics
+    """
+    import time
+
+    inject_k8s_proxy()
+    custom_api = client.CustomObjectsApi()
+
+    # Label selector to find InferencePools owned by this LLMInferenceService
+    label_selector = (
+        f"app.kubernetes.io/name={llmisvc_name},"
+        f"app.kubernetes.io/part-of=llminferenceservice"
+    )
+
+    deadline = time.time() + timeout_seconds
+    last_pool_states = []
+
+    logger.info(
+        f"Waiting for InferencePools for {llmisvc_name} to be programmed by Gateway controller "
+        f"(timeout: {timeout_seconds}s)..."
+    )
+
+    while time.time() < deadline:
+        try:
+            # List InferencePools matching the label selector
+            pools = custom_api.list_namespaced_custom_object(
+                group=INFERENCE_POOL_GROUP,
+                version=INFERENCE_POOL_VERSION,
+                namespace=namespace,
+                plural=INFERENCE_POOL_PLURAL,
+                label_selector=label_selector,
+            )
+
+            pool_items = pools.get("items", [])
+            if not pool_items:
+                logger.info(
+                    f"No InferencePools found yet for {llmisvc_name}, waiting..."
+                )
+                time.sleep(interval_seconds)
+                continue
+
+            # Check each pool's status
+            all_ready = True
+            last_pool_states = []
+
+            for pool in pool_items:
+                pool_name = pool["metadata"]["name"]
+                status = pool.get("status", {})
+                parents = status.get("parents", [])
+                spec = pool.get("spec", {})
+
+                pool_state = {
+                    "name": pool_name,
+                    "has_parents": len(parents) > 0,
+                    "parents_count": len(parents),
+                    "selector": spec.get("selector", {}),
+                    "target_ports": spec.get("targetPorts", []),
+                }
+
+                if not parents:
+                    logger.info(
+                        f"InferencePool {pool_name}: No parents yet "
+                        f"(Gateway controller hasn't programmed it)"
+                    )
+                    all_ready = False
+                else:
+                    # Check if any parent has Accepted=True
+                    accepted_parents = []
+                    for parent in parents:
+                        parent_ref = parent.get("parentRef", {})
+                        conditions = parent.get("conditions", [])
+                        is_accepted = any(
+                            cond.get("type") == "Accepted"
+                            and cond.get("status") == "True"
+                            for cond in conditions
+                        )
+                        accepted_parents.append({
+                            "gateway": f"{parent_ref.get('namespace', '')}/{parent_ref.get('name', '')}",
+                            "accepted": is_accepted,
+                            "conditions": conditions,
+                        })
+
+                    pool_state["parents"] = accepted_parents
+                    any_accepted = any(p["accepted"] for p in accepted_parents)
+
+                    if any_accepted:
+                        logger.info(
+                            f"InferencePool {pool_name}: Ready (accepted by Gateway)"
+                        )
+                    else:
+                        logger.info(
+                            f"InferencePool {pool_name}: Has parents but not accepted yet"
+                        )
+                        all_ready = False
+
+                last_pool_states.append(pool_state)
+
+            if all_ready and pool_items:
+                logger.info(
+                    f"✅ All InferencePools for {llmisvc_name} are programmed and ready"
+                )
+                return
+
+        except client.rest.ApiException as e:
+            logger.warning(f"Error checking InferencePools: {e}")
+
+        time.sleep(interval_seconds)
+
+    # Timeout - provide detailed diagnostics
+    diagnostics = _collect_inference_pool_diagnostics(
+        custom_api, llmisvc_name, namespace, last_pool_states
+    )
+
+    raise TimeoutError(
+        f"Timed out after {timeout_seconds}s waiting for InferencePools for "
+        f"{llmisvc_name} to be programmed by Gateway controller.\n\n"
+        f"DIAGNOSTICS:\n{diagnostics}\n\n"
+        f"This indicates the Gateway controller is not setting status.parents on "
+        f"InferencePools. Check:\n"
+        f"1. Is Envoy Gateway properly configured with InferencePool support?\n"
+        f"2. Are the envoy-gateway-values-addon.yaml settings applied?\n"
+        f"3. Check Envoy Gateway controller logs for errors.\n"
+        f"4. Verify the InferencePool spec has valid selector and targetPorts."
+    )
+
+
+def _collect_inference_pool_diagnostics(
+    custom_api: client.CustomObjectsApi,
+    llmisvc_name: str,
+    namespace: str,
+    pool_states: list,
+) -> str:
+    """Collect detailed diagnostics for InferencePool issues."""
+    lines = []
+
+    lines.append(f"LLMInferenceService: {llmisvc_name}")
+    lines.append(f"Namespace: {namespace}")
+    lines.append("")
+
+    if not pool_states:
+        lines.append("No InferencePools found!")
+    else:
+        lines.append(f"InferencePools found: {len(pool_states)}")
+        for state in pool_states:
+            lines.append(f"\n  Pool: {state['name']}")
+            lines.append(f"    Has parents: {state['has_parents']}")
+            lines.append(f"    Parents count: {state['parents_count']}")
+            lines.append(f"    Selector: {state.get('selector', {})}")
+            lines.append(f"    Target ports: {state.get('target_ports', [])}")
+            if "parents" in state:
+                for p in state["parents"]:
+                    lines.append(f"    Parent gateway: {p['gateway']}")
+                    lines.append(f"      Accepted: {p['accepted']}")
+                    lines.append(f"      Conditions: {p['conditions']}")
+
+    # Try to get Gateway status
+    try:
+        gateways = custom_api.list_namespaced_custom_object(
+            group="gateway.networking.k8s.io",
+            version="v1",
+            namespace=namespace,
+            plural="gateways",
+        )
+        lines.append("\nGateways in namespace:")
+        for gw in gateways.get("items", []):
+            gw_name = gw["metadata"]["name"]
+            gw_status = gw.get("status", {})
+            conditions = gw_status.get("conditions", [])
+            programmed = any(
+                c.get("type") == "Programmed" and c.get("status") == "True"
+                for c in conditions
+            )
+            lines.append(f"  {gw_name}: Programmed={programmed}")
+    except Exception as e:
+        lines.append(f"\nFailed to get Gateways: {e}")
+
+    return "\n".join(lines)

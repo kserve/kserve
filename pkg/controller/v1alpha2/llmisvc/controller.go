@@ -49,6 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/utils"
@@ -72,6 +73,11 @@ type LLMISVCReconciler struct {
 	Clientset kubernetes.Interface
 
 	Validator func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error
+
+	// InferencePool CRD availability flags (set during SetupWithManager)
+	// These determine which pool versions can be created/managed
+	InferencePoolV1Available       bool
+	InferencePoolV1Alpha2Available bool
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -159,6 +165,14 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		r.Eventf(original, corev1.EventTypeWarning, "Error", "Reconciliation failed: %v", reconcileErr.Error())
 	}
 
+	// Update annotations if they changed (e.g., migration annotation)
+	if !equality.Semantic.DeepEqual(original.Annotations, resource.Annotations) {
+		if err := r.updateAnnotations(ctx, resource); err != nil {
+			logger.Error(err, "Failed to update annotations for LLMInferenceService")
+			return ctrl.Result{}, err
+		}
+	}
+
 	if err := r.updateStatus(ctx, resource); err != nil {
 		logger.Error(err, "Failed to update status for LLMInferenceService")
 		return ctrl.Result{}, err
@@ -239,6 +253,43 @@ func (r *LLMISVCReconciler) updateStatus(ctx context.Context, desired *v1alpha2.
 	})
 }
 
+// updateAnnotations merges the annotations from desired into the LLMInferenceService.
+// This preserves any annotations set by users (like stop annotation) while adding
+// controller-managed annotations (like migration annotation).
+func (r *LLMISVCReconciler) updateAnnotations(ctx context.Context, desired *v1alpha2.LLMInferenceService) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Always fetch the latest version to avoid conflicts
+		latest := &v1alpha2.LLMInferenceService{}
+		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(desired), latest); err != nil {
+			return err
+		}
+
+		// Merge annotations: start with latest's annotations (preserving user-set ones)
+		// and add/update any from desired (controller-managed ones)
+		if latest.Annotations == nil {
+			latest.Annotations = make(map[string]string)
+		}
+		needsUpdate := false
+		for k, v := range desired.Annotations {
+			if latest.Annotations[k] != v {
+				latest.Annotations[k] = v
+				needsUpdate = true
+			}
+		}
+
+		// Skip update if nothing changed
+		if !needsUpdate {
+			return nil
+		}
+
+		if err := r.Client.Update(ctx, latest); err != nil {
+			return fmt.Errorf("failed to update annotations for LLMInferenceService: %w", err)
+		}
+
+		return nil
+	})
+}
+
 // SetupWithManager sets up the controller with the Manager.
 // It configures watches for the LLMInferenceService and its owned resources.
 // The controller conditionally registers watchers based on CRD availability to avoid errors in environments where optional CRDs are not installed.
@@ -265,15 +316,25 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		b = b.Watches(&gwapiv1.Gateway{}, r.enqueueOnGatewayChange(logger))
 	}
 
+	// Install GIE v1 API and check availability
 	if err := igwapi.Install(mgr.GetScheme()); err != nil {
-		return fmt.Errorf("failed to add GIE APIs to scheme: %w", err)
+		return fmt.Errorf("failed to add GIE v1 APIs to scheme: %w", err)
 	}
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapi.GroupVersion.String(), "InferencePool"); ok && err == nil {
+		r.InferencePoolV1Available = true
 		b = b.Owns(&igwapi.InferencePool{}, builder.WithPredicates(childResourcesPredicate))
 	}
-	// if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapi.GroupVersion.String(), "InferenceModel"); ok && err == nil {
-	// 	b = b.Owns(&igwapi.InferenceObjective{}, builder.WithPredicates(childResourcesPredicate))
-	// }
+
+	// Install GIE v1alpha2 API and check availability (for backwards compatibility during migration)
+	if err := igwapiv1alpha2.Install(mgr.GetScheme()); err != nil {
+		return fmt.Errorf("failed to add GIE v1alpha2 APIs to scheme: %w", err)
+	}
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapiv1alpha2.GroupVersion.String(), "InferencePool"); ok && err == nil {
+		r.InferencePoolV1Alpha2Available = true
+		b = b.Owns(&igwapiv1alpha2.InferencePool{}, builder.WithPredicates(childResourcesPredicate))
+	}
+
+	logger.Info("InferencePool CRD availability", "v1", r.InferencePoolV1Available, "v1alpha2", r.InferencePoolV1Alpha2Available)
 
 	if err := lwsapi.AddToScheme(mgr.GetScheme()); err != nil {
 		return fmt.Errorf("failed to add LeaderWorkerSet APIs to scheme: %w", err)

@@ -313,6 +313,11 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		}
 	}
 
+	// Swap HTTPRoute backendRef based on migration state (v1alpha2 vs v1 InferencePool).
+	// If not migrated to v1, point to v1alpha2 pool for backwards compatibility.
+	// If migrated, keep pointing to v1 pool (default).
+	llmSvcCfg = r.adjustBackendRefForMigration(llmSvc, llmSvcCfg)
+
 	return llmSvcCfg, nil
 }
 
@@ -442,4 +447,72 @@ func isDefaultBackendRef(llmSvc *v1alpha2.LLMInferenceService, ref gwapiv1.Backe
 	return ptr.Deref[gwapiv1.Group](ref.Group, "") == igwapi.GroupName &&
 		ptr.Deref[gwapiv1.Kind](ref.Kind, "") == "InferencePool" &&
 		string(ref.Name) == defaultInfPoolName
+}
+
+// isV1InferencePoolBackendRef checks if the backendRef points to a v1 InferencePool
+func isV1InferencePoolBackendRef(ref gwapiv1.BackendRef) bool {
+	return ptr.Deref[gwapiv1.Group](ref.Group, "") == constants.InferencePoolV1APIGroupName &&
+		ptr.Deref[gwapiv1.Kind](ref.Kind, "") == "InferencePool"
+}
+
+// adjustBackendRefForMigration configures HTTPRoute backendRefs for zero-downtime migration.
+// When both CRDs are available, adds dual backendRefs with weights so the Gateway controller
+// programs both pools. Traffic is directed via weight=1/0 based on migration state.
+func (r *LLMISVCReconciler) adjustBackendRefForMigration(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig) *v1alpha2.LLMInferenceServiceConfig {
+	if llmSvcCfg.Spec.Router == nil ||
+		llmSvcCfg.Spec.Router.Route == nil ||
+		!llmSvcCfg.Spec.Router.Route.HTTP.HasSpec() {
+		return llmSvcCfg
+	}
+
+	if llmSvcCfg.Spec.Router.Scheduler == nil {
+		return llmSvcCfg
+	}
+
+	if llmSvcCfg.Spec.Router.Scheduler.Pool.HasRef() {
+		return llmSvcCfg
+	}
+
+	bothAvailable := r.InferencePoolV1Available && r.InferencePoolV1Alpha2Available
+	onlyV1Alpha2 := !r.InferencePoolV1Available && r.InferencePoolV1Alpha2Available
+
+	for i := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules {
+		rule := &llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i]
+		var newRefs []gwapiv1.HTTPBackendRef
+
+		for _, ref := range rule.BackendRefs {
+			if !isV1InferencePoolBackendRef(ref.BackendRef) {
+				newRefs = append(newRefs, ref)
+				continue
+			}
+
+			switch {
+			case onlyV1Alpha2:
+				ref.Group = ptr.To[gwapiv1.Group](gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName))
+				newRefs = append(newRefs, ref)
+
+			case bothAvailable:
+				migrated := isMigratedToV1(llmSvc)
+
+				v1Ref := ref
+				v1Alpha2Ref := ref
+				v1Alpha2Ref.Group = ptr.To[gwapiv1.Group](gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName))
+
+				if migrated {
+					v1Ref.Weight = ptr.To(int32(1))
+					v1Alpha2Ref.Weight = ptr.To(int32(0))
+				} else {
+					v1Ref.Weight = ptr.To(int32(0))
+					v1Alpha2Ref.Weight = ptr.To(int32(1))
+				}
+				newRefs = append(newRefs, v1Ref, v1Alpha2Ref)
+
+			default:
+				newRefs = append(newRefs, ref)
+			}
+		}
+		rule.BackendRefs = newRefs
+	}
+
+	return llmSvcCfg
 }
