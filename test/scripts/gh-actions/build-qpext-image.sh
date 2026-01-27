@@ -19,8 +19,19 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-echo "Github SHA ${GITHUB_SHA}"
-export QPEXT_IMG=kserve/qpext:${GITHUB_SHA}
+
+# Load image configurations
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+source "${PROJECT_ROOT}/kserve-images.sh"
+
+if [ -d "${DOCKER_IMAGES_PATH}" ]; then
+  mkdir -p "${DOCKER_IMAGES_PATH}"  
+fi
+
+echo "Github SHA ${TAG}"
+export QPEXT_IMG=${KO_DOCKER_REPO}/${QPEXT_IMG}:${TAG}
+
 
 echo "Building queue proxy extension image"
 docker buildx build -t ${QPEXT_IMG} -f qpext/qpext.Dockerfile .

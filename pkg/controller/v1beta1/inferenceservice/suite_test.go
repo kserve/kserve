@@ -99,11 +99,15 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(clientset).ToNot(BeNil())
 
+	cacheOpts, err := NewCacheOptions()
+	Expect(err).ToNot(HaveOccurred())
+
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme.Scheme,
 		Metrics: metricsserver.Options{
 			BindAddress: "0",
 		},
+		Cache: cacheOpts,
 	})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -185,6 +189,9 @@ func getBaseTestConfigs() map[string]string {
 				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
 				"cpuModelcar": "10m",
 				"memoryModelcar": "15Mi"
+			}`,
+		"deploy": `{
+				"defaultDeploymentMode": "Knative"
 			}`,
 		"inferenceService": `{}`,
 	}

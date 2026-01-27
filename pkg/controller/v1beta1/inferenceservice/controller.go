@@ -56,8 +56,8 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
@@ -233,7 +233,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// Setup reconcilers
-	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
+	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name, "namespace", isvc.Namespace)
 
 	// Reconcile cabundleConfigMap
 	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset)
@@ -241,17 +241,17 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, err
 	}
 
-	reconcilers := []components.Component{}
+	componentReconcilers := []components.Component{}
 	if deploymentMode != constants.ModelMeshDeployment {
-		reconcilers = append(reconcilers, components.NewPredictor(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
+		componentReconcilers = append(componentReconcilers, components.NewPredictor(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
 	}
 	if isvc.Spec.Transformer != nil {
-		reconcilers = append(reconcilers, components.NewTransformer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
+		componentReconcilers = append(componentReconcilers, components.NewTransformer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
 	}
 	if isvc.Spec.Explainer != nil {
-		reconcilers = append(reconcilers, components.NewExplainer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
+		componentReconcilers = append(componentReconcilers, components.NewExplainer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
 	}
-	for _, reconciler := range reconcilers {
+	for _, reconciler := range componentReconcilers {
 		result, err := reconciler.Reconcile(ctx, isvc)
 		if err != nil {
 			r.Log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
@@ -319,31 +319,34 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create IngressConfig")
 	}
 
-	// check raw deployment
-	if deploymentMode == constants.Standard {
-		if ingressConfig.EnableGatewayAPI {
-			reconciler := ingress.NewRawHTTPRouteReconciler(r.Client, r.Scheme, ingressConfig, isvcConfig)
+	// Reconcile ingress using factory
+	factory := reconcilers.NewReconcilerFactory()
 
-			if result, err := reconciler.Reconcile(ctx, isvc); err != nil {
-				return result, errors.Wrapf(err, "fails to reconcile ingress")
-			} else if result.Requeue || result.RequeueAfter > 0 {
-				return result, nil
-			}
-		} else {
-			reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig, isvcConfig)
-			if err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
-			}
-			if err := reconciler.Reconcile(ctx, isvc); err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
-			}
+	ingressReconciler, err := factory.CreateIngressReconciler(
+		deploymentMode,
+		reconcilers.IngressReconcilerParams{
+			Client:        r.Client,
+			Clientset:     r.Clientset,
+			Scheme:        r.Scheme,
+			IngressConfig: ingressConfig,
+			IsvcConfig:    isvcConfig,
+		},
+	)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err, "failed to create ingress reconciler")
+	}
+
+	r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
+	result, err := ingressReconciler.Reconcile(ctx, isvc)
+	if err != nil {
+		return result, errors.Wrapf(err, "fails to reconcile ingress")
+	}
+	if result.Requeue || result.RequeueAfter > 0 {
+		// Persist status before requeue so deployment errors are visible on the ISVC
+		if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
+			r.Log.Error(err, "Error updating status before requeue")
 		}
-	} else {
-		reconciler := ingress.NewIngressReconciler(r.Client, r.Clientset, r.Scheme, ingressConfig, isvcConfig)
-		r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
-		if err := reconciler.Reconcile(ctx, isvc); err != nil {
-			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
-		}
+		return result, nil
 	}
 
 	// Reconcile modelConfig
@@ -478,14 +481,90 @@ func (r *InferenceServiceReconciler) clusterServingRuntimeFunc(ctx context.Conte
 				continue
 			}
 		}
-		requests = append(requests, reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Namespace: isvc.Namespace,
-				Name:      isvc.Name,
-			},
-		})
+		if isvc.Status.ClusterServingRuntimeName == clusterServingRuntimeObj.Name {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: isvc.Namespace,
+					Name:      isvc.Name,
+				},
+			})
+		}
 	}
 	return requests
+}
+
+func (r *InferenceServiceReconciler) podInitContainersFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	pod, ok := obj.(*corev1.Pod)
+	if !ok || pod == nil {
+		return nil
+	}
+	// Lookup by PodTemplateSpec labels
+	if isvcName, found := pod.Labels[constants.InferenceServicePodLabelKey]; found && isvcName != "" {
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Namespace: pod.Namespace,
+					Name:      isvcName, // Reconcile the InferenceService that manages this pod
+				},
+			},
+		}
+	}
+	// If label is missing, this pod is not managed by an InferenceService
+	return nil
+}
+
+// servingRuntimesPredicate returns a predicate that filters ServingRuntime updates
+// to only include those where the Spec has changed.
+func servingRuntimesPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldServingRuntime := e.ObjectOld.(*v1alpha1.ServingRuntime)
+			newServingRuntime := e.ObjectNew.(*v1alpha1.ServingRuntime)
+			return !reflect.DeepEqual(oldServingRuntime.Spec, newServingRuntime.Spec)
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+}
+
+// clusterServingRuntimesPredicate returns a predicate that filters ClusterServingRuntime updates
+// to only include those where the Spec has changed.
+func clusterServingRuntimesPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldClusterServingRuntime := e.ObjectOld.(*v1alpha1.ClusterServingRuntime)
+			newClusterServingRuntime := e.ObjectNew.(*v1alpha1.ClusterServingRuntime)
+			return !reflect.DeepEqual(oldClusterServingRuntime.Spec, newClusterServingRuntime.Spec)
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+}
+
+// podInitContainersPredicate returns a predicate that filters pod updates to only
+// include those where InitContainerStatuses have changed for pods with the InferenceService label.
+func podInitContainersPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			// Only process pods managed by InferenceServices
+			newPod, ok := e.ObjectNew.(*corev1.Pod)
+			if !ok || newPod == nil {
+				return false
+			}
+			// Check if pod has the InferenceService label
+			if isvcName, found := newPod.Labels[constants.InferenceServicePodLabelKey]; !found || isvcName == "" {
+				return false
+			}
+			// Only watch pod status changes, not spec changes
+			oldPod := e.ObjectOld.(*corev1.Pod)
+			return !equality.Semantic.DeepEqual(oldPod.Status.InitContainerStatuses, newPod.Status.InitContainerStatuses)
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
 }
 
 func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1.DeployConfig, ingressConfig *v1beta1.IngressConfig) error {
@@ -526,29 +605,6 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		return nil
 	}); err != nil {
 		return err
-	}
-
-	servingRuntimesPredicate := predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldServingRuntime := e.ObjectOld.(*v1alpha1.ServingRuntime)
-			newServingRuntime := e.ObjectNew.(*v1alpha1.ServingRuntime)
-			return !reflect.DeepEqual(oldServingRuntime.Spec, newServingRuntime.Spec)
-		},
-		CreateFunc:  func(e event.CreateEvent) bool { return false },
-		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
-		GenericFunc: func(e event.GenericEvent) bool { return false },
-	}
-
-	// TODO: Find a way to distinguish if the ServingRuntime is a ClusterServingRuntime or not
-	clusterServingRuntimesPredicate := predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldClusterServingRuntime := e.ObjectOld.(*v1alpha1.ClusterServingRuntime)
-			newClusterServingRuntime := e.ObjectNew.(*v1alpha1.ClusterServingRuntime)
-			return !reflect.DeepEqual(oldClusterServingRuntime.Spec, newClusterServingRuntime.Spec)
-		},
-		CreateFunc:  func(e event.CreateEvent) bool { return false },
-		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
-		GenericFunc: func(e event.GenericEvent) bool { return false },
 	}
 
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
@@ -607,8 +663,9 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		ctrlBuilder = ctrlBuilder.Owns(&netv1.Ingress{})
 	}
 
-	return ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate)).
-		Watches(&v1alpha1.ClusterServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.clusterServingRuntimeFunc), builder.WithPredicates(clusterServingRuntimesPredicate)).
+	return ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate())).
+		Watches(&v1alpha1.ClusterServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.clusterServingRuntimeFunc), builder.WithPredicates(clusterServingRuntimesPredicate())).
+		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.podInitContainersFunc), builder.WithPredicates(podInitContainersPredicate())).
 		Complete(r)
 }
 

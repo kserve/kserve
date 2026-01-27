@@ -70,3 +70,11 @@ KServe is an important addon component of Kubeflow, please learn more from the [
 ### Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=kserve/kserve&type=Date)](https://www.star-history.com/#kserve/kserve&Date)
+
+### Contributors
+
+Thanks to all of our amazing contributors!
+
+<a href="https://github.com/kserve/kserve/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=kserve/kserve" />
+</a>
