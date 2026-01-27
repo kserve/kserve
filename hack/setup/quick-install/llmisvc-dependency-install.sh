@@ -752,8 +752,8 @@ install_external_lb() {
             log_info "Minikube IP: ${MINIKUBE_IP}"
 
             PREFIX=${MINIKUBE_IP%.*}
-            START=${METALLB_IP_RANGE_START:-${PREFIX}.200}
-            END=${METALLB_IP_RANGE_END:-${PREFIX}.235}
+            START=${METALLB_IP_RANGE_START:-${PREFIX}.99}
+            END=${METALLB_IP_RANGE_END:-${PREFIX}.110}
 
             log_info "Configuring MetalLB IP range: ${START}-${END}"
 
