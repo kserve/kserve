@@ -56,8 +56,8 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
@@ -241,17 +241,17 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, err
 	}
 
-	reconcilers := []components.Component{}
+	componentReconcilers := []components.Component{}
 	if deploymentMode != constants.ModelMeshDeployment {
-		reconcilers = append(reconcilers, components.NewPredictor(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
+		componentReconcilers = append(componentReconcilers, components.NewPredictor(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
 	}
 	if isvc.Spec.Transformer != nil {
-		reconcilers = append(reconcilers, components.NewTransformer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
+		componentReconcilers = append(componentReconcilers, components.NewTransformer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
 	}
 	if isvc.Spec.Explainer != nil {
-		reconcilers = append(reconcilers, components.NewExplainer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
+		componentReconcilers = append(componentReconcilers, components.NewExplainer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
 	}
-	for _, reconciler := range reconcilers {
+	for _, reconciler := range componentReconcilers {
 		result, err := reconciler.Reconcile(ctx, isvc)
 		if err != nil {
 			r.Log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
@@ -319,35 +319,34 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create IngressConfig")
 	}
 
-	// check raw deployment
-	if deploymentMode == constants.Standard {
-		if ingressConfig.EnableGatewayAPI {
-			reconciler := ingress.NewRawHTTPRouteReconciler(r.Client, r.Scheme, ingressConfig, isvcConfig)
+	// Reconcile ingress using factory
+	factory := reconcilers.NewReconcilerFactory()
 
-			if result, err := reconciler.Reconcile(ctx, isvc); err != nil {
-				return result, errors.Wrapf(err, "fails to reconcile ingress")
-			} else if result.Requeue || result.RequeueAfter > 0 {
-				// Persist status before requeue so deployment errors are visible on the ISVC
-				if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
-					r.Log.Error(err, "Error updating status before requeue")
-				}
-				return result, nil
-			}
-		} else {
-			reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig, isvcConfig)
-			if err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
-			}
-			if err := reconciler.Reconcile(ctx, isvc); err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
-			}
+	ingressReconciler, err := factory.CreateIngressReconciler(
+		deploymentMode,
+		reconcilers.IngressReconcilerParams{
+			Client:        r.Client,
+			Clientset:     r.Clientset,
+			Scheme:        r.Scheme,
+			IngressConfig: ingressConfig,
+			IsvcConfig:    isvcConfig,
+		},
+	)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err, "failed to create ingress reconciler")
+	}
+
+	r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
+	result, err := ingressReconciler.Reconcile(ctx, isvc)
+	if err != nil {
+		return result, errors.Wrapf(err, "fails to reconcile ingress")
+	}
+	if result.Requeue || result.RequeueAfter > 0 {
+		// Persist status before requeue so deployment errors are visible on the ISVC
+		if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
+			r.Log.Error(err, "Error updating status before requeue")
 		}
-	} else {
-		reconciler := ingress.NewIngressReconciler(r.Client, r.Clientset, r.Scheme, ingressConfig, isvcConfig)
-		r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
-		if err := reconciler.Reconcile(ctx, isvc); err != nil {
-			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
-		}
+		return result, nil
 	}
 
 	// Reconcile modelConfig
