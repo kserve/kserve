@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+import os
+
 import pytest
 import openai
 import pytest_asyncio
@@ -30,20 +32,27 @@ from vllm.transformers_utils.tokenizer import get_tokenizer
 from server import RemoteOpenAIServer
 
 
-MODEL = "Qwen/Qwen2-1.5B-Instruct"
+# Default to smaller model and float32 dtype for CPU testing (CI runs on CPU)
+# For GPU: TEST_MODEL=Qwen/Qwen2-1.5B-Instruct DTYPE=bfloat16 pytest ...
+MODEL = os.environ.get("TEST_MODEL", "Qwen/Qwen2.5-0.5B-Instruct")
 MODEL_NAME = "test-model"
 
 
 @pytest.fixture(scope="module")
 def server():  # noqa: F811
+    # Default float32 for CPU (xgrammar CPU kernel requires it)
+    # For GPU: use DTYPE=bfloat16
+    dtype = os.environ.get("DTYPE", "float32")
     args = [
-        # use half precision for speed and memory savings in CI environment
         "--dtype",
-        "bfloat16",
+        dtype,
         "--max-model-len",
         "2048",
         "--trust_remote_code",
         "--enforce-eager",
+        "--enable-auto-tool-choice",
+        "--tool-call-parser",
+        "hermes",
     ]
 
     with RemoteOpenAIServer(MODEL, MODEL_NAME, args) as remote_server:
@@ -226,7 +235,7 @@ async def test_prompt_logprobs_chat(
         params["extra_body"] = {"prompt_logprobs": prompt_logprobs}
 
     if prompt_logprobs is not None and prompt_logprobs < 0:
-        with pytest.raises(UnprocessableEntityError):
+        with pytest.raises(openai.BadRequestError):
             await client.chat.completions.create(**params)
     else:
         completion = await client.chat.completions.create(**params)
@@ -1080,7 +1089,7 @@ async def test_prompt_logprobs_completion(
         params["extra_body"] = {"prompt_logprobs": prompt_logprobs}
 
     if prompt_logprobs is not None and prompt_logprobs < 0:
-        with pytest.raises(UnprocessableEntityError):
+        with pytest.raises(openai.BadRequestError):
             await client.completions.create(**params)
     else:
         completion = await client.completions.create(**params)
@@ -1529,7 +1538,7 @@ async def test_guided_decoding_type_error(
             ),
         )
 
-    with pytest.raises(openai.UnprocessableEntityError):
+    with pytest.raises(openai.BadRequestError):
         _ = await client.completions.create(
             model=MODEL_NAME,
             prompt="Give an example string that fits this regex",
