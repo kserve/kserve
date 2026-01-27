@@ -189,17 +189,14 @@ func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v
 	if err != nil {
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for explainer")
 	}
-	// set Deployment Controller
-	for _, deployment := range r.Deployment.DeploymentList {
-		if err := controllerutil.SetControllerReference(isvc, deployment, e.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set deployment owner reference for explainer")
-		}
+	// set Workload Controller
+	if err := r.Workload.SetControllerReferences(isvc, e.scheme); err != nil {
+		return errors.Wrapf(err, "fails to set workload owner reference for explainer")
 	}
+
 	// set Service Controller
-	for _, svc := range r.Service.ServiceList {
-		if err := controllerutil.SetControllerReference(isvc, svc, e.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set service owner reference for explainer")
-		}
+	if err := r.Service.SetControllerReferences(isvc, e.scheme); err != nil {
+		return errors.Wrapf(err, "fails to set service owner reference for explainer")
 	}
 	// set autoscaler Controller
 	if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, e.scheme); err != nil {
