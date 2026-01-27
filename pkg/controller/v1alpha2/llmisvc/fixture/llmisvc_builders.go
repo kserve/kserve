@@ -255,6 +255,12 @@ func WithDataRPCPort(rpcPort int32) func(*v1alpha2.ParallelismSpec) {
 	}
 }
 
+func WithExpert(expert bool) func(*v1alpha2.ParallelismSpec) {
+	return func(p *v1alpha2.ParallelismSpec) {
+		p.Expert = expert
+	}
+}
+
 func WithManagedScheduler() LLMInferenceServiceOption {
 	return func(llmSvc *v1alpha2.LLMInferenceService) {
 		if llmSvc.Spec.Router == nil {
