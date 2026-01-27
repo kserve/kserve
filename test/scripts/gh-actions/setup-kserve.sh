@@ -64,7 +64,6 @@ if [[ $LLMISVC == "false" ]]; then
 else
   #TODO: Need to replace Environment variable of KSERVE_OVERLAY_DIR=test with LLMISVC
   KSERVE_OVERLAY_DIR=test-llmisvc ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh
-  # USE_LOCAL_CHARTS=true LLMISVC=true ${REPO_ROOT}/hack/setup/infra/manage.kserve-helm.sh
 fi
 
 echo "Show inferenceservice-config configmap..."
