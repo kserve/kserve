@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/utils"
@@ -165,4 +167,28 @@ func routingSidecar(pod *corev1.PodSpec) *corev1.Container {
 		}
 	}
 	return nil
+}
+
+// PreserveDeploymentReplicas returns an UpdateOption that preserves the current
+// Deployment's replica count when the owner doesn't explicitly set it.
+// This allows external controllers (like HPA) to manage replicas without the
+// reconciler overwriting their values.
+func PreserveDeploymentReplicas() UpdateOption[*appsv1.Deployment] {
+	return AfterDryRun(func(expected, expectedGiven, curr *appsv1.Deployment) {
+		if expectedGiven.Spec.Replicas == nil {
+			expected.Spec.Replicas = curr.Spec.Replicas
+		}
+	})
+}
+
+// PreserveLWSReplicas returns an UpdateOption that preserves the current
+// LeaderWorkerSet's replica count when the owner doesn't explicitly set it.
+// This allows external controllers to manage replicas without the
+// reconciler overwriting their values.
+func PreserveLWSReplicas() UpdateOption[*lwsapi.LeaderWorkerSet] {
+	return AfterDryRun(func(expected, expectedGiven, curr *lwsapi.LeaderWorkerSet) {
+		if expectedGiven.Spec.Replicas == nil {
+			expected.Spec.Replicas = curr.Spec.Replicas
+		}
+	})
 }
