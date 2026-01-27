@@ -44,7 +44,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
-                        "requests": {"cpu": ".5", "memory": "4Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                     "livenessProbe": {
                         "initialDelaySeconds": 120,
@@ -76,7 +76,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
-                        "requests": {"cpu": ".5", "memory": "4Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                     "livenessProbe": {
                         "httpGet": {"path": "/health", "port": 8000},
@@ -108,7 +108,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
                         "resources": {
                             "limits": {"cpu": "2", "memory": "7Gi"},
-                            "requests": {"cpu": ".5", "memory": "4Gi"},
+                            "requests": {"cpu": "200m", "memory": "2Gi"},
                         },
                         "livenessProbe": {
                             "httpGet": {"path": "/health", "port": 8000},
@@ -347,7 +347,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
-                        "requests": {"cpu": ".5", "memory": "4Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                     "livenessProbe": {
                         "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
@@ -389,7 +389,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
-                        "requests": {"cpu": ".5", "memory": "4Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                     "livenessProbe": {
                         "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
@@ -621,7 +621,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
-                        "requests": {"cpu": "1", "memory": "2Gi"},
+                        "requests": {"cpu": "500m", "memory": "2Gi"},
                     },
                 }
             ]

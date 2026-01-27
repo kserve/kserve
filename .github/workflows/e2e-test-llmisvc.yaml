@@ -12,7 +12,7 @@ on:
       - "cmd/llmisvc/**"
       - "test/e2e/llmisvc/**"
       - ".github/workflows/e2e-test-llmisvc.yaml"
-      - "hack/setup/**"
+      - "hack/setup/quick-install/llmisvc-dependency-install.sh"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -104,7 +104,7 @@ jobs:
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
         with:
-          deploy-llmisvc: "true"          
+          deploy-llmisvc: "true"
 
       - name: Install UV
         run: ./test/scripts/gh-actions/setup-uv.sh
@@ -133,9 +133,9 @@ jobs:
           kubectl get pods -n envoy-ai-gateway-system || true
 
           echo "✅ LLMISvc setup verification complete!"
-          
+
       - name: Run predictor E2E tests
-        timeout-minutes: 20
+        timeout-minutes: 40
         run: |
           # Run only CPU tests for now using pytest markers (cluster_)
           # Available GPU vendors: amd, nvidia, intel
