@@ -316,7 +316,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	// Swap HTTPRoute backendRef based on migration state (v1alpha2 vs v1 InferencePool).
 	// If not migrated to v1, point to v1alpha2 pool for backwards compatibility.
 	// If migrated, keep pointing to v1 pool (default).
-	llmSvcCfg = r.adjustBackendRefForMigration(llmSvc, llmSvcCfg)
+	llmSvcCfg = r.adjustBackendRefForMigration(llmSvcCfg)
 
 	return llmSvcCfg, nil
 }
@@ -455,10 +455,12 @@ func isV1InferencePoolBackendRef(ref gwapiv1.BackendRef) bool {
 		ptr.Deref[gwapiv1.Kind](ref.Kind, "") == "InferencePool"
 }
 
-// adjustBackendRefForMigration swaps the HTTPRoute backendRef based on InferencePool migration state.
-// If not yet migrated to v1 and v1alpha2 CRD is available, point to v1alpha2 pool.
-// If migrated or v1alpha2 is not available, keep pointing to v1 pool.
-func (r *LLMISVCReconciler) adjustBackendRefForMigration(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig) *v1alpha2.LLMInferenceServiceConfig {
+// adjustBackendRefForMigration swaps the HTTPRoute backendRef based on InferencePool CRD availability.
+// In v1alpha2-only environments (no v1 CRD), point to v1alpha2 pool.
+// When v1 CRD is available, always use v1 pool so the Gateway controller can program it.
+// The Gateway controller (e.g. Envoy AI Gateway) only recognizes v1 InferencePools,
+// so the HTTPRoute must reference v1 for the pool to receive status.parents updates.
+func (r *LLMISVCReconciler) adjustBackendRefForMigration(llmSvcCfg *v1alpha2.LLMInferenceServiceConfig) *v1alpha2.LLMInferenceServiceConfig {
 	// Skip if no HTTPRoute spec
 	if llmSvcCfg.Spec.Router == nil ||
 		llmSvcCfg.Spec.Router.Route == nil ||
@@ -477,19 +479,22 @@ func (r *LLMISVCReconciler) adjustBackendRefForMigration(llmSvc *v1alpha2.LLMInf
 		return llmSvcCfg
 	}
 
-	// If already migrated to v1 or v1alpha2 CRD is not available, use v1 pool (default behavior)
-	if isMigratedToV1(llmSvc) || !r.InferencePoolV1Alpha2Available {
+	// If v1 CRD is available, always use v1 pool (default behavior).
+	// The Gateway controller only recognizes v1 InferencePools and won't program
+	// v1alpha2 pools, so the HTTPRoute must reference v1 for status.parents to be set.
+	if r.InferencePoolV1Available {
 		return llmSvcCfg
 	}
 
-	// Not migrated and v1alpha2 CRD is available: swap to v1alpha2 pool
-	// Both pools have the same name (they coexist as different CRDs), so we only change the API group
-	for i := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules {
-		for j := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs {
-			ref := &llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j]
-			// Only modify v1 InferencePool backendRefs - change API group to v1alpha2
-			if isV1InferencePoolBackendRef(ref.BackendRef) {
-				ref.Group = ptr.To[gwapiv1.Group](gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName))
+	// v1 CRD not available but v1alpha2 is: swap to v1alpha2 pool (legacy/v1alpha2-only environment)
+	if r.InferencePoolV1Alpha2Available {
+		for i := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules {
+			for j := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs {
+				ref := &llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j]
+				// Only modify v1 InferencePool backendRefs - change API group to v1alpha2
+				if isV1InferencePoolBackendRef(ref.BackendRef) {
+					ref.Group = ptr.To[gwapiv1.Group](gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName))
+				}
 			}
 		}
 	}

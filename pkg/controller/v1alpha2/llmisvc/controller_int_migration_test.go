@@ -95,7 +95,7 @@ var _ = Describe("InferencePool Migration", func() {
 			// The migration annotation and HTTPRoute swap behavior are tested in separate test cases.
 		})
 
-		It("should point HTTPRoute backendRef to v1alpha2 pool initially (before migration)", func(ctx SpecContext) {
+		It("should point HTTPRoute backendRef to v1 pool when both CRDs are available", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-initial-backend"
 			nsName := kmeta.ChildName(svcName, "-test")
@@ -125,7 +125,11 @@ var _ = Describe("InferencePool Migration", func() {
 				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
 			}()
 
-			// then - verify HTTPRoute points to v1alpha2 pool (API group)
+			// then - verify HTTPRoute points to v1 pool (API group).
+			// When both CRDs are available, the HTTPRoute always references v1 so the
+			// Gateway controller (e.g. Envoy AI Gateway) can recognize and program the pool.
+			// Both v1 and v1alpha2 pools select the same underlying pods, so traffic
+			// reaches the same workload regardless of which pool the HTTPRoute references.
 			Eventually(func(g Gomega, ctx context.Context) error {
 				routes, errList := managedRoutes(ctx, llmSvc)
 				g.Expect(errList).ToNot(HaveOccurred())
@@ -135,11 +139,11 @@ var _ = Describe("InferencePool Migration", func() {
 				g.Expect(route.Spec.Rules).ToNot(BeEmpty())
 				g.Expect(route.Spec.Rules[0].BackendRefs).ToNot(BeEmpty())
 
-				// Check that the backendRef points to v1alpha2 API group
+				// Check that the backendRef points to v1 API group
 				backendRef := route.Spec.Rules[0].BackendRefs[0]
 				g.Expect(backendRef.Group).ToNot(BeNil())
-				g.Expect(string(*backendRef.Group)).To(Equal(constants.InferencePoolV1Alpha2APIGroupName),
-					"HTTPRoute backendRef should initially point to v1alpha2 API group")
+				g.Expect(string(*backendRef.Group)).To(Equal(constants.InferencePoolV1APIGroupName),
+					"HTTPRoute backendRef should point to v1 API group when both CRDs are available")
 
 				return nil
 			}).WithContext(ctx).Should(Succeed())
