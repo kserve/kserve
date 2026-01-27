@@ -16,7 +16,7 @@ import pytest
 from kserve.errors import ModelNotFound, ModelNotReady
 from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 from kserve.model_repository import ModelRepository
-from test.test_server import DummyModel, DummyModelRepository
+from test.test_server import DummyModel, DummyModelRepository, SyncDummyModelRepository
 
 
 @pytest.mark.asyncio
@@ -81,6 +81,17 @@ class TestModelRepositoryExtension:
             f"Error type: <class 'Exception'> error "
             f"msg: Could not load model {self.MODEL_NAME}."
         )
+
+    @pytest.mark.asyncio
+    async def test_load_with_sync_load_method(self):
+        model_repo_ext = ModelRepositoryExtension(
+            model_registry=SyncDummyModelRepository()
+        )
+
+        await model_repo_ext.load(self.MODEL_NAME)
+
+        model = model_repo_ext._model_registry.get_model(self.MODEL_NAME)
+        assert model.name == self.MODEL_NAME
 
     async def test_unload(self, model_repo_ext):
         await model_repo_ext.unload(self.MODEL_NAME)
