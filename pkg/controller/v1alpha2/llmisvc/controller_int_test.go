@@ -448,7 +448,11 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					routes, errList := managedRoutes(ctx, llmSvc)
 					g.Expect(errList).ToNot(HaveOccurred())
 					g.Expect(routes).To(HaveLen(1))
-					g.Expect(&routes[0]).To(HaveBackendRefs(BackendRefInferencePool(svcName + "-inference-pool")))
+					poolName := svcName + "-inference-pool"
+					g.Expect(&routes[0]).To(HaveBackendRefs(
+						BackendRefInferencePoolWithWeight(poolName, 1),
+						BackendRefInferencePoolV1Alpha2WithWeight(poolName, 0),
+					))
 				}).WithContext(ctx).Should(Succeed())
 
 				Eventually(func(g Gomega, ctx context.Context) error {

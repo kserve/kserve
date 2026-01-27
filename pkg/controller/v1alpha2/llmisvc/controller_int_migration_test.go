@@ -95,7 +95,7 @@ var _ = Describe("InferencePool Migration", func() {
 			// The migration annotation and HTTPRoute swap behavior are tested in separate test cases.
 		})
 
-		It("should point HTTPRoute backendRef to v1alpha2 pool initially (before migration)", func(ctx SpecContext) {
+		It("should have dual backendRefs with v1alpha2 active before migration", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-initial-backend"
 			nsName := kmeta.ChildName(svcName, "-test")
@@ -125,8 +125,8 @@ var _ = Describe("InferencePool Migration", func() {
 				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
 			}()
 
-			// then - verify HTTPRoute initially points to v1alpha2 pool.
-			// Before migration completes, traffic stays on v1alpha2 for zero-downtime.
+			// then - verify HTTPRoute has dual backendRefs with v1alpha2 active (weight=1) and v1 inactive (weight=0).
+			// Both pools are referenced so the Gateway controller programs both.
 			Eventually(func(g Gomega, ctx context.Context) error {
 				routes, errList := managedRoutes(ctx, llmSvc)
 				g.Expect(errList).ToNot(HaveOccurred())
@@ -134,12 +134,22 @@ var _ = Describe("InferencePool Migration", func() {
 
 				route := &routes[0]
 				g.Expect(route.Spec.Rules).ToNot(BeEmpty())
-				g.Expect(route.Spec.Rules[0].BackendRefs).ToNot(BeEmpty())
+				g.Expect(route.Spec.Rules[0].BackendRefs).To(HaveLen(2),
+					"HTTPRoute should have dual backendRefs (v1 + v1alpha2)")
 
-				backendRef := route.Spec.Rules[0].BackendRefs[0]
-				g.Expect(backendRef.Group).ToNot(BeNil())
-				g.Expect(string(*backendRef.Group)).To(Equal(constants.InferencePoolV1Alpha2APIGroupName),
-					"HTTPRoute backendRef should point to v1alpha2 API group before migration")
+				// First ref: v1 pool with weight=0 (inactive)
+				v1Ref := route.Spec.Rules[0].BackendRefs[0]
+				g.Expect(v1Ref.Group).ToNot(BeNil())
+				g.Expect(string(*v1Ref.Group)).To(Equal(constants.InferencePoolV1APIGroupName))
+				g.Expect(v1Ref.Weight).ToNot(BeNil())
+				g.Expect(*v1Ref.Weight).To(Equal(int32(0)), "v1 pool should have weight=0 before migration")
+
+				// Second ref: v1alpha2 pool with weight=1 (active)
+				v1alpha2Ref := route.Spec.Rules[0].BackendRefs[1]
+				g.Expect(v1alpha2Ref.Group).ToNot(BeNil())
+				g.Expect(string(*v1alpha2Ref.Group)).To(Equal(constants.InferencePoolV1Alpha2APIGroupName))
+				g.Expect(v1alpha2Ref.Weight).ToNot(BeNil())
+				g.Expect(*v1alpha2Ref.Weight).To(Equal(int32(1)), "v1alpha2 pool should have weight=1 before migration")
 
 				return nil
 			}).WithContext(ctx).Should(Succeed())
@@ -202,7 +212,7 @@ var _ = Describe("InferencePool Migration", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should swap HTTPRoute backendRef to v1 pool after migration", func(ctx SpecContext) {
+		It("should flip weights to v1 active after migration", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-backend-swap"
 			nsName := kmeta.ChildName(svcName, "-test")
@@ -252,7 +262,7 @@ var _ = Describe("InferencePool Migration", func() {
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 
-			// then - verify HTTPRoute now points to v1 API group
+			// then - verify dual backendRefs with v1 active (weight=1) and v1alpha2 inactive (weight=0)
 			Eventually(func(g Gomega, ctx context.Context) error {
 				routes, errList := managedRoutes(ctx, llmSvc)
 				g.Expect(errList).ToNot(HaveOccurred())
@@ -260,13 +270,16 @@ var _ = Describe("InferencePool Migration", func() {
 
 				route := &routes[0]
 				g.Expect(route.Spec.Rules).ToNot(BeEmpty())
-				g.Expect(route.Spec.Rules[0].BackendRefs).ToNot(BeEmpty())
+				g.Expect(route.Spec.Rules[0].BackendRefs).To(HaveLen(2),
+					"HTTPRoute should have dual backendRefs after migration")
 
-				// Check that the backendRef now points to v1 API group
-				backendRef := route.Spec.Rules[0].BackendRefs[0]
-				g.Expect(backendRef.Group).ToNot(BeNil())
-				g.Expect(string(*backendRef.Group)).To(Equal(constants.InferencePoolV1APIGroupName),
-					"HTTPRoute backendRef should point to v1 API group after migration")
+				v1Ref := route.Spec.Rules[0].BackendRefs[0]
+				g.Expect(string(*v1Ref.Group)).To(Equal(constants.InferencePoolV1APIGroupName))
+				g.Expect(*v1Ref.Weight).To(Equal(int32(1)), "v1 pool should have weight=1 after migration")
+
+				v1alpha2Ref := route.Spec.Rules[0].BackendRefs[1]
+				g.Expect(string(*v1alpha2Ref.Group)).To(Equal(constants.InferencePoolV1Alpha2APIGroupName))
+				g.Expect(*v1alpha2Ref.Weight).To(Equal(int32(0)), "v1alpha2 pool should have weight=0 after migration")
 
 				return nil
 			}).WithContext(ctx).Should(Succeed())
@@ -332,7 +345,7 @@ var _ = Describe("InferencePool Migration", func() {
 	})
 
 	Context("Pre-migrated deployments", func() {
-		It("should point HTTPRoute directly to v1 pool when migration annotation is already set", func(ctx SpecContext) {
+		It("should have dual backendRefs with v1 active when migration annotation is already set", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-pre-migrated"
 			nsName := kmeta.ChildName(svcName, "-test")
@@ -366,7 +379,7 @@ var _ = Describe("InferencePool Migration", func() {
 				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
 			}()
 
-			// then - HTTPRoute should point directly to v1 pool
+			// then - dual backendRefs with v1 active
 			Eventually(func(g Gomega, ctx context.Context) error {
 				routes, errList := managedRoutes(ctx, llmSvc)
 				g.Expect(errList).ToNot(HaveOccurred())
@@ -374,13 +387,16 @@ var _ = Describe("InferencePool Migration", func() {
 
 				route := &routes[0]
 				g.Expect(route.Spec.Rules).ToNot(BeEmpty())
-				g.Expect(route.Spec.Rules[0].BackendRefs).ToNot(BeEmpty())
+				g.Expect(route.Spec.Rules[0].BackendRefs).To(HaveLen(2),
+					"HTTPRoute should have dual backendRefs for pre-migrated deployment")
 
-				// Check that the backendRef points to v1 API group (already migrated)
-				backendRef := route.Spec.Rules[0].BackendRefs[0]
-				g.Expect(backendRef.Group).ToNot(BeNil())
-				g.Expect(string(*backendRef.Group)).To(Equal(constants.InferencePoolV1APIGroupName),
-					"HTTPRoute backendRef should point to v1 API group for pre-migrated deployment")
+				v1Ref := route.Spec.Rules[0].BackendRefs[0]
+				g.Expect(string(*v1Ref.Group)).To(Equal(constants.InferencePoolV1APIGroupName))
+				g.Expect(*v1Ref.Weight).To(Equal(int32(1)), "v1 pool should have weight=1 for pre-migrated deployment")
+
+				v1alpha2Ref := route.Spec.Rules[0].BackendRefs[1]
+				g.Expect(string(*v1alpha2Ref.Group)).To(Equal(constants.InferencePoolV1Alpha2APIGroupName))
+				g.Expect(*v1alpha2Ref.Weight).To(Equal(int32(0)), "v1alpha2 pool should have weight=0 for pre-migrated deployment")
 
 				return nil
 			}).WithContext(ctx).Should(Succeed())

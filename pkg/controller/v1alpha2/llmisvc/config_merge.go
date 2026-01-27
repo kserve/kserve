@@ -455,8 +455,9 @@ func isV1InferencePoolBackendRef(ref gwapiv1.BackendRef) bool {
 		ptr.Deref[gwapiv1.Kind](ref.Kind, "") == "InferencePool"
 }
 
-// adjustBackendRefForMigration swaps the HTTPRoute backendRef based on migration state.
-// Keeps traffic on v1alpha2 until v1 pool is confirmed ready (zero-downtime).
+// adjustBackendRefForMigration configures HTTPRoute backendRefs for zero-downtime migration.
+// When both CRDs are available, adds dual backendRefs with weights so the Gateway controller
+// programs both pools. Traffic is directed via weight=1/0 based on migration state.
 func (r *LLMISVCReconciler) adjustBackendRefForMigration(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig) *v1alpha2.LLMInferenceServiceConfig {
 	if llmSvcCfg.Spec.Router == nil ||
 		llmSvcCfg.Spec.Router.Route == nil ||
@@ -472,16 +473,45 @@ func (r *LLMISVCReconciler) adjustBackendRefForMigration(llmSvc *v1alpha2.LLMInf
 		return llmSvcCfg
 	}
 
-	// Swap to v1alpha2 when: v1alpha2 CRD available AND not yet migrated to v1
-	if r.InferencePoolV1Alpha2Available && !isMigratedToV1(llmSvc) {
-		for i := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules {
-			for j := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs {
-				ref := &llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j]
-				if isV1InferencePoolBackendRef(ref.BackendRef) {
-					ref.Group = ptr.To[gwapiv1.Group](gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName))
+	bothAvailable := r.InferencePoolV1Available && r.InferencePoolV1Alpha2Available
+	onlyV1Alpha2 := !r.InferencePoolV1Available && r.InferencePoolV1Alpha2Available
+
+	for i := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules {
+		rule := &llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i]
+		var newRefs []gwapiv1.HTTPBackendRef
+
+		for _, ref := range rule.BackendRefs {
+			if !isV1InferencePoolBackendRef(ref.BackendRef) {
+				newRefs = append(newRefs, ref)
+				continue
+			}
+
+			switch {
+			case onlyV1Alpha2:
+				ref.Group = ptr.To[gwapiv1.Group](gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName))
+				newRefs = append(newRefs, ref)
+
+			case bothAvailable:
+				migrated := isMigratedToV1(llmSvc)
+
+				v1Ref := ref
+				v1Alpha2Ref := ref
+				v1Alpha2Ref.Group = ptr.To[gwapiv1.Group](gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName))
+
+				if migrated {
+					v1Ref.Weight = ptr.To(int32(1))
+					v1Alpha2Ref.Weight = ptr.To(int32(0))
+				} else {
+					v1Ref.Weight = ptr.To(int32(0))
+					v1Alpha2Ref.Weight = ptr.To(int32(1))
 				}
+				newRefs = append(newRefs, v1Ref, v1Alpha2Ref)
+
+			default:
+				newRefs = append(newRefs, ref)
 			}
 		}
+		rule.BackendRefs = newRefs
 	}
 
 	return llmSvcCfg

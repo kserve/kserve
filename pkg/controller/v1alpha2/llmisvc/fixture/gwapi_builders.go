@@ -312,6 +312,18 @@ func BackendRefInferencePoolV1Alpha2(name string) gwapiv1.HTTPBackendRef {
 	}
 }
 
+func BackendRefInferencePoolWithWeight(name string, weight int32) gwapiv1.HTTPBackendRef {
+	ref := BackendRefInferencePool(name)
+	ref.Weight = ptr.To(weight)
+	return ref
+}
+
+func BackendRefInferencePoolV1Alpha2WithWeight(name string, weight int32) gwapiv1.HTTPBackendRef {
+	ref := BackendRefInferencePoolV1Alpha2(name)
+	ref.Weight = ptr.To(weight)
+	return ref
+}
+
 func BackendRefService(name string) gwapiv1.HTTPBackendRef {
 	return gwapiv1.HTTPBackendRef{
 		BackendRef: gwapiv1.BackendRef{
