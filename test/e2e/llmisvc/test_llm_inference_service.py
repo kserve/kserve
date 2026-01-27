@@ -309,13 +309,16 @@ def test_llm_inference_service(test_case: TestCase):  # noqa: F811
 
     try:
         create_llmisvc(kserve_client, test_case.llm_service)
-        # Wait for Gateway controller to program InferencePools
-        # This surfaces issues if the Gateway doesn't set status.parents
-        wait_for_inference_pools_ready(
-            llmisvc_name=service_name,
-            namespace=test_case.llm_service.metadata.namespace,
-            timeout_seconds=120,
-        )
+        # Wait for Gateway controller to program InferencePools.
+        # Skip for test cases without a scheduler (e.g. "router-no-scheduler"),
+        # since no scheduler means no InferencePool will be created by the controller.
+        has_scheduler = "router-no-scheduler" not in test_case.base_refs
+        if has_scheduler:
+            wait_for_inference_pools_ready(
+                llmisvc_name=service_name,
+                namespace=test_case.llm_service.metadata.namespace,
+                timeout_seconds=120,
+            )
         wait_for_llm_isvc_ready(
             kserve_client, test_case.llm_service, test_case.wait_timeout
         )
