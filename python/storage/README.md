@@ -139,6 +139,10 @@ These are all handled by the `huggingface_hub` package, you can see all the avai
 - `TLS_SKIP_VERIFY`: Skip TLS verification
 - `N_THREADS`: Number of download threads
 
+### Git Configuration (HTTPS-only)
+
+- `GIT_USERNAME`, `GIT_PASSWORD`: Git HTTPS authentication (optional; username also parsed from url)
+
 ## Storage Configuration
 
 Storage configuration can be provided through environment variables:
