@@ -320,7 +320,7 @@ LLMINFERENCESERVICE_CONFIGS = {
     # This preset simulates DP+EP that can run on CPU, the idea is to test the LWS-based deployment
     # but without the resources requirements for DP+EP (GPUs and ROCe/IB)
     "workload-simulated-dp-ep-cpu": {
-        "replicas": 2,
+        "replicas": 1,
         "parallelism": {
             "data": 2,
             "dataLocal": 1,

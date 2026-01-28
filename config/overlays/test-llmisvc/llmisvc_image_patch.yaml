@@ -10,20 +10,10 @@ spec:
         - name: manager
           image: kserve/llmisvc-controller:latest
           imagePullPolicy: IfNotPresent
-          livenessProbe:
-            initialDelaySeconds: 60
-            periodSeconds: 20
-            timeoutSeconds: 10
-            failureThreshold: 10
-          readinessProbe:
-            initialDelaySeconds: 60
-            periodSeconds: 10
-            timeoutSeconds: 10
-            failureThreshold: 10
           resources:
             limits:
               cpu: 150m
               memory: 300Mi
             requests:
-              cpu: 150m
-              memory: 300Mi
+              cpu: 50m
+              memory: 200Mi
