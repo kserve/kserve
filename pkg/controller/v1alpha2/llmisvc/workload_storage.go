@@ -28,6 +28,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
@@ -153,7 +154,7 @@ func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *cor
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
-	if err := r.attachStorageInitializer(modelUri, podSpec, storageConfig); err != nil {
+	if err := r.attachStorageInitializer(ctx, modelUri, podSpec, storageConfig); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
@@ -200,7 +201,7 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
-	if err := r.attachStorageInitializer(modelUri, podSpec, storageConfig); err != nil {
+	if err := r.attachStorageInitializer(ctx, modelUri, podSpec, storageConfig); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
@@ -240,7 +241,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig) error {
+func (r *LLMISVCReconciler) attachStorageInitializer(ctx context.Context, modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig) error {
 	containerArgs := []string{
 		modelUri,
 		constants.DefaultModelLocalMountPath,
@@ -251,6 +252,28 @@ func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, podSpec *c
 		ReadOnly:   false,
 	}
 	initContainer := utils.CreateInitContainerWithConfig(storageConfig, containerArgs)
+
+	// List ClusterStorageContainers to find a match for the model URI
+	cscList := &v1alpha1.ClusterStorageContainerList{}
+	if err := r.List(ctx, cscList); err != nil {
+		return err
+	}
+
+	// Iterate over ClusterStorageContainers and inject env vars if the URI matches
+	for _, csc := range cscList.Items {
+		if csc.IsDisabled() {
+			continue
+		}
+		ok, err := csc.Spec.IsStorageUriSupported(modelUri)
+		if err != nil {
+			continue
+		}
+		if ok {
+			initContainer.Env = mergeEnv(initContainer.Env, csc.Spec.Container.Env)
+			break
+		}
+	}
+
 	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
 
 	utils.AddModelMount(storageMountParams, initContainer.Name, podSpec)
@@ -359,4 +382,31 @@ func needCaBundleMount(caBundleConfigMapName string, initContainer *corev1.Conta
 		}
 	}
 	return result
+}
+
+// mergeEnv merges env vars, where "override" wins when names collide.
+// This is what we want for cluster-level proxy injection (HTTP_PROXY/HTTPS_PROXY).
+func mergeEnv(base, override []corev1.EnvVar) []corev1.EnvVar {
+	if len(base) == 0 && len(override) == 0 {
+		return nil
+	}
+
+	out := make([]corev1.EnvVar, 0, len(base)+len(override))
+	index := map[string]int{}
+
+	for _, e := range base {
+		index[e.Name] = len(out)
+		out = append(out, e)
+	}
+
+	for _, e := range override {
+		if i, ok := index[e.Name]; ok {
+			out[i] = e
+		} else {
+			index[e.Name] = len(out)
+			out = append(out, e)
+		}
+	}
+
+	return out
 }
