@@ -183,6 +183,7 @@ jobs:
           kubectl get svc -A
           kubectl get certificate -A
           kubectl get pods -A
+          kubectl get event -n kserve
           kubectl get event -n kserve-ci-e2e-test          
           kubectl get event -n envoy-gateway-system
           kubectl get event -n envoy-ai-gateway-system
