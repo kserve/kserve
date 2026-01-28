@@ -62,7 +62,6 @@ if [[ $LLMISVC == "false" ]]; then
   echo "Add storageSpec testing secrets ..."
   kubectl apply -f config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test
 else
-  #TODO: Need to replace Environment variable of KSERVE_OVERLAY_DIR=test with LLMISVC
   KSERVE_OVERLAY_DIR=test-llmisvc ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh
 fi
 
