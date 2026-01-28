@@ -489,5 +489,169 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations).To(HaveKeyWithValue(PreemptionReclaimAnnotationKey, preemptPriority))
 		})
+
+		It("should preserve externally set replicas when owner does not specify replicas", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-mn-preserve-replicas"
+			nsName := kmeta.ChildName(svcName, "-test")
+			lwsName := types.NamespacedName{Name: svcName + "-kserve-mn", Namespace: nsName}
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(namespace)
+			}()
+
+			// Create LLMInferenceService WITHOUT specifying replicas
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithParallelism(ParallelismSpec(
+					WithDataParallelism(2),
+					WithDataLocalParallelism(1),
+					WithExpert(false),
+				)),
+				WithWorker(&corev1.PodSpec{}),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				// Note: Not using WithReplicas() - replicas should be nil
+			)
+
+			// Verify replicas is nil in the spec
+			Expect(llmSvc.Spec.Replicas).To(BeNil())
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			// then - LeaderWorkerSet should be created with default replicas (1)
+			expectedLWS := &lwsapi.LeaderWorkerSet{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, lwsName, expectedLWS)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(expectedLWS.Spec.Replicas).To(Equal(ptr.To[int32](1)))
+
+			// Simulate external scaling (e.g., HPA scaling to 3 replicas)
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				lws := &lwsapi.LeaderWorkerSet{}
+				if err := envTest.Get(ctx, lwsName, lws); err != nil {
+					return err
+				}
+				lws.Spec.Replicas = ptr.To[int32](3)
+				return envTest.Client.Update(ctx, lws)
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// Trigger a reconciliation by updating a spec field in the LLMInferenceService.
+			// Using a spec change (Parallelism.Expert) rather than an annotation ensures
+			// compatibility with GenerationChangedPredicate if it's added in the future.
+			errRetry = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					llmSvc.Spec.Parallelism.Expert = !llmSvc.Spec.Parallelism.Expert
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// Verify the externally set replicas are preserved after reconciliation
+			Consistently(func(g Gomega, ctx context.Context) {
+				lws := &lwsapi.LeaderWorkerSet{}
+				g.Expect(envTest.Get(ctx, lwsName, lws)).To(Succeed())
+
+				g.Expect(lws.Spec.Replicas).To(Equal(ptr.To[int32](3)),
+					"Externally set replicas should be preserved when owner doesn't specify replicas")
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should override externally set replicas when owner specifies replicas", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-mn-override-replicas"
+			nsName := kmeta.ChildName(svcName, "-test")
+			lwsName := types.NamespacedName{Name: svcName + "-kserve-mn", Namespace: nsName}
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(namespace)
+			}()
+
+			// Create LLMInferenceService WITH explicit replicas
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithParallelism(ParallelismSpec(
+					WithDataParallelism(2),
+					WithDataLocalParallelism(1),
+					WithExpert(false),
+				)),
+				WithWorker(&corev1.PodSpec{}),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithReplicas(2), // Owner explicitly sets replicas
+			)
+
+			// Verify replicas is set in the spec
+			Expect(llmSvc.Spec.Replicas).To(Equal(ptr.To[int32](2)))
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			// then - LeaderWorkerSet should be created with owner-specified replicas (2)
+			expectedLWS := &lwsapi.LeaderWorkerSet{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, lwsName, expectedLWS)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(expectedLWS.Spec.Replicas).To(Equal(ptr.To[int32](2)))
+
+			// Simulate external scaling attempt (e.g., someone tries to manually scale to 5)
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				lws := &lwsapi.LeaderWorkerSet{}
+				if err := envTest.Get(ctx, lwsName, lws); err != nil {
+					return err
+				}
+				lws.Spec.Replicas = ptr.To[int32](5)
+				return envTest.Client.Update(ctx, lws)
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// Trigger a reconciliation by updating a spec field in the LLMInferenceService.
+			// Using a spec change (Parallelism.Expert) rather than an annotation ensures
+			// compatibility with GenerationChangedPredicate if it's added in the future.
+			errRetry = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					llmSvc.Spec.Parallelism.Expert = !llmSvc.Spec.Parallelism.Expert
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// Verify the owner-specified replicas override the external change
+			Eventually(func(g Gomega, ctx context.Context) {
+				lws := &lwsapi.LeaderWorkerSet{}
+				g.Expect(envTest.Get(ctx, lwsName, lws)).To(Succeed())
+
+				g.Expect(lws.Spec.Replicas).To(Equal(ptr.To[int32](2)),
+					"Owner-specified replicas should override externally set replicas")
+			}).WithContext(ctx).Should(Succeed())
+		})
 	})
 })
