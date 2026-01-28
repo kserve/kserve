@@ -100,6 +100,12 @@ if [[ $LLMISVC == "false" ]]; then
   fi
 else
   ${REPO_ROOT}/hack/setup/quick-install/llmisvc-dependency-install.sh  
+  
+  # reduce lws operator resources
+  kubectl scale deployment lws-controller-manager -n lws-system --replicas=1
+  kubectl patch deployment lws-controller-manager -n lws-system --type=json -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/resources", "value": {"requests": {"cpu": "20m", "memory": "64Mi"}, "limits": {"cpu": "100m", "memory": "256Mi"}}}]'
+  kubectl wait deployment lws-controller-manager -n lws-system --for condition=Available --timeout=300s
+  
 fi
 
 shopt -u nocasematch
