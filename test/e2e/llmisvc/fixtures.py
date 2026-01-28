@@ -47,10 +47,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                     "livenessProbe": {
-                        "initialDelaySeconds": 120,
+                        "initialDelaySeconds": 180,
                         "periodSeconds": 30,
                         "timeoutSeconds": 30,
-                        "failureThreshold": 5,
+                        "failureThreshold": 8,
                     },
                     "readinessProbe": {
                         "httpGet": {"path": "/health", "port": 8000},
@@ -80,10 +80,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                     },
                     "livenessProbe": {
                         "httpGet": {"path": "/health", "port": 8000},
-                        "initialDelaySeconds": 120,
+                        "initialDelaySeconds": 180,
                         "periodSeconds": 30,
                         "timeoutSeconds": 30,
-                        "failureThreshold": 5,
+                        "failureThreshold": 8,
                     },
                     "readinessProbe": {
                         "httpGet": {"path": "/health", "port": 8000},
@@ -112,10 +112,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                         },
                         "livenessProbe": {
                             "httpGet": {"path": "/health", "port": 8000},
-                            "initialDelaySeconds": 120,
+                            "initialDelaySeconds": 180,
                             "periodSeconds": 30,
                             "timeoutSeconds": 30,
-                            "failureThreshold": 5,
+                            "failureThreshold": 8,
                         },
                         "readinessProbe": {
                             "httpGet": {"path": "/health", "port": 8000},
@@ -351,10 +351,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                     },
                     "livenessProbe": {
                         "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
-                        "initialDelaySeconds": 120,
+                        "initialDelaySeconds": 180,
                         "periodSeconds": 30,
                         "timeoutSeconds": 30,
-                        "failureThreshold": 5,
+                        "failureThreshold": 8,
                     },
                     "readinessProbe": {
                         "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
@@ -393,10 +393,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                     },
                     "livenessProbe": {
                         "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
-                        "initialDelaySeconds": 120,
+                        "initialDelaySeconds": 180,
                         "periodSeconds": 30,
                         "timeoutSeconds": 30,
-                        "failureThreshold": 5,
+                        "failureThreshold": 8,
                     },
                     "readinessProbe": {
                         "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
@@ -621,7 +621,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
-                        "requests": {"cpu": "500m", "memory": "2Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                 }
             ]
