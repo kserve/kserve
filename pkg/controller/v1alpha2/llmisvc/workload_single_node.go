@@ -36,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
@@ -141,7 +140,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		}
 	}
 
-	r.propagateDeploymentMetadata(llmSvc, d)
+	r.propagateDeploymentMetadata(llmSvc, d, config)
 
 	log.FromContext(ctx).V(2).Info("Expected main deployment", "deployment", d)
 
@@ -222,25 +221,73 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		}
 	}
 
-	r.propagateDeploymentMetadata(llmSvc, d)
+	r.propagateDeploymentMetadata(llmSvc, d, config)
+
+	// Propagate prefill-specific labels and annotations
+	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Labels != nil {
+		if d.Spec.Template.Labels == nil {
+			d.Spec.Template.Labels = make(map[string]string)
+		}
+		maps.Copy(d.Spec.Template.Labels, llmSvc.Spec.Prefill.Labels)
+	}
+	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Annotations != nil {
+		if d.Spec.Template.Annotations == nil {
+			d.Spec.Template.Annotations = make(map[string]string)
+		}
+		maps.Copy(d.Spec.Template.Annotations, llmSvc.Spec.Prefill.Annotations)
+	}
 
 	log.FromContext(ctx).V(2).Info("Expected prefill deployment", "deployment", d)
 
 	return d, nil
 }
 
-func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInferenceService, expected *appsv1.Deployment) {
-	// Define the prefixes to approve for annotations and labels
-	approvedAnnotationPrefixes := []string{"k8s.v1.cni.cncf.io", constants.KueueAPIGroupName}
-	approvedLabelPrefixes := []string{constants.KueueAPIGroupName}
+func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInferenceService, expected *appsv1.Deployment, config *Config) {
+	// Propagate annotations to the Deployment and its Pod template
+	for key, value := range llmSvc.Annotations {
+		if !utils.Includes(config.ServiceAnnotationDisallowedList, key) {
+			if expected.Annotations == nil {
+				expected.Annotations = make(map[string]string)
+			}
+			expected.Annotations[key] = value
 
-	// Propagate approved annotations to the Deployment and its Pod template
-	utils.PropagatePrefixedMap(llmSvc.GetAnnotations(), &expected.Annotations, approvedAnnotationPrefixes...)
-	utils.PropagatePrefixedMap(llmSvc.GetAnnotations(), &expected.Spec.Template.Annotations, approvedAnnotationPrefixes...)
+			if expected.Spec.Template.Annotations == nil {
+				expected.Spec.Template.Annotations = make(map[string]string)
+			}
+			expected.Spec.Template.Annotations[key] = value
+		}
+	}
 
-	// Propagate approved labels to the Deployment and its Pod template
-	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &expected.Labels, approvedLabelPrefixes...)
-	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &expected.Spec.Template.Labels, approvedLabelPrefixes...)
+	// Propagate labels to the Deployment and its Pod template
+	for key, value := range llmSvc.Labels {
+		if !utils.Includes(config.ServiceLabelDisallowedList, key) {
+			if expected.Labels == nil {
+				expected.Labels = make(map[string]string)
+			}
+			expected.Labels[key] = value
+
+			if expected.Spec.Template.Labels == nil {
+				expected.Spec.Template.Labels = make(map[string]string)
+			}
+			expected.Spec.Template.Labels[key] = value
+		}
+	}
+
+	// Propagate all labels from WorkloadSpec.Labels to Pod template
+	if llmSvc.Spec.Labels != nil {
+		if expected.Spec.Template.Labels == nil {
+			expected.Spec.Template.Labels = make(map[string]string)
+		}
+		maps.Copy(expected.Spec.Template.Labels, llmSvc.Spec.Labels)
+	}
+
+	// Propagate all annotations from WorkloadSpec.Annotations to Pod template
+	if llmSvc.Spec.Annotations != nil {
+		if expected.Spec.Template.Annotations == nil {
+			expected.Spec.Template.Annotations = make(map[string]string)
+		}
+		maps.Copy(expected.Spec.Template.Annotations, llmSvc.Spec.Annotations)
+	}
 }
 
 func (r *LLMISVCReconciler) propagateDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {

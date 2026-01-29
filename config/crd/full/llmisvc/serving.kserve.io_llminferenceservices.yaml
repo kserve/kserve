@@ -45,6 +45,10 @@ spec:
               type: object
             spec:
               properties:
+                annotations:
+                  additionalProperties:
+                    type: string
+                  type: object
                 baseRefs:
                   items:
                     properties:
@@ -54,6 +58,10 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   type: array
+                labels:
+                  additionalProperties:
+                    type: string
+                  type: object
                 model:
                   properties:
                     criticality:
@@ -102,6 +110,14 @@ spec:
                   type: object
                 prefill:
                   properties:
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    labels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     parallelism:
                       properties:
                         data:
@@ -20446,6 +20462,10 @@ spec:
               type: object
             spec:
               properties:
+                annotations:
+                  additionalProperties:
+                    type: string
+                  type: object
                 baseRefs:
                   items:
                     properties:
@@ -20455,6 +20475,10 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   type: array
+                labels:
+                  additionalProperties:
+                    type: string
+                  type: object
                 model:
                   properties:
                     lora:
@@ -20497,6 +20521,14 @@ spec:
                   type: object
                 prefill:
                   properties:
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    labels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     parallelism:
                       properties:
                         data:
