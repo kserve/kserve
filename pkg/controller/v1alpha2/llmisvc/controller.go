@@ -112,7 +112,7 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		WithValues("Namespace", req.Namespace, "Name", req.Name)
 	ctx = log.IntoContext(ctx, logger)
 
-	logger.Info("Starting reconciliation")
+	logger.Info("DEBUG: Starting reconciliation (check what triggered this)")
 	original := &v1alpha2.LLMInferenceService{}
 	if err := r.Get(ctx, req.NamespacedName, original); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -197,7 +197,9 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	llmSvc.MarkPresetsCombinedReady()
 
 	// Detect if Gateway has rejected v1alpha2 backendRefs by checking existing HTTPRoute status
-	v1Alpha2Rejected := r.detectV1Alpha2Rejected(ctx, llmSvc)
+	// Note: We pass baseCfg.Spec (not llmSvc.Spec) because the router configuration is merged from baseRefs
+	// and llmSvc.Spec.Router will be nil when using preset configs
+	v1Alpha2Rejected := r.detectV1Alpha2Rejected(ctx, baseCfg.Spec, llmSvc.GetNamespace(), llmSvc.GetName())
 
 	// Adjust HTTPRoute backendRefs for InferencePool migration
 	baseCfg = r.adjustBackendRefForMigration(llmSvc, baseCfg, v1Alpha2Rejected)
@@ -230,19 +232,23 @@ func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMIn
 // detectV1Alpha2Rejected checks if the Gateway has rejected v1alpha2 backendRefs
 // by examining the status of existing HTTPRoutes. Returns true if any route has
 // ResolvedRefs=False with Reason=InvalidKind, indicating the Gateway doesn't support v1alpha2.
-func (r *LLMISVCReconciler) detectV1Alpha2Rejected(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) bool {
+// Parameters:
+//   - spec: The combined LLMInferenceServiceSpec (after merging baseRefs) containing the router configuration
+//   - namespace: The namespace where routes are located
+//   - name: The LLMInferenceService name used to derive managed route names
+func (r *LLMISVCReconciler) detectV1Alpha2Rejected(ctx context.Context, spec v1alpha2.LLMInferenceServiceSpec, namespace, name string) bool {
 	logger := log.FromContext(ctx)
 
 	// Check if there's router configuration
-	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil || llmSvc.Spec.Router.Route.HTTP == nil {
+	if spec.Router == nil || spec.Router.Route == nil || spec.Router.Route.HTTP == nil {
 		return false
 	}
 
 	// Check referenced routes
-	if llmSvc.Spec.Router.Route.HTTP.HasRefs() {
-		for _, routeRef := range llmSvc.Spec.Router.Route.HTTP.Refs {
+	if spec.Router.Route.HTTP.HasRefs() {
+		for _, routeRef := range spec.Router.Route.HTTP.Refs {
 			route := &gwapiv1.HTTPRoute{}
-			if err := r.Client.Get(ctx, types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: routeRef.Name}, route); err != nil {
+			if err := r.Client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: routeRef.Name}, route); err != nil {
 				continue
 			}
 			if HasUnsupportedBackendRefError(route) {
@@ -254,10 +260,10 @@ func (r *LLMISVCReconciler) detectV1Alpha2Rejected(ctx context.Context, llmSvc *
 	}
 
 	// Check managed route
-	if llmSvc.Spec.Router.Route.HTTP.HasSpec() {
-		managedRouteName := kmeta.ChildName(llmSvc.GetName(), "-kserve-route")
+	if spec.Router.Route.HTTP.HasSpec() {
+		managedRouteName := kmeta.ChildName(name, "-kserve-route")
 		route := &gwapiv1.HTTPRoute{}
-		if err := r.Client.Get(ctx, types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: managedRouteName}, route); err == nil {
+		if err := r.Client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: managedRouteName}, route); err == nil {
 			if HasUnsupportedBackendRefError(route) {
 				logger.Info("Detected Gateway rejection of v1alpha2 backendRef",
 					"route", fmt.Sprintf("%s/%s", route.Namespace, route.Name))
