@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
@@ -778,4 +779,152 @@ func TestFilterURLs(t *testing.T) {
 			g.Expect(isInternal).To(Equal(!isExternal), "URL %s should be either internal or external, not both", urlStr)
 		}
 	})
+}
+
+func TestHasUnsupportedBackendRefError(t *testing.T) {
+	tests := []struct {
+		name     string
+		route    *gwapiv1.HTTPRoute
+		expected bool
+	}{
+		{
+			name:     "nil route returns false",
+			route:    nil,
+			expected: false,
+		},
+		{
+			name: "route with no parents returns false",
+			route: &gwapiv1.HTTPRoute{
+				Status: gwapiv1.HTTPRouteStatus{
+					RouteStatus: gwapiv1.RouteStatus{
+						Parents: []gwapiv1.RouteParentStatus{},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "route with ResolvedRefs=True returns false",
+			route: &gwapiv1.HTTPRoute{
+				Status: gwapiv1.HTTPRouteStatus{
+					RouteStatus: gwapiv1.RouteStatus{
+						Parents: []gwapiv1.RouteParentStatus{
+							{
+								Conditions: []metav1.Condition{
+									{
+										Type:   string(gwapiv1.RouteConditionResolvedRefs),
+										Status: metav1.ConditionTrue,
+										Reason: "ResolvedRefs",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "route with ResolvedRefs=False but different reason returns false",
+			route: &gwapiv1.HTTPRoute{
+				Status: gwapiv1.HTTPRouteStatus{
+					RouteStatus: gwapiv1.RouteStatus{
+						Parents: []gwapiv1.RouteParentStatus{
+							{
+								Conditions: []metav1.Condition{
+									{
+										Type:   string(gwapiv1.RouteConditionResolvedRefs),
+										Status: metav1.ConditionFalse,
+										Reason: "BackendNotFound",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "route with ResolvedRefs=False and Reason=InvalidKind returns true (Envoy AI Gateway pattern)",
+			route: &gwapiv1.HTTPRoute{
+				Status: gwapiv1.HTTPRouteStatus{
+					RouteStatus: gwapiv1.RouteStatus{
+						Parents: []gwapiv1.RouteParentStatus{
+							{
+								Conditions: []metav1.Condition{
+									{
+										Type:    string(gwapiv1.RouteConditionResolvedRefs),
+										Status:  metav1.ConditionFalse,
+										Reason:  "InvalidKind",
+										Message: "Group is invalid: inference.networking.x-k8s.io",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "route with multiple parents, one with InvalidKind returns true",
+			route: &gwapiv1.HTTPRoute{
+				Status: gwapiv1.HTTPRouteStatus{
+					RouteStatus: gwapiv1.RouteStatus{
+						Parents: []gwapiv1.RouteParentStatus{
+							{
+								Conditions: []metav1.Condition{
+									{
+										Type:   string(gwapiv1.RouteConditionResolvedRefs),
+										Status: metav1.ConditionTrue,
+										Reason: "ResolvedRefs",
+									},
+								},
+							},
+							{
+								Conditions: []metav1.Condition{
+									{
+										Type:   string(gwapiv1.RouteConditionResolvedRefs),
+										Status: metav1.ConditionFalse,
+										Reason: "InvalidKind",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "route with only Accepted condition (no ResolvedRefs) returns false",
+			route: &gwapiv1.HTTPRoute{
+				Status: gwapiv1.HTTPRouteStatus{
+					RouteStatus: gwapiv1.RouteStatus{
+						Parents: []gwapiv1.RouteParentStatus{
+							{
+								Conditions: []metav1.Condition{
+									{
+										Type:   string(gwapiv1.RouteConditionAccepted),
+										Status: metav1.ConditionTrue,
+										Reason: "Accepted",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			result := llmisvc.HasUnsupportedBackendRefError(tt.route)
+			g.Expect(result).To(Equal(tt.expected))
+		})
+	}
 }
