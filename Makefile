@@ -150,8 +150,7 @@ manifests: controller-gen yq
 
 	# DO NOT COPY to helm chart. It needs to be created before the Envoy Gateway or you will need to restart the Envoy Gateway controller.
 	# The llmisvc helm chart needs to be installed after the Envoy Gateway as well, so it needs to be created before the llmisvc helm chart.
-	kubectl kustomize https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > config/llmisvc/gateway-inference-extension.yaml
-	cp config/llmisvc/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
+	kubectl kustomize https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > test/crds/gateway-inference-extension.yaml
 
 	#remove the required property on framework as name field needs to be optional
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
@@ -324,7 +323,7 @@ deploy-dev: manifests
 	
 	@echo "Deploy KServe,LocalModel and LLMInferenceService"
 	hack/setup/infra/manage.cert-manager-helm.sh
-	KSERVE_OVERYLAY_DIR=development hack/setup/infra/manage.kserve-kustomize.sh
+	KSERVE_OVERLAY_DIR=development hack/setup/infra/manage.kserve-kustomize.sh
 	
 	@echo "Create ClusterServingRuntimes as part of default deployment"
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
