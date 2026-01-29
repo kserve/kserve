@@ -365,7 +365,7 @@ func (r *LLMISVCReconciler) CollectReferencedGateways(ctx context.Context, llmSv
 }
 
 // EvaluateHTTPRouteConditions evaluates the readiness of all HTTPRoutes referenced by the LLMInferenceService
-// and updates the HTTPRoutesReady condition accordingly
+// and updates the HTTPRoutesReady condition accordingly. Also detects Gateway rejection of v1alpha2 backendRefs.
 func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	logger := log.FromContext(ctx).WithName("evaluateHTTPRouteConditions")
 
@@ -417,6 +417,17 @@ func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llm
 		llmSvc.MarkHTTPRoutesReady()
 		logger.Info("No HTTPRoutes found, marking HTTPRoutesReady as true")
 		return nil
+	}
+
+	// Check if Gateway rejected v1alpha2 backendRef - if so, mark for swap to v1
+	for _, route := range allRoutes {
+		if HasUnsupportedBackendRefError(route) &&
+			r.InferencePoolV1Available &&
+			!isV1Alpha2Unsupported(llmSvc) {
+			logger.Info("Gateway rejected v1alpha2 backendRef, marking for v1 swap",
+				"route", fmt.Sprintf("%s/%s", route.Namespace, route.Name))
+			setV1Alpha2Unsupported(llmSvc)
+		}
 	}
 
 	notReadyRoutes := EvaluateHTTPRouteReadiness(ctx, allRoutes)
