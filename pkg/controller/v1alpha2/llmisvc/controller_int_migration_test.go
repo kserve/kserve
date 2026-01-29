@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -196,6 +197,74 @@ var _ = Describe("InferencePool Migration", func() {
 				g.Expect(backendRef.Group).ToNot(BeNil())
 				g.Expect(string(*backendRef.Group)).To(Equal(constants.InferencePoolV1APIGroupName),
 					"HTTPRoute backendRef should point to v1 API group for pre-migrated deployment")
+
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("Gateway rejection triggers migration to v1", func() {
+		It("should swap HTTPRoute backendRef from v1alpha2 to v1 when Gateway rejects v1alpha2", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-gateway-rejection"
+			nsName := kmeta.ChildName(svcName, "-test")
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(namespace)
+			}()
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			// when - create the LLMInferenceService
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			// Wait for HTTPRoute to be created with v1alpha2 backendRef initially
+			var managedRoute *gwapiv1.HTTPRoute
+			Eventually(func(g Gomega, ctx context.Context) error {
+				routes, errList := managedRoutes(ctx, llmSvc)
+				g.Expect(errList).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				managedRoute = &routes[0]
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+
+			// Simulate Gateway rejection: set ResolvedRefs=False, Reason=InvalidKind
+			// This is what Envoy Gateway does when it doesn't support v1alpha2 backendRef
+			updatedRoute := managedRoute.DeepCopy()
+			WithHTTPRouteV1Alpha2RejectedStatus(DefaultGatewayControllerName)(updatedRoute)
+			Expect(envTest.Client.Status().Update(ctx, updatedRoute)).To(Succeed())
+
+			// then - controller should detect rejection and swap to v1 backendRef
+			Eventually(func(g Gomega, ctx context.Context) error {
+				routes, errList := managedRoutes(ctx, llmSvc)
+				g.Expect(errList).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+
+				route := &routes[0]
+				g.Expect(route.Spec.Rules).ToNot(BeEmpty())
+				g.Expect(route.Spec.Rules[0].BackendRefs).ToNot(BeEmpty())
+
+				// Check that the backendRef now points to v1 API group (after migration)
+				backendRef := route.Spec.Rules[0].BackendRefs[0]
+				g.Expect(backendRef.Group).ToNot(BeNil())
+				g.Expect(string(*backendRef.Group)).To(Equal(constants.InferencePoolV1APIGroupName),
+					"HTTPRoute backendRef should point to v1 API group after Gateway rejects v1alpha2")
 
 				return nil
 			}).WithContext(ctx).Should(Succeed())
