@@ -32,7 +32,9 @@ HELM_REPOS = {
 
 def run(cmd):
     """Run command and return stdout"""
-    return subprocess.run(cmd, shell=True, capture_output=True, text=True, check=True).stdout
+    return subprocess.run(
+        cmd, shell=True, capture_output=True, text=True, check=True
+    ).stdout
 
 
 def extract_all_versions_from_gomod(go_mod_path, packages):
@@ -107,7 +109,9 @@ def find_best_chart_version(versions, requested_app_version):
                 return float("inf")
 
         closest = min(valid, key=version_distance)
-        print(f"⚠️  Using {closest['version']} (app: {closest['app_version']}) for requested {requested_app_version}")
+        print(
+            f"⚠️  Using {closest['version']} (app: {closest['app_version']}) for requested {requested_app_version}"
+        )
         return closest["version"]
     except Exception:
         return valid[0]["version"]

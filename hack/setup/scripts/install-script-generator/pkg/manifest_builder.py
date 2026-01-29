@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 
-YAML_SEPARATOR = '---\n'
+YAML_SEPARATOR = "---\n"
 
 
 def run_kustomize_build(kustomize_dir: Path) -> str:
@@ -43,7 +43,7 @@ def run_kustomize_build(kustomize_dir: Path) -> str:
             capture_output=True,
             text=True,
             check=True,
-            cwd=kustomize_dir.parent
+            cwd=kustomize_dir.parent,
         )
         return result.stdout
     except subprocess.CalledProcessError as e:
@@ -52,7 +52,9 @@ def run_kustomize_build(kustomize_dir: Path) -> str:
             f"stderr: {e.stderr}"
         )
     except FileNotFoundError:
-        raise FileNotFoundError("kustomize command not found. Please install kustomize.")
+        raise FileNotFoundError(
+            "kustomize command not found. Please install kustomize."
+        )
 
 
 def filter_out_crds(manifest: str) -> str:
@@ -71,8 +73,10 @@ def filter_out_crds(manifest: str) -> str:
         if not doc.strip():
             continue
 
-        is_crd = any('kind:' in line and 'CustomResourceDefinition' in line
-                     for line in doc.split('\n'))
+        is_crd = any(
+            "kind:" in line and "CustomResourceDefinition" in line
+            for line in doc.split("\n")
+        )
 
         if not is_crd:
             filtered_documents.append(doc)
@@ -113,7 +117,9 @@ def get_llmisvc_value(config: dict[str, Any], components: list[dict[str, Any]]) 
     return llmisvc
 
 
-def select_kserve_directories(repo_root: Path, llmisvc: str) -> tuple[list[Path], list[Path]]:
+def select_kserve_directories(
+    repo_root: Path, llmisvc: str
+) -> tuple[list[Path], list[Path]]:
     """Select KServe CRD and config directories based on LLMISVC.
 
     Args:
@@ -137,9 +143,9 @@ def select_kserve_directories(repo_root: Path, llmisvc: str) -> tuple[list[Path]
     return crd_dirs, config_dirs
 
 
-def build_kserve_manifests(repo_root: Path,
-                           config: dict[str, Any],
-                           components: list[dict[str, Any]]) -> tuple[str, str]:
+def build_kserve_manifests(
+    repo_root: Path, config: dict[str, Any], components: list[dict[str, Any]]
+) -> tuple[str, str]:
     """Build KServe CRD and core manifests.
 
     Args:
@@ -185,7 +191,7 @@ def generate_manifest_functions(crd_manifest: str, core_manifest: str) -> str:
     Returns:
         Bash function definitions as string
     """
-    return f'''# ============================================================================
+    return f"""# ============================================================================
 # KServe Manifest Functions (EMBED_MANIFESTS MODE)
 # ============================================================================
 
@@ -219,4 +225,4 @@ get_kserve_core_manifest() {{
 {core_manifest}KSERVE_CORE_MANIFEST_EOF
 }}
 
-'''
+"""

@@ -52,10 +52,9 @@ def parse_definition(definition_file: Path) -> dict[str, Any]:
         if isinstance(item, str):
             components.append({"name": item.strip(), "env": {}})
         elif isinstance(item, dict):
-            components.append({
-                "name": item.get("name", "").strip(),
-                "env": item.get("env", {})
-            })
+            components.append(
+                {"name": item.get("name", "").strip(), "env": item.get("env", {})}
+            )
 
     # Parse tools
     tools_data = config.get("TOOLS", [])
@@ -81,11 +80,17 @@ def parse_definition(definition_file: Path) -> dict[str, Any]:
 
     # Parse embed_manifests - controls whether to embed KServe manifests in script
     embed_val = config.get("EMBED_MANIFESTS", False)
-    embed_manifests = str(embed_val).lower() == "true" if isinstance(embed_val, str) else embed_val
+    embed_manifests = (
+        str(embed_val).lower() == "true" if isinstance(embed_val, str) else embed_val
+    )
 
     # Parse release - controls whether to add method suffix to output filename
     release_val = config.get("RELEASE", False)
-    release = str(release_val).lower() == "true" if isinstance(release_val, str) else release_val
+    release = (
+        str(release_val).lower() == "true"
+        if isinstance(release_val, str)
+        else release_val
+    )
 
     return {
         "file_name": config.get("FILE_NAME") or definition_file.stem,
@@ -95,5 +100,5 @@ def parse_definition(definition_file: Path) -> dict[str, Any]:
         "release": release,
         "tools": tools,
         "global_env": global_env,
-        "components": components
+        "components": components,
     }

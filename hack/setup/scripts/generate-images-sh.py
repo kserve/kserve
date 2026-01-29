@@ -24,7 +24,7 @@ with open(OUTPUT, "w") as f:
             continue
 
         # Convert KEY ?= value or KEY = value to KEY="${KEY:-value}"
-        match = re.match(r'^([A-Z_][A-Z0-9_]*)\s*\??=\s*(.+)$', line)
+        match = re.match(r"^([A-Z_][A-Z0-9_]*)\s*\??=\s*(.+)$", line)
         if match:
             var_name, var_value = match.groups()
             var_names.append(var_name)
@@ -35,9 +35,9 @@ with open(OUTPUT, "w") as f:
     f.write('if [[ "${1:-}" == "--ci" ]]; then\n')
     f.write(f'  for var in {" ".join(var_names)}; do\n')
     f.write('    echo "${var}=${!var}" >> $GITHUB_ENV\n')
-    f.write('  done\n')
+    f.write("  done\n")
     f.write('  echo "✅ Exported KServe image variables to GITHUB_ENV"\n')
-    f.write('fi\n')
+    f.write("fi\n")
 
 OUTPUT.chmod(0o755)
 print(f"Generated {OUTPUT}")
