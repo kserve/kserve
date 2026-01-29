@@ -394,3 +394,22 @@ func nonReadyInferencePoolTopLevelCondition(pool *igwapi.InferencePool) (*metav1
 
 	return nil, false
 }
+
+// HasUnsupportedBackendRefError checks if an HTTPRoute has been rejected by the Gateway
+// due to an unsupported backendRef. Returns true if any parent reports
+// ResolvedRefs=False with Reason=InvalidKind.
+func HasUnsupportedBackendRefError(route *gwapiv1.HTTPRoute) bool {
+	if route == nil {
+		return false
+	}
+
+	for _, parent := range route.Status.RouteStatus.Parents {
+		cond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionResolvedRefs))
+		if cond != nil &&
+			cond.Status == metav1.ConditionFalse &&
+			cond.Reason == "InvalidKind" {
+			return true
+		}
+	}
+	return false
+}
