@@ -116,7 +116,7 @@ echo "Waiting for KServe started ..."
 kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
 kubectl get events -A
 
-echo "Add testing models to minio stroage ..."
+echo "Add testing models to s3 storage ..."
 kubectl apply -f config/overlays/test/s3/seaweedfs-init-job.yaml -n kserve
 kubectl wait --for=condition=complete --timeout=30s job/s3-init -n kserve
 

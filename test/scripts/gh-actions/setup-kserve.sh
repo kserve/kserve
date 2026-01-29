@@ -55,7 +55,7 @@ if [[ $LLMISVC == "false" ]]; then
 
   kubectl get events -A
 
-  echo "Add testing models to minio storage ..."
+  echo "Add testing models to s3 storage ..."
   kubectl apply -f config/overlays/test/s3/seaweedfs-init-job.yaml -n kserve
   kubectl wait --for=condition=complete --timeout=90s job/s3-init -n kserve
 
