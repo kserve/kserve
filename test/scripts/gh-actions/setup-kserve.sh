@@ -57,7 +57,7 @@ if [[ $LLMISVC == "false" ]]; then
 
   echo "Add testing models to minio storage ..."
   kubectl apply -f config/overlays/test/s3/seaweedfs-init-job.yaml -n kserve
-  kubectl wait --for=condition=complete --timeout=90s job/minio-init -n kserve
+  kubectl wait --for=condition=complete --timeout=90s job/s3-init -n kserve
 
   echo "Add storageSpec testing secrets ..."
   kubectl apply -f config/overlays/test/s3/storage-config-secret.yaml -n kserve-ci-e2e-test

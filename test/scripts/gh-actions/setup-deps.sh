@@ -28,10 +28,10 @@ REPO_ROOT="$(find_repo_root "${SCRIPT_DIR}")"
 
 source "${REPO_ROOT}/kserve-deps.env"
 
-DEPLOYMENT_MODE="${1:-'serverless'}"
-NETWORK_LAYER="${2:-'istio'}"
-ENABLE_KEDA="${3:-'false'}"
-LLMISVC="${4:-'false'}"
+DEPLOYMENT_MODE="${1:-serverless}"
+NETWORK_LAYER="${2:-istio}"
+ENABLE_KEDA="${3:-false}"
+LLMISVC="${4:-false}"
 
 # Parse network layer configuration
 USES_GATEWAY_API=false

@@ -118,7 +118,7 @@ kubectl get events -A
 
 echo "Add testing models to minio stroage ..."
 kubectl apply -f config/overlays/test/s3/seaweedfs-init-job.yaml -n kserve
-kubectl wait --for=condition=complete --timeout=30s job/minio-init -n kserve
+kubectl wait --for=condition=complete --timeout=30s job/s3-init -n kserve
 
 echo "Creating a namespace kserve-ci-test ..."
 kubectl create namespace kserve-ci-e2e-test
