@@ -56,11 +56,11 @@ if [[ $LLMISVC == "false" ]]; then
   kubectl get events -A
 
   echo "Add testing models to minio storage ..."
-  kubectl apply -f config/overlays/test/minio/minio-init-job.yaml -n kserve
+  kubectl apply -f config/overlays/test/s3/seaweedfs-init-job.yaml -n kserve
   kubectl wait --for=condition=complete --timeout=90s job/minio-init -n kserve
 
   echo "Add storageSpec testing secrets ..."
-  kubectl apply -f config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test
+  kubectl apply -f config/overlays/test/s3/storage-config-secret.yaml -n kserve-ci-e2e-test
 else
   KSERVE_OVERLAY_DIR=test-llmisvc ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh
 fi
