@@ -43,6 +43,7 @@ PADDLE_IMG_TAG=${KO_DOCKER_REPO}/${PADDLE_IMG}:${TAG}
 CUSTOM_MODEL_GRPC_IMG_TAG=${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}:${TAG}
 CUSTOM_TRANSFORMER_GRPC_IMG_TAG=${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}:${TAG}
 HUGGINGFACE_CPU_IMG_TAG=${KO_DOCKER_REPO}/${HUGGINGFACE_IMG}:${TAG}
+PREDICTIVE_IMG_TAG=${KO_DOCKER_REPO}/${PREDICTIVE_IMG}:${TAG}
 # Explainer images
 ART_IMG_TAG=${KO_DOCKER_REPO}/${ART_IMG}:${TAG}
 # Transformer images
@@ -90,6 +91,11 @@ pushd python >/dev/null
     docker buildx build -t "${HUGGINGFACE_CPU_IMG_TAG}" -f huggingface_server_cpu.Dockerfile \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_IMG}-${TAG}",compression-level=0 .
     echo "Disk usage after Building Huggingface CPU image:"
+        df -hT
+    echo "Building Predictive server image"
+    docker buildx build -t "${PREDICTIVE_IMG_TAG}" -f predictiveserver.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${PREDICTIVE_IMG}-${TAG}",compression-level=0 .
+    echo "Disk usage after Building Predictive server image:"
         df -hT
   fi
 

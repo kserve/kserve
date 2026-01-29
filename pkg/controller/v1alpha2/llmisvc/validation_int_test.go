@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -402,6 +403,159 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			envTest.DeleteAll(ns)
 		})
 	})
+	Context("scheduler config validation", func() {
+		It("should reject LLMInferenceService with scheduler config having neither inline nor ref", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-scheduler-config-neither",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+			)
+			// Manually set scheduler config with neither inline nor ref
+			llmSvc.Spec.Router = &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Config: &v1alpha2.SchedulerConfigSpec{},
+				},
+			}
+
+			// when
+			errValidation := envTest.Client.Create(ctx, llmSvc)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("either inline or ref is required"))
+		})
+
+		It("should reject LLMInferenceService with scheduler config having both inline and ref", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-scheduler-config-both",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+			)
+			// Manually set scheduler config with both inline and ref
+			inlineConfig := []byte(`{"key": "value"}`)
+			llmSvc.Spec.Router = &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Config: &v1alpha2.SchedulerConfigSpec{
+						Inline: &runtime.RawExtension{Raw: inlineConfig},
+						Ref: &corev1.ConfigMapKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "test-config"},
+							Key:                  "config.yaml",
+						},
+					},
+				},
+			}
+
+			// when
+			errValidation := envTest.Client.Create(ctx, llmSvc)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("both inline and ref are set"))
+		})
+
+		It("should reject LLMInferenceService with empty inline scheduler config", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-scheduler-config-empty-inline",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+			)
+			// Manually set scheduler config with empty inline (use valid but empty JSON object)
+			llmSvc.Spec.Router = &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Config: &v1alpha2.SchedulerConfigSpec{
+						Inline: &runtime.RawExtension{Raw: []byte(`{}`)},
+					},
+				},
+			}
+
+			// when
+			errValidation := envTest.Client.Create(ctx, llmSvc)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("inline configuration is invalid"))
+		})
+
+		It("should reject LLMInferenceService with ref scheduler config having empty name", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-scheduler-config-empty-ref-name",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+			)
+			// Manually set scheduler config with ref having empty name
+			llmSvc.Spec.Router = &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Config: &v1alpha2.SchedulerConfigSpec{
+						Ref: &corev1.ConfigMapKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: ""},
+							Key:                  "config.yaml",
+						},
+					},
+				},
+			}
+
+			// when
+			errValidation := envTest.Client.Create(ctx, llmSvc)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("name is empty"))
+		})
+
+		It("should accept LLMInferenceService with valid inline scheduler config", func(ctx SpecContext) {
+			// given
+			inlineConfig := []byte(`{"schedulingStrategy": "round-robin"}`)
+			llmSvc := fixture.LLMInferenceService("test-scheduler-config-valid-inline",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+			)
+			// Manually set scheduler config with valid inline
+			llmSvc.Spec.Router = &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Config: &v1alpha2.SchedulerConfigSpec{
+						Inline: &runtime.RawExtension{Raw: inlineConfig},
+					},
+				},
+			}
+
+			// then
+			Expect(envTest.Client.Create(ctx, llmSvc)).To(Succeed())
+		})
+
+		It("should accept LLMInferenceService with valid ref scheduler config", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-scheduler-config-valid-ref",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+			)
+			// Manually set scheduler config with valid ref
+			llmSvc.Spec.Router = &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Config: &v1alpha2.SchedulerConfigSpec{
+						Ref: &corev1.ConfigMapKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "test-config"},
+							Key:                  "config.yaml",
+						},
+					},
+				},
+			}
+
+			// then
+			Expect(envTest.Client.Create(ctx, llmSvc)).To(Succeed())
+		})
+
+		It("should accept LLMInferenceService without scheduler config", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-no-scheduler-config",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+			)
+
+			// then
+			Expect(envTest.Client.Create(ctx, llmSvc)).To(Succeed())
+		})
+	})
+
 	Context("Integer value validation", func() {
 		It("should reject LLMInferenceService with negative workload replicas", func(ctx SpecContext) {
 			// given
