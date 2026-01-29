@@ -237,6 +237,160 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			Expect(expectedDeployment.Spec.Template.Labels).ToNot(HaveKeyWithValue(testValue, testValue))
 			Expect(expectedDeployment.Spec.Template.Annotations).ToNot(HaveKeyWithValue(testValue, testValue))
 		})
+
+		It("should preserve externally set replicas when owner does not specify replicas", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-preserve-replicas"
+			nsName := kmeta.ChildName(svcName, "-test")
+			deploymentName := types.NamespacedName{Name: svcName + "-kserve", Namespace: nsName}
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(namespace)
+			}()
+
+			// Create LLMInferenceService WITHOUT specifying replicas
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				// Note: Not using WithReplicas() - replicas should be nil
+			)
+
+			// Verify replicas is nil in the spec
+			Expect(llmSvc.Spec.Replicas).To(BeNil())
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			// then - Deployment should be created with default replicas (1)
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, deploymentName, expectedDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(expectedDeployment.Spec.Replicas).To(Equal(ptr.To[int32](1)))
+
+			// Simulate external scaling (e.g., HPA scaling to 3 replicas)
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				deployment := &appsv1.Deployment{}
+				if err := envTest.Get(ctx, deploymentName, deployment); err != nil {
+					return err
+				}
+				deployment.Spec.Replicas = ptr.To[int32](3)
+				return envTest.Client.Update(ctx, deployment)
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// Trigger a reconciliation by updating a spec field in the LLMInferenceService.
+			// Using a spec change (Model.Name) rather than an annotation ensures
+			// compatibility with GenerationChangedPredicate if it's added in the future.
+			errRetry = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					llmSvc.Spec.Model.Name = ptr.To(*llmSvc.Spec.Model.Name + "-updated")
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// Verify the externally set replicas are preserved after reconciliation
+			Consistently(func(g Gomega, ctx context.Context) {
+				deployment := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, deploymentName, deployment)).To(Succeed())
+
+				g.Expect(deployment.Spec.Replicas).To(Equal(ptr.To[int32](3)),
+					"Externally set replicas should be preserved when owner doesn't specify replicas")
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should override externally set replicas when owner specifies replicas", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-override-replicas"
+			nsName := kmeta.ChildName(svcName, "-test")
+			deploymentName := types.NamespacedName{Name: svcName + "-kserve", Namespace: nsName}
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(namespace)
+			}()
+
+			// Create LLMInferenceService WITH explicit replicas
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithReplicas(2), // Owner explicitly sets replicas
+			)
+
+			// Verify replicas is set in the spec
+			Expect(llmSvc.Spec.Replicas).To(Equal(ptr.To[int32](2)))
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			// then - Deployment should be created with owner-specified replicas (2)
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, deploymentName, expectedDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(expectedDeployment.Spec.Replicas).To(Equal(ptr.To[int32](2)))
+
+			// Simulate external scaling attempt (e.g., someone tries to manually scale to 5)
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				deployment := &appsv1.Deployment{}
+				if err := envTest.Get(ctx, deploymentName, deployment); err != nil {
+					return err
+				}
+				deployment.Spec.Replicas = ptr.To[int32](5)
+				return envTest.Client.Update(ctx, deployment)
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// Trigger a reconciliation by updating a spec field in the LLMInferenceService.
+			// Using a spec change (Model.Name) rather than an annotation ensures
+			// compatibility with GenerationChangedPredicate if it's added in the future.
+			errRetry = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					llmSvc.Spec.Model.Name = ptr.To(*llmSvc.Spec.Model.Name + "-updated")
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// Verify the owner-specified replicas override the external change
+			Eventually(func(g Gomega, ctx context.Context) {
+				deployment := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, deploymentName, deployment)).To(Succeed())
+
+				g.Expect(deployment.Spec.Replicas).To(Equal(ptr.To[int32](2)),
+					"Owner-specified replicas should override externally set replicas")
+			}).WithContext(ctx).Should(Succeed())
+		})
 	})
 
 	Context("Routing reconciliation ", func() {
@@ -291,6 +445,26 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				Eventually(func(g Gomega, ctx context.Context) error {
 					ip := igwapi.InferencePool{}
 					return envTest.Client.Get(ctx, client.ObjectKey{Name: svcName + "-inference-pool", Namespace: llmSvc.GetNamespace()}, &ip)
+				}).WithContext(ctx).Should(Succeed())
+
+				// Verify the scheduler service (EPP service) has the expected ports including zmq
+				Eventually(func(g Gomega, ctx context.Context) error {
+					eppSvc := &corev1.Service{}
+					g.Expect(envTest.Client.Get(ctx, client.ObjectKey{Name: svcName + "-epp-service", Namespace: llmSvc.GetNamespace()}, eppSvc)).To(Succeed())
+
+					// Verify all expected ports are present (grpc, grpc-health, metrics, zmq)
+					portNames := make(map[string]int32)
+					for _, port := range eppSvc.Spec.Ports {
+						portNames[port.Name] = port.Port
+					}
+
+					g.Expect(portNames).To(HaveKeyWithValue("grpc", int32(9002)))
+					g.Expect(portNames).To(HaveKeyWithValue("grpc-health", int32(9003)))
+					g.Expect(portNames).To(HaveKeyWithValue("metrics", int32(9090)))
+					g.Expect(portNames).To(HaveKeyWithValue("zmq", int32(5557)))
+					g.Expect(eppSvc.Spec.Ports).To(HaveLen(4))
+
+					return nil
 				}).WithContext(ctx).Should(Succeed())
 
 				Eventually(LLMInferenceServiceIsReady(llmSvc, func(g Gomega, current *v1alpha2.LLMInferenceService) {

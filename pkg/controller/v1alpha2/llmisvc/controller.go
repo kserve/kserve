@@ -70,6 +70,8 @@ type LLMISVCReconciler struct {
 	client.Client
 	record.EventRecorder
 	Clientset kubernetes.Interface
+
+	Validator func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -92,7 +94,7 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews;subjectaccessreviews,verbs=create
 //+kubebuilder:rbac:urls=/metrics,verbs=get
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
-//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 //+kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 
 // Reconcile is the main entry point for the reconciliation loop.
@@ -249,13 +251,15 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&netv1.Ingress{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Secret{}, builder.WithPredicates(childResourcesPredicate)).
-		Owns(&corev1.Service{}, builder.WithPredicates(childResourcesPredicate))
+		Owns(&corev1.Service{}, builder.WithPredicates(childResourcesPredicate)).
+		Watches(&corev1.ConfigMap{}, r.enqueueOnConfigMapChange(logger))
 
 	if err := gwapiv1.Install(mgr.GetScheme()); err != nil {
 		return fmt.Errorf("failed to add GIE APIs to scheme: %w", err)
 	}
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), gwapiv1.GroupVersion.String(), "HTTPRoute"); ok && err == nil {
-		b = b.Owns(&gwapiv1.HTTPRoute{}, builder.WithPredicates(childResourcesPredicate))
+		b = b.Owns(&gwapiv1.HTTPRoute{}, builder.WithPredicates(childResourcesPredicate)).
+			Watches(&gwapiv1.HTTPRoute{}, r.enqueueOnHttpRouteChange(logger))
 	}
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), gwapiv1.GroupVersion.String(), "Gateway"); ok && err == nil {
 		b = b.Watches(&gwapiv1.Gateway{}, r.enqueueOnGatewayChange(logger))
@@ -282,7 +286,7 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // enqueueOnGatewayChange creates an event handler that triggers reconciliation of LLMInferenceServices
-// when a Gateway they depend on changes. This is necessary because Gateway changes can affect routing.
+// when a referenced Gateway changes. This ensures routing is updated when Gateway status changes.
 func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.EventHandler {
 	logger = logger.WithName("enqueueOnGatewayChange")
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
@@ -351,8 +355,70 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 	})
 }
 
+// enqueueOnHttpRouteChange creates an event handler that triggers reconciliation of LLMInferenceServices
+// when a referenced HTTPRoute changes. This ensures routing is updated when HTTPRoute status changes.
+func (r *LLMISVCReconciler) enqueueOnHttpRouteChange(logger logr.Logger) handler.EventHandler {
+	logger = logger.WithName("enqueueOnHttpRouteChange")
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+		sub := object.(*gwapiv1.HTTPRoute)
+		reqs := make([]reconcile.Request, 0, 2)
+
+		listNamespace := corev1.NamespaceAll
+
+		cfg, err := LoadConfig(ctx, r.Clientset)
+		if err != nil {
+			logger.Error(err, "Failed to load config")
+			return reqs
+		}
+
+		// When an HTTPRoute is modified, we need to find all LLMInferenceService instances that might
+		// depend on it and trigger their reconciliation.
+		// Use pagination to handle large numbers of services efficiently
+		continueToken := ""
+		for {
+			llmSvcList := &v1alpha2.LLMInferenceServiceList{}
+			if err := r.Client.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
+				logger.Error(err, "Failed to list LLMInferenceService")
+				return reqs
+			}
+			for _, llmSvc := range llmSvcList.Items {
+				// Use a deep copy to avoid modifying the original object
+				llmSvcCopy := llmSvc.DeepCopy()
+				combinedCfg, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
+				if err != nil {
+					logger.Error(err, "Failed to combine base refs config", "llmSvc", llmSvc.Name)
+					continue
+				}
+
+				// Skip services that don't use HTTPRoute refs
+				if combinedCfg.Spec.Router == nil || combinedCfg.Spec.Router.Route == nil || !combinedCfg.Spec.Router.Route.HTTP.HasRefs() {
+					continue
+				}
+
+				// Check if service explicitly references this HTTPRoute
+				for _, ref := range combinedCfg.Spec.Router.Route.HTTP.Refs {
+					if ref.Name == sub.Name && sub.Namespace == llmSvc.Namespace {
+						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+							Namespace: llmSvc.Namespace,
+							Name:      llmSvc.Name,
+						}})
+						break
+					}
+				}
+			}
+
+			if llmSvcList.Continue == "" {
+				break
+			}
+			continueToken = llmSvcList.Continue
+		}
+
+		return reqs
+	})
+}
+
 // enqueueOnLLMInferenceServiceConfigChange creates an event handler that triggers reconciliation of LLMInferenceServices
-// when configuration templates they depend on change. This ensures services are updated when their configs change.
+// when a referenced LLMInferenceServiceConfig changes. This ensures services are updated when their base configs change.
 func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr.Logger) handler.EventHandler {
 	logger = logger.WithName("enqueueOnLLMInferenceServiceConfigChange")
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
@@ -400,6 +466,59 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 				break
 			}
 			continueToken = llmSvcList.Continue
+		}
+
+		return reqs
+	})
+}
+
+func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler.EventHandler {
+	logger = logger.WithName("enqueueOnConfigMapChange")
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+		sub := object.(*corev1.ConfigMap)
+		reqs := make([]reconcile.Request, 0)
+
+		listNamespace := sub.GetNamespace()
+
+		cfg, err := LoadConfig(ctx, r.Clientset)
+		if err != nil {
+			logger.Error(err, "Failed to load config")
+			return reqs
+		}
+
+		// System namespace configs are global and can affect services in any namespace
+		if sub.Namespace == constants.KServeNamespace {
+			listNamespace = corev1.NamespaceAll
+		}
+
+		// When a ConfigMap is modified, we need to find all LLMInferenceService instances that might
+		// depend on it and trigger their reconciliation.
+		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
+		if err := r.Client.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
+			logger.Error(err, "Failed to list LLMInferenceService")
+			return reqs
+		}
+
+		for _, llmSvc := range llmSvcList.Items {
+			// Use WithSkipClearSchedulerConfigRef to preserve the Ref for matching
+			resolved, err := r.combineBaseRefsConfig(ctx, &llmSvc, cfg, WithSkipClearSchedulerConfigRef())
+			if err != nil {
+				logger.Error(err, "Failed to combine baseRefs config", "namespace", llmSvc.Namespace, "name", llmSvc.Name)
+				continue
+			}
+
+			if resolved.Spec.Router == nil ||
+				resolved.Spec.Router.Scheduler == nil ||
+				resolved.Spec.Router.Scheduler.Config == nil ||
+				resolved.Spec.Router.Scheduler.Config.Ref == nil ||
+				resolved.Spec.Router.Scheduler.Config.Ref.Name != sub.Name {
+				continue
+			}
+
+			reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+				Namespace: llmSvc.Namespace,
+				Name:      llmSvc.Name,
+			}})
 		}
 
 		return reqs

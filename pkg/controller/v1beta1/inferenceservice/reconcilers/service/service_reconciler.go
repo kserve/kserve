@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -283,4 +284,19 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context) ([]*corev1.Service, e
 		}
 	}
 	return r.ServiceList, nil
+}
+
+// GetServiceList returns all managed services
+func (r *ServiceReconciler) GetServiceList() []*corev1.Service {
+	return r.ServiceList
+}
+
+// SetControllerReferences sets owner references on all services
+func (r *ServiceReconciler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
+	for _, svc := range r.ServiceList {
+		if err := controllerutil.SetControllerReference(owner, svc, scheme); err != nil {
+			return err
+		}
+	}
+	return nil
 }

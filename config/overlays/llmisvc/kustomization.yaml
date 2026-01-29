@@ -57,6 +57,34 @@ replacements:
     select:
       kind: ValidatingWebhookConfiguration
       name: llminferenceserviceconfig.serving.kserve.io
+  # CRD conversion webhook namespace replacement
+  - fieldPaths:
+      - spec.conversion.webhook.clientConfig.service.namespace
+    select:
+      kind: CustomResourceDefinition
+      name: llminferenceservices.serving.kserve.io
+  - fieldPaths:
+      - spec.conversion.webhook.clientConfig.service.namespace
+    select:
+      kind: CustomResourceDefinition
+      name: llminferenceserviceconfigs.serving.kserve.io
+  # CRD conversion webhook cert-manager CA injection namespace replacement
+  - fieldPaths:
+      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: '/'
+      index: 0
+    select:
+      kind: CustomResourceDefinition
+      name: llminferenceservices.serving.kserve.io
+  - fieldPaths:
+      - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: '/'
+      index: 0
+    select:
+      kind: CustomResourceDefinition
+      name: llminferenceserviceconfigs.serving.kserve.io
 # Replace llmisvc webhook service name
 - source:
     fieldPath: metadata.name
@@ -84,6 +112,17 @@ replacements:
       kind: Certificate
       name: llmisvc-serving-cert
       namespace: kserve
+  # CRD conversion webhook service name replacement
+  - fieldPaths:
+    - spec.conversion.webhook.clientConfig.service.name
+    select:
+      kind: CustomResourceDefinition
+      name: llminferenceservices.serving.kserve.io
+  - fieldPaths:
+    - spec.conversion.webhook.clientConfig.service.name
+    select:
+      kind: CustomResourceDefinition
+      name: llminferenceserviceconfigs.serving.kserve.io
 # Replace llmisvc service account name
 - source:
     fieldPath: metadata.name

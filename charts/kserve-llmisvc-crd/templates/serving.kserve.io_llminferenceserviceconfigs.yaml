@@ -1,11 +1,23 @@
----
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    cert-manager.io/inject-ca-from: kserve/llmisvc-serving-cert
     controller-gen.kubebuilder.io/version: v0.19.0
   name: llminferenceserviceconfigs.serving.kserve.io
 spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: llmisvc-webhook-server-service
+          namespace: kserve
+          path: /convert
+          port: 443
+      conversionReviewVersions:
+        - v1
+        - v1beta1
   group: serving.kserve.io
   names:
     kind: LLMInferenceServiceConfig
@@ -8951,6 +8963,25 @@ spec:
                       type: object
                     scheduler:
                       properties:
+                        config:
+                          properties:
+                            inline:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            ref:
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  default: ""
+                                  type: string
+                                optional:
+                                  type: boolean
+                              required:
+                                - key
+                              type: object
+                              x-kubernetes-map-type: atomic
+                          type: object
                         pool:
                           properties:
                             ref:
@@ -29219,6 +29250,25 @@ spec:
                       type: object
                     scheduler:
                       properties:
+                        config:
+                          properties:
+                            inline:
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            ref:
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  default: ""
+                                  type: string
+                                optional:
+                                  type: boolean
+                              required:
+                                - key
+                              type: object
+                              x-kubernetes-map-type: atomic
+                          type: object
                         pool:
                           properties:
                             ref:
