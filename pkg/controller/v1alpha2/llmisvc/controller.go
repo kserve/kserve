@@ -29,6 +29,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
 
+	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/reconciler"
 
 	"github.com/go-logr/logr"
@@ -165,14 +166,6 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		r.Eventf(original, corev1.EventTypeWarning, "Error", "Reconciliation failed: %v", reconcileErr.Error())
 	}
 
-	// Update annotations if they changed (e.g., migration annotation)
-	if !equality.Semantic.DeepEqual(original.Annotations, resource.Annotations) {
-		if err := r.updateAnnotations(ctx, resource); err != nil {
-			logger.Error(err, "Failed to update annotations for LLMInferenceService")
-			return ctrl.Result{}, err
-		}
-	}
-
 	if err := r.updateStatus(ctx, resource); err != nil {
 		logger.Error(err, "Failed to update status for LLMInferenceService")
 		return ctrl.Result{}, err
@@ -203,8 +196,11 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	}
 	llmSvc.MarkPresetsCombinedReady()
 
+	// Detect if Gateway has rejected v1alpha2 backendRefs by checking existing HTTPRoute status
+	v1Alpha2Rejected := r.detectV1Alpha2Rejected(ctx, llmSvc)
+
 	// Adjust HTTPRoute backendRefs for InferencePool migration
-	baseCfg = r.adjustBackendRefForMigration(llmSvc, baseCfg)
+	baseCfg = r.adjustBackendRefForMigration(llmSvc, baseCfg, v1Alpha2Rejected)
 
 	logger.V(2).Info("Reconciling with combined base configurations", "combined.spec", baseCfg.Spec, "original.spec", llmSvc.Spec)
 	// Replace the spec with the merged configuration for reconciliation
@@ -231,6 +227,48 @@ func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMIn
 	return nil
 }
 
+// detectV1Alpha2Rejected checks if the Gateway has rejected v1alpha2 backendRefs
+// by examining the status of existing HTTPRoutes. Returns true if any route has
+// ResolvedRefs=False with Reason=InvalidKind, indicating the Gateway doesn't support v1alpha2.
+func (r *LLMISVCReconciler) detectV1Alpha2Rejected(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) bool {
+	logger := log.FromContext(ctx)
+
+	// Check if there's router configuration
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil || llmSvc.Spec.Router.Route.HTTP == nil {
+		return false
+	}
+
+	// Check referenced routes
+	if llmSvc.Spec.Router.Route.HTTP.HasRefs() {
+		for _, routeRef := range llmSvc.Spec.Router.Route.HTTP.Refs {
+			route := &gwapiv1.HTTPRoute{}
+			if err := r.Client.Get(ctx, types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: routeRef.Name}, route); err != nil {
+				continue
+			}
+			if HasUnsupportedBackendRefError(route) {
+				logger.Info("Detected Gateway rejection of v1alpha2 backendRef",
+					"route", fmt.Sprintf("%s/%s", route.Namespace, route.Name))
+				return true
+			}
+		}
+	}
+
+	// Check managed route
+	if llmSvc.Spec.Router.Route.HTTP.HasSpec() {
+		managedRouteName := kmeta.ChildName(llmSvc.GetName(), "-kserve-route")
+		route := &gwapiv1.HTTPRoute{}
+		if err := r.Client.Get(ctx, types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: managedRouteName}, route); err == nil {
+			if HasUnsupportedBackendRefError(route) {
+				logger.Info("Detected Gateway rejection of v1alpha2 backendRef",
+					"route", fmt.Sprintf("%s/%s", route.Namespace, route.Name))
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 // updateStatus updates the status of the LLMInferenceService with retry on conflict
 // This prevents race conditions when multiple controllers update the same resource
 func (r *LLMISVCReconciler) updateStatus(ctx context.Context, desired *v1alpha2.LLMInferenceService) error {
@@ -250,31 +288,6 @@ func (r *LLMISVCReconciler) updateStatus(ctx context.Context, desired *v1alpha2.
 
 		if err := r.Client.Status().Update(ctx, latest); err != nil {
 			return fmt.Errorf("failed to update status for LLMInferenceService: %w", err)
-		}
-
-		return nil
-	})
-}
-
-// updateAnnotations updates the annotations of the LLMInferenceService with retry on conflict.
-// This is used to persist the migration annotation when transitioning to v1 InferencePool.
-func (r *LLMISVCReconciler) updateAnnotations(ctx context.Context, desired *v1alpha2.LLMInferenceService) error {
-	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		// Always fetch the latest version to avoid conflicts
-		latest := &v1alpha2.LLMInferenceService{}
-		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(desired), latest); err != nil {
-			return err
-		}
-
-		// Skip update if annotations haven't changed
-		if equality.Semantic.DeepEqual(latest.Annotations, desired.Annotations) {
-			return nil
-		}
-
-		latest.Annotations = desired.Annotations
-
-		if err := r.Client.Update(ctx, latest); err != nil {
-			return fmt.Errorf("failed to update annotations for LLMInferenceService: %w", err)
 		}
 
 		return nil

@@ -452,7 +452,8 @@ func isV1InferencePoolBackendRef(ref gwapiv1.BackendRef) bool {
 
 // adjustBackendRefForMigration configures HTTPRoute backendRefs based on CRD availability,
 // Gateway support (detected at runtime), and migration status.
-func (r *LLMISVCReconciler) adjustBackendRefForMigration(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig) *v1alpha2.LLMInferenceServiceConfig {
+// v1Alpha2Rejected indicates the Gateway has rejected v1alpha2 backendRefs (detected from HTTPRoute status).
+func (r *LLMISVCReconciler) adjustBackendRefForMigration(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig, v1Alpha2Rejected bool) *v1alpha2.LLMInferenceServiceConfig {
 	// Skip if no HTTPRoute spec
 	if llmSvcCfg.Spec.Router == nil ||
 		llmSvcCfg.Spec.Router.Route == nil ||
@@ -474,7 +475,7 @@ func (r *LLMISVCReconciler) adjustBackendRefForMigration(llmSvc *v1alpha2.LLMInf
 	// Use v1 if: v1alpha2 not available, already migrated, or Gateway rejected v1alpha2
 	useV1 := !r.InferencePoolV1Alpha2Available ||
 		isMigratedToV1(llmSvc) ||
-		isV1Alpha2Unsupported(llmSvc)
+		v1Alpha2Rejected
 
 	if useV1 {
 		return llmSvcCfg
