@@ -324,7 +324,7 @@ deploy-dev: manifests
 	
 	@echo "Deploy KServe,LocalModel and LLMInferenceService"
 	hack/setup/infra/manage.cert-manager-helm.sh
-	KSERVE_OVERYLAY_DIR=development hack/setup/infra/manage.kserve-kustomize.sh
+	KSERVE_OVERLAY_DIR=development hack/setup/infra/manage.kserve-kustomize.sh
 	
 	@echo "Create ClusterServingRuntimes as part of default deployment"
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
