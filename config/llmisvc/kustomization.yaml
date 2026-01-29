@@ -5,11 +5,9 @@ namespace: kserve
 
 resources:
   - service.yaml
-  - manager.yaml
-  - gateway-inference-extension.yaml
+  - manager.yaml  
   - ../certmanager/llmisvc
   - ../rbac/llmisvc
-  - ../llmisvcconfig
   - ../webhook/llmisvc
 
 replacements:
