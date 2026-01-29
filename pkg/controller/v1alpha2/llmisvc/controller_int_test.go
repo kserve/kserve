@@ -441,13 +441,12 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 				ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
 
-				// Wait for migration to complete - backendRef should eventually point to v1 InferencePool
-				// Note: With dual-pool migration, HTTPRoute initially points to v1alpha2 and swaps to v1 when ready
+				// HTTPRoute uses v1alpha2 backendRef when both CRDs are available
 				Eventually(func(g Gomega, ctx context.Context) {
 					routes, errList := managedRoutes(ctx, llmSvc)
 					g.Expect(errList).ToNot(HaveOccurred())
 					g.Expect(routes).To(HaveLen(1))
-					g.Expect(&routes[0]).To(HaveBackendRefs(BackendRefInferencePool(svcName + "-inference-pool")))
+					g.Expect(&routes[0]).To(HaveBackendRefs(BackendRefInferencePoolV1Alpha2(svcName + "-inference-pool")))
 				}).WithContext(ctx).Should(Succeed())
 
 				Eventually(func(g Gomega, ctx context.Context) error {
