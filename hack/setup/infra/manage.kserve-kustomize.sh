@@ -71,7 +71,7 @@ KSERVE_CRD_DIRS=(
     "${REPO_ROOT}/config/crd/full/localmodel"
 )
 KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/all"
-KSERVE_OVERYLAY_DIR="${KSERVE_OVERYLAY_DIR:-}"
+KSERVE_OVERLAY_DIR="${KSERVE_OVERLAY_DIR:-}"
 TARGET_DEPLOYMENT_NAMES=(
     "kserve-controller-manager"
     "kserve-localmodel-controller-manager"
@@ -83,10 +83,6 @@ INSTALL_RUNTIMES="${INSTALL_RUNTIMES:-false}"
 
 # INCLUDE_IN_GENERATED_SCRIPT_START
 # Set CRD/Config directories and target pod labels based on LLMISVC
-if [ "${KSERVE_OVERYLAY_DIR}" != "" ]; then
-    KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/${KSERVE_OVERYLAY_DIR}"
-fi
-
 if [ "${LLMISVC}" = "true" ]; then
     KSERVE_CRD_DIRS=(
         "${REPO_ROOT}/config/crd/full/llmisvc"
@@ -94,7 +90,9 @@ if [ "${LLMISVC}" = "true" ]; then
     KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/standalone/llmisvc"
     TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
 fi
-
+if [ "${KSERVE_OVERLAY_DIR}" != "" ]; then
+    KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/${KSERVE_OVERLAY_DIR}"
+fi
 # INCLUDE_IN_GENERATED_SCRIPT_END
 
 uninstall() {
@@ -230,6 +228,10 @@ install() {
     log_success "KServe is ready!"
     if [ ${INSTALL_RUNTIMES} = "true" ]; then
         kubectl apply --server-side=true -k config/runtimes
+    fi
+    if [ "${LLMISVC}" = "true" ]; then
+        log_info "Installing LLMISVC configs..."
+        kubectl apply --server-side=true -k config/llmisvcconfig
     fi
 }
 
