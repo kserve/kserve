@@ -43,6 +43,22 @@ func TestPropagateDeploymentMetadata(t *testing.T) {
 		unexpectedAnnotations         []string
 	}{
 		{
+			name:                        "should filter internal kserve annotations",
+			serviceAnnotationDisallowed: []string{},
+			serviceLabelDisallowed:      []string{},
+			objectMetaAnnotations: map[string]string{
+				"internal.serving.kserve.io/something": "foo",
+				"allowed.annotation/bar":               "baz",
+			},
+			expectedDeploymentAnnotations: map[string]string{
+				"allowed.annotation/bar": "baz",
+			},
+			expectedPodAnnotations: map[string]string{
+				"allowed.annotation/bar": "baz",
+			},
+			unexpectedAnnotations: []string{"internal.serving.kserve.io/something"},
+		},
+		{
 			name:                        "should filter disallowed labels and annotations from ObjectMeta",
 			serviceAnnotationDisallowed: []string{"disallowed.annotation/foo", "kubectl.kubernetes.io/last-applied-configuration"},
 			serviceLabelDisallowed:      []string{"disallowed.label/bar"},

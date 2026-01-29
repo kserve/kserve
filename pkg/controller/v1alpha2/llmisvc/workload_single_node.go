@@ -20,7 +20,9 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"strings"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -245,7 +247,7 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInferenceService, expected *appsv1.Deployment, config *Config) {
 	// Propagate annotations to the Deployment and its Pod template
 	for key, value := range llmSvc.Annotations {
-		if !utils.Includes(config.ServiceAnnotationDisallowedList, key) {
+		if !utils.Includes(config.ServiceAnnotationDisallowedList, key) && !strings.HasPrefix(key, constants.InferenceServiceInternalAnnotationsPrefix) {
 			if expected.Annotations == nil {
 				expected.Annotations = make(map[string]string)
 			}
