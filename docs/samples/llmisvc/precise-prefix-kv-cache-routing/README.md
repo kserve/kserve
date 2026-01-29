@@ -23,16 +23,15 @@ This example demonstrates precise prefix cache routing with cache block tracking
 - Model: Qwen2.5-7B-Instruct
 - Replicas: 2
 - GPU per replica: 1
-- Prefix caching algorithm: SHA256 CBOR 64-bit
+- Prefix caching algorithm: `sha256_cbor`
 - Block size: 64 tokens
 - KV cache tracking: Enabled via ZMQ
 
 **Key Features:**
 
-- **Prefix Cache Scorer**: Routes requests to endpoints with matching KV cache blocks (weight: 2.0)
+- **Precise Prefix Cache Scorer**: Routes requests to endpoints with matching KV cache blocks (weight: 2.0)
 - **Load-Aware Scorer**: Balances load across endpoints (weight: 1.0)
-- **Cache Tracking Mode**: Real-time tracking of KV cache blocks using ZMQ events
-- **KV Transfer**: Enabled via NixlConnector for cache sharing between instances
+- **Cache Tracking**: Real-time tracking of KV cache blocks using ZMQ events via kvEventsConfig
 - **Block Size**: 64 tokens (configurable, must match between vLLM and scheduler)
 - **Hash Seed**: PYTHONHASHSEED=42 (must match across all components)
 
@@ -51,11 +50,11 @@ This example demonstrates precise prefix cache routing with cache block tracking
 The example uses a custom scheduler configuration with the following plugins:
 
 - **single-profile-handler**: Single scheduling profile for all requests
-- **prefix-cache-scorer**:
-  - Mode: `cache_tracking` (real-time tracking via ZMQ)
+- **precise-prefix-cache-scorer**:
+  - kvEventsConfig: ZMQ endpoint `tcp://*:5557` with topic filter `kv`
   - Block size: 64 tokens (must match vLLM `--block-size`)
   - Hash seed: 42 (must match `PYTHONHASHSEED`)
-  - Metrics enabled with 60-second logging interval
+  - Metrics enabled with 10-second logging interval
 - **load-aware-scorer**: Balances load across endpoints
 - **max-score-picker**: Selects endpoint with highest combined score
 
@@ -65,10 +64,10 @@ Key vLLM settings for cache routing:
 
 ```yaml
 VLLM_ADDITIONAL_ARGS:
-  - --prefix-caching-hash-algo sha256_cbor_64bit
+  - --enable-prefix-caching
+  - --prefix-caching-hash-algo sha256_cbor
   - --block-size 64
-  - --kv_transfer_config '{"kv_connector":"NixlConnector","kv_role":"kv_both"}'
-  - --kv-events-config '{"enable_kv_cache_events":true,"publisher":"zmq","endpoint":"tcp://...:5557","topic":"kv@${POD_IP}@..."}'
+  - --kv-events-config '{"enable_kv_cache_events":true,"publisher":"zmq","endpoint":"tcp://...:5557","topic":"kv@$(POD_IP)@$(MODEL_NAME)"}'
 
 PYTHONHASHSEED: "42"
 ```
@@ -79,7 +78,7 @@ PYTHONHASHSEED: "42"
 
 The block size must match between vLLM and the scheduler. Common values:
 - Default: 16 tokens
-- This example: 64 tokens (better for longer sequences)
+- This example: 64 tokens
 - Larger blocks = fewer cache blocks, but less granular matching
 
 ### Hash Seed
