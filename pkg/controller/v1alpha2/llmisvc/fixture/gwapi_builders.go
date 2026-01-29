@@ -623,4 +623,3 @@ func WithInferencePoolReadyStatus() InferencePoolOption {
 		}
 	}
 }
-

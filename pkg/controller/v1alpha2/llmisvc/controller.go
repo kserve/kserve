@@ -72,7 +72,7 @@ type LLMISVCReconciler struct {
 	record.EventRecorder
 	Clientset kubernetes.Interface
 
-Validator func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error
+	Validator func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error
 
 	// InferencePool CRD availability flags (set during SetupWithManager)
 	// These determine which pool versions can be created/managed
