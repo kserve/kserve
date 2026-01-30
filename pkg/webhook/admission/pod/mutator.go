@@ -129,6 +129,7 @@ func (mutator *Mutator) mutate(ctx context.Context, pod *corev1.Pod, configMap *
 
 	mutators := []func(pod *corev1.Pod) error{
 		InjectGKEAcceleratorSelector,
+		InjectAffinity,
 		func(pod *corev1.Pod) error {
 			return storageInitializer.InjectStorageInitializer(ctx, pod)
 		},
