@@ -495,6 +495,12 @@ func validateDeploymentMode(newIsvc *InferenceService, oldIsvc *InferenceService
 	if len(statusDeploymentMode) != 0 {
 		annotations := newIsvc.Annotations
 		annotationDeploymentMode, ok := annotations[constants.DeploymentMode]
+		if annotationDeploymentMode == string(constants.LegacyRawDeployment) {
+			annotationDeploymentMode = string(constants.Standard)
+		}
+		if annotationDeploymentMode == string(constants.LegacyServerless) {
+			annotationDeploymentMode = string(constants.Knative)
+		}
 		if ok && annotationDeploymentMode != statusDeploymentMode {
 			return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, annotationDeploymentMode)
 		}
