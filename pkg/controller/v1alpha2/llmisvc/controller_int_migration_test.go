@@ -147,8 +147,8 @@ var _ = Describe("InferencePool Migration", func() {
 		})
 	})
 
-	Context("Pre-migrated deployments", func() {
-		It("should point HTTPRoute directly to v1 pool when migration annotation is already set", func(ctx SpecContext) {
+	Context("Pre-migrated deployments (HTTPRoute annotation)", func() {
+		It("should keep HTTPRoute pointing to v1 pool when migration annotation is already on HTTPRoute", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-pre-migrated"
 			nsName := kmeta.ChildName(svcName, "-test")
@@ -164,16 +164,13 @@ var _ = Describe("InferencePool Migration", func() {
 				envTest.DeleteAll(namespace)
 			}()
 
-			// Create LLMInferenceService with migration annotation already set
+			// Create LLMInferenceService (no annotation - migration state is on HTTPRoute)
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](nsName),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
 				WithManagedScheduler(),
-				WithAnnotations(map[string]string{
-					constants.InferencePoolMigratedAnnotationKey: "v1",
-				}),
 			)
 
 			// when
@@ -182,7 +179,34 @@ var _ = Describe("InferencePool Migration", func() {
 				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
 			}()
 
-			// then - HTTPRoute should point directly to v1 pool
+			// Wait for HTTPRoute to be created with v1alpha2 backendRef initially
+			var managedRoute *gwapiv1.HTTPRoute
+			Eventually(func(g Gomega, ctx context.Context) error {
+				routes, errList := managedRoutes(ctx, llmSvc)
+				g.Expect(errList).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				managedRoute = &routes[0]
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+
+			// Simulate existing migration annotation on HTTPRoute (as if Gateway had rejected before)
+			updatedRoute := managedRoute.DeepCopy()
+			if updatedRoute.Annotations == nil {
+				updatedRoute.Annotations = make(map[string]string)
+			}
+			updatedRoute.Annotations[llmisvc.AnnotationInferencePoolMigrated] = "v1"
+			Expect(envTest.Client.Update(ctx, updatedRoute)).To(Succeed())
+
+			// Trigger reconciliation by updating the LLMInferenceService
+			llmSvcUpdated := &v1alpha2.LLMInferenceService{}
+			Expect(envTest.Client.Get(ctx, client.ObjectKeyFromObject(llmSvc), llmSvcUpdated)).To(Succeed())
+			if llmSvcUpdated.Annotations == nil {
+				llmSvcUpdated.Annotations = make(map[string]string)
+			}
+			llmSvcUpdated.Annotations["trigger-reconcile"] = "true"
+			Expect(envTest.Client.Update(ctx, llmSvcUpdated)).To(Succeed())
+
+			// then - HTTPRoute should point to v1 pool (respecting annotation)
 			Eventually(func(g Gomega, ctx context.Context) error {
 				routes, errList := managedRoutes(ctx, llmSvc)
 				g.Expect(errList).ToNot(HaveOccurred())
@@ -192,11 +216,16 @@ var _ = Describe("InferencePool Migration", func() {
 				g.Expect(route.Spec.Rules).ToNot(BeEmpty())
 				g.Expect(route.Spec.Rules[0].BackendRefs).ToNot(BeEmpty())
 
-				// Check that the backendRef points to v1 API group (already migrated)
+				// Check that the backendRef points to v1 API group (respecting annotation)
 				backendRef := route.Spec.Rules[0].BackendRefs[0]
 				g.Expect(backendRef.Group).ToNot(BeNil())
 				g.Expect(string(*backendRef.Group)).To(Equal(constants.InferencePoolV1APIGroupName),
-					"HTTPRoute backendRef should point to v1 API group for pre-migrated deployment")
+					"HTTPRoute backendRef should point to v1 API group when migration annotation is set")
+
+				// Also verify annotation is still present
+				g.Expect(route.Annotations).To(HaveKeyWithValue(
+					llmisvc.AnnotationInferencePoolMigrated, "v1"),
+					"HTTPRoute migration annotation should remain 'v1'")
 
 				return nil
 			}).WithContext(ctx).Should(Succeed())
@@ -266,13 +295,18 @@ var _ = Describe("InferencePool Migration", func() {
 				g.Expect(string(*backendRef.Group)).To(Equal(constants.InferencePoolV1APIGroupName),
 					"HTTPRoute backendRef should point to v1 API group after Gateway rejects v1alpha2")
 
+				// Verify migration annotation is set on HTTPRoute (one-way lock)
+				g.Expect(route.Annotations).To(HaveKeyWithValue(
+					llmisvc.AnnotationInferencePoolMigrated, "v1"),
+					"HTTPRoute should have migration annotation after Gateway rejection")
+
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
 
 	Context("Migration lock (prevents flapping)", func() {
-		It("should not change migration annotation once set to v1", func(ctx SpecContext) {
+		It("should not change migration annotation on HTTPRoute once set to v1", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-migration-lock"
 			nsName := kmeta.ChildName(svcName, "-test")
@@ -288,16 +322,13 @@ var _ = Describe("InferencePool Migration", func() {
 				envTest.DeleteAll(namespace)
 			}()
 
-			// Create with migration annotation already set (simulating existing migrated deployment)
+			// Create LLMInferenceService
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](nsName),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
 				WithManagedScheduler(),
-				WithAnnotations(map[string]string{
-					constants.InferencePoolMigratedAnnotationKey: "v1",
-				}),
 			)
 
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
@@ -305,16 +336,49 @@ var _ = Describe("InferencePool Migration", func() {
 				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
 			}()
 
-			// Make managed resources ready
-			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
+			// Wait for HTTPRoute to be created
+			var managedRoute *gwapiv1.HTTPRoute
+			Eventually(func(g Gomega, ctx context.Context) error {
+				routes, errList := managedRoutes(ctx, llmSvc)
+				g.Expect(errList).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				managedRoute = &routes[0]
+				return nil
+			}).WithContext(ctx).Should(Succeed())
 
-			// Verify migration annotation remains "v1" (not changed)
+			// Simulate Gateway rejection to trigger migration
+			updatedRoute := managedRoute.DeepCopy()
+			WithHTTPRouteV1Alpha2RejectedStatus(DefaultGatewayControllerName)(updatedRoute)
+			Expect(envTest.Client.Status().Update(ctx, updatedRoute)).To(Succeed())
+
+			// Wait for migration to complete (annotation set on HTTPRoute)
+			Eventually(func(g Gomega, ctx context.Context) error {
+				routes, errList := managedRoutes(ctx, llmSvc)
+				g.Expect(errList).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				g.Expect(routes[0].Annotations).To(HaveKeyWithValue(
+					llmisvc.AnnotationInferencePoolMigrated, "v1"))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+
+			// Verify migration annotation remains "v1" on HTTPRoute (not changed) across multiple reconciles
 			Consistently(func(g Gomega, ctx context.Context) error {
-				updatedLLMSvc := &v1alpha2.LLMInferenceService{}
-				g.Expect(envTest.Client.Get(ctx, client.ObjectKeyFromObject(llmSvc), updatedLLMSvc)).To(Succeed())
-				g.Expect(updatedLLMSvc.Annotations).To(HaveKeyWithValue(
-					constants.InferencePoolMigratedAnnotationKey, "v1"),
-					"Migration annotation should remain 'v1' (one-way lock)")
+				routes, errList := managedRoutes(ctx, llmSvc)
+				g.Expect(errList).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+
+				route := &routes[0]
+				g.Expect(route.Annotations).To(HaveKeyWithValue(
+					llmisvc.AnnotationInferencePoolMigrated, "v1"),
+					"HTTPRoute migration annotation should remain 'v1' (one-way lock)")
+
+				// Verify backendRef still points to v1
+				g.Expect(route.Spec.Rules).ToNot(BeEmpty())
+				g.Expect(route.Spec.Rules[0].BackendRefs).ToNot(BeEmpty())
+				backendRef := route.Spec.Rules[0].BackendRefs[0]
+				g.Expect(backendRef.Group).ToNot(BeNil())
+				g.Expect(string(*backendRef.Group)).To(Equal(constants.InferencePoolV1APIGroupName))
+
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})

@@ -111,7 +111,7 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		WithValues("Namespace", req.Namespace, "Name", req.Name)
 	ctx = log.IntoContext(ctx, logger)
 
-	logger.Info("DEBUG: Starting reconciliation (check what triggered this)")
+	logger.Info("Starting reconciliation")
 	original := &v1alpha2.LLMInferenceService{}
 	if err := r.Get(ctx, req.NamespacedName, original); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
