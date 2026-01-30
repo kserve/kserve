@@ -36,6 +36,9 @@ type Config struct {
 	IngressGatewayName      string `json:"ingressGatewayName,omitempty"`
 	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
 
+	ServiceAnnotationDisallowedList []string `json:"serviceAnnotationDisallowedList,omitempty"`
+	ServiceLabelDisallowedList      []string `json:"serviceLabelDisallowedList,omitempty"`
+
 	// Storage and credential configs are excluded from JSON serialization
 	// as they contain sensitive information
 	StorageConfig    *types.StorageInitializerConfig `json:"-"`
@@ -44,7 +47,7 @@ type Config struct {
 
 // NewConfig creates an instance of llm-specific config based on predefined values
 // in IngressConfig struct
-func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) *Config {
+func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, serviceAnnotationDisallowedList []string, serviceLabelDisallowedList []string) *Config {
 	igwNs := constants.KServeNamespace
 	igwName := ingressConfig.KserveIngressGateway
 	// Parse gateway name to extract namespace and name components
@@ -56,11 +59,13 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 	}
 
 	return &Config{
-		SystemNamespace:         constants.KServeNamespace,
-		IngressGatewayNamespace: igwNs,
-		IngressGatewayName:      igwName,
-		StorageConfig:           storageConfig,
-		CredentialConfig:        credentialConfig,
+		SystemNamespace:                 constants.KServeNamespace,
+		IngressGatewayNamespace:         igwNs,
+		IngressGatewayName:              igwName,
+		StorageConfig:                   storageConfig,
+		CredentialConfig:                credentialConfig,
+		ServiceAnnotationDisallowedList: serviceAnnotationDisallowedList,
+		ServiceLabelDisallowedList:      serviceLabelDisallowedList,
 	}
 }
 
@@ -88,5 +93,10 @@ func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, e
 		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to CredentialConfig: %w", errConvert)
 	}
 
-	return NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig), nil
+	inferenceServicesConfig, errConvert := v1beta1.NewInferenceServicesConfig(isvcConfigMap)
+	if errConvert != nil {
+		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to InferenceServicesConfig: %w", errConvert)
+	}
+
+	return NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, inferenceServicesConfig.ServiceAnnotationDisallowedList, inferenceServicesConfig.ServiceLabelDisallowedList), nil
 }
