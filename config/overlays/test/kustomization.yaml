@@ -3,7 +3,7 @@ kind: Kustomization
 
 resources:
 - ../../base
-- s3
+- s3-local-backend
 
 components:
 - ../../components/kserve
