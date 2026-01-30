@@ -29,7 +29,6 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
 
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/reconciler"
 
 	"github.com/go-logr/logr"
@@ -196,14 +195,6 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	}
 	llmSvc.MarkPresetsCombinedReady()
 
-	// Detect if Gateway has rejected v1alpha2 backendRefs by checking existing HTTPRoute status
-	// Note: We pass baseCfg.Spec (not llmSvc.Spec) because the router configuration is merged from baseRefs
-	// and llmSvc.Spec.Router will be nil when using preset configs
-	v1Alpha2Rejected := r.detectV1Alpha2Rejected(ctx, baseCfg.Spec, llmSvc.GetNamespace(), llmSvc.GetName())
-
-	// Adjust HTTPRoute backendRefs for InferencePool migration
-	baseCfg = r.adjustBackendRefForMigration(llmSvc, baseCfg, v1Alpha2Rejected)
-
 	logger.V(2).Info("Reconciling with combined base configurations", "combined.spec", baseCfg.Spec, "original.spec", llmSvc.Spec)
 	// Replace the spec with the merged configuration for reconciliation
 	// We are only writing to status, so we can safely use the original object.
@@ -227,52 +218,6 @@ func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMIn
 	}
 
 	return nil
-}
-
-// detectV1Alpha2Rejected checks if the Gateway has rejected v1alpha2 backendRefs
-// by examining the status of existing HTTPRoutes. Returns true if any route has
-// ResolvedRefs=False with Reason=InvalidKind, indicating the Gateway doesn't support v1alpha2.
-// Parameters:
-//   - spec: The combined LLMInferenceServiceSpec (after merging baseRefs) containing the router configuration
-//   - namespace: The namespace where routes are located
-//   - name: The LLMInferenceService name used to derive managed route names
-func (r *LLMISVCReconciler) detectV1Alpha2Rejected(ctx context.Context, spec v1alpha2.LLMInferenceServiceSpec, namespace, name string) bool {
-	logger := log.FromContext(ctx)
-
-	// Check if there's router configuration
-	if spec.Router == nil || spec.Router.Route == nil || spec.Router.Route.HTTP == nil {
-		return false
-	}
-
-	// Check referenced routes
-	if spec.Router.Route.HTTP.HasRefs() {
-		for _, routeRef := range spec.Router.Route.HTTP.Refs {
-			route := &gwapiv1.HTTPRoute{}
-			if err := r.Client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: routeRef.Name}, route); err != nil {
-				continue
-			}
-			if HasUnsupportedBackendRefError(route) {
-				logger.Info("Detected Gateway rejection of v1alpha2 backendRef",
-					"route", fmt.Sprintf("%s/%s", route.Namespace, route.Name))
-				return true
-			}
-		}
-	}
-
-	// Check managed route
-	if spec.Router.Route.HTTP.HasSpec() {
-		managedRouteName := kmeta.ChildName(name, "-kserve-route")
-		route := &gwapiv1.HTTPRoute{}
-		if err := r.Client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: managedRouteName}, route); err == nil {
-			if HasUnsupportedBackendRefError(route) {
-				logger.Info("Detected Gateway rejection of v1alpha2 backendRef",
-					"route", fmt.Sprintf("%s/%s", route.Namespace, route.Name))
-				return true
-			}
-		}
-	}
-
-	return false
 }
 
 // updateStatus updates the status of the LLMInferenceService with retry on conflict
