@@ -1,9 +1,0 @@
-apiVersion: serving.kserve.io/v1alpha1
-kind: LLMInferenceServiceConfig
-metadata:
-  name: model-config
-  namespace: kserve
-spec:
-  model:
-    uri: pvc://models/model-name
-    name: model-name
