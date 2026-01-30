@@ -7,7 +7,7 @@ spec:
     spec:
       containers:
       - name: s3-init
-        image: amazon/aws-cli
+        image: docker.io/amazon/aws-cli:2.33.11@sha256:88ea087837da1b31a3afeeb4538888244a3087a867ddb1909848643fcc4b324e
         command:
         - /bin/sh
         - -c
