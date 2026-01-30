@@ -37,11 +37,17 @@ import (
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 )
+
+// AnnotationInferencePoolMigrated records when the HTTPRoute has migrated to v1 InferencePool.
+// Once set to "v1", traffic will never fall back to v1alpha2 even during transient failures.
+const AnnotationInferencePoolMigrated = "serving.kserve.io/inference-pool-migrated"
 
 // reconcileRouter handles the networking and routing components for the LLM service
 // This includes schedulers, HTTP routes, and various validation checks
@@ -180,6 +186,52 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 			httpRoute.Spec.CommonRouteSpec.ParentRefs = make([]gwapiv1.ParentReference, 0, len(llmSvc.Spec.Router.Gateway.Refs))
 			for _, ref := range llmSvc.Spec.Router.Gateway.Refs {
 				httpRoute.Spec.CommonRouteSpec.ParentRefs = append(httpRoute.Spec.CommonRouteSpec.ParentRefs, toGatewayRef(ref))
+			}
+		}
+	}
+
+	// Migration logic: check if we should switch from v1alpha2 to v1 InferencePool
+	// Only applies to managed routes with a scheduler (not using external pool refs)
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil ||
+		llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
+		return httpRoute
+	}
+
+	curr := &gwapiv1.HTTPRoute{}
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(httpRoute), curr); err != nil {
+		return httpRoute
+	}
+
+	const v1MigrationValue = "v1"
+	migrationValue, isMigrated := curr.Annotations[AnnotationInferencePoolMigrated]
+	isMigrated = isMigrated && migrationValue == v1MigrationValue
+
+	// Switch to v1 if:
+	// - Gateway rejected v1alpha2 (detected from HTTPRoute status), OR
+	// - Already migrated (annotation exists - one-way lock)
+	v1Alpha2Rejected := HasUnsupportedBackendRefError(curr)
+
+	if isMigrated || v1Alpha2Rejected {
+		// Switch backendRef to v1 API group
+		for i := range httpRoute.Spec.Rules {
+			for j := range httpRoute.Spec.Rules[i].BackendRefs {
+				if isDefaultBackendRef(llmSvc, httpRoute.Spec.Rules[i].BackendRefs[j].BackendRef) {
+					httpRoute.Spec.Rules[i].BackendRefs[j].Group = ptr.To(gwapiv1.Group(constants.InferencePoolV1APIGroupName))
+				}
+			}
+		}
+		// Persist migration annotation
+		if httpRoute.Annotations == nil {
+			httpRoute.Annotations = make(map[string]string, 1)
+		}
+		httpRoute.Annotations[AnnotationInferencePoolMigrated] = v1MigrationValue
+	} else if r.InferencePoolV1Alpha2Available {
+		// Not migrated yet, use v1alpha2
+		for i := range httpRoute.Spec.Rules {
+			for j := range httpRoute.Spec.Rules[i].BackendRefs {
+				if isDefaultBackendRef(llmSvc, httpRoute.Spec.Rules[i].BackendRefs[j].BackendRef) {
+					httpRoute.Spec.Rules[i].BackendRefs[j].Group = ptr.To(gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName))
+				}
 			}
 		}
 	}
