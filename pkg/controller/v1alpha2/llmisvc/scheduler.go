@@ -173,8 +173,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context,
 
 	logger.V(2).Info("InferencePool reconciliation complete",
 		"v1Available", r.InferencePoolV1Available,
-		"v1alpha2Available", r.InferencePoolV1Alpha2Available,
-		"migrated", isMigratedToV1(llmSvc))
+		"v1alpha2Available", r.InferencePoolV1Alpha2Available)
 
 	return nil
 }

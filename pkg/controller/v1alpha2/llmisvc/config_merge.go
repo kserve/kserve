@@ -439,58 +439,7 @@ func mergeSpecs(ctx context.Context, base, override v1alpha2.LLMInferenceService
 
 func isDefaultBackendRef(llmSvc *v1alpha2.LLMInferenceService, ref gwapiv1.BackendRef) bool {
 	defaultInfPoolName := (&v1alpha2.SchedulerSpec{}).InferencePoolName(llmSvc)
-	return ptr.Deref[gwapiv1.Group](ref.Group, "") == igwapi.GroupName &&
-		ptr.Deref[gwapiv1.Kind](ref.Kind, "") == "InferencePool" &&
+	// Check Kind and Name only - Group can be either v1 or v1alpha2
+	return ptr.Deref[gwapiv1.Kind](ref.Kind, "") == "InferencePool" &&
 		string(ref.Name) == defaultInfPoolName
-}
-
-// isV1InferencePoolBackendRef checks if the backendRef points to a v1 InferencePool
-func isV1InferencePoolBackendRef(ref gwapiv1.BackendRef) bool {
-	return ptr.Deref[gwapiv1.Group](ref.Group, "") == constants.InferencePoolV1APIGroupName &&
-		ptr.Deref[gwapiv1.Kind](ref.Kind, "") == "InferencePool"
-}
-
-// adjustBackendRefForMigration configures HTTPRoute backendRefs based on CRD availability,
-// Gateway support (detected at runtime), and migration status.
-// v1Alpha2Rejected indicates the Gateway has rejected v1alpha2 backendRefs (detected from HTTPRoute status).
-func (r *LLMISVCReconciler) adjustBackendRefForMigration(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig, v1Alpha2Rejected bool) *v1alpha2.LLMInferenceServiceConfig {
-	// Skip if no HTTPRoute spec
-	if llmSvcCfg.Spec.Router == nil ||
-		llmSvcCfg.Spec.Router.Route == nil ||
-		!llmSvcCfg.Spec.Router.Route.HTTP.HasSpec() {
-		return llmSvcCfg
-	}
-
-	// Skip if no scheduler (using direct service backend)
-	if llmSvcCfg.Spec.Router.Scheduler == nil {
-		return llmSvcCfg
-	}
-
-	// Skip if using external InferencePool reference (user manages the pool)
-	// Migration logic only applies to managed InferencePools created by the controller
-	if llmSvcCfg.Spec.Router.Scheduler.Pool.HasRef() {
-		return llmSvcCfg
-	}
-
-	// Use v1 if: v1alpha2 not available, already migrated, or Gateway rejected v1alpha2
-	useV1 := !r.InferencePoolV1Alpha2Available ||
-		isMigratedToV1(llmSvc) ||
-		v1Alpha2Rejected
-
-	if useV1 {
-		return llmSvcCfg
-	}
-
-	// Use v1alpha2: change API group on InferencePool backendRefs
-	for i := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules {
-		for j := range llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs {
-			ref := &llmSvcCfg.Spec.Router.Route.HTTP.Spec.Rules[i].BackendRefs[j]
-			// Only modify v1 InferencePool backendRefs - change API group to v1alpha2
-			if isV1InferencePoolBackendRef(ref.BackendRef) {
-				ref.Group = ptr.To[gwapiv1.Group](gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName))
-			}
-		}
-	}
-
-	return llmSvcCfg
 }
