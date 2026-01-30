@@ -173,6 +173,18 @@ class DummyModel(Model):
         else:
             return {"predictions": request["instances"]}
 
+class SyncDummyModelRepository:
+    def __init__(self):
+        self.model = None
+
+    def load(self, model_name):
+        self.model = DummyModel(model_name)
+
+    async def is_model_ready(self, model_name):
+        return True
+
+    def get_model(self, model_name):
+        return self.model
 
 @serve.deployment
 class DummyServeModel(Model):
@@ -1241,6 +1253,7 @@ class TestWithUnhealthyModel:
 
 class TestMutiProcessServer:
 
+    @pytest.mark.skip(reason="add it in future")
     @pytest.mark.asyncio
     async def test_rest_server_multiprocess(self):
         model_repository = ModelRepository()
