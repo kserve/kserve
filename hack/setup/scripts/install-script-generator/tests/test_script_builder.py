@@ -239,6 +239,206 @@ def test_build_install_calls_with_include_section():
     assert "install_test" in result
 
 
+def test_build_install_calls_with_global_var_lines_fallback():
+    """Test that function uses global_var_lines when default not in component variables."""
+    components = [
+        {
+            "name": "kserve-helm",
+            "install_func": "install_kserve_helm",
+            "env": {"DEPLOYMENT_MODE": "Knative"},
+            "variables": ['NAMESPACE="${NAMESPACE:-kserve}"'],
+            "include_section": []
+        }
+    ]
+    global_env = {}
+    global_var_lines = ['DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-Serverless}"']
+
+    result = script_builder.build_install_calls(components, global_env, global_var_lines=global_var_lines)
+
+    assert 'set_env_with_priority "DEPLOYMENT_MODE" "Knative" "" "Serverless"' in result
+    assert "install_kserve_helm" in result
+
+
+def test_build_install_calls_component_vars_take_precedence():
+    """Test that component variables are checked first before global variables."""
+    components = [
+        {
+            "name": "test",
+            "install_func": "install_test",
+            "env": {"NAMESPACE": "custom"},
+            "variables": ['NAMESPACE="${NAMESPACE:-component-default}"'],
+            "include_section": []
+        }
+    ]
+    global_env = {}
+    global_var_lines = ['NAMESPACE="${NAMESPACE:-global-default}"']
+
+    result = script_builder.build_install_calls(components, global_env, global_var_lines=global_var_lines)
+
+    assert 'set_env_with_priority "NAMESPACE" "custom" "" "component-default"' in result
+    assert "install_test" in result
+
+
+def test_build_install_calls_no_global_var_lines():
+    """Test backward compatibility when global_var_lines is None."""
+    components = [
+        {
+            "name": "test",
+            "install_func": "install_test",
+            "env": {"VAR": "value"},
+            "variables": [],
+            "include_section": []
+        }
+    ]
+    global_env = {}
+
+    result = script_builder.build_install_calls(components, global_env, global_var_lines=None)
+
+    assert 'set_env_with_priority "VAR" "value" "" ""' in result
+    assert "install_test" in result
+
+
+def test_build_install_calls_empty_global_var_lines():
+    """Test with empty global_var_lines list."""
+    components = [
+        {
+            "name": "test",
+            "install_func": "install_test",
+            "env": {"VAR": "value"},
+            "variables": [],
+            "include_section": []
+        }
+    ]
+    global_env = {}
+    global_var_lines = []
+
+    result = script_builder.build_install_calls(components, global_env, global_var_lines=global_var_lines)
+
+    assert 'set_env_with_priority "VAR" "value" "" ""' in result
+    assert "install_test" in result
+
+
+def test_build_install_calls_no_function_override():
+    """Test that install_kserve is NOT replaced with install_kserve_manifest."""
+    components = [
+        {
+            "name": "kserve-helm",
+            "install_func": "install_kserve",
+            "env": {},
+            "variables": [],
+            "include_section": []
+        }
+    ]
+    global_env = {}
+
+    result = script_builder.build_install_calls(components, global_env, embed_manifests=True)
+
+    assert "install_kserve" in result
+    assert "install_kserve_manifest" not in result
+
+
+def test_build_install_calls_with_all_parameters():
+    """Integration test with all parameters including global_var_lines."""
+    components = [
+        {
+            "name": "kserve-helm",
+            "install_func": "install_kserve_helm",
+            "env": {"LLMISVC": "true", "DEPLOYMENT_MODE": "Knative"},
+            "variables": ['LLMISVC="${LLMISVC:-false}"'],
+            "include_section": ["# Helper", "helper() { echo 'test'; }"]
+        }
+    ]
+    global_env = {"LLMISVC": "false"}
+    global_var_lines = ['DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-Serverless}"']
+
+    result = script_builder.build_install_calls(components, global_env, global_var_lines=global_var_lines)
+
+    assert 'set_env_with_priority "DEPLOYMENT_MODE" "Knative" "" "Serverless"' in result
+    assert "# Helper" in result
+    assert "helper() { echo 'test'; }" in result
+    assert "install_kserve_helm" in result
+
+
+def test_build_install_calls_multiple_components_with_global_vars():
+    """Test multiple components using global_var_lines."""
+    components = [
+        {
+            "name": "comp1",
+            "install_func": "install_comp1",
+            "env": {"VAR1": "val1"},
+            "variables": [],
+            "include_section": []
+        },
+        {
+            "name": "comp2",
+            "install_func": "install_comp2",
+            "env": {"VAR2": "val2"},
+            "variables": [],
+            "include_section": []
+        }
+    ]
+    global_env = {}
+    global_var_lines = [
+        'VAR1="${VAR1:-default1}"',
+        'VAR2="${VAR2:-default2}"'
+    ]
+
+    result = script_builder.build_install_calls(components, global_env, global_var_lines=global_var_lines)
+
+    assert 'set_env_with_priority "VAR1" "val1" "" "default1"' in result
+    assert 'set_env_with_priority "VAR2" "val2" "" "default2"' in result
+    assert "install_comp1" in result
+    assert "install_comp2" in result
+
+
+def test_build_install_calls_complex_default_values():
+    """Test with complex default values (URLs, paths, version strings)."""
+    components = [
+        {
+            "name": "test",
+            "install_func": "install_test",
+            "env": {"URL": "override", "VERSION": "v1.0"},
+            "variables": [],
+            "include_section": []
+        }
+    ]
+    global_env = {}
+    global_var_lines = [
+        'URL="${URL:-https://github.com/org/repo/releases/v1.2.3}"',
+        'VERSION="${VERSION:-v1.2.3-rc1+build.123}"'
+    ]
+
+    result = script_builder.build_install_calls(components, global_env, global_var_lines=global_var_lines)
+
+    assert 'set_env_with_priority "URL" "override" "" "https://github.com/org/repo/releases/v1.2.3"' in result
+    assert 'set_env_with_priority "VERSION" "v1.0" "" "v1.2.3-rc1+build.123"' in result
+    assert "install_test" in result
+
+
+def test_build_install_calls_malformed_pattern_in_global_vars():
+    """Test with malformed variable declarations in global_var_lines."""
+    components = [
+        {
+            "name": "test",
+            "install_func": "install_test",
+            "env": {"VAR": "value"},
+            "variables": [],
+            "include_section": []
+        }
+    ]
+    global_env = {}
+    global_var_lines = [
+        'VAR=${VAR:-default}',  # Missing quotes
+        'OTHER="$OTHER:-value"'  # Missing braces
+    ]
+
+    result = script_builder.build_install_calls(components, global_env, global_var_lines=global_var_lines)
+
+    # Should use empty string as default since pattern doesn't match
+    assert 'set_env_with_priority "VAR" "value" "" ""' in result
+    assert "install_test" in result
+
+
 def test_build_uninstall_calls():
     """Test building uninstall calls in reverse order."""
     components = [
