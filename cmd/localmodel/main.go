@@ -151,6 +151,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Setup LocalModelNamespaceCache controller
+	setupLog.Info("Setting up v1alpha1 LocalModelNamespaceCache controller")
+	if err = (&localmodelcontroller.LocalModelNamespaceCacheReconciler{
+		Client:    mgr.GetClient(),
+		Clientset: clientSet,
+		Log:       ctrl.Log.WithName("v1alpha1Controllers").WithName("LocalModelNamespaceCache"),
+		Scheme:    mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "LocalModelNamespaceCache")
+		os.Exit(1)
+	}
+
 	// Setup webhook
 	setupLog.Info("setting up webhook server")
 	if err = ctrl.NewWebhookManagedBy(mgr).
