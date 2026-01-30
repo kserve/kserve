@@ -5,8 +5,13 @@ ARG VENV_PATH=/prod_venv
 FROM ${BASE_IMAGE} AS builder
 
 # Install all system dependencies first
-RUN apt-get update && apt-get install -y --no-install-recommends python3-dev curl build-essential && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+RUN if [ "$(uname -m)" = "ppc64le" ]; then \
+    apt-get update && apt-get install -y --no-install-recommends python3-dev curl build-essential pkg-config libssl-dev && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*; \
+    else \
+    apt-get update && apt-get install -y --no-install-recommends python3-dev curl build-essential && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*; \
+    fi
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
     ln -s /root/.local/bin/uv /usr/local/bin/uv
