@@ -1,0 +1,10 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: test-service
+  namespace: kserve
+spec:
+  replicas: 1
+  baseRefs:
+    - name: model-config
+    - name: workload-dp2
