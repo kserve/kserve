@@ -55,6 +55,7 @@ _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
 _HF_PREFIX = "hf://"
+_GIT_RE = r"https://.+\.git"
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
@@ -113,10 +114,13 @@ class Storage(object):
                 model_dir = Storage._download_azure_blob(uri, out_dir)
             elif any(re.search(pattern, uri) for pattern in _AZURE_FILE_RE):
                 model_dir = Storage._download_azure_file_share(uri, out_dir)
-            elif re.search(_URI_RE, uri):
-                model_dir = Storage._download_from_uri(uri, out_dir)
             elif uri.startswith(_HF_PREFIX):
                 model_dir = Storage._download_hf(uri, out_dir)
+            elif re.search(_GIT_RE, uri):
+                model_dir = Storage._download_git_repo(uri, out_dir)
+            # "catch-all" pattern, should always be last
+            elif re.search(_URI_RE, uri):
+                model_dir = Storage._download_from_uri(uri, out_dir)
             else:
                 raise Exception(
                     "Cannot recognize storage type for "
@@ -171,14 +175,99 @@ class Storage(object):
                     f.flush()
 
     @staticmethod
+    def _raise_storage_error(protocol: str, uri: str, error: Exception, resource_name: str = "") -> None:
+        """
+        Unified error handler for all storage protocols.
+        Logs the error and raises RuntimeError with a user-friendly message.
+        """
+        error_msg = Storage._get_storage_error_message(protocol, error, resource_name)
+        logger.error("%s error for %s: %s", protocol, uri, error)
+        raise RuntimeError(error_msg) from error
+
+    @staticmethod
+    def _get_storage_error_message(protocol: str, error: Exception, resource_name: str = "") -> str:
+        """
+        Get user-friendly error message for storage errors across all protocols.
+        """
+        error_type = type(error).__name__
+        error_str = str(error).lower()
+
+        # Authentication errors
+        auth_error_types = (
+            "NoCredentialsError", "DefaultCredentialsError", "GoogleAuthError",
+            "ClientAuthenticationError", "GatedRepoError"
+        )
+        if error_type in auth_error_types or "credential" in error_str or "auth" in error_str:
+            auth_hints = {
+                "S3": "Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY or use awsAnonymousCredential=true.",
+                "GCS": "Verify GOOGLE_APPLICATION_CREDENTIALS or use anonymous access.",
+                "Azure": "Verify AZURE_CLIENT_ID/AZURE_CLIENT_SECRET or AZURE_STORAGE_ACCESS_KEY.",
+                "HDFS": "Verify Kerberos keytab and principal configuration.",
+                "HuggingFace": "Set HF_TOKEN or request access to the gated repository.",
+                "HTTP": "Verify authentication credentials.",
+                "Git": "Set GIT_USERNAME/GIT_PASSWORD or use a public repository.",
+            }
+            return "%s authentication failed. %s" % (protocol, auth_hints.get(protocol, ""))
+
+        # Not found errors
+        not_found_types = ("NotFound", "ResourceNotFoundError", "RepositoryNotFoundError", "RevisionNotFoundError")
+        if error_type in not_found_types or "not found" in error_str or "does not exist" in error_str:
+            if resource_name:
+                return "%s resource '%s' not found." % (protocol, resource_name)
+            return "%s resource not found." % protocol
+
+        # Access denied errors
+        access_denied_types = ("Forbidden", "AccessDenied")
+        if error_type in access_denied_types or "access denied" in error_str or "permission" in error_str:
+            if resource_name:
+                return "Access denied to %s resource '%s'. Verify permissions." % (protocol, resource_name)
+            return "Access denied. Verify %s permissions." % protocol
+
+        # Connection errors
+        if error_type == "ConnectionError" or "connection" in error_str or "timeout" in error_str:
+            if resource_name:
+                return "Failed to connect to %s endpoint '%s'." % (protocol, resource_name)
+            return "Failed to connect to %s endpoint." % protocol
+
+        # S3-specific error codes
+        if protocol == "S3" and hasattr(error, "response"):
+            error_code = error.response.get("Error", {}).get("Code", "")
+            if error_code in ("InvalidAccessKeyId", "SignatureDoesNotMatch"):
+                return "Invalid AWS credentials. Verify AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY."
+            if error_code == "NoSuchBucket":
+                return "S3 bucket '%s' does not exist." % resource_name
+            if error_code:
+                return "S3 error [%s]: %s" % (error_code, error.response.get("Error", {}).get("Message", ""))
+
+        # Default: include error type and message
+        return "%s error: %s" % (protocol, error)
+
+    @staticmethod
+    def _check_http_response(uri: str, response) -> None:
+        """Check HTTP response status and raise RuntimeError for error codes."""
+        status_messages = {
+            401: "HTTP authentication failed for '%s'. Verify credentials.",
+            403: "HTTP access denied for '%s'. Verify permissions.",
+            404: "HTTP resource not found at '%s'.",
+        }
+        if response.status_code in status_messages:
+            raise RuntimeError(status_messages[response.status_code] % uri)
+        if response.status_code != 200:
+            raise RuntimeError(
+                "HTTP request to '%s' failed with status code %s." % (uri, response.status_code)
+            )
+
+    @staticmethod
     def get_S3_config():
         from botocore import UNSIGNED
         from botocore.client import Config
 
+        # Configurable timeouts and retries
         connect_timeout = int(os.getenv("S3_CONNECT_TIMEOUT", "15"))
         read_timeout = int(os.getenv("S3_READ_TIMEOUT", "30"))
         max_attempts = int(os.getenv("S3_MAX_ATTEMPTS", "3"))
 
+        # default s3 config with timeouts
         c = Config(
             connect_timeout=connect_timeout,
             read_timeout=read_timeout,
@@ -264,112 +353,6 @@ class Storage(object):
         return kwargs
 
     @staticmethod
-    def _raise_storage_error(protocol: str, uri: str, error: Exception, resource_name: str = "") -> None:
-        """
-        Unified error handler for all storage protocols.
-        Logs the error and raises RuntimeError with a user-friendly message.
-
-        Args:
-            protocol: Storage protocol name (S3, GCS, Azure, HDFS, HuggingFace, HTTP)
-            uri: The URI being accessed
-            error: The caught exception
-            resource_name: Optional resource identifier (bucket, container, path)
-        """
-        error_msg = Storage._get_storage_error_message(protocol, error, resource_name)
-        logger.error("%s error for %s: %s", protocol, uri, error)
-        raise RuntimeError(error_msg) from error
-
-    @staticmethod
-    def _get_storage_error_message(protocol: str, error: Exception, resource_name: str = "") -> str:
-        """
-        Get user-friendly error message for storage errors across all protocols.
-
-        Args:
-            protocol: Storage protocol name
-            error: The caught exception
-            resource_name: Optional resource identifier
-
-        Returns:
-            User-friendly error message string
-        """
-        error_type = type(error).__name__
-        error_str = str(error).lower()
-
-        # Authentication errors
-        auth_error_types = (
-            "NoCredentialsError", "DefaultCredentialsError", "GoogleAuthError",
-            "ClientAuthenticationError", "GatedRepoError"
-        )
-        if error_type in auth_error_types or "credential" in error_str or "auth" in error_str:
-            auth_hints = {
-                "S3": "Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY or use awsAnonymousCredential=true.",
-                "GCS": "Verify GOOGLE_APPLICATION_CREDENTIALS or use anonymous access.",
-                "Azure": "Verify AZURE_CLIENT_ID/AZURE_CLIENT_SECRET or AZURE_STORAGE_ACCESS_KEY.",
-                "HDFS": "Verify Kerberos keytab and principal configuration.",
-                "HuggingFace": "Set HF_TOKEN or request access to the gated repository.",
-                "HTTP": "Verify authentication credentials.",
-            }
-            return "%s authentication failed. %s" % (protocol, auth_hints.get(protocol, ""))
-
-        # Not found errors
-        not_found_types = ("NotFound", "ResourceNotFoundError", "RepositoryNotFoundError", "RevisionNotFoundError")
-        if error_type in not_found_types or "not found" in error_str or "does not exist" in error_str:
-            if resource_name:
-                return "%s resource '%s' not found." % (protocol, resource_name)
-            return "%s resource not found." % protocol
-
-        # Access denied errors
-        access_denied_types = ("Forbidden", "AccessDenied")
-        if error_type in access_denied_types or "access denied" in error_str or "permission" in error_str:
-            if resource_name:
-                return "Access denied to %s resource '%s'. Verify permissions." % (protocol, resource_name)
-            return "Access denied. Verify %s permissions." % protocol
-
-        # Connection errors
-        if error_type == "ConnectionError" or "connection" in error_str or "timeout" in error_str:
-            if resource_name:
-                return "Failed to connect to %s endpoint '%s'." % (protocol, resource_name)
-            return "Failed to connect to %s endpoint." % protocol
-
-        # S3-specific error codes
-        if protocol == "S3" and hasattr(error, "response"):
-            error_code = error.response.get("Error", {}).get("Code", "")
-            if error_code in ("InvalidAccessKeyId", "SignatureDoesNotMatch"):
-                return "Invalid AWS credentials. Verify AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY."
-            if error_code == "NoSuchBucket":
-                return "S3 bucket '%s' does not exist." % resource_name
-            if error_code:
-                return "S3 error [%s]: %s" % (error_code, error.response.get("Error", {}).get("Message", ""))
-
-        # HTTP status codes
-        if protocol == "HTTP" and hasattr(error, "status_code"):
-            return "HTTP request failed with status %s." % error.status_code
-
-        # Default: include error type and message
-        return "%s error: %s" % (protocol, error)
-
-    @staticmethod
-    def _check_http_response(uri: str, response) -> None:
-        """
-        Check HTTP response status and raise RuntimeError for error codes.
-
-        Args:
-            uri: The URI being accessed
-            response: The requests.Response object
-        """
-        status_messages = {
-            401: "HTTP authentication failed for '%s'. Verify credentials.",
-            403: "HTTP access denied for '%s'. Verify permissions.",
-            404: "HTTP resource not found at '%s'.",
-        }
-        if response.status_code in status_messages:
-            raise RuntimeError(status_messages[response.status_code] % uri)
-        if response.status_code != 200:
-            raise RuntimeError(
-                "HTTP request to '%s' failed with status code %s." % (uri, response.status_code)
-            )
-
-    @staticmethod
     def _init_s3_worker():
         """
         Initialize S3 resources for worker processes.
@@ -398,8 +381,6 @@ class Storage(object):
             Tuple of (success: bool, obj_key: str, error_message: str)
         """
         try:
-            global _worker_s3_resource
-
             if _worker_s3_resource is None:
                 return False, args[1], "S3 resource not initialized in worker process"
 
@@ -419,6 +400,7 @@ class Storage(object):
         import boto3
         from botocore.exceptions import ClientError, NoCredentialsError
 
+        # Get S3 configuration using the shared helper method
         kwargs = Storage._get_s3_client_kwargs()
         parsed = urlparse(uri, scheme="s3")
         bucket_name = parsed.netloc
@@ -430,6 +412,7 @@ class Storage(object):
             endpoint_url = os.getenv("AWS_ENDPOINT_URL", "")
             Storage._raise_storage_error("S3", uri, e, endpoint_url)
 
+        # Collect all objects to download
         download_tasks = []
         exact_obj_found = False
 
@@ -452,11 +435,13 @@ class Storage(object):
 
                 target_path = f"{temp_dir}/{target_key}"
 
+                # Create target directory if it doesn't exist
                 if not os.path.exists(dir_path := os.path.dirname(target_path)):
                     os.makedirs(dir_path, exist_ok=True)
 
                 download_tasks.append((bucket_name, obj.key, target_path))
 
+                # If the exact object is found, then it is sufficient to download that and break the loop
                 if exact_obj_found:
                     break
         except (ClientError, NoCredentialsError) as e:
@@ -507,6 +492,7 @@ class Storage(object):
     @staticmethod
     def _download_hf(uri, temp_dir: str) -> str:
         from huggingface_hub import snapshot_download
+
         from huggingface_hub.utils import (
             RepositoryNotFoundError,
             RevisionNotFoundError,
@@ -962,6 +948,59 @@ class Storage(object):
     @staticmethod
     def _get_azure_storage_access_key():
         return os.getenv("AZURE_STORAGE_ACCESS_KEY")
+
+    @staticmethod
+    def _download_git_repo(uri: str, out_dir: str) -> str:
+        """
+        Supports authentication via:
+        - Username in URL: https://username@host/repo.git
+        - Username from GIT_USERNAME environment variable
+        - Password from GIT_PASSWORD environment variable (from Kubernetes secret)
+        """
+        from dulwich import porcelain
+        from dulwich.errors import GitProtocolError
+        from urllib.parse import urlparse, urlunparse
+
+        logger.info("Downloading Git repository %s into %s", uri, out_dir)
+
+        parsed = urlparse(uri)
+        username = None
+        clean_uri = uri
+
+        # Extract username from URL if present (format: https://username@host/repo.git)
+        # Note: If password is in URL (https://user:pass@host/repo.git), it will be ignored
+        # as passwords should come from Kubernetes secrets via GIT_PASSWORD env var
+        if parsed.username:
+            username = parsed.username
+
+            # Reconstruct URI without username/password
+            netloc = parsed.hostname
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            clean_parsed = parsed._replace(netloc=netloc)
+            clean_uri = urlunparse(clean_parsed)
+
+        if not username:
+            username = os.getenv("GIT_USERNAME")
+
+        password = os.getenv("GIT_PASSWORD")
+
+        try:
+            clone_kwargs = {"depth": 1}
+            if username:
+                clone_kwargs["username"] = username
+            if password:
+                clone_kwargs["password"] = password
+
+            porcelain.clone(clean_uri, out_dir, **clone_kwargs)
+            logger.info("git clone successful")
+
+        except GitProtocolError as e:
+            Storage._raise_storage_error("Git", uri, e, clean_uri)
+        except Exception as e:
+            Storage._raise_storage_error("Git", uri, e, clean_uri)
+
+        return out_dir
 
     @staticmethod
     def _download_local(uri, out_dir=None) -> str:
