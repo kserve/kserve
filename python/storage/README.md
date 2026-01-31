@@ -13,6 +13,7 @@ A Python module for handling model storage and retrieval for KServe. This packag
     - HTTP/HTTPS URLs
     - HDFS/WebHDFS
     - Hugging Face Hub
+    - MLFlow
 - Automatic extraction of compressed files (zip, tar.gz, tgz)
 - Configuration via environment variables
 - Logging and error handling
@@ -99,6 +100,15 @@ model_dir = Storage.download("hf://org-name/model-name")
 model_dir = Storage.download("hf://org-name/model-name:revision")
 ```
 
+### MLFlow
+
+```python
+# Using model version alias
+model_dir = Storage.download("mlflow://models:/model@dev")
+# Using model version number
+model_dir = Storage.download("mlflow://models:/model/v2")
+```
+
 ## Environment Variables
 
 ### Hugging Face Hub Configuration
@@ -142,6 +152,15 @@ These are all handled by the `huggingface_hub` package, you can see all the avai
 ### Git Configuration (HTTPS-only)
 
 - `GIT_USERNAME`, `GIT_PASSWORD`: Git HTTPS authentication (optional; username also parsed from url)
+
+### MLFlow Configuration
+
+- `MLFLOW_TRACKING_URI`: MLFlow tracking server URI (required)
+- `MLFLOW_TRACKING_USERNAME`: Username for MLFlow authentication (optional)
+- `MLFLOW_TRACKING_PASSWORD`: Password for MLFlow authentication (optional)
+- `MLFLOW_TRACKING_TOKEN`: Authentication token for MLFlow (optional)
+
+**Note**: `MLFLOW_TRACKING_TOKEN` cannot be set together with `MLFLOW_TRACKING_USERNAME` and `MLFLOW_TRACKING_PASSWORD`. Use either token-based or username/password authentication, not both.
 
 ## Storage Configuration
 
