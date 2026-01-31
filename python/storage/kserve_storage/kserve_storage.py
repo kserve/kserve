@@ -55,6 +55,7 @@ _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
 _HF_PREFIX = "hf://"
+_GIT_RE = r"https://.+\.git"
 _MLFLOW_PREFIX = "mlflow://"
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
@@ -114,12 +115,16 @@ class Storage(object):
                 model_dir = Storage._download_azure_blob(uri, out_dir)
             elif any(re.search(pattern, uri) for pattern in _AZURE_FILE_RE):
                 model_dir = Storage._download_azure_file_share(uri, out_dir)
-            elif re.search(_URI_RE, uri):
-                model_dir = Storage._download_from_uri(uri, out_dir)
             elif uri.startswith(_HF_PREFIX):
                 model_dir = Storage._download_hf(uri, out_dir)
+            elif re.search(_GIT_RE, uri):
+                model_dir = Storage._download_git_repo(uri, out_dir)
             elif uri.startswith(_MLFLOW_PREFIX):
                 model_dir = Storage._download_mlflow(uri, out_dir)
+            # "catch-all" pattern, should always be last
+            elif re.search(_URI_RE, uri):
+                model_dir = Storage._download_from_uri(uri, out_dir)
+
             else:
                 raise Exception(
                     "Cannot recognize storage type for "
@@ -822,6 +827,59 @@ class Storage(object):
     @staticmethod
     def _get_azure_storage_access_key():
         return os.getenv("AZURE_STORAGE_ACCESS_KEY")
+
+    @staticmethod
+    def _download_git_repo(uri: str, out_dir: str) -> str:
+        """
+        Supports authentication via:
+        - Username in URL: https://username@host/repo.git
+        - Username from GIT_USERNAME environment variable
+        - Password from GIT_PASSWORD environment variable (from Kubernetes secret)
+        """
+        from dulwich import porcelain
+        from dulwich.errors import GitProtocolError
+        from urllib.parse import urlparse, urlunparse
+
+        logger.info("Downloading Git repository %s into %s", uri, out_dir)
+
+        parsed = urlparse(uri)
+        username = None
+        clean_uri = uri
+
+        # Extract username from URL if present (format: https://username@host/repo.git)
+        # Note: If password is in URL (https://user:pass@host/repo.git), it will be ignored
+        # as passwords should come from Kubernetes secrets via GIT_PASSWORD env var
+        if parsed.username:
+            username = parsed.username
+
+            # Reconstruct URI without username/password
+            netloc = parsed.hostname
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            clean_parsed = parsed._replace(netloc=netloc)
+            clean_uri = urlunparse(clean_parsed)
+
+        if not username:
+            username = os.getenv("GIT_USERNAME")
+
+        password = os.getenv("GIT_PASSWORD")
+
+        try:
+            clone_kwargs = {"depth": 1}
+            if username:
+                clone_kwargs["username"] = username
+            if password:
+                clone_kwargs["password"] = password
+
+            porcelain.clone(clean_uri, out_dir, **clone_kwargs)
+            logger.info("git clone successful")
+
+        except GitProtocolError as e:
+            raise RuntimeError(f"git clone {uri} failed: {str(e)}")
+        except Exception as e:
+            raise RuntimeError(f"git clone {uri} failed: {str(e)}")
+
+        return out_dir
 
     @staticmethod
     def _download_local(uri, out_dir=None) -> str:

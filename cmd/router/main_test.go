@@ -1015,6 +1015,7 @@ func TestServerTimeout(t *testing.T) {
 			t.Cleanup(func() {
 				http.DefaultServeMux = http.NewServeMux() // reset http handlers
 				signalChan <- syscall.SIGTERM             // shutdown the server
+				time.Sleep(100 * time.Millisecond)        // wait for server to release port before next subtest
 			})
 
 			// Call the InferenceGraph
