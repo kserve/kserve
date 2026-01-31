@@ -55,7 +55,6 @@ _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
 _HF_PREFIX = "hf://"
-_GIT_RE = r"https://.+\.git"
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
@@ -114,13 +113,10 @@ class Storage(object):
                 model_dir = Storage._download_azure_blob(uri, out_dir)
             elif any(re.search(pattern, uri) for pattern in _AZURE_FILE_RE):
                 model_dir = Storage._download_azure_file_share(uri, out_dir)
-            elif uri.startswith(_HF_PREFIX):
-                model_dir = Storage._download_hf(uri, out_dir)
-            elif re.search(_GIT_RE, uri):
-                model_dir = Storage._download_git_repo(uri, out_dir)
-            # "catch-all" pattern, should always be last
             elif re.search(_URI_RE, uri):
                 model_dir = Storage._download_from_uri(uri, out_dir)
+            elif uri.startswith(_HF_PREFIX):
+                model_dir = Storage._download_hf(uri, out_dir)
             else:
                 raise Exception(
                     "Cannot recognize storage type for "
@@ -179,8 +175,15 @@ class Storage(object):
         from botocore import UNSIGNED
         from botocore.client import Config
 
-        # default s3 config
-        c = Config()
+        connect_timeout = int(os.getenv("S3_CONNECT_TIMEOUT", "15"))
+        read_timeout = int(os.getenv("S3_READ_TIMEOUT", "30"))
+        max_attempts = int(os.getenv("S3_MAX_ATTEMPTS", "3"))
+
+        c = Config(
+            connect_timeout=connect_timeout,
+            read_timeout=read_timeout,
+            retries={"max_attempts": max_attempts, "mode": "standard"},
+        )
 
         # anon environment variable defined in s3_secret.go
         anon = "true" == os.getenv("awsAnonymousCredential", "false").lower()
@@ -261,6 +264,112 @@ class Storage(object):
         return kwargs
 
     @staticmethod
+    def _raise_storage_error(protocol: str, uri: str, error: Exception, resource_name: str = "") -> None:
+        """
+        Unified error handler for all storage protocols.
+        Logs the error and raises RuntimeError with a user-friendly message.
+
+        Args:
+            protocol: Storage protocol name (S3, GCS, Azure, HDFS, HuggingFace, HTTP)
+            uri: The URI being accessed
+            error: The caught exception
+            resource_name: Optional resource identifier (bucket, container, path)
+        """
+        error_msg = Storage._get_storage_error_message(protocol, error, resource_name)
+        logger.error("%s error for %s: %s", protocol, uri, error)
+        raise RuntimeError(error_msg) from error
+
+    @staticmethod
+    def _get_storage_error_message(protocol: str, error: Exception, resource_name: str = "") -> str:
+        """
+        Get user-friendly error message for storage errors across all protocols.
+
+        Args:
+            protocol: Storage protocol name
+            error: The caught exception
+            resource_name: Optional resource identifier
+
+        Returns:
+            User-friendly error message string
+        """
+        error_type = type(error).__name__
+        error_str = str(error).lower()
+
+        # Authentication errors
+        auth_error_types = (
+            "NoCredentialsError", "DefaultCredentialsError", "GoogleAuthError",
+            "ClientAuthenticationError", "GatedRepoError"
+        )
+        if error_type in auth_error_types or "credential" in error_str or "auth" in error_str:
+            auth_hints = {
+                "S3": "Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY or use awsAnonymousCredential=true.",
+                "GCS": "Verify GOOGLE_APPLICATION_CREDENTIALS or use anonymous access.",
+                "Azure": "Verify AZURE_CLIENT_ID/AZURE_CLIENT_SECRET or AZURE_STORAGE_ACCESS_KEY.",
+                "HDFS": "Verify Kerberos keytab and principal configuration.",
+                "HuggingFace": "Set HF_TOKEN or request access to the gated repository.",
+                "HTTP": "Verify authentication credentials.",
+            }
+            return "%s authentication failed. %s" % (protocol, auth_hints.get(protocol, ""))
+
+        # Not found errors
+        not_found_types = ("NotFound", "ResourceNotFoundError", "RepositoryNotFoundError", "RevisionNotFoundError")
+        if error_type in not_found_types or "not found" in error_str or "does not exist" in error_str:
+            if resource_name:
+                return "%s resource '%s' not found." % (protocol, resource_name)
+            return "%s resource not found." % protocol
+
+        # Access denied errors
+        access_denied_types = ("Forbidden", "AccessDenied")
+        if error_type in access_denied_types or "access denied" in error_str or "permission" in error_str:
+            if resource_name:
+                return "Access denied to %s resource '%s'. Verify permissions." % (protocol, resource_name)
+            return "Access denied. Verify %s permissions." % protocol
+
+        # Connection errors
+        if error_type == "ConnectionError" or "connection" in error_str or "timeout" in error_str:
+            if resource_name:
+                return "Failed to connect to %s endpoint '%s'." % (protocol, resource_name)
+            return "Failed to connect to %s endpoint." % protocol
+
+        # S3-specific error codes
+        if protocol == "S3" and hasattr(error, "response"):
+            error_code = error.response.get("Error", {}).get("Code", "")
+            if error_code in ("InvalidAccessKeyId", "SignatureDoesNotMatch"):
+                return "Invalid AWS credentials. Verify AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY."
+            if error_code == "NoSuchBucket":
+                return "S3 bucket '%s' does not exist." % resource_name
+            if error_code:
+                return "S3 error [%s]: %s" % (error_code, error.response.get("Error", {}).get("Message", ""))
+
+        # HTTP status codes
+        if protocol == "HTTP" and hasattr(error, "status_code"):
+            return "HTTP request failed with status %s." % error.status_code
+
+        # Default: include error type and message
+        return "%s error: %s" % (protocol, error)
+
+    @staticmethod
+    def _check_http_response(uri: str, response) -> None:
+        """
+        Check HTTP response status and raise RuntimeError for error codes.
+
+        Args:
+            uri: The URI being accessed
+            response: The requests.Response object
+        """
+        status_messages = {
+            401: "HTTP authentication failed for '%s'. Verify credentials.",
+            403: "HTTP access denied for '%s'. Verify permissions.",
+            404: "HTTP resource not found at '%s'.",
+        }
+        if response.status_code in status_messages:
+            raise RuntimeError(status_messages[response.status_code] % uri)
+        if response.status_code != 200:
+            raise RuntimeError(
+                "HTTP request to '%s' failed with status code %s." % (uri, response.status_code)
+            )
+
+    @staticmethod
     def _init_s3_worker():
         """
         Initialize S3 resources for worker processes.
@@ -289,6 +398,8 @@ class Storage(object):
             Tuple of (success: bool, obj_key: str, error_message: str)
         """
         try:
+            global _worker_s3_resource
+
             if _worker_s3_resource is None:
                 return False, args[1], "S3 resource not initialized in worker process"
 
@@ -306,43 +417,50 @@ class Storage(object):
     @staticmethod
     def _download_s3(uri, temp_dir: str) -> str:
         import boto3
+        from botocore.exceptions import ClientError, NoCredentialsError
 
-        # Get S3 configuration using the shared helper method
         kwargs = Storage._get_s3_client_kwargs()
-        s3 = boto3.resource("s3", **kwargs)
         parsed = urlparse(uri, scheme="s3")
         bucket_name = parsed.netloc
         bucket_path = parsed.path.lstrip("/")
 
-        # Collect all objects to download
+        try:
+            s3 = boto3.resource("s3", **kwargs)
+        except ValueError as e:
+            endpoint_url = os.getenv("AWS_ENDPOINT_URL", "")
+            Storage._raise_storage_error("S3", uri, e, endpoint_url)
+
         download_tasks = []
         exact_obj_found = False
-        bucket = s3.Bucket(bucket_name)
 
-        for obj in bucket.objects.filter(Prefix=bucket_path):
-            if obj.key.endswith("/") or obj.size == 0:
-                logger.debug("Skipping: %s", obj.key)
-                continue
+        try:
+            s3.meta.client.head_bucket(Bucket=bucket_name)
+            bucket = s3.Bucket(bucket_name)
 
-            logger.info("Found S3 object: %s (%d bytes)", obj.key, obj.size)
+            for obj in bucket.objects.filter(Prefix=bucket_path):
+                if obj.key.endswith("/") or obj.size == 0:
+                    logger.debug("Skipping: %s", obj.key)
+                    continue
 
-            if bucket_path == obj.key:
-                target_key = obj.key.rsplit("/", 1)[-1]
-                exact_obj_found = True
-            else:
-                target_key = obj.key.removeprefix(bucket_path).lstrip("/")
+                logger.info("Found S3 object: %s (%d bytes)", obj.key, obj.size)
 
-            target_path = f"{temp_dir}/{target_key}"
+                if bucket_path == obj.key:
+                    target_key = obj.key.rsplit("/", 1)[-1]
+                    exact_obj_found = True
+                else:
+                    target_key = obj.key.removeprefix(bucket_path).lstrip("/")
 
-            # Create target directory if it doesn't exist
-            if not os.path.exists(dir_path := os.path.dirname(target_path)):
-                os.makedirs(dir_path, exist_ok=True)
+                target_path = f"{temp_dir}/{target_key}"
 
-            download_tasks.append((bucket_name, obj.key, target_path))
+                if not os.path.exists(dir_path := os.path.dirname(target_path)):
+                    os.makedirs(dir_path, exist_ok=True)
 
-            # If the exact object is found, then it is sufficient to download that and break the loop
-            if exact_obj_found:
-                break
+                download_tasks.append((bucket_name, obj.key, target_path))
+
+                if exact_obj_found:
+                    break
+        except (ClientError, NoCredentialsError) as e:
+            Storage._raise_storage_error("S3", uri, e, bucket_name)
 
         if len(download_tasks) == 0:
             raise RuntimeError(
@@ -389,83 +507,100 @@ class Storage(object):
     @staticmethod
     def _download_hf(uri, temp_dir: str) -> str:
         from huggingface_hub import snapshot_download
+        from huggingface_hub.utils import (
+            RepositoryNotFoundError,
+            RevisionNotFoundError,
+            GatedRepoError,
+            HfHubHTTPError,
+        )
 
         components = uri[len(_HF_PREFIX) :].split("/")
 
         # Validate that the URI has two parts: repo and model (optional hash)
         if len(components) != 2:
-            raise ValueError(
-                "URI must contain exactly one '/' separating the repo and model name"
+            raise RuntimeError(
+                "Invalid Hugging Face URI format. Expected 'hf://owner/model[:revision]', got '%s'" % uri
             )
 
         repo = components[0]
         model_part = components[1]
 
         if not repo:
-            raise ValueError("Repository name cannot be empty")
+            raise RuntimeError("Hugging Face repository owner cannot be empty in URI: %s" % uri)
         if not model_part:
-            raise ValueError("Model name cannot be empty")
+            raise RuntimeError("Hugging Face model name cannot be empty in URI: %s" % uri)
 
         model, _, hash_value = model_part.partition(":")
         # Ensure model is non-empty
         if not model:
-            raise ValueError("Model name cannot be empty")
+            raise RuntimeError("Hugging Face model name cannot be empty in URI: %s" % uri)
 
         revision = hash_value if hash_value else None
+        repo_id = f"{repo}/{model}"
 
-        snapshot_download(
-            repo_id=f"{repo}/{model}", revision=revision, local_dir=temp_dir
-        )
+        try:
+            snapshot_download(
+                repo_id=repo_id, revision=revision, local_dir=temp_dir
+            )
+        except (RepositoryNotFoundError, RevisionNotFoundError, GatedRepoError, HfHubHTTPError) as e:
+            Storage._raise_storage_error("HuggingFace", uri, e, repo_id)
+
         return temp_dir
 
     @staticmethod
     def _download_gcs(uri, temp_dir: str) -> str:
-        from google.auth import exceptions
+        from google.auth import exceptions as auth_exceptions
         from google.cloud import storage
+        from google.api_core import exceptions as api_exceptions
         import copy
 
         try:
             storage_client = storage.Client()
-        except exceptions.DefaultCredentialsError:
+        except auth_exceptions.DefaultCredentialsError:
             storage_client = storage.Client.create_anonymous_client()
+
         bucket_args = uri.replace(_GCS_PREFIX, "", 1).split("/", 1)
         bucket_name = bucket_args[0]
         bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
-        bucket = storage_client.bucket(bucket_name)
-        prefix = bucket_path
-        if not prefix.endswith("/"):
-            prefix = prefix + "/"
-        blobs = bucket.list_blobs(prefix=prefix)
-        file_count = 0
 
-        # Shallow copy, otherwise Iterator has already started
-        shallow_blobs = copy.copy(blobs)
-        blob = bucket.blob(bucket_path)
-        # checks if the blob is a file or a directory
-        if blob.name == bucket_path and len(list(shallow_blobs)) == 0:
-            dest_path = os.path.join(temp_dir, os.path.basename(bucket_path))
-            logger.info("Downloading single file to: %s", dest_path)
-            blob.download_to_filename(dest_path)
-            file_count = 1
+        try:
+            bucket = storage_client.bucket(bucket_name)
+            prefix = bucket_path
+            if not prefix.endswith("/"):
+                prefix = prefix + "/"
+            blobs = bucket.list_blobs(prefix=prefix)
+            file_count = 0
 
-        else:
-            for blob in blobs:
-                # Replace any prefix from the object key with temp_dir
-                subdir_object_key = blob.name.replace(bucket_path, "", 1).lstrip("/")
-                # Create necessary subdirectory to store the object locally
-                if "/" in subdir_object_key:
-                    local_object_dir = os.path.join(
-                        temp_dir, subdir_object_key.rsplit("/", 1)[0]
-                    )
-                    if not os.path.isdir(local_object_dir):
-                        os.makedirs(local_object_dir, exist_ok=True)
-                if subdir_object_key.strip() != "" and not subdir_object_key.endswith(
-                    "/"
-                ):
-                    dest_path = os.path.join(temp_dir, subdir_object_key)
-                    logger.info("Downloading: %s", dest_path)
-                    blob.download_to_filename(dest_path)
-                    file_count += 1
+            # Shallow copy, otherwise Iterator has already started
+            shallow_blobs = copy.copy(blobs)
+            blob = bucket.blob(bucket_path)
+            # checks if the blob is a file or a directory
+            if blob.name == bucket_path and len(list(shallow_blobs)) == 0:
+                dest_path = os.path.join(temp_dir, os.path.basename(bucket_path))
+                logger.info("Downloading single file to: %s", dest_path)
+                blob.download_to_filename(dest_path)
+                file_count = 1
+
+            else:
+                for blob in blobs:
+                    # Replace any prefix from the object key with temp_dir
+                    subdir_object_key = blob.name.replace(bucket_path, "", 1).lstrip("/")
+                    # Create necessary subdirectory to store the object locally
+                    if "/" in subdir_object_key:
+                        local_object_dir = os.path.join(
+                            temp_dir, subdir_object_key.rsplit("/", 1)[0]
+                        )
+                        if not os.path.isdir(local_object_dir):
+                            os.makedirs(local_object_dir, exist_ok=True)
+                    if subdir_object_key.strip() != "" and not subdir_object_key.endswith(
+                        "/"
+                    ):
+                        dest_path = os.path.join(temp_dir, subdir_object_key)
+                        logger.info("Downloading: %s", dest_path)
+                        blob.download_to_filename(dest_path)
+                        file_count += 1
+        except (api_exceptions.Forbidden, api_exceptions.NotFound, auth_exceptions.GoogleAuthError) as e:
+            Storage._raise_storage_error("GCS", uri, e, bucket_name)
 
         if file_count == 0:
             raise RuntimeError("Failed to fetch model. No model found in %s." % uri)
@@ -516,10 +651,11 @@ class Storage(object):
     def _download_hdfs(uri, out_dir: str) -> str:
         from krbcontext.context import krbContext
         from hdfs.ext.kerberos import Client, KerberosClient
+        from hdfs.util import HdfsError
 
         config = Storage._load_hdfs_configuration()
 
-        logger.info(f"Using the following hdfs config\n{config}")
+        logger.info("Using the following hdfs config: %s", config)
 
         # Remove hdfs:// or webhdfs:// from the uri to get just the path
         # e.g. hdfs://user/me/model -> user/me/model
@@ -545,46 +681,49 @@ class Storage(object):
             headers = json.loads(config["HEADERS"])
             s.headers.update(headers)
 
-        if config["KERBEROS_PRINCIPAL"]:
-            context = krbContext(
-                using_keytab=True,
-                principal=config["KERBEROS_PRINCIPAL"],
-                keytab_file=config["KERBEROS_KEYTAB"],
-            )
-            context.init_with_keytab()
-            client = KerberosClient(
-                config["HDFS_NAMENODE"],
-                proxy=config["USER_PROXY"],
-                root=config["HDFS_ROOTPATH"],
-                session=s,
-            )
-        else:
-            client = Client(
-                config["HDFS_NAMENODE"],
-                proxy=config["USER_PROXY"],
-                root=config["HDFS_ROOTPATH"],
-                session=s,
-            )
-        file_count = 0
-        dest_file_path = ""
-
-        # Check path exists and get path status
-        # Raises HdfsError when path does not exist
-        status = client.status(path)
-
-        if status["type"] == "FILE":
-            client.download(path, out_dir, n_threads=1)
-            file_count += 1
-            file_name = path.rsplit("/", 1)[-1]
-            dest_file_path = f"{out_dir}/{file_name}"
-        else:
-            files = client.list(path)
-            file_count += len(files)
-            for f in files:
-                client.download(
-                    f"{path}/{f}", out_dir, n_threads=int(config["N_THREADS"])
+        try:
+            if config["KERBEROS_PRINCIPAL"]:
+                context = krbContext(
+                    using_keytab=True,
+                    principal=config["KERBEROS_PRINCIPAL"],
+                    keytab_file=config["KERBEROS_KEYTAB"],
                 )
-                dest_file_path = f"{out_dir}/{f}"
+                context.init_with_keytab()
+                client = KerberosClient(
+                    config["HDFS_NAMENODE"],
+                    proxy=config["USER_PROXY"],
+                    root=config["HDFS_ROOTPATH"],
+                    session=s,
+                )
+            else:
+                client = Client(
+                    config["HDFS_NAMENODE"],
+                    proxy=config["USER_PROXY"],
+                    root=config["HDFS_ROOTPATH"],
+                    session=s,
+                )
+            file_count = 0
+            dest_file_path = ""
+
+            # Check path exists and get path status
+            # Raises HdfsError when path does not exist
+            status = client.status(path)
+
+            if status["type"] == "FILE":
+                client.download(path, out_dir, n_threads=1)
+                file_count += 1
+                file_name = path.rsplit("/", 1)[-1]
+                dest_file_path = f"{out_dir}/{file_name}"
+            else:
+                files = client.list(path)
+                file_count += len(files)
+                for f in files:
+                    client.download(
+                        f"{path}/{f}", out_dir, n_threads=int(config["N_THREADS"])
+                    )
+                    dest_file_path = f"{out_dir}/{f}"
+        except (HdfsError, requests.exceptions.ConnectionError) as e:
+            Storage._raise_storage_error("HDFS", uri, e, config["HDFS_NAMENODE"])
 
         if file_count == 1:
             mimetype, _ = mimetypes.guess_type(dest_file_path)
@@ -598,6 +737,11 @@ class Storage(object):
     async def _download_azure_blob_async(uri, out_dir: str) -> str:
         """Async Azure blob download with chunked streaming and multi-level semaphores"""
         from azure.storage.blob.aio import BlobServiceClient
+        from azure.core.exceptions import (
+            ClientAuthenticationError,
+            ResourceNotFoundError,
+            HttpResponseError,
+        )
 
         account_name, account_url, container_name, prefix = Storage._parse_azure_uri(
             uri
@@ -621,43 +765,46 @@ class Storage(object):
         # File-level semaphore to control concurrent file downloads
         file_semaphore = asyncio.Semaphore(_AZURE_MAX_FILE_CONCURRENCY)
 
-        async with BlobServiceClient(
-            account_url, credential=token
-        ) as blob_service_client:
-            container_client = blob_service_client.get_container_client(container_name)
+        try:
+            async with BlobServiceClient(
+                account_url, credential=token
+            ) as blob_service_client:
+                container_client = blob_service_client.get_container_client(container_name)
 
-            # Get all blobs using flat listing (no delimiter) to get all files regardless of hierarchy
-            blobs = []
-            logger.info("Listing blobs with prefix: %s", prefix)
-            async for blob in container_client.list_blobs(name_starts_with=prefix):
-                logger.info("Found blob: %s (%d bytes)", blob.name, blob.size)
-                if blob.size > 0:
-                    blobs.append(blob)
+                # Get all blobs using flat listing (no delimiter) to get all files regardless of hierarchy
+                blobs = []
+                logger.info("Listing blobs with prefix: %s", prefix)
+                async for blob in container_client.list_blobs(name_starts_with=prefix):
+                    logger.info("Found blob: %s (%d bytes)", blob.name, blob.size)
+                    if blob.size > 0:
+                        blobs.append(blob)
 
-            if not blobs:
-                raise RuntimeError("Failed to fetch model. No model found in %s." % uri)
+                if not blobs:
+                    raise RuntimeError("Failed to fetch model. No model found in %s." % uri)
 
-            # Create download tasks with semaphore control
-            download_tasks = [
-                Storage._download_single_blob_async(
-                    container_client, blob, out_dir, prefix, file_semaphore
-                )
-                for blob in blobs
-            ]
+                # Create download tasks with semaphore control
+                download_tasks = [
+                    Storage._download_single_blob_async(
+                        container_client, blob, out_dir, prefix, file_semaphore
+                    )
+                    for blob in blobs
+                ]
 
-            # Execute all downloads concurrently
-            results = await asyncio.gather(*download_tasks, return_exceptions=True)
+                # Execute all downloads concurrently
+                results = await asyncio.gather(*download_tasks, return_exceptions=True)
 
-            # Check for exceptions
-            file_count = 0
-            dest_path = None
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    logger.error("Blob %s failed: %s", blobs[i].name, result)
-                    raise result
-                else:
-                    dest_path = result
-                    file_count += 1
+                # Check for exceptions
+                file_count = 0
+                dest_path = None
+                for i, result in enumerate(results):
+                    if isinstance(result, Exception):
+                        logger.error("Blob %s failed: %s", blobs[i].name, result)
+                        raise result
+                    else:
+                        dest_path = result
+                        file_count += 1
+        except (ClientAuthenticationError, ResourceNotFoundError, HttpResponseError) as e:
+            Storage._raise_storage_error("Azure", uri, e, container_name)
 
         # Handle single file unpacking
         if file_count == 1:
@@ -705,6 +852,11 @@ class Storage(object):
         uri, out_dir: str
     ) -> str:  # pylint: disable=too-many-locals
         from azure.storage.fileshare import ShareServiceClient
+        from azure.core.exceptions import (
+            ClientAuthenticationError,
+            ResourceNotFoundError,
+            HttpResponseError,
+        )
 
         account_name, account_url, share_name, prefix = Storage._parse_azure_uri(uri)
         logger.info(
@@ -719,37 +871,41 @@ class Storage(object):
                 "Azure storage access key not found, retrying anonymous access"
             )
 
-        share_service_client = ShareServiceClient(account_url, credential=access_key)
-        share_client = share_service_client.get_share_client(share_name)
-        file_count = 0
-        share_files = []
-        max_depth = 5
-        stack = [(prefix, max_depth)]
-        while stack:
-            curr_prefix, depth = stack.pop()
-            if depth < 0:
-                continue
-            for item in share_client.list_directories_and_files(
-                directory_name=curr_prefix
-            ):
-                if item.is_directory:
-                    stack.append(
-                        ("/".join([curr_prefix, item.name]).strip("/"), depth - 1)
-                    )
-                else:
-                    share_files.append((curr_prefix, item))
-        for prefix, file_item in share_files:
-            parts = [prefix] if prefix else []
-            parts.append(file_item.name)
-            file_path = "/".join(parts).lstrip("/")
-            dest_path = os.path.join(out_dir, file_path)
-            Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
-            logger.info("Downloading: %s to %s", file_item.name, dest_path)
-            file_client = share_client.get_file_client(file_path)
-            with open(dest_path, "wb+") as f:
-                data = file_client.download_file()
-                data.readinto(f)
-            file_count += 1
+        try:
+            share_service_client = ShareServiceClient(account_url, credential=access_key)
+            share_client = share_service_client.get_share_client(share_name)
+            file_count = 0
+            share_files = []
+            max_depth = 5
+            stack = [(prefix, max_depth)]
+            while stack:
+                curr_prefix, depth = stack.pop()
+                if depth < 0:
+                    continue
+                for item in share_client.list_directories_and_files(
+                    directory_name=curr_prefix
+                ):
+                    if item.is_directory:
+                        stack.append(
+                            ("/".join([curr_prefix, item.name]).strip("/"), depth - 1)
+                        )
+                    else:
+                        share_files.append((curr_prefix, item))
+            for prefix, file_item in share_files:
+                parts = [prefix] if prefix else []
+                parts.append(file_item.name)
+                file_path = "/".join(parts).lstrip("/")
+                dest_path = os.path.join(out_dir, file_path)
+                Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
+                logger.info("Downloading: %s to %s", file_item.name, dest_path)
+                file_client = share_client.get_file_client(file_path)
+                with open(dest_path, "wb+") as f:
+                    data = file_client.download_file()
+                    data.readinto(f)
+                file_count += 1
+        except (ClientAuthenticationError, ResourceNotFoundError, HttpResponseError) as e:
+            Storage._raise_storage_error("Azure", uri, e, share_name)
+
         if file_count == 0:
             raise RuntimeError("Failed to fetch model. No model found in %s." % (uri))
 
@@ -808,59 +964,6 @@ class Storage(object):
         return os.getenv("AZURE_STORAGE_ACCESS_KEY")
 
     @staticmethod
-    def _download_git_repo(uri: str, out_dir: str) -> str:
-        """
-        Supports authentication via:
-        - Username in URL: https://username@host/repo.git
-        - Username from GIT_USERNAME environment variable
-        - Password from GIT_PASSWORD environment variable (from Kubernetes secret)
-        """
-        from dulwich import porcelain
-        from dulwich.errors import GitProtocolError
-        from urllib.parse import urlparse, urlunparse
-
-        logger.info("Downloading Git repository %s into %s", uri, out_dir)
-
-        parsed = urlparse(uri)
-        username = None
-        clean_uri = uri
-
-        # Extract username from URL if present (format: https://username@host/repo.git)
-        # Note: If password is in URL (https://user:pass@host/repo.git), it will be ignored
-        # as passwords should come from Kubernetes secrets via GIT_PASSWORD env var
-        if parsed.username:
-            username = parsed.username
-
-            # Reconstruct URI without username/password
-            netloc = parsed.hostname
-            if parsed.port:
-                netloc += f":{parsed.port}"
-            clean_parsed = parsed._replace(netloc=netloc)
-            clean_uri = urlunparse(clean_parsed)
-
-        if not username:
-            username = os.getenv("GIT_USERNAME")
-
-        password = os.getenv("GIT_PASSWORD")
-
-        try:
-            clone_kwargs = {"depth": 1}
-            if username:
-                clone_kwargs["username"] = username
-            if password:
-                clone_kwargs["password"] = password
-
-            porcelain.clone(clean_uri, out_dir, **clone_kwargs)
-            logger.info("git clone successful")
-
-        except GitProtocolError as e:
-            raise RuntimeError(f"git clone {uri} failed: {str(e)}")
-        except Exception as e:
-            raise RuntimeError(f"git clone {uri} failed: {str(e)}")
-
-        return out_dir
-
-    @staticmethod
     def _download_local(uri, out_dir=None) -> str:
         local_path = uri.replace(_LOCAL_PREFIX, "", 1)
         if not os.path.exists(local_path):
@@ -905,7 +1008,7 @@ class Storage(object):
         local_path = os.path.join(out_dir, filename)
 
         if filename == "":
-            raise ValueError("No filename contained in URI: %s" % (uri))
+            raise RuntimeError("No filename contained in URI: %s" % (uri))
 
         # Get header information from host url
         headers = {}
@@ -914,11 +1017,13 @@ class Storage(object):
         headers_json = os.getenv(host_uri + _HEADERS_SUFFIX, "{}")
         headers = json.loads(headers_json)
 
-        with requests.get(uri, stream=True, headers=headers) as response:
-            if response.status_code != 200:
-                raise RuntimeError(
-                    "URI: %s returned a %s response code." % (uri, response.status_code)
-                )
+        try:
+            response = requests.get(uri, stream=True, headers=headers, timeout=30)
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            Storage._raise_storage_error("HTTP", uri, e, host_uri)
+
+        with response:
+            Storage._check_http_response(uri, response)
             zip_content_types = (
                 "application/x-zip-compressed",
                 "application/zip",
