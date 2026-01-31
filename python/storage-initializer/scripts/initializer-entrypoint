@@ -8,10 +8,18 @@ configure_logging()
 
 if len(sys.argv) < 3 or len(sys.argv) % 2 != 1:
     print("Usage: initializer-entrypoint src_uri_0 dest_path_0 ... src_uri_n dest_path_n")
-    sys.exit()
+    sys.exit(1)
 
 src_uris = sys.argv[1::2]
 dest_paths = sys.argv[2::2]
 
-logger.info(f"Initializing, args: (src_uri, dest_path): {[(src_uri, dest_path) for src_uri, dest_path in zip(src_uris, dest_paths)]}")
-Storage.download_files(src_uris, dest_paths)
+logger.info("Initializing, args: (src_uri, dest_path): %s", list(zip(src_uris, dest_paths)))
+
+try:
+    Storage.download_files(src_uris, dest_paths)
+except RuntimeError as e:
+    logger.error("Storage initialization failed: %s", e)
+    sys.exit(1)
+except Exception as e:
+    logger.error("Unexpected error during storage initialization: %s", e)
+    sys.exit(1)
