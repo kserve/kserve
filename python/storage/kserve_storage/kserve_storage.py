@@ -175,7 +175,9 @@ class Storage(object):
                     f.flush()
 
     @staticmethod
-    def _raise_storage_error(protocol: str, uri: str, error: Exception, resource_name: str = "") -> None:
+    def _raise_storage_error(
+        protocol: str, uri: str, error: Exception, resource_name: str = ""
+    ) -> None:
         """
         Unified error handler for all storage protocols.
         Logs the error and raises RuntimeError with a user-friendly message.
@@ -185,7 +187,9 @@ class Storage(object):
         raise RuntimeError(error_msg) from error
 
     @staticmethod
-    def _get_storage_error_message(protocol: str, error: Exception, resource_name: str = "") -> str:
+    def _get_storage_error_message(
+        protocol: str, error: Exception, resource_name: str = ""
+    ) -> str:
         """
         Get user-friendly error message for storage errors across all protocols.
         """
@@ -194,10 +198,17 @@ class Storage(object):
 
         # Authentication errors
         auth_error_types = (
-            "NoCredentialsError", "DefaultCredentialsError", "GoogleAuthError",
-            "ClientAuthenticationError", "GatedRepoError"
+            "NoCredentialsError",
+            "DefaultCredentialsError",
+            "GoogleAuthError",
+            "ClientAuthenticationError",
+            "GatedRepoError",
         )
-        if error_type in auth_error_types or "credential" in error_str or "auth" in error_str:
+        if (
+            error_type in auth_error_types
+            or "credential" in error_str
+            or "auth" in error_str
+        ):
             auth_hints = {
                 "S3": "Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY or use awsAnonymousCredential=true.",
                 "GCS": "Verify GOOGLE_APPLICATION_CREDENTIALS or use anonymous access.",
@@ -207,26 +218,52 @@ class Storage(object):
                 "HTTP": "Verify authentication credentials.",
                 "Git": "Set GIT_USERNAME/GIT_PASSWORD or use a public repository.",
             }
-            return "%s authentication failed. %s" % (protocol, auth_hints.get(protocol, ""))
+            return "%s authentication failed. %s" % (
+                protocol,
+                auth_hints.get(protocol, ""),
+            )
 
         # Not found errors
-        not_found_types = ("NotFound", "ResourceNotFoundError", "RepositoryNotFoundError", "RevisionNotFoundError")
-        if error_type in not_found_types or "not found" in error_str or "does not exist" in error_str:
+        not_found_types = (
+            "NotFound",
+            "ResourceNotFoundError",
+            "RepositoryNotFoundError",
+            "RevisionNotFoundError",
+        )
+        if (
+            error_type in not_found_types
+            or "not found" in error_str
+            or "does not exist" in error_str
+        ):
             if resource_name:
                 return "%s resource '%s' not found." % (protocol, resource_name)
             return "%s resource not found." % protocol
 
         # Access denied errors
         access_denied_types = ("Forbidden", "AccessDenied")
-        if error_type in access_denied_types or "access denied" in error_str or "permission" in error_str:
+        if (
+            error_type in access_denied_types
+            or "access denied" in error_str
+            or "permission" in error_str
+        ):
             if resource_name:
-                return "Access denied to %s resource '%s'. Verify permissions." % (protocol, resource_name)
+                return "Access denied to %s resource '%s'. Verify permissions." % (
+                    protocol,
+                    resource_name,
+                )
             return "Access denied. Verify %s permissions." % protocol
 
         # Connection errors
-        if error_type == "ConnectionError" or "connection" in error_str or "timeout" in error_str:
+        if (
+            error_type == "ConnectionError"
+            or "connection" in error_str
+            or "timeout" in error_str
+        ):
             if resource_name:
-                return "Failed to connect to %s endpoint '%s'." % (protocol, resource_name)
+                return "Failed to connect to %s endpoint '%s'." % (
+                    protocol,
+                    resource_name,
+                )
             return "Failed to connect to %s endpoint." % protocol
 
         # S3-specific error codes
@@ -237,7 +274,10 @@ class Storage(object):
             if error_code == "NoSuchBucket":
                 return "S3 bucket '%s' does not exist." % resource_name
             if error_code:
-                return "S3 error [%s]: %s" % (error_code, error.response.get("Error", {}).get("Message", ""))
+                return "S3 error [%s]: %s" % (
+                    error_code,
+                    error.response.get("Error", {}).get("Message", ""),
+                )
 
         # Default: include error type and message
         return "%s error: %s" % (protocol, error)
@@ -254,7 +294,8 @@ class Storage(object):
             raise RuntimeError(status_messages[response.status_code] % uri)
         if response.status_code != 200:
             raise RuntimeError(
-                "HTTP request to '%s' failed with status code %s." % (uri, response.status_code)
+                "HTTP request to '%s' failed with status code %s."
+                % (uri, response.status_code)
             )
 
     @staticmethod
@@ -505,30 +546,40 @@ class Storage(object):
         # Validate that the URI has two parts: repo and model (optional hash)
         if len(components) != 2:
             raise RuntimeError(
-                "Invalid Hugging Face URI format. Expected 'hf://owner/model[:revision]', got '%s'" % uri
+                "Invalid Hugging Face URI format. Expected 'hf://owner/model[:revision]', got '%s'"
+                % uri
             )
 
         repo = components[0]
         model_part = components[1]
 
         if not repo:
-            raise RuntimeError("Hugging Face repository owner cannot be empty in URI: %s" % uri)
+            raise RuntimeError(
+                "Hugging Face repository owner cannot be empty in URI: %s" % uri
+            )
         if not model_part:
-            raise RuntimeError("Hugging Face model name cannot be empty in URI: %s" % uri)
+            raise RuntimeError(
+                "Hugging Face model name cannot be empty in URI: %s" % uri
+            )
 
         model, _, hash_value = model_part.partition(":")
         # Ensure model is non-empty
         if not model:
-            raise RuntimeError("Hugging Face model name cannot be empty in URI: %s" % uri)
+            raise RuntimeError(
+                "Hugging Face model name cannot be empty in URI: %s" % uri
+            )
 
         revision = hash_value if hash_value else None
         repo_id = f"{repo}/{model}"
 
         try:
-            snapshot_download(
-                repo_id=repo_id, revision=revision, local_dir=temp_dir
-            )
-        except (RepositoryNotFoundError, RevisionNotFoundError, GatedRepoError, HfHubHTTPError) as e:
+            snapshot_download(repo_id=repo_id, revision=revision, local_dir=temp_dir)
+        except (
+            RepositoryNotFoundError,
+            RevisionNotFoundError,
+            GatedRepoError,
+            HfHubHTTPError,
+        ) as e:
             Storage._raise_storage_error("HuggingFace", uri, e, repo_id)
 
         return temp_dir
@@ -570,7 +621,9 @@ class Storage(object):
             else:
                 for blob in blobs:
                     # Replace any prefix from the object key with temp_dir
-                    subdir_object_key = blob.name.replace(bucket_path, "", 1).lstrip("/")
+                    subdir_object_key = blob.name.replace(bucket_path, "", 1).lstrip(
+                        "/"
+                    )
                     # Create necessary subdirectory to store the object locally
                     if "/" in subdir_object_key:
                         local_object_dir = os.path.join(
@@ -578,14 +631,19 @@ class Storage(object):
                         )
                         if not os.path.isdir(local_object_dir):
                             os.makedirs(local_object_dir, exist_ok=True)
-                    if subdir_object_key.strip() != "" and not subdir_object_key.endswith(
-                        "/"
+                    if (
+                        subdir_object_key.strip() != ""
+                        and not subdir_object_key.endswith("/")
                     ):
                         dest_path = os.path.join(temp_dir, subdir_object_key)
                         logger.info("Downloading: %s", dest_path)
                         blob.download_to_filename(dest_path)
                         file_count += 1
-        except (api_exceptions.Forbidden, api_exceptions.NotFound, auth_exceptions.GoogleAuthError) as e:
+        except (
+            api_exceptions.Forbidden,
+            api_exceptions.NotFound,
+            auth_exceptions.GoogleAuthError,
+        ) as e:
             Storage._raise_storage_error("GCS", uri, e, bucket_name)
 
         if file_count == 0:
@@ -755,7 +813,9 @@ class Storage(object):
             async with BlobServiceClient(
                 account_url, credential=token
             ) as blob_service_client:
-                container_client = blob_service_client.get_container_client(container_name)
+                container_client = blob_service_client.get_container_client(
+                    container_name
+                )
 
                 # Get all blobs using flat listing (no delimiter) to get all files regardless of hierarchy
                 blobs = []
@@ -766,7 +826,9 @@ class Storage(object):
                         blobs.append(blob)
 
                 if not blobs:
-                    raise RuntimeError("Failed to fetch model. No model found in %s." % uri)
+                    raise RuntimeError(
+                        "Failed to fetch model. No model found in %s." % uri
+                    )
 
                 # Create download tasks with semaphore control
                 download_tasks = [
@@ -789,7 +851,11 @@ class Storage(object):
                     else:
                         dest_path = result
                         file_count += 1
-        except (ClientAuthenticationError, ResourceNotFoundError, HttpResponseError) as e:
+        except (
+            ClientAuthenticationError,
+            ResourceNotFoundError,
+            HttpResponseError,
+        ) as e:
             Storage._raise_storage_error("Azure", uri, e, container_name)
 
         # Handle single file unpacking
@@ -858,7 +924,9 @@ class Storage(object):
             )
 
         try:
-            share_service_client = ShareServiceClient(account_url, credential=access_key)
+            share_service_client = ShareServiceClient(
+                account_url, credential=access_key
+            )
             share_client = share_service_client.get_share_client(share_name)
             file_count = 0
             share_files = []
@@ -889,7 +957,11 @@ class Storage(object):
                     data = file_client.download_file()
                     data.readinto(f)
                 file_count += 1
-        except (ClientAuthenticationError, ResourceNotFoundError, HttpResponseError) as e:
+        except (
+            ClientAuthenticationError,
+            ResourceNotFoundError,
+            HttpResponseError,
+        ) as e:
             Storage._raise_storage_error("Azure", uri, e, share_name)
 
         if file_count == 0:

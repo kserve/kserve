@@ -146,8 +146,10 @@ def test_no_permission_buckets(mock_connection, mock_resource):
     mock_s3_resource = mock.MagicMock()
     mock_s3_bucket = mock.MagicMock()
     mock_s3_bucket.objects.filter.return_value = [mock.MagicMock()]
-    mock_s3_resource.meta.client.head_bucket.side_effect = botocore.exceptions.ClientError(
-        {"Error": {"Code": "403", "Message": "Forbidden"}}, "HeadBucket"
+    mock_s3_resource.meta.client.head_bucket.side_effect = (
+        botocore.exceptions.ClientError(
+            {"Error": {"Code": "403", "Message": "Forbidden"}}, "HeadBucket"
+        )
     )
     mock_s3_resource.Bucket.return_value = mock_s3_bucket
     mock_resource.return_value = mock_s3_resource
