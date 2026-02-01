@@ -235,7 +235,7 @@ def test_http_uri_paths(uri, response, expected_error):
 
 
 def test_storage_blob_exception():
-    blob_path = "https://accountname.blob.core.windows.net/container/some/blob/"
+    blob_path = "https://localhost:1/container/some/blob/"
     with pytest.raises(Exception):
         Storage.download(blob_path)
 
@@ -290,3 +290,141 @@ def test_download_azure_file_share_called_with_matching_uri(
 
     expected_calls = [mock.call(uri, "dest_path") for uri in azure_file_uris]
     mock_download_azure_file_share.assert_has_calls(expected_calls)
+
+
+git_repo_test_params = [
+    # (uri, username_in_url, username_env, password_env, expected_clean_uri)
+    (
+        "https://github.com/user/repo.git",
+        None,
+        None,
+        None,
+        "https://github.com/user/repo.git",
+    ),
+    (
+        "https://username@github.com/user/repo.git",
+        "username",
+        None,
+        None,
+        "https://github.com/user/repo.git",
+    ),
+    (
+        "https://github.com/user/repo.git",
+        None,
+        "env_username",
+        "env_password",
+        "https://github.com/user/repo.git",
+    ),
+    (
+        "https://username@github.com/user/repo.git",
+        "username",
+        None,
+        "env_password",
+        "https://github.com/user/repo.git",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "uri,username_in_url,username_env,password_env,expected_clean_uri",
+    git_repo_test_params,
+)
+@mock.patch("dulwich.porcelain.clone")
+def test_git_repo_download_success(
+    mock_clone, uri, username_in_url, username_env, password_env, expected_clean_uri
+):
+    """Test successful git repository downloads with HTTPS authentication."""
+    out_dir = "/tmp/test_model"
+
+    env_vars = {}
+    if username_env:
+        env_vars["GIT_USERNAME"] = username_env
+    if password_env:
+        env_vars["GIT_PASSWORD"] = password_env
+
+    with mock.patch.dict(os.environ, env_vars):
+        result = Storage.download(uri, out_dir=out_dir)
+
+    assert result == out_dir
+
+    # Verify dulwich.porcelain.clone was called with correct arguments
+    mock_clone.assert_called_once()
+    call_args = mock_clone.call_args
+
+    # Check URI (should be clean URI without username)
+    assert call_args[0][0] == expected_clean_uri
+    assert call_args[0][1] == out_dir
+
+    # Check keyword arguments
+    kwargs = call_args[1]
+    assert kwargs["depth"] == 1
+
+    # Check username (from URL or env var)
+    expected_username = username_in_url or username_env
+    if expected_username:
+        assert kwargs["username"] == expected_username
+    else:
+        assert "username" not in kwargs
+
+    # Check password (from env var)
+    if password_env:
+        assert kwargs["password"] == password_env
+    else:
+        assert "password" not in kwargs
+
+
+@mock.patch("dulwich.porcelain.clone")
+def test_git_repo_download_git_protocol_error(mock_clone):
+    from dulwich.errors import GitProtocolError
+
+    uri = "https://github.com/user/nonexistent.git"
+    out_dir = "/tmp/test_model"
+
+    mock_clone.side_effect = GitProtocolError("Authentication failed")
+
+    with pytest.raises(RuntimeError) as exc_info:
+        Storage.download(uri, out_dir=out_dir)
+
+    assert f"git clone {uri} failed:" in str(exc_info.value)
+    assert "Authentication failed" in str(exc_info.value)
+
+
+git_error_test_params = [
+    Exception("Repository not found"),
+    Exception("Authentication failed"),
+    Exception("Network error"),
+]
+
+
+@pytest.mark.parametrize("exception", git_error_test_params)
+@mock.patch("dulwich.porcelain.clone")
+def test_git_repo_download_errors(mock_clone, exception):
+    uri = "https://github.com/user/nonexistent.git"
+    out_dir = "/tmp/test_model"
+
+    # Setup dulwich to raise the specified error
+    mock_clone.side_effect = exception
+
+    with pytest.raises(RuntimeError) as exc_info:
+        Storage.download(uri, out_dir=out_dir)
+
+    # Verify error message contains expected content
+    assert f"git clone {uri} failed:" in str(exc_info.value)
+    assert str(exception) in str(exc_info.value)
+
+
+@mock.patch("dulwich.porcelain.clone")
+def test_git_repo_download_public_repo_no_auth(mock_clone):
+    uri = "https://github.com/user/public-repo.git"
+    out_dir = "/tmp/test_model"
+
+    result = Storage.download(uri, out_dir=out_dir)
+
+    assert result == out_dir
+    mock_clone.assert_called_once()
+    call_args = mock_clone.call_args
+    kwargs = call_args[1]
+    assert kwargs["depth"] == 1
+    # No username or password should be passed for public repos
+    assert "username" not in kwargs
+    assert "password" not in kwargs
