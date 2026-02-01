@@ -12,27 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from vllm.entrypoints.openai.protocol import (
+from vllm.entrypoints.openai.chat_completion.protocol import (
     ChatCompletionResponseChoice as ChatCompletionChoice,
     ChatCompletionLogProb,
     ChatCompletionLogProbs,
     ChatCompletionStreamResponse as ChatCompletionChunk,
     ChatCompletionResponseStreamChoice as ChunkChoice,
     ChatMessage,
-    DeltaMessage as ChoiceDelta,
+    ChatCompletionLogProbsContent,
+)
+from vllm.entrypoints.openai.completion.protocol import (
     CompletionResponseChoice as CompletionChoice,
     CompletionStreamResponse as CompletionChunk,
     CompletionResponseStreamChoice as CompletionChunkChoice,
     CompletionLogProbs,
     UsageInfo,
-    ChatCompletionLogProbsContent,
+)
+from vllm.entrypoints.openai.engine.protocol import (
     ModelCard as Model,
     ModelList,
+    DeltaMessage as ChoiceDelta,
 )
-from vllm.entrypoints.openai.protocol import ChatCompletionRequest, ChatCompletionResponse as ChatCompletion
-from vllm.entrypoints.openai.protocol import CompletionRequest, CompletionResponse as Completion
-from vllm.entrypoints.openai.protocol import EmbeddingRequest, EmbeddingResponse as Embedding, EmbeddingResponseData, EmbeddingCompletionRequest
-from vllm.entrypoints.openai.protocol import RerankRequest, RerankResponse as Rerank
+from vllm.entrypoints.openai.chat_completion.protocol import ChatCompletionRequest, ChatCompletionResponse as ChatCompletion
+from vllm.entrypoints.openai.completion.protocol import CompletionRequest, CompletionResponse as Completion
+from vllm.entrypoints.pooling.embed.protocol import EmbeddingRequest, EmbeddingResponse as Embedding, EmbeddingResponseData, EmbeddingCompletionRequest
+from vllm.entrypoints.pooling.score.protocol import RerankRequest, RerankResponse as Rerank
 from vllm.entrypoints.chat_utils import (
     ChatCompletionContentPartParam,
     CustomChatCompletionMessageParam,
