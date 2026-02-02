@@ -11,6 +11,7 @@ on:
       - "config/rbac/llmisvc/**"
       - "cmd/llmisvc/**"
       - "test/e2e/llmisvc/**"
+      - "charts/kserve-llmisvc-resources/**"
       - ".github/workflows/e2e-test-llmisvc.yaml"
       - "hack/setup/quick-install/llmisvc-dependency-install.sh"
 
