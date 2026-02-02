@@ -7,11 +7,11 @@ on:
       - "pkg/apis/serving/v1alpha2/llm*"
       - "pkg/controller/v1alpha1/llmisvc/**"
       - "pkg/controller/v1alpha2/llmisvc/**"
+      - "charts/kserve-llmisvc-resources/**"
       - "config/llmisvc/**"
       - "config/rbac/llmisvc/**"
       - "cmd/llmisvc/**"
       - "test/e2e/llmisvc/**"
-      - "charts/kserve-llmisvc-resources/**"
       - ".github/workflows/e2e-test-llmisvc.yaml"
       - "hack/setup/quick-install/llmisvc-dependency-install.sh"
 
