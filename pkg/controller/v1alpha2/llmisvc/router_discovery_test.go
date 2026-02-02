@@ -781,31 +781,75 @@ func TestFilterURLs(t *testing.T) {
 	})
 }
 
-func TestHasUnsupportedBackendRefError(t *testing.T) {
+func TestIsInferencePoolV1Alpha2Supported(t *testing.T) {
+	v1alpha2Group := gwapiv1.Group("inference.networking.x-k8s.io")
+	v1Group := gwapiv1.Group("inference.networking.k8s.io")
+	poolKind := gwapiv1.Kind("InferencePool")
+
 	tests := []struct {
 		name     string
 		route    *gwapiv1.HTTPRoute
-		expected bool
+		expected metav1.ConditionStatus
 	}{
 		{
-			name:     "nil route returns false",
+			name:     "nil route returns Unknown",
 			route:    nil,
-			expected: false,
+			expected: metav1.ConditionUnknown,
 		},
 		{
-			name: "route with no parents returns false",
+			name: "route not using v1alpha2 InferencePool returns Unknown",
 			route: &gwapiv1.HTTPRoute{
-				Status: gwapiv1.HTTPRouteStatus{
-					RouteStatus: gwapiv1.RouteStatus{
-						Parents: []gwapiv1.RouteParentStatus{},
+				Spec: gwapiv1.HTTPRouteSpec{
+					Rules: []gwapiv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+									Group: &v1Group,
+									Kind:  &poolKind,
+									Name:  "test-pool",
+								}}},
+							},
+						},
 					},
 				},
 			},
-			expected: false,
+			expected: metav1.ConditionUnknown,
 		},
 		{
-			name: "route with ResolvedRefs=True returns false",
+			name: "route using v1alpha2 with no status returns Unknown",
 			route: &gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Rules: []gwapiv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+									Group: &v1alpha2Group,
+									Kind:  &poolKind,
+									Name:  "test-pool",
+								}}},
+							},
+						},
+					},
+				},
+			},
+			expected: metav1.ConditionUnknown,
+		},
+		{
+			name: "route using v1alpha2 with ResolvedRefs=True returns True (supported)",
+			route: &gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Rules: []gwapiv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+									Group: &v1alpha2Group,
+									Kind:  &poolKind,
+									Name:  "test-pool",
+								}}},
+							},
+						},
+					},
+				},
 				Status: gwapiv1.HTTPRouteStatus{
 					RouteStatus: gwapiv1.RouteStatus{
 						Parents: []gwapiv1.RouteParentStatus{
@@ -822,32 +866,24 @@ func TestHasUnsupportedBackendRefError(t *testing.T) {
 					},
 				},
 			},
-			expected: false,
+			expected: metav1.ConditionTrue,
 		},
 		{
-			name: "route with ResolvedRefs=False but different reason returns false",
+			name: "route using v1alpha2 with ResolvedRefs=False/InvalidKind returns False (rejected)",
 			route: &gwapiv1.HTTPRoute{
-				Status: gwapiv1.HTTPRouteStatus{
-					RouteStatus: gwapiv1.RouteStatus{
-						Parents: []gwapiv1.RouteParentStatus{
-							{
-								Conditions: []metav1.Condition{
-									{
-										Type:   string(gwapiv1.RouteConditionResolvedRefs),
-										Status: metav1.ConditionFalse,
-										Reason: "BackendNotFound",
-									},
-								},
+				Spec: gwapiv1.HTTPRouteSpec{
+					Rules: []gwapiv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+									Group: &v1alpha2Group,
+									Kind:  &poolKind,
+									Name:  "test-pool",
+								}}},
 							},
 						},
 					},
 				},
-			},
-			expected: false,
-		},
-		{
-			name: "route with ResolvedRefs=False and Reason=InvalidKind returns true (Envoy AI Gateway pattern)",
-			route: &gwapiv1.HTTPRoute{
 				Status: gwapiv1.HTTPRouteStatus{
 					RouteStatus: gwapiv1.RouteStatus{
 						Parents: []gwapiv1.RouteParentStatus{
@@ -865,29 +901,33 @@ func TestHasUnsupportedBackendRefError(t *testing.T) {
 					},
 				},
 			},
-			expected: true,
+			expected: metav1.ConditionFalse,
 		},
 		{
-			name: "route with multiple parents, one with InvalidKind returns true",
+			name: "route using v1alpha2 with ResolvedRefs=False but different reason returns True (not InvalidKind rejection)",
 			route: &gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Rules: []gwapiv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+									Group: &v1alpha2Group,
+									Kind:  &poolKind,
+									Name:  "test-pool",
+								}}},
+							},
+						},
+					},
+				},
 				Status: gwapiv1.HTTPRouteStatus{
 					RouteStatus: gwapiv1.RouteStatus{
 						Parents: []gwapiv1.RouteParentStatus{
-							{
-								Conditions: []metav1.Condition{
-									{
-										Type:   string(gwapiv1.RouteConditionResolvedRefs),
-										Status: metav1.ConditionTrue,
-										Reason: "ResolvedRefs",
-									},
-								},
-							},
 							{
 								Conditions: []metav1.Condition{
 									{
 										Type:   string(gwapiv1.RouteConditionResolvedRefs),
 										Status: metav1.ConditionFalse,
-										Reason: "InvalidKind",
+										Reason: "BackendNotFound",
 									},
 								},
 							},
@@ -895,28 +935,7 @@ func TestHasUnsupportedBackendRefError(t *testing.T) {
 					},
 				},
 			},
-			expected: true,
-		},
-		{
-			name: "route with only Accepted condition (no ResolvedRefs) returns false",
-			route: &gwapiv1.HTTPRoute{
-				Status: gwapiv1.HTTPRouteStatus{
-					RouteStatus: gwapiv1.RouteStatus{
-						Parents: []gwapiv1.RouteParentStatus{
-							{
-								Conditions: []metav1.Condition{
-									{
-										Type:   string(gwapiv1.RouteConditionAccepted),
-										Status: metav1.ConditionTrue,
-										Reason: "Accepted",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			expected: false,
+			expected: metav1.ConditionTrue,
 		},
 	}
 

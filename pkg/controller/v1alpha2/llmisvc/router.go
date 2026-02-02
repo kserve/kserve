@@ -199,21 +199,28 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 		return httpRoute
 	}
 
+	logger := log.FromContext(ctx).WithName("migration").
+		WithValues("InferencePoolV1Alpha2Available", r.InferencePoolV1Alpha2Available,
+			"InferencePoolV1Available", r.InferencePoolV1Available)
+
 	curr := &gwapiv1.HTTPRoute{}
-	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(httpRoute), curr); err != nil {
-		return httpRoute
-	}
+	routeExists := r.Client.Get(ctx, client.ObjectKeyFromObject(httpRoute), curr) == nil
 
 	const v1MigrationValue = "v1"
-	migrationValue, isMigrated := curr.Annotations[AnnotationInferencePoolMigrated]
-	isMigrated = isMigrated && migrationValue == v1MigrationValue
+	var isMigrated bool
+	var infPoolV1Alpha2Support, infPoolV1Support metav1.ConditionStatus
+
+	if routeExists {
+		migrationValue, hasMigrationAnnotation := curr.Annotations[AnnotationInferencePoolMigrated]
+		isMigrated = hasMigrationAnnotation && migrationValue == v1MigrationValue
+		infPoolV1Alpha2Support = IsInferencePoolV1Alpha2Supported(curr)
+		infPoolV1Support = IsInferencePoolV1Supported(curr)
+	}
 
 	// Switch to v1 if:
-	// - Gateway rejected v1alpha2 (detected from HTTPRoute status), OR
+	// - Gateway accepted v1 (route using v1 and ResolvedRefs=True), OR
+	// - Gateway rejected v1alpha2 (route using v1alpha2 and ResolvedRefs=False/InvalidKind), OR
 	// - Already migrated (annotation exists - one-way lock)
-	infPoolV1Alpha2Support := IsInferencePoolV1Alpha2Supported(curr)
-	infPoolV1Support := IsInferencePoolV1Supported(curr)
-
 	if isMigrated || infPoolV1Support == metav1.ConditionTrue || infPoolV1Alpha2Support == metav1.ConditionFalse {
 		// Switch backendRef to v1 API group
 		for i := range httpRoute.Spec.Rules {
@@ -229,7 +236,7 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 		}
 		httpRoute.Annotations[AnnotationInferencePoolMigrated] = v1MigrationValue
 
-		log.FromContext(ctx).Info("Using InferencePool v1 API for HTTPRoute",
+		logger.Info("Using InferencePool v1 API for HTTPRoute",
 			"isMigrated", isMigrated,
 			"infPoolV1Support", infPoolV1Support,
 			"infPoolV1Alpha2Support", infPoolV1Alpha2Support,
@@ -237,7 +244,6 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 			"httproute.curr.status", curr.Status,
 			"httproute.expected.spec", httpRoute.Spec,
 		)
-
 	} else if r.InferencePoolV1Alpha2Available {
 		// Not migrated yet, use v1alpha2
 		for i := range httpRoute.Spec.Rules {
@@ -248,7 +254,7 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 			}
 		}
 
-		log.FromContext(ctx).Info("Using InferencePool v1alpha2 API for HTTPRoute",
+		logger.Info("Using InferencePool v1alpha2 API for HTTPRoute",
 			"isMigrated", isMigrated,
 			"infPoolV1Support", infPoolV1Support,
 			"infPoolV1Alpha2Support", infPoolV1Alpha2Support,

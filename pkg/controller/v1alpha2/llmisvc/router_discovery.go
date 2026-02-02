@@ -432,7 +432,9 @@ func isBackendSupported(route *gwapiv1.HTTPRoute) metav1.ConditionStatus {
 		return metav1.ConditionUnknown
 	}
 
-	for _, parent := range route.Status.Parents {
+	// Check the first parent's status (TODO: filter to our specific gateway)
+	if len(route.Status.Parents) > 0 {
+		parent := route.Status.Parents[0]
 		cond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionResolvedRefs))
 		if cond == nil {
 			return metav1.ConditionUnknown
@@ -440,7 +442,6 @@ func isBackendSupported(route *gwapiv1.HTTPRoute) metav1.ConditionStatus {
 		if cond.Status == metav1.ConditionFalse && cond.Reason == string(gwapiv1.RouteReasonInvalidKind) {
 			return metav1.ConditionFalse
 		}
-		// TODO find the parents that belong to our gateway
 		return metav1.ConditionTrue
 	}
 
