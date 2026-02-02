@@ -1675,3 +1675,54 @@ func TestDefaultInferenceServiceWithLocalModel(t *testing.T) {
 	g.Expect(isvc.ObjectMeta.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelSourceUriAnnotationKey, "gs://testbucket/testmodel"))
 	g.Expect(isvc.ObjectMeta.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "local-model-node-group-1"))
 }
+
+func TestDefaultInferenceServiceNormalizesLegacyDeploymentMode(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: string(constants.Knative),
+	}
+
+	// Test RawDeployment -> Standard normalization
+	isvcRaw := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-raw",
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.DeploymentMode: string(constants.LegacyRawDeployment),
+			},
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://testbucket/testmodel"),
+					},
+				},
+			},
+		},
+	}
+	isvcRaw.DefaultInferenceService(nil, deployConfig, nil, nil)
+	g.Expect(isvcRaw.Annotations[constants.DeploymentMode]).To(gomega.Equal(string(constants.Standard)))
+
+	// Test Serverless -> Knative normalization
+	isvcServerless := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-serverless",
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.DeploymentMode: string(constants.LegacyServerless),
+			},
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://testbucket/testmodel"),
+					},
+				},
+			},
+		},
+	}
+	isvcServerless.DefaultInferenceService(nil, deployConfig, nil, nil)
+	g.Expect(isvcServerless.Annotations[constants.DeploymentMode]).To(gomega.Equal(string(constants.Knative)))
+}

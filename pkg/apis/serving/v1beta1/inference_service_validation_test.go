@@ -1419,6 +1419,19 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	// Annotation matches status, update is accepted
 	g.Expect(warnings).Should(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: Mismatched deploymentMode should be allowed during deletion (DeletionTimestamp set)
+	// This allows finalizer cleanup when annotation differs from status
+	deletingIsvc := oldIsvc.DeepCopy()
+	deletingIsvc.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.Standard), // Mismatches status (Knative)
+	}
+	now := metav1.Now()
+	deletingIsvc.DeletionTimestamp = &now
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, deletingIsvc)
+	// During deletion, deploymentMode mismatch should be allowed
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
 }
 
 func TestValidateDelete(t *testing.T) {
