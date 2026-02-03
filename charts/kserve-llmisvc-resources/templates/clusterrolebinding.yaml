@@ -5,7 +5,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: llmisvc-manager-role
+  name: kserve-llmisvc-manager-role
 subjects:
 - kind: ServiceAccount
   name: {{ include "llm-isvc-resources.serviceAccountName" . }}
