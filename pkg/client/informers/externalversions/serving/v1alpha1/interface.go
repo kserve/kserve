@@ -34,6 +34,8 @@ type Interface interface {
 	LLMInferenceServices() LLMInferenceServiceInformer
 	// LocalModelCaches returns a LocalModelCacheInformer.
 	LocalModelCaches() LocalModelCacheInformer
+	// LocalModelNamespaceCaches returns a LocalModelNamespaceCacheInformer.
+	LocalModelNamespaceCaches() LocalModelNamespaceCacheInformer
 	// LocalModelNodes returns a LocalModelNodeInformer.
 	LocalModelNodes() LocalModelNodeInformer
 	// LocalModelNodeGroups returns a LocalModelNodeGroupInformer.
@@ -78,6 +80,11 @@ func (v *version) LLMInferenceServices() LLMInferenceServiceInformer {
 // LocalModelCaches returns a LocalModelCacheInformer.
 func (v *version) LocalModelCaches() LocalModelCacheInformer {
 	return &localModelCacheInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// LocalModelNamespaceCaches returns a LocalModelNamespaceCacheInformer.
+func (v *version) LocalModelNamespaceCaches() LocalModelNamespaceCacheInformer {
+	return &localModelNamespaceCacheInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // LocalModelNodes returns a LocalModelNodeInformer.

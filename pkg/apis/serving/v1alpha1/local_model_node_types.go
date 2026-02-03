@@ -23,6 +23,25 @@ type LocalModelInfo struct {
 	SourceModelUri string `json:"sourceModelUri" validate:"required"`
 	// Model name. Used as the subdirectory name to store this model on local file system
 	ModelName string `json:"modelName" validate:"required"`
+	// Namespace of the LocalModelNamespaceCache CR (empty for cluster-scoped LocalModelCache)
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+	// ServiceAccountName specifies the service account to use for credential lookup.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// Storage configuration for credentials and storage parameters.
+	// +optional
+	Storage *LocalModelStorageSpec `json:"storage,omitempty"`
+}
+
+// GetStatusKey returns a unique key for the model in LocalModelNode status.
+// For cluster-scoped LocalModelCache, returns just the model name.
+// For namespace-scoped LocalModelNamespaceCache, returns "namespace/modelName".
+func (info *LocalModelInfo) GetStatusKey() string {
+	if info.Namespace == "" {
+		return info.ModelName
+	}
+	return info.Namespace + "/" + info.ModelName
 }
 
 // +k8s:openapi-gen=true

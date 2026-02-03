@@ -21,6 +21,8 @@ limitations under the License.
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=get;watch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get
 package localmodelnode
@@ -37,6 +39,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -52,13 +55,16 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
+	"github.com/kserve/kserve/pkg/credentials"
+	pkgtypes "github.com/kserve/kserve/pkg/types"
 )
 
 type LocalModelNodeReconciler struct {
 	client.Client
-	Clientset *kubernetes.Clientset
-	Log       logr.Logger
-	Scheme    *runtime.Scheme
+	Clientset         *kubernetes.Clientset
+	Log               logr.Logger
+	Scheme            *runtime.Scheme
+	CredentialBuilder *credentials.CredentialBuilder
 }
 
 const (
@@ -76,6 +82,7 @@ var (
 	nodeName                                 = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
 	modelsRootFolder                         = filepath.Join(MountPath, "models")
 	fsHelper                   FileSystemInterface
+	storageInitializerConfig   *pkgtypes.StorageInitializerConfig
 )
 
 // Returns the nodegroup of a node
@@ -112,25 +119,72 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	pvcName := modelInfo.ModelName + "-" + nodeGroup.Name
 	c.Log.Info("Found the nodegroup of current node. Using the following PVC name to create download job", "current node", nodeName, "node group", nodeGroup.Name, "PVC name", pvcName)
 
+	// First, try to get container spec from ClusterStorageContainer for backward compatibility
 	container, err := c.getContainerSpecForStorageUri(ctx, modelInfo.SourceModelUri)
 	if err != nil {
 		return nil, err
 	}
 
+	// If no ClusterStorageContainer match, use StorageInitializerConfig
+	if container == nil {
+		container = c.getContainerSpecFromConfig(storageInitializerConfig)
+	}
+
+	// Use hash-based folder path for storage deduplication
+	storageKey := v1alpha1.GetStorageKey(modelInfo.SourceModelUri)
 	container.Args = []string{modelInfo.SourceModelUri, MountPath}
 	container.VolumeMounts = []corev1.VolumeMount{
 		{
 			MountPath: MountPath,
 			Name:      PvcSourceMountName,
 			ReadOnly:  false,
-			SubPath:   filepath.Join("models", modelInfo.ModelName),
+			SubPath:   filepath.Join("models", storageKey),
 		},
 	}
+
+	// Initialize volumes with the PVC volume
+	volumes := []corev1.Volume{
+		{
+			Name: PvcSourceMountName,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvcName,
+				},
+			},
+		},
+	}
+
+	// Determine job namespace: use CR's namespace for LocalModelNamespaceCache, otherwise use configured jobNamespace
+	jobNs := jobNamespace
+	if modelInfo.Namespace != "" {
+		jobNs = modelInfo.Namespace
+	}
+
+	// Inject credentials based on modelInfo configuration
+	// Only inject if credentials are explicitly configured in LocalModelCache
+	if modelInfo.ServiceAccountName != "" || modelInfo.Storage != nil {
+		if err := c.injectCredentials(ctx, container, &volumes, modelInfo, jobNs); err != nil {
+			c.Log.Error(err, "Failed to inject credentials", "model", modelInfo.ModelName)
+			// Don't fail the job creation, continue with whatever credentials were injected
+		}
+	}
+
+	// Build job labels - include namespace for namespace-scoped models
+	// Note: statusKey (namespace/modelName) cannot be used as a label value since labels
+	// cannot contain '/'. We store namespace separately and reconstruct statusKey when needed.
+	jobLabels := map[string]string{
+		"model": modelInfo.ModelName,
+		"node":  localModelNode.Name,
+	}
+	if modelInfo.Namespace != "" {
+		jobLabels["modelNamespace"] = modelInfo.Namespace
+	}
+
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: jobName,
-			Namespace:    jobNamespace,
-			Labels:       map[string]string{"model": modelInfo.ModelName, "node": localModelNode.Name},
+			Namespace:    jobNs,
+			Labels:       jobLabels,
 		},
 		Spec: batchv1.JobSpec{
 			TTLSecondsAfterFinished: &jobTTLSecondsAfterFinished,
@@ -139,16 +193,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 					NodeName:      nodeName,
 					Containers:    []corev1.Container{*container},
 					RestartPolicy: corev1.RestartPolicyNever,
-					Volumes: []corev1.Volume{
-						{
-							Name: PvcSourceMountName,
-							VolumeSource: corev1.VolumeSource{
-								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: pvcName,
-								},
-							},
-						},
-					},
+					Volumes:       volumes,
 					SecurityContext: &corev1.PodSecurityContext{
 						FSGroup: FSGroup,
 					},
@@ -160,18 +205,79 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 		c.Log.Error(err, "Failed to set controller reference", "name", modelInfo.ModelName)
 		return nil, err
 	}
-	jobs := c.Clientset.BatchV1().Jobs(jobNamespace)
+	jobs := c.Clientset.BatchV1().Jobs(jobNs)
 	createdJob, err := jobs.Create(ctx, job, metav1.CreateOptions{})
 	if err != nil {
 		c.Log.Error(err, "Failed to create job.", "name", job.Name)
 		return nil, err
 	}
 	c.Log.Info("Created job", "name", createdJob.Name, "namespace", createdJob.Namespace,
-		"model", modelInfo.ModelName)
+		"model", modelInfo.ModelName, "storageKey", storageKey)
 	return createdJob, err
 }
 
+// getContainerSpecFromConfig creates a container spec from the StorageInitializerConfig
+func (c *LocalModelNodeReconciler) getContainerSpecFromConfig(config *pkgtypes.StorageInitializerConfig) *corev1.Container {
+	image := defaultJobImage
+	if config != nil && config.Image != "" {
+		image = config.Image
+	}
+
+	container := &corev1.Container{
+		Name:                     DownloadContainerName,
+		Image:                    image,
+		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+	}
+
+	// Set resource limits/requests from config if available
+	if config != nil {
+		container.Resources = corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse(config.CpuLimit),
+				corev1.ResourceMemory: resource.MustParse(config.MemoryLimit),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse(config.CpuRequest),
+				corev1.ResourceMemory: resource.MustParse(config.MemoryRequest),
+			},
+		}
+	}
+
+	return container
+}
+
+// injectCredentials injects credentials into the container based on the modelInfo configuration
+func (c *LocalModelNodeReconciler) injectCredentials(ctx context.Context, container *corev1.Container,
+	volumes *[]corev1.Volume, modelInfo v1alpha1.LocalModelInfo, jobNs string,
+) error {
+	if c.CredentialBuilder == nil {
+		c.Log.Info("CredentialBuilder not initialized, skipping credential injection")
+		return nil
+	}
+
+	// If storage spec with key is provided, use storage spec credentials
+	if modelInfo.Storage != nil && modelInfo.Storage.StorageKey != nil {
+		var params map[string]string
+		if modelInfo.Storage.Parameters != nil {
+			params = *modelInfo.Storage.Parameters
+		}
+		c.Log.Info("Injecting storage spec credentials", "storageKey", *modelInfo.Storage.StorageKey)
+		return c.CredentialBuilder.CreateStorageSpecSecretEnvs(
+			ctx, jobNs, nil, *modelInfo.Storage.StorageKey, params, container)
+	}
+
+	// Use service account credentials
+	serviceAccountName := modelInfo.ServiceAccountName
+	if serviceAccountName == "" {
+		serviceAccountName = "default"
+	}
+	c.Log.Info("Injecting service account credentials", "serviceAccountName", serviceAccountName)
+	return c.CredentialBuilder.CreateSecretVolumeAndEnv(
+		ctx, jobNs, nil, serviceAccountName, container, volumes)
+}
+
 // Fetches container spec for model download container, use the default KServe image if not found
+// This function is kept for backward compatibility with ClusterStorageContainer
 func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Context, storageUri string) (*corev1.Container, error) {
 	storageContainers := &v1alpha1.ClusterStorageContainerList{}
 	if err := c.Client.List(ctx, storageContainers); err != nil {
@@ -194,28 +300,34 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 		}
 	}
 
-	defaultContainer := &corev1.Container{
-		Name:                     DownloadContainerName,
-		Image:                    defaultJobImage,
-		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-	}
-	return defaultContainer, nil
+	return nil, nil
 }
 
-func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelName string, nodeName string) (*batchv1.Job, int, error) {
+func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelInfo v1alpha1.LocalModelInfo, nodeName string) (*batchv1.Job, int, error) {
 	jobList := &batchv1.JobList{}
 	labelSelector := map[string]string{
-		"model": modelName,
+		"model": modelInfo.ModelName,
 		"node":  nodeName,
 	}
-	if err := c.Client.List(ctx, jobList, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
+	// For namespace-scoped models, also filter by namespace label
+	if modelInfo.Namespace != "" {
+		labelSelector["modelNamespace"] = modelInfo.Namespace
+	}
+
+	// Determine the namespace to search for jobs
+	jobNs := jobNamespace
+	if modelInfo.Namespace != "" {
+		jobNs = modelInfo.Namespace
+	}
+
+	if err := c.Client.List(ctx, jobList, client.InNamespace(jobNs), client.MatchingLabels(labelSelector)); err != nil {
 		if errors.IsNotFound(err) {
-			c.Log.Info("Job not found", "model", modelName)
+			c.Log.Info("Job not found", "model", modelInfo.ModelName, "namespace", modelInfo.Namespace)
 			return nil, 0, nil
 		}
 		return nil, 0, err
 	}
-	c.Log.Info("Found jobs", "model", modelName, "num of jobs", len(jobList.Items))
+	c.Log.Info("Found jobs", "model", modelInfo.ModelName, "namespace", modelInfo.Namespace, "num of jobs", len(jobList.Items))
 	var latestJob *batchv1.Job
 	for i, job := range jobList.Items {
 		if latestJob == nil || job.CreationTimestamp.After(latestJob.CreationTimestamp.Time) {
@@ -240,49 +352,67 @@ func getModelStatusFromJobStatus(jobStatus batchv1.JobStatus) v1alpha1.ModelStat
 
 // Create jobs to download models if the model is not present locally
 // Update the status of the LocalModelNode CR
+// Uses hash-based folders for storage deduplication while tracking each CR individually in status
 func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1.LocalModelNode) error {
 	c.Log.Info("Downloading models to", "node", localModelNode.ObjectMeta.Name)
 
 	newStatus := map[string]v1alpha1.ModelStatus{}
+	// Track which storage keys (URI hashes) have been processed for download deduplication
+	processedStorageKeys := map[string]v1alpha1.ModelStatus{}
+
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
-		c.Log.Info("checking model from spec", "model", modelInfo.ModelName)
+		statusKey := modelInfo.GetStatusKey()
+		storageKey := v1alpha1.GetStorageKey(modelInfo.SourceModelUri)
+		c.Log.Info("checking model from spec", "model", modelInfo.ModelName, "namespace", modelInfo.Namespace, "statusKey", statusKey, "storageKey", storageKey)
+
+		// Check if another CR with the same URI has already been processed
+		// If so, reuse its status (storage deduplication - same folder on disk)
+		if status, exists := processedStorageKeys[storageKey]; exists {
+			c.Log.Info("Reusing status from another CR with same URI", "statusKey", statusKey, "storageKey", storageKey, "status", status)
+			newStatus[statusKey] = status
+			continue
+		}
+
 		var job *batchv1.Job
-		folderExists, err := fsHelper.hasModelFolder(modelInfo.ModelName)
+		folderExists, err := fsHelper.hasModelFolder(storageKey)
 		if err != nil {
-			c.Log.Error(err, "Failed to check model folder", "model", modelInfo.ModelName)
+			c.Log.Error(err, "Failed to check model folder", "model", modelInfo.ModelName, "storageKey", storageKey)
 			return err
 		}
 		if folderExists {
-			c.Log.Info("Model folder found", "model", modelInfo.ModelName)
+			c.Log.Info("Model folder found", "model", modelInfo.ModelName, "storageKey", storageKey)
 			// If folder exists and the job has been successfully completed, do nothing
 			// If the job is cleaned up, no new job is created because the status is already set to ModelDownloaded
-			if status, ok := localModelNode.Status.ModelStatus[modelInfo.ModelName]; ok {
+			if status, ok := localModelNode.Status.ModelStatus[statusKey]; ok {
 				if status == v1alpha1.ModelDownloaded {
-					newStatus[modelInfo.ModelName] = v1alpha1.ModelDownloaded
+					newStatus[statusKey] = v1alpha1.ModelDownloaded
+					processedStorageKeys[storageKey] = v1alpha1.ModelDownloaded
 					continue
 				}
 			}
-			job, _, err = c.getLatestJob(ctx, modelInfo.ModelName, nodeName)
+			job, _, err = c.getLatestJob(ctx, modelInfo, nodeName)
 			if err != nil {
 				c.Log.Error(err, "Failed to getLatestJob", "model", modelInfo.ModelName, "node", nodeName)
 				return err
 			}
 			// If job is not found, create a new one. Because download could be incomplete.
 			if job == nil {
-				c.Log.Info("Model folder exists, creating download job", "model", modelInfo.ModelName)
+				c.Log.Info("Model folder exists, creating download job", "model", modelInfo.ModelName, "storageKey", storageKey)
 				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
 				if err != nil {
 					c.Log.Error(err, "Failed to create Job", "model", modelInfo.ModelName, "node", nodeName)
 					return err
 				}
 			}
-			newStatus[modelInfo.ModelName] = getModelStatusFromJobStatus(job.Status)
-			c.Log.Info("model downloading status:", "model", modelInfo.ModelName,
-				"node", localModelNode.ObjectMeta.Name, "status", newStatus[modelInfo.ModelName])
+			status := getModelStatusFromJobStatus(job.Status)
+			newStatus[statusKey] = status
+			processedStorageKeys[storageKey] = status
+			c.Log.Info("model downloading status:", "model", modelInfo.ModelName, "statusKey", statusKey,
+				"node", localModelNode.ObjectMeta.Name, "status", status)
 		} else {
 			// Folder does not exist
-			c.Log.Info("Model folder not found", "model", modelInfo.ModelName)
-			job, jobCount, err := c.getLatestJob(ctx, modelInfo.ModelName, nodeName)
+			c.Log.Info("Model folder not found", "model", modelInfo.ModelName, "storageKey", storageKey)
+			job, jobCount, err := c.getLatestJob(ctx, modelInfo, nodeName)
 			if err != nil {
 				c.Log.Error(err, "Failed to getLatestJob", "model", modelInfo.ModelName, "node", nodeName)
 				return err
@@ -301,9 +431,11 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 					return err
 				}
 			}
-			newStatus[modelInfo.ModelName] = getModelStatusFromJobStatus(job.Status)
-			c.Log.Info("model downloading status:", "model", modelInfo.ModelName,
-				"node", localModelNode.ObjectMeta.Name, "status", newStatus[modelInfo.ModelName])
+			status := getModelStatusFromJobStatus(job.Status)
+			newStatus[statusKey] = status
+			processedStorageKeys[storageKey] = status
+			c.Log.Info("model downloading status:", "model", modelInfo.ModelName, "statusKey", statusKey,
+				"node", localModelNode.ObjectMeta.Name, "status", status)
 		}
 	}
 
@@ -323,13 +455,13 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 }
 
 // Delete models that are not in the spec
+// Uses hash-based folder names (storageKey) for storage deduplication
 func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1.LocalModelNode) error {
 	// 1. Scan model dir and get a list of existing folders representing downloaded models
 	foldersToRemove := map[string]struct{}{}
 	entries, err := fsHelper.getModelFolders()
 	if err != nil {
 		c.Log.Error(err, "Failed to list model folder")
-		// TODO Reviewer: Is the err ignored intentionally?
 		return err
 	}
 	for _, entry := range entries {
@@ -339,19 +471,19 @@ func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1.LocalMod
 		}
 	}
 
-	// 2. Compare with list of models from LocalModelNode CR
+	// 2. Compare with list of models from LocalModelNode CR using storage keys (URI hashes)
 	for _, localModelInfo := range localModelNode.Spec.LocalModels {
-		// Remove expected models from local model set
-		delete(foldersToRemove, localModelInfo.ModelName)
+		// Remove expected models from local model set using storage key
+		storageKey := v1alpha1.GetStorageKey(localModelInfo.SourceModelUri)
+		delete(foldersToRemove, storageKey)
 	}
 	// 3. Models not in LocalModelNode CR spec should be deleted
 	if len(foldersToRemove) != 0 {
 		c.Log.Info("Found model(s) to remove", "num of models", len(foldersToRemove))
-		for modelName := range foldersToRemove {
-			c.Log.Info("Removing model", "model", modelName)
-			if err := fsHelper.removeModel(modelName); err != nil {
-				c.Log.Error(err, "Failed to remove model directory", "model", modelName)
-				// TODO Reviewer: Is the err ignored intentionally?
+		for storageKey := range foldersToRemove {
+			c.Log.Info("Removing model folder", "storageKey", storageKey)
+			if err := fsHelper.removeModel(storageKey); err != nil {
+				c.Log.Error(err, "Failed to remove model directory", "storageKey", storageKey)
 				return err
 			}
 		}
@@ -360,34 +492,46 @@ func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1.LocalMod
 }
 
 func (c *LocalModelNodeReconciler) cleanupJobs(ctx context.Context, localModelNode v1alpha1.LocalModelNode) error {
-	// 1. Get all jobs for the LocalModelNode
-	jobs := &batchv1.JobList{}
-	labelSelector := map[string]string{"node": localModelNode.Name}
-	if err := c.Client.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
-		c.Log.Error(err, "Failed to list jobs", "node", localModelNode.Name)
-		return err
-	}
-
-	// 2. Get a list of models that are in the spec
-	modelsInSpec := map[string]struct{}{}
+	// Build a set of status keys that are in the spec
+	statusKeysInSpec := map[string]struct{}{}
+	namespacesInSpec := map[string]struct{}{jobNamespace: {}} // Always include default job namespace
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
-		modelsInSpec[modelInfo.ModelName] = struct{}{}
+		statusKeysInSpec[modelInfo.GetStatusKey()] = struct{}{}
+		if modelInfo.Namespace != "" {
+			namespacesInSpec[modelInfo.Namespace] = struct{}{}
+		}
 	}
 
-	// 3. Delete jobs that are not in the spec
-	for i := range jobs.Items {
-		job := jobs.Items[i]
-		modelName, ok := job.Labels["model"]
-		if !ok {
-			c.Log.Info("Job does not have model label", "job", job.Name)
-			continue
+	// Search for jobs in all relevant namespaces
+	for ns := range namespacesInSpec {
+		jobs := &batchv1.JobList{}
+		labelSelector := map[string]string{"node": localModelNode.Name}
+		if err := c.Client.List(ctx, jobs, client.InNamespace(ns), client.MatchingLabels(labelSelector)); err != nil {
+			c.Log.Error(err, "Failed to list jobs", "node", localModelNode.Name, "namespace", ns)
+			return err
 		}
-		if _, ok := modelsInSpec[modelName]; !ok {
-			c.Log.Info("Deleting job", "job", job.Name, "model", modelName)
-			propagationPolicy := metav1.DeletePropagationBackground
-			if err := c.Client.Delete(ctx, &job, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
-				c.Log.Error(err, "Failed to delete job", "job", job.Name)
-				return err
+
+		// Delete jobs that are not in the spec
+		for i := range jobs.Items {
+			job := jobs.Items[i]
+			// Reconstruct statusKey from labels
+			// statusKey format: "modelName" for cluster-scoped, "namespace/modelName" for namespace-scoped
+			modelName := job.Labels["model"]
+			if modelName == "" {
+				c.Log.Info("Job does not have model label", "job", job.Name)
+				continue
+			}
+			statusKey := modelName
+			if modelNamespace, ok := job.Labels["modelNamespace"]; ok && modelNamespace != "" {
+				statusKey = modelNamespace + "/" + modelName
+			}
+			if _, ok := statusKeysInSpec[statusKey]; !ok {
+				c.Log.Info("Deleting job", "job", job.Name, "statusKey", statusKey, "namespace", ns)
+				propagationPolicy := metav1.DeletePropagationBackground
+				if err := c.Client.Delete(ctx, &job, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
+					c.Log.Error(err, "Failed to delete job", "job", job.Name)
+					return err
+				}
 			}
 		}
 	}
@@ -444,6 +588,18 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 	if localModelConfig.JobTTLSecondsAfterFinished != nil {
 		jobTTLSecondsAfterFinished = *localModelConfig.JobTTLSecondsAfterFinished
+	}
+
+	// Load StorageInitializerConfig for container spec
+	storageInitializerConfig, err = v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
+	if err != nil {
+		c.Log.Error(err, "Failed to get storage initializer config, using defaults")
+		// Don't fail, just use defaults
+	}
+
+	// Initialize CredentialBuilder if not already initialized
+	if c.CredentialBuilder == nil {
+		c.CredentialBuilder = credentials.NewCredentialBuilder(c.Client, c.Clientset, isvcConfigMap)
 	}
 
 	if err := c.downloadModels(ctx, &localModelNode); err != nil {

@@ -58,6 +58,14 @@ type LocalModelCacheListerExpansion interface{}
 // LocalModelCacheNamespaceLister.
 type LocalModelCacheNamespaceListerExpansion interface{}
 
+// LocalModelNamespaceCacheListerExpansion allows custom methods to be added to
+// LocalModelNamespaceCacheLister.
+type LocalModelNamespaceCacheListerExpansion interface{}
+
+// LocalModelNamespaceCacheNamespaceListerExpansion allows custom methods to be added to
+// LocalModelNamespaceCacheNamespaceLister.
+type LocalModelNamespaceCacheNamespaceListerExpansion interface{}
+
 // LocalModelNodeListerExpansion allows custom methods to be added to
 // LocalModelNodeLister.
 type LocalModelNodeListerExpansion interface{}
