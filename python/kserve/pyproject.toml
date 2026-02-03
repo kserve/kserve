@@ -63,7 +63,7 @@ logging = [
     "asgi-logger<1.0.0,>=0.1.0",
 ]
 ray = [
-    "ray[serve]>=2.43.0",
+    "ray[serve]>=2.51.0",
 ]
 llm = [
     "vllm==0.11.2",
