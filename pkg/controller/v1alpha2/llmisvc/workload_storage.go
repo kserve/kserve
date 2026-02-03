@@ -24,17 +24,18 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/credentials/s3"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
+	pod "github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
 
 const CaBundleVolumeName = "cabundle-cert"
@@ -253,24 +254,20 @@ func (r *LLMISVCReconciler) attachStorageInitializer(ctx context.Context, modelU
 	}
 	initContainer := utils.CreateInitContainerWithConfig(storageConfig, containerArgs)
 
-	// List ClusterStorageContainers to find a match for the model URI
-	cscList := &v1alpha1.ClusterStorageContainerList{}
-	if err := r.List(ctx, cscList); err != nil {
-		return err
-	}
-
-	// Iterate over ClusterStorageContainers and inject env vars if the URI matches
-	for _, csc := range cscList.Items {
-		if csc.IsDisabled() {
-			continue
+	// Use shared helpers to get CSC spec for this URI, then merge into initContainer
+	storageContainerSpec, err := pod.GetStorageContainerSpec(ctx, modelUri, r.Client)
+	if err != nil {
+		// If the ClusterStorageContainer CRD is not found (e.g. only llmisvc chart is installed),
+		// we should just skip the env injection and proceed with the default initialization.
+		if meta.IsNoMatchError(err) {
+			log.FromContext(ctx).V(1).Info("ClusterStorageContainer CRD not found, skipping env injection", "error", err)
+		} else {
+			return fmt.Errorf("failed to get ClusterStorageContainer spec for URI %s: %w", modelUri, err)
 		}
-		ok, err := csc.Spec.IsStorageUriSupported(modelUri)
-		if err != nil {
-			continue
-		}
-		if ok {
-			initContainer.Env = mergeEnv(initContainer.Env, csc.Spec.Container.Env)
-			break
+	} else if storageContainerSpec != nil {
+		// Only merge if we found a valid spec
+		if err := pod.MergeContainerSpecs(initContainer, &storageContainerSpec.Container); err != nil {
+			return fmt.Errorf("failed to merge ClusterStorageContainer container spec: %w", err)
 		}
 	}
 
@@ -382,31 +379,4 @@ func needCaBundleMount(caBundleConfigMapName string, initContainer *corev1.Conta
 		}
 	}
 	return result
-}
-
-// mergeEnv merges env vars, where "override" wins when names collide.
-// This is what we want for cluster-level proxy injection (HTTP_PROXY/HTTPS_PROXY).
-func mergeEnv(base, override []corev1.EnvVar) []corev1.EnvVar {
-	if len(base) == 0 && len(override) == 0 {
-		return nil
-	}
-
-	out := make([]corev1.EnvVar, 0, len(base)+len(override))
-	index := map[string]int{}
-
-	for _, e := range base {
-		index[e.Name] = len(out)
-		out = append(out, e)
-	}
-
-	for _, e := range override {
-		if i, ok := index[e.Name]; ok {
-			out[i] = e
-		} else {
-			index[e.Name] = len(out)
-			out = append(out, e)
-		}
-	}
-
-	return out
 }
