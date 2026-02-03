@@ -491,33 +491,38 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 	}
 	isvcStorageUri := *isvc.Spec.Predictor.GetImplementation().GetStorageUri()
 	var localModel *v1alpha1.LocalModelCache
-	var localModelPVCName string
 	isvcNodeGroup, isvcNodeGroupExists := isvc.Annotations[constants.NodeGroupAnnotationKey]
-	for i, model := range models.Items {
-		// both storage URI and node group have to match for the isvc to be considered cached
-		if model.Spec.MatchStorageURI(isvcStorageUri) {
-			if isvcNodeGroupExists {
-				if slices.Contains(model.Spec.NodeGroups, isvcNodeGroup) {
-					// isvc has the nodegroup annotation and it's in the node groups this model is cached on
-					localModelPVCName = model.Name + "-" + isvcNodeGroup
-				} else {
-					// isvc has the nodegroup annotation, but it's not in node groups this model is cached on
-					// isvc is not considered cached in this case
-					continue
-				}
-			} else {
-				// isvc doesn't have the nodegroup annotation. Use the first node group from model cache
-				localModelPVCName = model.Name + "-" + model.Spec.NodeGroups[0]
+
+	// If ISVC already has a LocalModel label, check if it's still valid
+	if existingLabel, ok := isvc.Labels[constants.LocalModelLabel]; ok {
+		for i, model := range models.Items {
+			if model.Name == existingLabel && model.Spec.MatchStorageURI(isvcStorageUri) {
+				localModel = &models.Items[i]
+				break
 			}
-			// found matched local model cache for isvc
-			localModel = &models.Items[i]
-			break
 		}
 	}
+
+	// If no existing label or it's invalid, find first matching LocalModelCache
+	if localModel == nil {
+		for i, model := range models.Items {
+			if model.Spec.MatchStorageURI(isvcStorageUri) {
+				if isvcNodeGroupExists && !slices.Contains(model.Spec.NodeGroups, isvcNodeGroup) {
+					continue
+				}
+				localModel = &models.Items[i]
+				break
+			}
+		}
+	}
+
 	if localModel == nil {
 		deleteLocalModelMetadata(isvc)
 		return
 	}
+
+	localModelPVCName := buildLocalModelPVCName(localModel, isvcNodeGroup, isvcNodeGroupExists)
+
 	if isvc.Labels == nil {
 		isvc.Labels = make(map[string]string)
 	}
@@ -529,4 +534,11 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 	isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModelPVCName
 
 	mutatorLogger.Info("LocalModelCache found", "model", localModel.Name, "namespace", isvc.Namespace, "isvc", isvc.Name)
+}
+
+func buildLocalModelPVCName(model *v1alpha1.LocalModelCache, nodeGroup string, nodeGroupExists bool) string {
+	if nodeGroupExists && slices.Contains(model.Spec.NodeGroups, nodeGroup) {
+		return model.Name + "-" + nodeGroup
+	}
+	return model.Name + "-" + model.Spec.NodeGroups[0]
 }

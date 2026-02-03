@@ -35,6 +35,11 @@ type LocalModelCacheSpec struct {
 	// Todo: support more than 1 node groups
 	// +kubebuilder:validation:MinItems=1
 	NodeGroups []string `json:"nodeGroups" validate:"required"`
+	// Version of the model cache. Used for automatic migration when models are updated.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:default=1
+	// +optional
+	Version int32 `json:"version,omitempty"`
 }
 
 // LocalModelCache

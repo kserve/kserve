@@ -94,6 +94,21 @@ func makeTestLocalModelCacheWithSameStorageURI() v1alpha1.LocalModelCache {
 	return localModelCache
 }
 
+func makeTestLocalModelCacheWithVersion(version int32) v1alpha1.LocalModelCache {
+	localModelCache := v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "iris",
+		},
+		Spec: v1alpha1.LocalModelCacheSpec{
+			ModelSize:      resource.MustParse("1Gi"),
+			NodeGroups:     []string{"gpu1"},
+			SourceModelUri: storageURI,
+			Version:        version,
+		},
+	}
+	return localModelCache
+}
+
 func TestUnableToDeleteLocalModelCacheWithActiveIsvc(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	lmc := makeTestLocalModelCache()
@@ -110,22 +125,6 @@ func TestUnableToDeleteLocalModelCacheWithActiveIsvc(t *testing.T) {
 	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s is being used by InferenceService %s", lmc.Name, isvc.Name)))
 }
 
-func TestUnableToCreateLocalModelCacheWithSameStorageURI(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	lmc := makeTestLocalModelCache()
-	s := runtime.NewScheme()
-	err := v1alpha1.AddToScheme(s)
-	if err != nil {
-		t.Errorf("unable to add scheme : %v", err)
-	}
-	fakeClient := fake.NewClientBuilder().WithObjects(&lmc).WithScheme(s).Build()
-	validator := LocalModelCacheValidator{fakeClient}
-	newLmc := makeTestLocalModelCacheWithSameStorageURI()
-	warnings, err := validator.ValidateCreate(t.Context(), &newLmc)
-	g.Expect(warnings).NotTo(gomega.BeNil())
-	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s has the same StorageURI %s", lmc.Name, newLmc.Spec.SourceModelUri)))
-}
-
 func makeTestLocalModelCacheWithDifferentStorageURI() v1alpha1.LocalModelCache {
 	localModelCache := v1alpha1.LocalModelCache{
 		ObjectMeta: metav1.ObjectMeta{
@@ -140,9 +139,9 @@ func makeTestLocalModelCacheWithDifferentStorageURI() v1alpha1.LocalModelCache {
 	return localModelCache
 }
 
-func TestValidateUpdate_LocalModelCacheWithSameStorageURI(t *testing.T) {
+func TestValidateCreate_DuplicateVersion(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	existingLmc := makeTestLocalModelCache()
+	existingLmc := makeTestLocalModelCacheWithVersion(1)
 	s := runtime.NewScheme()
 	err := v1alpha1.AddToScheme(s)
 	if err != nil {
@@ -150,12 +149,174 @@ func TestValidateUpdate_LocalModelCacheWithSameStorageURI(t *testing.T) {
 	}
 	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc).WithScheme(s).Build()
 	validator := LocalModelCacheValidator{fakeClient}
-	// newLmc has a different name but same StorageURI as existingLmc
-	newLmc := makeTestLocalModelCacheWithSameStorageURI()
-	oldLmc := makeTestLocalModelCacheWithDifferentStorageURI()
-	warnings, err := validator.ValidateUpdate(t.Context(), &oldLmc, &newLmc)
+	
+	// Try to create another cache with same URI and version
+	newLmc := v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "iris-v2"},
+		Spec: v1alpha1.LocalModelCacheSpec{
+			SourceModelUri: storageURI,
+			Version:        1, // Same version
+			ModelSize:      resource.MustParse("1Gi"),
+			NodeGroups:     []string{"gpu1"},
+		},
+	}
+	warnings, err := validator.ValidateCreate(t.Context(), &newLmc)
 	g.Expect(warnings).NotTo(gomega.BeNil())
-	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s has the same StorageURI %s", existingLmc.Name, newLmc.Spec.SourceModelUri)))
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(err.Error()).To(gomega.ContainSubstring("cannot create version 1"))
+}
+
+func TestValidateCreate_NewerVersion(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	existingLmc := makeTestLocalModelCacheWithVersion(1)
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc).WithScheme(s).Build()
+	validator := LocalModelCacheValidator{fakeClient}
+	
+	// Create cache with same URI but newer version
+	newLmc := v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "iris-v2"},
+		Spec: v1alpha1.LocalModelCacheSpec{
+			SourceModelUri: storageURI,
+			Version:        2,
+			ModelSize:      resource.MustParse("1Gi"),
+			NodeGroups:     []string{"gpu1"},
+		},
+	}
+	warnings, err := validator.ValidateCreate(t.Context(), &newLmc)
+	g.Expect(len(warnings)).To(gomega.Equal(0))
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+}
+
+func TestValidateCreate_OlderVersion(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	existingLmc := makeTestLocalModelCacheWithVersion(2)
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc).WithScheme(s).Build()
+	validator := LocalModelCacheValidator{fakeClient}
+	
+	// Try to create cache with older version
+	newLmc := v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "iris-v1"},
+		Spec: v1alpha1.LocalModelCacheSpec{
+			SourceModelUri: storageURI,
+			Version:        1,
+			ModelSize:      resource.MustParse("1Gi"),
+			NodeGroups:     []string{"gpu1"},
+		},
+	}
+	warnings, err := validator.ValidateCreate(t.Context(), &newLmc)
+	g.Expect(warnings).NotTo(gomega.BeNil())
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(err.Error()).To(gomega.ContainSubstring("cannot create version 1"))
+}
+
+func TestValidateCreate_DifferentURISameVersion(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	existingLmc := makeTestLocalModelCacheWithVersion(1)
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc).WithScheme(s).Build()
+	validator := LocalModelCacheValidator{fakeClient}
+	
+	// Different URI with same version should be allowed
+	newLmc := v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "other-model"},
+		Spec: v1alpha1.LocalModelCacheSpec{
+			SourceModelUri: "gs://otherbucket/othermodel",
+			Version:        1,
+			ModelSize:      resource.MustParse("1Gi"),
+			NodeGroups:     []string{"gpu1"},
+		},
+	}
+	warnings, err := validator.ValidateCreate(t.Context(), &newLmc)
+	g.Expect(len(warnings)).To(gomega.Equal(0))
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+}
+
+func TestValidateCreate_FirstLocalModelCache(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(s).Build()
+	validator := LocalModelCacheValidator{fakeClient}
+	
+	newLmc := makeTestLocalModelCache()
+	warnings, err := validator.ValidateCreate(t.Context(), &newLmc)
+	g.Expect(len(warnings)).To(gomega.Equal(0))
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+}
+
+func TestValidateUpdate_DuplicateVersion(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	existingLmc := makeTestLocalModelCacheWithVersion(1)
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc).WithScheme(s).Build()
+	validator := LocalModelCacheValidator{fakeClient}
+
+	// Try to update another cache to same version
+	oldLmc := v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "iris-v2"},
+		Spec: v1alpha1.LocalModelCacheSpec{
+			SourceModelUri: storageURI,
+			Version:        2,
+			ModelSize:      resource.MustParse("1Gi"),
+			NodeGroups:     []string{"gpu1"},
+		},
+	}
+	newLmc := oldLmc.DeepCopy()
+	newLmc.Spec.Version = 1 // Change to duplicate version
+	warnings, err := validator.ValidateUpdate(t.Context(), &oldLmc, newLmc)
+	g.Expect(warnings).NotTo(gomega.BeNil())
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(err.Error()).To(gomega.ContainSubstring("cannot update to version 1"))
+}
+
+func TestValidateUpdate_OlderVersion(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	existingLmc := makeTestLocalModelCacheWithVersion(3)
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc).WithScheme(s).Build()
+	validator := LocalModelCacheValidator{fakeClient}
+
+	// Try to update to older version than existing
+	oldLmc := v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "iris-v2"},
+		Spec: v1alpha1.LocalModelCacheSpec{
+			SourceModelUri: storageURI,
+			Version:        4,
+			ModelSize:      resource.MustParse("1Gi"),
+			NodeGroups:     []string{"gpu1"},
+		},
+	}
+	newLmc := oldLmc.DeepCopy()
+	newLmc.Spec.Version = 2 // Change to older version
+	warnings, err := validator.ValidateUpdate(t.Context(), &oldLmc, newLmc)
+	g.Expect(warnings).NotTo(gomega.BeNil())
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(err.Error()).To(gomega.ContainSubstring("cannot update to version 2"))
 }
 
 func TestValidateUpdate_LocalModelCacheWithUniqueStorageURI(t *testing.T) {

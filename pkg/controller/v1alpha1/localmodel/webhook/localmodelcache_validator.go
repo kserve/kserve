@@ -58,14 +58,17 @@ func (v *LocalModelCacheValidator) ValidateCreate(ctx context.Context, obj runti
 		return nil, err
 	}
 	localModelCacheValidatorLogger.Info("validate create", "name", localModelCache.Name)
-	localModelCacheWithSameStorageURI, err := v.validateUniqueStorageURI(ctx, localModelCache)
+
+	localModelCacheWithSameVersion, err := v.validateUniqueVersion(ctx, localModelCache)
 	if err != nil {
-		localModelCacheValidatorLogger.Error(err, "Unable to check LocalModelCache with the same storage URI")
+		localModelCacheValidatorLogger.Error(err, "Unable to check LocalModelCache with the version")
 		return nil, err
 	}
-	if localModelCacheWithSameStorageURI != nil {
-		return admission.Warnings{}, fmt.Errorf("LocalModelCache %s has the same StorageURI %s", localModelCacheWithSameStorageURI.Name, localModelCacheWithSameStorageURI.Spec.SourceModelUri)
+	if localModelCacheWithSameVersion != nil {
+		return admission.Warnings{}, fmt.Errorf("cannot create version %d for %s: version %d already exists (LocalModelCache: %s)",
+			localModelCache.Spec.Version, localModelCache.Spec.SourceModelUri, localModelCacheWithSameVersion.Spec.Version, localModelCacheWithSameVersion.Name)
 	}
+
 	return nil, nil
 }
 
@@ -77,14 +80,17 @@ func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, oldObj, n
 		return nil, err
 	}
 	localModelCacheValidatorLogger.Info("validate update", "name", localModelCache.Name)
-	localModelCacheWithSameStorageURI, err := v.validateUniqueStorageURI(ctx, localModelCache)
+
+	localModelCacheWithSameVersion, err := v.validateUniqueVersion(ctx, localModelCache)
 	if err != nil {
-		localModelCacheValidatorLogger.Error(err, "Unable to check LocalModelCache with the same storage URI")
+		localModelCacheValidatorLogger.Error(err, "Unable to check LocalModelCache with the version")
 		return nil, err
 	}
-	if localModelCacheWithSameStorageURI != nil {
-		return admission.Warnings{}, fmt.Errorf("LocalModelCache %s has the same StorageURI %s", localModelCacheWithSameStorageURI.Name, localModelCacheWithSameStorageURI.Spec.SourceModelUri)
+	if localModelCacheWithSameVersion != nil {
+		return admission.Warnings{}, fmt.Errorf("cannot update to version %d for %s: version %d already exists (LocalModelCache: %s)",
+			localModelCache.Spec.Version, localModelCache.Spec.SourceModelUri, localModelCacheWithSameVersion.Spec.Version, localModelCacheWithSameVersion.Name)
 	}
+
 	return nil, nil
 }
 
@@ -115,22 +121,21 @@ func (v *LocalModelCacheValidator) ValidateDelete(ctx context.Context, obj runti
 	return nil, nil
 }
 
-// Checks if there are other LocalModelCache with the same storage URI
-func (v *LocalModelCacheValidator) validateUniqueStorageURI(ctx context.Context, currentLocalModelCache *v1alpha1.LocalModelCache) (*v1alpha1.LocalModelCache, error) {
+// validateUniqueVersion checks if the version is unique and not older than existing versions
+// Returns the conflicting LocalModelCache if validation fails, or nil if validation passes
+func (v *LocalModelCacheValidator) validateUniqueVersion(ctx context.Context, current *v1alpha1.LocalModelCache) (*v1alpha1.LocalModelCache, error) {
 	// Get all LocalModelCache CR
 	localModelCacheList := &v1alpha1.LocalModelCacheList{}
 	if err := v.Client.List(ctx, localModelCacheList); err != nil {
-		localModelCacheValidatorLogger.Error(err, "Unable to list LocalModelCaches")
 		return nil, err
 	}
-	// Check the storage URI of each LocalModelCache CR except for the current one
-	for _, localModelCache := range localModelCacheList.Items {
-		// Skip the current one
-		if localModelCache.Name == currentLocalModelCache.Name {
+
+	for _, cache := range localModelCacheList.Items {
+		if cache.Name == current.Name || cache.Spec.SourceModelUri != current.Spec.SourceModelUri {
 			continue
 		}
-		if localModelCache.Spec.SourceModelUri == currentLocalModelCache.Spec.SourceModelUri {
-			return &localModelCache, nil
+		if cache.Spec.Version >= current.Spec.Version {
+			return &cache, nil
 		}
 	}
 	return nil, nil
