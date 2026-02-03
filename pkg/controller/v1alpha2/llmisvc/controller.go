@@ -44,6 +44,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -63,6 +64,15 @@ var childResourcesPredicate, _ = predicate.LabelSelectorPredicate(metav1.LabelSe
 		"app.kubernetes.io/part-of": "llminferenceservice",
 	},
 })
+
+const (
+	// PodLabelName is the label key used to identify pods by the name of their owning LLMInferenceService
+	PodLabelName = "app.kubernetes.io/name"
+	// PodLabelPartOf is the label key used to identify pods as part of an LLMInferenceService
+	PodLabelPartOf = "app.kubernetes.io/part-of"
+	// PodLabelPartOfValue is the expected value for the part-of label
+	PodLabelPartOfValue = "llminferenceservice"
+)
 
 // LLMISVCReconciler reconciles an LLMInferenceService object.
 // It orchestrates the reconciliation of child resources based on the spec.
@@ -281,6 +291,11 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), lwsapi.GroupVersion.String(), "LeaderWorkerSet"); ok && err == nil {
 		b = b.Owns(&lwsapi.LeaderWorkerSet{}, builder.WithPredicates(childResourcesPredicate))
 	}
+
+	// Watch pods for init container status changes to enable fast failure detection
+	b = b.Watches(&corev1.Pod{},
+		handler.EnqueueRequestsFromMapFunc(r.PodInitContainersFunc),
+		builder.WithPredicates(PodInitContainersPredicate()))
 
 	return b.Complete(r)
 }
@@ -523,4 +538,59 @@ func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler
 
 		return reqs
 	})
+}
+
+// PodInitContainersFunc maps pod events to LLMInferenceService reconcile requests.
+// It extracts the owning LLMInferenceService name from pod labels.
+func (r *LLMISVCReconciler) PodInitContainersFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	pod, ok := obj.(*corev1.Pod)
+	if !ok || pod == nil {
+		return nil
+	}
+	// Check if pod belongs to an LLMInferenceService by verifying the part-of label
+	partOf := pod.Labels[PodLabelPartOf]
+	if partOf != PodLabelPartOfValue {
+		return nil
+	}
+	// Get the LLMInferenceService name from the name label
+	if llmSvcName, found := pod.Labels[PodLabelName]; found && llmSvcName != "" {
+		return []reconcile.Request{{
+			NamespacedName: types.NamespacedName{
+				Namespace: pod.Namespace,
+				Name:      llmSvcName,
+			},
+		}}
+	}
+	return nil
+}
+
+// PodInitContainersPredicate returns a predicate that filters pod updates to only
+// include those where InitContainerStatuses have changed for pods with LLMInferenceService labels.
+// This enables fast detection of storage-initializer failures.
+func PodInitContainersPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			newPod, ok := e.ObjectNew.(*corev1.Pod)
+			if !ok || newPod == nil {
+				return false
+			}
+			// Check part-of label to ensure this pod belongs to an LLMInferenceService
+			if newPod.Labels[PodLabelPartOf] != PodLabelPartOfValue {
+				return false
+			}
+			// Check name label exists and is not empty
+			if name := newPod.Labels[PodLabelName]; name == "" {
+				return false
+			}
+			// Only trigger reconciliation when InitContainerStatuses change
+			oldPod := e.ObjectOld.(*corev1.Pod)
+			return !equality.Semantic.DeepEqual(
+				oldPod.Status.InitContainerStatuses,
+				newPod.Status.InitContainerStatuses,
+			)
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
 }
