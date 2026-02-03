@@ -163,6 +163,8 @@ var (
 	LocalModelLabel                                  = InferenceServiceInternalAnnotationsPrefix + "/localmodel"
 	LocalModelSourceUriAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/localmodel-sourceuri"
 	LocalModelPVCNameAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/localmodel-pvc-name"
+	LocalModelRevisionAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/localmodel-revision"
+	LocalModelCacheDeploymentLabel                   = "serving.kserve.io/localmodelcachedeployment"
 )
 
 // kserve networking constants

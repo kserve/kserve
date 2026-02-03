@@ -136,6 +136,7 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 
 	_, localModelDisabledForIsvc := isvc.ObjectMeta.Annotations[constants.DisableLocalModelKey]
 	var models *v1alpha1.LocalModelCacheList
+	var localModelCacheDeployment *v1alpha1.LocalModelCacheDeployment
 	if !localModelDisabledForIsvc && localModelConfig.Enabled {
 		var c client.Client
 		if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
@@ -147,14 +148,23 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 			mutatorLogger.Error(err, "Cannot List local models")
 			return err
 		}
+
+		// Check if InferenceService references a LocalModelCacheDeployment
+		if deploymentName, ok := isvc.Labels[constants.LocalModelCacheDeploymentLabel]; ok {
+			localModelCacheDeployment = &v1alpha1.LocalModelCacheDeployment{}
+			if err := c.Get(ctx, client.ObjectKey{Name: deploymentName}, localModelCacheDeployment); err != nil {
+				mutatorLogger.Error(err, "Cannot get LocalModelCacheDeployment", "name", deploymentName)
+				localModelCacheDeployment = nil
+			}
+		}
 	}
 
 	// Pass a list of LocalModelCache resources to set the local model label if there is a match
-	isvc.DefaultInferenceService(isvcConfig, deployConfig, securityConfig, models)
+	isvc.DefaultInferenceService(isvcConfig, deployConfig, securityConfig, models, localModelCacheDeployment)
 	return nil
 }
 
-func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, securityConfig *SecurityConfig, models *v1alpha1.LocalModelCacheList) {
+func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, securityConfig *SecurityConfig, models *v1alpha1.LocalModelCacheList, localModelCacheDeployment *v1alpha1.LocalModelCacheDeployment) {
 	deploymentMode, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]
 
 	if !ok && deployConfig != nil {
@@ -189,7 +199,7 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 		}
 	}
 
-	isvc.setLocalModelLabel(models)
+	isvc.setLocalModelCacheDeploymentLabel(models, localModelCacheDeployment)
 	if securityConfig != nil && !securityConfig.AutoMountServiceAccountToken {
 		disableAutomountServiceAccountToken(isvc)
 	}
@@ -473,12 +483,80 @@ func deleteLocalModelMetadata(isvc *InferenceService) {
 	if isvc.Annotations != nil {
 		delete(isvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
 		delete(isvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
+		delete(isvc.Annotations, constants.LocalModelRevisionAnnotationKey)
 	}
+}
+
+// setLocalModelCacheFromDeployment resolves LocalModelCacheDeployment to LocalModelCache
+// Uses existing revision annotation if present, otherwise uses currentRevision from status
+func (isvc *InferenceService) setLocalModelCacheFromDeployment(localModel *v1alpha1.LocalModelCacheDeployment, localModelCaches *v1alpha1.LocalModelCacheList) {
+	if localModel == nil {
+		deleteLocalModelMetadata(isvc)
+		return
+	}
+
+	// Use existing revision if set, otherwise use currentRevision
+	var targetRevision string
+	if isvc.Annotations != nil {
+		targetRevision = isvc.Annotations[constants.LocalModelRevisionAnnotationKey]
+	}
+	if targetRevision == "" {
+		targetRevision = localModel.Status.CurrentRevision
+	}
+
+	if targetRevision == "" {
+		deleteLocalModelMetadata(isvc)
+		return
+	}
+
+	// Find the LocalModelCache for this revision
+	var cache *v1alpha1.LocalModelCache
+	for i, c := range localModelCaches.Items {
+		if c.Name == targetRevision {
+			cache = &localModelCaches.Items[i]
+			break
+		}
+	}
+
+	if cache == nil {
+		deleteLocalModelMetadata(isvc)
+		return
+	}
+
+	// Set labels and annotations
+	if isvc.Labels == nil {
+		isvc.Labels = make(map[string]string)
+	}
+	if isvc.Annotations == nil {
+		isvc.Annotations = make(map[string]string)
+	}
+
+	isvcNodeGroup, isvcNodeGroupExists := isvc.Annotations[constants.NodeGroupAnnotationKey]
+	var pvcName string
+	if isvcNodeGroupExists && slices.Contains(cache.Spec.NodeGroups, isvcNodeGroup) {
+		pvcName = cache.Name + "-" + isvcNodeGroup
+	} else {
+		pvcName = cache.Name + "-" + cache.Spec.NodeGroups[0]
+	}
+
+	isvc.Labels[constants.LocalModelLabel] = cache.Name
+	isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = cache.Spec.SourceModelUri
+	isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = pvcName
+	isvc.Annotations[constants.LocalModelRevisionAnnotationKey] = targetRevision
+
+	mutatorLogger.Info("LocalModelCacheDeployment resolved", "localModel", localModel.Name, "revision", targetRevision, "isvc", isvc.Name)
 }
 
 // If there is a LocalModelCache resource, add the name of the LocalModelCache and sourceModelUri to the isvc,
 // which is used by the local model controller to manage PV/PVCs.
-func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCacheList) {
+func (isvc *InferenceService) setLocalModelCacheDeploymentLabel(models *v1alpha1.LocalModelCacheList, deployment *v1alpha1.LocalModelCacheDeployment) {
+	// If LocalModelCacheDeployment is specified, use new logic
+	if deployment != nil {
+		isvc.setLocalModelCacheFromDeployment(deployment, models)
+		return
+	}
+
+	// Fallback to legacy logic (direct LocalModelCache matching by storageUri)
 	if models == nil {
 		return
 	}
