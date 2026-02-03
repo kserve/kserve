@@ -7,6 +7,7 @@ on:
       - "pkg/apis/serving/v1alpha2/llm*"
       - "pkg/controller/v1alpha1/llmisvc/**"
       - "pkg/controller/v1alpha2/llmisvc/**"
+      - "charts/kserve-llmisvc-resources/**"
       - "config/llmisvc/**"
       - "config/rbac/llmisvc/**"
       - "cmd/llmisvc/**"
