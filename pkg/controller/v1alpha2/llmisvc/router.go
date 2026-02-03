@@ -199,9 +199,7 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 		return httpRoute
 	}
 
-	logger := log.FromContext(ctx).WithName("migration").
-		WithValues("InferencePoolV1Alpha2Available", r.InferencePoolV1Alpha2Available,
-			"InferencePoolV1Available", r.InferencePoolV1Available)
+	logger := log.FromContext(ctx).WithValues("migration", "InferencePool")
 
 	curr := &gwapiv1.HTTPRoute{}
 	routeExists := r.Client.Get(ctx, client.ObjectKeyFromObject(httpRoute), curr) == nil
