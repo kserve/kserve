@@ -767,7 +767,7 @@ requires-dist = [
     { name = "aiohttp", specifier = ">=3.13.3" },
     { name = "asgi-logger", marker = "extra == 'logging'", specifier = ">=0.1.0,<1.0.0" },
     { name = "cloudevents", specifier = ">=1.6.2,<2.0.0" },
-    { name = "fastapi", specifier = ">=0.115.3" },
+    { name = "fastapi", specifier = ">=0.115.3,<1.0" },
     { name = "grpc-interceptor", specifier = ">=0.15.4,<1.0.0" },
     { name = "grpcio", specifier = ">=1.64.1,<2.0.0" },
     { name = "grpcio-tools", specifier = ">=1.64.1,<2.0.0" },
@@ -1619,10 +1619,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e2/b5/a93e39e131067edb7cba3385a609f61aaaf7aa54728cd3a7474bfbf3b0fc/ray-2.51.1-cp312-cp312-manylinux2014_aarch64.whl", hash = "sha256:0bed9408712bad1511e65683a455302f88d94e5e5cb6a58cc4a154b61d8a0b4a", size = 70502423, upload-time = "2025-11-01T03:24:27.398Z" },
     { url = "https://files.pythonhosted.org/packages/ee/59/69b7a653ed8176fc7fd894d462ed34bb1477e7fa71700324de99179b5b7e/ray-2.51.1-cp312-cp312-manylinux2014_x86_64.whl", hash = "sha256:4e786da7862cf73664977d0212a505d6d5a585beadf63e7dc1e1c129259bee20", size = 71353730, upload-time = "2025-11-01T03:24:33.495Z" },
     { url = "https://files.pythonhosted.org/packages/38/91/0c4fe7aed34baa14d9c050c88f39ff16083d555bd6dcd6c4ffb4332a6f8a/ray-2.51.1-cp312-cp312-win_amd64.whl", hash = "sha256:198fda93074a6863555f4003e9013bb2ba0cd50b59b18c02affdc294b28a2eef", size = 26674921, upload-time = "2025-11-01T03:24:38.394Z" },
-    { url = "https://files.pythonhosted.org/packages/98/a7/ebdd2c60126b995238c2cac50a1dd76a185f80c3b336ee5516d4997ae5f2/ray-2.51.1-cp39-cp39-macosx_12_0_arm64.whl", hash = "sha256:4b5ff43147e8ece5b8bea17403050265761545095691f76664e508818bc30811", size = 68041867, upload-time = "2025-11-01T03:25:01.606Z" },
-    { url = "https://files.pythonhosted.org/packages/a6/3d/79b4c55a46ea86c83c7f91eda52e0e5d22ce6dd1f0eb09f709c8c0e768ee/ray-2.51.1-cp39-cp39-manylinux2014_aarch64.whl", hash = "sha256:9a0c726f018acc08db07231e48ee457a16fd7a1a960434eed332e751190875be", size = 70333240, upload-time = "2025-11-01T03:25:07.483Z" },
-    { url = "https://files.pythonhosted.org/packages/a3/27/ece9490b07cd5aa423c503b7772c809c2fb4c18619bf75b765b11378d7d1/ray-2.51.1-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:251539200042478f24c25a804dc96cb1a78fcef2ffa5dddf100688bd173722ed", size = 71153151, upload-time = "2025-11-01T03:25:13.626Z" },
-    { url = "https://files.pythonhosted.org/packages/28/e4/3c91123bd7777da67040918ee34a444ecb8892ba3e42572870147a5aaaf6/ray-2.51.1-cp39-cp39-win_amd64.whl", hash = "sha256:ec205696c3a7420ba10a29eeaadc107807c8979f0b7b787326ca743069a2d068", size = 26698287, upload-time = "2025-11-01T03:25:19.189Z" },
 ]
 
 [package.optional-dependencies]
