@@ -139,6 +139,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			expectedDeployment := getDeploymentWithKServiceLabel(predictorDeploymentKey, serviceName, isvc)
 			Expect(actualDeployment.Spec).To(BeComparableTo(expectedDeployment.Spec))
 
+			// Verify INFERENCE_SERVICE_NAME environment variable is set
+			verifyEnvKeyValueDeployments(actualDeployment, constants.InferenceServiceNameEnvVarKey, serviceName)
+
 			// check service
 			actualService := &corev1.Service{}
 			predictorServiceKey := types.NamespacedName{
@@ -532,6 +535,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -1003,6 +1009,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -4605,6 +4614,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
 									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -4686,6 +4698,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										fmt.Sprintf("%s.%s", predictorServiceKey.Name, predictorServiceKey.Namespace),
 										"--http_port",
 										"8080",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -5408,6 +5423,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -6645,6 +6663,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
 									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -6726,6 +6747,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										fmt.Sprintf("%s.%s", predictorServiceKey.Name, predictorServiceKey.Namespace),
 										"--http_port",
 										"8080",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -7496,6 +7520,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
