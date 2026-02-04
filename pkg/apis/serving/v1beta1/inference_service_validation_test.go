@@ -249,7 +249,69 @@ func TestAutoscalerClassHPA(t *testing.T) {
 					},
 				},
 			},
-			errMatcher: gomega.MatchError("invalid HPA metric source type with value [External],valid metric source types are Resource"),
+			errMatcher: gomega.MatchError("external and pod metrics require the autoscaler class to be set to \"keda\", but got \"hpa\""),
+		},
+		"External metrics without keda autoscaler class": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": "Standard",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							AutoScaling: &AutoScalingSpec{
+								Metrics: []MetricsSpec{
+									{
+										Type: ExternalMetricSourceType,
+									},
+								},
+							},
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("external and pod metrics require the autoscaler class to be set to \"keda\", but got \"\""),
+		},
+		"PodMetric metrics without keda autoscaler class": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": "Standard",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							AutoScaling: &AutoScalingSpec{
+								Metrics: []MetricsSpec{
+									{
+										Type: PodMetricSourceType,
+									},
+								},
+							},
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("external and pod metrics require the autoscaler class to be set to \"keda\", but got \"\""),
 		},
 		"Valid HPA CPU metrics with target utilization": {
 			isvc: &InferenceService{

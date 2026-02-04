@@ -337,6 +337,56 @@ func TestValidateIngressGateway(t *testing.T) {
 	}
 }
 
+func TestNewAutoscalerConfig(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	t.Run("returns default config when configMap is nil", func(t *testing.T) {
+		cfg, err := NewAutoscalerConfig(nil)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.ScaleDownStabilizationWindowSeconds).To(gomega.BeEmpty())
+		g.Expect(cfg.ScaleUpStabilizationWindowSeconds).To(gomega.BeEmpty())
+	})
+
+	t.Run("returns default config when autoscaler config is missing", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{},
+		}
+		cfg, err := NewAutoscalerConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.ScaleDownStabilizationWindowSeconds).To(gomega.BeEmpty())
+		g.Expect(cfg.ScaleUpStabilizationWindowSeconds).To(gomega.BeEmpty())
+	})
+
+	t.Run("returns config when autoscaler config is present", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				AutoscalerConfigName: `{
+					"scaleDownStabilizationWindowSeconds": "300",
+					"scaleUpStabilizationWindowSeconds": "60"
+				}`,
+			},
+		}
+		cfg, err := NewAutoscalerConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.ScaleDownStabilizationWindowSeconds).To(gomega.Equal("300"))
+		g.Expect(cfg.ScaleUpStabilizationWindowSeconds).To(gomega.Equal("60"))
+	})
+
+	t.Run("returns error on invalid autoscaler config json", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				AutoscalerConfigName: `invalid-json`,
+			},
+		}
+		cfg, err := NewAutoscalerConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+	})
+}
+
 func TestNewOtelCollectorConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
