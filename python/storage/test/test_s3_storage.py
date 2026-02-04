@@ -22,6 +22,7 @@ import unittest.mock as mock
 from botocore.client import Config
 from botocore import UNSIGNED
 from kserve_storage import Storage
+from kserve_storage.storage_errors import get_storage_error_message, check_http_response
 
 
 class MockPool:
@@ -668,7 +669,7 @@ def test_error_message_no_credentials():
     from botocore.exceptions import NoCredentialsError
 
     error = NoCredentialsError()
-    msg = Storage._get_storage_error_message("S3", error, "test-bucket")
+    msg = get_storage_error_message("S3", error, "test-bucket")
     assert "authentication failed" in msg.lower()
     assert "AWS_ACCESS_KEY_ID" in msg or "S3" in msg
 
@@ -678,7 +679,7 @@ def test_error_message_access_denied():
         {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}},
         "GetObject",
     )
-    msg = Storage._get_storage_error_message("S3", error, "test-bucket")
+    msg = get_storage_error_message("S3", error, "test-bucket")
     assert "access denied" in msg.lower() or "403" in msg
 
 
@@ -692,7 +693,7 @@ def test_error_message_bucket_not_found():
         },
         "HeadBucket",
     )
-    msg = Storage._get_storage_error_message("S3", error, "nonexistent-bucket")
+    msg = get_storage_error_message("S3", error, "nonexistent-bucket")
     assert "does not exist" in msg.lower() or "nonexistent-bucket" in msg
 
 
@@ -706,43 +707,43 @@ def test_error_message_invalid_credentials():
         },
         "HeadBucket",
     )
-    msg = Storage._get_storage_error_message("S3", error, "test-bucket")
+    msg = get_storage_error_message("S3", error, "test-bucket")
     assert "S3" in msg or "AWS" in msg or "credentials" in msg.lower()
 
 
 def test_error_message_connection_error():
     error = Exception("connection timeout")
-    msg = Storage._get_storage_error_message("S3", error, "endpoint.example.com")
+    msg = get_storage_error_message("S3", error, "endpoint.example.com")
     assert "connect" in msg.lower() or "timeout" in msg.lower()
 
 
 def test_error_message_not_found():
     error = Exception("resource not found")
-    msg = Storage._get_storage_error_message("GCS", error, "my-bucket")
+    msg = get_storage_error_message("GCS", error, "my-bucket")
     assert "not found" in msg.lower()
 
 
 def test_error_message_gcs_auth():
     error = Exception("credentials error")
-    msg = Storage._get_storage_error_message("GCS", error, "my-bucket")
+    msg = get_storage_error_message("GCS", error, "my-bucket")
     assert "authentication failed" in msg.lower() or "GCS" in msg
 
 
 def test_error_message_azure_auth():
     error = Exception("authentication failed")
-    msg = Storage._get_storage_error_message("Azure", error, "my-container")
+    msg = get_storage_error_message("Azure", error, "my-container")
     assert "authentication failed" in msg.lower()
 
 
 def test_error_message_huggingface():
     error = Exception("gated repo access denied")
-    msg = Storage._get_storage_error_message("HuggingFace", error, "org/model")
+    msg = get_storage_error_message("HuggingFace", error, "org/model")
     assert "HuggingFace" in msg or "HF_TOKEN" in msg
 
 
 def test_error_message_default():
     error = Exception("some unknown error")
-    msg = Storage._get_storage_error_message("S3", error, "test-bucket")
+    msg = get_storage_error_message("S3", error, "test-bucket")
     assert "S3" in msg
     assert "unknown error" in msg.lower()
 
@@ -760,14 +761,14 @@ def test_check_http_response_errors(status_code, expected_message):
     mock_response = mock.MagicMock()
     mock_response.status_code = status_code
     with pytest.raises(RuntimeError) as exc_info:
-        Storage._check_http_response("https://example.com/model", mock_response)
+        check_http_response("https://example.com/model", mock_response)
     assert expected_message in str(exc_info.value).lower()
 
 
 def test_check_http_response_200_ok():
     mock_response = mock.MagicMock()
     mock_response.status_code = 200
-    Storage._check_http_response("https://example.com/model", mock_response)
+    check_http_response("https://example.com/model", mock_response)
 
 
 @mock.patch("boto3.resource")
