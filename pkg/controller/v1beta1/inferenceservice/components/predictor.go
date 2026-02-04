@@ -153,8 +153,10 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	}
 
 	// Add InferenceService name as environment variable to predictor container
-	if err := isvcutils.AddEnvVarToPodSpec(&podSpec, constants.InferenceServiceContainerName, constants.InferenceServiceNameEnvVarKey, isvc.Name); err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "failed to add INFERENCE_SERVICE_NAME environment variable to container %s", constants.InferenceServiceContainerName)
+	// Use the actual container name from the podSpec (first container)
+	predictorContainerName := podSpec.Containers[0].Name
+	if err := isvcutils.AddEnvVarToPodSpec(&podSpec, predictorContainerName, constants.InferenceServiceNameEnvVarKey, isvc.Name); err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to add INFERENCE_SERVICE_NAME environment variable to container %s", predictorContainerName)
 	}
 
 	predictorName := constants.PredictorServiceName(isvc.Name)
