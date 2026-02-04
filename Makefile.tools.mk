@@ -37,8 +37,10 @@ $(ENVTEST): $(LOCALBIN)
 ## Download yq locally if necessary.
 .PHONY: yq
 yq: $(YQ)
-$(YQ): $(LOCALBIN)
-	$(call go-install-tool,$(YQ),github.com/mikefarah/yq/v4,$(YQ_VERSION))
+$(YQ): $(LOCALBIN)	
+	BIN_DIR=$(LOCALBIN) hack/setup/cli/install-yq.sh ;\
+	mv $(LOCALBIN)/yq $(YQ)-$(YQ_VERSION) ;\
+	ln -sf "$$(basename $(YQ)-$(YQ_VERSION))" "$(YQ)"
 
 ## Download helm-docs locally if necessary.
 .PHONY: helm-docs

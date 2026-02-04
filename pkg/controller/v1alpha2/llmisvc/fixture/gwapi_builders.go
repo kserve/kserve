@@ -297,6 +297,20 @@ func BackendRefInferencePool(name string) gwapiv1.HTTPBackendRef {
 	}
 }
 
+func BackendRefInferencePoolV1Alpha2(name string) gwapiv1.HTTPBackendRef {
+	return gwapiv1.HTTPBackendRef{
+		BackendRef: gwapiv1.BackendRef{
+			BackendObjectReference: gwapiv1.BackendObjectReference{
+				Group: ptr.To(gwapiv1.Group("inference.networking.x-k8s.io")),
+				Kind:  ptr.To(gwapiv1.Kind("InferencePool")),
+				Name:  gwapiv1.ObjectName(name),
+				Port:  ptr.To(gwapiv1.PortNumber(8000)),
+			},
+			Weight: ptr.To(int32(1)),
+		},
+	}
+}
+
 func BackendRefService(name string) gwapiv1.HTTPBackendRef {
 	return gwapiv1.HTTPBackendRef{
 		BackendRef: gwapiv1.BackendRef{
@@ -521,6 +535,39 @@ func WithHTTPRouteNotReadyStatus(controllerName, reason, message string) HTTPRou
 							Status:             metav1.ConditionFalse,
 							Reason:             reason,
 							Message:            message,
+							LastTransitionTime: metav1.Now(),
+						},
+					},
+				}
+			}
+		}
+	}
+}
+
+// WithHTTPRouteV1Alpha2RejectedStatus sets the HTTPRoute status to indicate Gateway rejection
+// of v1alpha2 backendRef (ResolvedRefs=False, Reason=InvalidKind). This simulates what happens
+// when Envoy Gateway or Istio rejects an unsupported InferencePool API group.
+func WithHTTPRouteV1Alpha2RejectedStatus(controllerName string) HTTPRouteOption {
+	return func(route *gwapiv1.HTTPRoute) {
+		if len(route.Spec.ParentRefs) > 0 {
+			route.Status.RouteStatus.Parents = make([]gwapiv1.RouteParentStatus, len(route.Spec.ParentRefs))
+			for i, parentRef := range route.Spec.ParentRefs {
+				route.Status.RouteStatus.Parents[i] = gwapiv1.RouteParentStatus{
+					ParentRef:      parentRef,
+					ControllerName: gwapiv1.GatewayController(controllerName),
+					Conditions: []metav1.Condition{
+						{
+							Type:               string(gwapiv1.RouteConditionAccepted),
+							Status:             metav1.ConditionTrue,
+							Reason:             "Accepted",
+							Message:            "HTTPRoute accepted",
+							LastTransitionTime: metav1.Now(),
+						},
+						{
+							Type:               string(gwapiv1.RouteConditionResolvedRefs),
+							Status:             metav1.ConditionFalse,
+							Reason:             "InvalidKind",
+							Message:            "Group is invalid: inference.networking.x-k8s.io",
 							LastTransitionTime: metav1.Now(),
 						},
 					},
