@@ -222,6 +222,7 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - localmodelcachedeployments
   - localmodelcaches
   verbs:
   - get
