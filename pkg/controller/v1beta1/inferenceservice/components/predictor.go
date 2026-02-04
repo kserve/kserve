@@ -156,7 +156,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	// In collocation mode, there may be multiple containers (predictor + transformer)
 	// https://kserve.github.io/website/docs/model-serving/predictive-inference/transformers/collocation
 	for i := range podSpec.Containers {
-		containerName := podSpec.Containers[i].Name 
+		containerName := podSpec.Containers[i].Name
 		if err := isvcutils.AddEnvVarToPodSpec(&podSpec, containerName, constants.InferenceServiceNameEnvVarKey, isvc.Name); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "failed to add INFERENCE_SERVICE_NAME environment variable to container %s", containerName)
 		}
