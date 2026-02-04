@@ -425,6 +425,22 @@ func WithSchedulerConfigRef(configMapName, key string) LLMInferenceServiceOption
 	}
 }
 
+// WithSchedulerReplicas sets the scheduler replicas on the LLMInferenceService.
+func WithSchedulerReplicas(replicas int32) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		ensureSchedulerSpec(&llmSvc.Spec)
+		llmSvc.Spec.Router.Scheduler.Replicas = &replicas
+	}
+}
+
+// WithConfigSchedulerReplicas sets the scheduler replicas on the LLMInferenceServiceConfig.
+func WithConfigSchedulerReplicas(replicas int32) LLMInferenceServiceConfigOption {
+	return func(config *v1alpha2.LLMInferenceServiceConfig) {
+		ensureSchedulerSpec(&config.Spec)
+		config.Spec.Router.Scheduler.Replicas = &replicas
+	}
+}
+
 // ensureSchedulerSpec ensures the router and scheduler spec are initialized
 func ensureSchedulerSpec(spec *v1alpha2.LLMInferenceServiceSpec) {
 	if spec.Router == nil {

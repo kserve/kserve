@@ -291,6 +291,18 @@ class TestCase:
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "scheduler-with-replicas",
+                    "workload-llmd-simulator",
+                ],
+                prompt="KServe is a",
+                service_name="scheduler-ha-replicas-test",
+            ),
+            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+        ),
     ],
     indirect=["test_case"],
     ids=generate_test_id,
