@@ -49,6 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/utils"
@@ -72,6 +73,11 @@ type LLMISVCReconciler struct {
 	Clientset kubernetes.Interface
 
 	Validator func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error
+
+	// InferencePool CRD availability flags (set during SetupWithManager)
+	// These determine which pool versions can be created/managed
+	InferencePoolV1Available       bool
+	InferencePoolV1Alpha2Available bool
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -265,15 +271,25 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		b = b.Watches(&gwapiv1.Gateway{}, r.enqueueOnGatewayChange(logger))
 	}
 
+	// Install GIE v1 API and check availability
 	if err := igwapi.Install(mgr.GetScheme()); err != nil {
-		return fmt.Errorf("failed to add GIE APIs to scheme: %w", err)
+		return fmt.Errorf("failed to add GIE v1 APIs to scheme: %w", err)
 	}
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapi.GroupVersion.String(), "InferencePool"); ok && err == nil {
+		r.InferencePoolV1Available = true
 		b = b.Owns(&igwapi.InferencePool{}, builder.WithPredicates(childResourcesPredicate))
 	}
-	// if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapi.GroupVersion.String(), "InferenceModel"); ok && err == nil {
-	// 	b = b.Owns(&igwapi.InferenceObjective{}, builder.WithPredicates(childResourcesPredicate))
-	// }
+
+	// Install GIE v1alpha2 API and check availability (for backwards compatibility during migration)
+	if err := igwapiv1alpha2.Install(mgr.GetScheme()); err != nil {
+		return fmt.Errorf("failed to add GIE v1alpha2 APIs to scheme: %w", err)
+	}
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapiv1alpha2.GroupVersion.String(), "InferencePool"); ok && err == nil {
+		r.InferencePoolV1Alpha2Available = true
+		b = b.Owns(&igwapiv1alpha2.InferencePool{}, builder.WithPredicates(childResourcesPredicate))
+	}
+
+	logger.Info("InferencePool CRD availability", "v1", r.InferencePoolV1Available, "v1alpha2", r.InferencePoolV1Alpha2Available)
 
 	if err := lwsapi.AddToScheme(mgr.GetScheme()); err != nil {
 		return fmt.Errorf("failed to add LeaderWorkerSet APIs to scheme: %w", err)

@@ -119,4 +119,57 @@ else
   kubectl logs "$(kubectl get pods -n istio-system --output=jsonpath={.items..metadata.name} -l app=istio-ingressgateway)" -n istio-system
   echo "::endgroup::"
 fi
+
+if [[ $# -eq 1 && "$1" == "llmisvc" ]]; then
+  echo "::group::Enhanced LLMISvc system status check... Resources"
+  kubectl get gateways -A -o yaml
+  kubectl get httproutes -A
+  kubectl get httproute -n kserve-ci-e2e-test -o yaml
+  kubectl get inferencepools -A
+  kubectl get inferenceobjectives -A
+  kubectl get inferenceobjectives -n kserve-ci-e2e-test -o yaml
+  kubectl get inferencepools -n kserve-ci-e2e-test -o yaml
+  kubectl get llminferenceservices -n kserve-ci-e2e-test -o yaml
+  kubectl get llminferenceserviceconfigs -A
+  kubectl get validatingwebhookconfiguration | grep llm
+  kubectl get gatewayclasses -A
+  kubectl get svc -A
+  kubectl get certificate -A
+  echo "::endgroup::"
+
+  echo "::group::LLMISvc Comprehensive Logs"
+  # Key namespaces for LLMISvc
+  NAMESPACES="envoy-gateway-system envoy-ai-gateway-system kserve kserve-ci-e2e-test"
+
+  for ns in $NAMESPACES; do
+    if ! kubectl get namespace $ns &>/dev/null; then
+      echo "⚠️ Namespace $ns does not exist, skipping..."
+      continue
+    fi
+
+    echo "=== Namespace: $ns ==="
+
+    echo "--- Events ---"
+    kubectl get events -n $ns --sort-by='.lastTimestamp' | tail -20
+    echo "--- End Events ---"
+
+    echo "--- Pods ---"
+    kubectl get pods -n $ns
+    for pod in $(kubectl get pods -n $ns -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+      echo "--- Pod: $pod ---"
+      kubectl describe pods -n $ns $pod
+      kubectl logs -n $ns $pod --all-containers=true --tail=1000 2>&1
+      echo "--- End Pod: $pod ---"
+    done
+    echo "--- End Pods ---"
+  done
+  echo "::endgroup::"
+
+  echo "::group::Describing LLMInferenceServices"
+  for llmisvc in $(kubectl get llminferenceservices -n kserve-ci-e2e-test -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+    echo "=== LLMInferenceService: $llmisvc ==="
+    kubectl describe llminferenceservices -n kserve-ci-e2e-test $llmisvc 2>&1
+  done
+  echo "::endgroup::"
+fi
 shopt -u nocasematch
