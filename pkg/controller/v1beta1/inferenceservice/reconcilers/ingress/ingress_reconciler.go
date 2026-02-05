@@ -40,6 +40,7 @@ import (
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
 	"knative.dev/serving/pkg/reconciler/route/config"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -73,15 +74,15 @@ func NewIngressReconciler(client client.Client, clientset kubernetes.Interface, 
 	}
 }
 
-func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
+func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error) {
 	disableIstioVirtualHost := ir.ingressConfig.DisableIstioVirtualHost
 
 	if err := ir.reconcileVirtualService(ctx, isvc); err != nil {
-		return errors.Wrapf(err, "fails to reconcile virtual service")
+		return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile virtual service")
 	}
 	// Create external service which points to local gateway
 	if err := ir.reconcileExternalService(ctx, isvc, ir.ingressConfig); err != nil {
-		return errors.Wrapf(err, "fails to reconcile external name service")
+		return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile external name service")
 	}
 
 	if utils.GetForceStopRuntime(isvc) {
@@ -91,14 +92,14 @@ func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infere
 			Reason: v1beta1.StoppedISVCReason,
 		})
 
-		return nil
+		return ctrl.Result{}, nil
 	}
 
 	serviceHost := getServiceHost(isvc)
 	serviceUrl := getServiceUrl(isvc, ir.ingressConfig)
 	if serviceHost == "" || serviceUrl == "" {
 		log.Info("service host and serviceurl are empty, skipping updating the inference service")
-		return nil
+		return ctrl.Result{}, nil
 	}
 
 	if url, err := apis.ParseURL(serviceUrl); err == nil {
@@ -114,9 +115,9 @@ func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infere
 			Type:   v1beta1.IngressReady,
 			Status: corev1.ConditionTrue,
 		})
-		return nil
+		return ctrl.Result{}, nil
 	} else {
-		return errors.Wrapf(err, "fails to parse service url")
+		return ctrl.Result{}, errors.Wrapf(err, "fails to parse service url")
 	}
 }
 

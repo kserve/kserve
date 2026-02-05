@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
@@ -778,4 +779,171 @@ func TestFilterURLs(t *testing.T) {
 			g.Expect(isInternal).To(Equal(!isExternal), "URL %s should be either internal or external, not both", urlStr)
 		}
 	})
+}
+
+func TestIsInferencePoolV1Alpha2Supported(t *testing.T) {
+	v1alpha2Group := gwapiv1.Group("inference.networking.x-k8s.io")
+	v1Group := gwapiv1.Group("inference.networking.k8s.io")
+	poolKind := gwapiv1.Kind("InferencePool")
+
+	tests := []struct {
+		name     string
+		route    *gwapiv1.HTTPRoute
+		expected metav1.ConditionStatus
+	}{
+		{
+			name:     "nil route returns Unknown",
+			route:    nil,
+			expected: metav1.ConditionUnknown,
+		},
+		{
+			name: "route not using v1alpha2 InferencePool returns Unknown",
+			route: &gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Rules: []gwapiv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+									Group: &v1Group,
+									Kind:  &poolKind,
+									Name:  "test-pool",
+								}}},
+							},
+						},
+					},
+				},
+			},
+			expected: metav1.ConditionUnknown,
+		},
+		{
+			name: "route using v1alpha2 with no status returns Unknown",
+			route: &gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Rules: []gwapiv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+									Group: &v1alpha2Group,
+									Kind:  &poolKind,
+									Name:  "test-pool",
+								}}},
+							},
+						},
+					},
+				},
+			},
+			expected: metav1.ConditionUnknown,
+		},
+		{
+			name: "route using v1alpha2 with ResolvedRefs=True returns True (supported)",
+			route: &gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Rules: []gwapiv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+									Group: &v1alpha2Group,
+									Kind:  &poolKind,
+									Name:  "test-pool",
+								}}},
+							},
+						},
+					},
+				},
+				Status: gwapiv1.HTTPRouteStatus{
+					RouteStatus: gwapiv1.RouteStatus{
+						Parents: []gwapiv1.RouteParentStatus{
+							{
+								Conditions: []metav1.Condition{
+									{
+										Type:   string(gwapiv1.RouteConditionResolvedRefs),
+										Status: metav1.ConditionTrue,
+										Reason: "ResolvedRefs",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: metav1.ConditionTrue,
+		},
+		{
+			name: "route using v1alpha2 with ResolvedRefs=False/InvalidKind returns False (rejected)",
+			route: &gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Rules: []gwapiv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+									Group: &v1alpha2Group,
+									Kind:  &poolKind,
+									Name:  "test-pool",
+								}}},
+							},
+						},
+					},
+				},
+				Status: gwapiv1.HTTPRouteStatus{
+					RouteStatus: gwapiv1.RouteStatus{
+						Parents: []gwapiv1.RouteParentStatus{
+							{
+								Conditions: []metav1.Condition{
+									{
+										Type:    string(gwapiv1.RouteConditionResolvedRefs),
+										Status:  metav1.ConditionFalse,
+										Reason:  "InvalidKind",
+										Message: "Group is invalid: inference.networking.x-k8s.io",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: metav1.ConditionFalse,
+		},
+		{
+			name: "route using v1alpha2 with ResolvedRefs=False but different reason returns True (not InvalidKind rejection)",
+			route: &gwapiv1.HTTPRoute{
+				Spec: gwapiv1.HTTPRouteSpec{
+					Rules: []gwapiv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+									Group: &v1alpha2Group,
+									Kind:  &poolKind,
+									Name:  "test-pool",
+								}}},
+							},
+						},
+					},
+				},
+				Status: gwapiv1.HTTPRouteStatus{
+					RouteStatus: gwapiv1.RouteStatus{
+						Parents: []gwapiv1.RouteParentStatus{
+							{
+								Conditions: []metav1.Condition{
+									{
+										Type:   string(gwapiv1.RouteConditionResolvedRefs),
+										Status: metav1.ConditionFalse,
+										Reason: "BackendNotFound",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: metav1.ConditionTrue,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			result := llmisvc.IsInferencePoolV1Alpha2Supported(tt.route)
+			g.Expect(result).To(Equal(tt.expected))
+		})
+	}
 }

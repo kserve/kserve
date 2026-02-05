@@ -49,6 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/utils"
@@ -70,6 +71,13 @@ type LLMISVCReconciler struct {
 	client.Client
 	record.EventRecorder
 	Clientset kubernetes.Interface
+
+	Validator func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error
+
+	// InferencePool CRD availability flags (set during SetupWithManager)
+	// These determine which pool versions can be created/managed
+	InferencePoolV1Available       bool
+	InferencePoolV1Alpha2Available bool
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -92,7 +100,7 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews;subjectaccessreviews,verbs=create
 //+kubebuilder:rbac:urls=/metrics,verbs=get
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
-//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 //+kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 
 // Reconcile is the main entry point for the reconciliation loop.
@@ -249,7 +257,8 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&netv1.Ingress{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Secret{}, builder.WithPredicates(childResourcesPredicate)).
-		Owns(&corev1.Service{}, builder.WithPredicates(childResourcesPredicate))
+		Owns(&corev1.Service{}, builder.WithPredicates(childResourcesPredicate)).
+		Watches(&corev1.ConfigMap{}, r.enqueueOnConfigMapChange(logger))
 
 	if err := gwapiv1.Install(mgr.GetScheme()); err != nil {
 		return fmt.Errorf("failed to add GIE APIs to scheme: %w", err)
@@ -262,15 +271,25 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		b = b.Watches(&gwapiv1.Gateway{}, r.enqueueOnGatewayChange(logger))
 	}
 
+	// Install GIE v1 API and check availability
 	if err := igwapi.Install(mgr.GetScheme()); err != nil {
-		return fmt.Errorf("failed to add GIE APIs to scheme: %w", err)
+		return fmt.Errorf("failed to add GIE v1 APIs to scheme: %w", err)
 	}
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapi.GroupVersion.String(), "InferencePool"); ok && err == nil {
+		r.InferencePoolV1Available = true
 		b = b.Owns(&igwapi.InferencePool{}, builder.WithPredicates(childResourcesPredicate))
 	}
-	// if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapi.GroupVersion.String(), "InferenceModel"); ok && err == nil {
-	// 	b = b.Owns(&igwapi.InferenceObjective{}, builder.WithPredicates(childResourcesPredicate))
-	// }
+
+	// Install GIE v1alpha2 API and check availability (for backwards compatibility during migration)
+	if err := igwapiv1alpha2.Install(mgr.GetScheme()); err != nil {
+		return fmt.Errorf("failed to add GIE v1alpha2 APIs to scheme: %w", err)
+	}
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapiv1alpha2.GroupVersion.String(), "InferencePool"); ok && err == nil {
+		r.InferencePoolV1Alpha2Available = true
+		b = b.Owns(&igwapiv1alpha2.InferencePool{}, builder.WithPredicates(childResourcesPredicate))
+	}
+
+	logger.Info("InferencePool CRD availability", "v1", r.InferencePoolV1Available, "v1alpha2", r.InferencePoolV1Alpha2Available)
 
 	if err := lwsapi.AddToScheme(mgr.GetScheme()); err != nil {
 		return fmt.Errorf("failed to add LeaderWorkerSet APIs to scheme: %w", err)
@@ -463,6 +482,59 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 				break
 			}
 			continueToken = llmSvcList.Continue
+		}
+
+		return reqs
+	})
+}
+
+func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler.EventHandler {
+	logger = logger.WithName("enqueueOnConfigMapChange")
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+		sub := object.(*corev1.ConfigMap)
+		reqs := make([]reconcile.Request, 0)
+
+		listNamespace := sub.GetNamespace()
+
+		cfg, err := LoadConfig(ctx, r.Clientset)
+		if err != nil {
+			logger.Error(err, "Failed to load config")
+			return reqs
+		}
+
+		// System namespace configs are global and can affect services in any namespace
+		if sub.Namespace == constants.KServeNamespace {
+			listNamespace = corev1.NamespaceAll
+		}
+
+		// When a ConfigMap is modified, we need to find all LLMInferenceService instances that might
+		// depend on it and trigger their reconciliation.
+		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
+		if err := r.Client.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
+			logger.Error(err, "Failed to list LLMInferenceService")
+			return reqs
+		}
+
+		for _, llmSvc := range llmSvcList.Items {
+			// Use WithSkipClearSchedulerConfigRef to preserve the Ref for matching
+			resolved, err := r.combineBaseRefsConfig(ctx, &llmSvc, cfg, WithSkipClearSchedulerConfigRef())
+			if err != nil {
+				logger.Error(err, "Failed to combine baseRefs config", "namespace", llmSvc.Namespace, "name", llmSvc.Name)
+				continue
+			}
+
+			if resolved.Spec.Router == nil ||
+				resolved.Spec.Router.Scheduler == nil ||
+				resolved.Spec.Router.Scheduler.Config == nil ||
+				resolved.Spec.Router.Scheduler.Config.Ref == nil ||
+				resolved.Spec.Router.Scheduler.Config.Ref.Name != sub.Name {
+				continue
+			}
+
+			reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+				Namespace: llmSvc.Namespace,
+				Name:      llmSvc.Name,
+			}})
 		}
 
 		return reqs

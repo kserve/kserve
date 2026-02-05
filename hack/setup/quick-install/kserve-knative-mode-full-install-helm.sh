@@ -500,7 +500,7 @@ export RELEASE
 GOLANGCI_LINT_VERSION=v1.64.8
 CONTROLLER_TOOLS_VERSION=v0.19.0
 ENVTEST_VERSION=latest
-YQ_VERSION=v4.28.1
+YQ_VERSION=v4.52.1
 HELM_VERSION=v3.16.3
 KUSTOMIZE_VERSION=v5.5.0
 HELM_DOCS_VERSION=v1.12.0
@@ -520,7 +520,7 @@ ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.17.2
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.7.0
-GATEWAY_API_VERSION=v1.3.1-0.20251106052652-079e4774d76b
+GATEWAY_API_VERSION=v1.3.0
 GIE_VERSION=v1.2.0
 
 #================================================
@@ -1058,7 +1058,7 @@ install_kserve() {
 
         # Install KServe CRDs from local chart
         log_info "Installing KServe CRDs..."
-        helm install "${KSERVE_CRD_RELEASE_NAME}" "${CHARTS_DIR}/${CRD_DIR_NAME}" \
+        helm upgrade --install "${KSERVE_CRD_RELEASE_NAME}" "${CHARTS_DIR}/${CRD_DIR_NAME}" \
             --namespace "${KSERVE_NAMESPACE}" \
             --create-namespace \
             --wait \
@@ -1066,7 +1066,7 @@ install_kserve() {
 
         # Install KServe resources from local chart
         log_info "Installing KServe resources..."
-        helm install "${KSERVE_RELEASE_NAME}" "${CHARTS_DIR}/${CORE_DIR_NAME}" \
+        helm upgrade --install "${KSERVE_RELEASE_NAME}" "${CHARTS_DIR}/${CORE_DIR_NAME}" \
             --namespace "${KSERVE_NAMESPACE}" \
             --create-namespace \
             --wait \
@@ -1079,7 +1079,7 @@ install_kserve() {
 
         # Install KServe CRDs
         log_info "Installing KServe CRDs..."
-        helm install "${KSERVE_CRD_RELEASE_NAME}" \
+        helm upgrade --install "${KSERVE_CRD_RELEASE_NAME}" \
             oci://ghcr.io/kserve/charts/${CRD_DIR_NAME} \
             --version "${KSERVE_VERSION}" \
             --namespace "${KSERVE_NAMESPACE}" \
@@ -1089,7 +1089,7 @@ install_kserve() {
 
         # Install KServe resources
         log_info "Installing KServe resources..."
-        if ! helm install "${KSERVE_RELEASE_NAME}" \
+        if ! helm upgrade --install "${KSERVE_RELEASE_NAME}" \
             oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
             --version "${KSERVE_VERSION}" \
             --namespace "${KSERVE_NAMESPACE}" \

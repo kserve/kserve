@@ -47,6 +47,12 @@ const (
 	KueueAPIGroupName = "kueue.x-k8s.io"
 )
 
+// GIE InferencePool API Group Constants
+const (
+	InferencePoolV1APIGroupName       = "inference.networking.k8s.io"
+	InferencePoolV1Alpha2APIGroupName = "inference.networking.x-k8s.io"
+)
+
 // InferenceService Constants
 var (
 	InferenceServiceName                  = "inferenceservice"
@@ -130,6 +136,7 @@ var (
 	LoggerCredentialFileKey                     = KServeAPIGroupName + "/logger-secret-file"
 	DisableAutoUpdateAnnotationKey              = KServeAPIGroupName + "/disable-auto-update"
 	ModelFormatAnnotationKey                    = "modelFormat"
+	InferencePoolMigratedAnnotationKey          = KServeAPIGroupName + "/inferencepool-migrated"
 )
 
 // InferenceService Internal Annotations
@@ -470,6 +477,25 @@ const (
 	DefaultDeployment   DeploymentModeType = Standard
 	ModelMeshDeployment DeploymentModeType = "ModelMesh"
 )
+
+// ParseDeploymentMode parses deployment mode string from annotations and normalizes legacy modes
+func ParseDeploymentMode(mode string) DeploymentModeType {
+	if mode == "" {
+		return DefaultDeployment
+	}
+
+	deploymentMode := DeploymentModeType(mode)
+
+	// Normalize legacy modes
+	switch deploymentMode {
+	case LegacyRawDeployment:
+		return Standard
+	case LegacyServerless:
+		return Knative
+	default:
+		return deploymentMode
+	}
+}
 
 const (
 	DefaultNSKnativeServing = "knative-serving"
