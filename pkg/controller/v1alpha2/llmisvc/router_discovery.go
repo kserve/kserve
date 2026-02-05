@@ -411,41 +411,92 @@ func nonReadyInferencePoolTopLevelCondition(pool *igwapi.InferencePool) (*metav1
 
 // IsInferencePoolV1Alpha2Supported checks if an HTTPRoute has been accepted by the Gateway, and it's using v1alpha2
 // InferencePool.
-func IsInferencePoolV1Alpha2Supported(route *gwapiv1.HTTPRoute) metav1.ConditionStatus {
+func IsInferencePoolV1Alpha2Supported(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute) metav1.ConditionStatus {
 	if isHTTPRouteUsingInferencePool(route, constants.InferencePoolV1Alpha2APIGroupName) {
-		return isBackendSupported(route)
+		return isBackendSupported(ctx, c, route)
 	}
 	return metav1.ConditionUnknown
 }
 
 // IsInferencePoolV1Supported checks if an HTTPRoute has been accepted by the Gateway, and it's using v1 InferencePool.
-func IsInferencePoolV1Supported(route *gwapiv1.HTTPRoute) metav1.ConditionStatus {
+func IsInferencePoolV1Supported(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute) metav1.ConditionStatus {
 	if isHTTPRouteUsingInferencePool(route, constants.InferencePoolV1APIGroupName) {
-		return isBackendSupported(route)
+		return isBackendSupported(ctx, c, route)
 	}
 	return metav1.ConditionUnknown
 }
 
 // isBackendSupported only returns false if we're absolutely sure the backend is unsupported
-func isBackendSupported(route *gwapiv1.HTTPRoute) metav1.ConditionStatus {
+func isBackendSupported(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute) metav1.ConditionStatus {
 	if route == nil {
 		return metav1.ConditionUnknown
 	}
 
-	// Check the first parent's status (TODO: filter to our specific gateway)
-	if len(route.Status.Parents) > 0 {
-		parent := route.Status.Parents[0]
-		cond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionResolvedRefs))
-		if cond == nil {
-			return metav1.ConditionUnknown
-		}
-		if cond.Status == metav1.ConditionFalse && cond.Reason == string(gwapiv1.RouteReasonInvalidKind) {
-			return metav1.ConditionFalse
-		}
-		return metav1.ConditionTrue
+	gateways, err := DiscoverGateways(ctx, c, route)
+	if err != nil {
+		log.FromContext(ctx).Info("Failed to discover gateways, falling back to first parent with ResolvedRefs", "error", err)
 	}
 
-	return metav1.ConditionUnknown
+	// We might have multiple parents with potentially different implementations.
+	// In this discovery, we assume multiple Gateways will support the same capabilities.
+	// Multiple gateways with multiple implementations is probably a niche use case and requires creating multiple
+	// HTTPRoutes, one per implementation, which adds complexity that is not necessary for now.
+
+	var gatewayParent *gwapiv1.RouteParentStatus
+	for i := range route.Status.Parents {
+		parent := &route.Status.Parents[i]
+
+		// Skip non-Gateway parents (e.g., policy controllers)
+		if parent.ParentRef.Group != nil && *parent.ParentRef.Group != gwapiv1.GroupName {
+			continue
+		}
+		if parent.ParentRef.Kind != nil && *parent.ParentRef.Kind != "Gateway" {
+			continue
+		}
+
+		// As a fallback, we will choose the first Gateway parent with the ResolvedRefs condition.
+		fallbackCond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionResolvedRefs))
+		if fallbackCond != nil && gatewayParent == nil {
+			gatewayParent = parent
+		}
+
+		gatewayControllerName := gwapiv1.GatewayController("")
+		for _, gateway := range gateways {
+			if gateway.gateway == nil || gateway.gatewayClass == nil {
+				continue
+			}
+
+			if gateway.gateway.Name == string(parent.ParentRef.Name) && (isSameNamespace(*parent, gateway) || gateway.gateway.Namespace == route.Namespace) {
+				gatewayControllerName = gateway.gatewayClass.Spec.ControllerName
+				break
+			}
+		}
+
+		if gatewayControllerName == parent.ControllerName {
+			gatewayParent = parent
+			break
+		}
+	}
+
+	if gatewayParent == nil {
+		return metav1.ConditionUnknown
+	}
+
+	cond := meta.FindStatusCondition(gatewayParent.Conditions, string(gwapiv1.RouteConditionResolvedRefs))
+	if cond == nil {
+		return metav1.ConditionUnknown
+	}
+	if cond.Status == metav1.ConditionFalse && cond.Reason == string(gwapiv1.RouteReasonInvalidKind) {
+		return metav1.ConditionFalse
+	}
+	return metav1.ConditionTrue
+}
+
+// isSameNamespace checks if the parent explicitly specifies a namespace that matches the gateway's namespace.
+// Returns false when ParentRef.Namespace is nil (meaning "same namespace as route"), which is handled
+// separately by the caller via: || gateway.gateway.Namespace == route.Namespace
+func isSameNamespace(parent gwapiv1.RouteParentStatus, gateway resolvedGateway) bool {
+	return parent.ParentRef.Namespace != nil && gateway.gateway.Namespace == string(*parent.ParentRef.Namespace)
 }
 
 func isHTTPRouteUsingInferencePool(route *gwapiv1.HTTPRoute, group string) bool {

@@ -785,11 +785,21 @@ func TestIsInferencePoolV1Alpha2Supported(t *testing.T) {
 	v1alpha2Group := gwapiv1.Group("inference.networking.x-k8s.io")
 	v1Group := gwapiv1.Group("inference.networking.k8s.io")
 	poolKind := gwapiv1.Kind("InferencePool")
+	gatewayGroup := gwapiv1.Group(gwapiv1.GroupName)
+	gatewayKind := gwapiv1.Kind("Gateway")
+	testNS := gwapiv1.Namespace("test-ns")
+
+	const (
+		gatewayControllerName = "istio.io/gateway-controller"
+		policyControllerName  = "kuadrant.io/policy-controller"
+	)
 
 	tests := []struct {
-		name     string
-		route    *gwapiv1.HTTPRoute
-		expected metav1.ConditionStatus
+		name         string
+		route        *gwapiv1.HTTPRoute
+		gateway      *gwapiv1.Gateway
+		gatewayClass *gwapiv1.GatewayClass
+		expected     metav1.ConditionStatus
 	}{
 		{
 			name:     "nil route returns Unknown",
@@ -799,6 +809,7 @@ func TestIsInferencePoolV1Alpha2Supported(t *testing.T) {
 		{
 			name: "route not using v1alpha2 InferencePool returns Unknown",
 			route: &gwapiv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "test-ns"},
 				Spec: gwapiv1.HTTPRouteSpec{
 					Rules: []gwapiv1.HTTPRouteRule{
 						{
@@ -818,7 +829,13 @@ func TestIsInferencePoolV1Alpha2Supported(t *testing.T) {
 		{
 			name: "route using v1alpha2 with no status returns Unknown",
 			route: &gwapiv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "test-ns"},
 				Spec: gwapiv1.HTTPRouteSpec{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{Group: &gatewayGroup, Kind: &gatewayKind, Name: "test-gateway", Namespace: &testNS},
+						},
+					},
 					Rules: []gwapiv1.HTTPRouteRule{
 						{
 							BackendRefs: []gwapiv1.HTTPBackendRef{
@@ -832,12 +849,20 @@ func TestIsInferencePoolV1Alpha2Supported(t *testing.T) {
 					},
 				},
 			},
-			expected: metav1.ConditionUnknown,
+			gateway:      Gateway("test-gateway", InNamespace[*gwapiv1.Gateway]("test-ns")),
+			gatewayClass: DefaultGatewayClass(),
+			expected:     metav1.ConditionUnknown,
 		},
 		{
 			name: "route using v1alpha2 with ResolvedRefs=True returns True (supported)",
 			route: &gwapiv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "test-ns"},
 				Spec: gwapiv1.HTTPRouteSpec{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{Group: &gatewayGroup, Kind: &gatewayKind, Name: "test-gateway", Namespace: &testNS},
+						},
+					},
 					Rules: []gwapiv1.HTTPRouteRule{
 						{
 							BackendRefs: []gwapiv1.HTTPBackendRef{
@@ -854,6 +879,8 @@ func TestIsInferencePoolV1Alpha2Supported(t *testing.T) {
 					RouteStatus: gwapiv1.RouteStatus{
 						Parents: []gwapiv1.RouteParentStatus{
 							{
+								ParentRef:      gwapiv1.ParentReference{Group: &gatewayGroup, Kind: &gatewayKind, Name: "test-gateway", Namespace: &testNS},
+								ControllerName: gatewayControllerName,
 								Conditions: []metav1.Condition{
 									{
 										Type:   string(gwapiv1.RouteConditionResolvedRefs),
@@ -866,12 +893,20 @@ func TestIsInferencePoolV1Alpha2Supported(t *testing.T) {
 					},
 				},
 			},
-			expected: metav1.ConditionTrue,
+			gateway:      Gateway("test-gateway", InNamespace[*gwapiv1.Gateway]("test-ns")),
+			gatewayClass: DefaultGatewayClass(),
+			expected:     metav1.ConditionTrue,
 		},
 		{
 			name: "route using v1alpha2 with ResolvedRefs=False/InvalidKind returns False (rejected)",
 			route: &gwapiv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "test-ns"},
 				Spec: gwapiv1.HTTPRouteSpec{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{Group: &gatewayGroup, Kind: &gatewayKind, Name: "test-gateway", Namespace: &testNS},
+						},
+					},
 					Rules: []gwapiv1.HTTPRouteRule{
 						{
 							BackendRefs: []gwapiv1.HTTPBackendRef{
@@ -888,6 +923,8 @@ func TestIsInferencePoolV1Alpha2Supported(t *testing.T) {
 					RouteStatus: gwapiv1.RouteStatus{
 						Parents: []gwapiv1.RouteParentStatus{
 							{
+								ParentRef:      gwapiv1.ParentReference{Group: &gatewayGroup, Kind: &gatewayKind, Name: "test-gateway", Namespace: &testNS},
+								ControllerName: gatewayControllerName,
 								Conditions: []metav1.Condition{
 									{
 										Type:    string(gwapiv1.RouteConditionResolvedRefs),
@@ -901,12 +938,20 @@ func TestIsInferencePoolV1Alpha2Supported(t *testing.T) {
 					},
 				},
 			},
-			expected: metav1.ConditionFalse,
+			gateway:      Gateway("test-gateway", InNamespace[*gwapiv1.Gateway]("test-ns")),
+			gatewayClass: DefaultGatewayClass(),
+			expected:     metav1.ConditionFalse,
 		},
 		{
 			name: "route using v1alpha2 with ResolvedRefs=False but different reason returns True (not InvalidKind rejection)",
 			route: &gwapiv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "test-ns"},
 				Spec: gwapiv1.HTTPRouteSpec{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{Group: &gatewayGroup, Kind: &gatewayKind, Name: "test-gateway", Namespace: &testNS},
+						},
+					},
 					Rules: []gwapiv1.HTTPRouteRule{
 						{
 							BackendRefs: []gwapiv1.HTTPBackendRef{
@@ -923,6 +968,8 @@ func TestIsInferencePoolV1Alpha2Supported(t *testing.T) {
 					RouteStatus: gwapiv1.RouteStatus{
 						Parents: []gwapiv1.RouteParentStatus{
 							{
+								ParentRef:      gwapiv1.ParentReference{Group: &gatewayGroup, Kind: &gatewayKind, Name: "test-gateway", Namespace: &testNS},
+								ControllerName: gatewayControllerName,
 								Conditions: []metav1.Condition{
 									{
 										Type:   string(gwapiv1.RouteConditionResolvedRefs),
@@ -935,14 +982,214 @@ func TestIsInferencePoolV1Alpha2Supported(t *testing.T) {
 					},
 				},
 			},
-			expected: metav1.ConditionTrue,
+			gateway:      Gateway("test-gateway", InNamespace[*gwapiv1.Gateway]("test-ns")),
+			gatewayClass: DefaultGatewayClass(),
+			expected:     metav1.ConditionTrue,
+		},
+		{
+			name: "multiple parents with policy controller first - selects gateway controller parent",
+			route: &gwapiv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "test-ns"},
+				Spec: gwapiv1.HTTPRouteSpec{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{Group: &gatewayGroup, Kind: &gatewayKind, Name: "test-gateway", Namespace: &testNS},
+						},
+					},
+					Rules: []gwapiv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+									Group: &v1alpha2Group,
+									Kind:  &poolKind,
+									Name:  "test-pool",
+								}}},
+							},
+						},
+					},
+				},
+				Status: gwapiv1.HTTPRouteStatus{
+					RouteStatus: gwapiv1.RouteStatus{
+						Parents: []gwapiv1.RouteParentStatus{
+							// Policy controller parent (e.g., Kuadrant) - appears first but should be skipped
+							{
+								ParentRef:      gwapiv1.ParentReference{Group: &gatewayGroup, Kind: &gatewayKind, Name: "test-gateway", Namespace: &testNS},
+								ControllerName: policyControllerName,
+								Conditions: []metav1.Condition{
+									{
+										Type:    "kuadrant.io/AuthPolicyAffected",
+										Status:  metav1.ConditionTrue,
+										Reason:  "Accepted",
+										Message: "Object affected by AuthPolicy",
+									},
+								},
+							},
+							// Gateway controller parent - should be selected
+							{
+								ParentRef:      gwapiv1.ParentReference{Group: &gatewayGroup, Kind: &gatewayKind, Name: "test-gateway", Namespace: &testNS},
+								ControllerName: gatewayControllerName,
+								Conditions: []metav1.Condition{
+									{
+										Type:   string(gwapiv1.RouteConditionResolvedRefs),
+										Status: metav1.ConditionTrue,
+										Reason: "ResolvedRefs",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			gateway:      Gateway("test-gateway", InNamespace[*gwapiv1.Gateway]("test-ns")),
+			gatewayClass: DefaultGatewayClass(),
+			expected:     metav1.ConditionTrue,
+		},
+		{
+			name: "multiple parents - gateway controller has InvalidKind, policy controller is True - returns False",
+			route: &gwapiv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "test-ns"},
+				Spec: gwapiv1.HTTPRouteSpec{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{Group: &gatewayGroup, Kind: &gatewayKind, Name: "test-gateway", Namespace: &testNS},
+						},
+					},
+					Rules: []gwapiv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+									Group: &v1alpha2Group,
+									Kind:  &poolKind,
+									Name:  "test-pool",
+								}}},
+							},
+						},
+					},
+				},
+				Status: gwapiv1.HTTPRouteStatus{
+					RouteStatus: gwapiv1.RouteStatus{
+						Parents: []gwapiv1.RouteParentStatus{
+							// Policy controller parent with True status - should be ignored
+							{
+								ParentRef:      gwapiv1.ParentReference{Group: &gatewayGroup, Kind: &gatewayKind, Name: "test-gateway", Namespace: &testNS},
+								ControllerName: policyControllerName,
+								Conditions: []metav1.Condition{
+									{
+										Type:   string(gwapiv1.RouteConditionResolvedRefs),
+										Status: metav1.ConditionTrue,
+										Reason: "ResolvedRefs",
+									},
+								},
+							},
+							// Gateway controller parent with InvalidKind - should be selected and return False
+							{
+								ParentRef:      gwapiv1.ParentReference{Group: &gatewayGroup, Kind: &gatewayKind, Name: "test-gateway", Namespace: &testNS},
+								ControllerName: gatewayControllerName,
+								Conditions: []metav1.Condition{
+									{
+										Type:    string(gwapiv1.RouteConditionResolvedRefs),
+										Status:  metav1.ConditionFalse,
+										Reason:  "InvalidKind",
+										Message: "Group is invalid: inference.networking.x-k8s.io",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			gateway:      Gateway("test-gateway", InNamespace[*gwapiv1.Gateway]("test-ns")),
+			gatewayClass: DefaultGatewayClass(),
+			expected:     metav1.ConditionFalse,
+		},
+		{
+			name: "gateway controller with Accepted+ResolvedRefs alongside policy controller with custom condition",
+			route: &gwapiv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-route", Namespace: "test-ns"},
+				Spec: gwapiv1.HTTPRouteSpec{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{Group: &gatewayGroup, Kind: &gatewayKind, Name: "test-gateway", Namespace: &testNS},
+						},
+					},
+					Rules: []gwapiv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwapiv1.HTTPBackendRef{
+								{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+									Group: &v1alpha2Group,
+									Kind:  &poolKind,
+									Name:  "test-pool",
+								}}},
+							},
+						},
+					},
+				},
+				Status: gwapiv1.HTTPRouteStatus{
+					RouteStatus: gwapiv1.RouteStatus{
+						Parents: []gwapiv1.RouteParentStatus{
+							// Gateway controller parent with Accepted and ResolvedRefs conditions
+							{
+								ParentRef:      gwapiv1.ParentReference{Group: &gatewayGroup, Kind: &gatewayKind, Name: "test-gateway", Namespace: &testNS},
+								ControllerName: gatewayControllerName,
+								Conditions: []metav1.Condition{
+									{
+										Type:   string(gwapiv1.RouteConditionAccepted),
+										Status: metav1.ConditionTrue,
+										Reason: "Accepted",
+									},
+									{
+										Type:   string(gwapiv1.RouteConditionResolvedRefs),
+										Status: metav1.ConditionTrue,
+										Reason: "ResolvedRefs",
+									},
+								},
+							},
+							// Policy controller parent with custom condition type (no ResolvedRefs)
+							{
+								ParentRef:      gwapiv1.ParentReference{Group: &gatewayGroup, Kind: &gatewayKind, Name: "test-gateway", Namespace: &testNS},
+								ControllerName: policyControllerName,
+								Conditions: []metav1.Condition{
+									{
+										Type:    "kuadrant.io/AuthPolicyAffected",
+										Status:  metav1.ConditionTrue,
+										Reason:  "Accepted",
+										Message: "Object affected by AuthPolicy [test-ns/test-with-router-authn]",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			gateway:      Gateway("test-gateway", InNamespace[*gwapiv1.Gateway]("test-ns")),
+			gatewayClass: DefaultGatewayClass(),
+			expected:     metav1.ConditionTrue,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
-			result := llmisvc.IsInferencePoolV1Alpha2Supported(tt.route)
+			ctx := t.Context()
+
+			scheme := runtime.NewScheme()
+			err := gwapiv1.Install(scheme)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			var objects []client.Object
+			if tt.gateway != nil {
+				objects = append(objects, tt.gateway)
+			}
+			if tt.gatewayClass != nil {
+				objects = append(objects, tt.gatewayClass)
+			}
+
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(objects...).
+				Build()
+
+			result := llmisvc.IsInferencePoolV1Alpha2Supported(ctx, fakeClient, tt.route)
 			g.Expect(result).To(Equal(tt.expected))
 		})
 	}

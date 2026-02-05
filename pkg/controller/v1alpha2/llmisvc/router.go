@@ -211,8 +211,8 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 	if routeExists {
 		migrationValue, hasMigrationAnnotation := curr.Annotations[AnnotationInferencePoolMigrated]
 		isMigrated = hasMigrationAnnotation && migrationValue == v1MigrationValue
-		infPoolV1Alpha2Support = IsInferencePoolV1Alpha2Supported(curr)
-		infPoolV1Support = IsInferencePoolV1Supported(curr)
+		infPoolV1Alpha2Support = IsInferencePoolV1Alpha2Supported(ctx, r.Client, curr)
+		infPoolV1Support = IsInferencePoolV1Supported(ctx, r.Client, curr)
 	}
 
 	// Switch to v1 if:
