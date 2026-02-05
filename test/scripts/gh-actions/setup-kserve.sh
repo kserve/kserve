@@ -37,28 +37,33 @@ if [[ $NETWORK_LAYER == *"-gatewayapi"* ]]; then
 fi
 
 echo "Installing KServe using Kustomize..."
-KSERVE_OVERYLAY_DIR=test INSTALL_RUNTIMES=false ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh 
-
-echo "Show inferenceservice-config configmap..."
-kubectl get configmap inferenceservice-config -n kserve
-
-if [[ $LLMISVC != "true" ]]; then
-  echo "Installing KServe Runtimes..."
-  kubectl apply --server-side=true -k config/overlays/test/clusterresources
-fi
-kubectl get events -A
-
-echo "Add testing models to minio storage ..."
-kubectl apply -f config/overlays/test/minio/minio-init-job.yaml -n kserve
-kubectl wait --for=condition=complete --timeout=90s job/minio-init -n kserve
 
 echo "Creating a namespace kserve-ci-test ..."
 kubectl create namespace kserve-ci-e2e-test
-
-echo "Add storageSpec testing secrets ..."
-kubectl apply -f config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test
 
 echo "Installing KServe Python SDK ..."
 pushd python/kserve >/dev/null
     uv sync --active --group test
 popd
+
+
+if [[ $LLMISVC == "false" ]]; then  
+  KSERVE_OVERLAY_DIR=test INSTALL_RUNTIMES=false ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh 
+
+  echo "Installing KServe Runtimes..."
+  kubectl apply --server-side=true -k config/overlays/test/clusterresources
+
+  kubectl get events -A
+
+  echo "Add testing models to s3 storage ..."
+  kubectl apply -f config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml -n kserve
+  kubectl wait --for=condition=complete --timeout=90s job/s3-init -n kserve
+
+  echo "Add storageSpec testing secrets ..."
+  kubectl apply -f config/overlays/test/s3-local-backend/storage-config-secret.yaml -n kserve-ci-e2e-test
+else
+  KSERVE_OVERLAY_DIR=test-llmisvc ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh
+fi
+
+echo "Show inferenceservice-config configmap..."
+kubectl get configmap inferenceservice-config -n kserve

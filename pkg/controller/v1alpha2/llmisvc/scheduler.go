@@ -23,6 +23,7 @@ import (
 	"slices"
 	"sort"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -34,6 +35,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/utils"
@@ -112,20 +114,24 @@ func (r *LLMISVCReconciler) reconcileSchedulerRoleBinding(ctx context.Context, l
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	serviceAccount := r.expectedSchedulerServiceAccount(llmSvc)
+	serviceAccount, useExistingServiceAccount, err := r.expectedSchedulerServiceAccount(ctx, llmSvc)
+	if err != nil {
+		return fmt.Errorf("failed to create expected scheduler service account: %w", err)
+	}
 
 	if !llmSvc.DeletionTimestamp.IsZero() {
 		return r.reconcileSchedulerAuthDelegatorBinding(ctx, llmSvc, serviceAccount)
 	}
 
-	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
-		return Delete(ctx, r, llmSvc, serviceAccount)
-	}
+	if !useExistingServiceAccount {
+		if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
+			return Delete(ctx, r, llmSvc, serviceAccount)
+		}
 
-	if err := Reconcile(ctx, r, llmSvc, &corev1.ServiceAccount{}, serviceAccount, semanticServiceAccountIsEqual); err != nil {
-		return fmt.Errorf("failed to reconcile scheduler service account %s/%s: %w", serviceAccount.GetNamespace(), serviceAccount.GetName(), err)
+		if err := Reconcile(ctx, r, llmSvc, &corev1.ServiceAccount{}, serviceAccount, semanticServiceAccountIsEqual); err != nil {
+			return fmt.Errorf("failed to reconcile scheduler service account %s/%s: %w", serviceAccount.GetNamespace(), serviceAccount.GetName(), err)
+		}
 	}
-
 	if err := r.reconcileSchedulerAuthDelegatorBinding(ctx, llmSvc, serviceAccount); err != nil {
 		return err
 	}
@@ -147,23 +153,55 @@ func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, ll
 		}
 		return Delete(ctx, r, llmSvc, scheduler)
 	}
-	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, scheduler, semanticDeploymentIsEqual); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, scheduler, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
 		return fmt.Errorf("failed to reconcile scheduler deployment %s/%s: %w", scheduler.GetNamespace(), scheduler.GetName(), err)
 	}
 	return r.propagateDeploymentStatus(ctx, scheduler, llmSvc.MarkSchedulerWorkloadReady, llmSvc.MarkSchedulerWorkloadNotReady)
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerInferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	expected := r.expectedSchedulerInferencePool(ctx, llmSvc)
-	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
-		return Delete(ctx, r, llmSvc, expected)
-	}
+	logger := log.FromContext(ctx)
+	shouldDelete := utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef()
 
-	if err := Reconcile(ctx, r, llmSvc, &igwapi.InferencePool{}, expected, semanticInferencePoolIsEqual); err != nil {
+	if err := r.reconcileV1InferencePool(ctx, llmSvc, shouldDelete); err != nil {
 		return err
 	}
-	// TODO add inference pool condition propagation and then aggregate it into "RouterReady" similar to WorkloadReady.
+
+	if err := r.reconcileV1Alpha2InferencePool(ctx, llmSvc, shouldDelete); err != nil {
+		return err
+	}
+
+	logger.V(2).Info("InferencePool reconciliation complete",
+		"v1Available", r.InferencePoolV1Available,
+		"v1alpha2Available", r.InferencePoolV1Alpha2Available)
+
 	return nil
+}
+
+// reconcileV1InferencePool reconciles the v1 InferencePool if the CRD is available.
+func (r *LLMISVCReconciler) reconcileV1InferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shouldDelete bool) error {
+	if !r.InferencePoolV1Available {
+		return nil
+	}
+
+	expected := r.expectedSchedulerInferencePool(ctx, llmSvc)
+	if shouldDelete {
+		return Delete(ctx, r, llmSvc, expected)
+	}
+	return Reconcile(ctx, r, llmSvc, &igwapi.InferencePool{}, expected, semanticInferencePoolIsEqual)
+}
+
+// reconcileV1Alpha2InferencePool reconciles the v1alpha2 InferencePool if the CRD is available.
+func (r *LLMISVCReconciler) reconcileV1Alpha2InferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shouldDelete bool) error {
+	if !r.InferencePoolV1Alpha2Available {
+		return nil
+	}
+
+	expected := r.expectedSchedulerInferencePoolV1Alpha2(ctx, llmSvc)
+	if shouldDelete {
+		return Delete(ctx, r, llmSvc, expected)
+	}
+	return Reconcile(ctx, r, llmSvc, &igwapiv1alpha2.InferencePool{}, expected, semanticInferencePoolV1Alpha2IsEqual)
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
@@ -198,7 +236,7 @@ func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
 		podSpec := llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
 
-		desiredPorts := sets.New("grpc", "grpc-health", "metrics")
+		desiredPorts := sets.New("grpc", "grpc-health", "metrics", "zmq")
 
 		actualPorts := make(map[string]*corev1.ContainerPort)
 		for _, container := range podSpec.Containers {
@@ -258,6 +296,40 @@ func (r *LLMISVCReconciler) expectedSchedulerInferencePool(ctx context.Context, 
 	return ip
 }
 
+func (r *LLMISVCReconciler) expectedSchedulerInferencePoolV1Alpha2(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *igwapiv1alpha2.InferencePool {
+	labels := SchedulerLabels(llmSvc)
+
+	// Define the desired ObjectMeta first
+	// Use the same name as v1 pool - they can coexist because they're different CRDs (different API groups)
+	desiredMeta := metav1.ObjectMeta{
+		Name:      kmeta.ChildName(llmSvc.GetName(), "-inference-pool"),
+		Namespace: llmSvc.GetNamespace(),
+		Labels:    labels,
+		OwnerReferences: []metav1.OwnerReference{
+			*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+		},
+	}
+
+	ip := &igwapiv1alpha2.InferencePool{
+		ObjectMeta: desiredMeta,
+	}
+
+	// Convert v1 spec to v1alpha2 using the built-in GIE conversion
+	// Note: ConvertFrom overwrites ObjectMeta, so we must restore it after conversion
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Pool != nil && llmSvc.Spec.Router.Scheduler.Pool.Spec != nil {
+		srcPool := &igwapi.InferencePool{Spec: *llmSvc.Spec.Router.Scheduler.Pool.Spec.DeepCopy()}
+		if err := ip.ConvertFrom(srcPool); err != nil {
+			log.FromContext(ctx).Error(err, "Failed to convert InferencePool spec to v1alpha2")
+		}
+		// Restore the desired ObjectMeta after conversion (ConvertFrom overwrites it)
+		ip.ObjectMeta = desiredMeta
+	}
+
+	log.FromContext(ctx).V(2).Info("Expected router InferencePool v1alpha2", "inferencepool", ip)
+
+	return ip
+}
+
 func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *appsv1.Deployment {
 	labels := SchedulerLabels(llmSvc)
 	d := &appsv1.Deployment{
@@ -309,37 +381,46 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 }
 
 func schedulerConfigText(llmSvc *v1alpha2.LLMInferenceService) string {
+	if llmSvc.Spec.Router != nil &&
+		llmSvc.Spec.Router.Scheduler != nil &&
+		llmSvc.Spec.Router.Scheduler.Config != nil &&
+		llmSvc.Spec.Router.Scheduler.Config.Inline != nil {
+		// We don't need to handle Ref as it's done as part of the config merge step.
+		return string(llmSvc.Spec.Router.Scheduler.Config.Inline.Raw)
+	}
+
 	switch {
 	case llmSvc.Spec.Prefill != nil:
+		// Always do P/D by default (threshold 0)
 		return `
 apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
-- type: pd-profile-handler
-  parameters:
-    threshold: 100
 - type: prefill-header-handler
 - type: prefill-filter
 - type: decode-filter
+- type: queue-scorer
 - type: prefix-cache-scorer
-- type: load-aware-scorer
 - type: max-score-picker
+- type: pd-profile-handler
+  parameters:
+    threshold: 0
 schedulingProfiles:
 - name: prefill
   plugins:
   - pluginRef: prefill-filter
+  - pluginRef: queue-scorer
+    weight: 2
   - pluginRef: prefix-cache-scorer
-    weight: 2.0
-  - pluginRef: load-aware-scorer
-    weight: 1.0
+    weight: 3
   - pluginRef: max-score-picker
 - name: decode
   plugins:
   - pluginRef: decode-filter
+  - pluginRef: queue-scorer
+    weight: 2
   - pluginRef: prefix-cache-scorer
-    weight: 2.0
-  - pluginRef: load-aware-scorer
-    weight: 1.0
+    weight: 3
   - pluginRef: max-score-picker
 `
 	default:
@@ -348,25 +429,44 @@ apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
+- type: queue-scorer
 - type: prefix-cache-scorer
-- type: load-aware-scorer
 - type: max-score-picker
 schedulingProfiles:
 - name: default
   plugins:
+  - pluginRef: queue-scorer
+    weight: 2
   - pluginRef: prefix-cache-scorer
-    weight: 2.0
-  - pluginRef: load-aware-scorer
-    weight: 1.0
+    weight: 3
   - pluginRef: max-score-picker
 `
 	}
 }
 
-func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(llmSvc *v1alpha2.LLMInferenceService) *corev1.ServiceAccount {
+func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, bool, error) {
+	useExistingServiceAccount := false
+	expectedServiceAccountName := kmeta.ChildName(llmSvc.GetName(), "-epp-sa")
+
+	var existingServiceAccountName string
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil && llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
+		existingServiceAccountName = llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName
+	}
+
+	if existingServiceAccountName != "" && existingServiceAccountName != expectedServiceAccountName {
+		useExistingServiceAccount = true
+		log.FromContext(ctx).V(2).Info("Using existing service account for scheduler", "serviceAccountName", existingServiceAccountName)
+		existingServiceAccount := &corev1.ServiceAccount{}
+		err := r.Client.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+		if err != nil {
+			return nil, true, fmt.Errorf("failed to fetch existing scheduler service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
+		}
+		return existingServiceAccount, useExistingServiceAccount, nil
+	}
+
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-epp-sa"),
+			Name:      expectedServiceAccountName,
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -375,14 +475,7 @@ func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(llmSvc *v1alpha2.LLM
 		},
 	}
 
-	if llmSvc.Spec.Router != nil &&
-		llmSvc.Spec.Router.Scheduler != nil &&
-		llmSvc.Spec.Router.Scheduler.Template != nil &&
-		llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
-		sa.Name = llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName
-	}
-
-	return sa
+	return sa, useExistingServiceAccount, nil
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerAuthDelegatorBinding(llmSvc *v1alpha2.LLMInferenceService, sa *corev1.ServiceAccount) *rbacv1.ClusterRoleBinding {
@@ -455,6 +548,12 @@ func semanticServiceIsEqual(expected *corev1.Service, current *corev1.Service) b
 }
 
 func semanticInferencePoolIsEqual(expected *igwapi.InferencePool, curr *igwapi.InferencePool) bool {
+	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
+		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
+		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
+}
+
+func semanticInferencePoolV1Alpha2IsEqual(expected *igwapiv1alpha2.InferencePool, curr *igwapiv1alpha2.InferencePool) bool {
 	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)

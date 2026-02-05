@@ -57,12 +57,12 @@ install() {
     fi
 
     log_info "Installing Envoy Gateway ${ENVOY_GATEWAY_VERSION}..."
-    helm install eg oci://docker.io/envoyproxy/gateway-helm \
+    helm upgrade -i eg oci://docker.io/envoyproxy/gateway-helm \
         --version "${ENVOY_GATEWAY_VERSION}" \
         -n envoy-gateway-system \
         --create-namespace \
         --wait
-
+    
     log_success "Successfully installed Envoy Gateway ${ENVOY_GATEWAY_VERSION} via Helm"
 
     wait_for_pods "envoy-gateway-system" "control-plane=envoy-gateway" "300s"
