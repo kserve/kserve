@@ -25,17 +25,16 @@ import (
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 )
 
 func TestProcessAddOrUpdate(t *testing.T) {
-	log.SetLogger(zap.New())
+	pkgtest.SetupTestLogger()
 	testCases := map[string]struct {
 		modelConfigs ModelConfigs
 		configMap    *corev1.ConfigMap
@@ -129,7 +128,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 }
 
 func TestProcessDelete(t *testing.T) {
-	log.SetLogger(zap.New())
+	pkgtest.SetupTestLogger()
 	testCases := map[string]struct {
 		modelConfigs []string
 		configMap    *corev1.ConfigMap
@@ -195,7 +194,7 @@ func TestProcessDelete(t *testing.T) {
 }
 
 func TestProcess(t *testing.T) {
-	log.SetLogger(zap.New())
+	pkgtest.SetupTestLogger()
 	testCases := map[string]struct {
 		updated   ModelConfigs
 		deleted   []string
