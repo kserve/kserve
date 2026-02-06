@@ -1,0 +1,23 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get all {{ .Release.Name }}
+
+Component Status:
+{{- if .Values.inferenceServiceConfig.enabled | default .Values.kserve.createSharedResources }}
+  ✓ InferenceService Config: Enabled
+{{- else }}
+  ✗ InferenceService Config: Disabled
+{{- end }}
+{{- if .Values.certManager.enabled | default .Values.kserve.createSharedResources }}
+  ✓ Cert-Manager Issuer: Enabled
+{{- else }}
+  ✗ Cert-Manager Issuer: Disabled
+{{- end }}
+
+  ✓ KSERVE controller: Always Enabled
+

@@ -1,0 +1,118 @@
+# Helm Mapping Configuration for LocalModel Chart
+# Chart Name: kserve-localmodel-resources
+# Description: LocalModel controller for local model caching
+# NOTE: CRDs are managed separately by user (kserve-localmodel-crd chart)
+
+# =============================================================================
+# CHART METADATA
+# =============================================================================
+metadata:
+  name: kserve-localmodel-resources
+  description: "KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Deployments"
+  version: "0.1.0"  # Overridden by KSERVE_VERSION from kserve-deps.env
+  appVersion: "latest"  # Overridden by KSERVE_VERSION from kserve-deps.env
+
+globals:
+  version:
+    valuePath: kserve.version
+    kserve-deps: KSERVE_VERSION
+
+  chartVersion:
+    valuePath: metadata.version
+    kserve-deps: KSERVE_VERSION
+    description: "Chart version from kserve-deps.env"
+
+  chartAppVersion:
+    valuePath: metadata.appVersion
+    kserve-deps: KSERVE_VERSION
+    description: "Chart appVersion from kserve-deps.env"
+
+# =============================================================================
+# LOCALMODEL COMPONENT (Controller + Agent)
+# =============================================================================
+localmodel:
+  manifestPath: config/localmodels
+
+  # LocalModel Controller Manager Deployment
+  controllerManager:
+    kind: Deployment
+    name: kserve-localmodel-controller-manager
+    namespace: kserve
+
+    # Container-level fields (NEW structure with container-relative paths)
+    containers:
+      manager:  # Main container name
+        image:
+          repository:
+            path: image+(:,0)
+            valuePath: localmodel.controller.containers.manager.image
+          tag:
+            path: image+(:,1)
+            valuePath: localmodel.controller.containers.manager.tag
+            value: ""
+            fallback: kserve.version
+          pullPolicy:
+            path: imagePullPolicy
+            valuePath: localmodel.controller.containers.manager.imagePullPolicy
+
+        resources:
+          path: resources
+          valuePath: localmodel.controller.containers.manager.resources
+
+  # LocalModelNode Agent DaemonSet
+  nodeAgent:
+    kind: DaemonSet
+    name: kserve-localmodelnode-agent
+    namespace: kserve
+
+    # Container-level fields (NEW structure with container-relative paths)
+    containers:
+      manager:  # Main container name
+        image:
+          repository:
+            path: image+(:,0)
+            valuePath: localmodel.nodeAgent.containers.manager.image
+          tag:
+            path: image+(:,1)
+            valuePath: localmodel.nodeAgent.containers.manager.tag
+            value: ""
+            fallback: kserve.version
+          pullPolicy:
+            path: imagePullPolicy
+            valuePath: localmodel.nodeAgent.containers.manager.imagePullPolicy
+
+        resources:
+          path: resources
+          valuePath: localmodel.nodeAgent.containers.manager.resources
+
+    # Pod-level fields (stay at root)
+    nodeSelector:
+      path: spec.template.spec.nodeSelector
+      valuePath: localmodel.nodeAgent.nodeSelector
+
+    affinity:
+      path: spec.template.spec.affinity
+      valuePath: localmodel.nodeAgent.affinity
+
+    tolerations:
+      path: spec.template.spec.tolerations
+      valuePath: localmodel.nodeAgent.tolerations
+
+# =============================================================================
+# NOTES
+# =============================================================================
+notes: |
+  KServe LocalModel Chart Mapping Configuration
+
+  This chart includes only the LocalModel controller resources (templates).
+  CRDs are managed separately via kserve-localmodel-crd chart.
+
+  Components:
+  - LocalModel controller deployment
+  - LocalModel webhook services
+  - LocalModel certificates
+  - LocalModel RBAC resources
+
+  NOTE: This chart does NOT include CRDs. Users must install CRDs separately:
+  1. helm install kserve-localmodel-crd charts/kserve-localmodel-crd
+  2. helm install kserve-localmodel charts/kserve-localmodel-resources

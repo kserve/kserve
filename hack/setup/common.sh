@@ -446,3 +446,60 @@ GLOBAL_VARS_FILE="${REPO_ROOT}/hack/setup/global-vars.env"
 if [[ -f "${GLOBAL_VARS_FILE}" ]]; then
     source "${GLOBAL_VARS_FILE}"
 fi
+
+# ============================================================================
+# Shared Resources Configuration (for dual KServe + LLMISVC installation)
+# ============================================================================
+
+determine_shared_resources_config() {
+    if [ "${ENABLE_KSERVE:-false}" != "true" ] || [ "${ENABLE_LLMISVC:-false}" != "true" ]; then
+        return
+    fi
+
+    log_info "Both KSERVE and LLMISVC enabled - determining shared resources configuration..."
+
+    if [ "${INSTALL_MODE:-}" = "helm" ]; then
+        determine_shared_resources_helm
+    elif [ "${INSTALL_MODE:-}" = "kustomize" ]; then
+        determine_shared_resources_kustomize
+    else
+        log_error "INSTALL_MODE not set. Must be 'helm' or 'kustomize'"
+        exit 1
+    fi
+}
+
+determine_shared_resources_helm() {
+    local kserve_installed=$(helm list -n "${KSERVE_NAMESPACE}" -q 2>/dev/null | grep -c "^kserve-resources$" || true)
+    local llmisvc_installed=$(helm list -n "${KSERVE_NAMESPACE}" -q 2>/dev/null | grep -c "^kserve-llmisvc-resources$" || true)
+
+    if [ "${kserve_installed}" = "0" ] && [ "${llmisvc_installed}" = "0" ]; then
+        log_info "[Helm] Neither chart installed - setting createSharedResources=false for LLMISVC"
+        LLMISVC_EXTRA_ARGS="${LLMISVC_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+    elif [ "${kserve_installed}" = "1" ] && [ "${llmisvc_installed}" = "0" ]; then
+        log_info "[Helm] Only kserve-resources installed - setting createSharedResources=false for LLMISVC"
+        LLMISVC_EXTRA_ARGS="${LLMISVC_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+    elif [ "${kserve_installed}" = "0" ] && [ "${llmisvc_installed}" = "1" ]; then
+        log_info "[Helm] Only kserve-llmisvc-resources installed - setting createSharedResources=false for KSERVE"
+        KSERVE_EXTRA_ARGS="${KSERVE_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+    else
+        local kserve_has_false=$(helm get values kserve-resources -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -c "createSharedResources: false" || true)
+
+        if [ "${kserve_has_false}" = "1" ]; then
+            log_info "[Helm] Maintaining createSharedResources=false for KSERVE"
+            KSERVE_EXTRA_ARGS="${KSERVE_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+        else
+            log_info "[Helm] Setting createSharedResources=false for LLMISVC"
+            LLMISVC_EXTRA_ARGS="${LLMISVC_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+        fi
+    fi
+}
+
+determine_shared_resources_kustomize() {
+    KSERVE_INSTALLED=$(kubectl get deployment kserve-controller-manager -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -c "kserve-controller-manager" || true)
+    LLMISVC_INSTALLED=$(kubectl get deployment llmisvc-controller-manager -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -c "llmisvc-controller-manager" || true)
+    
+    export KSERVE_INSTALLED
+    export LLMISVC_INSTALLED
+
+    log_info "[Kustomize] Installation status(0: not installed, 1: installed): KSERVE=${KSERVE_INSTALLED}, LLMISVC=${LLMISVC_INSTALLED}"
+}

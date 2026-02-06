@@ -1,0 +1,141 @@
+{{- if .Values.runtimes.enabled }}
+{{- if .Values.runtimes.huggingfaceMultinode.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-huggingfaceserver-multinode
+  labels:
+    {{- include "kserve-runtime-configs.labels" . | nindent 4 }}
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --model_name={{ "{{" }}.Name{{ "}}" }}
+    command:
+    - bash
+    - -c
+    - "export MODEL_DIR_ARG=\"\"\nif [[ ! -z ${MODEL_ID} ]]\nthen\n  export MODEL_DIR_ARG=\"--model_dir=${MODEL_ID}\"\nfi\n\nif [[ ! -z ${MODEL_DIR} ]]\nthen\n  export MODEL_DIR_ARG=\"--model_dir=${MODEL_DIR}\"\nfi\n\nexport RAY_ADDRESS=${POD_IP}:${RAY_PORT}\nray start --head --disable-usage-stats --include-dashboard false \npython ./huggingfaceserver/health_check.py registered_nodes --retries 200  --probe_name runtime_start\n\npython -m huggingfaceserver ${MODEL_DIR_ARG} --tensor-parallel-size=${TENSOR_PARALLEL_SIZE} --pipeline-parallel-size=${PIPELINE_PARALLEL_SIZE} $0 $@\n"
+    env:
+    - name: RAY_PORT
+      value: "6379"
+    - name: POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: POD_IP
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+    - name: VLLM_CONFIG_ROOT
+      value: /tmp
+    - name: HF_HUB_CACHE
+      value: /tmp
+    image: {{ .Values.runtimes.huggingfaceMultinode.image.repository }}:{{ .Values.runtimes.huggingfaceMultinode.image.tag | default .Values.kserve.version }}
+    livenessProbe:
+      exec:
+        command:
+        - bash
+        - -c
+        - "python ./huggingfaceserver/health_check.py registered_node_and_runtime_health --health_check_url http://localhost:8080 --probe_name head_liveness\n"
+      failureThreshold: 2
+      periodSeconds: 5
+      successThreshold: 1
+      timeoutSeconds: 15
+    name: kserve-container
+    readinessProbe:
+      exec:
+        command:
+        - bash
+        - -c
+        - "python ./huggingfaceserver/health_check.py runtime_health --health_check_url http://localhost:8080 --probe_name head_readiness\n"
+      failureThreshold: 2
+      periodSeconds: 5
+      successThreshold: 1
+      timeoutSeconds: 15
+    resources: {{- toYaml .Values.runtimes.huggingfaceMultinode.resources | nindent 6 }}
+    startupProbe:
+      exec:
+        command:
+        - bash
+        - -c
+        - "python ./huggingfaceserver/health_check.py registered_node_and_runtime_health --health_check_url http://localhost:8080 --probe_name head_startup\n"
+      failureThreshold: 40
+      initialDelaySeconds: 60
+      periodSeconds: 30
+      successThreshold: 1
+      timeoutSeconds: 30
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: shm
+  protocolVersions:
+  - v2
+  - v1
+  supportedModelFormats:
+  - autoSelect: true
+    name: huggingface
+    priority: 2
+    version: "1"
+  volumes:
+  - emptyDir:
+      medium: Memory
+      sizeLimit: 3Gi
+    name: shm
+  workerSpec:
+    containers:
+    - command:
+      - bash
+      - -c
+      - "export RAY_HEAD_ADDRESS=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379\nSECONDS=0\n\nwhile true; do              \n  if (( SECONDS <= 240 )); then\n    if ray health-check --address \"${RAY_HEAD_ADDRESS}\" > /dev/null 2>&1; then\n      echo \"Ray Global Control Service(GCS) is ready.\"\n      break\n    fi\n    echo \"$SECONDS seconds elapsed: Waiting for Ray Global Control Service(GCS) to be ready.\"\n  else\n    if ray health-check --address \"${RAY_HEAD_ADDRESS}\"; then\n      echo \"Ray Global Control Service(GCS) is ready. Any error messages above can be safely ignored.\"\n      break\n    fi\n    echo \"$SECONDS seconds elapsed: Still waiting for Ray Global Control Service(GCS) to be ready.\"\n  fi\n\n  sleep 5\ndone\n\necho \"Attempting to connect to Ray cluster at $RAY_HEAD_ADDRESS ...\"\nray start --address=\"${RAY_HEAD_ADDRESS}\" --block\n"
+      env:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      image: kserve/huggingfaceserver:latest-gpu
+      livenessProbe:
+        exec:
+          command:
+          - bash
+          - -c
+          - "export RAY_ADDRESS=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379\npython ./huggingfaceserver/health_check.py registered_nodes --probe_name worker_liveness\n"
+        failureThreshold: 2
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 15
+      name: worker-container
+      resources:
+        limits:
+          cpu: "4"
+          memory: 12Gi
+        requests:
+          cpu: "2"
+          memory: 6Gi
+      startupProbe:
+        exec:
+          command:
+          - bash
+          - -c
+          - "export RAY_HEAD_NODE=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local\nexport RAY_ADDRESS=${RAY_HEAD_NODE}:6379\npython ./huggingfaceserver/health_check.py registered_node_and_runtime_models --runtime_url http://${RAY_HEAD_NODE}:8080/v1/models --probe_name worker_startup\n"
+        failureThreshold: 40
+        initialDelaySeconds: 60
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 30
+      volumeMounts:
+      - mountPath: /dev/shm
+        name: shm
+    pipelineParallelSize: 1
+    tensorParallelSize: 1
+    volumes:
+    - emptyDir:
+        medium: Memory
+        sizeLimit: 3Gi
+      name: shm
+{{- end }}
+{{- end }}

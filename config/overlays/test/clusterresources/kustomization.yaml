@@ -16,6 +16,9 @@ images:
 - name: kserve/pmmlserver
   newTag: latest
 
+- name: kserve/predictiveserver
+  newTag: latest
+  
 - name: kserve/paddleserver
   newTag: latest
 

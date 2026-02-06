@@ -1,0 +1,309 @@
+# Helm Mapping Configuration for KServe Runtime Configs Chart
+# Chart Name: kserve-runtime-configs
+# Description: ClusterServingRuntimes and LLMInferenceServiceConfigs for KServe
+# Source of truth: kustomize manifests in config/runtimes and config/components/llmisvc
+
+# =============================================================================
+# CHART METADATA
+# =============================================================================
+metadata:
+  name: kserve-runtime-configs
+  description: "KServe Runtime Configurations - ClusterServingRuntimes and LLM Inference Configs"
+  version: "0.1.0"  # Overridden by KSERVE_VERSION from kserve-deps.env
+  appVersion: "latest"  # Overridden by KSERVE_VERSION from kserve-deps.env
+
+globals:
+  version:
+    valuePath: kserve.version
+    kserve-deps: KSERVE_VERSION
+
+  chartVersion:
+    valuePath: metadata.version
+    kserve-deps: KSERVE_VERSION
+    description: "Chart version from kserve-deps.env"
+
+  chartAppVersion:
+    valuePath: metadata.appVersion
+    kserve-deps: KSERVE_VERSION
+    description: "Chart appVersion from kserve-deps.env"
+    
+# =============================================================================
+# CLUSTER SERVING RUNTIMES
+# =============================================================================
+clusterServingRuntimes:
+  enabled:
+    valuePath: runtimes.enabled
+    value: true
+    description: "Enable installation of ClusterServingRuntimes"
+
+  runtimes:
+    # SKLearn Runtime
+    - name: kserve-sklearnserver
+      kind: ClusterServingRuntime
+      manifestPath: config/runtimes/kserve-sklearnserver.yaml
+      enabled:
+        valuePath: runtimes.sklearn.enabled
+        value: true
+      image:
+        repository:
+          path: spec.containers[0].image+(:,0)
+          valuePath: runtimes.sklearn.image.repository
+        tag:
+          path: spec.containers[0].image+(:,1)
+          valuePath: runtimes.sklearn.image.tag
+          fallback: kserve.version
+          value: ""
+      resources:
+        path: spec.containers[0].resources
+        valuePath: runtimes.sklearn.resources
+
+    # XGBoost Runtime
+    - name: kserve-xgbserver
+      kind: ClusterServingRuntime
+      manifestPath: config/runtimes/kserve-xgbserver.yaml
+      enabled:
+        valuePath: runtimes.xgboost.enabled
+        value: true
+      image:
+        repository:
+          path: spec.containers[0].image+(:,0)
+          valuePath: runtimes.xgboost.image.repository
+        tag:
+          path: spec.containers[0].image+(:,1)
+          valuePath: runtimes.xgboost.image.tag
+          fallback: kserve.version
+          value: ""
+      resources:
+        path: spec.containers[0].resources
+        valuePath: runtimes.xgboost.resources
+
+    # TensorFlow Serving Runtime
+    - name: kserve-tensorflow-serving
+      kind: ClusterServingRuntime
+      manifestPath: config/runtimes/kserve-tensorflow-serving.yaml
+      enabled:
+        valuePath: runtimes.tensorflow.enabled
+        value: true
+      image:
+        repository:
+          path: spec.containers[0].image+(:,0)
+          valuePath: runtimes.tensorflow.image.repository
+        tag:
+          path: spec.containers[0].image+(:,1)
+          valuePath: runtimes.tensorflow.image.tag
+          fallback: kserve.version
+      resources:
+        path: spec.containers[0].resources
+        valuePath: runtimes.tensorflow.resources
+
+    # Triton Server Runtime
+    - name: kserve-tritonserver
+      kind: ClusterServingRuntime
+      manifestPath: config/runtimes/kserve-tritonserver.yaml
+      enabled:
+        valuePath: runtimes.triton.enabled
+        value: true
+      image:
+        repository:
+          path: spec.containers[0].image+(:,0)
+          valuePath: runtimes.triton.image.repository
+        tag:
+          path: spec.containers[0].image+(:,1)
+          valuePath: runtimes.triton.image.tag
+          fallback: kserve.version
+      resources:
+        path: spec.containers[0].resources
+        valuePath: runtimes.triton.resources
+
+    # MLServer Runtime
+    - name: kserve-mlserver
+      kind: ClusterServingRuntime
+      manifestPath: config/runtimes/kserve-mlserver.yaml
+      enabled:
+        valuePath: runtimes.mlserver.enabled
+        value: true
+      image:
+        repository:
+          path: spec.containers[0].image+(:,0)
+          valuePath: runtimes.mlserver.image.repository
+        tag:
+          path: spec.containers[0].image+(:,1)
+          valuePath: runtimes.mlserver.image.tag
+          fallback: kserve.version
+      resources:
+        path: spec.containers[0].resources
+        valuePath: runtimes.mlserver.resources
+
+    # PMML Server Runtime
+    - name: kserve-pmmlserver
+      kind: ClusterServingRuntime
+      manifestPath: config/runtimes/kserve-pmmlserver.yaml
+      enabled:
+        valuePath: runtimes.pmml.enabled
+        value: true
+      image:
+        repository:
+          path: spec.containers[0].image+(:,0)
+          valuePath: runtimes.pmml.image.repository
+        tag:
+          path: spec.containers[0].image+(:,1)
+          valuePath: runtimes.pmml.image.tag
+          fallback: kserve.version
+          value: ""
+      resources:
+        path: spec.containers[0].resources
+        valuePath: runtimes.pmml.resources
+
+    # LightGBM Server Runtime
+    - name: kserve-lgbserver
+      kind: ClusterServingRuntime
+      manifestPath: config/runtimes/kserve-lgbserver.yaml
+      enabled:
+        valuePath: runtimes.lightgbm.enabled
+        value: true
+      image:
+        repository:
+          path: spec.containers[0].image+(:,0)
+          valuePath: runtimes.lightgbm.image.repository
+        tag:
+          path: spec.containers[0].image+(:,1)
+          valuePath: runtimes.lightgbm.image.tag
+          fallback: kserve.version
+          value: ""
+      resources:
+        path: spec.containers[0].resources
+        valuePath: runtimes.lightgbm.resources
+
+    # Paddle Server Runtime
+    - name: kserve-paddleserver
+      kind: ClusterServingRuntime
+      manifestPath: config/runtimes/kserve-paddleserver.yaml
+      enabled:
+        valuePath: runtimes.paddle.enabled
+        value: true
+      image:
+        repository:
+          path: spec.containers[0].image+(:,0)
+          valuePath: runtimes.paddle.image.repository
+        tag:
+          path: spec.containers[0].image+(:,1)
+          valuePath: runtimes.paddle.image.tag
+          fallback: kserve.version
+          value: ""
+      resources:
+        path: spec.containers[0].resources
+        valuePath: runtimes.paddle.resources
+
+    # TorchServe Runtime
+    - name: kserve-torchserve
+      kind: ClusterServingRuntime
+      manifestPath: config/runtimes/kserve-torchserve.yaml
+      enabled:
+        valuePath: runtimes.torchserve.enabled
+        value: true
+      image:
+        repository:
+          path: spec.containers[0].image+(:,0)
+          valuePath: runtimes.torchserve.image.repository
+        tag:
+          path: spec.containers[0].image+(:,1)
+          valuePath: runtimes.torchserve.image.tag
+          fallback: kserve.version
+      resources:
+        path: spec.containers[0].resources
+        valuePath: runtimes.torchserve.resources
+
+    # HuggingFace Server Runtime
+    - name: kserve-huggingfaceserver
+      kind: ClusterServingRuntime
+      manifestPath: config/runtimes/kserve-huggingfaceserver.yaml
+      enabled:
+        valuePath: runtimes.huggingface.enabled
+        value: true
+      image:
+        repository:
+          path: spec.containers[0].image+(:,0)
+          valuePath: runtimes.huggingface.image.repository
+        tag:
+          path: spec.containers[0].image+(:,1)
+          valuePath: runtimes.huggingface.image.tag
+          fallback: kserve.version
+          value: ""
+      resources:
+        path: spec.containers[0].resources
+        valuePath: runtimes.huggingface.resources
+
+    # HuggingFace Server Multinode Runtime
+    # Note: Uses latest-gpu tag instead of version anchor to preserve -gpu suffix
+    - name: kserve-huggingfaceserver-multinode
+      kind: ClusterServingRuntime
+      manifestPath: config/runtimes/kserve-huggingfaceserver-multinode.yaml
+      enabled:
+        valuePath: runtimes.huggingfaceMultinode.enabled
+        value: true
+      image:
+        repository:
+          path: spec.containers[0].image+(:,0)
+          valuePath: runtimes.huggingfaceMultinode.image.repository
+        tag:
+          path: spec.containers[0].image+(:,1)
+          valuePath: runtimes.huggingfaceMultinode.image.tag
+          fallback: kserve.version
+      resources:
+        path: spec.containers[0].resources
+        valuePath: runtimes.huggingfaceMultinode.resources
+
+    # Predictive Server Runtime
+    - name: kserve-predictiveserver
+      kind: ClusterServingRuntime
+      manifestPath: config/runtimes/kserve-predictiveserver.yaml
+      enabled:
+        valuePath: runtimes.predictive.enabled
+        value: true
+      image:
+        repository:
+          path: spec.containers[0].image+(:,0)
+          valuePath: runtimes.predictive.image.repository
+        tag:
+          path: spec.containers[0].image+(:,1)
+          valuePath: runtimes.predictive.image.tag
+          fallback: kserve.version
+          value: ""
+      resources:
+        path: spec.containers[0].resources
+        valuePath: runtimes.predictive.resources
+
+    # Note: OpenVINO runtime exists in config/runtimes/kserve-openvino.yaml
+    # but is not included in config/runtimes/kustomization.yaml, so we don't include it here
+
+# =============================================================================
+# LLM INFERENCE SERVICE CONFIGS
+# Component for LLM inference service configurations
+# =============================================================================
+llmisvcConfigs:
+  enabled:
+    valuePath: llmisvcConfigs.enabled
+    value: false
+    description: "Enable installation of LLMInferenceServiceConfigs"
+
+  manifestPath: config/llmisvcconfig
+  copyAsIs: true  # These resources contain Go templates and must be copied as-is
+
+# =============================================================================
+# NOTES
+# =============================================================================
+notes: |
+  KServe Runtime Configurations Chart Mapping Configuration
+
+  This chart includes:
+  1. ClusterServingRuntimes (individually controllable)
+  2. LLMInferenceServiceConfigs (for LLM inference configurations)
+
+  Runtime Categories:
+  - ML Frameworks: SKLearn, XGBoost, TensorFlow, PyTorch/TorchServe
+  - LLM Specific: HuggingFace, HuggingFace Multinode, Predictive
+  - Multi-Framework: Triton, MLServer
+  - Specialized: PMML, LightGBM, Paddle, OpenVINO
+
+  This chart should be installed after kserve or llmisvc charts as it only
+  contains runtime configurations, not controllers.

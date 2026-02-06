@@ -1,9 +1,6 @@
-apiVersion: v1
-name: kserve 
+apiVersion: v2
+name: kserve
+description: KServe Predictive AI - Traditional ML and Deep Learning Model Serving Platform
+type: application
 version: v0.16.0
-description: Helm chart for deploying kserve resources
-keywords:
-  - kserve
-  - modelmesh
-sources:
-  - http://github.com/kserve/kserve
+appVersion: v0.16.0

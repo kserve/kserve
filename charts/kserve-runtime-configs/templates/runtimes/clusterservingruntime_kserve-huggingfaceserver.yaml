@@ -1,0 +1,46 @@
+{{- if .Values.runtimes.enabled }}
+{{- if .Values.runtimes.huggingface.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-huggingfaceserver
+  labels:
+    {{- include "kserve-runtime-configs.labels" . | nindent 4 }}
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --model_name={{ "{{" }}.Name{{ "}}" }}
+    env:
+    - name: LMCACHE_USE_EXPERIMENTAL
+      value: "True"
+    image: {{ .Values.runtimes.huggingface.image.repository }}:{{ .Values.runtimes.huggingface.image.tag | default .Values.kserve.version }}
+    name: kserve-container
+    resources: {{- toYaml .Values.runtimes.huggingface.resources | nindent 6 }}
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: devshm
+  hostIPC: false
+  protocolVersions:
+  - v2
+  - v1
+  supportedModelFormats:
+  - autoSelect: true
+    name: huggingface
+    priority: 1
+    version: "1"
+  volumes:
+  - emptyDir:
+      medium: Memory
+    name: devshm
+{{- end }}
+{{- end }}

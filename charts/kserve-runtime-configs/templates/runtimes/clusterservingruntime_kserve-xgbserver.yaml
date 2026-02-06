@@ -1,0 +1,38 @@
+{{- if .Values.runtimes.enabled }}
+{{- if .Values.runtimes.xgboost.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-xgbserver
+  labels:
+    {{- include "kserve-runtime-configs.labels" . | nindent 4 }}
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --model_name={{ "{{" }}.Name{{ "}}" }}
+    - --model_dir=/mnt/models
+    - --http_port=8080
+    - --nthread=1
+    image: {{ .Values.runtimes.xgboost.image.repository }}:{{ .Values.runtimes.xgboost.image.tag | default .Values.kserve.version }}
+    name: kserve-container
+    resources: {{- toYaml .Values.runtimes.xgboost.resources | nindent 6 }}
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+  protocolVersions:
+  - v1
+  - v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: xgboost
+    priority: 2
+    version: "2"
+{{- end }}
+{{- end }}

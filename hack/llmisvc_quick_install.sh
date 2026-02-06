@@ -210,7 +210,7 @@ spec:
 EOF
 echo "😀 Successfully created GatewayClass for Envoy"
 
-LLMISVC=true ${SCRIPT_DIR}/setup/infra/manage.kserve-helm.sh
+ENABLE_LLMISVC=true ${SCRIPT_DIR}/setup/infra/manage.kserve-helm.sh
 
 echo "😀 Successfully installed LLMISvc"
 

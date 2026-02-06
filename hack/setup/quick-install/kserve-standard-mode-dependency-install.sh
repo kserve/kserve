@@ -538,7 +538,9 @@ ISTIO_NAMESPACE="${ISTIO_NAMESPACE:-istio-system}"
 GATEWAY_NAMESPACE="${GATEWAY_NAMESPACE:-kserve}"
 DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-Knative}"
 GATEWAY_NETWORK_LAYER="${GATEWAY_NETWORK_LAYER:-false}"
-LLMISVC="${LLMISVC:-false}"
+ENABLE_KSERVE="${ENABLE_KSERVE:-true}"
+ENABLE_LLMISVC="${ENABLE_LLMISVC:-false}"
+ENABLE_LOCALMODEL="${ENABLE_LOCALMODEL:-false}"
 EMBED_MANIFESTS="${EMBED_MANIFESTS:-false}"
 KSERVE_CUSTOM_ISVC_CONFIGS="${KSERVE_CUSTOM_ISVC_CONFIGS:-}"
 
@@ -693,15 +695,14 @@ install_yq() {
 
     log_info "Installing yq ${YQ_VERSION} for ${os}/${arch}..."
 
-    if command -v yq &>/dev/null; then
-        local current_version=$(yq --version 2>&1 | grep -oP 'version \K[v0-9.]+')
-        # Normalize version format (add 'v' prefix if missing)
-        [[ -n "$current_version" && "$current_version" != v* ]] && current_version="v${current_version}"
-        if [[ -n "$current_version" ]] && version_gte "$current_version" "$YQ_VERSION"; then
-            log_info "yq ${current_version} is already installed (>= ${YQ_VERSION})"
+    # Check if yq is already installed in BIN_DIR with the exact required version
+    if [[ -f "${BIN_DIR}/yq" ]]; then
+        local current_version=$("${BIN_DIR}/yq" --version 2>/dev/null | grep -oP 'version \K[v0-9.]+')
+        if [[ "$current_version" == "$YQ_VERSION" ]]; then
+            log_info "yq ${current_version} is already installed in ${BIN_DIR}"
             return 0
         fi
-        [[ -n "$current_version" ]] && log_info "Upgrading yq from ${current_version} to ${YQ_VERSION}..."
+        [[ -n "$current_version" ]] && log_info "Replacing yq ${current_version} with ${YQ_VERSION} in ${BIN_DIR}..."
     fi
 
     local temp_file=$(mktemp)
@@ -725,7 +726,7 @@ install_yq() {
     fi
 
     log_success "Successfully installed yq ${YQ_VERSION} to ${BIN_DIR}/yq"
-    yq --version
+    "${BIN_DIR}/yq" --version
 }
 
 # ----------------------------------------

@@ -1,0 +1,42 @@
+# Default values for kserve-localmodel-resources
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Deployments
+
+# NOTE: This file was auto-generated from kserve-localmodel-resources mapping configuration.
+# Source of truth: Kustomize manifests in config/
+
+kserve:
+  version: v0.16.0
+localmodel:
+  controller:
+    containers:
+      manager:
+        image: kserve/kserve-localmodel-controller
+        tag: ''
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 100m
+            memory: 300Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+  nodeAgent:
+    containers:
+      manager:
+        image: kserve/kserve-localmodelnode-agent
+        tag: ''
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 100m
+            memory: 300Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+    nodeSelector:
+      kserve/localmodel: worker
+    affinity: {}
+    tolerations: []

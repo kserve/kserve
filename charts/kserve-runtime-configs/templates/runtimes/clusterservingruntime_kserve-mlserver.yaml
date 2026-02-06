@@ -1,0 +1,69 @@
+{{- if .Values.runtimes.enabled }}
+{{- if .Values.runtimes.mlserver.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-mlserver
+  labels:
+    {{- include "kserve-runtime-configs.labels" . | nindent 4 }}
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - env:
+    - name: MLSERVER_MODEL_IMPLEMENTATION
+      value: '{{ "{{" }}.Labels.modelClass{{ "}}" }}'
+    - name: MLSERVER_HTTP_PORT
+      value: "8080"
+    - name: MLSERVER_GRPC_PORT
+      value: "9000"
+    - name: MODELS_DIR
+      value: /mnt/models
+    image: {{ .Values.runtimes.mlserver.image.repository }}:{{ .Values.runtimes.mlserver.image.tag | default .Values.kserve.version }}
+    name: kserve-container
+    resources: {{- toYaml .Values.runtimes.mlserver.resources | nindent 6 }}
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+  protocolVersions:
+  - v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: sklearn
+    priority: 3
+    version: "0"
+  - autoSelect: true
+    name: sklearn
+    priority: 3
+    version: "1"
+  - autoSelect: true
+    name: xgboost
+    priority: 3
+    version: "1"
+  - autoSelect: true
+    name: xgboost
+    priority: 3
+    version: "2"
+  - autoSelect: true
+    name: lightgbm
+    priority: 3
+    version: "3"
+  - autoSelect: true
+    name: lightgbm
+    priority: 3
+    version: "4"
+  - autoSelect: true
+    name: mlflow
+    priority: 1
+    version: "1"
+  - autoSelect: true
+    name: mlflow
+    priority: 1
+    version: "2"
+{{- end }}
+{{- end }}

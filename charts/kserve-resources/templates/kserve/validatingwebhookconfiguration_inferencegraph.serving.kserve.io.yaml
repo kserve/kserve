@@ -1,0 +1,31 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: '{{ .Release.Namespace }}/serving-cert'
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: kserve
+    app.kubernetes.io/name: kserve
+  name: inferencegraph.serving.kserve.io
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: kserve-webhook-server-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-serving-kserve-io-v1alpha1-inferencegraph
+  failurePolicy: Fail
+  name: inferencegraph.kserve-webhook-server.validator
+  rules:
+  - apiGroups:
+    - serving.kserve.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - inferencegraphs
+  sideEffects: None

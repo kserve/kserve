@@ -1,0 +1,114 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kserve-controller-manager
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kserve.labels" . | nindent 4 }}
+    app.kubernetes.io/component: kserve
+    control-plane: "kserve-controller-manager"
+    controller-tools.k8s.io: "1.0"
+spec:
+  selector:
+    matchLabels:
+      control-plane: "kserve-controller-manager"
+      controller-tools.k8s.io: "1.0"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: "kserve-controller-manager"
+        control-plane: "kserve-controller-manager"
+        controller-tools.k8s.io: "1.0"
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+    spec:
+      containers:
+      - name: manager
+        image: "{{ .Values.kserve.controller.containers.manager.image }}:{{ .Values.kserve.controller.containers.manager.tag | default .Values.kserve.version }}"
+        imagePullPolicy: {{ .Values.kserve.controller.containers.manager.imagePullPolicy }}
+        resources: {{- toYaml .Values.kserve.controller.containers.manager.resources | nindent 10 }}
+        args:
+          - --metrics-addr=127.0.0.1:8080
+          - --leader-elect
+
+        command:
+          - /manager
+
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: SECRET_NAME
+            value: kserve-webhook-server-cert
+
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+
+        ports:
+          - containerPort: 9443
+            name: webhook-server
+            protocol: TCP
+
+        readinessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 5
+
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+
+        volumeMounts:
+          - mountPath: /tmp/k8s-webhook-server/serving-certs
+            name: cert
+            readOnly: true
+
+      - name: kube-rbac-proxy
+        image: "quay.io/brancz/kube-rbac-proxy:v0.18.0"
+        args:
+          - --secure-listen-address=0.0.0.0:8443
+          - --upstream=http://127.0.0.1:8080/
+          - --logtostderr=true
+          - --v=10
+
+        ports:
+          - containerPort: 8443
+            name: https
+            protocol: TCP
+
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+
+      serviceAccountName: kserve-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+        - name: cert
+          secret:
+            defaultMode: 420
+            secretName: kserve-webhook-server-cert

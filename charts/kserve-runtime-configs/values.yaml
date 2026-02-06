@@ -1,0 +1,159 @@
+# Default values for kserve-runtime-configs
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# KServe Runtime Configurations - ClusterServingRuntimes and LLM Inference Configs
+
+# NOTE: This file was auto-generated from kserve-runtime-configs mapping configuration.
+# Source of truth: Kustomize manifests in config/
+
+kserve:
+  version: v0.16.0
+llmisvcConfigs:
+  enabled: false
+runtimes:
+  enabled: true
+  sklearn:
+    enabled: true
+    image:
+      repository: kserve/sklearnserver
+      tag: ''
+    resources:
+      limits:
+        cpu: '1'
+        memory: 2Gi
+      requests:
+        cpu: '1'
+        memory: 2Gi
+  xgboost:
+    enabled: true
+    image:
+      repository: kserve/xgbserver
+      tag: ''
+    resources:
+      limits:
+        cpu: '1'
+        memory: 2Gi
+      requests:
+        cpu: '1'
+        memory: 2Gi
+  tensorflow:
+    enabled: true
+    image:
+      repository: tensorflow/serving
+      tag: 2.6.2
+    resources:
+      limits:
+        cpu: '1'
+        memory: 2Gi
+      requests:
+        cpu: '1'
+        memory: 2Gi
+  triton:
+    enabled: true
+    image:
+      repository: nvcr.io/nvidia/tritonserver
+      tag: 23.05-py3
+    resources:
+      limits:
+        cpu: '1'
+        memory: 2Gi
+      requests:
+        cpu: '1'
+        memory: 2Gi
+  mlserver:
+    enabled: true
+    image:
+      repository: docker.io/seldonio/mlserver
+      tag: 1.5.0
+    resources:
+      limits:
+        cpu: '1'
+        memory: 2Gi
+      requests:
+        cpu: '1'
+        memory: 2Gi
+  pmml:
+    enabled: true
+    image:
+      repository: kserve/pmmlserver
+      tag: ''
+    resources:
+      limits:
+        cpu: '1'
+        memory: 2Gi
+      requests:
+        cpu: '1'
+        memory: 2Gi
+  lightgbm:
+    enabled: true
+    image:
+      repository: kserve/lgbserver
+      tag: ''
+    resources:
+      limits:
+        cpu: '1'
+        memory: 2Gi
+      requests:
+        cpu: '1'
+        memory: 2Gi
+  paddle:
+    enabled: true
+    image:
+      repository: kserve/paddleserver
+      tag: ''
+    resources:
+      limits:
+        cpu: '1'
+        memory: 2Gi
+      requests:
+        cpu: '1'
+        memory: 2Gi
+  torchserve:
+    enabled: true
+    image:
+      repository: pytorch/torchserve-kfs
+      tag: 0.9.0
+    resources:
+      limits:
+        cpu: '1'
+        memory: 2Gi
+      requests:
+        cpu: '1'
+        memory: 2Gi
+  huggingface:
+    enabled: true
+    image:
+      repository: kserve/huggingfaceserver
+      tag: ''
+    resources:
+      limits:
+        cpu: '1'
+        memory: 2Gi
+      requests:
+        cpu: '1'
+        memory: 2Gi
+  huggingfaceMultinode:
+    enabled: true
+    image:
+      repository: kserve/huggingfaceserver
+      tag: v0.16.0-gpu
+    resources:
+      limits:
+        cpu: '4'
+        memory: 12Gi
+      requests:
+        cpu: '2'
+        memory: 6Gi
+  predictive:
+    enabled: true
+    image:
+      repository: kserve/predictiveserver
+      tag: ''
+    resources:
+      limits:
+        cpu: '1'
+        memory: 2Gi
+      requests:
+        cpu: '1'
+        memory: 2Gi

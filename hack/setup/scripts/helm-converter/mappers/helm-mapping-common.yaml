@@ -1,0 +1,325 @@
+# Helm Mapping Configuration - Common/Shared Components
+# This file contains shared configurations used by both kserve and llmisvc charts
+#
+# This file is included via the 'extends' mechanism in:
+#   - helm-mapping-kserve.yaml
+#   - helm-mapping-llmisvc.yaml
+
+# =============================================================================
+# GLOBALS (shared across kserve and llmisvc charts)
+# =============================================================================
+globals:
+  version:
+    valuePath: kserve.version
+    kserve-deps: KSERVE_VERSION
+
+  chartVersion:
+    valuePath: metadata.version
+    kserve-deps: KSERVE_VERSION
+    description: "Chart version from kserve-deps.env"
+
+  chartAppVersion:
+    valuePath: metadata.appVersion
+    kserve-deps: KSERVE_VERSION
+    description: "Chart appVersion from kserve-deps.env"
+    
+  createSharedResources:
+    valuePath: kserve.createSharedResources
+    value: true
+    description: "Enable creation of shared resources (ConfigMap, Issuer, StorageContainer)"
+
+# =============================================================================
+# CERT-MANAGER RESOURCES
+# Optional cert-manager Issuer for certificate management
+# Set certManager.enabled=false if you already have a cert-manager Issuer
+# or if you're using a different certificate management solution
+# =============================================================================
+certManager:
+  enabled:
+    valuePath: certManager.enabled
+    fallback: kserve.createSharedResources
+    value: ""
+    description: "Enable cert-manager self-signed Issuer creation"
+
+  issuer:
+    kind: Issuer
+    name: selfsigned-issuer
+    manifestPath: config/certmanager/issuer.yaml
+
+# =============================================================================
+# INFERENCESERVICE CONFIG
+# Core ConfigMap containing all KServe configuration settings
+# This is required for KServe to function properly
+# =============================================================================
+inferenceServiceConfig:
+  enabled:
+    valuePath: inferenceServiceConfig.enabled
+    fallback: kserve.createSharedResources
+    value: ""
+    description: "Enable inferenceservice-config ConfigMap installation"
+
+  configMap:
+    kind: ConfigMap
+    name: inferenceservice-config
+    namespace: kserve
+    manifestPath: config/configmap/inferenceservice.yaml
+
+    # All data fields use path to extract values from ConfigMap manifest
+    # Image fields use useVersionAnchor for centralized version management
+    dataFields:
+      # Explainers Configuration
+      # Note: explainers uses "defaultImageVersion" instead of splitting image:tag
+      # Explainers always use "latest" (regex doesn't match quoted "latest" in JSON)
+      explainers:
+        art:
+          image:
+            path: data.explainers.art.image
+            valuePath: inferenceServiceConfig.explainers.art.image
+          tag:
+            path: data.explainers.art.defaultImageVersion
+            valuePath: inferenceServiceConfig.explainers.art.tag
+
+      # Storage Initializer Configuration
+      storageInitializer:
+        image:
+          path: data.storageInitializer.image+(:,0)
+          valuePath: inferenceServiceConfig.storageInitializer.image
+        tag:
+          path: data.storageInitializer.image+(:,1)
+          valuePath: inferenceServiceConfig.storageInitializer.tag
+          value: ""
+          fallback: kserve.version
+        memoryRequest:
+          path: data.storageInitializer.memoryRequest
+          valuePath: inferenceServiceConfig.storageInitializer.memoryRequest
+        memoryLimit:
+          path: data.storageInitializer.memoryLimit
+          valuePath: inferenceServiceConfig.storageInitializer.memoryLimit
+        cpuRequest:
+          path: data.storageInitializer.cpuRequest
+          valuePath: inferenceServiceConfig.storageInitializer.cpuRequest
+        cpuLimit:
+          path: data.storageInitializer.cpuLimit
+          valuePath: inferenceServiceConfig.storageInitializer.cpuLimit
+        caBundleConfigMapName:
+          path: data.storageInitializer.caBundleConfigMapName
+          valuePath: inferenceServiceConfig.storageInitializer.caBundleConfigMapName
+        caBundleVolumeMountPath:
+          path: data.storageInitializer.caBundleVolumeMountPath
+          valuePath: inferenceServiceConfig.storageInitializer.caBundleVolumeMountPath
+        enableModelcar:
+          path: data.storageInitializer.enableModelcar
+          valuePath: inferenceServiceConfig.storageInitializer.enableModelcar
+          type: boolean
+        cpuModelcar:
+          path: data.storageInitializer.cpuModelcar
+          valuePath: inferenceServiceConfig.storageInitializer.cpuModelcar
+        memoryModelcar:
+          path: data.storageInitializer.memoryModelcar
+          valuePath: inferenceServiceConfig.storageInitializer.memoryModelcar
+        uidModelcar:
+          path: data.storageInitializer.uidModelcar
+          valuePath: inferenceServiceConfig.storageInitializer.uidModelcar
+          type: number
+
+      # Agent Configuration
+      agent:
+        image:
+          path: data.agent.image+(:,0)
+          valuePath: inferenceServiceConfig.agent.image
+        tag:
+          path: data.agent.image+(:,1)
+          valuePath: inferenceServiceConfig.agent.tag
+          value: ""
+          fallback: kserve.version
+        memoryRequest:
+          path: data.agent.memoryRequest
+          valuePath: inferenceServiceConfig.agent.memoryRequest
+        memoryLimit:
+          path: data.agent.memoryLimit
+          valuePath: inferenceServiceConfig.agent.memoryLimit
+        cpuRequest:
+          path: data.agent.cpuRequest
+          valuePath: inferenceServiceConfig.agent.cpuRequest
+        cpuLimit:
+          path: data.agent.cpuLimit
+          valuePath: inferenceServiceConfig.agent.cpuLimit
+
+      # Logger Configuration
+      logger:
+        image:
+          path: data.logger.image+(:,0)
+          valuePath: inferenceServiceConfig.logger.image
+        tag:
+          path: data.logger.image+(:,1)
+          valuePath: inferenceServiceConfig.logger.tag
+          value: ""
+          fallback: kserve.version
+        memoryRequest:
+          path: data.logger.memoryRequest
+          valuePath: inferenceServiceConfig.logger.memoryRequest
+        memoryLimit:
+          path: data.logger.memoryLimit
+          valuePath: inferenceServiceConfig.logger.memoryLimit
+        cpuRequest:
+          path: data.logger.cpuRequest
+          valuePath: inferenceServiceConfig.logger.cpuRequest
+        cpuLimit:
+          path: data.logger.cpuLimit
+          valuePath: inferenceServiceConfig.logger.cpuLimit
+        defaultUrl:
+          path: data.logger.defaultUrl
+          valuePath: inferenceServiceConfig.logger.defaultUrl
+
+      # Batcher Configuration
+      batcher:
+        image:
+          path: data.batcher.image+(:,0)
+          valuePath: inferenceServiceConfig.batcher.image
+        tag:
+          path: data.batcher.image+(:,1)
+          valuePath: inferenceServiceConfig.batcher.tag
+          value: ""
+          fallback: kserve.version
+        memoryRequest:
+          path: data.batcher.memoryRequest
+          valuePath: inferenceServiceConfig.batcher.memoryRequest
+        memoryLimit:
+          path: data.batcher.memoryLimit
+          valuePath: inferenceServiceConfig.batcher.memoryLimit
+        cpuRequest:
+          path: data.batcher.cpuRequest
+          valuePath: inferenceServiceConfig.batcher.cpuRequest
+        cpuLimit:
+          path: data.batcher.cpuLimit
+          valuePath: inferenceServiceConfig.batcher.cpuLimit
+        maxBatchSize:
+          path: data.batcher.maxBatchSize
+          valuePath: inferenceServiceConfig.batcher.maxBatchSize
+        maxLatency:
+          path: data.batcher.maxLatency
+          valuePath: inferenceServiceConfig.batcher.maxLatency
+
+      # Router Configuration
+      router:
+        image:
+          path: data.router.image+(:,0)
+          valuePath: inferenceServiceConfig.router.image
+        tag:
+          path: data.router.image+(:,1)
+          valuePath: inferenceServiceConfig.router.tag
+          value: ""
+          fallback: kserve.version
+        memoryRequest:
+          path: data.router.memoryRequest
+          valuePath: inferenceServiceConfig.router.memoryRequest
+        memoryLimit:
+          path: data.router.memoryLimit
+          valuePath: inferenceServiceConfig.router.memoryLimit
+        cpuRequest:
+          path: data.router.cpuRequest
+          valuePath: inferenceServiceConfig.router.cpuRequest
+        cpuLimit:
+          path: data.router.cpuLimit
+          valuePath: inferenceServiceConfig.router.cpuLimit
+        imagePullPolicy:
+          path: data.router.imagePullPolicy
+          valuePath: inferenceServiceConfig.router.imagePullPolicy
+
+      # Credentials Configuration (keep as JSON for complex nested structure)
+      credentials:
+        path: data.credentials
+        valuePath: inferenceServiceConfig.credentials
+
+      # Ingress Configuration (keep as JSON for complex nested structure)
+      ingress:
+        path: data.ingress
+        valuePath: inferenceServiceConfig.ingress
+
+      # Deploy Configuration
+      deploy:
+        defaultDeploymentMode:
+          path: data.deploy.defaultDeploymentMode
+          valuePath: inferenceServiceConfig.deploy.defaultDeploymentMode
+
+      # Metrics Aggregator Configuration
+      metricsAggregator:
+        enableMetricAggregation:
+          path: data.metricsAggregator.enableMetricAggregation
+          valuePath: inferenceServiceConfig.metricsAggregator.enableMetricAggregation
+        enablePrometheusScraping:
+          path: data.metricsAggregator.enablePrometheusScraping
+          valuePath: inferenceServiceConfig.metricsAggregator.enablePrometheusScraping
+
+      # LocalModel Configuration
+      localModel:
+        enabled:
+          path: data.localModel.enabled
+          valuePath: inferenceServiceConfig.localModel.enabled
+          type: boolean
+        jobNamespace:
+          path: data.localModel.jobNamespace
+          valuePath: inferenceServiceConfig.localModel.jobNamespace
+        defaultJobImage:
+          path: data.localModel.defaultJobImage+(:,0)
+          valuePath: inferenceServiceConfig.localModel.defaultJobImage
+        defaultJobImageTag:
+          path: data.localModel.defaultJobImage+(:,1)
+          valuePath: inferenceServiceConfig.localModel.defaultJobImageTag
+          value: ""
+          fallback: kserve.version
+        fsGroup:
+          path: data.localModel.fsGroup
+          valuePath: inferenceServiceConfig.localModel.fsGroup
+          type: number
+        jobTTLSecondsAfterFinished:
+          path: data.localModel.jobTTLSecondsAfterFinished
+          valuePath: inferenceServiceConfig.localModel.jobTTLSecondsAfterFinished
+          type: number
+        reconcilationFrequencyInSecs:
+          path: data.localModel.reconcilationFrequencyInSecs
+          valuePath: inferenceServiceConfig.localModel.reconcilationFrequencyInSecs
+          type: number
+        disableVolumeManagement:
+          path: data.localModel.disableVolumeManagement
+          valuePath: inferenceServiceConfig.localModel.disableVolumeManagement
+          type: boolean
+
+      # Security Configuration
+      security:
+        autoMountServiceAccountToken:
+          path: data.security.autoMountServiceAccountToken
+          valuePath: inferenceServiceConfig.security.autoMountServiceAccountToken
+          type: boolean
+
+      # InferenceService Configuration (keep as JSON for nested resource structure)
+      inferenceService:
+        path: data.inferenceService
+        valuePath: inferenceServiceConfig.inferenceService
+
+      # OpenTelemetry Collector Configuration (keep as JSON for nested resource structure)
+      opentelemetryCollector:
+        path: data.opentelemetryCollector
+        valuePath: inferenceServiceConfig.opentelemetryCollector
+
+      # Autoscaler Configuration
+      autoscaler:
+        scaleUpStabilizationWindowSeconds:
+          path: data.autoscaler.scaleUpStabilizationWindowSeconds
+          valuePath: inferenceServiceConfig.autoscaler.scaleUpStabilizationWindowSeconds
+        scaleDownStabilizationWindowSeconds:
+          path: data.autoscaler.scaleDownStabilizationWindowSeconds
+          valuePath: inferenceServiceConfig.autoscaler.scaleDownStabilizationWindowSeconds
+
+# =============================================================================
+# NOTE: LOCALMODEL has been moved to a separate chart
+# =============================================================================
+# LocalModel is now available as a standalone chart: kserve-localmodel-resources
+# See: hack/setup/scripts/helm-converter/mappers/helm-mapping-localmodel.yaml
+#
+# To use LocalModel:
+# 1. Install CRDs: helm install kserve-localmodel-crd charts/kserve-localmodel-crd
+# 2. Install controller: helm install kserve-localmodel charts/kserve-localmodel-resources
+#
+# Or add as a dependency in kserve-resources/Chart.yaml for backward compatibility
+

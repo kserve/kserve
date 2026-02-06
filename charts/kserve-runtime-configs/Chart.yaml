@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kserve-runtime-configs
+description: KServe Runtime Configurations - ClusterServingRuntimes and LLM Inference Configs
+type: application
+version: v0.16.0
+appVersion: v0.16.0

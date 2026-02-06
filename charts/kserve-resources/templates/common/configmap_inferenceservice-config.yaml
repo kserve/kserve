@@ -1,0 +1,102 @@
+{{- if .Values.inferenceServiceConfig.enabled | default .Values.kserve.createSharedResources }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inferenceservice-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kserve.labels" . | nindent 4 }}
+data:
+  explainers: |-
+    {{- $explainers := dict }}
+    {{- range $name, $config := .Values.inferenceServiceConfig.explainers }}
+      {{- $_ := set $explainers $name (dict "image" $config.image "defaultImageVersion" $config.tag) }}
+    {{- end }}
+    {{- toJson $explainers | nindent 4 }}
+  storageInitializer: |-
+    {
+        "image" : "{{ .Values.inferenceServiceConfig.storageInitializer.image }}:{{ .Values.inferenceServiceConfig.storageInitializer.tag | default .Values.kserve.version }}",
+        "memoryRequest": "{{ .Values.inferenceServiceConfig.storageInitializer.memoryRequest }}",
+        "memoryLimit": "{{ .Values.inferenceServiceConfig.storageInitializer.memoryLimit }}",
+        "cpuRequest": "{{ .Values.inferenceServiceConfig.storageInitializer.cpuRequest }}",
+        "cpuLimit": "{{ .Values.inferenceServiceConfig.storageInitializer.cpuLimit }}",
+        "caBundleConfigMapName": "{{ .Values.inferenceServiceConfig.storageInitializer.caBundleConfigMapName }}",
+        "caBundleVolumeMountPath": "{{ .Values.inferenceServiceConfig.storageInitializer.caBundleVolumeMountPath }}",
+        "enableModelcar": {{ .Values.inferenceServiceConfig.storageInitializer.enableModelcar }},
+        "cpuModelcar": "{{ .Values.inferenceServiceConfig.storageInitializer.cpuModelcar }}",
+        "memoryModelcar": "{{ .Values.inferenceServiceConfig.storageInitializer.memoryModelcar }}",
+        "uidModelcar": {{ .Values.inferenceServiceConfig.storageInitializer.uidModelcar }}
+    }
+  agent: |-
+    {
+        "image" : "{{ .Values.inferenceServiceConfig.agent.image }}:{{ .Values.inferenceServiceConfig.agent.tag | default .Values.kserve.version }}",
+        "memoryRequest": "{{ .Values.inferenceServiceConfig.agent.memoryRequest }}",
+        "memoryLimit": "{{ .Values.inferenceServiceConfig.agent.memoryLimit }}",
+        "cpuRequest": "{{ .Values.inferenceServiceConfig.agent.cpuRequest }}",
+        "cpuLimit": "{{ .Values.inferenceServiceConfig.agent.cpuLimit }}"
+    }
+  logger: |-
+    {
+        "image" : "{{ .Values.inferenceServiceConfig.logger.image }}:{{ .Values.inferenceServiceConfig.logger.tag | default .Values.kserve.version }}",
+        "memoryRequest": "{{ .Values.inferenceServiceConfig.logger.memoryRequest }}",
+        "memoryLimit": "{{ .Values.inferenceServiceConfig.logger.memoryLimit }}",
+        "cpuRequest": "{{ .Values.inferenceServiceConfig.logger.cpuRequest }}",
+        "cpuLimit": "{{ .Values.inferenceServiceConfig.logger.cpuLimit }}",
+        "defaultUrl": "{{ .Values.inferenceServiceConfig.logger.defaultUrl }}"
+    }
+  batcher: |-
+    {
+        "image" : "{{ .Values.inferenceServiceConfig.batcher.image }}:{{ .Values.inferenceServiceConfig.batcher.tag | default .Values.kserve.version }}",
+        "memoryRequest": "{{ .Values.inferenceServiceConfig.batcher.memoryRequest }}",
+        "memoryLimit": "{{ .Values.inferenceServiceConfig.batcher.memoryLimit }}",
+        "cpuRequest": "{{ .Values.inferenceServiceConfig.batcher.cpuRequest }}",
+        "cpuLimit": "{{ .Values.inferenceServiceConfig.batcher.cpuLimit }}",
+        "maxBatchSize": "{{ .Values.inferenceServiceConfig.batcher.maxBatchSize }}",
+        "maxLatency": "{{ .Values.inferenceServiceConfig.batcher.maxLatency }}"
+    }
+  router: |-
+    {
+        "image" : "{{ .Values.inferenceServiceConfig.router.image }}:{{ .Values.inferenceServiceConfig.router.tag | default .Values.kserve.version }}",
+        "memoryRequest": "{{ .Values.inferenceServiceConfig.router.memoryRequest }}",
+        "memoryLimit": "{{ .Values.inferenceServiceConfig.router.memoryLimit }}",
+        "cpuRequest": "{{ .Values.inferenceServiceConfig.router.cpuRequest }}",
+        "cpuLimit": "{{ .Values.inferenceServiceConfig.router.cpuLimit }}",
+        "imagePullPolicy": "{{ .Values.inferenceServiceConfig.router.imagePullPolicy }}"
+    }
+  credentials: |-
+    {{- toJson .Values.inferenceServiceConfig.credentials | nindent 4 }}
+  ingress: |-
+    {{- toJson .Values.inferenceServiceConfig.ingress | nindent 4 }}
+  deploy: |-
+    {
+        "defaultDeploymentMode": "{{ .Values.inferenceServiceConfig.deploy.defaultDeploymentMode }}"
+    }
+  metricsAggregator: |-
+    {
+        "enableMetricAggregation": "{{ .Values.inferenceServiceConfig.metricsAggregator.enableMetricAggregation }}",
+        "enablePrometheusScraping": "{{ .Values.inferenceServiceConfig.metricsAggregator.enablePrometheusScraping }}"
+    }
+  localModel: |-
+    {
+        "defaultJobImage" : "{{ .Values.inferenceServiceConfig.localModel.defaultJobImage }}:{{ .Values.inferenceServiceConfig.localModel.defaultJobImageTag | default .Values.kserve.version }}",
+        "enabled": {{ .Values.inferenceServiceConfig.localModel.enabled }},
+        "jobNamespace": "{{ .Values.inferenceServiceConfig.localModel.jobNamespace }}",
+        "fsGroup": {{ .Values.inferenceServiceConfig.localModel.fsGroup }},
+        "jobTTLSecondsAfterFinished": {{ .Values.inferenceServiceConfig.localModel.jobTTLSecondsAfterFinished }},
+        "reconcilationFrequencyInSecs": {{ .Values.inferenceServiceConfig.localModel.reconcilationFrequencyInSecs }},
+        "disableVolumeManagement": {{ .Values.inferenceServiceConfig.localModel.disableVolumeManagement }}
+    }
+  security: |-
+    {
+        "autoMountServiceAccountToken": {{ .Values.inferenceServiceConfig.security.autoMountServiceAccountToken }}
+    }
+  inferenceService: |-
+    {{- toJson .Values.inferenceServiceConfig.inferenceService | nindent 4 }}
+  opentelemetryCollector: |-
+    {{- toJson .Values.inferenceServiceConfig.opentelemetryCollector | nindent 4 }}
+  autoscaler: |-
+    {
+        "scaleUpStabilizationWindowSeconds": "{{ .Values.inferenceServiceConfig.autoscaler.scaleUpStabilizationWindowSeconds }}",
+        "scaleDownStabilizationWindowSeconds": "{{ .Values.inferenceServiceConfig.autoscaler.scaleDownStabilizationWindowSeconds }}"
+    }
+{{- end }}

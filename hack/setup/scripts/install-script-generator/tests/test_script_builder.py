@@ -204,8 +204,8 @@ def test_build_install_calls_with_env():
         {
             "name": "kserve-helm",
             "install_func": "install_kserve_helm",
-            "env": {"LLMISVC": "true", "NAMESPACE": "kserve"},
-            "variables": ['LLMISVC="${LLMISVC:-false}"', 'NAMESPACE="${NAMESPACE:-default}"'],
+            "env": {"ENABLE_LLMISVC": "true", "NAMESPACE": "kserve"},
+            "variables": ['ENABLE_LLMISVC="${ENABLE_LLMISVC:-false}"', 'NAMESPACE="${NAMESPACE:-default}"'],
             "include_section": []
         }
     ]
@@ -214,7 +214,7 @@ def test_build_install_calls_with_env():
     result = script_builder.build_install_calls(components, global_env)
 
     assert "set_env_with_priority" in result
-    assert "LLMISVC" in result
+    assert "ENABLE_LLMISVC" in result
     assert "NAMESPACE" in result
     assert "install_kserve_helm" in result
 

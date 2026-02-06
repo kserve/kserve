@@ -740,7 +740,10 @@ data:
       "enabled": false,
       "jobNamespace": "kserve-localmodel-jobs",
       "defaultJobImage" : "kserve/storage-initializer:latest",
-      "fsGroup": 1000
+      "fsGroup": 1000,
+      "jobTTLSecondsAfterFinished": 3600,
+      "reconcilationFrequencyInSecs": 60,
+      "disableVolumeManagement": false
     }
 
   security: |-

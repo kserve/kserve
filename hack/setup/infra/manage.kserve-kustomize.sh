@@ -15,36 +15,56 @@
 # limitations under the License.
 
 # Install KServe using Kustomize (from local config/default)
-# Usage: manage.kserve-kustomize.sh [--reinstall|--uninstall]
+# Usage: manage.kserve-kustomize.sh [--reinstall|--uninstall|--update]
 #   or:  REINSTALL=true manage.kserve-kustomize.sh
 #   or:  UNINSTALL=true manage.kserve-kustomize.sh
+#   or:  UPDATE=true manage.kserve-kustomize.sh
 #
 # Environment variables:
-#   LLMISVC - Enable LLM Inference Service Controller (default: false)
+#   ENABLE_KSERVE - Enable KServe controller (default: true)
+#   ENABLE_LLMISVC - Enable LLM Inference Service Controller (default: false)
+#   ENABLE_LOCALMODEL - Enable Local Model controller (default: false)
 #
-#   DEPLOYMENT_MODE - Default deployment mode
-#                     Supported values:
-#                       - Serverless (legacy, converted to Knative)
-#                       - Knative (serverless deployment with Knative)
-#                       - RawDeployment (legacy, converted to Standard)
-#                       - Standard (standard Kubernetes deployment)
-#                     Default: Knative
+#   KSERVE_OVERLAY_DIR - Custom overlay directory (relative to config/overlays/)
+#                        If set, uses specified overlay instead of auto-selected ones
+#                        Special overlays:
+#                          - test: KServe + LocalModel (for testing)
+#
+#   DEPLOYMENT_MODE - Default deployment mode (default: Knative)
+#
+#   USE_LOCAL_CONFIGMAP - Use local configmap from config/configmap as-is (default: false)
+#                         If true, ignores DEPLOYMENT_MODE and other config updates
 #
 #   GATEWAY_NETWORK_LAYER - false, envoy, istio (default: false)
-#                           if it is not false, ENABLE_GATEWAY_API will be set true   
+#                           if it is not false, ENABLE_GATEWAY_API will be set true
+#
+#   INSTALL_RUNTIMES - Install ClusterServingRuntimes (default: same as ENABLE_KSERVE)
+#   INSTALL_LLMISVC_CONFIGS - Install LLMISVC configs (default: same as ENABLE_LLMISVC)
 #
 # This script installs KServe directly from the local config directories
-# using kubectl kustomize for development and testing.
+# using kubectl kustomize. 
 #
 # Examples:
-#   # Use default config with Serverless/Knative mode
+#   # Install KServe only (default)
 #   ./manage.kserve-kustomize.sh
 #
-#   # Use Standard deployment mode (raw Kubernetes)
+#   # Install LLMISVC only
+#   ENABLE_KSERVE=false ENABLE_LLMISVC=true ./manage.kserve-kustomize.sh
+#
+#   # Install both KServe and LLMISVC
+#   ENABLE_KSERVE=true ENABLE_LLMISVC=true ./manage.kserve-kustomize.sh
+#
+#   # Install all three (KServe, LLMISVC, LocalModel)
+#   ENABLE_KSERVE=true ENABLE_LLMISVC=true ENABLE_LOCALMODEL=true ./manage.kserve-kustomize.sh
+#
+#   # Use Standard deployment mode
 #   DEPLOYMENT_MODE=Standard ./manage.kserve-kustomize.sh
 #
-#   # Enable LLM Inference Service Controller
-#   LLSMISVC=true ./manage.kserve-kustomize.sh
+#   # Use custom test overlay (KServe + LocalModel)
+#   KSERVE_OVERLAY_DIR=test DEPLOYMENT_MODE=Standard ./manage.kserve-kustomize.sh
+#
+#   # Reinstall everything
+#   ./manage.kserve-kustomize.sh --reinstall
 
 # INIT
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
@@ -53,45 +73,107 @@ source "${SCRIPT_DIR}/../common.sh"
 
 REINSTALL="${REINSTALL:-false}"
 UNINSTALL="${UNINSTALL:-false}"
+UPDATE="${UPDATE:-false}"
 
 if [[ "$*" == *"--uninstall"* ]]; then
-    UNINSTALL=true
+    UNINSTALL=true    
 elif [[ "$*" == *"--reinstall"* ]]; then
     REINSTALL=true
+elif [[ "$*" == *"--update"* ]]; then
+    UPDATE=true
 fi
 # INIT END
 
 check_cli_exist kubectl
 
+export INSTALL_MODE="kustomize"
+
 # VARIABLES
 # KSERVE_NAMESPACE is defined in global-vars.env
-KSERVE_CRD_DIRS=(
-    "${REPO_ROOT}/config/crd/full"
-    "${REPO_ROOT}/config/crd/full/llmisvc"
-    "${REPO_ROOT}/config/crd/full/localmodel"
-)
-KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/all"
+SET_KSERVE_VERSION="${SET_KSERVE_VERSION:-}"
+ENABLE_KSERVE="${ENABLE_KSERVE:-${KSERVE:-true}}"
+ENABLE_LLMISVC="${ENABLE_LLMISVC:-${LLMISVC:-false}}"
+ENABLE_LOCALMODEL="${ENABLE_LOCALMODEL:-${LOCALMODEL:-false}}"
 KSERVE_OVERLAY_DIR="${KSERVE_OVERLAY_DIR:-}"
-TARGET_DEPLOYMENT_NAMES=(
-    "kserve-controller-manager"
-    "kserve-localmodel-controller-manager"
-    "llmisvc-controller-manager"
-)
+USE_LOCAL_CONFIGMAP="${USE_LOCAL_CONFIGMAP:-false}"
 # DEPLOYMENT_MODE, GATEWAY_NETWORK_LAYER, LLMISVC, EMBED_MANIFESTS are defined in global-vars.env
-INSTALL_RUNTIMES="${INSTALL_RUNTIMES:-false}"
+KSERVE_INSTALLED="${KSERVE_INSTALLED:-0}"
+LLMISVC_INSTALLED="${LLMISVC_INSTALLED:-0}"
+INSTALL_RUNTIMES="${INSTALL_RUNTIMES:-${ENABLE_KSERVE:-false}}"
+INSTALL_LLMISVC_CONFIGS="${INSTALL_LLMISVC_CONFIGS:-${ENABLE_LLMISVC:-false}}"
+
+TARGET_CRD_DIRS=()
+TARGET_DEPLOYMENT_NAMES=()
+TARGET_OVERLAY_DIRS=()
+TARGET_CRDS_TO_VERIFY=()
 # VARIABLES END
 
 # INCLUDE_IN_GENERATED_SCRIPT_START
-# Set CRD/Config directories and target pod labels based on LLMISVC
-if [ "${LLMISVC}" = "true" ]; then
-    KSERVE_CRD_DIRS=(
-        "${REPO_ROOT}/config/crd/full/llmisvc"
-    )
-    KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/standalone/llmisvc"
-    TARGET_DEPLOYMENT_NAMES=("llmisvc-controller-manager")
-fi
+determine_shared_resources_config
+
+KSERVE_CRDS="inferenceservices.serving.kserve.io servingruntimes.serving.kserve.io clusterservingruntimes.serving.kserve.io clusterstoragecontainers.serving.kserve.io inferencegraphs.serving.kserve.io trainedmodels.serving.kserve.io clusterstoragecontainers.serving.kserve.io"
+LLMISVC_CRDS="llminferenceservices.serving.kserve.io llminferenceserviceconfigs.serving.kserve.io"
+LOCALMODEL_CRDS="localmodelcaches.serving.kserve.io localmodelnodegroups.serving.kserve.io localmodelnodes.serving.kserve.io"
+KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/standalone/kserve"
+LLMISVC_CONFIG_DIR="${REPO_ROOT}/config/overlays/standalone/llmisvc"
+LOCALMODEL_CONFIG_DIR="${REPO_ROOT}/config/overlays/addons/localmodel"
+
 if [ "${KSERVE_OVERLAY_DIR}" != "" ]; then
-    KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/${KSERVE_OVERLAY_DIR}"
+    TARGET_OVERLAY_DIRS+=("${REPO_ROOT}/config/overlays/${KSERVE_OVERLAY_DIR}")
+    if [ "${KSERVE_OVERLAY_DIR}" == "test" ]; then
+        # Auto-enable localmodel for test overlay
+        ENABLE_LOCALMODEL="true"
+
+        # Update test overlay image tags if version is set
+        if [ -n "${SET_KSERVE_VERSION}" ]; then
+            log_info "Updating test overlay image tags to ${SET_KSERVE_VERSION}..."
+            sed -i -e "s/latest/${SET_KSERVE_VERSION}/g" config/overlays/test/configmap/inferenceservice.yaml
+            sed -i -e "s/latest/${SET_KSERVE_VERSION}/g" config/overlays/test/clusterresources/kustomization.yaml
+        fi
+
+        TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full")
+        TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/localmodel")
+        TARGET_CRDS_TO_VERIFY+=("${KSERVE_CRDS}")
+        TARGET_CRDS_TO_VERIFY+=("${LOCALMODEL_CRDS}")
+        TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager")
+        TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
+    elif [ "${KSERVE_OVERLAY_DIR}" == "test-llmisvc" ]; then
+        TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/llmisvc")        
+        TARGET_CRDS_TO_VERIFY+=("${LLMISVC_CRDS}")        
+        TARGET_DEPLOYMENT_NAMES+=("llmisvc-controller-manager")        
+    fi
+else
+    if [ "${SET_KSERVE_VERSION}" != "" ]; then
+        log_info "Setting KServe version to ${SET_KSERVE_VERSION}"
+        KSERVE_VERSION="${SET_KSERVE_VERSION}"
+    fi
+
+    if [ "${ENABLE_KSERVE}" = "true" ]; then
+        TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full")
+        TARGET_CRDS_TO_VERIFY+=("${KSERVE_CRDS}")
+        TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager")
+        if [ "${LLMISVC_INSTALLED}" = "1" ]; then
+            KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/addons/kserve"
+        fi
+        TARGET_OVERLAY_DIRS+=("${KSERVE_CONFIG_DIR}")
+    fi
+
+    if [ "${ENABLE_LLMISVC}" = "true" ]; then
+        TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/llmisvc")
+        TARGET_CRDS_TO_VERIFY+=("${LLMISVC_CRDS}")
+        TARGET_DEPLOYMENT_NAMES+=("llmisvc-controller-manager")
+        if [ "${KSERVE_INSTALLED}" = "1" ]; then
+            LLMISVC_CONFIG_DIR="${REPO_ROOT}/config/overlays/addons/llmisvc"
+        fi
+        TARGET_OVERLAY_DIRS+=("${LLMISVC_CONFIG_DIR}")
+    fi
+
+    if [ "${ENABLE_LOCALMODEL}" = "true" ]; then
+        TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/localmodel")
+        TARGET_CRDS_TO_VERIFY+=("${LOCALMODEL_CRDS}")
+        TARGET_OVERLAY_DIRS+=("${LOCALMODEL_CONFIG_DIR}")
+        TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
+    fi
 fi
 # INCLUDE_IN_GENERATED_SCRIPT_END
 
@@ -108,12 +190,27 @@ uninstall() {
             exit 1
         fi
     else
-        # Development mode: use kustomize
-        # Uninstall resources first
-        kubectl kustomize "${KSERVE_CONFIG_DIR}" | kubectl delete -f - --force --grace-period=0 2>/dev/null || true
+        # Uninstall Runtimes and LLMISVC configs first
+        if [ "${INSTALL_RUNTIMES}" = "true" ]; then
+            log_info "Uninstalling ClusterServingRuntimes..."
+            kubectl delete -k config/runtimes --force --grace-period=0 2>/dev/null || true
+        fi
+        if [ "${INSTALL_LLMISVC_CONFIGS}" = "true" ]; then
+            log_info "Uninstalling LLMISVC configs..."
+            kubectl delete -k config/llmisvcconfig --force --grace-period=0 2>/dev/null || true
+        fi
 
-        # Then uninstall CRDs
-        for crd_dir in "${KSERVE_CRD_DIRS[@]}"; do
+        # Uninstall overlay resources in reverse order
+        for ((i=${#TARGET_OVERLAY_DIRS[@]}-1; i>=0; i--)); do
+            overlay_dir="${TARGET_OVERLAY_DIRS[$i]}"
+            log_info "Uninstalling resources from ${overlay_dir}..."
+            kubectl kustomize "${overlay_dir}" | kubectl delete -f - --force --grace-period=0 2>/dev/null || true
+        done
+
+        # Uninstall CRDs in reverse order
+        for ((i=${#TARGET_CRD_DIRS[@]}-1; i>=0; i--)); do
+            crd_dir="${TARGET_CRD_DIRS[$i]}"
+            log_info "Uninstalling CRDs from ${crd_dir}..."
             kubectl kustomize "${crd_dir}" | kubectl delete -f - --force --grace-period=0 2>/dev/null || true
         done
     fi
@@ -124,10 +221,41 @@ uninstall() {
 }
 
 install() {
+    update_kustomize_image_tags() {
+        log_info "Updating image tags to ${KSERVE_VERSION}..."
+        # Update inferenceservice image tag
+        sed -i -e "s/latest/${KSERVE_VERSION}/g" config/configmap/inferenceservice.yaml
+
+        # Update runtimes image tags
+        sed -i -e "s/latest/${KSERVE_VERSION}/g" config/runtimes/kustomization.yaml
+
+        # Update controller image tag
+        sed -i -e "s/latest/${KSERVE_VERSION}/g" config/default/manager_image_patch.yaml
+
+        # Update localmodel controller image tag
+        sed -i -e "s/latest/${KSERVE_VERSION}/g" config/localmodels/localmodel_manager_image_patch.yaml
+
+        # Update localmodel agent image tag
+        sed -i -e "s/latest/${KSERVE_VERSION}/g" config/localmodelnodes/localmodelnode_agent_image_patch.yaml
+
+        # Update llmisvc controller image tag
+        sed -i -e "s/latest/${KSERVE_VERSION}/g" config/llmisvc/llmisvc_manager_image_patch.yaml
+
+        # Update StorageInitializer image tag
+        sed -i -e "s/latest/${KSERVE_VERSION}/g" config/storagecontainers/kustomization.yaml
+
+    }
+
+    update_kustomize_image_tags
+
     if kubectl get deployment kserve-controller-manager -n "${KSERVE_NAMESPACE}" &>/dev/null; then
         if [ "$REINSTALL" = false ]; then
-            log_info "KServe is already installed. Use --reinstall to reinstall."
-            return 0
+          if [ "$UPDATE" = true ]; then
+                    log_info "Updating KServe..."                    
+                else
+                    log_info "KServe is already installed. Use --reinstall to reinstall."
+                    return 0
+                fi
         else
             log_info "Reinstalling KServe..."
             uninstall
@@ -147,89 +275,108 @@ install() {
             exit 1
         fi
     else
-        # Development mode: use local kustomize build
         log_info "Installing KServe via Kustomize..."
-        log_info "📍 Using local config from ${KSERVE_CRD_DIRS[*]} and ${KSERVE_CONFIG_DIR}"
 
-        # Install CRDs first
+        # Install CRDs and wait for them
         log_info "Installing KServe CRDs..."
-        for crd_dir in "${KSERVE_CRD_DIRS[@]}"; do
+        for i in "${!TARGET_CRD_DIRS[@]}"; do
+            crd_dir="${TARGET_CRD_DIRS[$i]}"
             log_info "  - Installing CRDs from ${crd_dir}..."
             kustomize build "${crd_dir}" | kubectl apply --server-side --force-conflicts -f -
+
+            # Collect CRDs to verify
+            crds="${TARGET_CRDS_TO_VERIFY[$i]}"
+            if [ -n "${crds}" ]; then
+                log_info "Waiting for required CRDs..."
+                wait_for_crds "60s" ${crds}
+            fi
         done
 
-        # Wait for CRDs to be established       
-        if [ "${LLMISVC}" = "true" ]; then
-            wait_for_crds "60s" \
-                "llminferenceservices.serving.kserve.io" \
-                "llminferenceserviceconfigs.serving.kserve.io"
-        else
-            wait_for_crds "60s" \
-                "inferenceservices.serving.kserve.io" \
-                "servingruntimes.serving.kserve.io" \
-                "clusterservingruntimes.serving.kserve.io" \
-                "llminferenceservices.serving.kserve.io" \
-                "llminferenceserviceconfigs.serving.kserve.io"            
-        fi
-        # Install resources
+        # Install resources from overlays
         log_info "Installing KServe resources..."
-        kustomize build "${KSERVE_CONFIG_DIR}" | kubectl apply --server-side -f -
-    fi
+        for i in "${!TARGET_OVERLAY_DIRS[@]}"; do
+            overlay_dir="${TARGET_OVERLAY_DIRS[$i]}"
 
-    # Build list of config updates
-    local config_updates=()
+            # Install overlay
+            log_info "  - Installing resources from ${overlay_dir}..."
+            kustomize build "${overlay_dir}" | kubectl apply --server-side -f -
 
-    # Update deployment mode if needed
-    if [ "${DEPLOYMENT_MODE}" = "Standard" ] || [ "${DEPLOYMENT_MODE}" = "RawDeployment" ]; then
-        log_info "Adding deployment mode update: ${DEPLOYMENT_MODE}"
-        config_updates+=("deploy.defaultDeploymentMode=\"${DEPLOYMENT_MODE}\"")
-    fi
-
-    # Enable Gateway API for KServe(ISVC) if needed
-    if [ "${GATEWAY_NETWORK_LAYER}" != "false" ] && [ "${LLMISVC}" != "true" ]; then
-        log_info "Adding Gateway API updates: enableGatewayApi=true, ingressClassName=${GATEWAY_NETWORK_LAYER}"
-        config_updates+=("ingress.enableGatewayApi=true")
-        config_updates+=("ingress.ingressClassName=\"${GATEWAY_NETWORK_LAYER}\"")
-    fi
-
-    # Add custom configurations if provided
-    if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
-        log_info "Adding custom configurations: ${KSERVE_CUSTOM_ISVC_CONFIGS}"
-        IFS='|' read -ra custom_configs <<< "${KSERVE_CUSTOM_ISVC_CONFIGS}"
-        config_updates+=("${custom_configs[@]}")
-    fi
-
-    # Apply all config updates at once if there are any
-    if [ ${#config_updates[@]} -gt 0 ]; then
-        log_info "Applying ${#config_updates[@]} configuration update(s):"
-        for update in "${config_updates[@]}"; do
-            log_info "  - ${update}"
+            # Wait for corresponding deployment
+            if [ ${#TARGET_DEPLOYMENT_NAMES[@]} -gt $i ]; then
+                deploy="${TARGET_DEPLOYMENT_NAMES[$i]}"
+                if [ -n "${deploy}" ]; then
+                    for d in ${deploy}; do
+                        log_info "Waiting for ${d} to be ready..."
+                        wait_for_deployment "${KSERVE_NAMESPACE}" "${d}" "300s"
+                    done
+                fi
+            fi
         done
-        update_isvc_config "${config_updates[@]}"
-        if [ "${LLMISVC}" != "true" ]; then
-            kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
-        fi
-    else
-        if [ "${LLMISVC}" = "true" ]; then
-            log_info "No configuration updates needed for LLMISVC (GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
-        else
-            log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
-        fi
     fi
 
-    log_success "Successfully installed KServe"
+    if [ "${USE_LOCAL_CONFIGMAP}" = "false" ]; then
+        # Build list of config updates
+        local config_updates=()
 
-    # Wait for all controller managers to be ready
-    log_info "Waiting for KServe controllers to be ready..."
-    for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
-        wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "300s"
-    done
+        # Update deployment mode if needed
+        if [ "${DEPLOYMENT_MODE}" = "Standard" ] || [ "${DEPLOYMENT_MODE}" = "RawDeployment" ]; then
+            log_info "Adding deployment mode update: ${DEPLOYMENT_MODE}"
+            config_updates+=("deploy.defaultDeploymentMode=${DEPLOYMENT_MODE}")
+        fi
 
+        # Enable Gateway API for KServe(ISVC) if needed
+        if [ "${GATEWAY_NETWORK_LAYER}" != "false" ] && [ "${ENABLE_LLMISVC}" != "true" ]; then
+            log_info "Adding Gateway API updates: enableGatewayApi=true, ingressClassName=${GATEWAY_NETWORK_LAYER}"
+            config_updates+=("ingress.enableGatewayApi=true")
+            config_updates+=("ingress.ingressClassName=${GATEWAY_NETWORK_LAYER}")
+        fi
+        if [ "${ENABLE_LOCALMODEL}" = "true" ]; then
+            log_info "Adding LocalModel updates: enabled=true, defaultJobImage=kserve/storage-initializer:${KSERVE_VERSION}"
+            config_updates+=("localModel.enabled=true")
+            config_updates+=("localModel.defaultJobImage=kserve/storage-initializer:${KSERVE_VERSION}")
+        fi
+        # Add custom configurations if provided
+        if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
+            log_info "Adding custom configurations: ${KSERVE_CUSTOM_ISVC_CONFIGS}"
+            IFS='|' read -ra custom_configs <<< "${KSERVE_CUSTOM_ISVC_CONFIGS}"
+            config_updates+=("${custom_configs[@]}")
+        fi
+
+        # Apply all config updates at once if there are any
+        if [ ${#config_updates[@]} -gt 0 ]; then
+            log_info "Applying ${#config_updates[@]} configuration update(s):"
+            for update in "${config_updates[@]}"; do
+                log_info "  - ${update}"
+            done
+            update_isvc_config "${config_updates[@]}"
+            for i in "${!TARGET_OVERLAY_DIRS[@]}"; do
+                if [ ${#TARGET_DEPLOYMENT_NAMES[@]} -gt $i ]; then
+                    deploy="${TARGET_DEPLOYMENT_NAMES[$i]}"
+                    if [ -n "${deploy}" ]; then
+                        for d in ${deploy}; do
+                            log_info "Waiting for ${d} to be ready..."
+                            wait_for_deployment "${KSERVE_NAMESPACE}" "${d}" "300s"
+                        done
+                    fi
+                fi
+            done
+            log_success "KServe configuration updated"
+        else
+            if [ "${ENABLE_LLMISVC}" = "true" ] && [ "${ENABLE_KSERVE}" = "false" ]; then
+                log_info "No configuration updates needed for LLMISVC (GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+            else
+                log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
+            fi
+        fi
+    fi
     log_success "KServe is ready!"
-    if [ ${INSTALL_RUNTIMES} = "true" ]; then
+
+
+    if [ "${INSTALL_RUNTIMES}" = "true" ]; then
+        log_info "Installing ClusterServingRuntimes..."
         kubectl apply --server-side=true -k config/runtimes
     fi
-    if [ "${LLMISVC}" = "true" ]; then
+    if [ "${INSTALL_LLMISVC_CONFIGS}" = "true" ]; then
         log_info "Installing LLMISVC configs..."
         kubectl apply --server-side=true -k config/llmisvcconfig
     fi

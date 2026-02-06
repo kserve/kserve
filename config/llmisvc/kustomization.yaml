@@ -6,6 +6,7 @@ namespace: kserve
 resources:
   - service.yaml
   - manager.yaml  
+  - ../crd/full/llmisvc
   - ../certmanager/llmisvc
   - ../rbac/llmisvc
   - ../webhook/llmisvc
