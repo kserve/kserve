@@ -81,7 +81,7 @@ def filter_out_crds(manifest: str) -> str:
 
 
 def get_llmisvc_value(config: dict[str, Any], components: list[dict[str, Any]]) -> str:
-    """Extract LLMISVC value from definition config.
+    """Extract ENABLE_LLMISVC value from definition config.
 
     Priority:
     1. kserve-helm component env
@@ -94,7 +94,7 @@ def get_llmisvc_value(config: dict[str, Any], components: list[dict[str, Any]]) 
         components: List of component configs
 
     Returns:
-        LLMISVC value ("true" or "false")
+        ENABLE_LLMISVC value ("true" or "false")
     """
     llmisvc = "false"
 
@@ -102,23 +102,23 @@ def get_llmisvc_value(config: dict[str, Any], components: list[dict[str, Any]]) 
     for comp in components:
         comp_name = comp.get("name", "")
         if comp_name in ["kserve-helm", "kserve-kustomize"]:
-            llmisvc = comp.get("env", {}).get("LLMISVC", llmisvc)
+            llmisvc = comp.get("env", {}).get("ENABLE_LLMISVC", llmisvc)
             if llmisvc == "true":
                 break
 
     # If not found in component, check GLOBAL_ENV
     if llmisvc == "false":
-        llmisvc = config.get("global_env", {}).get("LLMISVC", "false")
+        llmisvc = config.get("global_env", {}).get("ENABLE_LLMISVC", "false")
 
     return llmisvc
 
 
 def select_kserve_directories(repo_root: Path, llmisvc: str) -> tuple[list[Path], list[Path]]:
-    """Select KServe CRD and config directories based on LLMISVC.
+    """Select KServe CRD and config directories based on ENABLE_LLMISVC.
 
     Args:
         repo_root: Repository root path
-        llmisvc: LLMISVC value ("true" or "false")
+        llmisvc: ENABLE_LLMISVC value ("true" or "false")
 
     Returns:
         Tuple of (crd_dirs, config_dirs)
