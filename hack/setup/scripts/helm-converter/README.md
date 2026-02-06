@@ -32,7 +32,6 @@ KServe is built with Kubebuilder and managed with Kustomize manifests. However, 
 - **Explicit Mapping**: Only fields defined in mapping files are exposed as values
 - **Identity Guarantee**: Default values produce identical results as Kustomize
 - **Auto-sync**: By default, overwrites existing charts to stay in sync with Kustomize
-  - Use `--no-overwrite` flag to prevent accidental overwrites
 
 ## Quick Start
 
@@ -42,17 +41,6 @@ KServe is built with Kubebuilder and managed with Kustomize manifests. However, 
 # Generate and verify all charts at once using Makefile (recommended)
 make generate-helm-charts
 ```
-
-### Prevent Accidental Overwrites
-
-Use `NO_OVERWRITE` environment variable to prevent overwriting existing charts:
-
-```bash
-
-NO_OVERWRITE=true make generate-helm-charts
-```
-
-**Note:** By default, the converter overwrites existing charts to maintain sync with Kustomize. The `NO_OVERWRITE=true` is useful when you want to protect against accidental overwrites during development or testing.
 
 ## Generated Charts
 
@@ -138,6 +126,15 @@ To update the chart version for a release:
    # The converter automatically uses KSERVE_VERSION from kserve-deps.env
    make convert-helm-charts
    ```
+
+**Note**
+```
+# mapper has this to get the KSERVE_VERSION from kserve-deps
+globals:
+  version:
+    valuePath: kserve.version
+    kserve-deps: KSERVE_VERSION
+```
 
 **Version Flow:**
 
@@ -252,6 +249,7 @@ Current limitations:
 
 1. **Kustomize Features**: Supports basic resources. Complex kustomize patches/overlays may need manual handling
 2. **Namespace Creation**: Use `--create-namespace` flag or create namespace beforehand
+3. **Mapper Flexibility**: Mappers allow freely adding/removing field mappings, but new resource files or Kinds require converter source code modifications
 
 ## Notes
 
