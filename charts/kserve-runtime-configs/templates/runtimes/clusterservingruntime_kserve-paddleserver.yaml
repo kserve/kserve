@@ -1,0 +1,37 @@
+{{- if .Values.runtimes.enabled }}
+{{- if .Values.runtimes.paddle.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-paddleserver
+  labels:
+    {{- include "kserve-runtime-configs.labels" . | nindent 4 }}
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --model_name={{ "{{" }}.Name{{ "}}" }}
+    - --model_dir=/mnt/models
+    - --http_port=8080
+    image: {{ .Values.runtimes.paddle.image.repository }}:{{ .Values.runtimes.paddle.image.tag | default .Values.kserve.version }}
+    name: kserve-container
+    resources: {{- toYaml .Values.runtimes.paddle.resources | nindent 6 }}
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+  protocolVersions:
+  - v1
+  - v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: paddle
+    priority: 1
+    version: "2"
+{{- end }}
+{{- end }}

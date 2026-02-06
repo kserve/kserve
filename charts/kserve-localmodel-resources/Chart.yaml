@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kserve-localmodel-resources
+description: KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Deployments
+type: application
+version: v0.16.0
+appVersion: v0.16.0

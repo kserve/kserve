@@ -1,0 +1,47 @@
+{{- if .Values.runtimes.enabled }}
+{{- if .Values.runtimes.predictive.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-predictiveserver
+  labels:
+    {{- include "kserve-runtime-configs.labels" . | nindent 4 }}
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - args:
+    - --model_name={{ "{{" }}.Name{{ "}}" }}
+    - --model_dir=/mnt/models
+    - --http_port=8080
+    - --framework={{ "{{" }}.Annotations.modelFormat{{ "}}" }}
+    - --nthread=1
+    image: {{ .Values.runtimes.predictive.image.repository }}:{{ .Values.runtimes.predictive.image.tag | default .Values.kserve.version }}
+    name: kserve-container
+    resources: {{- toYaml .Values.runtimes.predictive.resources | nindent 6 }}
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+  protocolVersions:
+  - v1
+  - v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: sklearn
+    priority: 1
+    version: "1"
+  - autoSelect: true
+    name: xgboost
+    priority: 1
+    version: "2"
+  - autoSelect: true
+    name: lightgbm
+    priority: 1
+    version: "4"
+{{- end }}
+{{- end }}

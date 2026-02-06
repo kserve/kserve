@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: kserve/llmisvc-serving-cert
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/llmisvc-serving-cert
     controller-gen.kubebuilder.io/version: v0.19.0
   name: llminferenceservices.serving.kserve.io
 spec:

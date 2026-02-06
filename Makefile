@@ -78,6 +78,40 @@ generate-quick-install-scripts: validate-infra-scripts $(PYTHON_VENV)
 	@$(PYTHON_BIN)/pip install -q -r hack/setup/scripts/install-script-generator/requirements.txt
 	@$(PYTHON_BIN)/python hack/setup/scripts/install-script-generator/generator.py
 
+.PHONY: convert-helm-charts
+convert-helm-charts: $(PYTHON_VENV)
+	@echo "Converting Kustomize manifests to Helm charts..."
+	@$(PYTHON_BIN)/pip install -q -r hack/setup/scripts/helm-converter/requirements.txt
+	@$(PYTHON_BIN)/python hack/setup/scripts/helm-converter/convert.py \
+		--mapping hack/setup/scripts/helm-converter/mappers/helm-mapping-kserve.yaml \
+		--output charts/kserve-resources
+	@$(PYTHON_BIN)/python hack/setup/scripts/helm-converter/convert.py \
+		--mapping hack/setup/scripts/helm-converter/mappers/helm-mapping-llmisvc.yaml \
+		--output charts/kserve-llmisvc-resources
+	@$(PYTHON_BIN)/python hack/setup/scripts/helm-converter/convert.py \
+		--mapping hack/setup/scripts/helm-converter/mappers/helm-mapping-localmodel.yaml \
+		--output charts/kserve-localmodel-resources
+	@$(PYTHON_BIN)/python hack/setup/scripts/helm-converter/convert.py \
+		--mapping hack/setup/scripts/helm-converter/mappers/helm-mapping-kserve-runtime-configs.yaml \
+		--output charts/kserve-runtime-configs
+	@echo "✓ Helm charts converted successfully"
+
+.PHONY: verify-helm-charts
+verify-helm-charts: $(PYTHON_VENV)
+	@echo "Verifying Helm charts against Kustomize manifests..."
+	@$(PYTHON_BIN)/pip install -q -r hack/setup/scripts/helm-converter/requirements.txt
+	@$(PYTHON_BIN)/python hack/setup/scripts/helm-converter/compare_manifests.py
+
+.PHONY: test-helm-converter
+test-helm-converter: $(PYTHON_VENV)
+	@echo "Running helm-converter unit tests..."
+	@$(PYTHON_BIN)/pip install -q -r hack/setup/scripts/helm-converter/requirements.txt
+	@cd hack/setup/scripts/helm-converter && $(PYTHON_BIN)/python -m pytest -v
+
+.PHONY: generate-helm-charts
+generate-helm-charts: test-helm-converter convert-helm-charts verify-helm-charts
+	@echo "✓ Helm charts generated and verified successfully"
+
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen yq
 	@$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full	
@@ -86,6 +120,10 @@ manifests: controller-gen yq
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodelnode-agent-role paths=./pkg/controller/v1alpha1/localmodelnode output:rbac:artifacts:config=config/rbac/localmodelnode
 	
+	# DO NOT COPY to helm chart. It needs to be created before the Envoy Gateway or you will need to restart the Envoy Gateway controller.
+	# The llmisvc helm chart needs to be installed after the Envoy Gateway as well, so it needs to be created before the llmisvc helm chart.
+	kubectl kustomize https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > test/crds/gateway-inference-extension.yaml
+		
 	# Move LLMISVC CRD to llmisvc folder	                   
 	mv config/crd/full/serving.kserve.io_llminferenceservices.yaml config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
 	mv config/crd/full/serving.kserve.io_llminferenceserviceconfigs.yaml config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
@@ -94,22 +132,7 @@ manifests: controller-gen yq
 	mv config/crd/full/serving.kserve.io_localmodelcaches.yaml config/crd/full/localmodel/serving.kserve.io_localmodelcaches.yaml
 	mv config/crd/full/serving.kserve.io_localmodelnodegroups.yaml config/crd/full/localmodel/serving.kserve.io_localmodelnodegroups.yaml
 	mv config/crd/full/serving.kserve.io_localmodelnodes.yaml config/crd/full/localmodel/serving.kserve.io_localmodelnodes.yaml
-	
-	# Copy the cluster role to the helm chart
-	cp config/rbac/auth_proxy_role.yaml charts/kserve-resources/templates/clusterrole.yaml
-	cat config/rbac/role.yaml >> charts/kserve-resources/templates/clusterrole.yaml
-	# Copy the llmisvc cluster role to the helm chart
-	cat config/rbac/llmisvc/role.yaml > charts/kserve-llmisvc-resources/templates/clusterrole.yaml
-	cat config/rbac/llmisvc/leader_election_role.yaml > charts/kserve-llmisvc-resources/templates/leader_election_role.yaml	
-	# Copy the local model role with Helm chart while keeping the Helm template condition
-	echo '{{- if .Values.kserve.localmodel.enabled }}' > charts/kserve-resources/templates/localmodel/role.yaml
-	cat config/rbac/localmodel/role.yaml >> charts/kserve-resources/templates/localmodel/role.yaml
-	echo '{{- end }}' >> charts/kserve-resources/templates/localmodel/role.yaml
-	# Copy the local model node role with Helm chart while keeping the Helm template condition
-	echo '{{- if .Values.kserve.localmodel.enabled }}'> charts/kserve-resources/templates/localmodelnode/role.yaml
-	cat config/rbac/localmodelnode/role.yaml >> charts/kserve-resources/templates/localmodelnode/role.yaml
-	echo '{{- end }}' >> charts/kserve-resources/templates/localmodelnode/role.yaml
-
+		
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha2
 	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
@@ -148,10 +171,6 @@ manifests: controller-gen yq
 	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
 	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
 
-	# DO NOT COPY to helm chart. It needs to be created before the Envoy Gateway or you will need to restart the Envoy Gateway controller.
-	# The llmisvc helm chart needs to be installed after the Envoy Gateway as well, so it needs to be created before the llmisvc helm chart.
-	kubectl kustomize https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > test/crds/gateway-inference-extension.yaml
-
 	#remove the required property on framework as name field needs to be optional
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	#remove ephemeralContainers properties for compress crd size https://github.com/kubeflow/kfserving/pull/1141#issuecomment-714170602
@@ -168,10 +187,18 @@ manifests: controller-gen yq
 	@$(YQ) '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_clusterservingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} $(YQ) '{} = "TCP"' -i config/crd/full/serving.kserve.io_clusterservingruntimes.yaml
 	@$(YQ) '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_servingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} $(YQ) '{} = "TCP"' -i config/crd/full/serving.kserve.io_servingruntimes.yaml
 	
-	# TODO: Commenting out the following as it produces differences in verify codegen during release process
-	# Copy the crds to the helm chart
-	# cp config/crd/full/* charts/kserve-crd/templates
-	# rm charts/kserve-crd/templates/kustomization.yaml
+	# Copy the full crd to the helm chart
+	cp config/crd/full/*.yaml charts/kserve-crd/templates/
+	rm charts/kserve-crd/templates/kustomization.yaml
+	# Replace cert-manager namespace references in kserve core CRDs (if any exist in future)
+	sed -i 's|cert-manager.io/inject-ca-from: kserve/|cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/|g' charts/kserve-crd/templates/*.yaml
+	sed -i 's|cert-manager.io/issuer: kserve/|cert-manager.io/issuer: {{ .Release.Namespace }}/|g' charts/kserve-crd/templates/*.yaml
+	# Copy llmisvc crd (with conversion webhook patches applied via kustomize)
+	kubectl kustomize config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' | sed 's|cert-manager.io/inject-ca-from: kserve/|cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/|g; s|cert-manager.io/issuer: kserve/|cert-manager.io/issuer: {{ .Release.Namespace }}/|g' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceservices.yaml
+	kubectl kustomize config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' | sed 's|cert-manager.io/inject-ca-from: kserve/|cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/|g; s|cert-manager.io/issuer: kserve/|cert-manager.io/issuer: {{ .Release.Namespace }}/|g' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
+	cp -f config/crd/full/localmodel/*.yaml charts/kserve-localmodel-crd/templates/
+	rm charts/kserve-localmodel-crd/templates/kustomization.yaml
+		
 	# Generate minimal crd
 	./hack/minimal-crdgen.sh
 	kubectl kustomize config/crd/full > test/crds/serving.kserve.io_all_crds.yaml
@@ -183,20 +210,14 @@ manifests: controller-gen yq
 	# Copy the minimal crd to the helm chart
 	cp config/crd/minimal/*.yaml charts/kserve-crd-minimal/templates/
 	cp config/crd/minimal/llmisvc/*.yaml charts/kserve-llmisvc-crd-minimal/templates/
-	cp -f config/crd/minimal/localmodel/*.yaml charts/kserve-crd-minimal/templates/
-	cp -f config/crd/minimal/localmodel/*.yaml charts/kserve-llmisvc-crd-minimal/templates/
+	cp config/crd/minimal/localmodel/*.yaml charts/kserve-localmodel-crd-minimal/templates/
+	cp -f config/crd/minimal/*.yaml charts/kserve-crd-minimal/templates/
+	cp -f config/crd/minimal/llmisvc/*.yaml charts/kserve-llmisvc-crd-minimal/templates/
+	cp -f config/crd/minimal/localmodel/*.yaml charts/kserve-localmodel-crd-minimal/templates/
 	rm charts/kserve-crd-minimal/templates/kustomization.yaml
 	rm charts/kserve-llmisvc-crd-minimal/templates/kustomization.yaml
-
-	# Copy the full crd to the helm chart
-	cp config/crd/full/*.yaml charts/kserve-crd/templates/
-	# Copy llmisvc crd (with conversion webhook patches applied via kustomize)
-	kubectl kustomize config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceservices.yaml
-	kubectl kustomize config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
-	cp -f config/crd/full/localmodel/*.yaml charts/kserve-crd/templates/
-	cp -f config/crd/full/localmodel/*.yaml charts/kserve-llmisvc-crd/templates/
-	rm charts/kserve-crd/templates/kustomization.yaml
-	rm charts/kserve-llmisvc-crd/templates/kustomization.yaml
+	rm charts/kserve-localmodel-crd-minimal/templates/kustomization.yaml
+	
     # Copy Test inferenceconfig configmap to test overlay
 	cp config/configmap/inferenceservice.yaml config/overlays/test/configmap/inferenceservice.yaml
 

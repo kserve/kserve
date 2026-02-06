@@ -1,0 +1,59 @@
+{{- if .Values.runtimes.enabled }}
+{{- if .Values.runtimes.triton.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-tritonserver
+  labels:
+    {{- include "kserve-runtime-configs.labels" . | nindent 4 }}
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8002"
+  containers:
+  - args:
+    - tritonserver
+    - --model-store=/mnt/models
+    - --grpc-port=9000
+    - --http-port=8080
+    - --allow-grpc=true
+    - --allow-http=true
+    image: {{ .Values.runtimes.triton.image.repository }}:{{ .Values.runtimes.triton.image.tag | default .Values.kserve.version }}
+    name: kserve-container
+    resources: {{- toYaml .Values.runtimes.triton.resources | nindent 6 }}
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+      runAsUser: 1000
+  protocolVersions:
+  - v2
+  - grpc-v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: tensorrt
+    priority: 1
+    version: "8"
+  - autoSelect: true
+    name: tensorflow
+    priority: 1
+    version: "1"
+  - autoSelect: true
+    name: tensorflow
+    priority: 1
+    version: "2"
+  - autoSelect: true
+    name: onnx
+    priority: 1
+    version: "1"
+  - name: pytorch
+    version: "1"
+  - autoSelect: true
+    name: triton
+    priority: 1
+    version: "2"
+{{- end }}
+{{- end }}

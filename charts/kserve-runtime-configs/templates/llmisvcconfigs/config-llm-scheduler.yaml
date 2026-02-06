@@ -1,0 +1,112 @@
+{{- if .Values.llmisvcConfigs.enabled }}
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-scheduler
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kserve-runtime-configs.labels" . | nindent 4 }}
+spec:
+  router:
+    scheduler:
+      pool:
+        spec:
+          endpointPickerRef:
+            failureMode: FailOpen
+            kind: Service
+            name: |-
+              {{ "{{" }} ChildName .ObjectMeta.Name `-epp-service` {{ "}}" }}
+            port:
+              number: 9002
+          selector:
+            matchLabels:
+              app.kubernetes.io/name: |-
+                {{ "{{" }} .ObjectMeta.Name {{ "}}" }}
+              app.kubernetes.io/part-of: llminferenceservice
+              kserve.io/component: workload
+          targetPorts:
+            - number: 8000
+      template:
+        containers:
+          - name: main
+            ports:
+              - containerPort: 9002
+                name: grpc
+                protocol: TCP
+              - containerPort: 9003
+                name: grpc-health
+                protocol: TCP
+              - containerPort: 9090
+                name: metrics
+                protocol: TCP
+              - containerPort: 5557
+                name: zmq
+                protocol: TCP
+            image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.4.0
+            imagePullPolicy: IfNotPresent
+            livenessProbe:
+              failureThreshold: 3
+              grpc:
+                port: 9003
+                service: envoy.service.ext_proc.v3.ExternalProcessor
+              initialDelaySeconds: 5
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 1
+            readinessProbe:
+              failureThreshold: 3
+              grpc:
+                port: 9003
+                service: envoy.service.ext_proc.v3.ExternalProcessor
+              initialDelaySeconds: 30
+              periodSeconds: 10
+              successThreshold: 1
+              timeoutSeconds: 1
+            args:
+              - --pool-name
+              - "{{ "{{" }} ChildName .ObjectMeta.Name `-inference-pool` {{ "}}" }}"
+              - --pool-namespace
+              - "{{ "{{" }} .ObjectMeta.Namespace {{ "}}" }}"
+              - --zap-encoder
+              - json
+              - --grpc-port
+              - "9002"
+              - --grpc-health-port
+              - "9003"
+              - --kv-cache-usage-percentage-metric
+              - "vllm:kv_cache_usage_perc"
+              # BackendTLSPolicy is not implemented yet so disable SSL for now
+              # - --secure-serving
+              # - --model-server-metrics-scheme
+              # - "https"
+              # - --model-server-metrics-https-insecure-skip-verify
+              # - --cert-path
+              # - "/etc/ssl/certs"
+            resources:
+              requests:
+                cpu: 256m
+                memory: 500Mi
+            terminationMessagePath: /dev/termination-log
+            terminationMessagePolicy: FallbackToLogsOnError
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              capabilities:
+                drop:
+                  - ALL
+              seccompProfile:
+                type: RuntimeDefault
+            volumeMounts:
+              - mountPath: /etc/ssl/certs
+                name: tls-certs
+                readOnly: true
+        volumes:
+          - name: tls-certs
+            secret:
+              secretName: "{{ "{{" }} ChildName .ObjectMeta.Name `-kserve-self-signed-certs` {{ "}}" }}"
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        terminationGracePeriodSeconds: 30
+
+{{- end }}

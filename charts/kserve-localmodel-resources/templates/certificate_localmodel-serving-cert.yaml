@@ -1,0 +1,16 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: localmodel-serving-cert
+  namespace: {{ .Release.Namespace }}
+spec:
+  commonName: localmodel-webhook-server-service.kserve.svc
+  dnsNames:
+  - localmodel-webhook-server-service.kserve.svc
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: localmodel-webhook-server-cert

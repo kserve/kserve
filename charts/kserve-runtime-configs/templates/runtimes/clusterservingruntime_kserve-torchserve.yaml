@@ -1,0 +1,43 @@
+{{- if .Values.runtimes.enabled }}
+{{- if .Values.runtimes.torchserve.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-torchserve
+  labels:
+    {{- include "kserve-runtime-configs.labels" . | nindent 4 }}
+spec:
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8082"
+  containers:
+  - args:
+    - torchserve
+    - --start
+    - --model-store=/mnt/models/model-store
+    - --ts-config=/mnt/models/config/config.properties
+    env:
+    - name: TS_SERVICE_ENVELOPE
+      value: '{{ "{{" }}.Labels.serviceEnvelope{{ "}}" }}'
+    image: {{ .Values.runtimes.torchserve.image.repository }}:{{ .Values.runtimes.torchserve.image.tag | default .Values.kserve.version }}
+    name: kserve-container
+    resources: {{- toYaml .Values.runtimes.torchserve.resources | nindent 6 }}
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      runAsNonRoot: true
+      runAsUser: 1000
+  protocolVersions:
+  - v1
+  - v2
+  - grpc-v2
+  supportedModelFormats:
+  - autoSelect: true
+    name: pytorch
+    priority: 2
+    version: "1"
+{{- end }}
+{{- end }}

@@ -1,0 +1,96 @@
+# Helm Mapping Configuration for LLMISVC Chart
+# Chart Name: llmisvc
+# Description: Large Language Model Inference Service with optional localmodel support
+# Source of truth: kustomize manifests in config/
+
+# =============================================================================
+# EXTENDS
+# =============================================================================
+# Include common/shared configurations from helm-mapping-common.yaml
+# This file provides: common, localmodel
+extends: helm-mapping-common.yaml
+
+# =============================================================================
+# CHART METADATA
+# =============================================================================
+metadata:
+  name: llmisvc
+  description: "KServe Generative AI - Large Language Models and Foundation Model Serving"
+  version: "0.1.0"  # Overridden by KSERVE_VERSION from kserve-deps.env
+  appVersion: "latest"  # Overridden by KSERVE_VERSION from kserve-deps.env
+
+# =============================================================================
+# GLOBALS (from kserve-deps.env)
+# =============================================================================
+globals:
+  version:
+    valuePath: kserve.version
+    kserve-deps: KSERVE_VERSION
+
+  chartVersion:
+    valuePath: metadata.version
+    kserve-deps: KSERVE_VERSION
+    description: "Chart version from kserve-deps.env"
+
+  chartAppVersion:
+    valuePath: metadata.appVersion
+    kserve-deps: KSERVE_VERSION
+    description: "Chart appVersion from kserve-deps.env"
+
+# =============================================================================
+# LLMISVC COMPONENT (main component for this chart)
+# =============================================================================
+llmisvc:
+  enabled:
+    valuePath: llmisvc.enabled
+    description: "Enable LLMISVC (Large Language Model Inference Service) controller"
+
+  manifestPath: config/components/llmisvc
+
+  # LLMISVC Controller Manager Deployment
+  controllerManager:
+    kind: Deployment
+    name: llmisvc-controller-manager
+    namespace: kserve
+    manifestPath: config/llmisvc/manager.yaml
+
+    # Container-level fields (NEW structure with container-relative paths)
+    containers:
+      manager:  # Main container name
+        image:
+          repository:
+            path: image+(:,0)
+            valuePath: llmisvc.controller.containers.manager.image
+          tag:
+            path: image+(:,1)
+            valuePath: llmisvc.controller.containers.manager.tag
+            value: ""
+            fallback: kserve.version
+          pullPolicy:
+            path: imagePullPolicy
+            valuePath: llmisvc.controller.containers.manager.imagePullPolicy
+
+        resources:
+          path: resources
+          valuePath: llmisvc.controller.containers.manager.resources
+
+# =============================================================================
+# NOTES
+# =============================================================================
+notes: |
+  LLMISVC Chart Mapping Configuration
+
+  This chart includes:
+  1. Common/base resources
+  2. LLMISVC controller
+  3. Optional localmodel controller
+
+  Structure mirrors kustomize components:
+  - config/base -> common resources (shared with kserve)
+  - config/components/llmisvc -> llmisvc controller
+  - config/components/localmodel -> localmodel controller (shared with kserve)
+
+  Note: ClusterServingRuntimes and LLMInferenceServiceConfigs are now provided
+  in a separate kserve-runtime-configs chart for better modularity.
+
+  Note: CRDs are managed separately via kserve-crd chart and Makefile.
