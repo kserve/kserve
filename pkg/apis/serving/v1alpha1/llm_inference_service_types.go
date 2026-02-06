@@ -121,6 +121,16 @@ type WorkloadSpec struct {
 	// +optional
 	Parallelism *ParallelismSpec `json:"parallelism,omitempty"`
 
+	// Labels that will be added to the component pod.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Annotations that will be added to the component pod.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+
 	// Template for the main pod spec.
 	// In a multi-node deployment, this configures the "head" or "master" pod.
 	// In a disaggregated deployment, this configures the "decode" pod if it's the top-level template,
@@ -268,6 +278,16 @@ type SchedulerSpec struct {
 	// Pool configuration for the InferencePool, which is part of the Inference Gateway extension.
 	// +optional
 	Pool *InferencePoolSpec `json:"pool,omitempty"`
+
+	// Labels that will be added to the scheduler component pod.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Annotations that will be added to the scheduler component pod.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 
 	// Template for the Inference Gateway Extension pod spec.
 	// This configures the Endpoint Picker (EPP) Deployment.

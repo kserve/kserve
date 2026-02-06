@@ -234,9 +234,11 @@ func convertLoRASpecFromV1Alpha2(src *v1alpha2.LoRASpec) *LoRASpec {
 
 func convertWorkloadSpecToV1Alpha2(src *WorkloadSpec) v1alpha2.WorkloadSpec {
 	dst := v1alpha2.WorkloadSpec{
-		Replicas: src.Replicas,
-		Template: src.Template,
-		Worker:   src.Worker,
+		Replicas:    src.Replicas,
+		Labels:      src.Labels,
+		Annotations: src.Annotations,
+		Template:    src.Template,
+		Worker:      src.Worker,
 	}
 
 	if src.Parallelism != nil {
@@ -255,9 +257,11 @@ func convertWorkloadSpecToV1Alpha2(src *WorkloadSpec) v1alpha2.WorkloadSpec {
 
 func convertWorkloadSpecFromV1Alpha2(src *v1alpha2.WorkloadSpec) WorkloadSpec {
 	dst := WorkloadSpec{
-		Replicas: src.Replicas,
-		Template: src.Template,
-		Worker:   src.Worker,
+		Replicas:    src.Replicas,
+		Labels:      src.Labels,
+		Annotations: src.Annotations,
+		Template:    src.Template,
+		Worker:      src.Worker,
 	}
 
 	if src.Parallelism != nil {
@@ -313,7 +317,9 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 
 	if src.Scheduler != nil {
 		dst.Scheduler = &v1alpha2.SchedulerSpec{
-			Template: src.Scheduler.Template,
+			Labels:      src.Scheduler.Labels,
+			Annotations: src.Scheduler.Annotations,
+			Template:    src.Scheduler.Template,
 		}
 		if src.Scheduler.Pool != nil {
 			dst.Scheduler.Pool = &v1alpha2.InferencePoolSpec{
@@ -384,7 +390,9 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 
 	if src.Scheduler != nil {
 		dst.Scheduler = &SchedulerSpec{
-			Template: src.Scheduler.Template,
+			Labels:      src.Scheduler.Labels,
+			Annotations: src.Scheduler.Annotations,
+			Template:    src.Scheduler.Template,
 		}
 		if src.Scheduler.Pool != nil {
 			dst.Scheduler.Pool = &InferencePoolSpec{
