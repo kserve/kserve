@@ -287,12 +287,12 @@ func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInfe
 	for key, value := range llmSvc.Labels {
 		if !utils.Includes(config.ServiceLabelDisallowedList, key) {
 			if expected.Labels == nil {
-				expected.Labels = make(map[string]string)
+				expected.Labels = make(map[string]string, 1)
 			}
 			expected.Labels[key] = value
 
 			if expected.Spec.Template.Labels == nil {
-				expected.Spec.Template.Labels = make(map[string]string)
+				expected.Spec.Template.Labels = make(map[string]string, 1)
 			}
 			expected.Spec.Template.Labels[key] = value
 		}
@@ -301,7 +301,7 @@ func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInfe
 	// Propagate all labels from WorkloadSpec.Labels to Pod template
 	if llmSvc.Spec.Labels != nil {
 		if expected.Spec.Template.Labels == nil {
-			expected.Spec.Template.Labels = make(map[string]string)
+			expected.Spec.Template.Labels = make(map[string]string, len(llmSvc.Spec.Labels))
 		}
 		maps.Copy(expected.Spec.Template.Labels, llmSvc.Spec.Labels)
 	}
@@ -309,7 +309,7 @@ func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInfe
 	// Propagate all annotations from WorkloadSpec.Annotations to Pod template
 	if llmSvc.Spec.Annotations != nil {
 		if expected.Spec.Template.Annotations == nil {
-			expected.Spec.Template.Annotations = make(map[string]string)
+			expected.Spec.Template.Annotations = make(map[string]string, len(llmSvc.Spec.Annotations))
 		}
 		maps.Copy(expected.Spec.Template.Annotations, llmSvc.Spec.Annotations)
 	}
