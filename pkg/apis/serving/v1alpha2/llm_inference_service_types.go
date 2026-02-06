@@ -234,6 +234,16 @@ type SchedulerSpec struct {
 	// +optional
 	Pool *InferencePoolSpec `json:"pool,omitempty"`
 
+	// Labels that will be added to the scheduler component pod.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// Annotations that will be added to the scheduler component pod.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+
 	// Template for the Inference Gateway Extension pod spec.
 	// This configures the Endpoint Picker (EPP) Deployment.
 	// +optional
