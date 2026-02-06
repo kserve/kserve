@@ -13024,6 +13024,11 @@ spec:
                         type: object
                     type: object
                 type: object
+              storageInitializer:
+                properties:
+                  enabled:
+                    type: boolean
+                type: object
               template:
                 properties:
                   activeDeadlineSeconds:
