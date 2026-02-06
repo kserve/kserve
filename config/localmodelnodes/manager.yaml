@@ -23,6 +23,8 @@ spec:
     spec:
       nodeSelector:
         kserve/localmodel: worker
+      affinity: {}
+      tolerations: []
       serviceAccountName: kserve-localmodelnode-agent
       securityContext:
         runAsNonRoot: true
