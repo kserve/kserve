@@ -132,6 +132,7 @@ class RESTServerMultiProcess:
         workers: int = 1,
         grace_period: int = 30,
         log_config_file: Optional[str] = None,
+        event_loop: str = "auto",
     ) -> None:
         self.log_config_file = log_config_file
         self._rest_server = RESTServer(
@@ -142,6 +143,7 @@ class RESTServerMultiProcess:
             access_log_format,
             workers,
             grace_period,
+            event_loop,
         )
         self._processes: List[RESTServerProcess] = []
         self.should_exit = asyncio.Event()
