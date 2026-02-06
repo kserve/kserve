@@ -31,7 +31,7 @@ source "${REPO_ROOT}/kserve-deps.env"
 DEPLOYMENT_MODE="${1:-serverless}"
 NETWORK_LAYER="${2:-istio}"
 ENABLE_KEDA="${3:-false}"
-LLMISVC="${4:-false}"
+ENABLE_LLMISVC="${4:-false}"
 
 # Parse network layer configuration
 USES_GATEWAY_API=false
@@ -61,7 +61,7 @@ ${REPO_ROOT}/hack/setup/cli/install-yq.sh
 ${REPO_ROOT}/hack/setup/cli/install-helm.sh
 ${REPO_ROOT}/hack/setup/infra/manage.cert-manager-helm.sh
 
-if [[ $LLMISVC == "false" ]]; then
+if [[ $ENABLE_LLMISVC == "false" ]]; then
   # Install Gateway API CRDs if needed
   if [[ $USES_GATEWAY_API == true ]]; then
     ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-crd.sh
