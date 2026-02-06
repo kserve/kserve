@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -34,6 +35,7 @@ import (
 	"github.com/kserve/kserve/pkg/credentials/s3"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
+	pod "github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
 
 const CaBundleVolumeName = "cabundle-cert"
@@ -162,7 +164,7 @@ func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *cor
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
-	if err := r.attachStorageInitializer(modelUri, podSpec, storageConfig); err != nil {
+	if err := r.attachStorageInitializer(ctx, modelUri, podSpec, storageConfig); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
@@ -209,7 +211,7 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 //
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
-	if err := r.attachStorageInitializer(modelUri, podSpec, storageConfig); err != nil {
+	if err := r.attachStorageInitializer(ctx, modelUri, podSpec, storageConfig); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
@@ -249,7 +251,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig) error {
+func (r *LLMISVCReconciler) attachStorageInitializer(ctx context.Context, modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig) error {
 	containerArgs := []string{
 		modelUri,
 		constants.DefaultModelLocalMountPath,
@@ -260,6 +262,24 @@ func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, podSpec *c
 		ReadOnly:   false,
 	}
 	initContainer := utils.CreateInitContainerWithConfig(storageConfig, containerArgs)
+
+	// Use shared helpers to get CSC spec for this URI, then merge into initContainer
+	storageContainerSpec, err := pod.GetStorageContainerSpec(ctx, modelUri, r.Client)
+	if err != nil {
+		// If the ClusterStorageContainer CRD is not found (e.g. only llmisvc chart is installed),
+		// we should just skip the env injection and proceed with the default initialization.
+		if meta.IsNoMatchError(err) {
+			log.FromContext(ctx).V(1).Info("ClusterStorageContainer CRD not found, skipping env injection", "error", err)
+		} else {
+			return fmt.Errorf("failed to get ClusterStorageContainer spec for URI %s: %w", modelUri, err)
+		}
+	} else if storageContainerSpec != nil {
+		// Only merge if we found a valid spec
+		if err := pod.MergeContainerSpecs(initContainer, &storageContainerSpec.Container); err != nil {
+			return fmt.Errorf("failed to merge ClusterStorageContainer container spec: %w", err)
+		}
+	}
+
 	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
 
 	utils.AddModelMount(storageMountParams, initContainer.Name, podSpec)

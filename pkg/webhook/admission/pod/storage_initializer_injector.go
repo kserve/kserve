@@ -474,7 +474,7 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 
 		// Merge any customizations from the storage container spec into the init container
 		if params.StorageContainerSpec != nil {
-			err := mergeContainerSpecs(initContainer, &params.StorageContainerSpec.Container)
+			err := MergeContainerSpecs(initContainer, &params.StorageContainerSpec.Container)
 			if err != nil {
 				return err
 			}
@@ -731,7 +731,7 @@ func (mi *StorageInitializerInjector) SetIstioCniSecurityContext(pod *corev1.Pod
 
 // Use JSON Marshal/Unmarshal to merge Container structs using strategic merge patch.
 // Use container name from defaultContainer spec, crdContainer takes precedence for other fields.
-func mergeContainerSpecs(targetContainer *corev1.Container, crdContainer *corev1.Container) error {
+func MergeContainerSpecs(targetContainer *corev1.Container, crdContainer *corev1.Container) error {
 	if targetContainer == nil {
 		return errors.New("targetContainer is nil")
 	}
