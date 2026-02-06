@@ -42,6 +42,7 @@ const (
 	LoggerArgumentStorePath           = "--log-store-path"
 	LoggerArgumentStoreFormat         = "--log-store-format"
 	LoggerArgumentInferenceService    = "--inference-service"
+	LoggerArgumentStoreBatchSize      = "--log-store-batch-size"
 	LoggerArgumentNamespace           = "--namespace"
 	LoggerArgumentEndpoint            = "--endpoint"
 	LoggerArgumentComponent           = "--component"
@@ -236,6 +237,15 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 				}
 			}
 		}
+
+		var storageBatchSize *string
+		if ag.loggerConfig.Store != nil {
+			if ag.loggerConfig.Store.Parameters != nil {
+				if batchSize, ok := (*ag.loggerConfig.Store.Parameters)[constants.LoggerBatchSizeKey]; ok {
+					storageBatchSize = &batchSize
+				}
+			}
+		}
 		loggerArgs := []string{
 			LoggerArgumentLogUrl,
 			logUrl,
@@ -251,6 +261,10 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			endpoint,
 			LoggerArgumentComponent,
 			component,
+		}
+		if storageBatchSize != nil {
+			loggerArgs = append(loggerArgs, LoggerArgumentStoreBatchSize)
+			loggerArgs = append(loggerArgs, *storageBatchSize)
 		}
 		if storagePath != "" {
 			loggerArgs = append(loggerArgs, LoggerArgumentStorePath)

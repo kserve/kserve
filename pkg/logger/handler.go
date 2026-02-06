@@ -30,6 +30,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"github.com/kserve/kserve/pkg/logger/types"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
@@ -141,7 +143,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 	// log Request
 	if eh.logMode == v1beta1.LogAll || eh.logMode == v1beta1.LogRequest {
-		if err := QueueLogRequest(LogRequest{
+		if err := QueueLogRequest(types.LogRequest{
 			Url:              eh.logUrl,
 			Bytes:            &body,
 			ContentType:      contentType,
@@ -176,7 +178,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// log Response
 	if lrw.statusCode == http.StatusOK {
 		if eh.logMode == v1beta1.LogAll || eh.logMode == v1beta1.LogResponse {
-			if err := QueueLogRequest(LogRequest{
+			if err := QueueLogRequest(types.LogRequest{
 				Url:              eh.logUrl,
 				Bytes:            &responseBody,
 				ContentType:      contentType,
