@@ -13,6 +13,11 @@ issues:
     - "openapi/"
   exclude-files:
     - "zz_generated.*.go"
+  exclude-rules:
+    # Only enforce forbidigo in test files.
+    - path-except: "_test\\.go$"
+      linters:
+        - forbidigo
 
 output:
   formats:
@@ -54,6 +59,9 @@ linters:
     # Checks assignments with too many blank identifiers (e.g. x, , , _, := f()).
     - dogsled
 
+    # Restricts imports in specific files.
+    - depguard
+
     # Checks for duplicate words in the source code.
     - dupword
 
@@ -73,6 +81,9 @@ linters:
 
     # Detects nested contexts in loops. https://gabnotes.org/fat-contexts/
     - fatcontext
+
+    # Forbids specific identifiers in source code (scoped to test files via exclude-rules).
+    - forbidigo
 
     # Enforces standards of using ginkgo and gomega.
     - ginkgolinter
@@ -192,6 +203,18 @@ linters:
     - whitespace
 
 linters-settings:
+  depguard:
+    rules:
+      test-logger:
+        files:
+          - "**/*_test.go"
+        deny:
+          - pkg: "sigs.k8s.io/controller-runtime/pkg/log/zap"
+            desc: "Use pkgtest.SetupTestLogger() instead of configuring zap logger directly in tests"
+  forbidigo:
+    forbid:
+      - p: "logf\\.SetLogger"
+        msg: "Use pkgtest.SetupTestLogger() instead of setting logger directly"
   goimports:
     local-prefixes: "github.com/kserve/kserve"
   gosec:

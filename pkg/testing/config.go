@@ -90,14 +90,29 @@ func (e *Config) WithWebhooks(setupFunc ...SetupFunc) *Config {
 	return e
 }
 
-// Start wires controller-runtime manager with controllers which are subject of the tests
-// and starts Kubernetes EnvTest to verify their behavior.
-func (e *Config) Start(ctx context.Context) *Client {
+// SetupTestLogger configures the controller-runtime logger for test suites.
+// By default, it sets the log level to warn so that only errors and warnings are visible,
+// suppressing verbose controller reconciliation logs.
+// Set the TEST_LOG_LEVEL env var to override (e.g. "debug", "info", "error").
+func SetupTestLogger() {
+	level := zapcore.WarnLevel
+	if envLevel := os.Getenv("TEST_LOG_LEVEL"); envLevel != "" {
+		if err := level.UnmarshalText([]byte(envLevel)); err != nil {
+			level = zapcore.WarnLevel
+		}
+	}
+
 	opts := zap.Options{
-		Development: true,
+		Level:       level,
 		TimeEncoder: zapcore.TimeEncoderOfLayout(time.RFC3339),
 	}
 	logf.SetLogger(zap.New(zap.WriteTo(ginkgo.GinkgoWriter), zap.UseFlagOptions(&opts)))
+}
+
+// Start wires controller-runtime manager with controllers which are subject of the tests
+// and starts Kubernetes EnvTest to verify their behavior.
+func (e *Config) Start(ctx context.Context) *Client {
+	SetupTestLogger()
 
 	envTest := &envtest.Environment{
 		CRDInstallOptions: envtest.CRDInstallOptions{
