@@ -5,10 +5,10 @@ authors = [
     {name = "The KServe Authors", email = "hejinchi@cn.ibm.com"},
 ]
 license = {text = "Apache-2.0"}
-requires-python = ">=3.10,<3.13"
+requires-python = "<3.14,>=3.10"
 dependencies = [
     "uvicorn[standard]<1.0.0,>=0.30.6",
-    "fastapi>=0.115.3",
+    "fastapi>=0.115.3,<1.0",
     "starlette==0.49.1",
     "cloudevents<2.0.0,>=1.6.2",
     "six<2.0.0,>=1.16.0",
@@ -63,7 +63,7 @@ logging = [
     "asgi-logger<1.0.0,>=0.1.0",
 ]
 ray = [
-    "ray[serve]>=2.43.0",
+    "ray[serve]>=2.49.0",
 ]
 llm = [
     "vllm==0.11.2",
