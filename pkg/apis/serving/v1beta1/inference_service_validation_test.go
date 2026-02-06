@@ -1398,6 +1398,9 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 func TestDeploymentModeUpdate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	oldIsvc := makeTestInferenceService()
+	oldIsvc.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyServerless),
+	}
 	oldIsvc.Status = InferenceServiceStatus{
 		DeploymentMode: string(constants.Knative),
 	}
@@ -1405,6 +1408,7 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	updatedIsvc.Annotations = map[string]string{
 		constants.DeploymentMode: string(constants.Standard),
 	}
+	updatedIsvc.Spec.Predictor.Tensorflow.RuntimeVersion = proto.String("0.15.0")
 	validator := InferenceServiceValidator{}
 	warnings, err := validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc)
 	// Annotation does not match status, update should be rejected
@@ -1415,8 +1419,37 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	updatedIsvc1.Annotations = map[string]string{
 		constants.DeploymentMode: string(constants.Knative),
 	}
+	updatedIsvc1.Spec.Predictor.Tensorflow.RuntimeVersion = proto.String("0.16.0")
 	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc1)
 	// Annotation matches status, update is accepted
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	updatedIsvc2 := oldIsvc.DeepCopy()
+	updatedIsvc2.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyServerless),
+	}
+	updatedIsvc2.Spec.Predictor.Tensorflow.RuntimeVersion = proto.String("0.17.0")
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc2)
+	// Legacy Serverless annotation should be treated the same as Knative
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+}
+
+func TestDeploymentModeUpdateWithLegacyRawDeployment(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	oldIsvc := makeTestInferenceService()
+	oldIsvc.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyRawDeployment),
+	}
+	oldIsvc.Status = InferenceServiceStatus{
+		DeploymentMode: string(constants.Standard),
+	}
+	updatedIsvc := oldIsvc.DeepCopy()
+	updatedIsvc.Spec.Predictor.Tensorflow.RuntimeVersion = proto.String("0.18.0")
+	validator := InferenceServiceValidator{}
+	warnings, err := validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc)
+	// Legacy RawDeployment annotation should be treated the same as Standard
 	g.Expect(warnings).Should(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.Succeed())
 }
