@@ -56,6 +56,7 @@ _HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
 _HF_PREFIX = "hf://"
 _GIT_RE = r"https://.+\.git"
+_MLFLOW_PREFIX = "mlflow://"
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
@@ -118,15 +119,25 @@ class Storage(object):
                 model_dir = Storage._download_hf(uri, out_dir)
             elif re.search(_GIT_RE, uri):
                 model_dir = Storage._download_git_repo(uri, out_dir)
+            elif uri.startswith(_MLFLOW_PREFIX):
+                model_dir = Storage._download_mlflow(uri, out_dir)
             # "catch-all" pattern, should always be last
             elif re.search(_URI_RE, uri):
                 model_dir = Storage._download_from_uri(uri, out_dir)
+
             else:
                 raise Exception(
                     "Cannot recognize storage type for "
                     + uri
-                    + "\n'%s', '%s', '%s', '%s' and '%s' are the current available storage type."
-                    % (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX, _HTTP_PREFIX, _HF_PREFIX)
+                    + "\n'%s', '%s', '%s', '%s', '%s' and '%s' are the current available storage type."
+                    % (
+                        _GCS_PREFIX,
+                        _S3_PREFIX,
+                        _LOCAL_PREFIX,
+                        _HTTP_PREFIX,
+                        _HF_PREFIX,
+                        _MLFLOW_PREFIX,
+                    )
                 )
 
         logger.info("Successfully copied %s to %s", uri, out_dir)
@@ -173,6 +184,16 @@ class Storage(object):
                 with open(f"{temp_dir}/{key}", mode) as f:
                     f.write(value)
                     f.flush()
+
+        if storage_secret_json.get("type", "") == "mlflow":
+            for env_var, key in (
+                ("MLFLOW_TRACKING_URI", "tracking_uri"),
+                ("MLFLOW_TRACKING_USERNAME", "tracking_username"),
+                ("MLFLOW_TRACKING_PASSWORD", "tracking_password"),
+                ("MLFLOW_TRACKING_TOKEN", "tracking_token"),
+            ):
+                if key in storage_secret_json:
+                    os.environ[env_var] = storage_secret_json.get(key)
 
     @staticmethod
     def get_S3_config():
@@ -987,3 +1008,34 @@ class Storage(object):
             ) from e
         os.remove(file_path)
         return target_dir
+
+    @staticmethod
+    def _download_mlflow(uri, out_dir: str) -> str:
+        import mlflow
+        from mlflow.exceptions import MlflowException
+
+        mlflow_tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
+        if mlflow_tracking_uri is None:
+            raise ValueError("Cannot find MLFlow tracking Uri")
+        mlflow.set_tracking_uri(mlflow_tracking_uri)
+
+        if (
+            os.getenv("MLFLOW_TRACKING_USERNAME") is not None
+            and os.getenv("MLFLOW_TRACKING_PASSWORD") is not None
+            and os.getenv("MLFLOW_TRACKING_TOKEN") is not None
+        ):
+            raise ValueError(
+                "Tracking Token cannot be set with Username/Password combo"
+            )
+
+        model_uri = uri[len(_MLFLOW_PREFIX) :]
+        logger.info(f"Downloading {model_uri} from {mlflow_tracking_uri}")
+        if not model_uri:
+            raise ValueError("Model uri cannot be empty")
+        try:
+            mlflow.artifacts.download_artifacts(
+                artifact_uri=model_uri, dst_path=out_dir
+            )
+        except MlflowException:
+            raise RuntimeError("Failed to download model from MLFlow")
+        return out_dir
