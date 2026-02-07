@@ -225,7 +225,7 @@ class Storage(object):
             kwargs.update({"endpoint_url": endpoint_url})
         verify_ssl = os.getenv("S3_VERIFY_SSL")
         if verify_ssl:
-            verify_ssl = not verify_ssl.lower() in ["0", "false"]
+            verify_ssl = verify_ssl.lower() not in ["0", "false"]
             kwargs.update({"verify": verify_ssl})
         else:
             verify_ssl = True

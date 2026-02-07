@@ -703,7 +703,7 @@ def test_case(request):
     finally:
         if os.getenv("SKIP_RESOURCE_DELETION", "False").lower() in ("true", "1", "t"):
             logger.info("Skipping resource deletion after test execution.")
-            return
+            return  # noqa: B012
 
         # Execute after test hooks
         for func in tc.after_test:
