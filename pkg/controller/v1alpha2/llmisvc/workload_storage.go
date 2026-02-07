@@ -61,6 +61,15 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		return fmt.Errorf("invalid model URI: %s", modelUri)
 	}
 
+	// Check if storage-initializer is explicitly disabled
+	storageInitializerDisabled := llmSvc.Spec.StorageInitializer != nil &&
+		llmSvc.Spec.StorageInitializer.Enabled != nil &&
+		!*llmSvc.Spec.StorageInitializer.Enabled
+	if storageInitializerDisabled {
+		// Skip storage-initializer when explicitly disabled
+		return nil
+	}
+
 	switch schema + "://" {
 	case constants.PvcURIPrefix:
 		return r.attachPVCModelArtifact(modelUri, podSpec)
