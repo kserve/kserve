@@ -17,11 +17,9 @@ limitations under the License.
 package utils
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"regexp"
 	"sort"
 	"strings"
@@ -31,7 +29,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -335,21 +332,6 @@ func GetServingRuntime(ctx context.Context, cl client.Client, name string, names
 		return nil, err, false
 	}
 	return nil, goerrors.New("No ServingRuntimes or ClusterServingRuntimes with the name: " + name), false
-}
-
-// ReplacePlaceholders Replace placeholders in runtime container by values from inferenceservice metadata
-func ReplacePlaceholders(container *corev1.Container, meta metav1.ObjectMeta) error {
-	data, _ := json.Marshal(container)
-	tmpl, err := template.New("container-tmpl").Parse(string(data))
-	if err != nil {
-		return err
-	}
-	buf := &bytes.Buffer{}
-	err = tmpl.Execute(buf, meta)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(buf.Bytes(), container)
 }
 
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
