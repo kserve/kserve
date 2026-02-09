@@ -688,12 +688,12 @@ install_yq() {
 
     log_info "Installing yq ${YQ_VERSION} for ${os}/${arch}..."
 
-    if command -v yq &>/dev/null; then
-        local current_version=$(yq --version 2>&1 | grep -oP 'version \K[v0-9.]+')
+    if [[ -x "${BIN_DIR}/yq" ]]; then
+        local current_version=$("${BIN_DIR}/yq" --version 2>&1 | grep -oP 'version \K[v0-9.]+')
         # Normalize version format (add 'v' prefix if missing)
         [[ -n "$current_version" && "$current_version" != v* ]] && current_version="v${current_version}"
         if [[ -n "$current_version" ]] && version_gte "$current_version" "$YQ_VERSION"; then
-            log_info "yq ${current_version} is already installed (>= ${YQ_VERSION})"
+            log_info "yq ${current_version} is already installed in ${BIN_DIR} (>= ${YQ_VERSION})"
             return 0
         fi
         [[ -n "$current_version" ]] && log_info "Upgrading yq from ${current_version} to ${YQ_VERSION}..."
@@ -720,7 +720,7 @@ install_yq() {
     fi
 
     log_success "Successfully installed yq ${YQ_VERSION} to ${BIN_DIR}/yq"
-    yq --version
+    "${BIN_DIR}/yq" --version
 }
 
 # ----------------------------------------
