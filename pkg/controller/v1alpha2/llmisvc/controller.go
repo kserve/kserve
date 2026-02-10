@@ -563,12 +563,8 @@ func (r *LLMISVCReconciler) PodInitContainersFunc(ctx context.Context, obj clien
 	if !ok || pod == nil {
 		return nil
 	}
-	// Check if pod belongs to an LLMInferenceService by verifying the part-of label
-	partOf := pod.Labels[PodLabelPartOf]
-	if partOf != PodLabelPartOfValue {
-		return nil
-	}
-	// Get the LLMInferenceService name from the name label
+	// Cache is already restricted to pods with part-of label (see cmd/llmisvc main.go).
+	// Get the LLMInferenceService name from the name label.
 	if llmSvcName, found := pod.Labels[PodLabelName]; found && llmSvcName != "" {
 		return []reconcile.Request{{
 			NamespacedName: types.NamespacedName{
@@ -580,9 +576,8 @@ func (r *LLMISVCReconciler) PodInitContainersFunc(ctx context.Context, obj clien
 	return nil
 }
 
-// PodInitContainersPredicate returns a predicate that filters pod updates to only
-// include those where InitContainerStatuses have changed for pods with LLMInferenceService labels.
-// This enables fast detection of storage-initializer failures.
+// PodInitContainersPredicate filters pod updates to those where InitContainerStatuses changed.
+// Pod identity (part-of/name labels) is enforced by the cache (cmd/llmisvc) and PodInitContainersFunc.
 func PodInitContainersPredicate() predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
@@ -590,15 +585,6 @@ func PodInitContainersPredicate() predicate.Funcs {
 			if !ok || newPod == nil {
 				return false
 			}
-			// Check part-of label to ensure this pod belongs to an LLMInferenceService
-			if newPod.Labels[PodLabelPartOf] != PodLabelPartOfValue {
-				return false
-			}
-			// Check name label exists and is not empty
-			if name := newPod.Labels[PodLabelName]; name == "" {
-				return false
-			}
-			// Only trigger reconciliation when InitContainerStatuses change
 			oldPod := e.ObjectOld.(*corev1.Pod)
 			return !equality.Semantic.DeepEqual(
 				oldPod.Status.InitContainerStatuses,
