@@ -268,7 +268,10 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Secret{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Service{}, builder.WithPredicates(childResourcesPredicate)).
-		Watches(&corev1.ConfigMap{}, r.enqueueOnConfigMapChange(logger))
+		Watches(&corev1.ConfigMap{}, r.enqueueOnConfigMapChange(logger)).
+		Watches(&corev1.Pod{},
+			handler.EnqueueRequestsFromMapFunc(r.PodInitContainersFunc),
+			builder.WithPredicates(PodInitContainersPredicate()))
 
 	if err := gwapiv1.Install(mgr.GetScheme()); err != nil {
 		return fmt.Errorf("failed to add GIE APIs to scheme: %w", err)
@@ -307,11 +310,6 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), lwsapi.GroupVersion.String(), "LeaderWorkerSet"); ok && err == nil {
 		b = b.Owns(&lwsapi.LeaderWorkerSet{}, builder.WithPredicates(childResourcesPredicate))
 	}
-
-	// Watch pods for init container status changes to enable fast failure detection
-	b = b.Watches(&corev1.Pod{},
-		handler.EnqueueRequestsFromMapFunc(r.PodInitContainersFunc),
-		builder.WithPredicates(PodInitContainersPredicate()))
 
 	return b.Complete(r)
 }
