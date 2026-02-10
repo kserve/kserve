@@ -500,7 +500,7 @@ export RELEASE
 GOLANGCI_LINT_VERSION=v1.64.8
 CONTROLLER_TOOLS_VERSION=v0.19.0
 ENVTEST_VERSION=latest
-YQ_VERSION=v4.28.1
+YQ_VERSION=v4.52.1
 HELM_VERSION=v3.16.3
 KUSTOMIZE_VERSION=v5.5.0
 HELM_DOCS_VERSION=v1.12.0
@@ -520,7 +520,7 @@ ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.17.2
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.7.0
-GATEWAY_API_VERSION=v1.3.1-0.20251106052652-079e4774d76b
+GATEWAY_API_VERSION=v1.3.0
 GIE_VERSION=v1.2.0
 
 #================================================
@@ -693,12 +693,12 @@ install_yq() {
 
     log_info "Installing yq ${YQ_VERSION} for ${os}/${arch}..."
 
-    if command -v yq &>/dev/null; then
-        local current_version=$(yq --version 2>&1 | grep -oP 'version \K[v0-9.]+')
+    if [[ -x "${BIN_DIR}/yq" ]]; then
+        local current_version=$("${BIN_DIR}/yq" --version 2>&1 | grep -oP 'version \K[v0-9.]+')
         # Normalize version format (add 'v' prefix if missing)
         [[ -n "$current_version" && "$current_version" != v* ]] && current_version="v${current_version}"
         if [[ -n "$current_version" ]] && version_gte "$current_version" "$YQ_VERSION"; then
-            log_info "yq ${current_version} is already installed (>= ${YQ_VERSION})"
+            log_info "yq ${current_version} is already installed in ${BIN_DIR} (>= ${YQ_VERSION})"
             return 0
         fi
         [[ -n "$current_version" ]] && log_info "Upgrading yq from ${current_version} to ${YQ_VERSION}..."
@@ -725,7 +725,7 @@ install_yq() {
     fi
 
     log_success "Successfully installed yq ${YQ_VERSION} to ${BIN_DIR}/yq"
-    yq --version
+    "${BIN_DIR}/yq" --version
 }
 
 # ----------------------------------------

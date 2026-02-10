@@ -47,6 +47,12 @@ const (
 	KueueAPIGroupName = "kueue.x-k8s.io"
 )
 
+// GIE InferencePool API Group Constants
+const (
+	InferencePoolV1APIGroupName       = "inference.networking.k8s.io"
+	InferencePoolV1Alpha2APIGroupName = "inference.networking.x-k8s.io"
+)
+
 // InferenceService Constants
 var (
 	InferenceServiceName                  = "inferenceservice"
@@ -130,6 +136,7 @@ var (
 	LoggerCredentialFileKey                     = KServeAPIGroupName + "/logger-secret-file"
 	DisableAutoUpdateAnnotationKey              = KServeAPIGroupName + "/disable-auto-update"
 	ModelFormatAnnotationKey                    = "modelFormat"
+	InferencePoolMigratedAnnotationKey          = KServeAPIGroupName + "/inferencepool-migrated"
 )
 
 // InferenceService Internal Annotations
