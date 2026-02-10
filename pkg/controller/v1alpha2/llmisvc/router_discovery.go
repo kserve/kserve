@@ -310,13 +310,6 @@ func IsHTTPRouteReady(route *gwapiv1.HTTPRoute) bool {
 		return false
 	}
 
-	// Check that all parent references have corresponding status entries
-	if len(route.Status.RouteStatus.Parents) != len(route.Spec.ParentRefs) {
-		// HTTPRoute is ready only when _all_ parents have accepted the route.
-		return false
-	}
-
-	// Check for any non-ready conditions across all parents
 	if cond, missing := nonReadyHTTPRouteTopLevelCondition(route); cond != nil || missing {
 		return false
 	}
@@ -332,14 +325,17 @@ func nonReadyHTTPRouteTopLevelCondition(route *gwapiv1.HTTPRoute) (*metav1.Condi
 		return nil, true
 	}
 
+	routeConditionAcceptedMissing := true
+
 	for _, parent := range route.Status.RouteStatus.Parents {
-		// Look for the "Accepted" condition which indicates Gateway acceptance
 		acceptedCond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionAccepted))
 		if acceptedCond == nil {
-			// Missing condition indicates the route is not ready
-			return nil, true
+			// This can happen when multiple controllers write to the status, e.g., besides the gateway controller, there
+			// are conditions reported from the policy controller.
+			// See example https://gist.github.com/bartoszmajsak/4329206afe107357afdcb9b92ed778bd
+			continue
 		}
-		// Check if condition is stale (based on older generation)
+		routeConditionAcceptedMissing = false
 		staleCondition := acceptedCond.ObservedGeneration > 0 && acceptedCond.ObservedGeneration < route.Generation
 		if acceptedCond.Status != metav1.ConditionTrue || staleCondition {
 			return acceptedCond, false
@@ -347,18 +343,15 @@ func nonReadyHTTPRouteTopLevelCondition(route *gwapiv1.HTTPRoute) (*metav1.Condi
 
 		resolvedRefCond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionResolvedRefs))
 		if resolvedRefCond == nil {
-			// Missing condition indicates the route is not ready
-			return nil, true
+			continue
 		}
-
-		// Check if condition is stale (based on older generation)
 		staleCondition = resolvedRefCond.ObservedGeneration > 0 && resolvedRefCond.ObservedGeneration < route.Generation
 		if resolvedRefCond.Status != metav1.ConditionTrue || staleCondition {
 			return resolvedRefCond, false
 		}
 	}
 
-	return nil, false
+	return nil, routeConditionAcceptedMissing
 }
 
 // IsInferencePoolReady checks if an InferencePool has been accepted by all parents
