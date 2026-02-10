@@ -20,15 +20,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"slices"
-	"strconv"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/network"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -76,9 +79,53 @@ func DiscoverGateways(ctx context.Context, c client.Client, route *gwapiv1.HTTPR
 	return gateways, nil
 }
 
+// DiscoverGatewayServiceHost attempts to find the cluster-local hostname
+// for the Service backing a Gateway.
+// Returns empty string if no backing service is found (not an error).
+func DiscoverGatewayServiceHost(ctx context.Context, c client.Client, gateway *gwapiv1.Gateway) (string, error) {
+	logger := log.FromContext(ctx)
+
+	// Look for Service with known gateway label first
+	svcList := &corev1.ServiceList{}
+	if err := c.List(ctx, svcList,
+		client.InNamespace(gateway.Namespace),
+		client.MatchingLabels{
+			"gateway.networking.k8s.io/gateway-name": gateway.Name,
+		},
+	); err != nil {
+		return "", fmt.Errorf("failed to list services for gateway %s/%s: %w", gateway.Namespace, gateway.Name, err)
+	}
+	if len(svcList.Items) > 0 {
+		svc := &svcList.Items[0]
+		host := network.GetServiceHostname(svc.Name, svc.Namespace)
+		logger.V(1).Info("Discovered gateway service via label", "gateway", gateway.Name, "service", svc.Name, "host", host)
+		return host, nil
+	}
+
+	// Fallback: Look for Service with the same name as Gateway
+	svc := &corev1.Service{}
+	err := c.Get(ctx, types.NamespacedName{
+		Namespace: gateway.Namespace,
+		Name:      gateway.Name,
+	}, svc)
+	if err == nil {
+		host := network.GetServiceHostname(svc.Name, svc.Namespace)
+		logger.V(1).Info("Discovered gateway service via name match", "gateway", gateway.Name, "service", svc.Name, "host", host)
+		return host, nil
+	}
+	if !apierrors.IsNotFound(err) {
+		return "", fmt.Errorf("failed to get service %s/%s: %w", gateway.Namespace, gateway.Name, err)
+	}
+
+	// No backing service found - not an error - we are guessing here
+	logger.V(1).Info("No backing service found for gateway", "gateway", fmt.Sprintf("%s/%s", gateway.Namespace, gateway.Name))
+	return "", nil
+}
+
 // DiscoverURLs extracts accessible URLs from an HTTPRoute by examining its gateways
-// It constructs URLs based on gateway listeners and addresses
-func DiscoverURLs(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute) ([]*apis.URL, error) {
+// It constructs URLs based on gateway listeners and addresses, and also discovers
+// internal URLs from backing services
+func DiscoverURLs(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute, preferredUrlScheme string) ([]*apis.URL, error) {
 	var urls []*apis.URL
 
 	gateways, err := DiscoverGateways(ctx, c, route)
@@ -86,142 +133,189 @@ func DiscoverURLs(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute
 		return nil, fmt.Errorf("failed to discover gateways: %w", err)
 	}
 
-	// Extract URLs from each gateway based on its listeners and addresses
 	for _, g := range gateways {
-		listener, err := selectListener(g.gateway, g.parentRef.SectionName)
+		listeners, err := selectListeners(g.gateway, g.parentRef.SectionName, preferredUrlScheme)
 		if err != nil {
-			return nil, fmt.Errorf("failed to select listener for Gateway %s/%s: %w", g.gateway.Namespace, g.gateway.Name, err)
-		}
-		scheme := extractSchemeFromListener(listener)
-		port := listener.Port
-
-		addresses := g.gateway.Status.Addresses
-		if len(addresses) == 0 {
-			return nil, &ExternalAddressNotFoundError{
-				GatewayNamespace: g.gateway.Namespace,
-				GatewayName:      g.gateway.Name,
-			}
-		}
-
-		hostnames := extractRouteHostnames(route)
-		// If Hostname is set in the spec, use the Hostname specified.
-		// Using the LoadBalancer addresses in `Gateway.Status.Addresses` will return 404 in those cases.
-		if len(hostnames) == 0 && listener.Hostname != nil && *listener.Hostname != "" {
-			if host, isWildcard := strings.CutPrefix(string(*listener.Hostname), "*."); isWildcard {
-				// Hostnames that are prefixed with a wildcard label (`*.`) are interpreted
-				// as a suffix match. That means that a match for `*.example.com` would match
-				// both `test.example.com`, and `foo.test.example.com`, but not `example.com`.
-				hostnames = append(hostnames, fmt.Sprintf("%s.%s", wildcardHostname, host))
-			} else {
-				hostnames = []string{host}
-			}
-		}
-		if len(hostnames) == 0 {
-			hostnames = extractAddressValues(addresses)
+			return nil, fmt.Errorf("failed to select listeners for gateway %s/%s: %w", g.gateway.Namespace, g.gateway.Name, err)
 		}
 
 		path := extractRoutePath(route)
+		addresses := g.gateway.Status.Addresses
 
-		gatewayURLs, err := combineIntoURLs(hostnames, scheme, port, path)
-		if err != nil {
-			return nil, fmt.Errorf("failed to combine URLs for Gateway %s/%s: %w", g.gateway.Namespace, g.gateway.Name, err)
+		// Discover external URLs from Gateway status addresses (if available)
+		if len(addresses) > 0 {
+			for _, listener := range listeners {
+				scheme, err := resolveScheme(listener)
+				if err != nil {
+					return nil, fmt.Errorf("failed to resolve scheme for gateway %s/%s listener %s: %w",
+						g.gateway.Namespace, g.gateway.Name, listener.Name, err)
+				}
+
+				hostnames := extractHostnamesForListener(route, listener, addresses)
+				gatewayURLs, err := combineIntoURLs(hostnames, scheme, listener.Port, path)
+				if err != nil {
+					return nil, fmt.Errorf("failed to combine URLs for Gateway %s/%s: %w", g.gateway.Namespace, g.gateway.Name, err)
+				}
+				urls = append(urls, gatewayURLs...)
+			}
 		}
 
-		urls = append(urls, gatewayURLs...)
+		// Discover internal URL from Gateway backing service
+		internalHost, err := DiscoverGatewayServiceHost(ctx, c, g.gateway)
+		if err != nil {
+			return nil, fmt.Errorf("failed to discover gateway service host for %s/%s: %w", g.gateway.Namespace, g.gateway.Name, err)
+		}
+		if internalHost != "" {
+			// Use first listener's scheme and port - internal service matches Gateway listener
+			listener := listeners[0]
+			internalURLs, err := combineIntoURLs([]string{internalHost}, schemeForProtocol(listener.Protocol), listener.Port, path)
+			if err != nil {
+				return nil, fmt.Errorf("failed to build internal URL for Gateway %s/%s: %w", g.gateway.Namespace, g.gateway.Name, err)
+			}
+			urls = append(urls, internalURLs...)
+		}
+	}
+
+	// Error only if no URLs discovered at all (neither external nor internal)
+	if len(urls) == 0 && len(gateways) > 0 {
+		g := gateways[0]
+		return nil, &NoURLsDiscoveredError{
+			GatewayNamespace: g.gateway.Namespace,
+			GatewayName:      g.gateway.Name,
+		}
 	}
 
 	return urls, nil
 }
 
-// extractRoutePath extracts the most appropriate path from an HTTPRoute for URL construction.
-// When an HTTPRoute contains multiple rules with different backend types (e.g., InferencePool
-// for completions endpoints and Service for catch-all), this function prefers the path from
-// Service-backed rules as they represent the base path for the service.
-// If no Service-backed rule is found, it falls back to the shortest path from any rule.
-func extractRoutePath(route *gwapiv1.HTTPRoute) string {
-	if len(route.Spec.Rules) == 0 {
-		return "/"
+// extractHostnamesForListener determines the hostnames to use for URL generation
+func extractHostnamesForListener(route *gwapiv1.HTTPRoute, listener *gwapiv1.Listener, addresses []gwapiv1.GatewayStatusAddress) []string {
+	hostnames := extractRouteHostnames(route)
+	// If Hostname is set in the spec, use the Hostname specified.
+	// Using the LoadBalancer addresses in `Gateway.Status.Addresses` will return 404 in those cases.
+	if len(hostnames) == 0 && listener.Hostname != nil && *listener.Hostname != "" {
+		if host, isWildcard := strings.CutPrefix(string(*listener.Hostname), "*."); isWildcard {
+			// Hostnames that are prefixed with a wildcard label (`*.`) are interpreted
+			// as a suffix match. That means that a match for `*.example.com` would match
+			// both `test.example.com`, and `foo.test.example.com`, but not `example.com`.
+			hostnames = append(hostnames, fmt.Sprintf("%s.%s", wildcardHostname, host))
+		} else {
+			hostnames = []string{host}
+		}
 	}
+	if len(hostnames) == 0 {
+		hostnames = extractAddressValues(addresses)
+	}
+	return hostnames
+}
 
-	// Look for the path from a rule backed by a Service (not InferencePool).
-	// This is the catch-all/base path that should be used for URL construction.
-	var shortestServicePath string
-	var shortestAnyPath string
-
+// extractRoutePath extracts the path from the HTTPRoute rules.
+// Returns the shortest path (by slash count) from rules referencing a Service backend.
+func extractRoutePath(route *gwapiv1.HTTPRoute) string {
+	serviceKind := gwapiv1.Kind("Service")
+	servicePaths := []string{}
+	paths := []string{}
 	for _, rule := range route.Spec.Rules {
-		if len(rule.Matches) == 0 {
-			continue
+		serviceFound := false
+		for _, backendRef := range rule.BackendRefs {
+			if ptr.Deref(backendRef.Kind, serviceKind) == serviceKind {
+				serviceFound = true
+				break
+			}
 		}
-
-		match := rule.Matches[0]
-		if match.Path == nil {
-			continue
-		}
-		path := ptr.Deref(match.Path.Value, "/")
-
-		// Track shortest path from any rule as fallback
-		if shortestAnyPath == "" || len(path) < len(shortestAnyPath) {
-			shortestAnyPath = path
-		}
-
-		// Check if this rule is backed by a Service (not InferencePool)
-		if hasServiceBackend(rule) {
-			if shortestServicePath == "" || len(path) < len(shortestServicePath) {
-				shortestServicePath = path
+		for _, match := range rule.Matches {
+			if serviceFound {
+				servicePaths = append(servicePaths, ptr.Deref(match.Path.Value, "/"))
+			} else {
+				paths = append(paths, ptr.Deref(match.Path.Value, "/"))
 			}
 		}
 	}
 
-	if shortestServicePath != "" {
-		return shortestServicePath
+	// Paths set in rules referencing a Service as the backend will take priority
+	if len(servicePaths) > 0 {
+		paths = servicePaths
 	}
-	if shortestAnyPath != "" {
-		return shortestAnyPath
-	}
-	return "/"
-}
 
-// hasServiceBackend returns true if the rule has at least one backendRef with Kind "Service"
-// or with no Kind set (defaults to Service per Gateway API spec).
-func hasServiceBackend(rule gwapiv1.HTTPRouteRule) bool {
-	for _, ref := range rule.BackendRefs {
-		kind := ptr.Deref(ref.Kind, gwapiv1.Kind("Service"))
-		if kind == "Service" {
-			return true
+	// If any paths are set in rules for the route, return the highest level path with the shortest length
+	// TODO how do we deal with regexp
+	// TODO how do we intelligently handle multiple rules
+	shortestPath := "/"
+	minSlashes := math.MaxInt
+	for _, path := range paths {
+		pathSlashes := strings.Count(path, "/")
+		if pathSlashes < minSlashes || (pathSlashes == minSlashes && len(path) < len(shortestPath)) {
+			shortestPath = path
+			minSlashes = pathSlashes
 		}
 	}
-	return false
+
+	return shortestPath
 }
 
-// selectListener chooses the appropriate listener from a Gateway.
-// If a specific sectionName is provided, it searches for that listener by name
-// and returns an error if no match is found. Otherwise, it defaults to the
-// first listener. Returns an error if the Gateway has no listeners.
-func selectListener(gateway *gwapiv1.Gateway, sectionName *gwapiv1.SectionName) (*gwapiv1.Listener, error) {
-	if len(gateway.Spec.Listeners) == 0 {
-		return nil, fmt.Errorf("gateway %s/%s has no listeners", gateway.Namespace, gateway.Name)
+// schemeForProtocol returns the URL scheme for a Gateway API protocol.
+// Returns empty string for protocols that don't support HTTP routing.
+func schemeForProtocol(protocol gwapiv1.ProtocolType) string {
+	switch protocol {
+	case gwapiv1.HTTPProtocolType, gwapiv1.HTTPSProtocolType:
+		return strings.ToLower(string(protocol))
+	case gwapiv1.TLSProtocolType:
+		return "https"
+	default:
+		return ""
 	}
+}
 
+// selectListeners returns the applicable listeners for URL generation.
+// - If sectionName is provided, returns only that specific listener
+// - Otherwise, returns ALL HTTP-capable listeners sorted by: preferredScheme first, then HTTPS, then HTTP
+func selectListeners(gateway *gwapiv1.Gateway, sectionName *gwapiv1.SectionName, preferredScheme string) ([]*gwapiv1.Listener, error) {
+	// If sectionName provided, find exact match (single listener)
 	if sectionName != nil {
 		for i := range gateway.Spec.Listeners {
 			if gateway.Spec.Listeners[i].Name == *sectionName {
-				return &gateway.Spec.Listeners[i], nil
+				return []*gwapiv1.Listener{&gateway.Spec.Listeners[i]}, nil
 			}
 		}
-		return nil, fmt.Errorf("gateway %s/%s has no listener named %q", gateway.Namespace, gateway.Name, *sectionName)
+		return nil, fmt.Errorf("listener %q not found in gateway %s/%s", *sectionName, gateway.Namespace, gateway.Name)
 	}
 
-	return &gateway.Spec.Listeners[0], nil
+	// Collect all HTTP-capable listeners
+	var listeners []*gwapiv1.Listener
+	for i := range gateway.Spec.Listeners {
+		if scheme := schemeForProtocol(gateway.Spec.Listeners[i].Protocol); scheme != "" {
+			listeners = append(listeners, &gateway.Spec.Listeners[i])
+		}
+	}
+	if len(listeners) == 0 {
+		return nil, fmt.Errorf("no HTTP-capable listener found in gateway %s/%s", gateway.Namespace, gateway.Name)
+	}
+
+	// Sort: preferredScheme first, then HTTPS before HTTP
+	precedence := func(l *gwapiv1.Listener) int {
+		scheme := schemeForProtocol(l.Protocol)
+		if scheme == preferredScheme {
+			return 0
+		}
+		if scheme == "https" {
+			return 1
+		}
+		return 2
+	}
+	slices.SortFunc(listeners, func(a, b *gwapiv1.Listener) int {
+		return precedence(a) - precedence(b)
+	})
+
+	return listeners, nil
 }
 
-// extractSchemeFromListener determines the URL scheme (http/https) based on the listener protocol
-// This is essential for constructing valid URLs that match the Gateway's configuration
-func extractSchemeFromListener(listener *gwapiv1.Listener) string {
-	if listener.Protocol == gwapiv1.HTTPSProtocolType {
-		return "https"
+// resolveScheme returns the URL scheme derived from the listener's protocol.
+func resolveScheme(listener *gwapiv1.Listener) (string, error) {
+	scheme := schemeForProtocol(listener.Protocol)
+	if scheme == "" {
+		return "", fmt.Errorf("listener %q uses unsupported protocol %s for HTTP routing", listener.Name, listener.Protocol)
 	}
-	// Default to HTTP for all other protocols (HTTP, TCP, etc.)
-	return "http"
+	return scheme, nil
 }
 
 // extractRouteHostnames extracts valid hostnames from an HTTPRoute specification
@@ -289,35 +383,35 @@ func combineIntoURLs(hostnames []string, scheme string, port gwapiv1.PortNumber,
 // Returns just the host if port is nil or zero
 func joinHostPort(host string, port *gwapiv1.PortNumber) string {
 	if port != nil && *port != 0 {
-		return net.JoinHostPort(host, strconv.Itoa(int(*port)))
+		return net.JoinHostPort(host, fmt.Sprint(*port))
 	}
 	return host
 }
 
-// ExternalAddressNotFoundError indicates that a Gateway has no external addresses
-// This typically occurs when the Gateway is not yet provisioned by the infrastructure
-type ExternalAddressNotFoundError struct {
+// NoURLsDiscoveredError indicates that no URLs could be discovered for a Gateway
+// (neither external addresses nor internal backing service found)
+type NoURLsDiscoveredError struct {
 	GatewayNamespace string
 	GatewayName      string
 }
 
-func (e *ExternalAddressNotFoundError) Error() string {
-	return fmt.Sprintf("Gateway %s/%s has no external address found", e.GatewayNamespace, e.GatewayName)
+func (e *NoURLsDiscoveredError) Error() string {
+	return fmt.Sprintf("no URLs discovered for Gateway %s/%s (no external addresses and no backing service found)", e.GatewayNamespace, e.GatewayName)
 }
 
-// IgnoreExternalAddressNotFound converts ExternalAddressNotFoundError to nil
-// This is useful when external addresses are optional or may not be immediately available
-func IgnoreExternalAddressNotFound(err error) error {
-	if IsExternalAddressNotFound(err) {
+// IgnoreNoURLsDiscovered converts NoURLsDiscoveredError to nil
+// This is useful when URLs may not be immediately available during provisioning
+func IgnoreNoURLsDiscovered(err error) error {
+	if IsNoURLsDiscovered(err) {
 		return nil
 	}
 	return err
 }
 
-// IsExternalAddressNotFound checks if an error is of type ExternalAddressNotFoundError
-func IsExternalAddressNotFound(err error) bool {
-	var externalAddrNotFoundErr *ExternalAddressNotFoundError
-	return errors.As(err, &externalAddrNotFoundErr)
+// IsNoURLsDiscovered checks if an error is of type NoURLsDiscoveredError
+func IsNoURLsDiscovered(err error) bool {
+	var noURLsErr *NoURLsDiscoveredError
+	return errors.As(err, &noURLsErr)
 }
 
 // EvaluateGatewayReadiness checks the readiness status of Gateways and returns those that are not ready

@@ -62,6 +62,27 @@ func isInternalIP(addr string) bool {
 	return false
 }
 
+// IsClusterLocalURL returns true if the URL uses a Kubernetes cluster-local hostname
+// (e.g., service.namespace.svc.cluster.local)
+func IsClusterLocalURL(url *apis.URL) bool {
+	host := strings.ToLower(url.URL().Hostname())
+	return strings.HasSuffix(host, network.GetClusterDomainName())
+}
+
+// AddressTypeName returns the type name for a URL to be used in Addressable.Name:
+// - "gateway-external" for public addresses
+// - "gateway-internal" for cluster-local gateway service URLs
+// - "internal" for private IPs or other internal hostnames
+func AddressTypeName(url *apis.URL) string {
+	if IsClusterLocalURL(url) {
+		return "gateway-internal"
+	}
+	if IsInternalURL(url) {
+		return "internal"
+	}
+	return "gateway-external"
+}
+
 // isInternalHostname checks if a hostname appears to be internal
 // This includes cluster-local domains and localhost variants
 func isInternalHostname(hostname string) bool {
