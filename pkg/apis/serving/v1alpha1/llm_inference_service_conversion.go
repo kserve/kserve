@@ -124,6 +124,13 @@ func convertSpecToV1Alpha2(src *LLMInferenceServiceSpec) v1alpha2.LLMInferenceSe
 		BaseRefs: src.BaseRefs,
 	}
 
+	// StorageInitializer - direct copy since structs are identical
+	if src.StorageInitializer != nil {
+		dst.StorageInitializer = &v1alpha2.StorageInitializerSpec{
+			Enabled: src.StorageInitializer.Enabled,
+		}
+	}
+
 	// WorkloadSpec (inline)
 	dst.WorkloadSpec = convertWorkloadSpecToV1Alpha2(&src.WorkloadSpec)
 
@@ -145,6 +152,13 @@ func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInference
 	dst := LLMInferenceServiceSpec{
 		Model:    convertModelSpecFromV1Alpha2(&src.Model),
 		BaseRefs: src.BaseRefs,
+	}
+
+	// StorageInitializer - direct copy since structs are identical
+	if src.StorageInitializer != nil {
+		dst.StorageInitializer = &StorageInitializerSpec{
+			Enabled: src.StorageInitializer.Enabled,
+		}
 	}
 
 	// WorkloadSpec (inline)
