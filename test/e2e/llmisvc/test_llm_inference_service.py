@@ -88,6 +88,24 @@ class TestCase:
         pytest.param(
             TestCase(
                 base_refs=[
+                    "router-with-gateway-ref",
+                    "router-with-managed-route",
+                    "model-fb-opt-125m",
+                    "workload-llmd-simulator",
+                ],
+                prompt="KServe is a",
+                before_test=[lambda: create_router_resources(
+                    gateways=[ROUTER_GATEWAYS[0]],
+                )],
+                after_test=[lambda: delete_router_resources(
+                    gateways=[ROUTER_GATEWAYS[0]],
+                )],
+            ),
+            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node, pytest.mark.llmd_simulator],
+        ),
+        pytest.param(
+            TestCase(
+                base_refs=[
                     "router-managed",
                     "workload-single-cpu",
                     "model-fb-opt-125m",

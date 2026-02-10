@@ -84,7 +84,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 				fixture.WithHTTPRouteSpec(&fixture.HTTPRoute("test-route",
 					fixture.WithHTTPRule(
 						fixture.Matches(fixture.PathPrefixMatch("/test")),
-						fixture.BackendRefs(fixture.ServiceRef("test-service", 80, 1)),
+						fixture.WithBackendRefs(fixture.ServiceRef("test-service", 80, 1)),
 					),
 				).Spec),
 			)
@@ -114,33 +114,36 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			Expect(errValidation.Error()).To(ContainSubstring("cannot be used with a managed gateway"))
 		})
 
-		It("should reject LLMInferenceService with managed route and user-defined gateway refs", func(ctx SpecContext) {
-			// given
-			llmSvc := fixture.LLMInferenceService("test-spec-with-gateway-refs",
-				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
-				fixture.WithModelURI("hf://facebook/opt-125m"),
-				fixture.WithGatewayRefs(fixture.LLMGatewayRef("test-gateway", nsName)),
-				fixture.WithManagedRoute(),
-			)
-
-			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
-
-			// then
-			Expect(errValidation).To(HaveOccurred())
-			Expect(errValidation.Error()).To(ContainSubstring("cannot be used with managed route"))
-		})
-
-		It("should reject LLMInferenceService with managed route spec and user-defined gateway refs", func(ctx SpecContext) {
-			// given
-			llmSvc := fixture.LLMInferenceService("test-spec-with-gateway-refs",
+		It("should accept LLMInferenceService with custom gateway refs and managed route spec without parentRefs", func(ctx SpecContext) {
+			// given - custom gateway refs with a route spec that has no parentRefs is valid
+			// because the controller overwrites the HTTPRoute's ParentRefs from gateway.refs during reconciliation
+			llmSvc := fixture.LLMInferenceService("test-custom-gw-managed-route",
 				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
 				fixture.WithModelURI("hf://facebook/opt-125m"),
 				fixture.WithGatewayRefs(fixture.LLMGatewayRef("test-gateway", nsName)),
 				fixture.WithHTTPRouteSpec(&fixture.HTTPRoute("test-route",
 					fixture.WithHTTPRule(
 						fixture.Matches(fixture.PathPrefixMatch("/test")),
-						fixture.BackendRefs(fixture.ServiceRef("custom-backend", 8080, 1)),
+						fixture.WithBackendRefs(fixture.ServiceRef("custom-backend", 8080, 1)),
+					),
+				).Spec),
+			)
+
+			// then
+			Expect(envTest.Client.Create(ctx, llmSvc)).To(Succeed())
+		})
+
+		It("should reject LLMInferenceService with managed route spec with gateway ref and user-defined gateway refs", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-spec-with-gateway-refs",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithGatewayRefs(fixture.LLMGatewayRef("test-gateway", nsName)),
+				fixture.WithHTTPRouteSpec(&fixture.HTTPRoute("test-route",
+					fixture.WithParentRef(fixture.GatewayParentRef("test-gateway", nsName)),
+					fixture.WithHTTPRule(
+						fixture.Matches(fixture.PathPrefixMatch("/test")),
+						fixture.WithBackendRefs(fixture.ServiceRef("custom-backend", 8080, 1)),
 						fixture.Timeouts("30s", "60s"),
 					),
 				).Spec),

@@ -348,10 +348,6 @@ func Matches(matches ...gwapiv1.HTTPRouteMatch) HTTPRouteRuleOption {
 	return WithMatches(matches...)
 }
 
-func BackendRefs(refs ...gwapiv1.HTTPBackendRef) HTTPRouteRuleOption {
-	return WithBackendRefs(refs...)
-}
-
 func Timeouts(backendTimeout, requestTimeout string) HTTPRouteRuleOption {
 	return WithTimeouts(backendTimeout, requestTimeout)
 }

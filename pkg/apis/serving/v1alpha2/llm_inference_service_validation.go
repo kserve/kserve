@@ -113,23 +113,6 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 	httpRouteRefs := httpRoutePath.Child("refs")
 	httpRouteSpec := httpRoutePath.Child("spec")
 
-	zero := GatewayRoutesSpec{}
-	if ptr.Deref(router.Route, zero) == zero && router.Gateway != nil && router.Gateway.Refs != nil {
-		return field.ErrorList{
-			field.Invalid(
-				gwRefsPath,
-				router.Gateway.Refs,
-				fmt.Sprintf("unsupported configuration: custom gateway ('%s') cannot be used with managed route ('%s: {}'); "+
-					"either provide your own HTTP routes ('%s') or remove '%s' to use the managed gateway",
-					gwRefsPath,
-					routePath,
-					httpRouteRefs,
-					gwRefsPath,
-				),
-			),
-		}
-	}
-
 	httpRoute := router.Route.HTTP
 	if httpRoute == nil {
 		return field.ErrorList{}
@@ -162,13 +145,14 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 		))
 	}
 
-	// Managed route spec cannot be used with user-defined gateway refs
-	if httpRoute.Spec != nil && router.Gateway != nil && len(router.Gateway.Refs) > 0 {
+	// Managed route spec referring to the gateway cannot be used with user-defined gateway refs
+	if httpRoute.Spec != nil && len(httpRoute.Spec.ParentRefs) > 0 &&
+		router.Gateway != nil && len(router.Gateway.Refs) > 0 {
 		allErrs = append(allErrs, field.Invalid(
 			httpRoutePath.Child("spec"),
 			httpRoute.Spec,
 			fmt.Sprintf("unsupported configuration: managed HTTP route spec ('%s') cannot be used with custom gateway refs ('%s'); "+
-				"either remove '%s' or '%s'",
+				"either remove '%s' or '%s.parentRefs'",
 				httpRouteSpec, gwRefsPath, gwRefsPath, httpRouteSpec,
 			),
 		))
