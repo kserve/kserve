@@ -344,7 +344,9 @@ func nonReadyHTTPRouteTopLevelCondition(route *gwapiv1.HTTPRoute) (*metav1.Condi
 
 		resolvedRefCond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionResolvedRefs))
 		if resolvedRefCond == nil {
-			continue
+			// Unlike Accepted, we only reach here for gateway controller parents (Accepted was found).
+			// A gateway controller should always set ResolvedRefs. If missing, the route is not ready.
+			return nil, true
 		}
 		staleCondition = resolvedRefCond.ObservedGeneration > 0 && resolvedRefCond.ObservedGeneration < route.Generation
 		if resolvedRefCond.Status != metav1.ConditionTrue || staleCondition {
