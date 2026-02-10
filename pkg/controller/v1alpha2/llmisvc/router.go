@@ -180,18 +180,6 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 		httpRoute.Spec = *llmSvc.Spec.Router.Route.HTTP.Spec.DeepCopy()
 	}
 
-	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Gateway != nil {
-		log.FromContext(ctx).Info("Reconciling Gateway", "gateway", llmSvc.Spec.Router.Gateway)
-
-		// If Gateway is not managed (has .refs), re-attach the expected route to the referenced gateways
-		if llmSvc.Spec.Router.Gateway.HasRefs() {
-			httpRoute.Spec.CommonRouteSpec.ParentRefs = make([]gwapiv1.ParentReference, 0, len(llmSvc.Spec.Router.Gateway.Refs))
-			for _, ref := range llmSvc.Spec.Router.Gateway.Refs {
-				httpRoute.Spec.CommonRouteSpec.ParentRefs = append(httpRoute.Spec.CommonRouteSpec.ParentRefs, toGatewayRef(ref))
-			}
-		}
-	}
-
 	// Migration logic: check if we should switch from v1alpha2 to v1 InferencePool
 	// Only applies to managed routes with a scheduler (not using external pool refs)
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil ||
@@ -316,17 +304,6 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 	}
 
 	return nil
-}
-
-func toGatewayRef(ref v1alpha2.UntypedObjectReference) gwapiv1.ParentReference {
-	return gwapiv1.ParentReference{
-		// TODO(api): With this structure we are missing the ability to narrow a section of targeted gateway by the route we are creating
-		// missing SectionName and Port will implicitly bind the route to the first listener in the parent
-		Name:      ref.Name,
-		Namespace: &ref.Namespace,
-		Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
-		Kind:      ptr.To(gwapiv1.Kind("Gateway")),
-	}
 }
 
 func RouterLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
