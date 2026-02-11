@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import (
 const (
 	DefaultNodepoolEnvVar   = "KSERVE_DEFAULT_NODEPOOL"
 	DefaultNodepoolLabelKey = "KSERVE_DEFAULT_NODEPOOL_LABEL_KEY"
-	defaultNodepoolLabelKey = "cloud.google.com/gke-nodepool"
 )
 
 // InjectAffinity injects a default affinity config (configurable through environment variables) to each kserve pod
@@ -42,10 +41,10 @@ func InjectAffinity(pod *v1.Pod) error {
 		return nil
 	}
 
-	// Get the label key from environment variable, or use default.
+	// Get the label key from environment variable. If not set, skip injection.
 	labelKey := os.Getenv(DefaultNodepoolLabelKey)
 	if len(labelKey) == 0 {
-		labelKey = defaultNodepoolLabelKey
+		return nil
 	}
 
 	// Add default affinity config to the pod.
@@ -56,9 +55,10 @@ func InjectAffinity(pod *v1.Pod) error {
 func defaultAffinity(labelKey, pool string) *v1.Affinity {
 	return &v1.Affinity{
 		NodeAffinity: &v1.NodeAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
-				NodeSelectorTerms: []v1.NodeSelectorTerm{
-					{
+			PreferredDuringSchedulingIgnoredDuringExecution: []v1.PreferredSchedulingTerm{
+				{
+					Weight: 100,
+					Preference: v1.NodeSelectorTerm{
 						MatchExpressions: []v1.NodeSelectorRequirement{
 							{
 								Key:      labelKey,

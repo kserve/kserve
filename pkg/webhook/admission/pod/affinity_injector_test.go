@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import (
 const (
 	testDefaultNodepool = "default-pool"
 	testCustomNodepool  = "custom-pool"
-	testCustomLabelKey  = "custom.io/nodepool"
+	testLabelKey        = "cloud.google.com/gke-nodepool"
 )
 
 func TestAffinityInjector(t *testing.T) {
@@ -37,9 +37,9 @@ func TestAffinityInjector(t *testing.T) {
 		original    *v1.Pod
 		expected    *v1.Pod
 	}{
-		"AddAffinityWithDefaultLabelKey": {
+		"AddAffinity": {
 			envNodepool: testDefaultNodepool,
-			envLabelKey: "",
+			envLabelKey: testLabelKey,
 			original: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
@@ -53,39 +53,19 @@ func TestAffinityInjector(t *testing.T) {
 					Name: "deployment",
 				},
 				Spec: v1.PodSpec{
-					Affinity: defaultAffinity(defaultNodepoolLabelKey, testDefaultNodepool),
-				},
-			},
-		},
-		"AddAffinityWithCustomLabelKey": {
-			envNodepool: testDefaultNodepool,
-			envLabelKey: testCustomLabelKey,
-			original: &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "deployment",
-				},
-				Spec: v1.PodSpec{
-					Affinity: nil,
-				},
-			},
-			expected: &v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "deployment",
-				},
-				Spec: v1.PodSpec{
-					Affinity: defaultAffinity(testCustomLabelKey, testDefaultNodepool),
+					Affinity: defaultAffinity(testLabelKey, testDefaultNodepool),
 				},
 			},
 		},
 		"DoNotOverwriteExistingAffinity": {
 			envNodepool: testDefaultNodepool,
-			envLabelKey: "",
+			envLabelKey: testLabelKey,
 			original: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 				},
 				Spec: v1.PodSpec{
-					Affinity: defaultAffinity(defaultNodepoolLabelKey, testCustomNodepool),
+					Affinity: defaultAffinity(testLabelKey, testCustomNodepool),
 				},
 			},
 			expected: &v1.Pod{
@@ -93,7 +73,27 @@ func TestAffinityInjector(t *testing.T) {
 					Name: "deployment",
 				},
 				Spec: v1.PodSpec{
-					Affinity: defaultAffinity(defaultNodepoolLabelKey, testCustomNodepool),
+					Affinity: defaultAffinity(testLabelKey, testCustomNodepool),
+				},
+			},
+		},
+		"SkipWhenLabelKeyNotSet": {
+			envNodepool: testDefaultNodepool,
+			envLabelKey: "",
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+				},
+				Spec: v1.PodSpec{
+					Affinity: nil,
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+				},
+				Spec: v1.PodSpec{
+					Affinity: nil,
 				},
 			},
 		},
