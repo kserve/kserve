@@ -386,6 +386,56 @@ func TestHTTPRouteConditionsEvaluation(t *testing.T) {
 			httpRoutes:      []*gwapiv1.HTTPRoute{},
 			createAssertion: assertHTTPRouteConditionUnset,
 		},
+		{
+			name: "HTTPRoute with only policy-controller status (no Accepted) - should not be ready",
+			llmSvc: LLMInferenceService("test-llm",
+				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
+				WithModelURI("hf://test/model"),
+				WithHTTPRouteRefs(HTTPRouteRef("policy-only-route")),
+			),
+			httpRoutes: []*gwapiv1.HTTPRoute{
+				HTTPRoute("policy-only-route",
+					InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+					WithParentRefs(GatewayParentRef("test-gateway", "test-ns")),
+					WithHTTPRouteMultipleControllerStatus(
+						GatewayParentRef("test-gateway", "test-ns"),
+						KuadrantControllerStatus, // Only policy controller, no gateway controller
+					),
+				),
+			},
+			createAssertion: func(routerCondition, httpRouteCondition *apis.Condition) assertConditionsFunc {
+				return assertRouterNotReadyWithReason(routerCondition, httpRouteCondition, "HTTPRoutesNotReady")
+			},
+		},
+		{
+			name: "HTTPRoute with Accepted=True but ResolvedRefs missing - should not be ready",
+			llmSvc: LLMInferenceService("test-llm",
+				InNamespace[*v1alpha2.LLMInferenceService]("test-ns"),
+				WithModelURI("hf://test/model"),
+				WithHTTPRouteRefs(HTTPRouteRef("accepted-no-resolved-route")),
+			),
+			httpRoutes: []*gwapiv1.HTTPRoute{
+				HTTPRoute("accepted-no-resolved-route",
+					InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+					WithParentRefs(GatewayParentRef("test-gateway", "test-ns")),
+					WithHTTPRouteParentStatus(
+						GatewayParentRef("test-gateway", "test-ns"),
+						"openshift.io/gateway-controller/v1",
+						metav1.Condition{
+							Type:               string(gwapiv1.RouteConditionAccepted),
+							Status:             metav1.ConditionTrue,
+							Reason:             "Accepted",
+							Message:            "Route was valid",
+							LastTransitionTime: metav1.Now(),
+						},
+						// ResolvedRefs intentionally omitted
+					),
+				),
+			},
+			createAssertion: func(routerCondition, httpRouteCondition *apis.Condition) assertConditionsFunc {
+				return assertRouterNotReadyWithReason(routerCondition, httpRouteCondition, "HTTPRoutesNotReady")
+			},
+		},
 	}
 
 	for _, tt := range tests {
