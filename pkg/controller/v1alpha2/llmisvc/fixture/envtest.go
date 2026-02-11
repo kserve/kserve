@@ -47,8 +47,6 @@ func SetupTestEnv() *pkgtest.Client {
 	ginkgo.By("Setting up the test environment")
 	systemNs := constants.KServeNamespace
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	llmCtrlFunc := func(cfg *rest.Config, mgr ctrl.Manager) error {
 		eventBroadcaster := record.NewBroadcaster()
 		clientSet, err := kubernetes.NewForConfig(cfg)
@@ -119,12 +117,7 @@ func SetupTestEnv() *pkgtest.Client {
 	envTest := pkgtest.NewEnvTest(webhookManifests).
 		WithWebhooks(webhooks).
 		WithControllers(llmCtrlFunc).
-		Start(ctx)
-
-	ginkgo.DeferCleanup(func() {
-		cancel()
-		gomega.Expect(envTest.Stop()).To(gomega.Succeed())
-	})
+		Start(context.Background())
 
 	RequiredResources(context.Background(), envTest.Client, systemNs)
 

@@ -40,6 +40,6 @@ func TestLLMInferenceServiceController(t *testing.T) {
 
 var envTest *pkgtest.Client
 
-var _ = SynchronizedBeforeSuite(func() {
+var _ = BeforeSuite(func() {
 	envTest = fixture.SetupTestEnv()
-}, func() {})
+})
