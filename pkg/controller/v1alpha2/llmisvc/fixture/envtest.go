@@ -37,7 +37,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func SetupTestEnv() *pkgtest.Client {
+func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 	duration, err := time.ParseDuration(constants.GetEnvOrDefault("ENVTEST_DEFAULT_TIMEOUT", "30s"))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.SetDefaultEventuallyTimeout(duration)
@@ -117,9 +117,10 @@ func SetupTestEnv() *pkgtest.Client {
 	envTest := pkgtest.NewEnvTest(webhookManifests).
 		WithWebhooks(webhooks).
 		WithControllers(llmCtrlFunc).
+		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background())
 
-	RequiredResources(context.Background(), envTest.Client, systemNs)
+	RequiredResources(ctx, envTest.Client, systemNs)
 
 	return envTest
 }

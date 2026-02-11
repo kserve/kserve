@@ -49,7 +49,7 @@ func TestAPIs(t *testing.T) {
 	RunSpecs(t, "v1alpha1 Controller Suite")
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	fsMock = newMockFileSystem()
 	fsHelper = fsMock
 
@@ -69,6 +69,7 @@ var _ = BeforeSuite(func() {
 
 	envTest := pkgtest.NewEnvTest().
 		WithControllers(ctrlFunc).
+		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background())
 
 	cfg = envTest.Config
@@ -85,6 +86,6 @@ var _ = BeforeSuite(func() {
 			Name: "kserve-localmodel-jobs",
 		},
 	}
-	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
-	Expect(k8sClient.Create(context.Background(), jobsNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, kserveNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, jobsNamespaceObj)).Should(Succeed())
 })

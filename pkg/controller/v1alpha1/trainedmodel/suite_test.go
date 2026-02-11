@@ -50,7 +50,7 @@ func TestAPIs(t *testing.T) {
 	RunSpecs(t, "v1alpha1 Controller Suite")
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	ctrlFunc := func(restCfg *rest.Config, mgr ctrl.Manager) error {
 		clientset, err := kubernetes.NewForConfig(restCfg)
 		if err != nil {
@@ -69,6 +69,7 @@ var _ = BeforeSuite(func() {
 
 	envTest := pkgtest.NewEnvTest().
 		WithControllers(ctrlFunc).
+		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background())
 
 	cfg = envTest.Config
@@ -80,5 +81,5 @@ var _ = BeforeSuite(func() {
 			Name: constants.KServeNamespace,
 		},
 	}
-	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, kserveNamespaceObj)).Should(Succeed())
 })

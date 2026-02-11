@@ -40,6 +40,6 @@ func TestLLMInferenceServiceController(t *testing.T) {
 
 var envTest *pkgtest.Client
 
-var _ = BeforeSuite(func() {
-	envTest = fixture.SetupTestEnv()
+var _ = BeforeSuite(func(ctx SpecContext) {
+	envTest = fixture.SetupTestEnv(ctx)
 })

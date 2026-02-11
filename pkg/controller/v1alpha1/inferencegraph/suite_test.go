@@ -47,7 +47,7 @@ func TestAPIs(t *testing.T) {
 	RunSpecs(t, "InferenceGraph Controller Suite")
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	ctrlFunc := func(restCfg *rest.Config, mgr ctrl.Manager) error {
 		clientset, err := kubernetes.NewForConfig(restCfg)
 		if err != nil {
@@ -67,6 +67,7 @@ var _ = BeforeSuite(func() {
 
 	envTest := pkgtest.NewEnvTest().
 		WithControllers(ctrlFunc).
+		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background())
 
 	cfg = envTest.Config
@@ -83,8 +84,8 @@ var _ = BeforeSuite(func() {
 			Name: constants.DefaultKnServingNamespace,
 		},
 	}
-	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
-	Expect(k8sClient.Create(context.Background(), knativeServingNamespace)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, kserveNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, knativeServingNamespace)).Should(Succeed())
 
 	// Create knative config-autoscaler configmap
 	configAutoscaler := &corev1.ConfigMap{
@@ -93,5 +94,5 @@ var _ = BeforeSuite(func() {
 			Namespace: constants.AutoscalerConfigmapNamespace,
 		},
 	}
-	Expect(k8sClient.Create(context.Background(), configAutoscaler)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, configAutoscaler)).Should(Succeed())
 })

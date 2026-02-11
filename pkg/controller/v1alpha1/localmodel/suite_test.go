@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -36,8 +37,9 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	cfg       *rest.Config
-	k8sClient client.Client
+	cfg        *rest.Config
+	k8sClient  client.Client
+	testScheme *runtime.Scheme
 )
 
 func TestAPIs(t *testing.T) {
@@ -46,11 +48,14 @@ func TestAPIs(t *testing.T) {
 	RunSpecs(t, "v1alpha1 Controller Suite")
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
+	// The suite manager/webhook must outlive BeforeSuite node context.
 	envTest := pkgtest.NewEnvTest().Start(context.Background())
 
 	cfg = envTest.Config
 	k8sClient = envTest.Client
+	testScheme = envTest.Environment.Scheme
+	Expect(testScheme).NotTo(BeNil())
 
 	// Creates namespace
 	kserveNamespaceObj := &corev1.Namespace{
@@ -63,6 +68,6 @@ var _ = BeforeSuite(func() {
 			Name: "kserve-localmodel-jobs",
 		},
 	}
-	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
-	Expect(k8sClient.Create(context.Background(), jobsNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, kserveNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, jobsNamespaceObj)).Should(Succeed())
 })

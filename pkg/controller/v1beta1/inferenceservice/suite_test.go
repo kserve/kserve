@@ -50,7 +50,7 @@ func TestV1beta1APIs(t *testing.T) {
 	RunSpecs(t, "v1beta1 Controller Suite")
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	cacheOpts, err := NewCacheOptions()
 	Expect(err).ToNot(HaveOccurred())
 
@@ -83,6 +83,7 @@ var _ = BeforeSuite(func() {
 		WithManagerOptions(func(opts *ctrl.Options) {
 			opts.Cache = cacheOpts
 		}).
+		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background())
 
 	cfg = envTest.Config
@@ -99,8 +100,8 @@ var _ = BeforeSuite(func() {
 			Name: constants.DefaultKnServingNamespace,
 		},
 	}
-	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
-	Expect(k8sClient.Create(context.Background(), knativeServingNamespace)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, kserveNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, knativeServingNamespace)).Should(Succeed())
 
 	// Create knative config-autoscaler configmap
 	configAutoscaler := &corev1.ConfigMap{
@@ -109,7 +110,7 @@ var _ = BeforeSuite(func() {
 			Namespace: constants.AutoscalerConfigmapNamespace,
 		},
 	}
-	Expect(k8sClient.Create(context.Background(), configAutoscaler)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, configAutoscaler)).Should(Succeed())
 })
 
 // getBaseTestConfigs returns the common test configuration shared by all deployment modes
