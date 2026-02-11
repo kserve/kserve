@@ -330,9 +330,10 @@ func nonReadyHTTPRouteTopLevelCondition(route *gwapiv1.HTTPRoute) (*metav1.Condi
 	for _, parent := range route.Status.RouteStatus.Parents {
 		acceptedCond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionAccepted))
 		if acceptedCond == nil {
-			// This can happen when multiple controllers write to the status, e.g., besides the gateway controller, there
-			// are conditions reported from the policy controller.
-			// See example https://gist.github.com/bartoszmajsak/4329206afe107357afdcb9b92ed778bd
+			// This can happen when multiple controllers write to the HTTPRoute status. For example, in addition
+			// to the Gateway controller, policy or extension controllers may append their own conditions to
+			// a ParentRef without setting the RouteConditionAccepted condition themselves, so we simply skip
+			// such parents here and continue checking other entries.
 			continue
 		}
 		routeConditionAcceptedMissing = false
