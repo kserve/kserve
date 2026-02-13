@@ -291,12 +291,16 @@ async def test_sklearn_rolling_update():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    kserve_client.patch(service_name, updated_isvc)
+    patch_response = kserve_client.patch(service_name, updated_isvc)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        expected_generation=patch_response["metadata"]["generation"],
+    )
     deployment = kserve_client.app_api.list_namespaced_deployment(
         namespace=KSERVE_TEST_NAMESPACE,
         label_selector="serving.kserve.io/test=rolling-update",
     )
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     # Check if the deployment replicas still remain the same as min_replicas
     assert deployment.items[0].spec.replicas == min_replicas
@@ -309,7 +313,7 @@ async def test_sklearn_env_update():
     suffix = str(uuid.uuid4())[1:6]
     service_name = "isvc-sklearn-env-update-" + suffix
     min_replicas = 4
-    envs = [
+    initial_envs = [
         {
             "name": "TEST_ENV",
             "value": "TEST_ENV_VALUE",
@@ -323,7 +327,7 @@ async def test_sklearn_env_update():
             "value": "TEST_ENV_VALUE_3",
         },
     ]
-    predictor = V1beta1PredictorSpec(
+    initial_predictor = V1beta1PredictorSpec(
         min_replicas=min_replicas,
         scale_metric="cpu",
         scale_target=50,
@@ -333,7 +337,7 @@ async def test_sklearn_env_update():
                 requests={"cpu": "25m", "memory": "128Mi"},
                 limits={"cpu": "50m", "memory": "256Mi"},
             ),
-            env=envs,
+            env=initial_envs,
         ),
     )
 
@@ -348,10 +352,10 @@ async def test_sklearn_env_update():
             annotations=annotations,
             labels={"serving.kserve.io/test": "env-update"},
         ),
-        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+        spec=V1beta1InferenceServiceSpec(predictor=initial_predictor),
     )
 
-    predictor.sklearn.env = [
+    updated_envs = [
         {
             "name": "TEST_ENV",
             "value": "TEST_ENV_VALUE",
@@ -361,6 +365,19 @@ async def test_sklearn_env_update():
             "value": "TEST_ENV_VALUE_2",
         },
     ]
+    updated_predictor = V1beta1PredictorSpec(
+        min_replicas=min_replicas,
+        scale_metric="cpu",
+        scale_target=50,
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri=MODEL,
+            resources=V1ResourceRequirements(
+                requests={"cpu": "25m", "memory": "128Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
+            ),
+            env=updated_envs,
+        ),
+    )
 
     updated_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -371,7 +388,7 @@ async def test_sklearn_env_update():
             annotations=annotations,
             labels={"serving.kserve.io/test": "env-update"},
         ),
-        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+        spec=V1beta1InferenceServiceSpec(predictor=updated_predictor),
     )
 
     kserve_client = KServeClient(
@@ -380,12 +397,16 @@ async def test_sklearn_env_update():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    kserve_client.patch(service_name, updated_isvc)
+    patch_response = kserve_client.patch(service_name, updated_isvc)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        expected_generation=patch_response["metadata"]["generation"],
+    )
     deployment = kserve_client.app_api.list_namespaced_deployment(
         namespace=KSERVE_TEST_NAMESPACE,
         label_selector="serving.kserve.io/test=env-update",
     )
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     # Check if the deployment replicas still remain the same as min_replicas
     assert deployment.items[0].spec.replicas == min_replicas

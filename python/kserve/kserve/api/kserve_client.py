@@ -342,23 +342,33 @@ class KServeClient(object):
             )
 
     def is_isvc_ready(
-        self, name, namespace=None, version=constants.KSERVE_V1BETA1_VERSION
+        self,
+        name,
+        namespace=None,
+        version=constants.KSERVE_V1BETA1_VERSION,
+        expected_generation=None,
     ):  # pylint:disable=inconsistent-return-statements
         """
         Check if the inference service is ready.
         :param version:
         :param name: inference service name
         :param namespace: defaults to current or default namespace
+        :param expected_generation: optional minimum observed generation to consider ready
         :return:
         """
         kfsvc_status = self.get(name, namespace=namespace, version=version)
         if "status" not in kfsvc_status:
             return False
-        status = "Unknown"
-        for condition in kfsvc_status["status"].get("conditions", {}):
+        status = kfsvc_status["status"]
+        observed_generation = status.get(constants.OBSERVED_GENERATION, 0)
+        for condition in status.get("conditions", []):
             if condition.get("type", "") == "Ready":
-                status = condition.get("status", "Unknown")
-                return status.lower() == "true"
+                ready = condition.get("status", "Unknown").lower() == "true"
+                if not ready:
+                    return False
+                if expected_generation is not None:
+                    return observed_generation >= expected_generation
+                return True
         return False
 
     def wait_isvc_ready(
@@ -369,6 +379,7 @@ class KServeClient(object):
         timeout_seconds=600,
         polling_interval=10,
         version=constants.KSERVE_V1BETA1_VERSION,
+        expected_generation=None,
     ):
         """
         Waiting for inference service ready, print out the inference service if timeout.
@@ -379,21 +390,39 @@ class KServeClient(object):
                Print out the InferenceService if timeout.
         :param polling_interval: The time interval to poll status
         :param version: api group version
+        :param expected_generation: optional minimum observed generation to consider ready
         :return:
         """
         if watch:
-            isvc_watch(name=name, namespace=namespace, timeout_seconds=timeout_seconds)
+            isvc_watch(
+                name=name,
+                namespace=namespace,
+                timeout_seconds=timeout_seconds,
+                generation=expected_generation or 0,
+            )
         else:
             for _ in range(round(timeout_seconds / polling_interval)):
                 time.sleep(polling_interval)
-                if self.is_isvc_ready(name, namespace=namespace, version=version):
+                if self.is_isvc_ready(
+                    name,
+                    namespace=namespace,
+                    version=version,
+                    expected_generation=expected_generation,
+                ):
                     return
 
             current_isvc = self.get(name, namespace=namespace, version=version)
-            raise RuntimeError(
-                "Timeout to start the InferenceService {}. \
+            if expected_generation is None:
+                raise RuntimeError(
+                    "Timeout to start the InferenceService {}. \
                                The InferenceService is as following: {}".format(
-                    name, current_isvc
+                        name, current_isvc
+                    )
+                )
+            raise RuntimeError(
+                "Timeout to start the InferenceService {} for expected generation {}. \
+                               The InferenceService is as following: {}".format(
+                    name, expected_generation, current_isvc
                 )
             )
 
