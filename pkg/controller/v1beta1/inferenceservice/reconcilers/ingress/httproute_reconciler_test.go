@@ -1276,7 +1276,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 				&gwapiv1.HTTPRoute{})
 			client := fake.NewClientBuilder().WithScheme(s).Build()
 			// Create a dummy service to test default suffix case
-			client.Create(t.Context(), &corev1.Service{
+			_ = client.Create(t.Context(), &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-isvc-default-predictor-default",
 					Namespace: "default",
@@ -1440,7 +1440,7 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 				&gwapiv1.HTTPRoute{})
 			client := fake.NewClientBuilder().WithScheme(s).Build()
 			// Create a dummy service to test default suffix case
-			client.Create(t.Context(), &corev1.Service{
+			_ = client.Create(t.Context(), &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-isvc-default-predictor-default",
 					Namespace: "default",
@@ -1606,7 +1606,7 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 				&gwapiv1.HTTPRoute{})
 			client := fake.NewClientBuilder().WithScheme(s).Build()
 			// Create a dummy service to test default suffix case
-			client.Create(t.Context(), &corev1.Service{
+			_ = client.Create(t.Context(), &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-isvc-default-transformer-default",
 					Namespace: "default",
@@ -1772,7 +1772,7 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 				&gwapiv1.HTTPRoute{})
 			client := fake.NewClientBuilder().WithScheme(s).Build()
 			// Create a dummy service to test default suffix case
-			client.Create(t.Context(), &corev1.Service{
+			_ = client.Create(t.Context(), &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-isvc-default-explainer-default",
 					Namespace: "default",
@@ -1966,7 +1966,7 @@ func TestRawHTTPRouteReconciler_reconcileTransformerHTTPRoute(t *testing.T) {
 		}
 		client := fake.NewClientBuilder().WithScheme(s).Build()
 		// Create a dummy transformer service so the reconciler finds it
-		client.Create(t.Context(), &corev1.Service{
+		_ = client.Create(t.Context(), &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-isvc-transformer",
 				Namespace: "default",
@@ -2012,7 +2012,7 @@ func TestRawHTTPRouteReconciler_reconcileTransformerHTTPRoute(t *testing.T) {
 			},
 		}
 		client := fake.NewClientBuilder().WithScheme(s).Build()
-		client.Create(t.Context(), &corev1.Service{
+		_ = client.Create(t.Context(), &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-isvc2-transformer",
 				Namespace: "default",
@@ -2028,7 +2028,7 @@ func TestRawHTTPRouteReconciler_reconcileTransformerHTTPRoute(t *testing.T) {
 				Hostnames: []gwapiv1.Hostname{"oldhost.example.com"},
 			},
 		}
-		client.Create(t.Context(), existingRoute)
+		_ = client.Create(t.Context(), existingRoute)
 
 		reconciler := &RawHTTPRouteReconciler{
 			client:        client,
@@ -2115,7 +2115,7 @@ func TestRawHTTPRouteReconciler_reconcileExplainerHTTPRoute(t *testing.T) {
 
 		client := fake.NewClientBuilder().WithScheme(s).Build()
 		// Create explainer service so default suffix is not used
-		client.Create(ctx, &corev1.Service{
+		_ = client.Create(ctx, &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "foo-explainer",
 				Namespace: "bar",

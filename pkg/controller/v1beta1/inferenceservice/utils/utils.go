@@ -148,9 +148,10 @@ func GetPredictorEndpoint(ctx context.Context, client client.Client, isvc *v1bet
 		modelName := GetModelName(isvc)
 		if isvc.Spec.Transformer != nil {
 			protocol := isvc.Spec.Transformer.GetImplementation().GetProtocol()
-			if protocol == constants.ProtocolV1 {
+			switch protocol {
+			case constants.ProtocolV1:
 				path = constants.PredictPath(modelName, constants.ProtocolV1)
-			} else if protocol == constants.ProtocolV2 {
+			case constants.ProtocolV2:
 				path = constants.PredictPath(modelName, constants.ProtocolV2)
 			}
 		} else if !IsMMSPredictor(&isvc.Spec.Predictor) {
@@ -195,9 +196,10 @@ func GetPredictorEndpoint(ctx context.Context, client client.Client, isvc *v1bet
 				// }
 			}
 
-			if protocol == constants.ProtocolV1 {
+			switch protocol {
+			case constants.ProtocolV1:
 				path = constants.PredictPath(modelName, constants.ProtocolV1)
-			} else if protocol == constants.ProtocolV2 {
+			case constants.ProtocolV2:
 				path = constants.PredictPath(modelName, constants.ProtocolV2)
 			}
 		}
@@ -400,7 +402,7 @@ func ListPodsByLabel(ctx context.Context, cl client.Client, namespace string, la
 
 func sortPodsByCreatedTimestampDesc(pods *corev1.PodList) {
 	sort.Slice(pods.Items, func(i, j int) bool {
-		return pods.Items[j].ObjectMeta.CreationTimestamp.Before(&pods.Items[i].ObjectMeta.CreationTimestamp)
+		return pods.Items[j].CreationTimestamp.Before(&pods.Items[i].CreationTimestamp)
 	})
 }
 

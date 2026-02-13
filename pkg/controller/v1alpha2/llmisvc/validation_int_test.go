@@ -90,7 +90,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -107,7 +107,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -124,7 +124,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -147,7 +147,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -169,7 +169,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -187,7 +187,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -205,7 +205,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -221,7 +221,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -241,7 +241,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -257,7 +257,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -418,7 +418,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			}
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -446,7 +446,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			}
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -469,7 +469,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			}
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -495,7 +495,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			}
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -566,7 +566,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred(), "Expected the Create call to fail due to a validation error, but it succeeded")
@@ -584,7 +584,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred(), "Expected the Create call to fail due to a validation error, but it succeeded")
@@ -602,7 +602,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred(), "Expected the Create call to fail due to a validation error, but it succeeded")
@@ -621,7 +621,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred(), "Expected the Create call to fail due to a validation error, but it succeeded")
@@ -640,7 +640,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred(), "Expected the Create call to fail due to a validation error, but it succeeded")
@@ -658,7 +658,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred(), "Expected the Create call to fail due to a validation error, but it succeeded")
@@ -676,7 +676,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred(), "Expected the Create call to fail due to a validation error, but it succeeded")

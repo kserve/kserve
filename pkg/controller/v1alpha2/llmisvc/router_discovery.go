@@ -311,7 +311,7 @@ func IsHTTPRouteReady(route *gwapiv1.HTTPRoute) bool {
 	}
 
 	// Check that all parent references have corresponding status entries
-	if len(route.Status.RouteStatus.Parents) != len(route.Spec.ParentRefs) {
+	if len(route.Status.Parents) != len(route.Spec.ParentRefs) {
 		// HTTPRoute is ready only when _all_ parents have accepted the route.
 		return false
 	}
@@ -332,7 +332,7 @@ func nonReadyHTTPRouteTopLevelCondition(route *gwapiv1.HTTPRoute) (*metav1.Condi
 		return nil, true
 	}
 
-	for _, parent := range route.Status.RouteStatus.Parents {
+	for _, parent := range route.Status.Parents {
 		// Look for the "Accepted" condition which indicates Gateway acceptance
 		acceptedCond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionAccepted))
 		if acceptedCond == nil {

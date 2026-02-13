@@ -990,7 +990,7 @@ func TestGetServingRuntime(t *testing.T) {
 	}
 
 	s := runtime.NewScheme()
-	v1alpha1.AddToScheme(s)
+	_ = v1alpha1.AddToScheme(s)
 
 	mockClient := fake.NewClientBuilder().WithLists(runtimes, clusterRuntimes).WithScheme(s).Build()
 	for name, scenario := range scenarios {

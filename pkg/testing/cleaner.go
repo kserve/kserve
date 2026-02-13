@@ -123,7 +123,7 @@ func lookupNamespacedResources(clientset *kubernetes.Clientset) map[string]schem
 	namespacedGVKs := make(map[string]schema.GroupVersionKind)
 
 	// Look up all namespaced resources under the discovery API
-	_, apiResources, listErr := clientset.DiscoveryClient.ServerGroupsAndResources()
+	_, apiResources, listErr := clientset.ServerGroupsAndResources()
 	if listErr != nil {
 		panic(listErr)
 	}

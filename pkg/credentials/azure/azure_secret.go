@@ -69,7 +69,7 @@ func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
 		if _, ok := secret.Data[legacyDataKey]; ok {
 			dataKey = legacyDataKey
 		}
-		if _, ok := secret.Data[dataKey]; !(!ok && ignoreEmptyKey(dataKey)) {
+		if _, ok := secret.Data[dataKey]; ok || !ignoreEmptyKey(dataKey) {
 			envs = append(envs, corev1.EnvVar{
 				Name: k,
 				ValueFrom: &corev1.EnvVarSource{

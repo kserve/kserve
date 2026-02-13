@@ -546,7 +546,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 					return err
 				}
 				lws.Spec.Replicas = ptr.To[int32](3)
-				return envTest.Client.Update(ctx, lws)
+				return envTest.Update(ctx, lws)
 			})
 			Expect(errRetry).ToNot(HaveOccurred())
 
@@ -628,7 +628,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 					return err
 				}
 				lws.Spec.Replicas = ptr.To[int32](5)
-				return envTest.Client.Update(ctx, lws)
+				return envTest.Update(ctx, lws)
 			})
 			Expect(errRetry).ToNot(HaveOccurred())
 

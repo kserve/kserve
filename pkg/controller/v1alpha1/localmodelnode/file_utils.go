@@ -66,7 +66,7 @@ func (f *FileSystemHelper) hasModelFolder(modelName string) (bool, error) {
 
 func (f *FileSystemHelper) ensureModelRootFolderExists() error {
 	// If the folder already exists, this will do nothing
-	if err := os.MkdirAll(f.modelsRootFolder, os.ModePerm); err != nil {
+	if err := os.MkdirAll(f.modelsRootFolder, 0o750); err != nil {
 		return err
 	}
 	return nil

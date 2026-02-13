@@ -106,7 +106,7 @@ func (r *LLMISVCReconciler) propagateLeaderWorkerSetStatus(ctx context.Context, 
 
 	curr := &lwsapi.LeaderWorkerSet{}
 	err := retry.OnError(retry.DefaultRetry, apierrors.IsNotFound, func() error {
-		return r.Client.Get(ctx, client.ObjectKeyFromObject(expected), curr)
+		return r.Get(ctx, client.ObjectKeyFromObject(expected), curr)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get current leaderworkerset %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
@@ -419,7 +419,7 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Cont
 		useExistingServiceAccount = true
 		log.FromContext(ctx).V(2).Info("Using existing service account for multi node main workload", "serviceAccountName", existingServiceAccountName)
 		existingServiceAccount := &corev1.ServiceAccount{}
-		err := r.Client.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+		err := r.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
 		if err != nil {
 			return nil, useExistingServiceAccount, fmt.Errorf("failed to fetch existing multi node main service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
 		}
@@ -462,7 +462,7 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.C
 		useExistingServiceAccount = true
 		log.FromContext(ctx).V(2).Info("Using existing service account for multi node prefill workload", "serviceAccountName", existingServiceAccountName)
 		existingServiceAccount := &corev1.ServiceAccount{}
-		err := r.Client.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+		err := r.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
 		if err != nil {
 			return nil, useExistingServiceAccount, fmt.Errorf("failed to fetch existing multi node prefill service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
 		}
@@ -578,10 +578,8 @@ func (r *LLMISVCReconciler) propagateLeaderWorkerSetMetadata(llmSvc *v1alpha2.LL
 }
 
 func semanticLWSIsEqual(expected *lwsapi.LeaderWorkerSet, curr *lwsapi.LeaderWorkerSet) bool {
-	isLeaderEqual := true
-	if (expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil) != (curr.Spec.LeaderWorkerTemplate.LeaderTemplate != nil) {
-		isLeaderEqual = false
-	}
+	isLeaderEqual := (expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil) == (curr.Spec.LeaderWorkerTemplate.LeaderTemplate != nil)
+
 	if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil && curr.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
 		// Use DeepEqual for the Pod Spec so that when fields are removed (like resource requirements, we push them down
 		// to the child resource)
