@@ -31,6 +31,7 @@ import (
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -98,9 +99,9 @@ func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"),
 			Namespace: llmSvc.GetNamespace(),
 			Labels: map[string]string{
-				"app.kubernetes.io/component": "llminferenceservice-workload",
-				"app.kubernetes.io/name":      llmSvc.GetName(),
-				"app.kubernetes.io/part-of":   "llminferenceservice",
+				constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentWorkload,
+				constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
+				constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -141,8 +142,8 @@ func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc
 
 func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceServiceSpec) map[string]string {
 	s := map[string]string{
-		"app.kubernetes.io/part-of": "llminferenceservice",
-		"app.kubernetes.io/name":    meta.GetName(),
+		constants.LLMInferenceServicePartOfLabelKey: constants.LLMInferenceServicePartOfValue,
+		constants.LLMInferenceServicePodNameLabelKey: meta.GetName(),
 		"kserve.io/component":       "workload",
 	}
 

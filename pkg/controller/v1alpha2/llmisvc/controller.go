@@ -25,6 +25,8 @@ import (
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
@@ -36,8 +38,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
@@ -58,22 +58,17 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
+// ChildResourcesLabelSelector matches resources belonging to LLMInferenceService.
+// Used by the controller predicate below and by the manager cache (cmd/llmisvc/main.go).
+var ChildResourcesLabelSelector = metav1.LabelSelector{
+	MatchLabels: map[string]string{
+		constants.LLMInferenceServicePartOfLabelKey: constants.LLMInferenceServicePartOfValue,
+	},
+}
+
 // childResourcesPredicate filters events to only those from resources owned by LLMInferenceService
 // This prevents unnecessary reconciliation triggers from unrelated resources
-var childResourcesPredicate, _ = predicate.LabelSelectorPredicate(metav1.LabelSelector{
-	MatchLabels: map[string]string{
-		"app.kubernetes.io/part-of": "llminferenceservice",
-	},
-})
-
-const (
-	// PodLabelName is the label key used to identify pods by the name of their owning LLMInferenceService
-	PodLabelName = "app.kubernetes.io/name"
-	// PodLabelPartOf is the label key used to identify pods as part of an LLMInferenceService
-	PodLabelPartOf = "app.kubernetes.io/part-of"
-	// PodLabelPartOfValue is the expected value for the part-of label
-	PodLabelPartOfValue = "llminferenceservice"
-)
+var childResourcesPredicate, _ = predicate.LabelSelectorPredicate(ChildResourcesLabelSelector)
 
 // LLMISVCReconciler reconciles an LLMInferenceService object.
 // It orchestrates the reconciliation of child resources based on the spec.
@@ -563,7 +558,7 @@ func (r *LLMISVCReconciler) PodInitContainersFunc(ctx context.Context, obj clien
 	}
 	// Cache is already restricted to pods with part-of label (see cmd/llmisvc main.go).
 	// Get the LLMInferenceService name from the name label.
-	if llmSvcName, found := pod.Labels[PodLabelName]; found && llmSvcName != "" {
+	if llmSvcName, found := pod.Labels[constants.LLMInferenceServicePodNameLabelKey]; found && llmSvcName != "" {
 		return []reconcile.Request{{
 			NamespacedName: types.NamespacedName{
 				Namespace: pod.Namespace,

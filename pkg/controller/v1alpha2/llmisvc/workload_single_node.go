@@ -173,9 +173,9 @@ func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmS
 
 func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
 	labels := map[string]string{
-		"app.kubernetes.io/component": "llminferenceservice-workload-prefill",
-		"app.kubernetes.io/name":      llmSvc.GetName(),
-		"app.kubernetes.io/part-of":   "llminferenceservice",
+		constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentWorkloadPrefill,
+		constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
+		constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
 		"kserve.io/component":         "workload",
 		"llm-d.ai/role":               "prefill",
 	}
@@ -416,8 +416,8 @@ func (r *LLMISVCReconciler) expectedSingleNodeRoleBinding(llmSvc *v1alpha2.LLMIn
 
 func (r *LLMISVCReconciler) singleNodeLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 	return map[string]string{
-		"app.kubernetes.io/component": "llminferenceservice-workload",
-		"app.kubernetes.io/name":      llmSvc.GetName(),
-		"app.kubernetes.io/part-of":   "llminferenceservice",
+		constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentWorkload,
+		constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
+		constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
 	}
 }

@@ -33,6 +33,7 @@ import (
 	"knative.dev/pkg/kmeta"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 	. "github.com/kserve/kserve/pkg/testing"
@@ -225,7 +226,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			}).WithContext(ctx).Should(Succeed())
 
 			Expect(expectedSA).To(BeOwnedBy(llmSvc))
-			Expect(expectedSA.Labels).To(HaveKeyWithValue("app.kubernetes.io/name", svcName))
+			Expect(expectedSA.Labels).To(HaveKeyWithValue(constants.LLMInferenceServicePodNameLabelKey, svcName))
 
 			// then - Check Role is created
 			expectedRole := &rbacv1.Role{}
