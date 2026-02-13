@@ -17,9 +17,10 @@ spec:
           kind: EndpointPickerConfig
           plugins:
             - type: single-profile-handler
-            - type: prefix-cache-scorer
+            - type: precise-prefix-cache-scorer
               parameters:
-                mode: cache_tracking  # Real-time KV cache tracking via ZMQ events
+                kvEventsConfig:
+                  zmqEndpoint: "tcp://*:5557"
                 indexerConfig:
                   tokenProcessorConfig:
                     blockSize: 64       # Must match vLLM --block-size (default is 16)

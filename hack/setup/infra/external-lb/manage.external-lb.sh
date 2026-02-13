@@ -118,6 +118,7 @@ install() {
 
             log_info "Enabling MetalLB addon..."
             minikube addons enable metallb
+            kubectl wait --for=condition=ready pod -l app=metallb -n metallb-system --timeout=60s
 
             MINIKUBE_IP=$(minikube ip)
             if [[ -z "${MINIKUBE_IP}" ]]; then
@@ -136,6 +137,9 @@ install() {
             sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" \
                 "${TEMPLATE_DIR}/metallb-config.yaml.tmpl" | kubectl apply -f -
 
+            kubectl rollout restart deployment controller -n metallb-system
+            kubectl rollout status deployment controller -n metallb-system --timeout=60s
+            
             log_success "MetalLB configured successfully with IP range: ${START}-${END}"
             ;;
 

@@ -190,6 +190,9 @@ func getBaseTestConfigs() map[string]string {
 				"cpuModelcar": "10m",
 				"memoryModelcar": "15Mi"
 			}`,
+		"deploy": `{
+				"defaultDeploymentMode": "Knative"
+			}`,
 		"inferenceService": `{}`,
 	}
 }

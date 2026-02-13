@@ -500,7 +500,7 @@ export RELEASE
 GOLANGCI_LINT_VERSION=v1.64.8
 CONTROLLER_TOOLS_VERSION=v0.19.0
 ENVTEST_VERSION=latest
-YQ_VERSION=v4.28.1
+YQ_VERSION=v4.52.1
 HELM_VERSION=v3.16.3
 KUSTOMIZE_VERSION=v5.5.0
 HELM_DOCS_VERSION=v1.12.0
@@ -520,7 +520,7 @@ ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.17.2
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.7.0
-GATEWAY_API_VERSION=v1.3.1-0.20251106052652-079e4774d76b
+GATEWAY_API_VERSION=v1.3.0
 GIE_VERSION=v1.2.0
 
 #================================================
@@ -703,12 +703,12 @@ install_yq() {
 
     log_info "Installing yq ${YQ_VERSION} for ${os}/${arch}..."
 
-    if command -v yq &>/dev/null; then
-        local current_version=$(yq --version 2>&1 | grep -oP 'version \K[v0-9.]+')
+    if [[ -x "${BIN_DIR}/yq" ]]; then
+        local current_version=$("${BIN_DIR}/yq" --version 2>&1 | grep -oP 'version \K[v0-9.]+')
         # Normalize version format (add 'v' prefix if missing)
         [[ -n "$current_version" && "$current_version" != v* ]] && current_version="v${current_version}"
         if [[ -n "$current_version" ]] && version_gte "$current_version" "$YQ_VERSION"; then
-            log_info "yq ${current_version} is already installed (>= ${YQ_VERSION})"
+            log_info "yq ${current_version} is already installed in ${BIN_DIR} (>= ${YQ_VERSION})"
             return 0
         fi
         [[ -n "$current_version" ]] && log_info "Upgrading yq from ${current_version} to ${YQ_VERSION}..."
@@ -735,7 +735,7 @@ install_yq() {
     fi
 
     log_success "Successfully installed yq ${YQ_VERSION} to ${BIN_DIR}/yq"
-    yq --version
+    "${BIN_DIR}/yq" --version
 }
 
 # ----------------------------------------
@@ -982,6 +982,7 @@ install_external_lb() {
 
             log_info "Enabling MetalLB addon..."
             minikube addons enable metallb
+            kubectl wait --for=condition=ready pod -l app=metallb -n metallb-system --timeout=60s
 
             MINIKUBE_IP=$(minikube ip)
             if [[ -z "${MINIKUBE_IP}" ]]; then
@@ -999,6 +1000,9 @@ install_external_lb() {
 
             sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" \
                 "${TEMPLATE_DIR}/metallb-config.yaml.tmpl" | kubectl apply -f -
+
+            kubectl rollout restart deployment controller -n metallb-system
+            kubectl rollout status deployment controller -n metallb-system --timeout=60s
 
             log_success "MetalLB configured successfully with IP range: ${START}-${END}"
             ;;
@@ -1042,7 +1046,7 @@ install_envoy_gateway() {
     fi
 
     log_info "Installing Envoy Gateway ${ENVOY_GATEWAY_VERSION}..."
-    helm install eg oci://docker.io/envoyproxy/gateway-helm \
+    helm upgrade -i eg oci://docker.io/envoyproxy/gateway-helm \
         --version "${ENVOY_GATEWAY_VERSION}" \
         -n envoy-gateway-system \
         --create-namespace \
@@ -1061,11 +1065,6 @@ install_envoy_gateway() {
 
 uninstall_envoy_ai_gateway() {
     log_info "Uninstalling Envoy AI Gateway..."
-    VERSION_NUMBER="${ENVOY_AI_GATEWAY_VERSION#v}"
-    kubectl delete -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/examples/inference-pool/config.yaml" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
-    kubectl delete -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/rbac.yaml" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
-    kubectl delete -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/config.yaml" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
-    kubectl delete -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/redis.yaml" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
     helm uninstall aieg -n envoy-ai-gateway-system 2>/dev/null || true
     helm uninstall aieg-crd -n envoy-ai-gateway-system 2>/dev/null || true
     kubectl delete all --all -n envoy-ai-gateway-system --force --grace-period=0 2>/dev/null || true
@@ -1086,32 +1085,31 @@ install_envoy_ai_gateway() {
         fi
     fi
 
+    log_info "Updating Envoy Gateway ${ENVOY_GATEWAY_VERSION}...to add inference pool addons for Envoy AI Gateway"
+    helm upgrade -i eg oci://docker.io/envoyproxy/gateway-helm \
+        --version "${ENVOY_GATEWAY_VERSION}" \
+        -n envoy-gateway-system \
+        --create-namespace \
+        -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/${ENVOY_AI_GATEWAY_VERSION}/manifests/envoy-gateway-values.yaml \
+        -f https://raw.githubusercontent.com/envoyproxy/ai-gateway/${ENVOY_AI_GATEWAY_VERSION}/examples/inference-pool/envoy-gateway-values-addon.yaml \
+        --wait
+
+    log_success "Successfully Updated Envoy Gateway ${ENVOY_GATEWAY_VERSION} for Envoy AI Gateway"
+
     log_info "Installing Envoy AI Gateway CRDs ${ENVOY_AI_GATEWAY_VERSION}..."
-    helm install aieg-crd oci://docker.io/envoyproxy/ai-gateway-crds-helm \
+    helm upgrade -i aieg-crd oci://docker.io/envoyproxy/ai-gateway-crds-helm \
         --version "${ENVOY_AI_GATEWAY_VERSION}" \
         --namespace envoy-ai-gateway-system \
         --create-namespace
 
     log_info "Installing Envoy AI Gateway ${ENVOY_AI_GATEWAY_VERSION}..."
-    helm install aieg oci://docker.io/envoyproxy/ai-gateway-helm \
+    helm upgrade -i aieg oci://docker.io/envoyproxy/ai-gateway-helm \
         --version "${ENVOY_AI_GATEWAY_VERSION}" \
         --namespace envoy-ai-gateway-system \
         --create-namespace
 
-    wait_for_deployment "envoy-ai-gateway-system" "ai-gateway-controller" "180s"
-    log_success "Successfully installed Envoy AI Gateway ${ENVOY_AI_GATEWAY_VERSION} via Helm"
-
-    log_info "Configuring Envoy Gateway for AI Gateway integration..."
-    VERSION_NUMBER="${ENVOY_AI_GATEWAY_VERSION#v}"
-    kubectl apply -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/redis.yaml"
-    kubectl apply -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/config.yaml"
-    kubectl apply -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/manifests/envoy-gateway-config/rbac.yaml"
-
-    log_info "Enabling Gateway API Inference Extension support for Envoy Gateway..."
-    kubectl apply -f "https://raw.githubusercontent.com/envoyproxy/ai-gateway/v${VERSION_NUMBER}/examples/inference-pool/config.yaml"
-    kubectl rollout restart -n envoy-gateway-system deployment/envoy-gateway
-    wait_for_deployment "envoy-gateway-system" "envoy-gateway" "180s"
-    log_success "Envoy AI Gateway is ready!"
+    kubectl wait --timeout=2m -n envoy-ai-gateway-system deployment/ai-gateway-controller --for=condition=Available
+    log_success "Envoy AI Gateway ${ENVOY_AI_GATEWAY_VERSION} is ready!"
 }
 
 # ----------------------------------------

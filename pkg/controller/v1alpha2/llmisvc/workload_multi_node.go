@@ -72,7 +72,7 @@ func (r *LLMISVCReconciler) reconcileMultiNodeMainWorkload(ctx context.Context, 
 		}
 		return nil
 	}
-	if err := Reconcile(ctx, r, llmSvc, &lwsapi.LeaderWorkerSet{}, expected, semanticLWSIsEqual); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &lwsapi.LeaderWorkerSet{}, expected, semanticLWSIsEqual, PreserveLWSReplicas()); err != nil {
 		return err
 	}
 	return r.propagateLeaderWorkerSetStatus(ctx, expected, llmSvc.MarkWorkerWorkloadReady, llmSvc.MarkWorkerWorkloadNotReady)
@@ -95,7 +95,7 @@ func (r *LLMISVCReconciler) reconcileMultiNodePrefillWorkload(ctx context.Contex
 		}
 		return nil
 	}
-	if err := Reconcile(ctx, r, llmSvc, &lwsapi.LeaderWorkerSet{}, expected, semanticLWSIsEqual); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &lwsapi.LeaderWorkerSet{}, expected, semanticLWSIsEqual, PreserveLWSReplicas()); err != nil {
 		return err
 	}
 	return r.propagateLeaderWorkerSetStatus(ctx, expected, llmSvc.MarkPrefillWorkerWorkloadReady, llmSvc.MarkPrefillWorkerWorkloadNotReady)

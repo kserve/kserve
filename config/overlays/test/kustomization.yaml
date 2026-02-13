@@ -3,7 +3,7 @@ kind: Kustomization
 
 resources:
 - ../../base
-- minio
+- s3-local-backend
 
 components:
 - ../../components/kserve
