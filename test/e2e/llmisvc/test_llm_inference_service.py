@@ -42,6 +42,7 @@ from .test_resources import (
     ROUTER_ROUTES,
 )
 from .logging import log_execution, logger
+from ..common.http_retry import post_with_retry
 
 KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
 
@@ -410,10 +411,10 @@ def wait_for_model_response(
             f"Calling LLM service at {completion_url} with payload {test_payload}"
         )
         try:
-            response = requests.post(
+            response = post_with_retry(
                 completion_url,
                 headers={"Content-Type": "application/json"},
-                json=test_payload,
+                json_data=test_payload,
                 timeout=test_case.response_timeout,
             )
         except Exception as e:
