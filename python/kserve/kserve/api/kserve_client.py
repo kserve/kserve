@@ -402,7 +402,6 @@ class KServeClient(object):
             )
         else:
             for _ in range(round(timeout_seconds / polling_interval)):
-                time.sleep(polling_interval)
                 if self.is_isvc_ready(
                     name,
                     namespace=namespace,
@@ -410,6 +409,7 @@ class KServeClient(object):
                     expected_generation=expected_generation,
                 ):
                     return
+                time.sleep(polling_interval)
 
             current_isvc = self.get(name, namespace=namespace, version=version)
             if expected_generation is None:
@@ -665,9 +665,9 @@ class KServeClient(object):
         :return:
         """
         for _ in range(round(timeout_seconds / polling_interval)):
-            time.sleep(polling_interval)
             if self.is_ig_ready(name, namespace, version):
                 return
+            time.sleep(polling_interval)
 
         current_ig = self.get_inference_graph(
             name, namespace=namespace, version=version
