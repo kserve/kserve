@@ -8961,6 +8961,10 @@ spec:
                       type: object
                     scheduler:
                       properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          type: object
                         config:
                           properties:
                             inline:
@@ -8979,6 +8983,10 @@ spec:
                                 - key
                               type: object
                               x-kubernetes-map-type: atomic
+                          type: object
+                        labels:
+                          additionalProperties:
+                            type: string
                           type: object
                         pool:
                           properties:
@@ -29266,6 +29274,10 @@ spec:
                       type: object
                     scheduler:
                       properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          type: object
                         config:
                           properties:
                             inline:
@@ -29284,6 +29296,10 @@ spec:
                                 - key
                               type: object
                               x-kubernetes-map-type: atomic
+                          type: object
+                        labels:
+                          additionalProperties:
+                            type: string
                           type: object
                         pool:
                           properties:

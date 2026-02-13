@@ -29,8 +29,6 @@ import (
 func TestPropagateDeploymentMetadata(t *testing.T) {
 	tests := []struct {
 		name                          string
-		serviceAnnotationDisallowed   []string
-		serviceLabelDisallowed        []string
 		objectMetaLabels              map[string]string
 		objectMetaAnnotations         map[string]string
 		workloadSpecLabels            map[string]string
@@ -43,116 +41,139 @@ func TestPropagateDeploymentMetadata(t *testing.T) {
 		unexpectedAnnotations         []string
 	}{
 		{
-			name:                        "should filter internal kserve annotations",
-			serviceAnnotationDisallowed: []string{},
-			serviceLabelDisallowed:      []string{},
+			name: "should only propagate approved-prefix annotations from top-level metadata",
 			objectMetaAnnotations: map[string]string{
-				"internal.serving.kserve.io/something": "foo",
-				"allowed.annotation/bar":               "baz",
+				"k8s.v1.cni.cncf.io/networks": "my-network",
+				"kueue.x-k8s.io/queue-name":   "my-queue",
+				"random.annotation/foo":       "bar",
 			},
 			expectedDeploymentAnnotations: map[string]string{
-				"allowed.annotation/bar": "baz",
+				"k8s.v1.cni.cncf.io/networks": "my-network",
+				"kueue.x-k8s.io/queue-name":   "my-queue",
 			},
 			expectedPodAnnotations: map[string]string{
-				"allowed.annotation/bar": "baz",
+				"k8s.v1.cni.cncf.io/networks": "my-network",
+				"kueue.x-k8s.io/queue-name":   "my-queue",
+			},
+			unexpectedAnnotations: []string{"random.annotation/foo"},
+		},
+		{
+			name: "should only propagate approved-prefix labels from top-level metadata",
+			objectMetaLabels: map[string]string{
+				"kueue.x-k8s.io/queue-name": "my-queue",
+				"random.label/foo":          "bar",
+				"app.kubernetes.io/name":    "my-app",
+			},
+			expectedDeploymentLabels: map[string]string{
+				"kueue.x-k8s.io/queue-name": "my-queue",
+			},
+			expectedPodLabels: map[string]string{
+				"kueue.x-k8s.io/queue-name": "my-queue",
+			},
+			unexpectedLabels: []string{"random.label/foo", "app.kubernetes.io/name"},
+		},
+		{
+			name: "should not propagate internal kserve annotations",
+			objectMetaAnnotations: map[string]string{
+				"internal.serving.kserve.io/something": "foo",
+				"kueue.x-k8s.io/queue-name":            "my-queue",
+			},
+			expectedDeploymentAnnotations: map[string]string{
+				"kueue.x-k8s.io/queue-name": "my-queue",
+			},
+			expectedPodAnnotations: map[string]string{
+				"kueue.x-k8s.io/queue-name": "my-queue",
 			},
 			unexpectedAnnotations: []string{"internal.serving.kserve.io/something"},
 		},
 		{
-			name:                        "should filter disallowed labels and annotations from ObjectMeta",
-			serviceAnnotationDisallowed: []string{"disallowed.annotation/foo", "kubectl.kubernetes.io/last-applied-configuration"},
-			serviceLabelDisallowed:      []string{"disallowed.label/bar"},
-			objectMetaLabels: map[string]string{
-				"allowed.label/foo":    "bar",
-				"disallowed.label/bar": "baz",
-			},
+			name: "should not propagate kubectl last-applied-configuration",
 			objectMetaAnnotations: map[string]string{
-				"allowed.annotation/foo":                           "bar",
-				"disallowed.annotation/foo":                        "baz",
 				"kubectl.kubernetes.io/last-applied-configuration": "some-json",
-			},
-			expectedDeploymentLabels: map[string]string{
-				"allowed.label/foo": "bar",
+				"k8s.v1.cni.cncf.io/networks":                      "my-network",
 			},
 			expectedDeploymentAnnotations: map[string]string{
-				"allowed.annotation/foo": "bar",
-			},
-			expectedPodLabels: map[string]string{
-				"allowed.label/foo": "bar",
+				"k8s.v1.cni.cncf.io/networks": "my-network",
 			},
 			expectedPodAnnotations: map[string]string{
-				"allowed.annotation/foo": "bar",
+				"k8s.v1.cni.cncf.io/networks": "my-network",
 			},
-			unexpectedLabels:      []string{"disallowed.label/bar"},
-			unexpectedAnnotations: []string{"disallowed.annotation/foo", "kubectl.kubernetes.io/last-applied-configuration"},
+			unexpectedAnnotations: []string{"kubectl.kubernetes.io/last-applied-configuration"},
 		},
 		{
-			name:                        "should always propagate WorkloadSpec labels and annotations (overriding ObjectMeta if conflict)",
-			serviceAnnotationDisallowed: []string{"disallowed.annotation/foo"},
-			serviceLabelDisallowed:      []string{"disallowed.label/bar"},
+			name: "should always propagate WorkloadSpec labels and annotations to Pod template",
 			objectMetaLabels: map[string]string{
-				"allowed.label/foo": "meta-val",
+				"kueue.x-k8s.io/queue-name": "meta-val",
 			},
 			objectMetaAnnotations: map[string]string{
-				"allowed.annotation/foo": "meta-val",
+				"kueue.x-k8s.io/queue-name": "meta-val",
 			},
 			workloadSpecLabels: map[string]string{
-				"allowed.label/foo":    "spec-val",
+				"kueue.x-k8s.io/queue-name": "spec-val",
+				"workload.label/extra":      "extra-val",
+				"any.label/custom":          "custom-val",
+			},
+			workloadSpecAnnotations: map[string]string{
+				"kueue.x-k8s.io/queue-name": "spec-val",
+				"workload.annotation/extra": "extra-val",
+				"any.annotation/custom":     "custom-val",
+			},
+			// Deployment only gets approved-prefix labels/annotations from top-level metadata
+			expectedDeploymentLabels: map[string]string{
+				"kueue.x-k8s.io/queue-name": "meta-val",
+			},
+			expectedDeploymentAnnotations: map[string]string{
+				"kueue.x-k8s.io/queue-name": "meta-val",
+			},
+			// Pod gets WorkloadSpec values (which override top-level metadata) plus all WorkloadSpec entries
+			expectedPodLabels: map[string]string{
+				"kueue.x-k8s.io/queue-name": "spec-val",
+				"workload.label/extra":      "extra-val",
+				"any.label/custom":          "custom-val",
+			},
+			expectedPodAnnotations: map[string]string{
+				"kueue.x-k8s.io/queue-name": "spec-val",
+				"workload.annotation/extra": "extra-val",
+				"any.annotation/custom":     "custom-val",
+			},
+		},
+		{
+			name:             "should propagate nothing when no matching prefixes and no WorkloadSpec",
+			objectMetaLabels: map[string]string{"random.label/foo": "bar"},
+			objectMetaAnnotations: map[string]string{
+				"random.annotation/foo": "bar",
+			},
+			unexpectedLabels:      []string{"random.label/foo"},
+			unexpectedAnnotations: []string{"random.annotation/foo"},
+		},
+		{
+			name: "should propagate only WorkloadSpec entries when no top-level metadata matches approved prefixes",
+			objectMetaLabels: map[string]string{
+				"random.label/foo": "bar",
+			},
+			objectMetaAnnotations: map[string]string{
+				"random.annotation/foo": "bar",
+			},
+			workloadSpecLabels: map[string]string{
 				"workload.label/extra": "extra-val",
 			},
 			workloadSpecAnnotations: map[string]string{
-				"allowed.annotation/foo":    "spec-val",
 				"workload.annotation/extra": "extra-val",
 			},
-			// Deployment retains meta-val because WorkloadSpec is pod-only
-			expectedDeploymentLabels: map[string]string{
-				"allowed.label/foo": "meta-val",
-			},
-			expectedDeploymentAnnotations: map[string]string{
-				"allowed.annotation/foo": "meta-val",
-			},
-			// Pod gets spec-val (override) and extra-val
 			expectedPodLabels: map[string]string{
-				"allowed.label/foo":    "spec-val",
 				"workload.label/extra": "extra-val",
 			},
 			expectedPodAnnotations: map[string]string{
-				"allowed.annotation/foo":    "spec-val",
 				"workload.annotation/extra": "extra-val",
 			},
-		},
-		{
-			name:                        "should allow everything when lists are empty",
-			serviceAnnotationDisallowed: []string{},
-			serviceLabelDisallowed:      []string{},
-			objectMetaLabels: map[string]string{
-				"any.label/foo": "bar",
-			},
-			objectMetaAnnotations: map[string]string{
-				"any.annotation/foo": "bar",
-			},
-			expectedDeploymentLabels: map[string]string{
-				"any.label/foo": "bar",
-			},
-			expectedDeploymentAnnotations: map[string]string{
-				"any.annotation/foo": "bar",
-			},
-			expectedPodLabels: map[string]string{
-				"any.label/foo": "bar",
-			},
-			expectedPodAnnotations: map[string]string{
-				"any.annotation/foo": "bar",
-			},
+			unexpectedLabels:      []string{"random.label/foo"},
+			unexpectedAnnotations: []string{"random.annotation/foo"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &LLMISVCReconciler{}
-			config := &Config{
-				ServiceAnnotationDisallowedList: tt.serviceAnnotationDisallowed,
-				ServiceLabelDisallowedList:      tt.serviceLabelDisallowed,
-			}
 
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -168,7 +189,7 @@ func TestPropagateDeploymentMetadata(t *testing.T) {
 			}
 
 			deployment := &appsv1.Deployment{}
-			r.propagateDeploymentMetadata(llmSvc, deployment, config)
+			r.propagateDeploymentMetadata(llmSvc, deployment)
 
 			// Verify Deployment labels
 			for k, v := range tt.expectedDeploymentLabels {

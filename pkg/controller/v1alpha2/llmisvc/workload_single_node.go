@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"strings"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -161,7 +160,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		}
 	}
 
-	r.propagateDeploymentMetadata(llmSvc, d, config)
+	r.propagateDeploymentMetadata(llmSvc, d)
 
 	log.FromContext(ctx).V(2).Info("Expected main deployment", "deployment", d)
 
@@ -246,20 +245,12 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		}
 	}
 
-	r.propagateDeploymentMetadata(llmSvc, d, config)
+	r.propagateDeploymentMetadata(llmSvc, d)
 
 	// Propagate prefill-specific labels and annotations
-	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Labels != nil {
-		if d.Spec.Template.Labels == nil {
-			d.Spec.Template.Labels = make(map[string]string)
-		}
-		maps.Copy(d.Spec.Template.Labels, llmSvc.Spec.Prefill.Labels)
-	}
-	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Annotations != nil {
-		if d.Spec.Template.Annotations == nil {
-			d.Spec.Template.Annotations = make(map[string]string)
-		}
-		maps.Copy(d.Spec.Template.Annotations, llmSvc.Spec.Prefill.Annotations)
+	if llmSvc.Spec.Prefill != nil {
+		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &d.Spec.Template.Labels)
+		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &d.Spec.Template.Annotations)
 	}
 
 	log.FromContext(ctx).V(2).Info("Expected prefill deployment", "deployment", d)
@@ -267,52 +258,29 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 	return d, nil
 }
 
-func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInferenceService, expected *appsv1.Deployment, config *Config) {
-	// Propagate annotations to the Deployment and its Pod template
-	for key, value := range llmSvc.Annotations {
-		if !utils.Includes(config.ServiceAnnotationDisallowedList, key) && !strings.HasPrefix(key, constants.InferenceServiceInternalAnnotationsPrefix) {
-			if expected.Annotations == nil {
-				expected.Annotations = make(map[string]string)
-			}
-			expected.Annotations[key] = value
-
-			if expected.Spec.Template.Annotations == nil {
-				expected.Spec.Template.Annotations = make(map[string]string)
-			}
-			expected.Spec.Template.Annotations[key] = value
-		}
+func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInferenceService, expected *appsv1.Deployment) {
+	// Define the prefixes to approve for annotations and labels
+	approvedAnnotationPrefixes := []string{
+		"k8s.v1.cni.cncf.io",
+		constants.KueueAPIGroupName,
+	}
+	approvedLabelPrefixes := []string{
+		constants.KueueAPIGroupName,
 	}
 
-	// Propagate labels to the Deployment and its Pod template
-	for key, value := range llmSvc.Labels {
-		if !utils.Includes(config.ServiceLabelDisallowedList, key) {
-			if expected.Labels == nil {
-				expected.Labels = make(map[string]string, 1)
-			}
-			expected.Labels[key] = value
+	// Propagate approved annotations from top-level metadata to the Deployment and its Pod template
+	utils.PropagatePrefixedMap(llmSvc.GetAnnotations(), &expected.Annotations, approvedAnnotationPrefixes...)
+	utils.PropagatePrefixedMap(llmSvc.GetAnnotations(), &expected.Spec.Template.Annotations, approvedAnnotationPrefixes...)
 
-			if expected.Spec.Template.Labels == nil {
-				expected.Spec.Template.Labels = make(map[string]string, 1)
-			}
-			expected.Spec.Template.Labels[key] = value
-		}
-	}
+	// Propagate approved labels from top-level metadata to the Deployment and its Pod template
+	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &expected.Labels, approvedLabelPrefixes...)
+	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &expected.Spec.Template.Labels, approvedLabelPrefixes...)
 
 	// Propagate all labels from WorkloadSpec.Labels to Pod template
-	if llmSvc.Spec.Labels != nil {
-		if expected.Spec.Template.Labels == nil {
-			expected.Spec.Template.Labels = make(map[string]string, len(llmSvc.Spec.Labels))
-		}
-		maps.Copy(expected.Spec.Template.Labels, llmSvc.Spec.Labels)
-	}
+	utils.PropagateMap(llmSvc.Spec.Labels, &expected.Spec.Template.Labels)
 
 	// Propagate all annotations from WorkloadSpec.Annotations to Pod template
-	if llmSvc.Spec.Annotations != nil {
-		if expected.Spec.Template.Annotations == nil {
-			expected.Spec.Template.Annotations = make(map[string]string, len(llmSvc.Spec.Annotations))
-		}
-		maps.Copy(expected.Spec.Template.Annotations, llmSvc.Spec.Annotations)
-	}
+	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Spec.Template.Annotations)
 }
 
 func (r *LLMISVCReconciler) propagateDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
