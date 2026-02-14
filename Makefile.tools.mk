@@ -12,8 +12,8 @@ ENVTEST = $(LOCALBIN)/setup-envtest
 YQ = $(LOCALBIN)/yq
 HELM_DOCS = $(LOCALBIN)/helm-docs
 BLACK_FMT = $(PYTHON_BIN)/black
-FLAKE8_LINT = $(PYTHON_BIN)/flake8
 UV = $(PYTHON_BIN)/uv
+RUFF = $(PYTHON_BIN)/ruff
 
 ## Tool versions are defined in kserve-deps.env (included in main Makefile)
 
@@ -54,11 +54,14 @@ $(PYTHON_VENV): | $(LOCALBIN)
 	python3 -m venv $(PYTHON_VENV)
 	$(PYTHON_BIN)/pip install --upgrade pip
 
-$(BLACK_FMT) $(FLAKE8_LINT): $(PYTHON_VENV)
-	$(PYTHON_BIN)/pip install black==$(BLACK_FMT_VERSION) flake8==$(FLAKE8_LINT_VERSION)
+$(BLACK_FMT): $(PYTHON_VENV)
+	$(PYTHON_BIN)/pip install black==$(BLACK_FMT_VERSION)
 
 $(UV): $(PYTHON_VENV)
 	$(PYTHON_BIN)/pip install uv==$(UV_VERSION)
+
+$(RUFF): $(PYTHON_VENV)
+	$(PYTHON_BIN)/pip install ruff==$(RUFF_VERSION)
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary

@@ -15,7 +15,6 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-          args:
             - |-
 
               if [ "$KSERVE_INFER_ROCE" = "true" ]; then
@@ -104,7 +103,7 @@ spec:
                         fi
                     done
 
-                    # Use deterministic fallback if counts are equal - prefer lower index number  
+                    # Use deterministic fallback if counts are equal - prefer lower index number
                     if [ ${#gid_index_count[@]} -gt 1 ]; then
                         echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                         # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -150,6 +149,7 @@ spec:
                 --data-parallel-rpc-port {{`{{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }}`}} \
                 --data-parallel-start-rank $START_RANK \
                 ${VLLM_ADDITIONAL_ARGS} \
+                $@ \
                 --trust-remote-code"
                 # BackendTLSPolicy is not implemented yet so disable SSL for now
                 # --enable-ssl-refresh \
@@ -157,6 +157,8 @@ spec:
                 # /etc/ssl/certs/tls.crt \
                 # --ssl-keyfile \
                 # /etc/ssl/certs/tls.key"
+            # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve
+            - "--"
           env:
             - name: HOME
               value: /home
@@ -231,7 +233,6 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-          args:
             - |-
 
               if [ "$KSERVE_INFER_ROCE" = "true" ]; then
@@ -320,7 +321,7 @@ spec:
                         fi
                     done
 
-                    # Use deterministic fallback if counts are equal - prefer lower index number  
+                    # Use deterministic fallback if counts are equal - prefer lower index number
                     if [ ${#gid_index_count[@]} -gt 1 ]; then
                         echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                         # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -365,14 +366,17 @@ spec:
                 --data-parallel-rpc-port {{`{{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }}`}} \
                 --data-parallel-start-rank $START_RANK \
                 ${VLLM_ADDITIONAL_ARGS} \
+                $@ \
                 --trust-remote-code \
-                --headless"                
+                --headless"
                 # BackendTLSPolicy is not implemented yet so disable SSL for now
                 # --enable-ssl-refresh \
                 # --ssl-certfile \
                 # /etc/ssl/certs/tls.crt \
                 # --ssl-keyfile \
                 # /etc/ssl/certs/tls.key"
+            # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve
+            - "--"
           env:
             - name: HOME
               value: /home
