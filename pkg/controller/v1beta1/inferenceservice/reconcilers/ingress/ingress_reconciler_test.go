@@ -2199,3 +2199,46 @@ func TestNewIngressReconciler(t *testing.T) {
 	g.Expect(reconciler.isvcConfig).To(gomega.Equal(isvcConfig))
 	g.Expect(reconciler.isVirtualServiceAvailable).To(gomega.BeFalse())
 }
+
+func TestIngressReconciler_Reconcile_SkipVirtualService(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	// Prepare scheme with KServe and Istio types so we can assert absence
+	scheme := runtime.NewScheme()
+	_ = v1beta1.AddToScheme(scheme)
+	_ = istioclientv1beta1.AddToScheme(scheme)
+
+	// Fake clients
+	client := fake.NewClientBuilder().WithScheme(scheme).Build()
+	clientset := kubernetesfake.NewSimpleClientset()
+
+	// Configs
+	ingressConfig := &v1beta1.IngressConfig{
+		IngressGateway:             constants.KnativeIngressGateway,
+		KnativeLocalGatewayService: "knative-local-gateway.istio-system.svc.cluster.local",
+		LocalGateway:               constants.KnativeLocalGateway,
+		DisableIstioVirtualHost:    false,
+	}
+	isvcConfig := &v1beta1.InferenceServicesConfig{}
+
+	// InferenceService with predictor URL (would normally create VirtualService)
+	isvc := &v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "skip-vs", Namespace: "default"},
+		Status: v1beta1.InferenceServiceStatus{
+			Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+				v1beta1.PredictorComponent: {
+					URL: &apis.URL{Scheme: "http", Host: constants.InferenceServiceHostName(constants.PredictorServiceName("skip-vs"), "default", "example.com")},
+				},
+			},
+		},
+	}
+
+	reconciler := NewIngressReconciler(client, clientset, scheme, ingressConfig, isvcConfig, false)
+	res, err := reconciler.Reconcile(context.TODO(), isvc)
+	g.Expect(err).To(gomega.BeNil())
+	g.Expect(res).To(gomega.Equal(ctrl.Result{}))
+
+	// Ensure no VirtualService was created
+	existingVS := &istioclientv1beta1.VirtualService{}
+	err = client.Get(context.TODO(), types.NamespacedName{Name: "skip-vs", Namespace: "default"}, existingVS)
+	g.Expect(apierr.IsNotFound(err)).To(gomega.BeTrue())
+}
