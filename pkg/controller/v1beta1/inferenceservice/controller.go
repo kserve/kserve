@@ -322,14 +322,23 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Reconcile ingress using factory
 	factory := reconcilers.NewReconcilerFactory()
 
+	// Notify user when the Istio VirtualService CRD is not present but
+	// Istio virtual host is expected (disableIstioVirtualHost == false).
+	// This makes the skip visible instead of silent.
+	if !r.VirtualServiceAvailable && !ingressConfig.DisableIstioVirtualHost {
+		r.Recorder.Event(isvc, corev1.EventTypeWarning, "VirtualServiceCRDNotFound",
+			"Istio VirtualService CRD not present; VirtualService reconciliation skipped. If you do not use Istio, set ingress.disableIstioVirtualHost=true.")
+	}
+
 	ingressReconciler, err := factory.CreateIngressReconciler(
 		deploymentMode,
 		reconcilers.IngressReconcilerParams{
-			Client:        r.Client,
-			Clientset:     r.Clientset,
-			Scheme:        r.Scheme,
-			IngressConfig: ingressConfig,
-			IsvcConfig:    isvcConfig,
+			Client:                    r.Client,
+			Clientset:                 r.Clientset,
+			Scheme:                    r.Scheme,
+			IngressConfig:             ingressConfig,
+			IsvcConfig:                isvcConfig,
+			IsVirtualServiceAvailable: r.VirtualServiceAvailable,
 		},
 	)
 	if err != nil {
