@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -31,6 +32,38 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 )
+
+// predicateWithCacheSelector wraps the pod init-containers predicate with the same
+// cache logic as the real llmisvc controller (cmd/llmisvc main.go): only pods
+// matching ChildResourcesLabelSelector are in the cache, and the mapper only
+// enqueues when the pod has a non-empty name label. Using this in tests
+// exercises the combined "cache + predicate" behavior so filtering by labels
+// is tested as part of the same pipeline as the real controller.
+func predicateWithCacheSelector() predicate.Funcs {
+	sel, err := metav1.LabelSelectorAsSelector(&llmisvc.ChildResourcesLabelSelector)
+	if err != nil {
+		panic(err)
+	}
+	inner := llmisvc.PodInitContainersPredicate()
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			newPod, ok := e.ObjectNew.(*corev1.Pod)
+			if !ok || newPod == nil {
+				return false
+			}
+			if !sel.Matches(labels.Set(newPod.Labels)) {
+				return false
+			}
+			if newPod.Labels[constants.LLMInferenceServicePodNameLabelKey] == "" {
+				return false
+			}
+			return inner.Update(e)
+		},
+		CreateFunc:  inner.Create,
+		DeleteFunc:  inner.Delete,
+		GenericFunc: inner.Generic,
+	}
+}
 
 var _ = Describe("Pod InitContainers Watch", func() {
 	// Test the mapper function that maps pods to LLMInferenceService reconcile requests
@@ -88,39 +121,6 @@ var _ = Describe("Pod InitContainers Watch", func() {
 		})
 
 		Context("when pod does not have the LLMInferenceService labels", func() {
-			It("should return nil for pods without the part-of label", func() {
-				pod := &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-pod",
-						Namespace: "default",
-						Labels: map[string]string{
-							constants.LLMInferenceServicePodNameLabelKey: "my-llmisvc",
-						},
-					},
-				}
-
-				requests := reconciler.PodInitContainersFunc(context.Background(), pod)
-
-				Expect(requests).To(BeNil())
-			})
-
-			It("should return nil for pods with wrong part-of label", func() {
-				pod := &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-pod",
-						Namespace: "default",
-						Labels: map[string]string{
-							constants.LLMInferenceServicePartOfLabelKey:  "other-service",
-							constants.LLMInferenceServicePodNameLabelKey: "my-llmisvc",
-						},
-					},
-				}
-
-				requests := reconciler.PodInitContainersFunc(context.Background(), pod)
-
-				Expect(requests).To(BeNil())
-			})
-
 			It("should return nil for pods with empty name label value", func() {
 				pod := &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
@@ -174,12 +174,13 @@ var _ = Describe("Pod InitContainers Watch", func() {
 		})
 	})
 
-	// Test the predicate that filters pod updates
+	// Test the predicate that filters pod updates. Uses predicateWithCacheSelector
+	// so the test controller has the same cache logic as the real llmisvc controller.
 	Describe("PodInitContainersPredicate", func() {
 		var pred predicate.Funcs
 
 		BeforeEach(func() {
-			pred = llmisvc.PodInitContainersPredicate()
+			pred = predicateWithCacheSelector()
 		})
 
 		Describe("UpdateFunc", func() {
