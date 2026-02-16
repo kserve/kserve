@@ -94,7 +94,7 @@ func (r *LLMISVCReconciler) expectedSelfSignedCertsSecret(llmSvc *v1alpha2.LLMIn
 			Labels: map[string]string{
 				constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentWorkload,
 				constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-				constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+				constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 			},
 			Annotations: map[string]string{
 				certificatesExpirationAnnotation: time.Now().

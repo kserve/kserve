@@ -101,7 +101,7 @@ func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc
 			Labels: map[string]string{
 				constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentWorkload,
 				constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-				constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+				constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -142,9 +142,9 @@ func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc
 
 func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceServiceSpec) map[string]string {
 	s := map[string]string{
-		constants.LLMInferenceServicePartOfLabelKey: constants.LLMInferenceServicePartOfValue,
+		constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
 		constants.LLMInferenceServicePodNameLabelKey: meta.GetName(),
-		"kserve.io/component":       "workload",
+		"kserve.io/component":                        "workload",
 	}
 
 	// TODO https://github.com/llm-d/llm-d-inference-scheduler/issues/220 and DP template

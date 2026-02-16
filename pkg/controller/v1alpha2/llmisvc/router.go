@@ -333,7 +333,7 @@ func RouterLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 	return map[string]string{
 		constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentRouter,
 		constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-		constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+		constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
 }
 

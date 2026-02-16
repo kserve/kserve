@@ -591,6 +591,6 @@ func SchedulerLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 	return map[string]string{
 		constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentRouterScheduler,
 		constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-		constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+		constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
 }

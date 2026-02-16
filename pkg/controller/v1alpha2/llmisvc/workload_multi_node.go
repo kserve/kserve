@@ -130,7 +130,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 	workerLabels := map[string]string{
 		constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentWorkloadWorker,
 		constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-		constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+		constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
 	if llmSvc.Spec.Template == nil {
 		// When there is no leader template, workers become part of the InferencePool selector.
@@ -144,9 +144,9 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 	leaderLabels := map[string]string{
 		constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentWorkloadLeader,
 		constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-		constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-		"kserve.io/component":                           "workload",
-		"llm-d.ai/role":                                 role,
+		constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		"kserve.io/component":                          "workload",
+		"llm-d.ai/role":                                role,
 	}
 
 	expected := &lwsapi.LeaderWorkerSet{
@@ -243,7 +243,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 	workerLabels := map[string]string{
 		constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentWorkloadWorkerPrefill,
 		constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-		constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+		constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template == nil {
 		// When there is no leader template, workers become part of the InferencePool selector.
@@ -253,9 +253,9 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 	leaderLabels := map[string]string{
 		constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentWorkloadLeaderPrefill,
 		constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-		constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-		"kserve.io/component":                           "workload",
-		"llm-d.ai/role":                                 "prefill",
+		constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		"kserve.io/component":                          "workload",
+		"llm-d.ai/role":                                "prefill",
 	}
 
 	expected := &lwsapi.LeaderWorkerSet{

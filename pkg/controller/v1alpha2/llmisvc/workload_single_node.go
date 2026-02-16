@@ -175,9 +175,9 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 	labels := map[string]string{
 		constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentWorkloadPrefill,
 		constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-		constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-		"kserve.io/component":         "workload",
-		"llm-d.ai/role":               "prefill",
+		constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		"kserve.io/component":                          "workload",
+		"llm-d.ai/role":                                "prefill",
 	}
 
 	d := &appsv1.Deployment{
@@ -418,6 +418,6 @@ func (r *LLMISVCReconciler) singleNodeLabels(llmSvc *v1alpha2.LLMInferenceServic
 	return map[string]string{
 		constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentWorkload,
 		constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-		constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+		constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
 }

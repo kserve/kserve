@@ -386,12 +386,12 @@ const (
 
 // LLMInferenceService label constants (Kubernetes recommended labels: app.kubernetes.io/*)
 const (
-	LLMInferenceServicePodNameLabelKey    = "app.kubernetes.io/name"
-	LLMInferenceServicePartOfLabelKey     = "app.kubernetes.io/part-of"
+	LLMInferenceServicePodNameLabelKey   = "app.kubernetes.io/name"
+	LLMInferenceServicePartOfLabelKey    = "app.kubernetes.io/part-of"
 	LLMInferenceServicePartOfValue       = "llminferenceservice"
 	LLMInferenceServiceComponentLabelKey = "app.kubernetes.io/component"
 	// LLMInferenceService component label values
-	LLMComponentRouter               = "llminferenceservice-router"
+	LLMComponentRouter                = "llminferenceservice-router"
 	LLMComponentRouterScheduler       = "llminferenceservice-router-scheduler"
 	LLMComponentWorkload              = "llminferenceservice-workload"
 	LLMComponentWorkloadPrefill       = "llminferenceservice-workload-prefill"
