@@ -133,8 +133,8 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			Expect(envTest.Client.Create(ctx, llmSvc)).To(Succeed())
 		})
 
-		It("should reject LLMInferenceService with managed route spec with gateway ref and user-defined gateway refs", func(ctx SpecContext) {
-			// given
+		It("should accept but warn when managed route spec has consistent parentRefs with gateway refs", func(ctx SpecContext) {
+			// given - parentRefs match gateway.refs, so it's redundant but valid
 			llmSvc := fixture.LLMInferenceService("test-spec-with-gateway-refs",
 				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
 				fixture.WithModelURI("hf://facebook/opt-125m"),
@@ -149,12 +149,31 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 				).Spec),
 			)
 
+			// then - should be accepted (redundant but consistent)
+			Expect(envTest.Client.Create(ctx, llmSvc)).To(Succeed())
+		})
+
+		It("should reject LLMInferenceService with conflicting parentRefs and gateway refs", func(ctx SpecContext) {
+			// given - parentRefs point to a different gateway than gateway.refs
+			llmSvc := fixture.LLMInferenceService("test-conflicting-refs",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithGatewayRefs(fixture.LLMGatewayRef("test-gateway", nsName)),
+				fixture.WithHTTPRouteSpec(&fixture.HTTPRoute("test-route",
+					fixture.WithParentRef(fixture.GatewayParentRef("different-gateway", nsName)),
+					fixture.WithHTTPRule(
+						fixture.Matches(fixture.PathPrefixMatch("/test")),
+						fixture.WithBackendRefs(fixture.ServiceRef("custom-backend", 8080, 1)),
+					),
+				).Spec),
+			)
+
 			// when
 			errValidation := envTest.Client.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
-			Expect(errValidation.Error()).To(ContainSubstring("unsupported configuration"))
+			Expect(errValidation.Error()).To(ContainSubstring("conflict"))
 		})
 	})
 
