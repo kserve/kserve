@@ -30,6 +30,7 @@ dependencies = [
     "pyyaml<7.0.0,>=6.0.0",
     "urllib3>=2.6.0", # CVE-2025-66418 https://github.com/urllib3/urllib3/security/advisories/GHSA-gm62-xv2j-4w53
     "aiohttp>=3.13.3", # CVE-2025-69223 AIOHTTP's HTTP Parser auto_decompress feature is vulnerable to zip bomb
+    "h11>=0.16.0", # CVE-2025-43859 h11 accepts some malformed Chunked-Encoding bodies
 ]
 name = "kserve"
 version = "0.16.0"
