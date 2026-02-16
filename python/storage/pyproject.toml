@@ -14,6 +14,7 @@ dependencies = [
     "azure-identity<2.0.0,>=1.15.0",
     "boto3<2.0.0,>=1.29.0",
     "huggingface-hub[hf-transfer]>=0.32.0",
+    "dulwich>=0.21.0",
 ]
 name = "kserve-storage"
 version = "0.16.0"

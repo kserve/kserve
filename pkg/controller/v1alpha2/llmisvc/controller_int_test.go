@@ -437,10 +437,17 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 				Expect(expectedHTTPRoute).To(BeControlledBy(llmSvc))
 				Expect(expectedHTTPRoute).To(HaveGatewayRefs(gwapiv1.ParentReference{Name: "kserve-ingress-gateway"}))
-				Expect(expectedHTTPRoute).To(HaveBackendRefs(BackendRefInferencePool(svcName + "-inference-pool")))
 				Expect(expectedHTTPRoute).To(Not(HaveBackendRefs(BackendRefService(svcName + "-kserve-workload-svc"))))
 
 				ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
+
+				// HTTPRoute uses v1alpha2 backendRef when both CRDs are available
+				Eventually(func(g Gomega, ctx context.Context) {
+					routes, errList := managedRoutes(ctx, llmSvc)
+					g.Expect(errList).ToNot(HaveOccurred())
+					g.Expect(routes).To(HaveLen(1))
+					g.Expect(&routes[0]).To(HaveBackendRefs(BackendRefInferencePoolV1Alpha2(svcName + "-inference-pool")))
+				}).WithContext(ctx).Should(Succeed())
 
 				Eventually(func(g Gomega, ctx context.Context) error {
 					ip := igwapi.InferencePool{}
