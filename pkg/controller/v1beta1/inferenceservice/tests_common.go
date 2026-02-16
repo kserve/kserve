@@ -147,6 +147,18 @@ func getExectedService(predictorServiceKey types.NamespacedName, serviceName str
 }
 
 func getExpectedIsvcStatus(serviceKey types.NamespacedName) v1beta1.InferenceServiceStatus {
+	return getExpectedIsvcStatusWithPort(serviceKey, "")
+}
+
+// getExpectedIsvcStatusWithPort returns the expected status with an optional port suffix for the address host.
+// Use this when testing headless services where the port must be included in the address URL.
+func getExpectedIsvcStatusWithPort(serviceKey types.NamespacedName, port string) v1beta1.InferenceServiceStatus {
+	addressHost := fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace)
+	if port != "" {
+		addressHost = addressHost + ":" + port
+	}
+	urlHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, domain)
+	predictorURLHost := fmt.Sprintf("%s-predictor-%s.%s", serviceKey.Name, serviceKey.Namespace, domain)
 	return v1beta1.InferenceServiceStatus{
 		Status: duckv1.Status{
 			Conditions: duckv1.Conditions{
@@ -171,12 +183,12 @@ func getExpectedIsvcStatus(serviceKey types.NamespacedName) v1beta1.InferenceSer
 		},
 		URL: &apis.URL{
 			Scheme: "http",
-			Host:   "raw-foo-default.example.com",
+			Host:   urlHost,
 		},
 		Address: &duckv1.Addressable{
 			URL: &apis.URL{
 				Scheme: "http",
-				Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
+				Host:   addressHost,
 			},
 		},
 		Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
@@ -184,7 +196,7 @@ func getExpectedIsvcStatus(serviceKey types.NamespacedName) v1beta1.InferenceSer
 				LatestCreatedRevision: "",
 				URL: &apis.URL{
 					Scheme: "http",
-					Host:   "raw-foo-predictor-default.example.com",
+					Host:   predictorURLHost,
 				},
 			},
 		},
