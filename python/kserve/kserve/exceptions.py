@@ -24,7 +24,6 @@
 """
 
 
-import six
 
 
 class OpenApiException(Exception):
@@ -127,7 +126,7 @@ def render_path(path_to_item):
     """Returns a string representation of a path"""
     result = ""
     for pth in path_to_item:
-        if isinstance(pth, six.integer_types):
+        if isinstance(pth, (int,)):
             result += "[{0}]".format(pth)
         else:
             result += "['{0}']".format(pth)

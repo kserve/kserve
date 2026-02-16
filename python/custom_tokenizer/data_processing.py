@@ -17,7 +17,6 @@
 import tokenization
 import collections
 import numpy as np
-import six
 import math
 
 
@@ -251,7 +250,7 @@ def get_final_text(pred_text, orig_text, do_lower_case):
     # We then project the characters in `pred_text` back to `orig_text` using
     # the character-to-character alignment.
     tok_s_to_ns_map = {}
-    for i, tok_index in six.iteritems(tok_ns_to_s_map):
+    for i, tok_index in tok_ns_to_s_map.items():
         tok_s_to_ns_map[tok_index] = i
 
     orig_start_position = None
