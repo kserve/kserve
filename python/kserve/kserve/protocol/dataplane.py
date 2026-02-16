@@ -354,7 +354,7 @@ class DataPlane:
                 and headers["content-type"] not in JSON_HEADERS
             ):
                 return body, attributes
-        if type(body) is bytes:
+        if isinstance(body, bytes):
             try:
                 body = orjson.loads(body)
             except orjson.JSONDecodeError as e:

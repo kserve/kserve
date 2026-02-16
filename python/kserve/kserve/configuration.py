@@ -27,12 +27,11 @@
 from __future__ import absolute_import
 
 import copy
+import http.client as httplib
 import logging
 import multiprocessing
 import sys
 import urllib3
-
-from six.moves import http_client as httplib
 
 
 class Configuration(object):

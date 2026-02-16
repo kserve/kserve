@@ -33,10 +33,7 @@ from multiprocessing.pool import ThreadPool
 import os
 import re
 import tempfile
-
-# python 2 and python 3 compatibility library
-import six
-from six.moves.urllib.parse import quote
+from urllib.parse import quote
 
 from kserve.configuration import Configuration
 import kserve.models
@@ -69,7 +66,7 @@ class ApiClient(object):
     PRIMITIVE_TYPES = (float, bool, bytes, str) + (int,)
     NATIVE_TYPES_MAPPING = {
         'int': int,
-        'long': int if six.PY3 else long,  # noqa: F821
+        'long': int,
         'float': float,
         'str': str,
         'bool': bool,
@@ -198,7 +195,8 @@ class ApiClient(object):
                 _preload_content=_preload_content,
                 _request_timeout=_request_timeout)
         except ApiException as e:
-            e.body = e.body.decode('utf-8') if six.PY3 else e.body
+            if isinstance(e.body, bytes):
+                e.body = e.body.decode('utf-8')
             raise e
 
         content_type = response_data.getheader('content-type')
@@ -210,7 +208,7 @@ class ApiClient(object):
         if not _preload_content:
             return return_data
 
-        if six.PY3 and response_type not in ["file", "bytes"]:
+        if response_type not in ["file", "bytes"]:
             match = None
             if content_type is not None:
                 match = re.search(r"charset=([a-zA-Z\-\d]+)[\s\;]?", content_type)
