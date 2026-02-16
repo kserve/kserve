@@ -219,10 +219,10 @@ func TestPresetFiles(t *testing.T) {
 												Scheme: corev1.URISchemeHTTP,
 											},
 										},
-										InitialDelaySeconds: 0,
-										TimeoutSeconds:      10,
-										PeriodSeconds:       10,
-										FailureThreshold:    3,
+
+										TimeoutSeconds:   10,
+										PeriodSeconds:    10,
+										FailureThreshold: 3,
 									},
 									ReadinessProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -232,10 +232,10 @@ func TestPresetFiles(t *testing.T) {
 												Scheme: corev1.URISchemeHTTP,
 											},
 										},
-										InitialDelaySeconds: 0,
-										TimeoutSeconds:      5,
-										PeriodSeconds:       30,
-										FailureThreshold:    60,
+
+										TimeoutSeconds:   5,
+										PeriodSeconds:    30,
+										FailureThreshold: 60,
 									},
 									StartupProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -465,10 +465,10 @@ func TestPresetFiles(t *testing.T) {
 												Scheme: corev1.URISchemeHTTP,
 											},
 										},
-										InitialDelaySeconds: 0,
-										TimeoutSeconds:      10,
-										PeriodSeconds:       10,
-										FailureThreshold:    3,
+
+										TimeoutSeconds:   10,
+										PeriodSeconds:    10,
+										FailureThreshold: 3,
 									},
 									ReadinessProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -478,10 +478,10 @@ func TestPresetFiles(t *testing.T) {
 												Scheme: corev1.URISchemeHTTP,
 											},
 										},
-										InitialDelaySeconds: 0,
-										TimeoutSeconds:      5,
-										PeriodSeconds:       10,
-										FailureThreshold:    60,
+
+										TimeoutSeconds:   5,
+										PeriodSeconds:    10,
+										FailureThreshold: 60,
 									},
 									StartupProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
