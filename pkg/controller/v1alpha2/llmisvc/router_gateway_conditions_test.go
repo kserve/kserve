@@ -486,6 +486,128 @@ func TestHTTPRouteConditionsEvaluation(t *testing.T) {
 	}
 }
 
+func TestIsHTTPRouteReady(t *testing.T) {
+	tests := []struct {
+		name     string
+		route    *gwapiv1.HTTPRoute
+		expected bool
+	}{
+		{
+			name:     "nil route",
+			route:    nil,
+			expected: false,
+		},
+		{
+			name: "no parent refs",
+			route: HTTPRoute("empty-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+			),
+			expected: false,
+		},
+		{
+			name: "single parent ref - ready",
+			route: HTTPRoute("ready-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRefs(GatewayParentRef("gw", "test-ns")),
+				WithHTTPRouteReadyStatus("controller"),
+			),
+			expected: true,
+		},
+		{
+			name: "single parent ref with multiple controllers - ready",
+			route: HTTPRoute("multi-ctrl-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRefs(GatewayParentRef("gw", "test-ns")),
+				WithHTTPRouteMultipleControllerStatus(
+					GatewayParentRef("gw", "test-ns"),
+					KuadrantControllerStatus,
+					GatewayAPIControllerStatus,
+				),
+			),
+			expected: true,
+		},
+		{
+			name: "multiple parent refs - all have status - ready",
+			route: HTTPRoute("multi-parent-ready",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRefs(
+					GatewayParentRef("gw-a", "test-ns"),
+					GatewayParentRef("gw-b", "test-ns"),
+				),
+				WithHTTPRouteParentStatus(
+					GatewayParentRef("gw-a", "test-ns"), "controller",
+					metav1.Condition{Type: string(gwapiv1.RouteConditionAccepted), Status: metav1.ConditionTrue, Reason: "Accepted", LastTransitionTime: metav1.Now()},
+					metav1.Condition{Type: string(gwapiv1.RouteConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: "ResolvedRefs", LastTransitionTime: metav1.Now()},
+				),
+				WithHTTPRouteParentStatus(
+					GatewayParentRef("gw-b", "test-ns"), "controller",
+					metav1.Condition{Type: string(gwapiv1.RouteConditionAccepted), Status: metav1.ConditionTrue, Reason: "Accepted", LastTransitionTime: metav1.Now()},
+					metav1.Condition{Type: string(gwapiv1.RouteConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: "ResolvedRefs", LastTransitionTime: metav1.Now()},
+				),
+			),
+			expected: true,
+		},
+		{
+			name: "single parent ref with Accepted=False - not ready",
+			route: HTTPRoute("rejected-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRefs(GatewayParentRef("gw", "test-ns")),
+				WithHTTPRouteParentStatus(
+					GatewayParentRef("gw", "test-ns"), "controller",
+					metav1.Condition{Type: string(gwapiv1.RouteConditionAccepted), Status: metav1.ConditionFalse, Reason: "NotAllowed", LastTransitionTime: metav1.Now()},
+				),
+			),
+			expected: false,
+		},
+		{
+			name: "multiple parent refs - one has no status entry - not ready",
+			route: HTTPRoute("multi-parent-partial",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRefs(
+					GatewayParentRef("gw-a", "test-ns"),
+					GatewayParentRef("gw-b", "test-ns"),
+				),
+				// Only gw-a has a status entry; gw-b has none
+				WithHTTPRouteParentStatus(
+					GatewayParentRef("gw-a", "test-ns"), "controller",
+					metav1.Condition{Type: string(gwapiv1.RouteConditionAccepted), Status: metav1.ConditionTrue, Reason: "Accepted", LastTransitionTime: metav1.Now()},
+					metav1.Condition{Type: string(gwapiv1.RouteConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: "ResolvedRefs", LastTransitionTime: metav1.Now()},
+				),
+			),
+			expected: false,
+		},
+		{
+			name: "multiple parent refs - one has only policy controller status - not ready",
+			route: HTTPRoute("multi-parent-policy-only",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRefs(
+					GatewayParentRef("gw-a", "test-ns"),
+					GatewayParentRef("gw-b", "test-ns"),
+				),
+				// gw-a: gateway controller ready
+				WithHTTPRouteParentStatus(
+					GatewayParentRef("gw-a", "test-ns"), "controller",
+					metav1.Condition{Type: string(gwapiv1.RouteConditionAccepted), Status: metav1.ConditionTrue, Reason: "Accepted", LastTransitionTime: metav1.Now()},
+					metav1.Condition{Type: string(gwapiv1.RouteConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: "ResolvedRefs", LastTransitionTime: metav1.Now()},
+				),
+				// gw-b: only a policy controller entry, no gateway controller status
+				WithHTTPRouteMultipleControllerStatus(
+					GatewayParentRef("gw-b", "test-ns"),
+					KuadrantControllerStatus,
+				),
+			),
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			g.Expect(llmisvc.IsHTTPRouteReady(tt.route)).To(Equal(tt.expected))
+		})
+	}
+}
+
 func TestFetchReferencedGateways(t *testing.T) {
 	tests := []struct {
 		name          string
