@@ -23,19 +23,18 @@ import (
 	"slices"
 	"sort"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/util/retry"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/kmeta"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
@@ -148,7 +147,10 @@ func (r *LLMISVCReconciler) reconcileSchedulerServiceAccount(ctx context.Context
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	scheduler := r.expectedSchedulerDeployment(ctx, llmSvc)
+	scheduler, err := r.expectedSchedulerDeployment(ctx, llmSvc)
+	if err != nil {
+		return fmt.Errorf("failed to build expected scheduler deployment: %w", err)
+	}
 	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		if isStopped {
 			llmSvc.MarkSchedulerWorkloadNotReady("Stopped", "Service is stopped")
@@ -334,7 +336,7 @@ func (r *LLMISVCReconciler) expectedSchedulerInferencePoolV1Alpha2(ctx context.C
 	return ip
 }
 
-func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *appsv1.Deployment {
+func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*appsv1.Deployment, error) {
 	labels := SchedulerLabels(llmSvc)
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -361,9 +363,18 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
+					Annotations: map[string]string{
+						certificatesExpirationAnnotationV2: "true",
+					},
 				},
 			},
 		},
+	}
+
+	// Fetch the current deployment to preserve scheduler config across upgrades.
+	curr := &appsv1.Deployment{}
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 	}
 
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
@@ -382,15 +393,9 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 				)
 			}
 
-			if !slices.Contains(d.Spec.Template.Spec.Containers[i].Args, "--config-text") &&
-				!slices.Contains(d.Spec.Template.Spec.Containers[i].Args, "-config-text") &&
-				!slices.Contains(d.Spec.Template.Spec.Containers[i].Args, "--config-file") &&
-				!slices.Contains(d.Spec.Template.Spec.Containers[i].Args, "-config-file") {
-				d.Spec.Template.Spec.Containers[i].Args = append(d.Spec.Template.Spec.Containers[i].Args,
-					"--config-text",
-					schedulerConfigText(llmSvc),
-				)
-			}
+			d.Spec.Template.Spec.Containers[i].Args = append(d.Spec.Template.Spec.Containers[i].Args,
+				preserveSchedulerConfig(llmSvc, curr)...,
+			)
 		}
 	}
 
@@ -398,7 +403,7 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 
 	log.FromContext(ctx).V(2).Info("Expected router scheduler deployment", "deployment", d)
 
-	return d
+	return d, nil
 }
 
 func (r *LLMISVCReconciler) propagateSchedulerMetadata(llmSvc *v1alpha2.LLMInferenceService, expected *appsv1.Deployment) {
@@ -473,6 +478,29 @@ schedulingProfiles:
 	}
 }
 
+// preserveSchedulerConfig returns the config args for the scheduler container.
+// If a current deployment exists and already has a config arg (--config-text or
+// --config-file), it preserves that value to avoid unnecessary restarts during
+// operator upgrades. Otherwise, it generates a fresh config from the
+// LLMInferenceService spec.
+func preserveSchedulerConfig(llmSvc *v1alpha2.LLMInferenceService, curr *appsv1.Deployment) []string {
+	configFlags := []string{"--config-text", "-config-text", "--config-file", "-config-file"}
+
+	for _, container := range curr.Spec.Template.Spec.Containers {
+		if container.Name != "main" {
+			continue
+		}
+		for i, arg := range container.Args {
+			if slices.Contains(configFlags, arg) && i+1 < len(container.Args) {
+				return []string{arg, container.Args[i+1]}
+			}
+		}
+	}
+
+	// No existing config found, generate a fresh one
+	return []string{"--config-text", schedulerConfigText(llmSvc)}
+}
+
 func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, bool, error) {
 	useExistingServiceAccount := false
 	expectedServiceAccountName := kmeta.ChildName(llmSvc.GetName(), "-epp-sa")
@@ -539,7 +567,7 @@ func (r *LLMISVCReconciler) expectedSchedulerRole(llmSvc *v1alpha2.LLMInferenceS
 		},
 		Rules: []rbacv1.PolicyRule{
 			{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list", "watch"}},
-			{APIGroups: []string{"inference.networking.k8s.io", "inference.networking.x-k8s.io"}, Resources: []string{"inferencepools", "inferenceobjectives"}, Verbs: []string{"get", "list", "watch"}},
+			{APIGroups: []string{"inference.networking.k8s.io", "inference.networking.x-k8s.io"}, Resources: []string{"inferencepools", "inferenceobjectives", "inferencemodels"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"discovery.k8s.io"}, Resources: []string{"endpointslices"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"coordination.k8s.io"}, Resources: []string{"leases"}, Verbs: []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
 		},

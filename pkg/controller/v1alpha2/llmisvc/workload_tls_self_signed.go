@@ -53,6 +53,11 @@ const (
 
 	// Annotation to track certificate expiration
 	certificatesExpirationAnnotation = "certificates.kserve.io/expiration"
+
+	// Annotation used on scheduler pod templates to trigger a restart when certificates
+	// are renewed. Uses a distinct key from certificatesExpirationAnnotation (which stores
+	// RFC3339 timestamps on Secrets) to avoid semantic collision.
+	certificatesExpirationAnnotationV2 = "certificates.kserve.io/expiration-v2"
 )
 
 // reconcileSelfSignedCertsSecret reconciles the secret containing self-signed certs used by the server to serve TLS.
