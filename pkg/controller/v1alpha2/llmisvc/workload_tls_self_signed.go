@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -91,9 +92,9 @@ func (r *LLMISVCReconciler) expectedSelfSignedCertsSecret(llmSvc *v1alpha2.LLMIn
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-self-signed-certs"),
 			Namespace: llmSvc.GetNamespace(),
 			Labels: map[string]string{
-				"app.kubernetes.io/component": "llminferenceservice-workload",
-				"app.kubernetes.io/name":      llmSvc.GetName(),
-				"app.kubernetes.io/part-of":   "llminferenceservice",
+				constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload,
+				constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+				constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 			},
 			Annotations: map[string]string{
 				certificatesExpirationAnnotation: time.Now().

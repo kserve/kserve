@@ -25,6 +25,8 @@ import (
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
@@ -36,14 +38,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -57,13 +58,17 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
+// ChildResourcesLabelSelector matches resources belonging to LLMInferenceService.
+// Used by the controller predicate below and by the manager cache (cmd/llmisvc/main.go).
+var ChildResourcesLabelSelector = metav1.LabelSelector{
+	MatchLabels: map[string]string{
+		constants.KubernetesPartOfLabelKey: constants.LLMInferenceServicePartOfValue,
+	},
+}
+
 // childResourcesPredicate filters events to only those from resources owned by LLMInferenceService
 // This prevents unnecessary reconciliation triggers from unrelated resources
-var childResourcesPredicate, _ = predicate.LabelSelectorPredicate(metav1.LabelSelector{
-	MatchLabels: map[string]string{
-		"app.kubernetes.io/part-of": "llminferenceservice",
-	},
-})
+var childResourcesPredicate, _ = predicate.LabelSelectorPredicate(ChildResourcesLabelSelector)
 
 // LLMISVCReconciler reconciles an LLMInferenceService object.
 // It orchestrates the reconciliation of child resources based on the spec.
@@ -258,7 +263,10 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Secret{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Service{}, builder.WithPredicates(childResourcesPredicate)).
-		Watches(&corev1.ConfigMap{}, r.enqueueOnConfigMapChange(logger))
+		Watches(&corev1.ConfigMap{}, r.enqueueOnConfigMapChange(logger)).
+		Watches(&corev1.Pod{},
+			handler.EnqueueRequestsFromMapFunc(r.PodInitContainersFunc),
+			builder.WithPredicates(PodInitContainersPredicate()))
 
 	if err := gwapiv1.Install(mgr.GetScheme()); err != nil {
 		return fmt.Errorf("failed to add GIE APIs to scheme: %w", err)
@@ -539,4 +547,45 @@ func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler
 
 		return reqs
 	})
+}
+
+// PodInitContainersFunc maps pod events to LLMInferenceService reconcile requests.
+// It extracts the owning LLMInferenceService name from pod labels.
+func (r *LLMISVCReconciler) PodInitContainersFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	pod, ok := obj.(*corev1.Pod)
+	if !ok || pod == nil {
+		return nil
+	}
+	// Cache is already restricted to pods with part-of label (see cmd/llmisvc main.go).
+	// Get the LLMInferenceService name from the name label.
+	if llmSvcName, found := pod.Labels[constants.KubernetesAppNameLabelKey]; found && llmSvcName != "" {
+		return []reconcile.Request{{
+			NamespacedName: types.NamespacedName{
+				Namespace: pod.Namespace,
+				Name:      llmSvcName,
+			},
+		}}
+	}
+	return nil
+}
+
+// PodInitContainersPredicate filters pod updates to those where InitContainerStatuses changed.
+// Pod identity (part-of/name labels) is enforced by the cache (cmd/llmisvc) and PodInitContainersFunc.
+func PodInitContainersPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			newPod, ok := e.ObjectNew.(*corev1.Pod)
+			if !ok || newPod == nil {
+				return false
+			}
+			oldPod := e.ObjectOld.(*corev1.Pod)
+			return !equality.Semantic.DeepEqual(
+				oldPod.Status.InitContainerStatuses,
+				newPod.Status.InitContainerStatuses,
+			)
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
 }
