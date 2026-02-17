@@ -78,12 +78,27 @@ Build your own image for development or custom deployments. From the `python` di
 docker build -t docker_user_name/autogluonserver:latest -f autogluon.Dockerfile .
 ```
 
-To use a different AutoGluon version, change the version in `autogluonserver/pyproject.toml` (e.g. `autogluon.tabular[all]==1.5.0`) and rebuild with a versioned tag such as `docker_user_name/autogluonserver:1.5.0`.
+To use a different AutoGluon version, change the version in `autogluonserver/pyproject.toml` (e.g. `autogluon.tabular==1.5.0`) and rebuild with a versioned tag.
 
 Push the image to your registry:
 
 ```bash
 docker push docker_user_name/autogluonserver:latest
+```
+
+> The image can be pushed into other repositiories, such as `quay.io`, here are a helpful command examples how to do so: 
+
+```
+export TAG_VERSION=<TAG version, example: v0.0.1>
+export YOUR_QUAY_ORG=<QUAY ORG NAME>
+nerdctl -n k8s.io push quay.io/$YOUR_QUAY_ORG/kserve-autogluonserver:$TAG_VERSION
+
+
+# Log in
+nerdctl login quay.io 
+
+# Push Image
+nerdctl -n k8s.io push quay.io/$YOUR_QUAY_ORG/kserve-autogluonserver:$TAG_VERSION
 ```
 
 Update the InferenceService or KServe API configuration to use your image if needed.
