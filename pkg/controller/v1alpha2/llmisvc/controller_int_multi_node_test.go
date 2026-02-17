@@ -102,8 +102,8 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.Containers[0].Name).To(Equal("main"))
 
 			// Verify labels
-			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue("kserve.io/component", "workload"))
-			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue("llm-d.ai/role", "decode"))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue(constants.KServeComponentLabelKey, constants.KServeComponentWorkload))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue(constants.LLMDRoleLabelKey, constants.LLMDRoleDecode))
 		})
 
 		It("should create multi-node deployment with prefill workload", func(ctx SpecContext) {
@@ -175,7 +175,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			Expect(expectedPrefillLWS).To(BeOwnedBy(llmSvc))
 
 			// Verify prefill-specific labels
-			Expect(expectedPrefillLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue("llm-d.ai/role", "prefill"))
+			Expect(expectedPrefillLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue(constants.LLMDRoleLabelKey, constants.LLMDRolePrefill))
 		})
 
 		It("should create RBAC resources when prefill and decode is used", func(ctx SpecContext) {
@@ -476,8 +476,8 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			By("checking the leader pod template metadata")
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.Size).To(Equal(ptr.To(int32(1))))
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate).To(Not(BeNil()))
-			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue("kserve.io/component", "workload"))
-			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue("llm-d.ai/role", "both"))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue(constants.KServeComponentLabelKey, constants.KServeComponentWorkload))
+			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue(constants.LLMDRoleLabelKey, constants.LLMDRoleBoth))
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).To(HaveKeyWithValue(LocalQueueNameLabelKey, localQueueName))
 			Expect(expectedLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels).ToNot(HaveKeyWithValue(testValue, testValue))
 

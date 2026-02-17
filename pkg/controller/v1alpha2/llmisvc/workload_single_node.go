@@ -76,14 +76,14 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context,
 }
 
 func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
-	role := "decode"
+	role := constants.LLMDRoleDecode
 	if llmSvc.Spec.Prefill == nil {
-		role = "both"
+		role = constants.LLMDRoleBoth
 	}
 
 	labels := r.singleNodeLabels(llmSvc)
-	labels["kserve.io/component"] = "workload"
-	labels["llm-d.ai/role"] = role
+	labels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
+	labels[constants.LLMDRoleLabelKey] = role
 
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -176,8 +176,8 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadPrefill,
 		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
 		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
-		"kserve.io/component":                          "workload",
-		"llm-d.ai/role":                                "prefill",
+		constants.KServeComponentLabelKey:     constants.KServeComponentWorkload,
+		constants.LLMDRoleLabelKey:            constants.LLMDRolePrefill,
 	}
 
 	d := &appsv1.Deployment{

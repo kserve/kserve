@@ -386,9 +386,24 @@ const (
 
 // Kubernetes recommended label keys (https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/)
 const (
-	KubernetesAppNameLabelKey   = "app.kubernetes.io/name"
-	KubernetesPartOfLabelKey    = "app.kubernetes.io/part-of"
-	KubernetesComponentLabelKey = "app.kubernetes.io/component"
+	KubernetesAppNameLabelKey    = "app.kubernetes.io/name"
+	KubernetesInstanceLabelKey   = "app.kubernetes.io/instance"
+	KubernetesPartOfLabelKey     = "app.kubernetes.io/part-of"
+	KubernetesComponentLabelKey  = "app.kubernetes.io/component"
+)
+
+// KServe workload component label (key and value for "kserve.io/component" on workload resources)
+const (
+	KServeComponentLabelKey   = "kserve.io/component"
+	KServeComponentWorkload   = "workload"
+)
+
+// LLM-d role label (key and values for "llm-d.ai/role" on workload pods)
+const (
+	LLMDRoleLabelKey  = "llm-d.ai/role"
+	LLMDRoleDecode    = "decode"
+	LLMDRolePrefill   = "prefill"
+	LLMDRoleBoth      = "both"
 )
 
 // LLMInferenceService label constants (uses Kubernetes recommended label keys above)

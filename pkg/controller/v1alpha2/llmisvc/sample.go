@@ -41,7 +41,7 @@ func LLMInferenceServiceSample() *v1alpha2.LLMInferenceService {
 			Namespace: nsName,
 			Labels: map[string]string{
 				constants.KubernetesAppNameLabelKey:   constants.LLMInferenceServicePartOfValue,
-				"app.kubernetes.io/instance":                   svcName,
+				constants.KubernetesInstanceLabelKey:  svcName,
 				constants.KubernetesComponentLabelKey: constants.LLMComponentInference,
 			},
 			Annotations: map[string]string{

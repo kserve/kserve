@@ -134,19 +134,19 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 	}
 	if llmSvc.Spec.Template == nil {
 		// When there is no leader template, workers become part of the InferencePool selector.
-		workerLabels["kserve.io/component"] = "workload"
-		workerLabels["llm-d.ai/role"] = "decode"
+		workerLabels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
+		workerLabels[constants.LLMDRoleLabelKey] = constants.LLMDRoleDecode
 	}
-	role := "decode"
+	role := constants.LLMDRoleDecode
 	if llmSvc.Spec.Prefill == nil {
-		role = "both"
+		role = constants.LLMDRoleBoth
 	}
 	leaderLabels := map[string]string{
 		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadLeader,
 		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
 		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
-		"kserve.io/component":                          "workload",
-		"llm-d.ai/role":                                role,
+		constants.KServeComponentLabelKey:     constants.KServeComponentWorkload,
+		constants.LLMDRoleLabelKey:            role,
 	}
 
 	expected := &lwsapi.LeaderWorkerSet{
@@ -247,15 +247,15 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 	}
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template == nil {
 		// When there is no leader template, workers become part of the InferencePool selector.
-		workerLabels["kserve.io/component"] = "workload"
-		workerLabels["llm-d.ai/role"] = "prefill"
+		workerLabels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
+		workerLabels[constants.LLMDRoleLabelKey] = constants.LLMDRolePrefill
 	}
 	leaderLabels := map[string]string{
 		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadLeaderPrefill,
 		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
 		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
-		"kserve.io/component":                          "workload",
-		"llm-d.ai/role":                                "prefill",
+		constants.KServeComponentLabelKey:     constants.KServeComponentWorkload,
+		constants.LLMDRoleLabelKey:            constants.LLMDRolePrefill,
 	}
 
 	expected := &lwsapi.LeaderWorkerSet{

@@ -144,7 +144,7 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 	s := map[string]string{
 		constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
 		constants.KubernetesAppNameLabelKey: meta.GetName(),
-		"kserve.io/component":                        "workload",
+		constants.KServeComponentLabelKey:   constants.KServeComponentWorkload,
 	}
 
 	// TODO https://github.com/llm-d/llm-d-inference-scheduler/issues/220 and DP template
