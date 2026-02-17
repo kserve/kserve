@@ -28,13 +28,16 @@ import (
 	istiov1beta1 "istio.io/api/networking/v1beta1"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	kubernetesfake "k8s.io/client-go/kubernetes/fake"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	fake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -2205,9 +2208,9 @@ func TestIngressReconciler_Reconcile_SkipVirtualService(t *testing.T) {
 	// Prepare scheme with KServe and Istio types so we can assert absence
 	scheme := runtime.NewScheme()
 	_ = v1beta1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
 	_ = istioclientv1beta1.AddToScheme(scheme)
 
-	// Fake clients
 	client := fake.NewClientBuilder().WithScheme(scheme).Build()
 	clientset := kubernetesfake.NewSimpleClientset()
 
@@ -2233,12 +2236,12 @@ func TestIngressReconciler_Reconcile_SkipVirtualService(t *testing.T) {
 	}
 
 	reconciler := NewIngressReconciler(client, clientset, scheme, ingressConfig, isvcConfig, false)
-	res, err := reconciler.Reconcile(context.TODO(), isvc)
-	g.Expect(err).To(gomega.BeNil())
+	res, err := reconciler.Reconcile(t.Context(), isvc)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(res).To(gomega.Equal(ctrl.Result{}))
 
 	// Ensure no VirtualService was created
 	existingVS := &istioclientv1beta1.VirtualService{}
-	err = client.Get(context.TODO(), types.NamespacedName{Name: "skip-vs", Namespace: "default"}, existingVS)
+	err = client.Get(t.Context(), types.NamespacedName{Name: "skip-vs", Namespace: "default"}, existingVS)
 	g.Expect(apierr.IsNotFound(err)).To(gomega.BeTrue())
 }
