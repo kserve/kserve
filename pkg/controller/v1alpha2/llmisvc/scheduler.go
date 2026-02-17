@@ -479,11 +479,22 @@ schedulingProfiles:
 }
 
 // preserveSchedulerConfig returns the config args for the scheduler container.
-// If a current deployment exists and already has a config arg (--config-text or
-// --config-file), it preserves that value to avoid unnecessary restarts during
-// operator upgrades. Otherwise, it generates a fresh config from the
-// LLMInferenceService spec.
+// If the desired spec has an explicit inline config (e.g. from a resolved
+// ConfigMap ref), that value is used so that config updates are applied.
+// Otherwise, if a current deployment exists and already has a config arg
+// (--config-text or --config-file), it preserves that value to avoid
+// unnecessary restarts during operator upgrades. If neither condition is met,
+// it generates a fresh config from the LLMInferenceService spec.
 func preserveSchedulerConfig(llmSvc *v1alpha2.LLMInferenceService, curr *appsv1.Deployment) []string {
+	// When an explicit inline config is provided (including resolved ConfigMap
+	// refs), always use it so that config changes are picked up.
+	if llmSvc.Spec.Router != nil &&
+		llmSvc.Spec.Router.Scheduler != nil &&
+		llmSvc.Spec.Router.Scheduler.Config != nil &&
+		llmSvc.Spec.Router.Scheduler.Config.Inline != nil {
+		return []string{"--config-text", string(llmSvc.Spec.Router.Scheduler.Config.Inline.Raw)}
+	}
+
 	configFlags := []string{"--config-text", "-config-text", "--config-file", "-config-file"}
 
 	for _, container := range curr.Spec.Template.Spec.Containers {
