@@ -40,21 +40,21 @@ def test_download_model(mock_snapshot_download):
     [
         (
             "hf://",
-            "URI must contain exactly one '/' separating",
+            "Invalid Hugging Face URI format",
         ),  # Missing repo and model
         (
             "hf://repo_only",
-            "URI must contain exactly one '/' separating",
+            "Invalid Hugging Face URI format",
         ),  # Missing model
-        ("hf:///model_only", "Repository name cannot be empty"),  # Missing repo
+        ("hf:///model_only", "repository owner cannot be empty"),  # Missing repo
         (
             "hf://repo/:hash_value",
-            "Model name cannot be empty",
+            "model name cannot be empty",
         ),  # Missing model name, hash exists
     ],
 )
 def test_invalid_uri(mock_snapshot_download, invalid_uri, error_message):
-    with pytest.raises(ValueError, match=error_message):
+    with pytest.raises(RuntimeError, match=error_message):
         Storage.download(invalid_uri)
 
     # Ensure that snapshot_download was never called
