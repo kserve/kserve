@@ -118,7 +118,7 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 		WithWebhooks(webhooks).
 		WithControllers(llmCtrlFunc).
 		// The suite manager/webhook must outlive BeforeSuite node context.
-		Start(context.Background())
+		Start(context.Background()) //nolint:contextcheck // intentional: manager context must not be tied to BeforeSuite
 
 	RequiredResources(ctx, envTest.Client, systemNs)
 
