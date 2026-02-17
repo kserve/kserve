@@ -18,7 +18,6 @@ Based on [Red Hat OpenShift AI documentation](https://docs.redhat.com/en/documen
 
 ## Important notes
 
-- **Red Hat does not support custom runtimes.** You are responsible for configuring, maintaining, and licensing any custom runtime you add.
 - Ensure the AutoGluon image is **pulled from a registry your cluster can access** (e.g. Quay.io, or a mirrored registry in disconnected environments).
 
 ---
@@ -70,7 +69,7 @@ spec:
     - v2
   containers:
     - name: kserve-container
-      image: quay.io/rh-ee-mzabinsk/kserve-autogluonserver:latest
+      image: quay.io/rh-ee-dlaczak-org/kserve-autogluonserver:latest
       args:
         - --model_name=autogluon
         - --model_dir=/mnt/models
@@ -92,7 +91,7 @@ spec:
 ```
 
 6. Replace the **image** with your own if different, for example:
-   - `quay.io/YOUR_ORG/kserve-autogluonserver:v0.0.3`
+   - `quay.io/YOUR_ORG/kserve-autogluonserver:v0.0.1`
 7. Click **Add**.
 
 The new runtime appears in the list and is **enabled** by default. You can reorder runtimes on this page; the order affects how they are presented when deploying models.
