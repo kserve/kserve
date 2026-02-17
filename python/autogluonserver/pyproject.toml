@@ -6,9 +6,10 @@ authors = [
 license = {text = "Apache-2.0"}
 requires-python = "<3.13,>=3.10"
 dependencies = [
-    "kserve @ file:///${PROJECT_ROOT}/../kserve",
-    "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
-    "autogluon.tabular[all]==1.5.0"
+    "kserve",
+    "kserve-storage",
+    "catboost==1.2.8",
+    "autogluon.tabular==1.5.0",
 ]
 name = "autogluonserver"
 version = "0.1.0"
@@ -25,3 +26,11 @@ test = [
 dev = [
     "black[colorama]~=24.3.0",
 ]
+
+[tool.uv.sources]
+kserve = { path = "../kserve", editable = false }
+kserve-storage = { path = "../storage", editable = false }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
