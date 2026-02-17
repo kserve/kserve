@@ -437,11 +437,12 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 				Expect(expectedHTTPRoute).To(BeControlledBy(llmSvc))
 				Expect(expectedHTTPRoute).To(HaveGatewayRefs(gwapiv1.ParentReference{Name: "kserve-ingress-gateway"}))
-				Expect(expectedHTTPRoute).To(Not(HaveBackendRefs(BackendRefService(svcName + "-kserve-workload-svc"))))
+				// With completions-only routing, the catch-all rule uses a Service backend
+				Expect(expectedHTTPRoute).To(HaveBackendRefs(BackendRefService(svcName + "-kserve-workload-svc")))
 
 				ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
 
-				// HTTPRoute uses v1alpha2 backendRef when both CRDs are available
+				// HTTPRoute uses v1alpha2 backendRef for InferencePool rules when both CRDs are available
 				Eventually(func(g Gomega, ctx context.Context) {
 					routes, errList := managedRoutes(ctx, llmSvc)
 					g.Expect(errList).ToNot(HaveOccurred())
@@ -535,7 +536,8 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				Expect(expectedHTTPRoute).To(BeControlledBy(llmSvc))
 				Expect(expectedHTTPRoute).To(HaveGatewayRefs(gwapiv1.ParentReference{Name: "kserve-ingress-gateway"}))
 				Expect(expectedHTTPRoute).To(HaveBackendRefs(BackendRefInferencePool(infPoolName)))
-				Expect(expectedHTTPRoute).To(Not(HaveBackendRefs(BackendRefService(svcName + "-kserve-workload-svc"))))
+				// With completions-only routing, the catch-all rule uses a Service backend
+				Expect(expectedHTTPRoute).To(HaveBackendRefs(BackendRefService(svcName + "-kserve-workload-svc")))
 
 				ensureInferencePoolReady(ctx, envTest.Client, infPool)
 				ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)

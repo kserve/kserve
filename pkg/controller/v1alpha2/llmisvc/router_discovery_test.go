@@ -146,6 +146,81 @@ func TestDiscoverURLs(t *testing.T) {
 			expectedURLs: []string{"http://203.0.113.1/api/v1/models"},
 		},
 		{
+			name: "multi-rule path extraction - prefers Service-backed rule path",
+			route: HTTPRoute("multi-rule-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("multi-rule-gateway", RefInNamespace("test-ns"))),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name/v1/completions")),
+					BackendRefs(BackendRefInferencePool("pool")),
+				),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name/v1/chat/completions")),
+					BackendRefs(BackendRefInferencePool("pool")),
+				),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name")),
+					BackendRefs(BackendRefService("svc")),
+				),
+			),
+			gateway: Gateway("multi-rule-gateway",
+				InNamespace[*gwapiv1.Gateway]("test-ns"),
+				WithListener(gwapiv1.HTTPProtocolType),
+				WithAddresses("203.0.113.1"),
+			),
+			expectedURLs: []string{"http://203.0.113.1/ns/name"},
+		},
+		{
+			name: "multi-rule path extraction - falls back to shortest when no Service backend",
+			route: HTTPRoute("no-svc-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("no-svc-gateway", RefInNamespace("test-ns"))),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name/v1/completions")),
+					BackendRefs(BackendRefInferencePool("pool")),
+				),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name/v1/chat/completions")),
+					BackendRefs(BackendRefInferencePool("pool")),
+				),
+			),
+			gateway: Gateway("no-svc-gateway",
+				InNamespace[*gwapiv1.Gateway]("test-ns"),
+				WithListener(gwapiv1.HTTPProtocolType),
+				WithAddresses("203.0.113.1"),
+			),
+			expectedURLs: []string{"http://203.0.113.1/ns/name/v1/completions"},
+		},
+		{
+			name: "multi-rule path extraction - Service with default Kind (nil)",
+			route: HTTPRoute("default-kind-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("default-kind-gateway", RefInNamespace("test-ns"))),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name/v1/completions")),
+					BackendRefs(BackendRefInferencePool("pool")),
+				),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name")),
+					BackendRefs(gwapiv1.HTTPBackendRef{
+						BackendRef: gwapiv1.BackendRef{
+							BackendObjectReference: gwapiv1.BackendObjectReference{
+								// Kind nil defaults to "Service" per Gateway API spec
+								Name: "svc",
+								Port: ptr.To(gwapiv1.PortNumber(8000)),
+							},
+						},
+					}),
+				),
+			),
+			gateway: Gateway("default-kind-gateway",
+				InNamespace[*gwapiv1.Gateway]("test-ns"),
+				WithListener(gwapiv1.HTTPProtocolType),
+				WithAddresses("203.0.113.1"),
+			),
+			expectedURLs: []string{"http://203.0.113.1/ns/name"},
+		},
+		{
 			name: "HTTPS scheme from gateway listener",
 			route: HTTPRoute("https-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),

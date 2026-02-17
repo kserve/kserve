@@ -115,15 +115,64 @@ func DiscoverURLs(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute
 	return urls, nil
 }
 
-// extractRoutePath extracts the path from the first rule of an HTTPRoute
-// This is used to construct the complete URL for the route
-// Currently only handles exact path matches, not regex patterns
+// extractRoutePath extracts the most appropriate path from an HTTPRoute for URL construction.
+// When an HTTPRoute contains multiple rules with different backend types (e.g., InferencePool
+// for completions endpoints and Service for catch-all), this function prefers the path from
+// Service-backed rules as they represent the base path for the service.
+// If no Service-backed rule is found, it falls back to the shortest path from any rule.
 func extractRoutePath(route *gwapiv1.HTTPRoute) string {
-	if len(route.Spec.Rules) > 0 && len(route.Spec.Rules[0].Matches) > 0 {
-		// TODO how do we deal with regexp
-		return ptr.Deref(route.Spec.Rules[0].Matches[0].Path.Value, "/")
+	if len(route.Spec.Rules) == 0 {
+		return "/"
+	}
+
+	// Look for the path from a rule backed by a Service (not InferencePool).
+	// This is the catch-all/base path that should be used for URL construction.
+	var shortestServicePath string
+	var shortestAnyPath string
+
+	for _, rule := range route.Spec.Rules {
+		if len(rule.Matches) == 0 {
+			continue
+		}
+
+		match := rule.Matches[0]
+		if match.Path == nil {
+			continue
+		}
+		path := ptr.Deref(match.Path.Value, "/")
+
+		// Track shortest path from any rule as fallback
+		if shortestAnyPath == "" || len(path) < len(shortestAnyPath) {
+			shortestAnyPath = path
+		}
+
+		// Check if this rule is backed by a Service (not InferencePool)
+		if hasServiceBackend(rule) {
+			if shortestServicePath == "" || len(path) < len(shortestServicePath) {
+				shortestServicePath = path
+			}
+		}
+	}
+
+	if shortestServicePath != "" {
+		return shortestServicePath
+	}
+	if shortestAnyPath != "" {
+		return shortestAnyPath
 	}
 	return "/"
+}
+
+// hasServiceBackend returns true if the rule has at least one backendRef with Kind "Service"
+// or with no Kind set (defaults to Service per Gateway API spec).
+func hasServiceBackend(rule gwapiv1.HTTPRouteRule) bool {
+	for _, ref := range rule.BackendRefs {
+		kind := ptr.Deref(ref.Kind, gwapiv1.Kind("Service"))
+		if kind == "Service" {
+			return true
+		}
+	}
+	return false
 }
 
 // selectListener chooses the appropriate listener from a Gateway
