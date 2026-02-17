@@ -92,9 +92,9 @@ func (r *LLMISVCReconciler) expectedSelfSignedCertsSecret(llmSvc *v1alpha2.LLMIn
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-self-signed-certs"),
 			Namespace: llmSvc.GetNamespace(),
 			Labels: map[string]string{
-				constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentWorkload,
-				constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-				constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+				constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload,
+				constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+				constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 			},
 			Annotations: map[string]string{
 				certificatesExpirationAnnotation: time.Now().

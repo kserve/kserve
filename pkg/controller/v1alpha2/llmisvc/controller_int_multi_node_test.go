@@ -226,7 +226,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			}).WithContext(ctx).Should(Succeed())
 
 			Expect(expectedSA).To(BeOwnedBy(llmSvc))
-			Expect(expectedSA.Labels).To(HaveKeyWithValue(constants.LLMInferenceServicePodNameLabelKey, svcName))
+			Expect(expectedSA.Labels).To(HaveKeyWithValue(constants.KubernetesAppNameLabelKey, svcName))
 
 			// then - Check Role is created
 			expectedRole := &rbacv1.Role{}

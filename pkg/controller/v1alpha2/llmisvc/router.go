@@ -331,9 +331,9 @@ func toGatewayRef(ref v1alpha2.UntypedObjectReference) gwapiv1.ParentReference {
 
 func RouterLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 	return map[string]string{
-		constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentRouter,
-		constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-		constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		constants.KubernetesComponentLabelKey: constants.LLMComponentRouter,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
 }
 

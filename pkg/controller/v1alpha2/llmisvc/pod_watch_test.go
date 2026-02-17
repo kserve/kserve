@@ -54,7 +54,7 @@ func predicateWithCacheSelector() predicate.Funcs {
 			if !sel.Matches(labels.Set(newPod.Labels)) {
 				return false
 			}
-			if newPod.Labels[constants.LLMInferenceServicePodNameLabelKey] == "" {
+			if newPod.Labels[constants.KubernetesAppNameLabelKey] == "" {
 				return false
 			}
 			return inner.Update(e)
@@ -83,8 +83,8 @@ var _ = Describe("Pod InitContainers Watch", func() {
 						Name:      "test-pod",
 						Namespace: "default",
 						Labels: map[string]string{
-							constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-							constants.LLMInferenceServicePodNameLabelKey: "my-llmisvc",
+							constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+							constants.KubernetesAppNameLabelKey: "my-llmisvc",
 						},
 					},
 				}
@@ -106,8 +106,8 @@ var _ = Describe("Pod InitContainers Watch", func() {
 						Name:      "test-pod",
 						Namespace: "custom-namespace",
 						Labels: map[string]string{
-							constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-							constants.LLMInferenceServicePodNameLabelKey: "my-llmisvc",
+							constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+							constants.KubernetesAppNameLabelKey: "my-llmisvc",
 						},
 					},
 				}
@@ -127,8 +127,8 @@ var _ = Describe("Pod InitContainers Watch", func() {
 						Name:      "test-pod",
 						Namespace: "default",
 						Labels: map[string]string{
-							constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-							constants.LLMInferenceServicePodNameLabelKey: "",
+							constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+							constants.KubernetesAppNameLabelKey: "",
 						},
 					},
 				}
@@ -191,8 +191,8 @@ var _ = Describe("Pod InitContainers Watch", func() {
 							Name:      "test-pod",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-								constants.LLMInferenceServicePodNameLabelKey: "my-llmisvc",
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -205,8 +205,8 @@ var _ = Describe("Pod InitContainers Watch", func() {
 							Name:      "test-pod",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-								constants.LLMInferenceServicePodNameLabelKey: "my-llmisvc",
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -238,8 +238,8 @@ var _ = Describe("Pod InitContainers Watch", func() {
 							Name:      "test-pod",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-								constants.LLMInferenceServicePodNameLabelKey: "my-llmisvc",
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -261,8 +261,8 @@ var _ = Describe("Pod InitContainers Watch", func() {
 							Name:      "test-pod",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-								constants.LLMInferenceServicePodNameLabelKey: "my-llmisvc",
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -295,8 +295,8 @@ var _ = Describe("Pod InitContainers Watch", func() {
 							Name:      "test-pod",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-								constants.LLMInferenceServicePodNameLabelKey: "my-llmisvc",
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -318,8 +318,8 @@ var _ = Describe("Pod InitContainers Watch", func() {
 							Name:      "test-pod",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-								constants.LLMInferenceServicePodNameLabelKey: "my-llmisvc",
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -350,8 +350,8 @@ var _ = Describe("Pod InitContainers Watch", func() {
 							Name:      "test-pod",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-								constants.LLMInferenceServicePodNameLabelKey: "my-llmisvc",
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -381,8 +381,8 @@ var _ = Describe("Pod InitContainers Watch", func() {
 							Name:      "test-pod",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-								constants.LLMInferenceServicePodNameLabelKey: "my-llmisvc",
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -421,8 +421,8 @@ var _ = Describe("Pod InitContainers Watch", func() {
 							Name:      "test-pod",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-								constants.LLMInferenceServicePodNameLabelKey: "my-llmisvc",
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -453,7 +453,7 @@ var _ = Describe("Pod InitContainers Watch", func() {
 							Name:      "test-pod",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LLMInferenceServicePodNameLabelKey: "my-llmisvc",
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -466,7 +466,7 @@ var _ = Describe("Pod InitContainers Watch", func() {
 							Name:      "test-pod",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LLMInferenceServicePodNameLabelKey: "my-llmisvc",
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -495,8 +495,8 @@ var _ = Describe("Pod InitContainers Watch", func() {
 							Name:      "test-pod",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-								constants.LLMInferenceServicePodNameLabelKey: "",
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -509,8 +509,8 @@ var _ = Describe("Pod InitContainers Watch", func() {
 							Name:      "test-pod",
 							Namespace: "default",
 							Labels: map[string]string{
-								constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-								constants.LLMInferenceServicePodNameLabelKey: "",
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "",
 							},
 						},
 						Status: corev1.PodStatus{
@@ -547,8 +547,8 @@ var _ = Describe("Pod InitContainers Watch", func() {
 						Name:      "pod-for-llmisvc1",
 						Namespace: "default",
 						Labels: map[string]string{
-							constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-							constants.LLMInferenceServicePodNameLabelKey: "llmisvc1",
+							constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+							constants.KubernetesAppNameLabelKey: "llmisvc1",
 						},
 					},
 				}
@@ -558,8 +558,8 @@ var _ = Describe("Pod InitContainers Watch", func() {
 						Name:      "pod-for-llmisvc2",
 						Namespace: "default",
 						Labels: map[string]string{
-							constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-							constants.LLMInferenceServicePodNameLabelKey: "llmisvc2",
+							constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+							constants.KubernetesAppNameLabelKey: "llmisvc2",
 						},
 					},
 				}

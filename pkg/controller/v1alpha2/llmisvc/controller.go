@@ -62,7 +62,7 @@ import (
 // Used by the controller predicate below and by the manager cache (cmd/llmisvc/main.go).
 var ChildResourcesLabelSelector = metav1.LabelSelector{
 	MatchLabels: map[string]string{
-		constants.LLMInferenceServicePartOfLabelKey: constants.LLMInferenceServicePartOfValue,
+		constants.KubernetesPartOfLabelKey: constants.LLMInferenceServicePartOfValue,
 	},
 }
 
@@ -558,7 +558,7 @@ func (r *LLMISVCReconciler) PodInitContainersFunc(ctx context.Context, obj clien
 	}
 	// Cache is already restricted to pods with part-of label (see cmd/llmisvc main.go).
 	// Get the LLMInferenceService name from the name label.
-	if llmSvcName, found := pod.Labels[constants.LLMInferenceServicePodNameLabelKey]; found && llmSvcName != "" {
+	if llmSvcName, found := pod.Labels[constants.KubernetesAppNameLabelKey]; found && llmSvcName != "" {
 		return []reconcile.Request{{
 			NamespacedName: types.NamespacedName{
 				Namespace: pod.Namespace,

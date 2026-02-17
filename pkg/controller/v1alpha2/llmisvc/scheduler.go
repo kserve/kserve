@@ -589,8 +589,8 @@ func semanticRoleBindingIsEqual(expected *rbacv1.RoleBinding, curr *rbacv1.RoleB
 
 func SchedulerLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 	return map[string]string{
-		constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentRouterScheduler,
-		constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-		constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		constants.KubernetesComponentLabelKey: constants.LLMComponentRouterScheduler,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
 }

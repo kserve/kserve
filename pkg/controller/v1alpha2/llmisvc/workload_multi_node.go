@@ -128,9 +128,9 @@ func (r *LLMISVCReconciler) propagateLeaderWorkerSetStatus(ctx context.Context, 
 
 func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*lwsapi.LeaderWorkerSet, error) {
 	workerLabels := map[string]string{
-		constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentWorkloadWorker,
-		constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-		constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadWorker,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
 	if llmSvc.Spec.Template == nil {
 		// When there is no leader template, workers become part of the InferencePool selector.
@@ -142,9 +142,9 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		role = "both"
 	}
 	leaderLabels := map[string]string{
-		constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentWorkloadLeader,
-		constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-		constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadLeader,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 		"kserve.io/component":                          "workload",
 		"llm-d.ai/role":                                role,
 	}
@@ -241,9 +241,9 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 
 func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*lwsapi.LeaderWorkerSet, error) {
 	workerLabels := map[string]string{
-		constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentWorkloadWorkerPrefill,
-		constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-		constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadWorkerPrefill,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template == nil {
 		// When there is no leader template, workers become part of the InferencePool selector.
@@ -251,9 +251,9 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 		workerLabels["llm-d.ai/role"] = "prefill"
 	}
 	leaderLabels := map[string]string{
-		constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentWorkloadLeaderPrefill,
-		constants.LLMInferenceServicePodNameLabelKey:   llmSvc.GetName(),
-		constants.LLMInferenceServicePartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadLeaderPrefill,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 		"kserve.io/component":                          "workload",
 		"llm-d.ai/role":                                "prefill",
 	}
@@ -440,8 +440,8 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Cont
 	if expectedServiceAccount.Labels == nil {
 		expectedServiceAccount.Labels = make(map[string]string)
 	}
-	expectedServiceAccount.Labels[constants.LLMInferenceServicePodNameLabelKey] = llmSvc.GetName()
-	expectedServiceAccount.Labels[constants.LLMInferenceServicePartOfLabelKey] = constants.LLMInferenceServicePartOfValue
+	expectedServiceAccount.Labels[constants.KubernetesAppNameLabelKey] = llmSvc.GetName()
+	expectedServiceAccount.Labels[constants.KubernetesPartOfLabelKey] = constants.LLMInferenceServicePartOfValue
 
 	return expectedServiceAccount, useExistingServiceAccount, nil
 }
@@ -483,8 +483,8 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.C
 	if expectedServiceAccount.Labels == nil {
 		expectedServiceAccount.Labels = make(map[string]string)
 	}
-	expectedServiceAccount.Labels[constants.LLMInferenceServicePodNameLabelKey] = llmSvc.GetName()
-	expectedServiceAccount.Labels[constants.LLMInferenceServicePartOfLabelKey] = constants.LLMInferenceServicePartOfValue
+	expectedServiceAccount.Labels[constants.KubernetesAppNameLabelKey] = llmSvc.GetName()
+	expectedServiceAccount.Labels[constants.KubernetesPartOfLabelKey] = constants.LLMInferenceServicePartOfValue
 
 	return expectedServiceAccount, useExistingServiceAccount, nil
 }
@@ -498,8 +498,8 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainRole(llmSvc *v1alpha2.LLMInfere
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
 			},
 			Labels: map[string]string{
-				constants.LLMInferenceServicePodNameLabelKey: llmSvc.GetName(),
-				constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+				constants.KubernetesAppNameLabelKey: llmSvc.GetName(),
+				constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
 			},
 		},
 	}
@@ -516,8 +516,8 @@ func (r *LLMISVCReconciler) expectedMultiNodeRoleBinding(llmSvc *v1alpha2.LLMInf
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
 			},
 			Labels: map[string]string{
-				constants.LLMInferenceServicePodNameLabelKey: llmSvc.GetName(),
-				constants.LLMInferenceServicePartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+				constants.KubernetesAppNameLabelKey: llmSvc.GetName(),
+				constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
 			},
 		},
 		Subjects: []rbacv1.Subject{{

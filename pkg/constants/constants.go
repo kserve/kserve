@@ -384,13 +384,17 @@ const (
 	InferenceServiceLabel       = "serving.kserve.io/inferenceservice"
 )
 
-// LLMInferenceService label constants (Kubernetes recommended labels: app.kubernetes.io/*)
+// Kubernetes recommended label keys (https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/)
 const (
-	LLMInferenceServicePodNameLabelKey   = "app.kubernetes.io/name"
-	LLMInferenceServicePartOfLabelKey    = "app.kubernetes.io/part-of"
-	LLMInferenceServicePartOfValue       = "llminferenceservice"
-	LLMInferenceServiceComponentLabelKey = "app.kubernetes.io/component"
-	// LLMInferenceService component label values
+	KubernetesAppNameLabelKey   = "app.kubernetes.io/name"
+	KubernetesPartOfLabelKey    = "app.kubernetes.io/part-of"
+	KubernetesComponentLabelKey = "app.kubernetes.io/component"
+)
+
+// LLMInferenceService label constants (uses Kubernetes recommended label keys above)
+const (
+	LLMInferenceServicePartOfValue = "llminferenceservice"
+	// LLMInferenceService component label values (for KubernetesComponentLabelKey)
 	LLMComponentRouter                = "llminferenceservice-router"
 	LLMComponentRouterScheduler       = "llminferenceservice-router-scheduler"
 	LLMComponentWorkload              = "llminferenceservice-workload"

@@ -40,9 +40,9 @@ func LLMInferenceServiceSample() *v1alpha2.LLMInferenceService {
 			Name:      svcName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				constants.LLMInferenceServicePodNameLabelKey:   constants.LLMInferenceServicePartOfValue,
+				constants.KubernetesAppNameLabelKey:   constants.LLMInferenceServicePartOfValue,
 				"app.kubernetes.io/instance":                   svcName,
-				constants.LLMInferenceServiceComponentLabelKey: constants.LLMComponentInference,
+				constants.KubernetesComponentLabelKey: constants.LLMComponentInference,
 			},
 			Annotations: map[string]string{
 				"serving.kserve.io/model-uri": modelURL.String(),
