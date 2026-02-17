@@ -9707,7 +9707,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Disabled: ptr.To(false),
 				},
 			}
-			k8sClient.Create(ctx, servingRuntime)
+			Expect(k8sClient.Create(ctx, servingRuntime)).Should(Succeed())
 			defer k8sClient.Delete(ctx, servingRuntime)
 
 			serviceName := "raw-headless-port"
