@@ -35,7 +35,12 @@ def configure_logger():
 
 @pytest.fixture(scope="session")
 def event_loop():
-    return asyncio.get_event_loop()
+    """Provide a dedicated loop for session-scoped async E2E fixtures."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    try:
+        yield loop
+    finally:
+        loop.close()
 
 
 @pytest_asyncio.fixture(scope="session")
