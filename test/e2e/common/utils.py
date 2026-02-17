@@ -20,7 +20,6 @@ from typing import Union, List, Dict
 from urllib.parse import urlparse
 
 import portforward
-import requests
 from kubernetes import client as k8s_client
 from orjson import orjson
 
@@ -37,6 +36,7 @@ MODEL_CLASS_NAME = "modelClass"
 INFERENCESERVICE_CONTAINER = "kserve-container"
 TRANSFORMER_CONTAINER = "transformer-container"
 STORAGE_URI_ENV = "STORAGE_URI"
+
 
 def grpc_client(host, cluster_ip):
     if ":" not in cluster_ip:

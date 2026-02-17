@@ -1,14 +1,12 @@
-import logging
-import time
 from typing import Dict, List, Union
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 DEFAULT_RETRY_STATUS_CODES = (404, 429, 502, 503, 504)
 DEFAULT_RETRY_TOTAL = 4
 DEFAULT_RETRY_BACKOFF_FACTOR = 1.0
-
-logger = logging.getLogger(__name__)
 
 
 def post_with_retry(
@@ -29,48 +27,21 @@ def post_with_retry(
     if json_data is not None and data is not None:
         raise ValueError("Only one of json_data or data can be provided.")
 
-    attempt = 0
-    while True:
-        try:
-            response = requests.post(
-                url,
-                json=json_data,
-                data=data,
-                headers=headers,
-                stream=stream,
-                timeout=timeout,
-            )
-        except requests.exceptions.RequestException as e:
-            if attempt >= total_retries:
-                raise
-
-            sleep_seconds = backoff_factor * (2**attempt)
-            logger.info(
-                "POST %s failed with %s, retrying in %.1fs (%d/%d)",
-                url,
-                e.__class__.__name__,
-                sleep_seconds,
-                attempt + 1,
-                total_retries,
-            )
-            time.sleep(sleep_seconds)
-            attempt += 1
-            continue
-
-        if response.status_code in retry_status_codes and attempt < total_retries:
-            sleep_seconds = backoff_factor * (2**attempt)
-            logger.info(
-                "POST %s returned %s, retrying in %.1fs (%d/%d)",
-                url,
-                response.status_code,
-                sleep_seconds,
-                attempt + 1,
-                total_retries,
-            )
-            if getattr(response, "raw", None) is not None:
-                response.close()
-            time.sleep(sleep_seconds)
-            attempt += 1
-            continue
-
-        return response
+    retry = Retry(
+        total=total_retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=retry_status_codes,
+        allowed_methods=["POST"],
+        raise_on_status=False,
+    )
+    with requests.Session() as session:
+        session.mount("http://", HTTPAdapter(max_retries=retry))
+        session.mount("https://", HTTPAdapter(max_retries=retry))
+        return session.post(
+            url,
+            json=json_data,
+            data=data,
+            headers=headers,
+            stream=stream,
+            timeout=timeout,
+        )
