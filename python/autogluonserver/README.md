@@ -52,13 +52,13 @@ spec:
 
 Install development dependencies from this directory:
 
-```bash
+```shell
 uv sync --group test
 ```
 
 Run tests:
 
-```bash
+```shell
 pytest -W ignore
 ```
 
@@ -74,7 +74,7 @@ An empty result from mypy indicates success.
 
 Build your own image for development or custom deployments. From the `python` directory (one level up from this folder):
 
-```bash
+```shell
 docker build -t docker_user_name/autogluonserver:latest -f autogluon.Dockerfile .
 ```
 
@@ -82,13 +82,13 @@ To use a different AutoGluon version, change the version in `autogluonserver/pyp
 
 Push the image to your registry:
 
-```bash
+```shell
 docker push docker_user_name/autogluonserver:latest
 ```
 
 > The image can be pushed into other repositiories, such as `quay.io`, here are a helpful command examples how to do so: 
 
-```
+```shell
 export TAG_VERSION=<TAG version, example: v0.0.1>
 export YOUR_QUAY_ORG=<QUAY ORG NAME>
 nerdctl -n k8s.io push quay.io/$YOUR_QUAY_ORG/kserve-autogluonserver:$TAG_VERSION
