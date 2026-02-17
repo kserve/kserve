@@ -31,6 +31,7 @@ if _version_not_supported:
         + f" This warning will become an error in {EXPECTED_ERROR_RELEASE},"
         + f" scheduled for release on {SCHEDULED_RELEASE_DATE}.",
         RuntimeWarning,
+        stacklevel=2,
     )
 
 

@@ -103,7 +103,7 @@ async def predict(
     headers = {"Host": host, "Content-Type": "application/json"}
     if is_batch:
         with futures.ThreadPoolExecutor(max_workers=4) as executor:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             future_list = [
                 await loop.run_in_executor(
                     executor,
