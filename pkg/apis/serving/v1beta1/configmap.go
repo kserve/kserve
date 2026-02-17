@@ -432,13 +432,20 @@ func GetStorageInitializerConfigs(configMap *corev1.ConfigMap) (*types.StorageIn
 	}
 	// Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := map[string]string{
-		"memoryRequest":  storageInitializerConfig.MemoryRequest,
-		"memoryLimit":    storageInitializerConfig.MemoryLimit,
-		"cpuRequest":     storageInitializerConfig.CpuRequest,
-		"cpuLimit":       storageInitializerConfig.CpuLimit,
-		"cpuModelcar":    storageInitializerConfig.CpuModelcar,
-		"memoryModelcar": storageInitializerConfig.MemoryModelcar,
+		"memoryRequest": storageInitializerConfig.MemoryRequest,
+		"memoryLimit":   storageInitializerConfig.MemoryLimit,
+		"cpuRequest":    storageInitializerConfig.CpuRequest,
+		"cpuLimit":      storageInitializerConfig.CpuLimit,
 	}
+
+	// Only validate optional modelcar fields if they're set
+	if storageInitializerConfig.CpuModelcar != "" {
+		resourceDefaults["cpuModelcar"] = storageInitializerConfig.CpuModelcar
+	}
+	if storageInitializerConfig.MemoryModelcar != "" {
+		resourceDefaults["memoryModelcar"] = storageInitializerConfig.MemoryModelcar
+	}
+
 	for key, value := range resourceDefaults {
 		_, err := resource.ParseQuantity(value)
 		if err != nil {
