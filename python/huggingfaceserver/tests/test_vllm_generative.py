@@ -190,7 +190,7 @@ async def test_too_many_chat_logprobs(client: openai.AsyncOpenAI, model_name: st
             top_logprobs=21,
             stream=True,
         )
-        async for chunk in stream:
+        async for _chunk in stream:
             ...
 
     # the server should still work afterwards
@@ -1051,7 +1051,7 @@ async def test_too_many_completion_logprobs(
             logprobs=30,
             stream=True,
         )
-        async for chunk in stream:
+        async for _chunk in stream:
             ...
 
     # the server should still work afterwards
@@ -1389,7 +1389,9 @@ async def test_logits_bias(client: openai.AsyncOpenAI):
     assert all(
         [
             response == expected
-            for response, expected in zip(response_tokens, expected_tokens)
+            for response, expected in zip(
+                response_tokens, expected_tokens, strict=False
+            )
         ]
     )
 
