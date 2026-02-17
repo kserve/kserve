@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -43,6 +44,7 @@ func TestReconcileSingleNodeMainServiceAccount_UseExisting_SkipsManagedSA(t *tes
 	ctx := t.Context()
 
 	scheme := runtime.NewScheme()
+	g.Expect(appsv1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(rbacv1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
@@ -111,6 +113,7 @@ func TestReconcileSingleNodeMainServiceAccount_Default_DeletesManagedSA(t *testi
 	ctx := t.Context()
 
 	scheme := runtime.NewScheme()
+	g.Expect(appsv1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(rbacv1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
@@ -167,6 +170,7 @@ func TestReconcileSingleNodeMainServiceAccount_RoutingEnabled_UseExisting_SkipsM
 	ctx := t.Context()
 
 	scheme := runtime.NewScheme()
+	g.Expect(appsv1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(rbacv1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
@@ -234,6 +238,7 @@ func TestReconcileSingleNodeMainServiceAccount_RoutingEnabled_Default_DeletesMan
 	ctx := t.Context()
 
 	scheme := runtime.NewScheme()
+	g.Expect(appsv1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(rbacv1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
