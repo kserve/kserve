@@ -68,7 +68,7 @@ def serialize_byte_tensor(input_tensor: np.ndarray) -> np.ndarray:
         # don't convert it to str as Python will encode the
         # bytes which may distort the meaning
         if input_tensor.dtype == np.object_:
-            if type(obj.item()) == bytes:
+            if isinstance(obj.item(), bytes):
                 s = obj.item()
             else:
                 s = str(obj.item()).encode("utf-8")
@@ -309,7 +309,7 @@ class InferInput:
                             # if we want to use the binary_data=False. JSON requires
                             # the input to be a UTF-8 string.
                             if input_tensor.dtype == np.object_:
-                                if type(obj.item()) == bytes:
+                                if isinstance(obj.item(), bytes):
                                     self._data.append(str(obj.item(), encoding="utf-8"))
                                 else:
                                     self._data.append(str(obj.item()))
@@ -1092,7 +1092,7 @@ class InferOutput:
                             # if we want to use the binary_data=False. JSON requires
                             # the input to be a UTF-8 string.
                             if output_tensor.dtype == np.object_:
-                                if type(obj.item()) == bytes:
+                                if isinstance(obj.item(), bytes):
                                     self._data.append(str(obj.item(), encoding="utf-8"))
                                 else:
                                     self._data.append(str(obj.item()))
