@@ -422,7 +422,7 @@ func areGatewayConditionsReady(route *gwapiv1.HTTPRoute) bool {
 	if route == nil {
 		return false
 	}
-	for _, parent := range route.Status.RouteStatus.Parents {
+	for _, parent := range route.Status.Parents {
 		acceptedCond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionAccepted))
 		if acceptedCond == nil {
 			continue

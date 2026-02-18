@@ -137,7 +137,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		}
 
 		curr := &appsv1.Deployment{}
-		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
+		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to get current deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 		}
 		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config); err != nil {
@@ -222,7 +222,7 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		}
 
 		curr := &appsv1.Deployment{}
-		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
+		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to get current prefill deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 		}
 		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config); err != nil {

@@ -178,7 +178,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 
 	// Fetch the current LWS once to preserve storage-init images across upgrades.
 	currLWS := &lwsapi.LeaderWorkerSet{}
-	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(expected), currLWS); err != nil && !apierrors.IsNotFound(err) {
+	if err := r.Get(ctx, client.ObjectKeyFromObject(expected), currLWS); err != nil && !apierrors.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to get current leader worker set %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
 	}
 
@@ -304,7 +304,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 		}
 
 		currLWS := &lwsapi.LeaderWorkerSet{}
-		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(expected), currLWS); err != nil && !apierrors.IsNotFound(err) {
+		if err := r.Get(ctx, client.ObjectKeyFromObject(expected), currLWS); err != nil && !apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to get current prefill leader worker set %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
 		}
 

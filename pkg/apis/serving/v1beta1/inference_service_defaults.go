@@ -160,11 +160,11 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 	// Normalize deprecated annotation values
 	if ok {
 		if deploymentMode == string(constants.LegacyRawDeployment) {
-			isvc.ObjectMeta.Annotations[constants.DeploymentMode] = string(constants.Standard)
+			isvc.Annotations[constants.DeploymentMode] = string(constants.Standard)
 			deploymentMode = string(constants.Standard)
 		}
 		if deploymentMode == string(constants.LegacyServerless) {
-			isvc.ObjectMeta.Annotations[constants.DeploymentMode] = string(constants.Knative)
+			isvc.Annotations[constants.DeploymentMode] = string(constants.Knative)
 			deploymentMode = string(constants.Knative)
 		}
 	}

@@ -234,7 +234,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		llmSvcCfg.Spec.Router.Route != nil &&
 		llmSvcCfg.Spec.Router.Route.HTTP.HasSpec() &&
 		llmSvcCfg.Spec.Router.Gateway.HasRefs() {
-		llmSvcCfg.Spec.Router.Route.HTTP.Spec.CommonRouteSpec.ParentRefs = ToParentRefs(llmSvcCfg.Spec.Router.Gateway.Refs)
+		llmSvcCfg.Spec.Router.Route.HTTP.Spec.ParentRefs = ToParentRefs(llmSvcCfg.Spec.Router.Gateway.Refs)
 	}
 
 	// Point HTTPRoute to a Service if there is no Scheduler or InferencePool, and the HTTPRoute uses the default

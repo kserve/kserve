@@ -804,7 +804,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			DeferCleanup(func(ctx context.Context) {
 				// Restore the default gateway after the test (pass or fail)
 				existing := &gwapiv1.Gateway{}
-				err := envTest.Client.Get(ctx, types.NamespacedName{
+				err := envTest.Get(ctx, types.NamespacedName{
 					Name:      constants.GatewayName,
 					Namespace: constants.KServeNamespace,
 				}, existing)

@@ -616,7 +616,7 @@ func WithHTTPRouteMultipleControllerStatus(parentRef gwapiv1.ParentReference, st
 	return func(route *gwapiv1.HTTPRoute) {
 		for _, statusFunc := range statusFuncs {
 			status := statusFunc(parentRef, route.Generation)
-			route.Status.RouteStatus.Parents = append(route.Status.RouteStatus.Parents, status)
+			route.Status.Parents = append(route.Status.Parents, status)
 		}
 	}
 }
