@@ -233,6 +233,29 @@ func generateIngressHost(ingressConfig *v1beta1.IngressConfig,
 	}
 }
 
+// generateIngressHost return the path to be used when an configmap.IngressPathTemplate is set
+func generateIngressPath(ingressConfig *v1beta1.IngressConfig,
+	isvc *v1beta1.InferenceService,
+	isvcConfig *v1beta1.InferenceServicesConfig,
+	componentType string,
+	topLevelFlag bool,
+	name string,
+) (path string, err error) {
+	metadata := generateMetadata(isvc, constants.InferenceServiceComponent(componentType), name, isvcConfig)
+	if !topLevelFlag {
+		path, err = GenerateIngressPath(metadata.Name, isvc.ObjectMeta, ingressConfig)
+	} else {
+		path, err = GenerateIngressPath(isvc.Name, isvc.ObjectMeta, ingressConfig)
+	}
+	if err != nil {
+		return "", err
+	}
+	if path == "" {
+		return "/", nil
+	}
+	return path, nil
+}
+
 func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 	ingressConfig *v1beta1.IngressConfig, isvcConfig *v1beta1.InferenceServicesConfig,
 ) (*netv1.Ingress, error) {
@@ -262,20 +285,34 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 		if err != nil {
 			return nil, fmt.Errorf("failed creating top level transformer ingress host: %w", err)
 		}
+		path, err := generateIngressPath(ingressConfig, isvc, isvcConfig, string(constants.Transformer), true, predictorName)
+		if err != nil {
+			return nil, fmt.Errorf("failed creating top level transformer ingress path: %w", err)
+		}
+
 		transformerHost, err := generateIngressHost(ingressConfig, isvc, isvcConfig, string(constants.Transformer), false, transformerName)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating transformer ingress host: %w", err)
 		}
+		transformerPath, err := generateIngressPath(ingressConfig, isvc, isvcConfig, string(constants.Transformer), false, transformerName)
+		if err != nil {
+			return nil, fmt.Errorf("failed creating transformer ingress path: %w", err)
+		}
+
 		if isvc.Spec.Explainer != nil {
 			explainerHost, err := generateIngressHost(ingressConfig, isvc, isvcConfig, string(constants.Explainer), false, transformerName)
 			if err != nil {
 				return nil, fmt.Errorf("failed creating explainer ingress host: %w", err)
 			}
-			rules = append(rules, generateRule(explainerHost, explainerName, "/", constants.CommonDefaultHttpPort))
+			explainerPath, err := generateIngressPath(ingressConfig, isvc, isvcConfig, string(constants.Explainer), false, transformerName)
+			if err != nil {
+				return nil, fmt.Errorf("failed creating explainer ingress path: %w", err)
+			}
+			rules = append(rules, generateRule(explainerHost, explainerName, explainerPath, constants.CommonDefaultHttpPort))
 		}
 		// :predict routes to the transformer when there are both predictor and transformer
-		rules = append(rules, generateRule(host, transformerName, "/", constants.CommonDefaultHttpPort))
-		rules = append(rules, generateRule(transformerHost, predictorName, "/", constants.CommonDefaultHttpPort))
+		rules = append(rules, generateRule(host, transformerName, path, constants.CommonDefaultHttpPort))
+		rules = append(rules, generateRule(transformerHost, predictorName, transformerPath, constants.CommonDefaultHttpPort))
 	case isvc.Spec.Explainer != nil:
 		if !isvc.Status.IsConditionReady(v1beta1.ExplainerReady) {
 			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
@@ -290,26 +327,45 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 		if err != nil {
 			return nil, fmt.Errorf("failed creating top level explainer ingress host: %w", err)
 		}
+		path, err := generateIngressPath(ingressConfig, isvc, isvcConfig, string(constants.Explainer), true, predictorName)
+		if err != nil {
+			return nil, fmt.Errorf("failed creating top level explainer ingress path: %w", err)
+		}
+
 		explainerHost, err := generateIngressHost(ingressConfig, isvc, isvcConfig, string(constants.Explainer), false, explainerName)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating explainer ingress host: %w", err)
 		}
+		explainerPath, err := generateIngressPath(ingressConfig, isvc, isvcConfig, string(constants.Explainer), false, explainerName)
+		if err != nil {
+			return nil, fmt.Errorf("failed creating explainer ingress path: %w", err)
+		}
+
 		// :predict routes to the predictor when there is only predictor and explainer
-		rules = append(rules, generateRule(host, predictorName, "/", constants.CommonDefaultHttpPort))
-		rules = append(rules, generateRule(explainerHost, explainerName, "/", constants.CommonDefaultHttpPort))
+		rules = append(rules, generateRule(host, predictorName, path, constants.CommonDefaultHttpPort))
+		rules = append(rules, generateRule(explainerHost, explainerName, explainerPath, constants.CommonDefaultHttpPort))
 	default:
 		host, err := generateIngressHost(ingressConfig, isvc, isvcConfig, string(constants.Predictor), true, predictorName)
 		if err != nil {
 			return nil, fmt.Errorf("failed creating top level predictor ingress host: %w", err)
 		}
-		rules = append(rules, generateRule(host, predictorName, "/", constants.CommonDefaultHttpPort))
+		path, err := generateIngressPath(ingressConfig, isvc, isvcConfig, string(constants.Predictor), true, predictorName)
+		if err != nil {
+			return nil, fmt.Errorf("failed creating top level predictor ingress path: %w", err)
+		}
+
+		rules = append(rules, generateRule(host, predictorName, path, constants.CommonDefaultHttpPort))
 	}
 	// add predictor rule
 	predictorHost, err := generateIngressHost(ingressConfig, isvc, isvcConfig, string(constants.Predictor), false, predictorName)
 	if err != nil {
 		return nil, fmt.Errorf("failed creating predictor ingress host: %w", err)
 	}
-	rules = append(rules, generateRule(predictorHost, predictorName, "/", constants.CommonDefaultHttpPort))
+	predictorPath, err := generateIngressPath(ingressConfig, isvc, isvcConfig, string(constants.Predictor), false, predictorName)
+	if err != nil {
+		return nil, fmt.Errorf("failed creating predictor ingress path: %w", err)
+	}
+	rules = append(rules, generateRule(predictorHost, predictorName, predictorPath, constants.CommonDefaultHttpPort))
 
 	ingress := &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{

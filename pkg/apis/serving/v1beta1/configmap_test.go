@@ -669,6 +669,7 @@ func TestNewIngressConfig_Validation(t *testing.T) {
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(cfg).ShouldNot(gomega.BeNil())
 		g.Expect(cfg.DomainTemplate).To(gomega.Equal(DefaultDomainTemplate))
+		g.Expect(cfg.IngressPathTemplate).To(gomega.Equal(DefaultIngressPathTemplate))
 		g.Expect(cfg.IngressDomain).To(gomega.Equal(DefaultIngressDomain))
 		g.Expect(cfg.UrlScheme).To(gomega.Equal(DefaultUrlScheme))
 	})

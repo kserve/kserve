@@ -94,13 +94,13 @@ data:
         "resource": {
            # cpuLimit is the limits.cpu to set for the inference service.
            "cpuLimit": "1",
-    
+
            # memoryLimit is the limits.memory to set for the inference service.
            "memoryLimit": "2Gi",
-    
+
            # cpuRequest is the requests.cpu to set for the inference service.
            "cpuRequest": "1",
-    
+
            # memoryRequest is the requests.memory to set for the inference service.
            "memoryRequest": "2Gi"
         }
@@ -364,7 +364,14 @@ data:
            # If domain template is empty the default template {{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }} is used.
            # NOTE: This configuration only applicable for raw deployment.
            "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
-     
+
+           # ingressPathTemplate to expose all InferenceServices in a cluster behind a single domain by combining the following variables:
+           # Name of the inference service  ( {{ .Name}} )
+           # Namespace of the inference service ( {{ .Namespace }} )
+           # If not set or empty: the root path is used
+           # NOTE: This configuration only applicable for raw deployment.
+           "ingressPathTemplate": "/namespaces/{{ .Namespace }}/endpoints/{{ .Name }}",
+
            # urlScheme specifies the url scheme to use for inference service and inference graph.
            # If urlScheme is empty then by default http is used.
            "urlScheme": "http",

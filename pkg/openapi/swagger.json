@@ -3505,6 +3505,9 @@
         "ingressGateway": {
           "type": "string"
         },
+        "ingressPathTemplate": {
+          "type": "string"
+        },
         "knativeLocalGatewayService": {
           "type": "string"
         },

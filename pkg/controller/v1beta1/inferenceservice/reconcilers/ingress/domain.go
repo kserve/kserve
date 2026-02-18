@@ -19,6 +19,7 @@ package ingress
 import (
 	"bytes"
 	"fmt"
+	"net/url"
 	"strings"
 	"text/template"
 
@@ -64,6 +65,35 @@ func GenerateDomainName(name string, obj metav1.ObjectMeta, ingressConfig *v1bet
 	}
 
 	return buf.String(), nil
+}
+
+// GenerateIngressPath generate URL path using template configured in IngressConfig
+func GenerateIngressPath(name string, obj metav1.ObjectMeta, ingressConfig *v1beta1.IngressConfig) (string, error) {
+	if ingressConfig.IngressPathTemplate == "" {
+		return "", nil
+	}
+
+	values := DomainTemplateValues{
+		Name:      name,
+		Namespace: obj.Namespace,
+	}
+
+	tpl, err := template.New("ingress-path-template").Parse(ingressConfig.IngressPathTemplate)
+	if err != nil {
+		return "", err
+	}
+
+	buf := bytes.Buffer{}
+	if err := tpl.Execute(&buf, values); err != nil {
+		return "", fmt.Errorf("error rendering the ingress path template: %w", err)
+	}
+
+	url, err := url.ParseRequestURI(buf.String())
+	if err != nil {
+		return "", fmt.Errorf("invalid url %q: %w", buf.String(), err)
+	}
+
+	return url.Path, nil
 }
 
 func GenerateInternalDomainName(name string, obj metav1.ObjectMeta, ingressConfig *v1beta1.IngressConfig) (string, error) {
