@@ -480,11 +480,11 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			name: "Set RAY_NODE_COUNT to 3 when pipelineParallelSize is 3 and tensorParallelSize is 1, with 2 worker node replicas",
 			modifyArgs: func(updatedArgs args) args {
 				if updatedArgs.podSpec.Containers[0].Name == constants.InferenceServiceContainerName {
-					isvcutils.AddEnvVarToPodSpec(updatedArgs.podSpec, constants.InferenceServiceContainerName, constants.PipelineParallelSizeEnvName, "3")
-					isvcutils.AddEnvVarToPodSpec(updatedArgs.podSpec, constants.InferenceServiceContainerName, constants.RayNodeCountEnvName, "3")
+					_ = isvcutils.AddEnvVarToPodSpec(updatedArgs.podSpec, constants.InferenceServiceContainerName, constants.PipelineParallelSizeEnvName, "3")
+					_ = isvcutils.AddEnvVarToPodSpec(updatedArgs.podSpec, constants.InferenceServiceContainerName, constants.RayNodeCountEnvName, "3")
 				}
 				if updatedArgs.workerPodSpec.Containers[0].Name == constants.WorkerContainerName {
-					isvcutils.AddEnvVarToPodSpec(updatedArgs.workerPodSpec, constants.WorkerContainerName, constants.RayNodeCountEnvName, "3")
+					_ = isvcutils.AddEnvVarToPodSpec(updatedArgs.workerPodSpec, constants.WorkerContainerName, constants.RayNodeCountEnvName, "3")
 				}
 				return updatedArgs
 			},

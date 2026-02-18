@@ -380,7 +380,7 @@ func TestPresetFiles(t *testing.T) {
 
 		t.Run(filename, func(t *testing.T) {
 			filePath := filepath.Join(presetsDir, filename)
-			data, err := os.ReadFile(filePath)
+			data, err := os.ReadFile(filepath.Clean(filePath))
 			if err != nil {
 				t.Errorf("Failed to read file %s: %v", filePath, err)
 				return
@@ -388,7 +388,7 @@ func TestPresetFiles(t *testing.T) {
 
 			config := loadConfig(t, data, filePath)
 
-			name := config.ObjectMeta.Name
+			name := config.Name
 			if !llmisvc.WellKnownDefaultConfigs.Has(name) {
 				t.Fatalf("Expected %s to exist in WellKnownDefaultConfigs %#v", name, llmisvc.WellKnownDefaultConfigs)
 			}
@@ -438,7 +438,7 @@ func loadConfig(t *testing.T, data []byte, filePath string) *v1alpha2.LLMInferen
 		t.Errorf("Expected Kind to be '%s', got %s", expectedKind, config.Kind)
 	}
 
-	if config.ObjectMeta.Name == "" {
+	if config.Name == "" {
 		t.Error("Expected ObjectMeta.Name to be set")
 	}
 
