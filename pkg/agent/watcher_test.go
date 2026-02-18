@@ -91,7 +91,7 @@ var _ = Describe("Watcher", func() {
 				}
 				_, err := os.Stat("/tmp/configs")
 				if os.IsNotExist(err) {
-					if err := os.MkdirAll("/tmp/configs", 0o750); err != nil {
+					if err := os.MkdirAll("/tmp/configs", os.ModePerm); err != nil { //nolint:gosec // G301: test directory needs permissive access
 						logger.Fatal(err, " Failed to create configs directory")
 					}
 				}

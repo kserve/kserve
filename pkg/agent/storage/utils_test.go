@@ -48,7 +48,7 @@ func TestCreate(t *testing.T) {
 
 	info, _ := os.Stat(folderPath)
 	mode := info.Mode()
-	expectedMode := os.FileMode(0o750)
+	expectedMode := os.ModePerm
 	g.Expect(mode.Perm()).To(gomega.Equal(expectedMode))
 }
 
@@ -78,7 +78,7 @@ func TestRemoveDir(t *testing.T) {
 
 	// Create a subdirectory within tmpDir
 	subDir := filepath.Join(tmpDir, "test")
-	err := os.Mkdir(subDir, 0o750)
+	err := os.Mkdir(subDir, 0o755) //nolint:gosec // test directory permissions are not security-sensitive
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	f, err := os.CreateTemp(subDir, "tmp")

@@ -67,10 +67,12 @@ func AsSha256(o interface{}) string {
 }
 
 func Create(fileName string) (*os.File, error) {
-	// Set the permissions to `750` so that the owner and group can read/write/execute
-	// while others have no access. The `+x` bit ensures the folder is "listable":
+	// Set the permissions to `777` so that the downloaded files are still
+	// readable by every other user and group. This ensures that the agent is
+	// compatible with any model / server container, using any user ID. Note we
+	// also need to enable the `+x` bit to ensure the folder is "listable":
 	// https://stackoverflow.com/a/30788944/5015573
-	if err := os.MkdirAll(filepath.Dir(fileName), 0o750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(fileName), os.ModePerm); err != nil { //nolint:gosec // G301: agent and model server run as different UIDs sharing an emptyDir volume
 		return nil, err
 	}
 	return os.Create(filepath.Clean(fileName))
