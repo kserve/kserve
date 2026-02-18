@@ -6788,6 +6788,12 @@ func schema_pkg_apis_serving_v1beta1_IngressConfig(ref common.ReferenceCallback)
 							Format: "",
 						},
 					},
+					"ingressPathTemplate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"urlScheme": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

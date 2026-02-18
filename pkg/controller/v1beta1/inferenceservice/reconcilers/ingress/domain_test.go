@@ -137,6 +137,83 @@ func TestGenerateDomainName(t *testing.T) {
 	}
 }
 
+func TestGenerateIngressPath(t *testing.T) {
+	type args struct {
+		name          string
+		obj           metav1.ObjectMeta
+		ingressConfig *v1beta1.IngressConfig
+	}
+
+	obj := metav1.ObjectMeta{
+		Name:      "model",
+		Namespace: "test",
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "default ingress path template",
+			args: args{
+				name: "model",
+				obj:  obj,
+				ingressConfig: &v1beta1.IngressConfig{
+					IngressPathTemplate: v1beta1.DefaultIngressPathTemplate,
+				},
+			},
+			want: "",
+		},
+		{
+			name: "template with no variables",
+			args: args{
+				name: "model",
+				obj:  obj,
+				ingressConfig: &v1beta1.IngressConfig{
+					IngressPathTemplate: "/",
+				},
+			},
+			want: "/",
+		},
+		{
+			name: "template with namespace and name",
+			args: args{
+				name: "model",
+				obj:  obj,
+				ingressConfig: &v1beta1.IngressConfig{
+					IngressPathTemplate: "/namespaces/{{.Namespace}}/endpoints/{{.Name}}",
+				},
+			},
+			want: "/namespaces/test/endpoints/model",
+		},
+		{
+			name: "unknown variable",
+			args: args{
+				name: "model",
+				obj:  obj,
+				ingressConfig: &v1beta1.IngressConfig{
+					IngressPathTemplate: "/cluster/{{.Cluster}}/namespaces/{{.Namespace}}/endpoints/{{.Name}}",
+				},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GenerateIngressPath(tt.args.name, tt.args.obj, tt.args.ingressConfig)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GenerateIngressPath() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("Test %q unexpected ingress path (-want +got): %v", tt.name, diff)
+			}
+		})
+	}
+}
+
 func TestGetAdditionalHosts(t *testing.T) {
 	tests := []struct {
 		name        string
