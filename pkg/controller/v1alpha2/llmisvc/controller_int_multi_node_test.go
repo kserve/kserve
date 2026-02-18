@@ -27,7 +27,6 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
@@ -44,21 +43,10 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should create a basic multi-node deployment with worker spec", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-multinode"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithReplicas(2),
 				WithParallelism(ParallelismSpec(
@@ -76,7 +64,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then
@@ -84,7 +72,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -109,21 +97,10 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should create multi-node deployment with prefill workload", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-multinode-prefill"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithReplicas(1),
 				WithParallelism(ParallelismSpec(
@@ -146,7 +123,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - Check main workload LWS
@@ -154,7 +131,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -166,7 +143,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -181,21 +158,10 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should create RBAC resources when prefill and decode is used", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-multinode-rbac"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithReplicas(1),
 				WithParallelism(ParallelismSpec(
@@ -213,7 +179,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - Check ServiceAccount is created
@@ -221,7 +187,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedSA)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -233,7 +199,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn-role",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedRole)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -245,7 +211,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn-rb",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedRB)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -259,7 +225,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -271,18 +237,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should delete multi-node resources when worker spec is removed", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-multinode-cleanup"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			parallelismSpec := ParallelismSpec(
 				WithDataParallelism(2),
@@ -291,7 +246,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			parallelismSpec.Expert = true
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithParallelism(parallelismSpec),
 				WithWorker(&corev1.PodSpec{}),
@@ -301,7 +256,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			lwsName := svcName + "-kserve-mn"
@@ -311,7 +266,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 				lws := &lwsapi.LeaderWorkerSet{}
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      lwsName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, lws)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -330,7 +285,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 				lws := &lwsapi.LeaderWorkerSet{}
 				err := envTest.Get(ctx, types.NamespacedName{
 					Name:      lwsName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, lws)
 				g.Expect(err).To(HaveOccurred())
 				return nil
@@ -340,21 +295,10 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should delete prefill resources when prefill spec is removed", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-prefill-cleanup"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithPrefillParallelism(ParallelismSpec(
 					WithDataParallelism(2),
@@ -367,7 +311,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			prefillLWSName := kmeta.ChildName(svcName, "-kserve-mn-prefill")
@@ -377,7 +321,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 				lws := &lwsapi.LeaderWorkerSet{}
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      prefillLWSName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, lws)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -396,7 +340,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 				lws := &lwsapi.LeaderWorkerSet{}
 				err := envTest.Get(ctx, types.NamespacedName{
 					Name:      prefillLWSName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, lws)
 				g.Expect(err).To(HaveOccurred())
 				return nil
@@ -408,25 +352,14 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should set correct labels and annotation", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-lws-labels"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			localQueueName := "test-local-q"
 			preemptPriority := "0"
 			testValue := "test"
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithParallelism(ParallelismSpec(
 					WithDataParallelism(1),
@@ -454,7 +387,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then
@@ -462,7 +395,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -494,23 +427,12 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should preserve externally set replicas when owner does not specify replicas", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-mn-preserve-replicas"
-			nsName := kmeta.ChildName(svcName, "-test")
-			lwsName := types.NamespacedName{Name: svcName + "-kserve-mn", Namespace: nsName}
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			lwsName := types.NamespacedName{Name: svcName + "-kserve-mn", Namespace: testNs.Name}
 
 			// Create LLMInferenceService WITHOUT specifying replicas
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithParallelism(ParallelismSpec(
 					WithDataParallelism(2),
@@ -529,7 +451,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - LeaderWorkerSet should be created with default replicas (1)
@@ -576,23 +498,12 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 		It("should override externally set replicas when owner specifies replicas", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-mn-override-replicas"
-			nsName := kmeta.ChildName(svcName, "-test")
-			lwsName := types.NamespacedName{Name: svcName + "-kserve-mn", Namespace: nsName}
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			lwsName := types.NamespacedName{Name: svcName + "-kserve-mn", Namespace: testNs.Name}
 
 			// Create LLMInferenceService WITH explicit replicas
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithParallelism(ParallelismSpec(
 					WithDataParallelism(2),
@@ -611,7 +522,7 @@ var _ = Describe("LLMInferenceService Multi-Node Controller", func() {
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - LeaderWorkerSet should be created with owner-specified replicas (2)
