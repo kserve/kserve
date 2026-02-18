@@ -76,14 +76,14 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context,
 }
 
 func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
-	role := "decode"
+	role := constants.LLMDRoleDecode
 	if llmSvc.Spec.Prefill == nil {
-		role = "both"
+		role = constants.LLMDRoleBoth
 	}
 
 	labels := r.singleNodeLabels(llmSvc)
-	labels["kserve.io/component"] = "workload"
-	labels["llm-d.ai/role"] = role
+	labels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
+	labels[constants.LLMDRoleLabelKey] = role
 
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -136,7 +136,11 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 			}
 		}
 
-		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, &d.Spec.Template.Spec, config); err != nil {
+		curr := &appsv1.Deployment{}
+		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get current deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+		}
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to main deployment: %w", err)
 		}
 	}
@@ -173,11 +177,11 @@ func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmS
 
 func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
 	labels := map[string]string{
-		"app.kubernetes.io/component": "llminferenceservice-workload-prefill",
-		"app.kubernetes.io/name":      llmSvc.GetName(),
-		"app.kubernetes.io/part-of":   "llminferenceservice",
-		"kserve.io/component":         "workload",
-		"llm-d.ai/role":               "prefill",
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadPrefill,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		constants.KServeComponentLabelKey:     constants.KServeComponentWorkload,
+		constants.LLMDRoleLabelKey:            constants.LLMDRolePrefill,
 	}
 
 	d := &appsv1.Deployment{
@@ -217,7 +221,11 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 			}
 		}
 
-		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, &d.Spec.Template.Spec, config); err != nil {
+		curr := &appsv1.Deployment{}
+		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get current prefill deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+		}
+		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to prefill deployment: %w", err)
 		}
 	}
@@ -416,8 +424,8 @@ func (r *LLMISVCReconciler) expectedSingleNodeRoleBinding(llmSvc *v1alpha2.LLMIn
 
 func (r *LLMISVCReconciler) singleNodeLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 	return map[string]string{
-		"app.kubernetes.io/component": "llminferenceservice-workload",
-		"app.kubernetes.io/name":      llmSvc.GetName(),
-		"app.kubernetes.io/part-of":   "llminferenceservice",
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
 }
