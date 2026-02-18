@@ -1,0 +1,43 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gpt-oss-20b-init-job
+spec:
+  parallelism: 1
+  completions: 1
+  template:
+    spec:
+      serviceAccountName: hfserviceacc
+      restartPolicy: Never
+      volumes:
+        - name: pvc
+          persistentVolumeClaim:
+            claimName: gpt-oss-20b-pvc
+            readOnly: false
+      containers:
+        - image: quay.io/opendatahub/kserve-storage-initializer:latest
+          name: storage-initializer
+          args:
+            - hf://RedHatAI/gpt-oss-20b
+            - /mnt/models
+          env:
+            - name: HF_HOME
+              value: /tmp/hf
+            - name: HF_XET_NUM_CONCURRENT_RANGE_GETS
+              value: "8"
+            - name: HF_XET_HIGH_PERFORMANCE
+              value: "True"
+            - name: HF_HUB_DISABLE_TELEMETRY
+              value: "1"
+          resources:
+            requests:
+              cpu: "2"
+              memory: "16Gi"
+            limits:
+              cpu: "8"
+              memory: "32Gi"
+          volumeMounts:
+            - name: pvc
+              mountPath: "/mnt/models"
+              readOnly: false
