@@ -157,6 +157,18 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, securityConfig *SecurityConfig, models *v1alpha1.LocalModelCacheList) {
 	deploymentMode, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]
 
+	// Normalize deprecated annotation values
+	if ok {
+		if deploymentMode == string(constants.LegacyRawDeployment) {
+			isvc.ObjectMeta.Annotations[constants.DeploymentMode] = string(constants.Standard)
+			deploymentMode = string(constants.Standard)
+		}
+		if deploymentMode == string(constants.LegacyServerless) {
+			isvc.ObjectMeta.Annotations[constants.DeploymentMode] = string(constants.Knative)
+			deploymentMode = string(constants.Knative)
+		}
+	}
+
 	if !ok && deployConfig != nil {
 		if deployConfig.DefaultDeploymentMode == string(constants.ModelMeshDeployment) ||
 			deployConfig.DefaultDeploymentMode == string(constants.Standard) {

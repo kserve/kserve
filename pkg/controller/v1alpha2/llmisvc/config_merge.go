@@ -228,6 +228,15 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		return llmSvcCfg, err
 	}
 
+	// Update HTTPRoute parentRefs to point to the custom gateway if Gateway.Refs is specified.
+	// This ensures the managed HTTPRoute references the correct gateway instead of the default one from presets.
+	if llmSvcCfg.Spec.Router != nil &&
+		llmSvcCfg.Spec.Router.Route != nil &&
+		llmSvcCfg.Spec.Router.Route.HTTP.HasSpec() &&
+		llmSvcCfg.Spec.Router.Gateway.HasRefs() {
+		llmSvcCfg.Spec.Router.Route.HTTP.Spec.CommonRouteSpec.ParentRefs = ToParentRefs(llmSvcCfg.Spec.Router.Gateway.Refs)
+	}
+
 	// Point HTTPRoute to a Service if there is no Scheduler or InferencePool, and the HTTPRoute uses the default
 	// InferencePool (to handle cases where the HTTPRoute Spec uses a custom BackendRef).
 	if llmSvcCfg.Spec.Router != nil &&
@@ -316,8 +325,28 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	return llmSvcCfg, nil
 }
 
+// ToParentRefs converts a slice of UntypedObjectReference (gateway refs) to a slice
+// of gwapiv1.ParentReference suitable for setting on an HTTPRoute's CommonRouteSpec.
+//
+// TODO(api): With this structure we are missing the ability to narrow a section
+// of targeted gateway by the route we are creating.
+// Missing SectionName and Port will implicitly bind the route to the first
+// listener in the parent.
+func ToParentRefs(gatewayRefs []v1alpha2.UntypedObjectReference) []gwapiv1.ParentReference {
+	parentRefs := make([]gwapiv1.ParentReference, 0, len(gatewayRefs))
+	for _, ref := range gatewayRefs {
+		parentRefs = append(parentRefs, gwapiv1.ParentReference{
+			Name:      ref.Name,
+			Namespace: &ref.Namespace,
+			Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+			Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+		})
+	}
+	return parentRefs
+}
+
 // ReplaceVariables processes the configuration as a Go template to substitute
-// variables with values from the LLM service and global configuration
+// variables with values from the LLM service and global configuration.
 func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig, reconcilerConfig *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
 	templateBytes, _ := json.Marshal(llmSvcCfg)
 	buf := bytes.NewBuffer(nil)

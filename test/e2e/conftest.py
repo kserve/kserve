@@ -24,6 +24,12 @@ from kserve import InferenceRESTClient, RESTConfig
 from kserve.constants.constants import PredictorProtocol
 from kserve.logging import logger, KSERVE_LOG_CONFIG
 
+from .common.http_retry import (
+    DEFAULT_RETRY_BACKOFF_FACTOR,
+    DEFAULT_RETRY_STATUS_CODES,
+    DEFAULT_RETRY_TOTAL,
+)
+
 
 @pytest.fixture(scope="session", autouse=True)
 def configure_logger():
@@ -47,10 +53,10 @@ def event_loop():
 async def rest_v1_client():
     transport = RetryTransport(
         retry=Retry(
-            total=4,
-            backoff_factor=1,
+            total=DEFAULT_RETRY_TOTAL,
+            backoff_factor=DEFAULT_RETRY_BACKOFF_FACTOR,
             allowed_methods=["GET", "POST"],
-            status_forcelist=[404, 429, 502, 503, 504],
+            status_forcelist=list(DEFAULT_RETRY_STATUS_CODES),
             retry_on_exceptions=[
                 httpx.TimeoutException,
                 httpx.NetworkError,
@@ -74,10 +80,10 @@ async def rest_v1_client():
 async def rest_v2_client():
     transport = RetryTransport(
         retry=Retry(
-            total=4,
-            backoff_factor=1,
+            total=DEFAULT_RETRY_TOTAL,
+            backoff_factor=DEFAULT_RETRY_BACKOFF_FACTOR,
             allowed_methods=["GET", "POST"],
-            status_forcelist=[404, 429, 502, 503, 504],
+            status_forcelist=list(DEFAULT_RETRY_STATUS_CODES),
             retry_on_exceptions=[
                 httpx.TimeoutException,
                 httpx.NetworkError,

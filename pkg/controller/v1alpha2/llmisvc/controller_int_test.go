@@ -59,32 +59,21 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should create a basic single node deployment with just base refs", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			modelConfig := LLMInferenceServiceConfig("model-fb-opt-125m",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
 				WithConfigModelName("facebook/opt-125m"),
 				WithConfigModelURI("hf://facebook/opt-125m"),
 			)
 
 			routerConfig := LLMInferenceServiceConfig("router-managed",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
 				WithConfigManagedRouter(),
 			)
 
 			workloadConfig := LLMInferenceServiceConfig("workload-single-cpu",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
 				WithConfigWorkloadTemplate(&corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
@@ -123,7 +112,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 			// Create LLMInferenceService using baseRefs only
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithBaseRefs(
 					corev1.LocalObjectReference{Name: "model-fb-opt-125m"},
 					corev1.LocalObjectReference{Name: "router-managed"},
@@ -134,7 +123,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then
@@ -142,7 +131,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -168,25 +157,14 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should propagate kueue labels and annotations to the deployment", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-kueue"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			localQueueName := "test-local-q"
 			preemptPriority := "0"
 			testValue := "test"
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
@@ -206,7 +184,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then
@@ -214,7 +192,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -241,23 +219,12 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should preserve externally set replicas when owner does not specify replicas", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-preserve-replicas"
-			nsName := kmeta.ChildName(svcName, "-test")
-			deploymentName := types.NamespacedName{Name: svcName + "-kserve", Namespace: nsName}
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			deploymentName := types.NamespacedName{Name: svcName + "-kserve", Namespace: testNs.Name}
 
 			// Create LLMInferenceService WITHOUT specifying replicas
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithModelName("facebook/opt-125m"),
 				WithManagedRoute(),
@@ -271,7 +238,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - Deployment should be created with default replicas (1)
@@ -318,23 +285,12 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		It("should override externally set replicas when owner specifies replicas", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-override-replicas"
-			nsName := kmeta.ChildName(svcName, "-test")
-			deploymentName := types.NamespacedName{Name: svcName + "-kserve", Namespace: nsName}
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+			deploymentName := types.NamespacedName{Name: svcName + "-kserve", Namespace: testNs.Name}
 
 			// Create LLMInferenceService WITH explicit replicas
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithModelName("facebook/opt-125m"),
 				WithManagedRoute(),
@@ -348,7 +304,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - Deployment should be created with owner-specified replicas (2)
@@ -398,20 +354,10 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should create routes pointing to the default gateway when both are managed", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-create-http-route"
-				nsName := kmeta.ChildName(svcName, "-test")
-				namespace := &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: nsName,
-					},
-				}
-				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-				Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-				defer func() {
-					envTest.DeleteAll(namespace)
-				}()
+				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 				llmSvc := LLMInferenceService(svcName,
-					InNamespace[*v1alpha2.LLMInferenceService](nsName),
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 					WithModelURI("hf://facebook/opt-125m"),
 					WithManagedRoute(),
 					WithManagedGateway(),
@@ -421,7 +367,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				// when
 				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 				defer func() {
-					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+					testNs.DeleteAndWait(ctx, llmSvc)
 				}()
 
 				// then
@@ -437,11 +383,12 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 				Expect(expectedHTTPRoute).To(BeControlledBy(llmSvc))
 				Expect(expectedHTTPRoute).To(HaveGatewayRefs(gwapiv1.ParentReference{Name: "kserve-ingress-gateway"}))
-				Expect(expectedHTTPRoute).To(Not(HaveBackendRefs(BackendRefService(svcName + "-kserve-workload-svc"))))
+				// With completions-only routing, the catch-all rule uses a Service backend
+				Expect(expectedHTTPRoute).To(HaveBackendRefs(BackendRefService(svcName + "-kserve-workload-svc")))
 
 				ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
 
-				// HTTPRoute uses v1alpha2 backendRef when both CRDs are available
+				// HTTPRoute uses v1alpha2 backendRef for InferencePool rules when both CRDs are available
 				Eventually(func(g Gomega, ctx context.Context) {
 					routes, errList := managedRoutes(ctx, llmSvc)
 					g.Expect(errList).ToNot(HaveOccurred())
@@ -483,22 +430,12 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should use referenced external InferencePool", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-create-http-route-inf-pool-ref"
-				nsName := kmeta.ChildName(svcName, "-test")
-				namespace := &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: nsName,
-					},
-				}
-				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-				Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-				defer func() {
-					envTest.DeleteAll(namespace)
-				}()
+				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 				infPoolName := kmeta.ChildName(svcName, "-my-inf-pool")
 
 				llmSvc := LLMInferenceService(svcName,
-					InNamespace[*v1alpha2.LLMInferenceService](nsName),
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 					WithModelURI("hf://facebook/opt-125m"),
 					WithManagedRoute(),
 					WithManagedGateway(),
@@ -506,7 +443,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				)
 
 				infPool := InferencePool(infPoolName,
-					InNamespace[*igwapi.InferencePool](nsName),
+					InNamespace[*igwapi.InferencePool](testNs.Name),
 					WithSelector("app", "workload"),
 					WithTargetPort(8000),
 					WithExtensionRef("", "Service", kmeta.ChildName(svcName, "-epp-service"), 9002),
@@ -517,8 +454,8 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 				Expect(envTest.Create(ctx, infPool)).To(Succeed())
 				defer func() {
-					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
-					Expect(envTest.Delete(ctx, infPool)).To(Succeed())
+					testNs.DeleteAndWait(ctx, llmSvc)
+					testNs.DeleteAndWait(ctx, infPool)
 				}()
 
 				// then
@@ -535,7 +472,8 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				Expect(expectedHTTPRoute).To(BeControlledBy(llmSvc))
 				Expect(expectedHTTPRoute).To(HaveGatewayRefs(gwapiv1.ParentReference{Name: "kserve-ingress-gateway"}))
 				Expect(expectedHTTPRoute).To(HaveBackendRefs(BackendRefInferencePool(infPoolName)))
-				Expect(expectedHTTPRoute).To(Not(HaveBackendRefs(BackendRefService(svcName + "-kserve-workload-svc"))))
+				// With completions-only routing, the catch-all rule uses a Service backend
+				Expect(expectedHTTPRoute).To(HaveBackendRefs(BackendRefService(svcName + "-kserve-workload-svc")))
 
 				ensureInferencePoolReady(ctx, envTest.Client, infPool)
 				ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
@@ -549,20 +487,10 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should create routes pointing to workload service when no scheduler is configured", func(ctx SpecContext) {
 				// given
 				llmSvcName := "test-llm-create-http-route-no-scheduler"
-				nsName := kmeta.ChildName(llmSvcName, "-test")
-				namespace := &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: nsName,
-					},
-				}
-				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-				Expect(envTest.Client.Create(ctx, IstioShadowService(llmSvcName, nsName))).To(Succeed())
-				defer func() {
-					envTest.DeleteAll(namespace)
-				}()
+				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(llmSvcName))
 
 				llmSvc := LLMInferenceService(llmSvcName,
-					InNamespace[*v1alpha2.LLMInferenceService](nsName),
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 					WithModelURI("hf://facebook/opt-125m"),
 					WithManagedRoute(),
 					WithManagedGateway(),
@@ -571,7 +499,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				// when
 				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 				defer func() {
-					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+					testNs.DeleteAndWait(ctx, llmSvc)
 				}()
 
 				// then
@@ -594,7 +522,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 				Eventually(func(g Gomega, ctx context.Context) error {
 					svc := &corev1.Service{}
-					err := envTest.Client.Get(ctx, client.ObjectKey{Name: svcName, Namespace: nsName}, svc)
+					err := envTest.Client.Get(ctx, client.ObjectKey{Name: svcName, Namespace: testNs.Name}, svc)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(svc.Spec.Selector).To(Equal(llmisvc.GetWorkloadLabelSelector(llmSvc.ObjectMeta, &llmSvc.Spec)))
 					return nil
@@ -618,29 +546,19 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should create HTTPRoute with defined spec", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-defined-http-route"
-				nsName := kmeta.ChildName(svcName, "-test")
-				namespace := &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: nsName,
-					},
-				}
-				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-				Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-				defer func() {
-					envTest.DeleteAll(namespace)
-				}()
+				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 				llmSvc := LLMInferenceService(svcName,
-					InNamespace[*v1alpha2.LLMInferenceService](nsName),
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 					WithModelURI("hf://facebook/opt-125m"),
 					WithManagedGateway(),
-					WithHTTPRouteSpec(customRouteSpec(ctx, envTest.Client, nsName, "my-ingress-gateway", "my-inference-service")),
+					WithHTTPRouteSpec(customRouteSpec(ctx, envTest.Client, testNs.Name, "my-ingress-gateway", "my-inference-service")),
 				)
 
 				// when
 				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 				defer func() {
-					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+					testNs.DeleteAndWait(ctx, llmSvc)
 				}()
 
 				expectedHTTPRoute := &gwapiv1.HTTPRoute{}
@@ -673,21 +591,11 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should delete managed HTTPRoute when ref is defined", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-update-http-route"
-				nsName := kmeta.ChildName(svcName, "-test")
-				namespace := &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: nsName,
-					},
-				}
-				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-				Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-				defer func() {
-					envTest.DeleteAll(namespace)
-				}()
+				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 				// Create the Gateway that the router-managed preset references
 				gateway := Gateway("my-ingress-gateway",
-					InNamespace[*gwapiv1.Gateway](nsName),
+					InNamespace[*gwapiv1.Gateway](testNs.Name),
 					WithListener(gwapiv1.HTTPProtocolType),
 					WithAddresses("203.0.113.1"),
 					// Don't set the condition here initially
@@ -698,11 +606,11 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				ensureGatewayReady(ctx, envTest.Client, gateway)
 
 				defer func() {
-					Expect(envTest.Delete(ctx, gateway)).To(Succeed())
+					testNs.DeleteAndWait(ctx, gateway)
 				}()
 
 				llmSvc := LLMInferenceService(svcName,
-					InNamespace[*v1alpha2.LLMInferenceService](nsName),
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 					WithModelURI("hf://facebook/opt-125m"),
 					WithManagedRoute(),
 					WithManagedGateway(),
@@ -710,7 +618,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 				defer func() {
-					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+					testNs.DeleteAndWait(ctx, llmSvc)
 				}()
 
 				Eventually(func(g Gomega, ctx context.Context) error {
@@ -722,7 +630,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				}).WithContext(ctx).Should(Succeed())
 
 				customHTTPRoute := HTTPRoute("my-custom-route", []HTTPRouteOption{
-					InNamespace[*gwapiv1.HTTPRoute](nsName),
+					InNamespace[*gwapiv1.HTTPRoute](testNs.Name),
 					WithParentRef(GatewayParentRef(gateway.Name, gateway.Namespace)),
 					WithHTTPRouteRule(
 						HTTPRouteRuleWithBackendAndTimeouts(svcName+"-inference-pool", 8000, "/", "0s", "0s"),
@@ -761,29 +669,19 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should evaluate HTTPRoute readiness conditions", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-httproute-conditions"
-				nsName := kmeta.ChildName(svcName, "-test")
-				namespace := &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: nsName,
-					},
-				}
-				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-				Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-				defer func() {
-					envTest.DeleteAll(namespace)
-				}()
+				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
-				ingressGateway := DefaultGateway(nsName)
+				ingressGateway := DefaultGateway(testNs.Name)
 				Expect(envTest.Client.Create(ctx, ingressGateway)).To(Succeed())
 				ensureGatewayReady(ctx, envTest.Client, ingressGateway)
 
 				defer func() {
-					Expect(envTest.Delete(ctx, ingressGateway)).To(Succeed())
+					testNs.DeleteAndWait(ctx, ingressGateway)
 				}()
 
 				customHTTPRoute := HTTPRoute("my-custom-route", []HTTPRouteOption{
-					InNamespace[*gwapiv1.HTTPRoute](nsName),
-					WithParentRef(GatewayParentRef("kserve-ingress-gateway", nsName)),
+					InNamespace[*gwapiv1.HTTPRoute](testNs.Name),
+					WithParentRef(GatewayParentRef("kserve-ingress-gateway", testNs.Name)),
 					WithHTTPRouteRule(
 						HTTPRouteRuleWithBackendAndTimeouts(svcName+"-inference-pool", 8000, "/", "0s", "0s"),
 					),
@@ -794,7 +692,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				ensureHTTPRouteReady(ctx, envTest.Client, customHTTPRoute)
 
 				llmSvc := LLMInferenceService(svcName,
-					InNamespace[*v1alpha2.LLMInferenceService](nsName),
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 					WithModelURI("hf://facebook/opt-125m"),
 					WithHTTPRouteRefs(HTTPRouteRef("my-custom-route")),
 				)
@@ -802,7 +700,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				// when
 				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 				defer func() {
-					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+					testNs.DeleteAndWait(ctx, llmSvc)
 				}()
 
 				// then - verify HTTPRoutesReady condition is set
@@ -830,20 +728,10 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				func(ctx SpecContext, testName string, initialRouterSpec *v1alpha2.RouterSpec, specMutation func(*v1alpha2.LLMInferenceService)) {
 					// given
 					svcName := "test-llm-" + testName
-					nsName := kmeta.ChildName(svcName, "-test")
-					namespace := &corev1.Namespace{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: nsName,
-						},
-					}
-					Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-					Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-					defer func() {
-						envTest.DeleteAll(namespace)
-					}()
+					testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 					llmSvc := LLMInferenceService(svcName,
-						InNamespace[*v1alpha2.LLMInferenceService](nsName),
+						InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 						WithModelURI("hf://facebook/opt-125m"),
 					)
 					llmSvc.Spec.Router = initialRouterSpec
@@ -851,7 +739,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					// when - Create LLMInferenceService
 					Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 					defer func() {
-						Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+						testNs.DeleteAndWait(ctx, llmSvc)
 					}()
 
 					// then - HTTPRoute should be created with router labels
@@ -901,33 +789,137 @@ var _ = Describe("LLMInferenceService Controller", func() {
 		})
 	})
 
+	Context("Custom Gateway Reference", func() {
+		It("should not require default gateway when custom gateway is specified", func(ctx SpecContext) {
+			// given - remove the default gateway
+			defaultGateway := &gwapiv1.Gateway{}
+			Expect(envTest.Client.Get(ctx, types.NamespacedName{
+				Name:      constants.GatewayName,
+				Namespace: constants.KServeNamespace,
+			}, defaultGateway)).To(Succeed())
+
+			gatewayToRestore := defaultGateway.DeepCopy()
+			gatewayToRestore.ResourceVersion = "" // Clear for re-creation
+
+			DeferCleanup(func(ctx context.Context) {
+				// Restore the default gateway after the test (pass or fail)
+				existing := &gwapiv1.Gateway{}
+				err := envTest.Client.Get(ctx, types.NamespacedName{
+					Name:      constants.GatewayName,
+					Namespace: constants.KServeNamespace,
+				}, existing)
+				if err == nil {
+					// Gateway already exists, no restoration needed.
+					return
+				}
+				// Whether NotFound or transient error, attempt to restore.
+				Expect(client.IgnoreAlreadyExists(envTest.Client.Create(ctx, gatewayToRestore))).To(Succeed())
+			})
+
+			Expect(envTest.Client.Delete(ctx, defaultGateway)).To(Succeed())
+
+			// Ensure the default gateway is actually deleted
+			Eventually(func(g Gomega, ctx context.Context) bool {
+				err := envTest.Client.Get(ctx, types.NamespacedName{
+					Name:      constants.GatewayName,
+					Namespace: constants.KServeNamespace,
+				}, &gwapiv1.Gateway{})
+				return errors.IsNotFound(err)
+			}).WithContext(ctx).Should(BeTrue(), "default gateway should be deleted")
+
+			// Create test namespace
+			svcName := "test-llm-custom-gateway"
+			nsName := kmeta.ChildName(svcName, "-test")
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(ctx, namespace)
+			}()
+
+			customGatewayName := "my-custom-gateway"
+			customGateway := Gateway(customGatewayName,
+				InNamespace[*gwapiv1.Gateway](nsName),
+				WithListener(gwapiv1.HTTPProtocolType),
+				WithAddresses("203.0.113.42"),
+			)
+			Expect(envTest.Client.Create(ctx, customGateway)).To(Succeed())
+			ensureGatewayReady(ctx, envTest.Client, customGateway)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithGatewayRefs(LLMGatewayRef(customGatewayName, nsName)),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			// Wait for HTTPRoute to be created and verify it references the custom gateway
+			var createdRoute *gwapiv1.HTTPRoute
+			Eventually(func(g Gomega, ctx context.Context) error {
+				routes, errList := managedRoutes(ctx, llmSvc)
+				g.Expect(errList).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+
+				g.Expect(&routes[0]).To(HaveGatewayRefs(gwapiv1.ParentReference{
+					Name:      gwapiv1.ObjectName(customGatewayName),
+					Namespace: ptr.To(gwapiv1.Namespace(nsName)),
+				}))
+
+				createdRoute = &routes[0]
+				return nil
+			}).WithContext(ctx).Should(Succeed(), "HTTPRoute should reference the custom gateway")
+
+			// Simulate gateway controller setting HTTPRoute status
+			ensureHTTPRouteReady(ctx, envTest.Client, createdRoute)
+
+			// then - inspect status
+			Eventually(func(g Gomega, ctx context.Context) error {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+
+				// Check that RouterReady condition exists and is True
+				routerCondition := current.Status.GetCondition(v1alpha2.RouterReady)
+				g.Expect(routerCondition).ToNot(BeNil(), "RouterReady condition should be set")
+				g.Expect(routerCondition.IsTrue()).To(BeTrue(), "RouterReady condition should be True")
+
+				// Check that HTTPRoutesReady condition exists and is True
+				httpRoutesCondition := current.Status.GetCondition(v1alpha2.HTTPRoutesReady)
+				g.Expect(httpRoutesCondition).ToNot(BeNil(), "HTTPRoutesReady condition should be set")
+				g.Expect(httpRoutesCondition.IsTrue()).To(BeTrue(), "HTTPRoutesReady condition should be True")
+
+				return nil
+			}).WithContext(ctx).Should(Succeed(), "LLMInferenceService should become ready with custom gateway")
+		})
+	})
+
 	Context("Reference validation", func() {
 		When("referenced Gateway does not exist", func() {
 			It("should mark RouterReady condition as False with InvalidRefs reason", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-gateway-ref-not-found"
-				nsName := kmeta.ChildName(svcName, "-test")
-				namespace := &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: nsName,
-					},
-				}
-				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-				defer func() {
-					envTest.DeleteAll(namespace)
-				}()
+				testNs := NewTestNamespace(ctx, envTest)
 
 				llmSvc := LLMInferenceService(svcName,
-					InNamespace[*v1alpha2.LLMInferenceService](nsName),
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 					WithModelURI("hf://facebook/opt-125m"),
 					WithHTTPRouteRefs(HTTPRouteRef("non-existent-route")),
-					WithGatewayRefs(LLMGatewayRef("non-existent-gateway", nsName)),
+					WithGatewayRefs(LLMGatewayRef("non-existent-gateway", testNs.Name)),
 				)
 
 				// when
 				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 				defer func() {
-					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+					testNs.DeleteAndWait(ctx, llmSvc)
 				}()
 
 				// then
@@ -940,7 +932,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					routerCondition := updatedLLMSvc.Status.GetCondition(v1alpha2.RouterReady)
 					g.Expect(routerCondition).ToNot(BeNil())
 					g.Expect(routerCondition.Reason).To(Equal(llmisvc.RefsInvalidReason))
-					g.Expect(routerCondition.Message).To(ContainSubstring(nsName + "/non-existent-gateway does not exist"))
+					g.Expect(routerCondition.Message).To(ContainSubstring(testNs.Name + "/non-existent-gateway does not exist"))
 
 					return nil
 				}).WithContext(ctx).Should(Succeed())
@@ -951,27 +943,18 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should mark RouterReady condition as False with RefsInvalid reason", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-parent-gateway-ref-not-found"
-				nsName := kmeta.ChildName(svcName, "-test")
-				namespace := &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: nsName,
-					},
-				}
-				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-				defer func() {
-					envTest.DeleteAll(namespace)
-				}()
+				testNs := NewTestNamespace(ctx, envTest)
 
 				// Create HTTPRoute spec that references a non-existent gateway
 				customRouteSpec := &HTTPRoute("temp",
-					WithParentRefs(GatewayParentRef("non-existent-parent-gateway", nsName)),
+					WithParentRefs(GatewayParentRef("non-existent-parent-gateway", testNs.Name)),
 					WithHTTPRule(
 						WithBackendRefs(ServiceRef("some-backend", 8000, 1)),
 					),
 				).Spec
 
 				llmSvc := LLMInferenceService(svcName,
-					InNamespace[*v1alpha2.LLMInferenceService](nsName),
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 					WithModelURI("hf://facebook/opt-125m"),
 					WithHTTPRouteSpec(customRouteSpec),
 				)
@@ -979,7 +962,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				// when
 				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 				defer func() {
-					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+					testNs.DeleteAndWait(ctx, llmSvc)
 				}()
 
 				// then
@@ -992,7 +975,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					routerCondition := updatedLLMSvc.Status.GetCondition(v1alpha2.RouterReady)
 					g.Expect(routerCondition).ToNot(BeNil())
 					g.Expect(routerCondition.Reason).To(Equal(llmisvc.RefsInvalidReason))
-					g.Expect(routerCondition.Message).To(ContainSubstring(fmt.Sprintf("Managed HTTPRoute references non-existent Gateway %s/non-existent-parent-gateway", nsName)))
+					g.Expect(routerCondition.Message).To(ContainSubstring(fmt.Sprintf("Managed HTTPRoute references non-existent Gateway %s/non-existent-parent-gateway", testNs.Name)))
 
 					return nil
 				}).WithContext(ctx).Should(Succeed())
@@ -1003,19 +986,10 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should mark RouterReady condition as False with RefsInvalid reason", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-route-ref-not-found"
-				nsName := kmeta.ChildName(svcName, "-test")
-				namespace := &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: nsName,
-					},
-				}
-				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-				defer func() {
-					envTest.DeleteAll(namespace)
-				}()
+				testNs := NewTestNamespace(ctx, envTest)
 
 				llmSvc := LLMInferenceService(svcName,
-					InNamespace[*v1alpha2.LLMInferenceService](nsName),
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 					WithModelURI("hf://facebook/opt-125m"),
 					WithHTTPRouteRefs(HTTPRouteRef("non-existent-route")),
 					WithGatewayRefs(LLMGatewayRef(constants.GatewayName, constants.KServeNamespace)),
@@ -1024,7 +998,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				// when
 				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 				defer func() {
-					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+					testNs.DeleteAndWait(ctx, llmSvc)
 				}()
 
 				// then
@@ -1037,7 +1011,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					routerCondition := updatedLLMSvc.Status.GetCondition(v1alpha2.RouterReady)
 					g.Expect(routerCondition).ToNot(BeNil())
 					g.Expect(routerCondition.Reason).To(Equal(llmisvc.RefsInvalidReason))
-					g.Expect(routerCondition.Message).To(ContainSubstring(fmt.Sprintf("HTTPRoute %s/non-existent-route does not exist", nsName)))
+					g.Expect(routerCondition.Message).To(ContainSubstring(fmt.Sprintf("HTTPRoute %s/non-existent-route does not exist", testNs.Name)))
 
 					return nil
 				}).WithContext(ctx).Should(Succeed())
@@ -1050,38 +1024,29 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should clear stale GatewaysReady condition when Gateway is created", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-stale-gateway-condition"
-				nsName := kmeta.ChildName(svcName, "-test")
-				namespace := &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: nsName,
-					},
-				}
-				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-				defer func() {
-					envTest.DeleteAll(namespace)
-				}()
+				testNs := NewTestNamespace(ctx, envTest)
 
 				// Create HTTPRoute first so HTTPRoute validation passes (focus on Gateway stale condition)
 				httpRoute := HTTPRoute("my-route", []HTTPRouteOption{
-					InNamespace[*gwapiv1.HTTPRoute](nsName),
+					InNamespace[*gwapiv1.HTTPRoute](testNs.Name),
 				}...)
 				Expect(envTest.Client.Create(ctx, httpRoute)).To(Succeed())
 				defer func() {
-					Expect(envTest.Delete(ctx, httpRoute)).To(Succeed())
+					testNs.DeleteAndWait(ctx, httpRoute)
 				}()
 
 				// Create LLMInferenceService referencing a Gateway that doesn't exist yet
 				// Must use WithHTTPRouteRefs (custom gateway requires custom routes, not managed routes)
 				llmSvc := LLMInferenceService(svcName,
-					InNamespace[*v1alpha2.LLMInferenceService](nsName),
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 					WithModelURI("hf://facebook/opt-125m"),
 					WithHTTPRouteRefs(HTTPRouteRef("my-route")),
-					WithGatewayRefs(LLMGatewayRef("my-gateway", nsName)),
+					WithGatewayRefs(LLMGatewayRef("my-gateway", testNs.Name)),
 				)
 
 				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 				defer func() {
-					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+					testNs.DeleteAndWait(ctx, llmSvc)
 				}()
 
 				// Verify GatewaysReady is False with RefsInvalid
@@ -1100,14 +1065,14 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 				// when - Create the Gateway
 				gateway := Gateway("my-gateway",
-					InNamespace[*gwapiv1.Gateway](nsName),
+					InNamespace[*gwapiv1.Gateway](testNs.Name),
 					WithListener(gwapiv1.HTTPProtocolType),
 					WithAddresses("203.0.113.1"),
 				)
 				Expect(envTest.Client.Create(ctx, gateway)).To(Succeed())
 				ensureGatewayReady(ctx, envTest.Client, gateway)
 				defer func() {
-					Expect(envTest.Delete(ctx, gateway)).To(Succeed())
+					testNs.DeleteAndWait(ctx, gateway)
 				}()
 
 				// then - GatewaysReady stale condition should be cleared (no longer RefsInvalid)
@@ -1131,40 +1096,31 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should clear stale HTTPRoutesReady condition when HTTPRoute is created", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-stale-httproute-condition"
-				nsName := kmeta.ChildName(svcName, "-test")
-				namespace := &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: nsName,
-					},
-				}
-				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-				defer func() {
-					envTest.DeleteAll(namespace)
-				}()
+				testNs := NewTestNamespace(ctx, envTest)
 
 				// Create the Gateway first so gateway validation passes
 				gateway := Gateway("my-gateway",
-					InNamespace[*gwapiv1.Gateway](nsName),
+					InNamespace[*gwapiv1.Gateway](testNs.Name),
 					WithListener(gwapiv1.HTTPProtocolType),
 					WithAddresses("203.0.113.1"),
 				)
 				Expect(envTest.Client.Create(ctx, gateway)).To(Succeed())
 				ensureGatewayReady(ctx, envTest.Client, gateway)
 				defer func() {
-					Expect(envTest.Delete(ctx, gateway)).To(Succeed())
+					testNs.DeleteAndWait(ctx, gateway)
 				}()
 
 				// Create LLMInferenceService referencing an HTTPRoute that doesn't exist yet
 				llmSvc := LLMInferenceService(svcName,
-					InNamespace[*v1alpha2.LLMInferenceService](nsName),
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 					WithModelURI("hf://facebook/opt-125m"),
 					WithHTTPRouteRefs(HTTPRouteRef("my-route")),
-					WithGatewayRefs(LLMGatewayRef("my-gateway", nsName)),
+					WithGatewayRefs(LLMGatewayRef("my-gateway", testNs.Name)),
 				)
 
 				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 				defer func() {
-					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+					testNs.DeleteAndWait(ctx, llmSvc)
 				}()
 
 				// Verify HTTPRoutesReady is False with RefsInvalid
@@ -1190,8 +1146,8 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 				// when - Create the HTTPRoute
 				httpRoute := HTTPRoute("my-route", []HTTPRouteOption{
-					InNamespace[*gwapiv1.HTTPRoute](nsName),
-					WithParentRef(GatewayParentRef("my-gateway", nsName)),
+					InNamespace[*gwapiv1.HTTPRoute](testNs.Name),
+					WithParentRef(GatewayParentRef("my-gateway", testNs.Name)),
 					WithHTTPRouteRule(
 						HTTPRouteRuleWithBackendAndTimeouts(svcName+"-kserve-workload-svc", 8000, "/", "0s", "0s"),
 					),
@@ -1199,7 +1155,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				Expect(envTest.Client.Create(ctx, httpRoute)).To(Succeed())
 				ensureHTTPRouteReady(ctx, envTest.Client, httpRoute)
 				defer func() {
-					Expect(envTest.Delete(ctx, httpRoute)).To(Succeed())
+					testNs.DeleteAndWait(ctx, httpRoute)
 				}()
 
 				// then - HTTPRoutesReady stale condition should be cleared
@@ -1223,21 +1179,11 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			It("should clear SchedulerWorkloadReady condition when scheduler is no longer configured", func(ctx SpecContext) {
 				// given
 				svcName := "test-llm-stale-scheduler-condition"
-				nsName := kmeta.ChildName(svcName, "-test")
-				namespace := &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: nsName,
-					},
-				}
-				Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-				Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-				defer func() {
-					envTest.DeleteAll(namespace)
-				}()
+				testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 				// Create LLMInferenceService with scheduler
 				llmSvc := LLMInferenceService(svcName,
-					InNamespace[*v1alpha2.LLMInferenceService](nsName),
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 					WithModelURI("hf://facebook/opt-125m"),
 					WithManagedRoute(),
 					WithManagedGateway(),
@@ -1246,7 +1192,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 				defer func() {
-					Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+					testNs.DeleteAndWait(ctx, llmSvc)
 				}()
 
 				ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
