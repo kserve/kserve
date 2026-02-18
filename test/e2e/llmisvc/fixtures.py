@@ -122,6 +122,12 @@ LLMINFERENCESERVICE_CONFIGS = {
     "model-fb-opt-125m": {
         "model": {"uri": "hf://facebook/opt-125m", "name": "facebook/opt-125m"},
     },
+    "model-qwen2.5-0.5b": {
+        "model": {
+            "uri": "hf://Qwen/Qwen2.5-0.5B-Instruct",
+            "name": "Qwen/Qwen2.5-0.5B-Instruct",
+        },
+    },
     "model-deepseek-v2-lite": {
         "model": {
             "uri": "hf://deepseek-ai/DeepSeek-V2-Lite-Chat",
