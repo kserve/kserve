@@ -119,12 +119,12 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	}
 
 	container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig, predictorName)
-	if len(isvc.Spec.Explainer.PodSpec.Containers) == 0 {
-		isvc.Spec.Explainer.PodSpec.Containers = []corev1.Container{
+	if len(isvc.Spec.Explainer.Containers) == 0 {
+		isvc.Spec.Explainer.Containers = []corev1.Container{
 			*container,
 		}
 	} else {
-		isvc.Spec.Explainer.PodSpec.Containers[0] = *container
+		isvc.Spec.Explainer.Containers[0] = *container
 	}
 
 	podSpec := corev1.PodSpec(isvc.Spec.Explainer.PodSpec)

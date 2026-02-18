@@ -29,7 +29,7 @@ type PaddleServerSpec struct {
 
 func (p *PaddleServerSpec) Default(config *InferenceServicesConfig) {
 	// TODO: add GPU support
-	p.Container.Name = constants.InferenceServiceContainerName
+	p.Name = constants.InferenceServiceContainerName
 	setResourceRequirementDefaults(config, &p.Resources)
 }
 

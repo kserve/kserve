@@ -57,7 +57,7 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
 			{
-				Name:            graph.ObjectMeta.Name,
+				Name:            graph.Name,
 				Image:           config.Image,
 				ImagePullPolicy: corev1.PullPolicy(config.ImagePullPolicy),
 				Args: []string{
@@ -104,10 +104,10 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 A simple utility to create a basic meta object given name and namespace;  Can be extended to accept labels, annotations as well
 */
 func constructForRawDeployment(graph *v1alpha1.InferenceGraph) (metav1.ObjectMeta, v1beta1.ComponentExtensionSpec) {
-	name := graph.ObjectMeta.Name
-	namespace := graph.ObjectMeta.Namespace
-	annotations := graph.ObjectMeta.Annotations
-	labels := graph.ObjectMeta.Labels
+	name := graph.Name
+	namespace := graph.Namespace
+	annotations := graph.Annotations
+	labels := graph.Labels
 
 	if annotations == nil {
 		annotations = make(map[string]string)

@@ -253,7 +253,7 @@ func (r *LLMISVCReconciler) expectedSchedulerService(ctx context.Context, llmSvc
 			logger.Info("some ports are not matching", "desired", desiredPorts, "actual", maps.Keys(actualPorts))
 		}
 
-		var servicePorts []corev1.ServicePort
+		servicePorts := make([]corev1.ServicePort, 0, len(actualPorts))
 		for name, port := range actualPorts {
 			servicePorts = append(servicePorts, corev1.ServicePort{
 				Name:       name,
@@ -458,7 +458,7 @@ func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(ctx context.Context,
 		useExistingServiceAccount = true
 		log.FromContext(ctx).V(2).Info("Using existing service account for scheduler", "serviceAccountName", existingServiceAccountName)
 		existingServiceAccount := &corev1.ServiceAccount{}
-		err := r.Client.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+		err := r.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
 		if err != nil {
 			return nil, true, fmt.Errorf("failed to fetch existing scheduler service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
 		}

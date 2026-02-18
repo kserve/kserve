@@ -168,7 +168,7 @@ func SharedConfigPresets(ns string) []*v1alpha2.LLMInferenceServiceConfig {
 			return nil
 		}
 
-		data, err := os.ReadFile(path)
+		data, err := os.ReadFile(filepath.Clean(path))
 		if err != nil {
 			return err
 		}

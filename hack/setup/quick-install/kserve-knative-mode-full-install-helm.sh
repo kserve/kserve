@@ -497,7 +497,7 @@ export RELEASE
 # Version Dependencies (from kserve-deps.env)
 #================================================
 
-GOLANGCI_LINT_VERSION=v1.64.8
+GOLANGCI_LINT_VERSION=v2.9.0
 CONTROLLER_TOOLS_VERSION=v0.19.0
 ENVTEST_VERSION=latest
 YQ_VERSION=v4.52.1

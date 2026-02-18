@@ -55,6 +55,7 @@ async def rest_v1_client():
         retry=Retry(
             total=DEFAULT_RETRY_TOTAL,
             backoff_factor=DEFAULT_RETRY_BACKOFF_FACTOR,
+            backoff_jitter=0.0,
             allowed_methods=["GET", "POST"],
             status_forcelist=list(DEFAULT_RETRY_STATUS_CODES),
             retry_on_exceptions=[
@@ -82,6 +83,7 @@ async def rest_v2_client():
         retry=Retry(
             total=DEFAULT_RETRY_TOTAL,
             backoff_factor=DEFAULT_RETRY_BACKOFF_FACTOR,
+            backoff_jitter=0.0,
             allowed_methods=["GET", "POST"],
             status_forcelist=list(DEFAULT_RETRY_STATUS_CODES),
             retry_on_exceptions=[

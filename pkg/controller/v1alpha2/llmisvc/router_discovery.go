@@ -378,7 +378,7 @@ func IsHTTPRouteReady(route *gwapiv1.HTTPRoute) bool {
 	// Multiple controllers may write separate status entries for the same ParentRef,
 	// so we only require that at least one entry exists per spec ref.
 	for _, specRef := range route.Spec.ParentRefs {
-		if !hasMatchingParentStatus(specRef, route.Status.RouteStatus.Parents) {
+		if !hasMatchingParentStatus(specRef, route.Status.Parents) {
 			return false
 		}
 	}
@@ -422,7 +422,7 @@ func areGatewayConditionsReady(route *gwapiv1.HTTPRoute) bool {
 	if route == nil {
 		return false
 	}
-	for _, parent := range route.Status.RouteStatus.Parents {
+	for _, parent := range route.Status.Parents {
 		acceptedCond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionAccepted))
 		if acceptedCond == nil {
 			continue
@@ -450,7 +450,7 @@ func findNonReadyGatewayCondition(route *gwapiv1.HTTPRoute) *metav1.Condition {
 	if route == nil {
 		return nil
 	}
-	for _, parent := range route.Status.RouteStatus.Parents {
+	for _, parent := range route.Status.Parents {
 		acceptedCond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionAccepted))
 		if acceptedCond == nil {
 			continue

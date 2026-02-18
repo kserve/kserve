@@ -167,13 +167,13 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	finalizerName := "inferenceservice.finalizers"
 
 	// examine DeletionTimestamp to determine if object is under deletion
-	if isvc.ObjectMeta.DeletionTimestamp.IsZero() {
+	if isvc.DeletionTimestamp.IsZero() {
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then lets add the finalizer and update the object. This is equivalent
 		// registering our finalizer.
 		if !controllerutil.ContainsFinalizer(isvc, finalizerName) {
 			controllerutil.AddFinalizer(isvc, finalizerName)
-			patchYaml := "metadata:\n  finalizers: [" + strings.Join(isvc.ObjectMeta.Finalizers, ",") + "]"
+			patchYaml := "metadata:\n  finalizers: [" + strings.Join(isvc.Finalizers, ",") + "]"
 			patchJson, _ := yaml.YAMLToJSON([]byte(patchYaml))
 			if err := r.Patch(ctx, isvc, client.RawPatch(types.MergePatchType, patchJson)); err != nil {
 				return ctrl.Result{}, err
@@ -191,7 +191,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 			// remove our finalizer from the list and update it.
 			controllerutil.RemoveFinalizer(isvc, finalizerName)
-			patchYaml := "metadata:\n  finalizers: [" + strings.Join(isvc.ObjectMeta.Finalizers, ",") + "]"
+			patchYaml := "metadata:\n  finalizers: [" + strings.Join(isvc.Finalizers, ",") + "]"
 			patchJson, _ := yaml.YAMLToJSON([]byte(patchYaml))
 			if err := r.Patch(ctx, isvc, client.RawPatch(types.MergePatchType, patchJson)); err != nil {
 				return ctrl.Result{}, err
@@ -433,7 +433,7 @@ func (r *InferenceServiceReconciler) servingRuntimeFunc(ctx context.Context, obj
 
 	var isvcList v1beta1.InferenceServiceList
 	// List all InferenceServices in the same namespace.
-	if err := r.Client.List(ctx, &isvcList, client.InNamespace(runtimeObj.Namespace)); err != nil {
+	if err := r.List(ctx, &isvcList, client.InNamespace(runtimeObj.Namespace)); err != nil {
 		r.Log.Error(err, "unable to list InferenceServices", "runtime", runtimeObj.Name)
 		return nil
 	}
@@ -467,7 +467,7 @@ func (r *InferenceServiceReconciler) clusterServingRuntimeFunc(ctx context.Conte
 	}
 
 	var isvcList v1beta1.InferenceServiceList
-	if err := r.Client.List(ctx, &isvcList, client.InNamespace(clusterServingRuntimeObj.Namespace)); err != nil {
+	if err := r.List(ctx, &isvcList, client.InNamespace(clusterServingRuntimeObj.Namespace)); err != nil {
 		r.Log.Error(err, "unable to list InferenceServices", "clusterServingRuntime", clusterServingRuntimeObj.Name)
 		return nil
 	}
