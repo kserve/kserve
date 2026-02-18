@@ -27,8 +27,8 @@ from .logging import log_execution
 from .test_llm_inference_service import (
     TestCase,
     create_llmisvc,
-    delete_llmisvc,
     get_llmisvc,
+    maybe_delete_llmisvc,
     wait_for,
     wait_for_llm_isvc_ready,
 )
@@ -124,34 +124,7 @@ def test_llm_stop_feature(test_case: TestCase):
         print(f"❌ ERROR: Stop feature test failed for {service_name}: {e}")
         raise
     finally:
-        try:
-            skip_all_deletion = os.getenv(
-                "SKIP_RESOURCE_DELETION", "False"
-            ).lower() in (
-                "true",
-                "1",
-                "t",
-            )
-            skip_deletion_on_failure = os.getenv(
-                "SKIP_DELETION_ON_FAILURE", "False"
-            ).lower() in (
-                "true",
-                "1",
-                "t",
-            )
-
-            should_skip_deletion = skip_all_deletion or (
-                skip_deletion_on_failure and test_failed
-            )
-
-            if not should_skip_deletion:
-                delete_llmisvc(kserve_client, test_case.llm_service)
-            elif test_failed and skip_deletion_on_failure:
-                print(
-                    f"⏭️  Skipping deletion of {service_name} due to test failure (SKIP_DELETION_ON_FAILURE=True)"
-                )
-        except Exception as e:
-            print(f"⚠️ Warning: Failed to cleanup service {service_name}: {e}")
+        maybe_delete_llmisvc(kserve_client, test_case.llm_service, test_failed)
 
 
 @log_execution

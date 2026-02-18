@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 from .fixtures import KSERVE_TEST_NAMESPACE
+
+GATEWAY_CLASS_NAME = os.environ.get("GATEWAY_CLASS_NAME", "envoy")
 
 ROUTER_GATEWAYS = [
     {
@@ -23,7 +27,7 @@ ROUTER_GATEWAYS = [
             "namespace": KSERVE_TEST_NAMESPACE,
         },
         "spec": {
-            "gatewayClassName": "envoy",
+            "gatewayClassName": GATEWAY_CLASS_NAME,
             "listeners": [
                 {
                     "name": "http",
@@ -46,7 +50,7 @@ ROUTER_GATEWAYS = [
             "namespace": KSERVE_TEST_NAMESPACE,
         },
         "spec": {
-            "gatewayClassName": "envoy",
+            "gatewayClassName": GATEWAY_CLASS_NAME,
             "listeners": [
                 {
                     "name": "http",
