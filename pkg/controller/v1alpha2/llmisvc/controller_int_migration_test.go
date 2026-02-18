@@ -21,10 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
@@ -42,21 +39,10 @@ var _ = Describe("InferencePool Migration", func() {
 		It("should create both v1 and v1alpha2 InferencePools when both CRDs are available", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-dual-pool"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
@@ -66,29 +52,29 @@ var _ = Describe("InferencePool Migration", func() {
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - verify v1 InferencePool is created
 			expectedPoolName := svcName + "-inference-pool"
 			Eventually(func(g Gomega, ctx context.Context) error {
 				v1Pool := &igwapi.InferencePool{}
-				return envTest.Client.Get(ctx, client.ObjectKey{Name: expectedPoolName, Namespace: nsName}, v1Pool)
+				return envTest.Client.Get(ctx, client.ObjectKey{Name: expectedPoolName, Namespace: testNs.Name}, v1Pool)
 			}).WithContext(ctx).Should(Succeed(), "v1 InferencePool should be created")
 
 			// then - verify v1alpha2 InferencePool is created (same name, different API group)
 			Eventually(func(g Gomega, ctx context.Context) error {
 				v1alpha2Pool := &igwapiv1alpha2.InferencePool{}
-				return envTest.Client.Get(ctx, client.ObjectKey{Name: expectedPoolName, Namespace: nsName}, v1alpha2Pool)
+				return envTest.Client.Get(ctx, client.ObjectKey{Name: expectedPoolName, Namespace: testNs.Name}, v1alpha2Pool)
 			}).WithContext(ctx).Should(Succeed(), "v1alpha2 InferencePool should be created")
 
 			// Verify both pools have correct owner reference
 			v1Pool := &igwapi.InferencePool{}
-			Expect(envTest.Client.Get(ctx, client.ObjectKey{Name: expectedPoolName, Namespace: nsName}, v1Pool)).To(Succeed())
+			Expect(envTest.Client.Get(ctx, client.ObjectKey{Name: expectedPoolName, Namespace: testNs.Name}, v1Pool)).To(Succeed())
 			Expect(v1Pool).To(BeOwnedBy(llmSvc))
 
 			v1alpha2Pool := &igwapiv1alpha2.InferencePool{}
-			Expect(envTest.Client.Get(ctx, client.ObjectKey{Name: expectedPoolName, Namespace: nsName}, v1alpha2Pool)).To(Succeed())
+			Expect(envTest.Client.Get(ctx, client.ObjectKey{Name: expectedPoolName, Namespace: testNs.Name}, v1alpha2Pool)).To(Succeed())
 			Expect(v1alpha2Pool).To(BeOwnedBy(llmSvc))
 
 			// Note: In envtest, the v1 pool is considered ready immediately (no status conditions = valid pool = ready),
@@ -99,21 +85,10 @@ var _ = Describe("InferencePool Migration", func() {
 		It("should point HTTPRoute backendRef to v1alpha2 pool initially (before migration)", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-initial-backend"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
@@ -123,7 +98,7 @@ var _ = Describe("InferencePool Migration", func() {
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - verify HTTPRoute points to v1alpha2 pool (API group)
@@ -151,22 +126,11 @@ var _ = Describe("InferencePool Migration", func() {
 		It("should keep HTTPRoute pointing to v1 pool when migration annotation is already on HTTPRoute", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-pre-migrated"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			// Create LLMInferenceService (no annotation - migration state is on HTTPRoute)
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
@@ -176,7 +140,7 @@ var _ = Describe("InferencePool Migration", func() {
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// Wait for HTTPRoute to be created with v1alpha2 backendRef initially
@@ -236,21 +200,10 @@ var _ = Describe("InferencePool Migration", func() {
 		It("should swap HTTPRoute backendRef from v1alpha2 to v1 when Gateway rejects v1alpha2", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-gateway-rejection"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
@@ -260,7 +213,7 @@ var _ = Describe("InferencePool Migration", func() {
 			// when - create the LLMInferenceService
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// Wait for HTTPRoute to be created with v1alpha2 backendRef initially
@@ -309,22 +262,11 @@ var _ = Describe("InferencePool Migration", func() {
 		It("should not change migration annotation on HTTPRoute once set to v1", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-migration-lock"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			// Create LLMInferenceService
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
@@ -333,7 +275,7 @@ var _ = Describe("InferencePool Migration", func() {
 
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// Wait for HTTPRoute to be created

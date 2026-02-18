@@ -176,6 +176,12 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		},
 	}
 
+	// Fetch the current LWS once to preserve storage-init images across upgrades.
+	currLWS := &lwsapi.LeaderWorkerSet{}
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(expected), currLWS); err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get current leader worker set %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
+	}
+
 	if llmSvc.Spec.Template != nil {
 		expected.Spec.LeaderWorkerTemplate.LeaderTemplate = &corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
@@ -190,7 +196,12 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		}
 		expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config); err != nil {
+		var currLeaderSpec corev1.PodSpec
+		if currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			currLeaderSpec = currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec
+		}
+
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to leader template: %w", err)
 		}
 
@@ -215,7 +226,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		}
 		expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config); err != nil {
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to worker template: %w", err)
 		}
 
@@ -292,6 +303,11 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 			return nil, fmt.Errorf("failed to create exptected multi node service account: %w", err)
 		}
 
+		currLWS := &lwsapi.LeaderWorkerSet{}
+		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(expected), currLWS); err != nil && !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get current prefill leader worker set %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
+		}
+
 		if llmSvc.Spec.Prefill.Template != nil {
 			expected.Spec.LeaderWorkerTemplate.LeaderTemplate = &corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -301,7 +317,12 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 			}
 			expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config); err != nil {
+			var currLeaderSpec corev1.PodSpec
+			if currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+				currLeaderSpec = currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec
+			}
+
+			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config); err != nil {
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill leader template: %w", err)
 			}
 		}
@@ -309,7 +330,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec = *llmSvc.Spec.Prefill.Worker.DeepCopy()
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config); err != nil {
+			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config); err != nil {
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill worker template: %w", err)
 			}
 		}

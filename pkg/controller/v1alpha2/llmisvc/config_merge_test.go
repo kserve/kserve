@@ -1760,3 +1760,149 @@ spec:
 		})
 	}
 }
+
+func TestToParentRefs(t *testing.T) {
+	tests := []struct {
+		name string
+		refs []v1alpha2.UntypedObjectReference
+		want []gwapiv1.ParentReference
+	}{
+		{
+			name: "single gateway ref",
+			refs: []v1alpha2.UntypedObjectReference{
+				{Name: "my-gateway", Namespace: "my-ns"},
+			},
+			want: []gwapiv1.ParentReference{
+				{
+					Name:      "my-gateway",
+					Namespace: ptr.To(gwapiv1.Namespace("my-ns")),
+					Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+				},
+			},
+		},
+		{
+			name: "multiple gateway refs",
+			refs: []v1alpha2.UntypedObjectReference{
+				{Name: "gw-1", Namespace: "ns-1"},
+				{Name: "gw-2", Namespace: "ns-2"},
+			},
+			want: []gwapiv1.ParentReference{
+				{
+					Name:      "gw-1",
+					Namespace: ptr.To(gwapiv1.Namespace("ns-1")),
+					Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+				},
+				{
+					Name:      "gw-2",
+					Namespace: ptr.To(gwapiv1.Namespace("ns-2")),
+					Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+				},
+			},
+		},
+		{
+			name: "gateway ref with empty namespace",
+			refs: []v1alpha2.UntypedObjectReference{
+				{Name: "my-gateway", Namespace: ""},
+			},
+			want: []gwapiv1.ParentReference{
+				{
+					Name:      "my-gateway",
+					Namespace: ptr.To(gwapiv1.Namespace("")),
+					Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+				},
+			},
+		},
+		{
+			name: "empty refs returns empty slice",
+			refs: []v1alpha2.UntypedObjectReference{},
+			want: []gwapiv1.ParentReference{},
+		},
+		{
+			name: "nil refs returns empty slice",
+			refs: nil,
+			want: []gwapiv1.ParentReference{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := llmisvc.ToParentRefs(tt.refs)
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("ToParentRefs() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestParentRefRewritingGuard(t *testing.T) {
+	tests := []struct {
+		name             string
+		gatewayHasRefs   bool
+		httpRouteHasSpec bool
+		wantRewrite      bool
+	}{
+		{
+			name:             "gateway refs + route spec -> rewrite",
+			gatewayHasRefs:   true,
+			httpRouteHasSpec: true,
+			wantRewrite:      true,
+		},
+		{
+			name:             "gateway refs + route refs (no spec) -> skip rewrite",
+			gatewayHasRefs:   true,
+			httpRouteHasSpec: false,
+			wantRewrite:      false,
+		},
+		{
+			name:             "no gateway refs + route spec -> skip rewrite",
+			gatewayHasRefs:   false,
+			httpRouteHasSpec: true,
+			wantRewrite:      false,
+		},
+		{
+			name:             "no gateway refs + no route spec -> skip rewrite",
+			gatewayHasRefs:   false,
+			httpRouteHasSpec: false,
+			wantRewrite:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gateway := &v1alpha2.GatewaySpec{}
+			if tt.gatewayHasRefs {
+				gateway.Refs = []v1alpha2.UntypedObjectReference{
+					{Name: "my-gw", Namespace: "my-ns"},
+				}
+			}
+
+			httpRoute := &v1alpha2.HTTPRouteSpec{}
+			if tt.httpRouteHasSpec {
+				httpRoute.Spec = &gwapiv1.HTTPRouteSpec{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{Name: "old-default-gateway"},
+						},
+					},
+				}
+			} else {
+				httpRoute.Refs = []corev1.LocalObjectReference{{Name: "my-route"}}
+			}
+
+			shouldRewrite := httpRoute.HasSpec() && gateway.HasRefs()
+			if shouldRewrite != tt.wantRewrite {
+				t.Errorf("expected rewrite=%v, got %v", tt.wantRewrite, shouldRewrite)
+			}
+
+			if shouldRewrite {
+				parentRefs := llmisvc.ToParentRefs(gateway.Refs)
+				if len(parentRefs) != len(gateway.Refs) {
+					t.Errorf("expected %d parent refs, got %d", len(gateway.Refs), len(parentRefs))
+				}
+			}
+		})
+	}
+}
