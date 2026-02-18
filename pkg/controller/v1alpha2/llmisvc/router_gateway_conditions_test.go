@@ -321,7 +321,7 @@ func TestHTTPRouteConditionsEvaluation(t *testing.T) {
 					WithParentRefs(GatewayParentRef("openshift-ai-inference", "openshift-ingress")),
 					WithHTTPRule(
 						Matches(PathPrefixMatch("/llm/facebook-opt-125m-single-simulated")),
-						BackendRefs(ServiceRef("facebook-opt-125m-single-simulated-kserve-workload-svc", 8000, 1)),
+						WithBackendRefs(ServiceRef("facebook-opt-125m-single-simulated-kserve-workload-svc", 8000, 1)),
 						Timeouts("0s", "0s"),
 						Filters(gwapiv1.HTTPRouteFilter{
 							Type: gwapiv1.HTTPRouteFilterURLRewrite,
