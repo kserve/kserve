@@ -838,7 +838,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
 			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
-				envTest.DeleteAll(namespace)
+				envTest.DeleteAll(ctx, namespace)
 			}()
 
 			customGatewayName := "my-custom-gateway"
