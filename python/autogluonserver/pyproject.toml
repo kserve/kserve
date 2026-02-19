@@ -12,9 +12,8 @@ dependencies = [
     "lightgbm==4.6.0",
     "xgboost==3.1.3",
     "torch==2.9.1",
-    "fastai==2.8.7",
+    "fastai==2.8.5",
     "autogluon.tabular==1.5.0",
-    "ipython",
 ]
 name = "autogluonserver"
 version = "0.1.0"
