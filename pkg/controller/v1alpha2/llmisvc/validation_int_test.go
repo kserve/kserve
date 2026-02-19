@@ -796,7 +796,7 @@ var _ = Describe("LLMInferenceServiceConfig webhook validation", func() {
 
 		DeferCleanup(func() {
 			ns := ns
-			envTest.DeleteAll(ns)
+			envTest.DeleteAll(ctx, ns)
 		})
 	})
 
