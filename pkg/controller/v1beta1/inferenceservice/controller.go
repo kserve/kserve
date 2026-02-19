@@ -328,6 +328,8 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Istio virtual host is expected (disableIstioVirtualHost == false).
 	// This makes the skip visible instead of silent.
 	if !r.VirtualServiceAvailable && !ingressConfig.DisableIstioVirtualHost {
+		r.Log.Error(nil, "Istio VirtualService CRD not present; VirtualService reconciliation skipped",
+			"InferenceService", isvc.Name, "namespace", isvc.Namespace)
 		r.Recorder.Event(isvc, corev1.EventTypeWarning, "VirtualServiceCRDNotFound",
 			"Istio VirtualService CRD not present; VirtualService reconciliation skipped. If you do not use Istio, set ingress.disableIstioVirtualHost=true.")
 	}
