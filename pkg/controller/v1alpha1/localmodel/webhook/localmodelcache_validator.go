@@ -100,7 +100,7 @@ func (v *LocalModelCacheValidator) ValidateDelete(ctx context.Context, obj runti
 	// Check if current LocalModelCache is being used
 	for _, isvcMeta := range localModelCache.Status.InferenceServices {
 		isvc := v1beta1.InferenceService{}
-		if err := v.Client.Get(ctx, client.ObjectKey(isvcMeta), &isvc); err != nil {
+		if err := v.Get(ctx, client.ObjectKey(isvcMeta), &isvc); err != nil {
 			localModelCacheValidatorLogger.Error(err, "Error getting InferenceService", "name", isvcMeta.Name)
 			return nil, err
 		}
@@ -119,7 +119,7 @@ func (v *LocalModelCacheValidator) ValidateDelete(ctx context.Context, obj runti
 func (v *LocalModelCacheValidator) validateUniqueStorageURI(ctx context.Context, currentLocalModelCache *v1alpha1.LocalModelCache) (*v1alpha1.LocalModelCache, error) {
 	// Get all LocalModelCache CR
 	localModelCacheList := &v1alpha1.LocalModelCacheList{}
-	if err := v.Client.List(ctx, localModelCacheList); err != nil {
+	if err := v.List(ctx, localModelCacheList); err != nil {
 		localModelCacheValidatorLogger.Error(err, "Unable to list LocalModelCaches")
 		return nil, err
 	}

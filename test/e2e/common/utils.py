@@ -15,13 +15,11 @@
 import asyncio
 import json
 import os
-import time
 from concurrent import futures
 from typing import Union, List, Dict
 from urllib.parse import urlparse
 
 import portforward
-import requests
 from kubernetes import client as k8s_client
 from orjson import orjson
 
@@ -30,6 +28,7 @@ from kserve import constants
 from kserve.inference_client import InferenceGRPCClient, InferenceRESTClient
 from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.logging import trace_logger as logger
+from .http_retry import post_with_retry
 
 KSERVE_NAMESPACE = "kserve"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
@@ -141,8 +140,6 @@ async def _predict(
 ) -> Union[InferResponse, Dict]:
     logger.info("Sending Header = %s", headers)
     logger.info("base url = %s", url)
-    # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-    await asyncio.sleep(5)
     response = await client.infer(
         url,
         input_data,
@@ -200,8 +197,6 @@ async def explain_response(
         data = json.load(json_file)
         logger.info("Sending request data: %s", data)
         try:
-            # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-            await asyncio.sleep(5)
             response = await client.explain(
                 url, model_name=service_name, data=data, headers=headers
             )
@@ -398,9 +393,12 @@ def _openai_request(
         logger.info("Sending Header = %s", headers)
         logger.info("Sending url = %s", url)
         logger.info("Sending request data: %s", data)
-        # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-        time.sleep(10)
-        response = requests.post(url, json.dumps(data), headers=headers, stream=stream)
+        response = post_with_retry(
+            url,
+            headers=headers,
+            json_data=data,
+            stream=stream,
+        )
         logger.info("Got response code %s", response.status_code)
         if not response.status_code == 200:
             response.raise_for_status()

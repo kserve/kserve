@@ -100,7 +100,8 @@ func (matcher *haveGatewayRefsMatcher) NegatedFailureMessage(actual any) string 
 		actual, matcher.expectedGatewayNames)
 }
 
-// HaveBackendRefs returns a matcher that checks if an HTTPRoute has the specified backend refs.
+// HaveBackendRefs returns a matcher that checks if an HTTPRoute contains the specified backend refs.
+// It uses "contains" semantics: the route may have additional backend refs beyond those listed.
 func HaveBackendRefs(backends ...gwapiv1.HTTPBackendRef) types.GomegaMatcher {
 	return &haveBackendRefsMatcher{
 		expectedBackendRefs: backends,
@@ -120,10 +121,6 @@ func (matcher *haveBackendRefsMatcher) Match(actual any) (success bool, err erro
 
 	for _, rule := range httpRoute.Spec.Rules {
 		matcher.actualBackendRefs = append(matcher.actualBackendRefs, rule.BackendRefs...)
-	}
-
-	if len(matcher.actualBackendRefs) != len(matcher.expectedBackendRefs) {
-		return false, nil
 	}
 
 	for _, want := range matcher.expectedBackendRefs {

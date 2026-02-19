@@ -29,6 +29,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
@@ -42,6 +43,7 @@ func TestReconcileMultiNodeMainServiceAccount_UseExisting_SkipsManagedSA(t *test
 
 	scheme := runtime.NewScheme()
 	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(lwsapi.AddToScheme(scheme)).To(Succeed())
 	g.Expect(rbacv1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
@@ -112,6 +114,7 @@ func TestReconcileMultiNodeMainServiceAccount_Default_CreatesManagedSA(t *testin
 
 	scheme := runtime.NewScheme()
 	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(lwsapi.AddToScheme(scheme)).To(Succeed())
 	g.Expect(rbacv1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
@@ -161,6 +164,7 @@ func TestReconcileMultiNodeMainServiceAccount_Default_WhenWorkerNil_DeletesManag
 
 	scheme := runtime.NewScheme()
 	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(lwsapi.AddToScheme(scheme)).To(Succeed())
 	g.Expect(rbacv1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
@@ -181,6 +185,9 @@ func TestReconcileMultiNodeMainServiceAccount_Default_WhenWorkerNil_DeletesManag
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      managedSAName,
 			Namespace: ns,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
 		},
 	}
 
@@ -218,6 +225,7 @@ func TestReconcileMultiNodePrefillServiceAccount_UseExisting_SkipsManagedSA(t *t
 
 	scheme := runtime.NewScheme()
 	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(lwsapi.AddToScheme(scheme)).To(Succeed())
 	g.Expect(rbacv1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
@@ -286,6 +294,7 @@ func TestReconcileMultiNodePrefillServiceAccount_Default_CreatesManagedSA(t *tes
 
 	scheme := runtime.NewScheme()
 	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(lwsapi.AddToScheme(scheme)).To(Succeed())
 	g.Expect(rbacv1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
@@ -335,6 +344,7 @@ func TestReconcileMultiNodePrefillServiceAccount_Default_WhenWorkerNil_DeletesMa
 
 	scheme := runtime.NewScheme()
 	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(lwsapi.AddToScheme(scheme)).To(Succeed())
 	g.Expect(rbacv1.AddToScheme(scheme)).To(Succeed())
 	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 
@@ -356,6 +366,9 @@ func TestReconcileMultiNodePrefillServiceAccount_Default_WhenWorkerNil_DeletesMa
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      managedSAName,
 			Namespace: ns,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
 		},
 	}
 

@@ -156,8 +156,8 @@ func createHTTPRouteRule(routeMatches []gwapiv1.HTTPRouteMatch, filters []gwapiv
 func createRawPredictorHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig,
 	isvcConfig *v1beta1.InferenceServicesConfig,
 ) (*gwapiv1.HTTPRoute, error) {
-	var httpRouteRules []gwapiv1.HTTPRouteRule
-	var allowedHosts []gwapiv1.Hostname
+	httpRouteRules := make([]gwapiv1.HTTPRouteRule, 0, 1)
+	allowedHosts := make([]gwapiv1.Hostname, 0, 1)
 
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
 		isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
@@ -220,8 +220,8 @@ func createRawPredictorHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 func createRawTransformerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig,
 	isvcConfig *v1beta1.InferenceServicesConfig,
 ) (*gwapiv1.HTTPRoute, error) {
-	var httpRouteRules []gwapiv1.HTTPRouteRule
-	var allowedHosts []gwapiv1.Hostname
+	httpRouteRules := make([]gwapiv1.HTTPRouteRule, 0, 1)
+	allowedHosts := make([]gwapiv1.Hostname, 0, 1)
 
 	if !isvc.Status.IsConditionReady(v1beta1.TransformerReady) {
 		isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
@@ -284,8 +284,8 @@ func createRawTransformerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig
 func createRawExplainerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig,
 	isvcConfig *v1beta1.InferenceServicesConfig,
 ) (*gwapiv1.HTTPRoute, error) {
-	var httpRouteRules []gwapiv1.HTTPRouteRule
-	var allowedHosts []gwapiv1.Hostname
+	httpRouteRules := make([]gwapiv1.HTTPRouteRule, 0, 1)
+	allowedHosts := make([]gwapiv1.Hostname, 0, 1)
 
 	if !isvc.Status.IsConditionReady(v1beta1.ExplainerReady) {
 		isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
@@ -350,8 +350,8 @@ func createRawExplainerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig,
 	isvcConfig *v1beta1.InferenceServicesConfig,
 ) (*gwapiv1.HTTPRoute, error) {
-	var httpRouteRules []gwapiv1.HTTPRouteRule
-	var allowedHosts []gwapiv1.Hostname
+	httpRouteRules := make([]gwapiv1.HTTPRouteRule, 0, 1)
+	allowedHosts := make([]gwapiv1.Hostname, 0, 1)
 
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
 		isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{

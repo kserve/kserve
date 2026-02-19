@@ -37,7 +37,7 @@ type TransformerSpec struct {
 func (s *TransformerSpec) GetImplementations() []ComponentImplementation {
 	implementations := []ComponentImplementation{}
 	// This struct is not a pointer, so it will never be nil; include if containers are specified
-	if len(s.PodSpec.Containers) != 0 {
+	if len(s.Containers) != 0 {
 		implementations = append(implementations, NewCustomTransformer(&s.PodSpec))
 	}
 	return implementations

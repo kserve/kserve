@@ -54,7 +54,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
 			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
-				envTest.DeleteAll(namespace)
+				envTest.DeleteAll(ctx, namespace)
 			}()
 
 			llmSvc := LLMInferenceService(svcName,
@@ -164,7 +164,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
 			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
-				envTest.DeleteAll(namespace)
+				envTest.DeleteAll(ctx, namespace)
 			}()
 
 			llmSvc := LLMInferenceService(svcName,
@@ -223,7 +223,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
 			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
-				envTest.DeleteAll(namespace)
+				envTest.DeleteAll(ctx, namespace)
 			}()
 
 			llmSvc := LLMInferenceService(svcName,
@@ -360,7 +360,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
 			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
-				envTest.DeleteAll(namespace)
+				envTest.DeleteAll(ctx, namespace)
 			}()
 
 			llmSvc := LLMInferenceService(svcName,
@@ -436,7 +436,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
 			defer func() {
-				envTest.DeleteAll(namespace)
+				envTest.DeleteAll(ctx, namespace)
 			}()
 
 			// Create first service
@@ -523,7 +523,7 @@ var _ = Describe("LLMInferenceService Stop Feature", func() {
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
 			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
-				envTest.DeleteAll(namespace)
+				envTest.DeleteAll(ctx, namespace)
 			}()
 
 			llmSvc := LLMInferenceService(svcName,
