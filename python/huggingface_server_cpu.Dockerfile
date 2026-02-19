@@ -81,8 +81,7 @@ RUN cd huggingfaceserver && \
     uv sync --active --no-cache && \
     uv cache clean && \
     rm -rf ~/.cache/uv
-RUN pip install --no-cache --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-index-url ${IPEX_EXTRA_INDEX_URL} \
-    'intel_extension_for_pytorch~='${INTEL_EXTENSION_FOR_PYTORCH_VERSION} \
+RUN pip install --no-cache --extra-index-url ${TORCH_EXTRA_INDEX_URL} \
     intel-openmp
 
 # install vllm
