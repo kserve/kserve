@@ -185,6 +185,9 @@ func TestReconcileMultiNodeMainServiceAccount_Default_WhenWorkerNil_DeletesManag
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      managedSAName,
 			Namespace: ns,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
 		},
 	}
 
@@ -363,6 +366,9 @@ func TestReconcileMultiNodePrefillServiceAccount_Default_WhenWorkerNil_DeletesMa
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      managedSAName,
 			Namespace: ns,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
 		},
 	}
 
