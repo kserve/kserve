@@ -79,5 +79,8 @@ func (h *jsonMarshallerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	// Write response
 	w.WriteHeader(http.StatusOK)
-	w.Write(responseBytes)
+	_, err = w.Write(responseBytes)
+	if err != nil {
+		http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+	}
 }
