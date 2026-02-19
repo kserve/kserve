@@ -17,8 +17,10 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 
 	"k8s.io/utils/ptr"
 
@@ -29,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -50,27 +53,25 @@ func (l *LLMInferenceServiceValidator) SetupWithManager(mgr ctrl.Manager) error 
 }
 
 func (l *LLMInferenceServiceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	warnings := admission.Warnings{}
 	llmSvc, err := utils.Convert[*LLMInferenceService](obj)
 	if err != nil {
-		return warnings, err
+		return nil, err
 	}
 
-	return warnings, l.validate(ctx, nil, llmSvc)
+	return l.validate(ctx, nil, llmSvc)
 }
 
 func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	warnings := admission.Warnings{}
 	llmSvc, err := utils.Convert[*LLMInferenceService](newObj)
 	if err != nil {
-		return warnings, err
+		return nil, err
 	}
 	prev, err := utils.Convert[*LLMInferenceService](oldObj)
 	if err != nil {
-		return warnings, err
+		return nil, err
 	}
 
-	return warnings, l.validate(ctx, prev, llmSvc)
+	return l.validate(ctx, prev, llmSvc)
 }
 
 func (l *LLMInferenceServiceValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
@@ -78,31 +79,34 @@ func (l *LLMInferenceServiceValidator) ValidateDelete(_ context.Context, _ runti
 	return admission.Warnings{}, nil
 }
 
-func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMInferenceService, llmSvc *LLMInferenceService) error {
+func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMInferenceService, llmSvc *LLMInferenceService) (admission.Warnings, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("Validating LLMInferenceService v1alpha2", "name", llmSvc.Name, "namespace", llmSvc.Namespace)
 
 	var allErrs field.ErrorList
+	var warnings admission.Warnings
 
-	allErrs = append(allErrs, l.validateRouterCrossFieldConstraints(llmSvc)...)
+	routerWarnings, routerErrs := l.validateRouterCrossFieldConstraints(llmSvc)
+	warnings = append(warnings, routerWarnings...)
+	allErrs = append(allErrs, routerErrs...)
 	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
 	if len(allErrs) == 0 {
 		logger.V(2).Info("LLMInferenceService v1alpha2 is valid", "llmisvc", llmSvc)
-		return nil
+		return warnings, nil
 	}
 
-	return apierrors.NewInvalid(
+	return warnings, apierrors.NewInvalid(
 		LLMInferenceServiceGVK.GroupKind(),
 		llmSvc.Name, allErrs)
 }
 
-func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSvc *LLMInferenceService) field.ErrorList {
+func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSvc *LLMInferenceService) (admission.Warnings, field.ErrorList) {
 	router := llmSvc.Spec.Router
 	if router == nil || router.Route == nil {
-		return field.ErrorList{}
+		return nil, nil
 	}
 
 	routerPath := field.NewPath("spec").Child("router")
@@ -113,29 +117,13 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 	httpRouteRefs := httpRoutePath.Child("refs")
 	httpRouteSpec := httpRoutePath.Child("spec")
 
-	zero := GatewayRoutesSpec{}
-	if ptr.Deref(router.Route, zero) == zero && router.Gateway != nil && router.Gateway.Refs != nil {
-		return field.ErrorList{
-			field.Invalid(
-				gwRefsPath,
-				router.Gateway.Refs,
-				fmt.Sprintf("unsupported configuration: custom gateway ('%s') cannot be used with managed route ('%s: {}'); "+
-					"either provide your own HTTP routes ('%s') or remove '%s' to use the managed gateway",
-					gwRefsPath,
-					routePath,
-					httpRouteRefs,
-					gwRefsPath,
-				),
-			),
-		}
-	}
-
 	httpRoute := router.Route.HTTP
 	if httpRoute == nil {
-		return field.ErrorList{}
+		return nil, nil
 	}
 
 	var allErrs field.ErrorList
+	var warnings admission.Warnings
 
 	// Both refs and spec cannot be used together
 	if len(httpRoute.Refs) > 0 && httpRoute.Spec != nil {
@@ -162,19 +150,64 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 		))
 	}
 
-	// Managed route spec cannot be used with user-defined gateway refs
-	if httpRoute.Spec != nil && router.Gateway != nil && len(router.Gateway.Refs) > 0 {
-		allErrs = append(allErrs, field.Invalid(
-			httpRoutePath.Child("spec"),
-			httpRoute.Spec,
-			fmt.Sprintf("unsupported configuration: managed HTTP route spec ('%s') cannot be used with custom gateway refs ('%s'); "+
-				"either remove '%s' or '%s'",
-				httpRouteSpec, gwRefsPath, gwRefsPath, httpRouteSpec,
-			),
-		))
+	// When both parentRefs and gateway refs are set, check for consistency.
+	// If they match, it's redundant but valid — the controller derives parentRefs from gateway.refs automatically.
+	// If they conflict, reject.
+	if httpRoute.Spec != nil && len(httpRoute.Spec.ParentRefs) > 0 &&
+		router.Gateway != nil && len(router.Gateway.Refs) > 0 {
+		if parentRefsMatchGatewayRefs(httpRoute.Spec.ParentRefs, router.Gateway.Refs) {
+			warnings = append(warnings,
+				fmt.Sprintf("%s.parentRefs can be omitted when %s is set; parentRefs will be derived automatically from gateway refs",
+					httpRouteSpec, gwRefsPath))
+		} else {
+			allErrs = append(allErrs, field.Invalid(
+				httpRoutePath.Child("spec"),
+				httpRoute.Spec,
+				fmt.Sprintf("unsupported configuration: managed HTTP route spec ('%s') has parentRefs that conflict with custom gateway refs ('%s'); "+
+					"either remove '%s' or '%s.parentRefs'",
+					httpRouteSpec, gwRefsPath, gwRefsPath, httpRouteSpec,
+				),
+			))
+		}
 	}
 
-	return allErrs
+	return warnings, allErrs
+}
+
+// parentRefsMatchGatewayRefs checks whether the parentRefs on an HTTPRoute are
+// consistent with the gateway refs. A parentRef matches a gateway ref if the
+// name and namespace are equal (Group and Kind are always Gateway).
+// Both slices are sorted before comparison so order does not matter.
+func parentRefsMatchGatewayRefs(parentRefs []gwapiv1.ParentReference, gatewayRefs []UntypedObjectReference) bool {
+	if len(parentRefs) != len(gatewayRefs) {
+		return false
+	}
+
+	// Build comparable keys and sort so that order-independent matching works.
+	type key struct{ ns, name string }
+	toKey := func(name gwapiv1.ObjectName, ns gwapiv1.Namespace) key {
+		return key{ns: string(ns), name: string(name)}
+	}
+	cmpKey := func(a, b key) int {
+		if c := cmp.Compare(a.ns, b.ns); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.name, b.name)
+	}
+
+	pKeys := make([]key, len(parentRefs))
+	for i, ref := range parentRefs {
+		pKeys[i] = toKey(ref.Name, ptr.Deref(ref.Namespace, ""))
+	}
+	gKeys := make([]key, len(gatewayRefs))
+	for i, ref := range gatewayRefs {
+		gKeys[i] = toKey(ref.Name, ref.Namespace)
+	}
+
+	slices.SortFunc(pKeys, cmpKey)
+	slices.SortFunc(gKeys, cmpKey)
+
+	return slices.Equal(pKeys, gKeys)
 }
 
 func (l *LLMInferenceServiceValidator) validateParallelismConstraints(llmSvc *LLMInferenceService) field.ErrorList {

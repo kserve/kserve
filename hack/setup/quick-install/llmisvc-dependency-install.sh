@@ -40,7 +40,7 @@ find_repo_root() {
     local skip="${2:-false}"
 
     while [[ "$current_dir" != "/" ]]; do
-        if [[ -d "${current_dir}/.git" ]]; then
+        if [[ -e "${current_dir}/.git" ]]; then
             echo "$current_dir"
             return 0
         fi
@@ -497,7 +497,7 @@ export RELEASE
 # Version Dependencies (from kserve-deps.env)
 #================================================
 
-GOLANGCI_LINT_VERSION=v1.64.8
+GOLANGCI_LINT_VERSION=v2.9.0
 CONTROLLER_TOOLS_VERSION=v0.19.0
 ENVTEST_VERSION=latest
 YQ_VERSION=v4.52.1
@@ -505,13 +505,13 @@ HELM_VERSION=v3.16.3
 KUSTOMIZE_VERSION=v5.5.0
 HELM_DOCS_VERSION=v1.12.0
 BLACK_FMT_VERSION=24.3
-FLAKE8_LINT_VERSION=7.1
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
+RUFF_VERSION=0.14.13
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
-ENVOY_GATEWAY_VERSION=v1.5.0
-ENVOY_AI_GATEWAY_VERSION=v0.4.0
+ENVOY_GATEWAY_VERSION=v1.6.3
+ENVOY_AI_GATEWAY_VERSION=v0.5.0
 KNATIVE_OPERATOR_VERSION=v1.16.0
 KNATIVE_SERVING_VERSION=1.15.2
 KEDA_OTEL_ADDON_VERSION=v0.0.6
@@ -520,8 +520,8 @@ ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.17.2
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.7.0
-GATEWAY_API_VERSION=v1.3.0
-GIE_VERSION=v1.2.0
+GATEWAY_API_VERSION=v1.4.1
+GIE_VERSION=v1.3.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -631,12 +631,12 @@ install_yq() {
 
     log_info "Installing yq ${YQ_VERSION} for ${os}/${arch}..."
 
-    if command -v yq &>/dev/null; then
-        local current_version=$(yq --version 2>&1 | grep -oP 'version \K[v0-9.]+')
+    if [[ -x "${BIN_DIR}/yq" ]]; then
+        local current_version=$("${BIN_DIR}/yq" --version 2>&1 | grep -oP 'version \K[v0-9.]+')
         # Normalize version format (add 'v' prefix if missing)
         [[ -n "$current_version" && "$current_version" != v* ]] && current_version="v${current_version}"
         if [[ -n "$current_version" ]] && version_gte "$current_version" "$YQ_VERSION"; then
-            log_info "yq ${current_version} is already installed (>= ${YQ_VERSION})"
+            log_info "yq ${current_version} is already installed in ${BIN_DIR} (>= ${YQ_VERSION})"
             return 0
         fi
         [[ -n "$current_version" ]] && log_info "Upgrading yq from ${current_version} to ${YQ_VERSION}..."
@@ -663,7 +663,7 @@ install_yq() {
     fi
 
     log_success "Successfully installed yq ${YQ_VERSION} to ${BIN_DIR}/yq"
-    yq --version
+    "${BIN_DIR}/yq" --version
 }
 
 # ----------------------------------------

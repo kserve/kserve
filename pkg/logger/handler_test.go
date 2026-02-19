@@ -113,7 +113,7 @@ func TestLoggerWithMetadata(t *testing.T) {
 		if req.Header["Ce-Type"][0] == "org.kubeflow.serving.inference.request" {
 			metadata := map[string][]string{}
 
-			json.Unmarshal([]byte(req.Header["Ce-Metadata"][0]), &metadata)
+			_ = json.Unmarshal([]byte(req.Header["Ce-Metadata"][0]), &metadata)
 
 			g.Expect(metadata["Foo"]).To(gomega.Equal([]string{"bar"}))
 
@@ -185,7 +185,7 @@ func TestLoggerWithAnnotation(t *testing.T) {
 		if req.Header["Ce-Type"][0] == "org.kubeflow.serving.inference.request" {
 			annotations := map[string]string{}
 
-			json.Unmarshal([]byte(req.Header["Ce-Annotations"][0]), &annotations)
+			_ = json.Unmarshal([]byte(req.Header["Ce-Annotations"][0]), &annotations)
 
 			g.Expect(annotations["Foo"]).To(gomega.Equal("Bar"))
 

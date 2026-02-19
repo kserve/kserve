@@ -43,18 +43,7 @@ var _ = Describe("LLMInferenceService Scheduler Config", func() {
 		It("should use inline scheduler config in the scheduler deployment", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-inline-scheduler-config"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			customSchedulerConfig := `
 apiVersion: inference.networking.x-k8s.io/v1alpha1
@@ -71,7 +60,7 @@ schedulingProfiles:
 `
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
@@ -82,7 +71,7 @@ schedulingProfiles:
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - verify the scheduler deployment is created and uses the inline config
@@ -90,7 +79,7 @@ schedulingProfiles:
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -104,28 +93,17 @@ schedulingProfiles:
 		It("should not override config when args already contain --config-text or --configFile", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-config-already-set"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			// Create scheduler template with existing --config-text
 			modelConfig := LLMInferenceServiceConfig("model-config",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
 				WithConfigModelName("facebook/opt-125m"),
 				WithConfigModelURI("hf://facebook/opt-125m"),
 			)
 
 			routerConfig := LLMInferenceServiceConfig("router-with-custom-args",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
 			)
 			routerConfig.Spec.Router = &v1alpha2.RouterSpec{
 				Gateway: &v1alpha2.GatewaySpec{},
@@ -158,7 +136,7 @@ schedulingProfiles:
 			Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithBaseRefs(
 					corev1.LocalObjectReference{Name: "model-config"},
 					corev1.LocalObjectReference{Name: "router-with-custom-args"},
@@ -168,7 +146,7 @@ schedulingProfiles:
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - verify the scheduler deployment preserves the existing --config-text from template
@@ -176,7 +154,7 @@ schedulingProfiles:
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -192,18 +170,7 @@ schedulingProfiles:
 		It("should resolve scheduler config from ConfigMap ref and use it in deployment", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-configmap-ref-scheduler"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			configMapData := `
 apiVersion: inference.networking.x-k8s.io/v1alpha1
@@ -216,11 +183,11 @@ schedulingProfiles:
   - pluginRef: configmap-plugin
     weight: 10
 `
-			configMap := SchedulerConfigMap("scheduler-config-custom", nsName, configMapData)
+			configMap := SchedulerConfigMap("scheduler-config-custom", testNs.Name, configMapData)
 			Expect(envTest.Client.Create(ctx, configMap)).To(Succeed())
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
@@ -231,7 +198,7 @@ schedulingProfiles:
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - verify the scheduler deployment uses the config from ConfigMap
@@ -239,7 +206,7 @@ schedulingProfiles:
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -253,18 +220,7 @@ schedulingProfiles:
 		It("should use custom key from ConfigMap ref", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-configmap-custom-key"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			configMapData := `
 apiVersion: inference.networking.x-k8s.io/v1alpha1
@@ -276,11 +232,11 @@ schedulingProfiles:
   plugins:
   - pluginRef: custom-key-plugin
 `
-			configMap := SchedulerConfigMapWithKey("scheduler-config-custom-key", nsName, "my-custom-key", configMapData)
+			configMap := SchedulerConfigMapWithKey("scheduler-config-custom-key", testNs.Name, "my-custom-key", configMapData)
 			Expect(envTest.Client.Create(ctx, configMap)).To(Succeed())
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
@@ -291,7 +247,7 @@ schedulingProfiles:
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then
@@ -299,7 +255,7 @@ schedulingProfiles:
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -314,18 +270,7 @@ schedulingProfiles:
 		It("should update scheduler deployment when referenced ConfigMap is updated", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-configmap-update"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			initialConfigData := `
 apiVersion: inference.networking.x-k8s.io/v1alpha1
@@ -337,11 +282,11 @@ schedulingProfiles:
   plugins:
   - pluginRef: initial-plugin
 `
-			configMap := SchedulerConfigMap("scheduler-config-update", nsName, initialConfigData)
+			configMap := SchedulerConfigMap("scheduler-config-update", testNs.Name, initialConfigData)
 			Expect(envTest.Client.Create(ctx, configMap)).To(Succeed())
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
@@ -351,7 +296,7 @@ schedulingProfiles:
 
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// Wait for initial deployment
@@ -359,7 +304,7 @@ schedulingProfiles:
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -381,11 +326,11 @@ schedulingProfiles:
 `
 			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				updatedConfigMap := &corev1.ConfigMap{}
-				if err := envTest.Client.Get(ctx, client.ObjectKeyFromObject(configMap), updatedConfigMap); err != nil {
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(configMap), updatedConfigMap); err != nil {
 					return err
 				}
 				updatedConfigMap.Data["epp"] = updatedConfigData
-				return envTest.Client.Update(ctx, updatedConfigMap)
+				return envTest.Update(ctx, updatedConfigMap)
 			})
 			Expect(errRetry).ToNot(HaveOccurred())
 
@@ -395,7 +340,7 @@ schedulingProfiles:
 				updatedDeployment = &appsv1.Deployment{}
 				if err := envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, updatedDeployment); err != nil {
 					return err
 				}
@@ -413,21 +358,10 @@ schedulingProfiles:
 		It("should use default scheduler config when no config is specified (non-prefill)", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-default-scheduler-config"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
@@ -438,7 +372,7 @@ schedulingProfiles:
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - verify the scheduler deployment uses default config (for non-prefill mode)
@@ -446,7 +380,7 @@ schedulingProfiles:
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -463,21 +397,10 @@ schedulingProfiles:
 		It("should use prefill/decode scheduler config when prefill is configured", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-prefill-scheduler-config"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
@@ -495,7 +418,7 @@ schedulingProfiles:
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - verify the scheduler deployment uses P/D config
@@ -503,7 +426,7 @@ schedulingProfiles:
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -524,18 +447,7 @@ schedulingProfiles:
 		It("should resolve ConfigMap from system namespace when not found in service namespace", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-system-ns-configmap"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			systemConfigData := `
 apiVersion: inference.networking.x-k8s.io/v1alpha1
@@ -554,7 +466,7 @@ schedulingProfiles:
 			}()
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
@@ -565,7 +477,7 @@ schedulingProfiles:
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - verify the scheduler deployment uses the config from system namespace
@@ -573,7 +485,7 @@ schedulingProfiles:
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -588,21 +500,10 @@ schedulingProfiles:
 		It("should report error when referenced ConfigMap does not exist", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-missing-configmap"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
@@ -613,7 +514,7 @@ schedulingProfiles:
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - the scheduler deployment should not be created and status should indicate error
@@ -621,7 +522,7 @@ schedulingProfiles:
 				deployment := &appsv1.Deployment{}
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, deployment)
 			}).WithContext(ctx).
 				Within(2 * time.Second).
@@ -632,25 +533,14 @@ schedulingProfiles:
 		It("should report error when ConfigMap is missing the referenced key", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-missing-key"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			// Create ConfigMap without the expected key
-			configMap := SchedulerConfigMapWithKey("scheduler-config-wrong-key", nsName, "wrong-key", "some-config")
+			configMap := SchedulerConfigMapWithKey("scheduler-config-wrong-key", testNs.Name, "wrong-key", "some-config")
 			Expect(envTest.Client.Create(ctx, configMap)).To(Succeed())
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://facebook/opt-125m"),
 				WithManagedRoute(),
 				WithManagedGateway(),
@@ -661,7 +551,7 @@ schedulingProfiles:
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - the scheduler deployment should not be created
@@ -669,7 +559,7 @@ schedulingProfiles:
 				deployment := &appsv1.Deployment{}
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, deployment)
 			}).WithContext(ctx).
 				Within(2 * time.Second).
@@ -682,18 +572,7 @@ schedulingProfiles:
 		It("should inherit scheduler config from baseRef LLMInferenceServiceConfig", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-baseref-scheduler-config"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			schedulerConfigData := `
 apiVersion: inference.networking.x-k8s.io/v1alpha1
@@ -705,12 +584,12 @@ schedulingProfiles:
   plugins:
   - pluginRef: baseref-plugin
 `
-			configMap := SchedulerConfigMap("scheduler-config-baseref", nsName, schedulerConfigData)
+			configMap := SchedulerConfigMap("scheduler-config-baseref", testNs.Name, schedulerConfigData)
 			Expect(envTest.Client.Create(ctx, configMap)).To(Succeed())
 
 			// Create LLMInferenceServiceConfig with scheduler config ref
 			modelConfig := LLMInferenceServiceConfig("model-with-scheduler",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
 				WithConfigModelName("facebook/opt-125m"),
 				WithConfigModelURI("hf://facebook/opt-125m"),
 				WithConfigSchedulerConfigRef("scheduler-config-baseref", ""),
@@ -718,13 +597,13 @@ schedulingProfiles:
 			Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
 
 			routerConfig := LLMInferenceServiceConfig("router-managed-baseref",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
 				WithConfigManagedRouter(),
 			)
 			Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithBaseRefs(
 					corev1.LocalObjectReference{Name: "model-with-scheduler"},
 					corev1.LocalObjectReference{Name: "router-managed-baseref"},
@@ -734,7 +613,7 @@ schedulingProfiles:
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - verify the scheduler deployment uses the config from baseRef
@@ -742,7 +621,7 @@ schedulingProfiles:
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -755,18 +634,7 @@ schedulingProfiles:
 		It("should inherit inline scheduler config from baseRef LLMInferenceServiceConfig", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-baseref-inline-config"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			inlineSchedulerConfig := `
 apiVersion: inference.networking.x-k8s.io/v1alpha1
@@ -781,7 +649,7 @@ schedulingProfiles:
 
 			// Create LLMInferenceServiceConfig with inline scheduler config
 			modelConfig := LLMInferenceServiceConfig("model-with-inline-scheduler",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
 				WithConfigModelName("facebook/opt-125m"),
 				WithConfigModelURI("hf://facebook/opt-125m"),
 				WithConfigSchedulerConfigInline(inlineSchedulerConfig),
@@ -789,13 +657,13 @@ schedulingProfiles:
 			Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
 
 			routerConfig := LLMInferenceServiceConfig("router-managed-inline",
-				InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
 				WithConfigManagedRouter(),
 			)
 			Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
 
 			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithBaseRefs(
 					corev1.LocalObjectReference{Name: "model-with-inline-scheduler"},
 					corev1.LocalObjectReference{Name: "router-managed-inline"},
@@ -805,7 +673,7 @@ schedulingProfiles:
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then - verify the scheduler deployment uses the inline config from baseRef
@@ -813,7 +681,7 @@ schedulingProfiles:
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-router-scheduler",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -839,7 +707,7 @@ schedulingProfiles:
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
 			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
-				envTest.DeleteAll(namespace)
+				envTest.DeleteAll(ctx, namespace)
 			}()
 
 			llmSvc := LLMInferenceService(svcName,
@@ -883,7 +751,7 @@ schedulingProfiles:
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
 			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
-				envTest.DeleteAll(namespace)
+				envTest.DeleteAll(ctx, namespace)
 			}()
 
 			llmSvc := LLMInferenceService(svcName,
@@ -927,7 +795,7 @@ schedulingProfiles:
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
 			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
-				envTest.DeleteAll(namespace)
+				envTest.DeleteAll(ctx, namespace)
 			}()
 
 			llmSvc := LLMInferenceService(svcName,
@@ -971,7 +839,7 @@ schedulingProfiles:
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
 			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
-				envTest.DeleteAll(namespace)
+				envTest.DeleteAll(ctx, namespace)
 			}()
 
 			// Create scheduler template with existing --ha-enable-leader-election
@@ -1056,7 +924,7 @@ schedulingProfiles:
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
 			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
-				envTest.DeleteAll(namespace)
+				envTest.DeleteAll(ctx, namespace)
 			}()
 
 			llmSvc := LLMInferenceService(svcName,

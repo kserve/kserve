@@ -384,6 +384,43 @@ const (
 	InferenceServiceLabel       = "serving.kserve.io/inferenceservice"
 )
 
+// Kubernetes recommended label keys (https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/)
+const (
+	KubernetesAppNameLabelKey   = "app.kubernetes.io/name"
+	KubernetesInstanceLabelKey  = "app.kubernetes.io/instance"
+	KubernetesPartOfLabelKey    = "app.kubernetes.io/part-of"
+	KubernetesComponentLabelKey = "app.kubernetes.io/component"
+)
+
+// KServe workload component label (key and value for "kserve.io/component" on workload resources)
+const (
+	KServeComponentLabelKey = "kserve.io/component"
+	KServeComponentWorkload = "workload"
+)
+
+// LLM-d role label (key and values for "llm-d.ai/role" on workload pods)
+const (
+	LLMDRoleLabelKey = "llm-d.ai/role"
+	LLMDRoleDecode   = "decode"
+	LLMDRolePrefill  = "prefill"
+	LLMDRoleBoth     = "both"
+)
+
+// LLMInferenceService label constants (uses Kubernetes recommended label keys above)
+const (
+	LLMInferenceServicePartOfValue = "llminferenceservice"
+	// LLMInferenceService component label values (for KubernetesComponentLabelKey)
+	LLMComponentRouter                = "llminferenceservice-router"
+	LLMComponentRouterScheduler       = "llminferenceservice-router-scheduler"
+	LLMComponentWorkload              = "llminferenceservice-workload"
+	LLMComponentWorkloadPrefill       = "llminferenceservice-workload-prefill"
+	LLMComponentWorkloadWorker        = "llminferenceservice-workload-worker"
+	LLMComponentWorkloadLeader        = "llminferenceservice-workload-leader"
+	LLMComponentWorkloadWorkerPrefill = "llminferenceservice-workload-worker-prefill"
+	LLMComponentWorkloadLeaderPrefill = "llminferenceservice-workload-leader-prefill"
+	LLMComponentInference             = "inference" // used in sample/template resources
+)
+
 // InferenceService canary constants
 const (
 	InferenceServiceCanary = "canary"
@@ -686,9 +723,10 @@ func InferenceServicePrefix(name string) string {
 
 func PredictPath(name string, protocol InferenceServiceProtocol) string {
 	path := ""
-	if protocol == ProtocolV1 {
+	switch protocol {
+	case ProtocolV1:
 		path = fmt.Sprintf("/v1/models/%s:predict", name)
-	} else if protocol == ProtocolV2 {
+	case ProtocolV2:
 		path = fmt.Sprintf("/v2/models/%s/infer", name)
 	}
 	return path

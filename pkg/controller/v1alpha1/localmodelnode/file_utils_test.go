@@ -40,7 +40,7 @@ func TestFileSystemHelper_hasModelFolder(t *testing.T) {
 	// Case 2: Model folder exists
 	modelName := "test-model"
 	modelPath := filepath.Join(tempDir, modelName)
-	if err := os.Mkdir(modelPath, 0o755); err != nil {
+	if err := os.Mkdir(modelPath, 0o755); err != nil { //nolint:gosec // test directory permissions are not security-sensitive
 		t.Fatalf("failed to create model folder: %v", err)
 	}
 	exists, err = helper.hasModelFolder(modelName)
@@ -77,7 +77,7 @@ func TestFileSystemHelper_removeModel(t *testing.T) {
 	// Case 2: Remove existing model folder
 	modelName := "test-model"
 	modelPath := filepath.Join(tempDir, modelName)
-	if err := os.Mkdir(modelPath, 0o755); err != nil {
+	if err := os.Mkdir(modelPath, 0o755); err != nil { //nolint:gosec // test directory permissions are not security-sensitive
 		t.Fatalf("failed to create model folder: %v", err)
 	}
 	// Create a file inside the model folder
@@ -98,7 +98,7 @@ func TestFileSystemHelper_removeModel(t *testing.T) {
 	// Case 3: Remove model folder when lacking permissions
 	permModel := "perm-model"
 	permModelPath := filepath.Join(tempDir, permModel)
-	if err := os.Mkdir(permModelPath, 0o755); err != nil {
+	if err := os.Mkdir(permModelPath, 0o755); err != nil { //nolint:gosec // test directory permissions are not security-sensitive
 		t.Fatalf("failed to create perm-model folder: %v", err)
 	}
 	// Remove write permission from parent dir
@@ -138,7 +138,7 @@ func TestFileSystemHelper_ensureModelRootFolderExists(t *testing.T) {
 
 	// Case 3: Parent directory is not writable (simulate permission denied)
 	permDir := filepath.Join(tempDir, "perm")
-	if err := os.Mkdir(permDir, 0o555); err != nil {
+	if err := os.Mkdir(permDir, 0o555); err != nil { //nolint:gosec // intentionally restrictive permissions for test
 		t.Fatalf("failed to create permDir: %v", err)
 	}
 	defer os.Chmod(permDir, 0o755) //nolint

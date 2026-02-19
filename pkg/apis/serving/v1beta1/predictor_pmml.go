@@ -41,7 +41,7 @@ func (p *PMMLSpec) Validate() error {
 
 // Default sets defaults on the resource
 func (p *PMMLSpec) Default(config *InferenceServicesConfig) {
-	p.Container.Name = constants.InferenceServiceContainerName
+	p.Name = constants.InferenceServiceContainerName
 	setResourceRequirementDefaults(config, &p.Resources)
 }
 

@@ -399,7 +399,7 @@ func validateContainerConcurrency(containerConcurrency *int64) error {
 
 func validateLogger(logger *LoggerSpec) error {
 	if logger != nil {
-		if !(logger.Mode == LogAll || logger.Mode == LogRequest || logger.Mode == LogResponse) {
+		if logger.Mode != LogAll && logger.Mode != LogRequest && logger.Mode != LogResponse {
 			return errors.New(InvalidLoggerType)
 		}
 		if logger.Storage != nil {
@@ -440,7 +440,7 @@ func NonNilComponents(objects []ComponentImplementation) (results []ComponentImp
 // ExactlyOneErrorFor creates an error for the component's one-of semantic.
 func ExactlyOneErrorFor(component Component) error {
 	componentType := reflect.ValueOf(component).Type().Elem()
-	implementationTypes := []string{}
+	implementationTypes := make([]string, 0, componentType.NumField()-1)
 	for i := range componentType.NumField() - 1 {
 		implementationTypes = append(implementationTypes, componentType.Field(i).Name)
 	}
