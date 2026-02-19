@@ -322,11 +322,11 @@ schedulingProfiles:
 `
 			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				updatedConfigMap := &corev1.ConfigMap{}
-				if err := envTest.Client.Get(ctx, client.ObjectKeyFromObject(configMap), updatedConfigMap); err != nil {
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(configMap), updatedConfigMap); err != nil {
 					return err
 				}
 				updatedConfigMap.Data["epp"] = updatedConfigData
-				return envTest.Client.Update(ctx, updatedConfigMap)
+				return envTest.Update(ctx, updatedConfigMap)
 			})
 			Expect(errRetry).ToNot(HaveOccurred())
 

@@ -234,7 +234,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		llmSvcCfg.Spec.Router.Route != nil &&
 		llmSvcCfg.Spec.Router.Route.HTTP.HasSpec() &&
 		llmSvcCfg.Spec.Router.Gateway.HasRefs() {
-		llmSvcCfg.Spec.Router.Route.HTTP.Spec.CommonRouteSpec.ParentRefs = ToParentRefs(llmSvcCfg.Spec.Router.Gateway.Refs)
+		llmSvcCfg.Spec.Router.Route.HTTP.Spec.ParentRefs = ToParentRefs(llmSvcCfg.Spec.Router.Gateway.Refs)
 	}
 
 	// Point HTTPRoute to a Service if there is no Scheduler or InferencePool, and the HTTPRoute uses the default
@@ -382,10 +382,10 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 // This allows for both global default configs and service-specific overrides.
 func (r *LLMISVCReconciler) getConfig(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, name string) (*v1alpha2.LLMInferenceServiceConfig, error) {
 	cfg := &v1alpha2.LLMInferenceServiceConfig{}
-	if err := r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: llmSvc.Namespace}, cfg); err != nil {
+	if err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: llmSvc.Namespace}, cfg); err != nil {
 		if apierrors.IsNotFound(err) {
 			cfg = &v1alpha2.LLMInferenceServiceConfig{}
-			if err := r.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: constants.KServeNamespace}, cfg); err != nil {
+			if err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: constants.KServeNamespace}, cfg); err != nil {
 				// TODO: add available LLMInferenceServiceConfig in system namespace and llmSvc.Namespace namespace if not found
 
 				return nil, fmt.Errorf("failed to get LLMInferenceServiceConfig %q from namespaces [%q, %q]: %w", name, llmSvc.Namespace, constants.KServeNamespace, err)

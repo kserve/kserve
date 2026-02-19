@@ -134,7 +134,7 @@ func (r *LLMISVCReconciler) validateGatewayReferences(ctx context.Context, llmSv
 			gatewayKey.Namespace = llmSvc.GetNamespace()
 		}
 
-		err := r.Client.Get(ctx, gatewayKey, gateway)
+		err := r.Get(ctx, gatewayKey, gateway)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				missingGateways = append(missingGateways, fmt.Sprintf("Gateway %s/%s does not exist", gatewayKey.Namespace, gatewayKey.Name))
@@ -164,7 +164,7 @@ func (r *LLMISVCReconciler) validateHTTPRouteReferences(ctx context.Context, llm
 
 	for _, routeRef := range llmSvc.Spec.Router.Route.HTTP.Refs {
 		route := &gwapiv1.HTTPRoute{}
-		if err := r.Client.Get(ctx, types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: routeRef.Name}, route); err != nil {
+		if err := r.Get(ctx, types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: routeRef.Name}, route); err != nil {
 			if apierrors.IsNotFound(err) {
 				missingRoutes = append(missingRoutes, fmt.Sprintf("HTTPRoute %s/%s does not exist", llmSvc.GetNamespace(), routeRef.Name))
 				continue
@@ -205,7 +205,7 @@ func (r *LLMISVCReconciler) validateHTTPRouteTargets(ctx context.Context, routes
 			}
 
 			gateway := &gwapiv1.Gateway{}
-			err := r.Client.Get(ctx, gatewayKey, gateway)
+			err := r.Get(ctx, gatewayKey, gateway)
 			if err != nil {
 				if apierrors.IsNotFound(err) {
 					targetErrors = append(targetErrors, fmt.Sprintf("HTTPRoute %s/%s references non-existent Gateway %s/%s", route.Namespace, route.Name, gatewayKey.Namespace, gatewayKey.Name))
@@ -249,7 +249,7 @@ func (r *LLMISVCReconciler) validateManagedHTTPRouteSpec(ctx context.Context, ll
 		}
 
 		gateway := &gwapiv1.Gateway{}
-		err := r.Client.Get(ctx, gatewayKey, gateway)
+		err := r.Get(ctx, gatewayKey, gateway)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				targetErrors = append(targetErrors, fmt.Sprintf("Managed HTTPRoute references non-existent Gateway %s/%s", gatewayKey.Namespace, gatewayKey.Name))

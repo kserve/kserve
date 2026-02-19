@@ -67,7 +67,7 @@ func (t *TorchServeSpec) validateGPU() error {
 
 // Default sets defaults on the resource
 func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
-	t.Container.Name = constants.InferenceServiceContainerName
+	t.Name = constants.InferenceServiceContainerName
 	if t.ProtocolVersion == nil {
 		defaultProtocol := constants.ProtocolV1
 		t.ProtocolVersion = &defaultProtocol

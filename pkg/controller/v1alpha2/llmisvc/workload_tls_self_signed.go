@@ -158,7 +158,7 @@ func createSelfSignedTLSCertificate() ([]byte, []byte, error) {
 func (r *LLMISVCReconciler) getExistingSelfSignedCertificate(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *corev1.Secret {
 	curr := &corev1.Secret{}
 	key := client.ObjectKey{Namespace: llmSvc.GetNamespace(), Name: kmeta.ChildName(llmSvc.GetName(), "-kserve-self-signed-certs")}
-	err := r.Client.Get(ctx, key, curr)
+	err := r.Get(ctx, key, curr)
 	if err != nil {
 		return nil
 	}

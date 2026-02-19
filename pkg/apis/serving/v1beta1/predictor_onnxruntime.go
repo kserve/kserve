@@ -52,7 +52,7 @@ func (o *ONNXRuntimeSpec) Validate() error {
 
 // Default sets defaults on the resource
 func (o *ONNXRuntimeSpec) Default(config *InferenceServicesConfig) {
-	o.Container.Name = constants.InferenceServiceContainerName
+	o.Name = constants.InferenceServiceContainerName
 	setResourceRequirementDefaults(config, &o.Resources)
 }
 

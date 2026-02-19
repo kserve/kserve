@@ -132,19 +132,19 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 		}
 
 		// add predictor host and protocol to metadata
-		isvc.ObjectMeta.Annotations[constants.PredictorHostAnnotationKey] = predictorURL.Host
+		isvc.Annotations[constants.PredictorHostAnnotationKey] = predictorURL.Host
 		switch predictorURL.Scheme {
 		case "grpc":
-			isvc.ObjectMeta.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolGRPCV2)
+			isvc.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolGRPCV2)
 		case "http", "https":
 			// modelmesh supports v2 only
-			isvc.ObjectMeta.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolV2)
+			isvc.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolV2)
 		default:
 			return ctrl.Result{}, fmt.Errorf("Predictor URL Scheme not supported: %v", predictorURL.Scheme)
 		}
 	}
 
-	if len(isvc.Spec.Transformer.PodSpec.Containers) == 0 {
+	if len(isvc.Spec.Transformer.Containers) == 0 {
 		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig, predictorName)
 		isvc.Spec.Transformer.PodSpec = v1beta1.PodSpec{
 			Containers: []corev1.Container{
@@ -153,7 +153,7 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 		}
 	} else {
 		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig, predictorName)
-		isvc.Spec.Transformer.PodSpec.Containers[0] = *container
+		isvc.Spec.Transformer.Containers[0] = *container
 	}
 
 	podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)

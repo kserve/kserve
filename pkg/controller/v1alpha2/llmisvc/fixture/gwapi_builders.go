@@ -120,13 +120,13 @@ func HTTPRoute(name string, opts ...HTTPRouteOption) *gwapiv1.HTTPRoute {
 
 func WithParentRef(ref gwapiv1.ParentReference) HTTPRouteOption {
 	return func(route *gwapiv1.HTTPRoute) {
-		route.Spec.CommonRouteSpec.ParentRefs = append(route.Spec.CommonRouteSpec.ParentRefs, ref)
+		route.Spec.ParentRefs = append(route.Spec.ParentRefs, ref)
 	}
 }
 
 func WithParentRefs(refs ...gwapiv1.ParentReference) HTTPRouteOption {
 	return func(route *gwapiv1.HTTPRoute) {
-		route.Spec.CommonRouteSpec.ParentRefs = refs
+		route.Spec.ParentRefs = refs
 	}
 }
 
@@ -430,7 +430,7 @@ func WithHTTPRouteParentStatus(parentRef gwapiv1.ParentReference, controllerName
 			ControllerName: gwapiv1.GatewayController(controllerName),
 			Conditions:     conditions,
 		}
-		route.Status.RouteStatus.Parents = append(route.Status.RouteStatus.Parents, parentStatus)
+		route.Status.Parents = append(route.Status.Parents, parentStatus)
 	}
 }
 
@@ -438,9 +438,9 @@ func WithHTTPRouteParentStatus(parentRef gwapiv1.ParentReference, controllerName
 func WithHTTPRouteReadyStatus(controllerName string) HTTPRouteOption {
 	return func(route *gwapiv1.HTTPRoute) {
 		if len(route.Spec.ParentRefs) > 0 {
-			route.Status.RouteStatus.Parents = make([]gwapiv1.RouteParentStatus, len(route.Spec.ParentRefs))
+			route.Status.Parents = make([]gwapiv1.RouteParentStatus, len(route.Spec.ParentRefs))
 			for i, parentRef := range route.Spec.ParentRefs {
-				route.Status.RouteStatus.Parents[i] = gwapiv1.RouteParentStatus{
+				route.Status.Parents[i] = gwapiv1.RouteParentStatus{
 					ParentRef:      parentRef,
 					ControllerName: gwapiv1.GatewayController(controllerName),
 					Conditions: []metav1.Condition{
@@ -491,9 +491,9 @@ func WithGatewayReadyStatus() GatewayOption {
 func WithHTTPRouteNotReadyStatus(controllerName, reason, message string) HTTPRouteOption {
 	return func(route *gwapiv1.HTTPRoute) {
 		if len(route.Spec.ParentRefs) > 0 {
-			route.Status.RouteStatus.Parents = make([]gwapiv1.RouteParentStatus, len(route.Spec.ParentRefs))
+			route.Status.Parents = make([]gwapiv1.RouteParentStatus, len(route.Spec.ParentRefs))
 			for i, parentRef := range route.Spec.ParentRefs {
-				route.Status.RouteStatus.Parents[i] = gwapiv1.RouteParentStatus{
+				route.Status.Parents[i] = gwapiv1.RouteParentStatus{
 					ParentRef:      parentRef,
 					ControllerName: gwapiv1.GatewayController(controllerName),
 					Conditions: []metav1.Condition{
@@ -517,9 +517,9 @@ func WithHTTPRouteNotReadyStatus(controllerName, reason, message string) HTTPRou
 func WithHTTPRouteV1Alpha2RejectedStatus(controllerName string) HTTPRouteOption {
 	return func(route *gwapiv1.HTTPRoute) {
 		if len(route.Spec.ParentRefs) > 0 {
-			route.Status.RouteStatus.Parents = make([]gwapiv1.RouteParentStatus, len(route.Spec.ParentRefs))
+			route.Status.Parents = make([]gwapiv1.RouteParentStatus, len(route.Spec.ParentRefs))
 			for i, parentRef := range route.Spec.ParentRefs {
-				route.Status.RouteStatus.Parents[i] = gwapiv1.RouteParentStatus{
+				route.Status.Parents[i] = gwapiv1.RouteParentStatus{
 					ParentRef:      parentRef,
 					ControllerName: gwapiv1.GatewayController(controllerName),
 					Conditions: []metav1.Condition{
@@ -616,7 +616,7 @@ func WithHTTPRouteMultipleControllerStatus(parentRef gwapiv1.ParentReference, st
 	return func(route *gwapiv1.HTTPRoute) {
 		for _, statusFunc := range statusFuncs {
 			status := statusFunc(parentRef, route.Generation)
-			route.Status.RouteStatus.Parents = append(route.Status.RouteStatus.Parents, status)
+			route.Status.Parents = append(route.Status.Parents, status)
 		}
 	}
 }

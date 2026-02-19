@@ -198,10 +198,10 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 			return fmt.Errorf(DisallowedMultipleContainersInWorkerSpecError, isvc.Name)
 		}
 		if isvc.Spec.Predictor.Model != nil {
-			if _, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.PipelineParallelSizeEnvName); exists {
+			if _, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.Env, constants.PipelineParallelSizeEnvName); exists {
 				return fmt.Errorf(DisallowedWorkerSpecPipelineParallelSizeEnvError, isvc.Name)
 			}
-			if _, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.TensorParallelSizeEnvName); exists {
+			if _, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.Env, constants.TensorParallelSizeEnvName); exists {
 				return fmt.Errorf(DisallowedWorkerSpecTensorParallelSizeEnvError, isvc.Name)
 			}
 
@@ -284,7 +284,7 @@ func validateInferenceServiceName(isvc *InferenceService) error {
 
 // Validation of isvc autoscaler class
 func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
-	annotations := isvc.ObjectMeta.Annotations
+	annotations := isvc.Annotations
 	value, ok := annotations[constants.AutoscalerClass]
 	class := constants.AutoscalerClassType(value)
 	if ok {

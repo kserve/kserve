@@ -270,8 +270,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 			Eventually(func() map[string]string {
 				ctx := context.Background()
-				k8sClient.Get(ctx, configmapKey, configmapActual)
-				k8sClient.Get(ctx, tmKey, tmActual)
+				_ = k8sClient.Get(ctx, configmapKey, configmapActual)
+				_ = k8sClient.Get(ctx, tmKey, tmActual)
 				return configmapActual.Data
 			}, timeout, interval).Should(Equal(expected.Data))
 		})
@@ -415,8 +415,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 			Eventually(func() map[string]string {
 				ctx := context.Background()
-				k8sClient.Get(ctx, configmapKey, configmapActual)
-				k8sClient.Get(ctx, tmKey, tmActual)
+				_ = k8sClient.Get(ctx, configmapKey, configmapActual)
+				_ = k8sClient.Get(ctx, tmKey, tmActual)
 
 				return configmapActual.Data
 			}, timeout, interval).Should(Equal(expected.Data))
@@ -522,8 +522,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 			Eventually(func() map[string]string {
 				ctx := context.Background()
-				k8sClient.Get(ctx, configmapKey, configmapActual)
-				k8sClient.Get(ctx, tmKey, tmActual)
+				_ = k8sClient.Get(ctx, configmapKey, configmapActual)
+				_ = k8sClient.Get(ctx, tmKey, tmActual)
 
 				return configmapActual.Data
 			}, timeout, interval).Should(Equal(expected.Data))
@@ -543,8 +543,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 			Eventually(func() map[string]string {
 				ctx := context.Background()
-				k8sClient.Get(ctx, configmapKey, configmapActual)
-				k8sClient.Get(ctx, tmKey, tmActual)
+				_ = k8sClient.Get(ctx, configmapKey, configmapActual)
+				_ = k8sClient.Get(ctx, tmKey, tmActual)
 				return configmapActual.Data
 			}, timeout, interval).Should(Equal(expected.Data))
 		})
@@ -669,8 +669,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 			Eventually(func() map[string]string {
 				ctx := context.Background()
-				k8sClient.Get(ctx, configmapKey, configmapActual)
-				k8sClient.Get(ctx, tmKey, tmActual)
+				_ = k8sClient.Get(ctx, configmapKey, configmapActual)
+				_ = k8sClient.Get(ctx, tmKey, tmActual)
 
 				return configmapActual.Data
 			}, timeout, interval).Should(Equal(expected.Data))
