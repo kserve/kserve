@@ -71,7 +71,7 @@ func TestTrainedModelList_TotalRequestedMemory(t *testing.T) {
 	}
 	res := list.TotalRequestedMemory()
 	expected := resource.MustParse("3Gi")
-	if res != expected {
+	if res.Cmp(expected) != 0 {
 		t.Errorf("expected %v got %v", expected, res)
 	}
 }

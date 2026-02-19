@@ -536,7 +536,7 @@ func TestServingRuntimeSpec_IsProtocolVersionSupported(t *testing.T) {
 				},
 			},
 			protocolVersion: constants.ProtocolV2,
-			res:             false,
+			res:             true,
 		},
 		"protocols specified": {
 			spec: ServingRuntimeSpec{
