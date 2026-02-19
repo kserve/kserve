@@ -256,7 +256,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					return err
 				}
 				deployment.Spec.Replicas = ptr.To[int32](3)
-				return envTest.Client.Update(ctx, deployment)
+				return envTest.Update(ctx, deployment)
 			})
 			Expect(errRetry).ToNot(HaveOccurred())
 
@@ -322,7 +322,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					return err
 				}
 				deployment.Spec.Replicas = ptr.To[int32](5)
-				return envTest.Client.Update(ctx, deployment)
+				return envTest.Update(ctx, deployment)
 			})
 			Expect(errRetry).ToNot(HaveOccurred())
 
@@ -522,11 +522,11 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 				Eventually(func(g Gomega, ctx context.Context) error {
 					svc := &corev1.Service{}
-					err := envTest.Client.Get(ctx, client.ObjectKey{Name: svcName, Namespace: testNs.Name}, svc)
+					err := envTest.Get(ctx, client.ObjectKey{Name: svcName, Namespace: testNs.Name}, svc)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(svc.Spec.Selector).To(Equal(llmisvc.GetWorkloadLabelSelector(llmSvc.ObjectMeta, &llmSvc.Spec)))
 					return nil
-				})
+				}).WithContext(ctx).Should(Succeed())
 
 				ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
 
@@ -804,7 +804,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			DeferCleanup(func(ctx context.Context) {
 				// Restore the default gateway after the test (pass or fail)
 				existing := &gwapiv1.Gateway{}
-				err := envTest.Client.Get(ctx, types.NamespacedName{
+				err := envTest.Get(ctx, types.NamespacedName{
 					Name:      constants.GatewayName,
 					Namespace: constants.KServeNamespace,
 				}, existing)
@@ -1329,9 +1329,9 @@ func ensureHTTPRouteReady(ctx context.Context, c client.Client, route *gwapiv1.H
 	// Set the status conditions to simulate the Gateway controller making the HTTPRoute ready
 	// HTTPRoute readiness is determined by parent status conditions
 	if len(createdRoute.Spec.ParentRefs) > 0 {
-		createdRoute.Status.RouteStatus.Parents = make([]gwapiv1.RouteParentStatus, len(createdRoute.Spec.ParentRefs))
+		createdRoute.Status.Parents = make([]gwapiv1.RouteParentStatus, len(createdRoute.Spec.ParentRefs))
 		for i, parentRef := range createdRoute.Spec.ParentRefs {
-			createdRoute.Status.RouteStatus.Parents[i] = gwapiv1.RouteParentStatus{
+			createdRoute.Status.Parents[i] = gwapiv1.RouteParentStatus{
 				ParentRef:      parentRef,
 				ControllerName: "gateway.networking.k8s.io/gateway-controller",
 				Conditions: []metav1.Condition{

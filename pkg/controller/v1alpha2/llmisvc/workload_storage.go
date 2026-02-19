@@ -169,7 +169,7 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 		// If service account is nil, fetch the default service account
 		if serviceAccount == nil {
 			serviceAccount = &corev1.ServiceAccount{}
-			err := r.Client.Get(ctx, types.NamespacedName{Name: "default", Namespace: llmSvc.Namespace}, serviceAccount)
+			err := r.Get(ctx, types.NamespacedName{Name: "default", Namespace: llmSvc.Namespace}, serviceAccount)
 			if err != nil {
 				log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
 				injectCaBundle(llmSvc.Namespace, podSpec, initContainer, storageConfig)
@@ -216,7 +216,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 		// If service account is nil, fetch the default service account
 		if serviceAccount == nil {
 			serviceAccount = &corev1.ServiceAccount{}
-			err := r.Client.Get(ctx, types.NamespacedName{Name: "default", Namespace: llmSvc.Namespace}, serviceAccount)
+			err := r.Get(ctx, types.NamespacedName{Name: "default", Namespace: llmSvc.Namespace}, serviceAccount)
 			if err != nil {
 				log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
 				return nil
@@ -273,10 +273,14 @@ func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev
 	initContainer := utils.CreateInitContainerWithConfig(&copied, containerArgs)
 	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
 
-	utils.AddModelMount(storageMountParams, initContainer.Name, podSpec)
+	if err := utils.AddModelMount(storageMountParams, initContainer.Name, podSpec); err != nil {
+		return err
+	}
 
 	storageMountParams.ReadOnly = true
-	utils.AddModelMount(storageMountParams, "main", podSpec)
+	if err := utils.AddModelMount(storageMountParams, "main", podSpec); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -368,10 +372,8 @@ func injectCaBundle(namespace string, podSpec *corev1.PodSpec, initContainer *co
 }
 
 func needCaBundleMount(caBundleConfigMapName string, initContainer *corev1.Container) bool {
-	result := false
-	if caBundleConfigMapName != "" {
-		result = true
-	}
+	result := caBundleConfigMapName != ""
+
 	for _, envVar := range initContainer.Env {
 		if envVar.Name == s3.AWSCABundleConfigMap {
 			result = true

@@ -211,7 +211,7 @@ func main() {
 
 	kedaFound, kedaCheckErr := utils.IsCrdAvailable(cfg, kedav1alpha1.SchemeGroupVersion.String(), constants.KedaScaledObjectKind)
 	if kedaCheckErr != nil {
-		setupLog.Error(ksvcCheckErr, "error when checking if KEDA ScaledObject kind is available")
+		setupLog.Error(kedaCheckErr, "error when checking if KEDA ScaledObject kind is available")
 		os.Exit(1)
 	}
 	if kedaFound {
@@ -224,7 +224,7 @@ func main() {
 
 	otelFound, otelCheckErr := utils.IsCrdAvailable(cfg, otelv1beta1.GroupVersion.String(), constants.OpenTelemetryCollector)
 	if otelCheckErr != nil {
-		setupLog.Error(ksvcCheckErr, "error when checking if OpentelemetryCollector kind is available")
+		setupLog.Error(otelCheckErr, "error when checking if OpentelemetryCollector kind is available")
 		os.Exit(1)
 	}
 	if otelFound {

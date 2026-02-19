@@ -231,7 +231,7 @@ func (r *LLMISVCReconciler) updateStatus(ctx context.Context, desired *v1alpha2.
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Always fetch the latest version to avoid conflicts
 		latest := &v1alpha2.LLMInferenceService{}
-		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(desired), latest); err != nil {
+		if err := r.Get(ctx, client.ObjectKeyFromObject(desired), latest); err != nil {
 			return err
 		}
 
@@ -331,7 +331,7 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 		continueToken := ""
 		for {
 			llmSvcList := &v1alpha2.LLMInferenceServiceList{}
-			if err := r.Client.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
+			if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
 				logger.Error(err, "Failed to list LLMInferenceService")
 				return reqs
 			}
@@ -401,7 +401,7 @@ func (r *LLMISVCReconciler) enqueueOnHttpRouteChange(logger logr.Logger) handler
 		continueToken := ""
 		for {
 			llmSvcList := &v1alpha2.LLMInferenceServiceList{}
-			if err := r.Client.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
+			if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
 				logger.Error(err, "Failed to list LLMInferenceService")
 				return reqs
 			}
@@ -461,7 +461,7 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 		continueToken := ""
 		for {
 			llmSvcList := &v1alpha2.LLMInferenceServiceList{}
-			if err := r.Client.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
+			if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
 				logger.Error(err, "Failed to list LLMInferenceService")
 				return reqs
 			}
@@ -518,7 +518,7 @@ func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler
 		// When a ConfigMap is modified, we need to find all LLMInferenceService instances that might
 		// depend on it and trigger their reconciliation.
 		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
-		if err := r.Client.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
+		if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
 			logger.Error(err, "Failed to list LLMInferenceService")
 			return reqs
 		}

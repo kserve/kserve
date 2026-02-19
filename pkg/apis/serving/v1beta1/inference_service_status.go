@@ -463,7 +463,7 @@ func getDeploymentCondition(deploymentList []*appsv1.Deployment, conditionType a
 			condition.LastTransitionTime = lastTransitionTime[0] // used head node one
 		}
 		condition.Reason = strings.Join(reasons, ", ")
-	} else {
+	} else if len(deploymentList) == 1 {
 		// Usual rawDeployment case
 		for _, con := range deploymentList[0].Status.Conditions {
 			if con.Type == conditionType {

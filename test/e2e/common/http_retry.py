@@ -5,8 +5,8 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 DEFAULT_RETRY_STATUS_CODES = (404, 429, 502, 503, 504)
-DEFAULT_RETRY_TOTAL = 4
-DEFAULT_RETRY_BACKOFF_FACTOR = 1.0
+DEFAULT_RETRY_TOTAL = 8
+DEFAULT_RETRY_BACKOFF_FACTOR = 2.0
 
 
 def post_with_retry(

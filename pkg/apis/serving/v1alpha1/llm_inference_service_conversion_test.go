@@ -51,8 +51,8 @@ func TestLLMInferenceServiceConversion_PreservesCriticality(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify the criticality is stored in annotations
-	assert.NotNil(t, dst.ObjectMeta.Annotations)
-	assert.Equal(t, string(criticality), dst.ObjectMeta.Annotations[ModelCriticalityAnnotationKey])
+	assert.NotNil(t, dst.Annotations)
+	assert.Equal(t, string(criticality), dst.Annotations[ModelCriticalityAnnotationKey])
 
 	// Convert back to v1alpha1
 	restored := &LLMInferenceService{}
@@ -64,7 +64,7 @@ func TestLLMInferenceServiceConversion_PreservesCriticality(t *testing.T) {
 	assert.Equal(t, criticality, *restored.Spec.Model.Criticality)
 
 	// Verify the annotation is cleaned up
-	_, hasAnnotation := restored.ObjectMeta.Annotations[ModelCriticalityAnnotationKey]
+	_, hasAnnotation := restored.Annotations[ModelCriticalityAnnotationKey]
 	assert.False(t, hasAnnotation, "Annotation should be cleaned up after restoration")
 }
 
@@ -110,9 +110,9 @@ func TestLLMInferenceServiceConversion_PreservesLoRACriticalities(t *testing.T) 
 	require.NoError(t, err)
 
 	// Verify criticalities are stored in annotations
-	assert.NotNil(t, dst.ObjectMeta.Annotations)
-	assert.Equal(t, string(modelCriticality), dst.ObjectMeta.Annotations[ModelCriticalityAnnotationKey])
-	assert.Contains(t, dst.ObjectMeta.Annotations, LoRACriticalitiesAnnotationKey)
+	assert.NotNil(t, dst.Annotations)
+	assert.Equal(t, string(modelCriticality), dst.Annotations[ModelCriticalityAnnotationKey])
+	assert.Contains(t, dst.Annotations, LoRACriticalitiesAnnotationKey)
 
 	// Convert back to v1alpha1
 	restored := &LLMInferenceService{}
@@ -132,9 +132,9 @@ func TestLLMInferenceServiceConversion_PreservesLoRACriticalities(t *testing.T) 
 	assert.Equal(t, adapter2Criticality, *restored.Spec.Model.LoRA.Adapters[1].Criticality)
 
 	// Verify annotations are cleaned up
-	_, hasModelAnnotation := restored.ObjectMeta.Annotations[ModelCriticalityAnnotationKey]
+	_, hasModelAnnotation := restored.Annotations[ModelCriticalityAnnotationKey]
 	assert.False(t, hasModelAnnotation, "Model criticality annotation should be cleaned up")
-	_, hasLoRAAnnotation := restored.ObjectMeta.Annotations[LoRACriticalitiesAnnotationKey]
+	_, hasLoRAAnnotation := restored.Annotations[LoRACriticalitiesAnnotationKey]
 	assert.False(t, hasLoRAAnnotation, "LoRA criticalities annotation should be cleaned up")
 }
 
@@ -161,8 +161,8 @@ func TestLLMInferenceServiceConversion_NoCriticality(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify no criticality annotation is created
-	if dst.ObjectMeta.Annotations != nil {
-		_, hasAnnotation := dst.ObjectMeta.Annotations[ModelCriticalityAnnotationKey]
+	if dst.Annotations != nil {
+		_, hasAnnotation := dst.Annotations[ModelCriticalityAnnotationKey]
 		assert.False(t, hasAnnotation, "No annotation should be created when criticality is not set")
 	}
 
@@ -199,8 +199,8 @@ func TestLLMInferenceServiceConfigConversion_PreservesCriticality(t *testing.T) 
 	require.NoError(t, err)
 
 	// Verify the criticality is stored in annotations
-	assert.NotNil(t, dst.ObjectMeta.Annotations)
-	assert.Equal(t, string(criticality), dst.ObjectMeta.Annotations[ModelCriticalityAnnotationKey])
+	assert.NotNil(t, dst.Annotations)
+	assert.Equal(t, string(criticality), dst.Annotations[ModelCriticalityAnnotationKey])
 
 	// Convert back to v1alpha1
 	restored := &LLMInferenceServiceConfig{}
@@ -240,8 +240,8 @@ func TestLLMInferenceServiceConversion_PreservesExistingAnnotations(t *testing.T
 	require.NoError(t, err)
 
 	// Verify both annotations exist
-	assert.Equal(t, existingAnnotation, dst.ObjectMeta.Annotations["existing-annotation"])
-	assert.Equal(t, string(criticality), dst.ObjectMeta.Annotations[ModelCriticalityAnnotationKey])
+	assert.Equal(t, existingAnnotation, dst.Annotations["existing-annotation"])
+	assert.Equal(t, string(criticality), dst.Annotations[ModelCriticalityAnnotationKey])
 
 	// Convert back to v1alpha1
 	restored := &LLMInferenceService{}
@@ -253,9 +253,9 @@ func TestLLMInferenceServiceConversion_PreservesExistingAnnotations(t *testing.T
 	assert.Equal(t, criticality, *restored.Spec.Model.Criticality)
 
 	// Verify existing annotation is preserved
-	assert.Equal(t, existingAnnotation, restored.ObjectMeta.Annotations["existing-annotation"])
+	assert.Equal(t, existingAnnotation, restored.Annotations["existing-annotation"])
 
 	// Verify criticality annotation is cleaned up
-	_, hasAnnotation := restored.ObjectMeta.Annotations[ModelCriticalityAnnotationKey]
+	_, hasAnnotation := restored.Annotations[ModelCriticalityAnnotationKey]
 	assert.False(t, hasAnnotation, "Criticality annotation should be cleaned up")
 }
