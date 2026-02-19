@@ -148,8 +148,8 @@ func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
 		s.Model,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified
-	if len(s.PodSpec.Containers) != 0 {
-		for _, container := range s.PodSpec.Containers {
+	if len(s.Containers) != 0 {
+		for _, container := range s.Containers {
 			if container.Name == constants.InferenceServiceContainerName {
 				implementations = append(implementations, NewCustomPredictor(&s.PodSpec))
 			}

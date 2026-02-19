@@ -703,7 +703,7 @@ def test_case(request):
     finally:
         if os.getenv("SKIP_RESOURCE_DELETION", "False").lower() in ("true", "1", "t"):
             logger.info("Skipping resource deletion after test execution.")
-            return
+            return  # noqa: B012
 
         # Execute after test hooks
         for func in tc.after_test:
@@ -774,7 +774,7 @@ def generate_test_id(test_case) -> str:
     return "-".join(test_case.base_refs)
 
 
-def create_router_resources(gateways, routes, kserve_client=None):
+def create_router_resources(gateways, routes=None, kserve_client=None):
     if not kserve_client:
         kserve_client = KServeClient(
             config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -787,7 +787,7 @@ def create_router_resources(gateways, routes, kserve_client=None):
         for gateway in gateways:
             create_or_update_gateway(kserve_client, gateway)
             gateways_created.append(gateway)
-        for route in routes:
+        for route in routes or []:
             create_or_update_route(kserve_client, route)
             routes_created.append(route)
     except Exception as e:
@@ -796,13 +796,13 @@ def create_router_resources(gateways, routes, kserve_client=None):
         raise
 
 
-def delete_router_resources(gateways, routes, kserve_client=None):
+def delete_router_resources(gateways, routes=None, kserve_client=None):
     if not kserve_client:
         kserve_client = KServeClient(
             config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
         )
 
-    for route in routes:
+    for route in routes or []:
         try:
             logger.info(
                 f"Cleaning up HttpRoute {route.get('metadata', {}).get('name')}"

@@ -226,8 +226,8 @@ func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client 
 	// get deployment
 	existingDeployment := &appsv1.Deployment{}
 	err := client.Get(ctx, types.NamespacedName{
-		Namespace: deployment.ObjectMeta.Namespace,
-		Name:      deployment.ObjectMeta.Name,
+		Namespace: deployment.Namespace,
+		Name:      deployment.Name,
 	}, existingDeployment)
 	if err != nil {
 		if apierr.IsNotFound(err) {

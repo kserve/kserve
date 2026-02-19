@@ -37,11 +37,11 @@ func (in *LLMInferenceServiceSpec) SetDefaults(_ context.Context) {
 	// Setting containers to empty slices will prevent the merge logic from removing containers.
 	// This happens only on `Containers` because they don't have the `omitempty` tag and json.Marshal always keeps them.
 
-	if in.WorkloadSpec.Template != nil && in.WorkloadSpec.Template.Containers == nil {
-		in.WorkloadSpec.Template.Containers = []corev1.Container{}
+	if in.Template != nil && in.Template.Containers == nil {
+		in.Template.Containers = []corev1.Container{}
 	}
-	if in.WorkloadSpec.Worker != nil && in.WorkloadSpec.Worker.Containers == nil {
-		in.WorkloadSpec.Worker.Containers = []corev1.Container{}
+	if in.Worker != nil && in.Worker.Containers == nil {
+		in.Worker.Containers = []corev1.Container{}
 	}
 
 	if in.Prefill != nil && in.Prefill.Template != nil && in.Prefill.Template.Containers == nil {

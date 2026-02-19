@@ -15,7 +15,6 @@ spec:
           - vllm
           - serve
           - /mnt/models
-        args:
           - --served-model-name
           - "{{ .Spec.Model.Name }}"
           - --port
@@ -26,6 +25,7 @@ spec:
           # - /etc/ssl/certs/tls.crt
           # - --ssl-keyfile
           # - /etc/ssl/certs/tls.key
+
         env:
           - name: HOME
             value: /home

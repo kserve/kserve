@@ -103,7 +103,7 @@ func (c *LocalModelNodeReconciler) getNodeGroupFromNode(ctx context.Context, nod
 }
 
 func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode v1alpha1.LocalModelNode, modelInfo v1alpha1.LocalModelInfo) (*batchv1.Job, error) {
-	jobName := modelInfo.ModelName + "-" + localModelNode.ObjectMeta.Name
+	jobName := modelInfo.ModelName + "-" + localModelNode.Name
 	nodeGroup, err := c.getNodeGroupFromNode(ctx, nodeName)
 	if nodeGroup == nil {
 		c.Log.Error(err, "Failed to get node group for current node", "node name", nodeName)
@@ -174,7 +174,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 // Fetches container spec for model download container, use the default KServe image if not found
 func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Context, storageUri string) (*corev1.Container, error) {
 	storageContainers := &v1alpha1.ClusterStorageContainerList{}
-	if err := c.Client.List(ctx, storageContainers); err != nil {
+	if err := c.List(ctx, storageContainers); err != nil {
 		return nil, err
 	}
 
@@ -208,7 +208,7 @@ func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelName s
 		"model": modelName,
 		"node":  nodeName,
 	}
-	if err := c.Client.List(ctx, jobList, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
+	if err := c.List(ctx, jobList, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
 		if errors.IsNotFound(err) {
 			c.Log.Info("Job not found", "model", modelName)
 			return nil, 0, nil
@@ -241,7 +241,7 @@ func getModelStatusFromJobStatus(jobStatus batchv1.JobStatus) v1alpha1.ModelStat
 // Create jobs to download models if the model is not present locally
 // Update the status of the LocalModelNode CR
 func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1.LocalModelNode) error {
-	c.Log.Info("Downloading models to", "node", localModelNode.ObjectMeta.Name)
+	c.Log.Info("Downloading models to", "node", localModelNode.Name)
 
 	newStatus := map[string]v1alpha1.ModelStatus{}
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
@@ -278,7 +278,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 			}
 			newStatus[modelInfo.ModelName] = getModelStatusFromJobStatus(job.Status)
 			c.Log.Info("model downloading status:", "model", modelInfo.ModelName,
-				"node", localModelNode.ObjectMeta.Name, "status", newStatus[modelInfo.ModelName])
+				"node", localModelNode.Name, "status", newStatus[modelInfo.ModelName])
 		} else {
 			// Folder does not exist
 			c.Log.Info("Model folder not found", "model", modelInfo.ModelName)
@@ -303,7 +303,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 			}
 			newStatus[modelInfo.ModelName] = getModelStatusFromJobStatus(job.Status)
 			c.Log.Info("model downloading status:", "model", modelInfo.ModelName,
-				"node", localModelNode.ObjectMeta.Name, "status", newStatus[modelInfo.ModelName])
+				"node", localModelNode.Name, "status", newStatus[modelInfo.ModelName])
 		}
 	}
 
@@ -363,7 +363,7 @@ func (c *LocalModelNodeReconciler) cleanupJobs(ctx context.Context, localModelNo
 	// 1. Get all jobs for the LocalModelNode
 	jobs := &batchv1.JobList{}
 	labelSelector := map[string]string{"node": localModelNode.Name}
-	if err := c.Client.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
+	if err := c.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
 		c.Log.Error(err, "Failed to list jobs", "node", localModelNode.Name)
 		return err
 	}
@@ -385,7 +385,7 @@ func (c *LocalModelNodeReconciler) cleanupJobs(ctx context.Context, localModelNo
 		if _, ok := modelsInSpec[modelName]; !ok {
 			c.Log.Info("Deleting job", "job", job.Name, "model", modelName)
 			propagationPolicy := metav1.DeletePropagationBackground
-			if err := c.Client.Delete(ctx, &job, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
+			if err := c.Delete(ctx, &job, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
 				c.Log.Error(err, "Failed to delete job", "job", job.Name)
 				return err
 			}

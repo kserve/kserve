@@ -24,6 +24,7 @@ import (
 	"knative.dev/pkg/apis"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 // LLMInferenceServiceSample defines a full sample of LLMInferenceService that can be used
@@ -39,9 +40,9 @@ func LLMInferenceServiceSample() *v1alpha2.LLMInferenceService {
 			Name:      svcName,
 			Namespace: nsName,
 			Labels: map[string]string{
-				"app.kubernetes.io/name":      "llminferenceservice",
-				"app.kubernetes.io/instance":  svcName,
-				"app.kubernetes.io/component": "inference",
+				constants.KubernetesAppNameLabelKey:   constants.LLMInferenceServicePartOfValue,
+				constants.KubernetesInstanceLabelKey:  svcName,
+				constants.KubernetesComponentLabelKey: constants.LLMComponentInference,
 			},
 			Annotations: map[string]string{
 				"serving.kserve.io/model-uri": modelURL.String(),
