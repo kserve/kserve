@@ -111,6 +111,7 @@ func AddControllerAPIs(s *runtime.Scheme) error {
 func AddLLMISVCAPIs(s *runtime.Scheme) error {
 	return addAll(s,
 		AddKServeAPIs,
+		AddCoreKubernetesAPIs,
 		AddGatewayAPIs,
 		AddLeaderWorkerSetAPIs,
 	)
