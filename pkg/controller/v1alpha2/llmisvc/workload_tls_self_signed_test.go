@@ -358,7 +358,7 @@ func TestSemanticCertificateSecretIsEqual(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := llmisvc.SemanticCertificateSecretIsEqual(tt.expected, tt.curr)
 			if got != tt.want {
-				t.Errorf("semanticCertificateSecretIsEqual() = %v, want %v", got, tt.want)
+				t.Errorf("SemanticCertificateSecretIsEqual() = %v, want %v", got, tt.want)
 			}
 		})
 	}
