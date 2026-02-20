@@ -564,7 +564,7 @@ func (r *LLMISVCReconciler) expectedSchedulerRoleBinding(llmSvc *v1alpha2.LLMInf
 func (r *LLMISVCReconciler) propagateSchedulerDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
 	curr := &appsv1.Deployment{}
 	err := retry.OnError(retry.DefaultRetry, apierrors.IsNotFound, func() error {
-		return r.Client.Get(ctx, client.ObjectKeyFromObject(expected), curr)
+		return r.Get(ctx, client.ObjectKeyFromObject(expected), curr)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get current deployment %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)

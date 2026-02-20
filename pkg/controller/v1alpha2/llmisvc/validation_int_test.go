@@ -589,7 +589,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -605,7 +605,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -809,7 +809,7 @@ var _ = Describe("LLMInferenceServiceConfig webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, config)
+			errValidation := envTest.Create(ctx, config)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -824,7 +824,7 @@ var _ = Describe("LLMInferenceServiceConfig webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, config)
+			errValidation := envTest.Create(ctx, config)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
