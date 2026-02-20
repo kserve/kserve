@@ -316,7 +316,7 @@ func (r *LLMISVCReconciler) collectIPAddresses(ctx context.Context, llmSvc *v1al
 // certificates secrets handling expiration and renewal.
 func semanticCertificateSecretIsEqual(expected *corev1.Secret, curr *corev1.Secret) bool {
 	if isCertificateExpired(curr) {
-		return true
+		return false
 	}
 
 	expectedAnnotations := maps.Clone(expected.Annotations)
