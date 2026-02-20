@@ -244,6 +244,35 @@ func TestDiscoverURLs(t *testing.T) {
 			assert: expectURLs("http://203.0.113.1/ns/name"),
 		},
 		{
+			name: "multi-rule path extraction - nil match.Path is skipped",
+			route: HTTPRoute("nil-path-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("nil-path-gateway", RefInNamespace("test-ns"))),
+				WithHTTPRule(
+					Matches(gwapiv1.HTTPRouteMatch{
+						// No Path set - header-only match
+						Headers: []gwapiv1.HTTPHeaderMatch{{
+							Name:  "x-custom",
+							Value: "val",
+						}},
+					}),
+					WithBackendRefs(BackendRefService("svc")),
+				),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name")),
+					WithBackendRefs(BackendRefService("svc")),
+				),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("nil-path-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListener(gwapiv1.HTTPProtocolType),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("http://203.0.113.1/ns/name"),
+		},
+		{
 			name: "empty route rules - default path",
 			route: HTTPRoute("empty-rules-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),

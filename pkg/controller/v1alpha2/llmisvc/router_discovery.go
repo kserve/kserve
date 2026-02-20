@@ -224,6 +224,9 @@ func extractRoutePath(route *gwapiv1.HTTPRoute) string {
 			}
 		}
 		for _, match := range rule.Matches {
+			if match.Path == nil {
+				continue
+			}
 			if serviceFound {
 				servicePaths = append(servicePaths, ptr.Deref(match.Path.Value, "/"))
 			} else {
