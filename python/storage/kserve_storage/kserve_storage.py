@@ -378,7 +378,11 @@ class Storage(object):
         with multiprocessing.Pool(
             processes=num_processes, initializer=Storage._init_s3_worker
         ) as pool:
-            results = pool.map(Storage._download_s3_object, download_tasks)
+            results = list(
+                pool.imap_unordered(
+                    Storage._download_s3_object, download_tasks, chunksize=1
+                )
+            )
 
         # Process results and handle errors
         successful_downloads = []

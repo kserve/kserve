@@ -25,8 +25,12 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/utils/ptr"
+	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -688,6 +692,282 @@ schedulingProfiles:
 			Expect(configText).To(ContainSubstring("inline-baseref-profile"))
 		})
 	})
+
+	Context("Leader election flag injection", func() {
+		It("should inject --ha-enable-leader-election when replicas > 1", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-ha-replicas-gt-1"
+			nsName := kmeta.ChildName(svcName, "-test")
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(ctx, namespace)
+			}()
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerReplicas(2),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			// then
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-router-scheduler",
+					Namespace: nsName,
+				}, expectedDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(hasLeaderElectionFlag(expectedDeployment)).To(BeTrue(),
+				"Expected --ha-enable-leader-election flag when replicas > 1")
+		})
+
+		It("should NOT inject --ha-enable-leader-election when replicas = 1", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-ha-replicas-eq-1"
+			nsName := kmeta.ChildName(svcName, "-test")
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(ctx, namespace)
+			}()
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerReplicas(1),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			// then
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-router-scheduler",
+					Namespace: nsName,
+				}, expectedDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(hasLeaderElectionFlag(expectedDeployment)).To(BeFalse(),
+				"Expected NO --ha-enable-leader-election flag when replicas = 1")
+		})
+
+		It("should NOT inject --ha-enable-leader-election when replicas is not specified", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-ha-replicas-nil"
+			nsName := kmeta.ChildName(svcName, "-test")
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(ctx, namespace)
+			}()
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				// No scheduler replicas specified
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			// then
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-router-scheduler",
+					Namespace: nsName,
+				}, expectedDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(hasLeaderElectionFlag(expectedDeployment)).To(BeFalse(),
+				"Expected NO --ha-enable-leader-election flag when replicas is not specified")
+		})
+
+		It("should NOT duplicate --ha-enable-leader-election when flag already exists", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-ha-flag-exists"
+			nsName := kmeta.ChildName(svcName, "-test")
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(ctx, namespace)
+			}()
+
+			// Create scheduler template with existing --ha-enable-leader-election
+			modelConfig := LLMInferenceServiceConfig("model-ha-config",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+				WithConfigModelName("facebook/opt-125m"),
+				WithConfigModelURI("hf://facebook/opt-125m"),
+			)
+
+			routerConfig := LLMInferenceServiceConfig("router-with-ha-flag",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+			)
+			routerConfig.Spec.Router = &v1alpha2.RouterSpec{
+				Gateway: &v1alpha2.GatewaySpec{},
+				Route:   &v1alpha2.GatewayRoutesSpec{},
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Replicas: ptr.To[int32](3),
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "main",
+								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.2.0",
+								Args: []string{
+									"--ha-enable-leader-election",
+									"--poolName",
+									"test-pool",
+								},
+								Ports: []corev1.ContainerPort{
+									{Name: "grpc", ContainerPort: 9002, Protocol: corev1.ProtocolTCP},
+									{Name: "grpc-health", ContainerPort: 9003, Protocol: corev1.ProtocolTCP},
+									{Name: "metrics", ContainerPort: 9090, Protocol: corev1.ProtocolTCP},
+								},
+							},
+						},
+					},
+					Pool: &v1alpha2.InferencePoolSpec{},
+				},
+			}
+
+			Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				WithBaseRefs(
+					corev1.LocalObjectReference{Name: "model-ha-config"},
+					corev1.LocalObjectReference{Name: "router-with-ha-flag"},
+				),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			// then
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-router-scheduler",
+					Namespace: nsName,
+				}, expectedDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(countLeaderElectionFlags(expectedDeployment)).To(Equal(1),
+				"Expected exactly one --ha-enable-leader-election flag (not duplicated)")
+		})
+	})
+
+	Context("Scheduler RBAC", func() {
+		It("should create scheduler role with leases permission for leader election", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-scheduler-rbac"
+			nsName := kmeta.ChildName(svcName, "-test")
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(ctx, namespace)
+			}()
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			// then - verify the scheduler role is created with leases permission
+			expectedRole := &rbacv1.Role{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-epp-role",
+					Namespace: nsName,
+				}, expectedRole)
+			}).WithContext(ctx).Should(Succeed())
+
+			// Verify leases permission exists
+			hasLeasesPermission := false
+			for _, rule := range expectedRole.Rules {
+				for _, apiGroup := range rule.APIGroups {
+					if apiGroup == "coordination.k8s.io" {
+						for _, resource := range rule.Resources {
+							if resource == "leases" {
+								hasLeasesPermission = true
+								// Verify all necessary verbs for leader election
+								Expect(rule.Verbs).To(ContainElements("get", "list", "watch", "create", "update", "patch", "delete"))
+							}
+						}
+					}
+				}
+			}
+			Expect(hasLeasesPermission).To(BeTrue(), "Expected scheduler role to have leases permission for leader election")
+		})
+	})
 })
 
 // schedulerContainerName is the expected name of the main container in the scheduler deployment
@@ -716,6 +996,26 @@ func countConfigTextArgs(deployment *appsv1.Deployment) int {
 		if container.Name == schedulerContainerName {
 			for _, arg := range container.Args {
 				if arg == "--config-text" {
+					count++
+				}
+			}
+		}
+	}
+	return count
+}
+
+// hasLeaderElectionFlag checks if the scheduler deployment has the --ha-enable-leader-election flag
+func hasLeaderElectionFlag(deployment *appsv1.Deployment) bool {
+	return countLeaderElectionFlags(deployment) > 0
+}
+
+// countLeaderElectionFlags counts how many leader election flags exist in the scheduler deployment
+func countLeaderElectionFlags(deployment *appsv1.Deployment) int {
+	count := 0
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == schedulerContainerName {
+			for _, arg := range container.Args {
+				if arg == "--ha-enable-leader-election" || arg == "-ha-enable-leader-election" {
 					count++
 				}
 			}
