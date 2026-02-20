@@ -17,12 +17,13 @@ limitations under the License.
 package llmisvc
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"net"
 	"slices"
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -96,6 +97,13 @@ func DiscoverGatewayServiceHost(ctx context.Context, c client.Client, gateway *g
 		return "", fmt.Errorf("failed to list services for gateway %s/%s: %w", gateway.Namespace, gateway.Name, err)
 	}
 	if len(svcList.Items) > 0 {
+		if len(svcList.Items) > 1 {
+			logger.Info("Multiple services found with gateway label, using first alphabetically",
+				"gateway", gateway.Name, "count", len(svcList.Items))
+			slices.SortFunc(svcList.Items, func(a, b corev1.Service) int {
+				return cmp.Compare(a.Name, b.Name)
+			})
+		}
 		svc := &svcList.Items[0]
 		host := network.GetServiceHostname(svc.Name, svc.Namespace)
 		logger.V(1).Info("Discovered gateway service via label", "gateway", gateway.Name, "service", svc.Name, "host", host)
@@ -166,7 +174,10 @@ func DiscoverURLs(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute
 			return nil, fmt.Errorf("failed to discover gateway service host for %s/%s: %w", g.gateway.Namespace, g.gateway.Name, err)
 		}
 		if internalHost != "" {
-			// Use first listener's scheme and port - internal service matches Gateway listener
+			// Use preferred (first) listener's scheme and port for the internal URL.
+			// Internal services typically expose a single protocol, so generating one
+			// URL (matching the preferred scheme) is sufficient. External URLs are
+			// generated for all listeners because clients may need either protocol.
 			listener := listeners[0]
 			internalURLs, err := combineIntoURLs([]string{internalHost}, schemeForProtocol(listener.Protocol), listener.Port, path)
 			if err != nil {
@@ -209,51 +220,59 @@ func extractHostnamesForListener(route *gwapiv1.HTTPRoute, listener *gwapiv1.Lis
 	return hostnames
 }
 
-// extractRoutePath extracts the path from the HTTPRoute rules.
-// Returns the shortest path (by slash count) from rules referencing a Service backend.
+// extractRoutePath selects the base URL path from an HTTPRoute's rules.
+// It assumes paths form a hierarchy (e.g. /ns/name, /ns/name/v1/completions)
+// where the shallowest path is the logical base URL to advertise in status.
+// Paths from rules with a Service backend take priority over others (e.g. InferencePool).
+// Among candidates, the path with the fewest "/" segments is chosen, with
+// string length as a tiebreaker.
+// Note: this only handles PathPrefix matches correctly; Exact and RegularExpression
+// match types are not distinguished.
 func extractRoutePath(route *gwapiv1.HTTPRoute) string {
-	serviceKind := gwapiv1.Kind("Service")
-	servicePaths := []string{}
-	paths := []string{}
+	var servicePaths, otherPaths []string
 	for _, rule := range route.Spec.Rules {
-		serviceFound := false
-		for _, backendRef := range rule.BackendRefs {
-			if ptr.Deref(backendRef.Kind, serviceKind) == serviceKind {
-				serviceFound = true
-				break
-			}
-		}
+		svc := hasServiceBackend(rule)
 		for _, match := range rule.Matches {
 			if match.Path == nil {
 				continue
 			}
-			if serviceFound {
-				servicePaths = append(servicePaths, ptr.Deref(match.Path.Value, "/"))
+			p := ptr.Deref(match.Path.Value, "/")
+			if svc {
+				servicePaths = append(servicePaths, p)
 			} else {
-				paths = append(paths, ptr.Deref(match.Path.Value, "/"))
+				otherPaths = append(otherPaths, p)
 			}
 		}
 	}
 
-	// Paths set in rules referencing a Service as the backend will take priority
-	if len(servicePaths) > 0 {
-		paths = servicePaths
-	}
-
-	// If any paths are set in rules for the route, return the highest level path with the shortest length
 	// TODO how do we deal with regexp
 	// TODO how do we intelligently handle multiple rules
-	shortestPath := "/"
-	minSlashes := math.MaxInt
-	for _, path := range paths {
-		pathSlashes := strings.Count(path, "/")
-		if pathSlashes < minSlashes || (pathSlashes == minSlashes && len(path) < len(shortestPath)) {
-			shortestPath = path
-			minSlashes = pathSlashes
-		}
+	paths := servicePaths
+	if len(paths) == 0 {
+		paths = otherPaths
+	}
+	if len(paths) == 0 {
+		return "/"
 	}
 
-	return shortestPath
+	return slices.MinFunc(paths, func(a, b string) int {
+		if d := strings.Count(a, "/") - strings.Count(b, "/"); d != 0 {
+			return d
+		}
+		return len(a) - len(b)
+	})
+}
+
+// hasServiceBackend returns true if the rule has at least one backendRef with Kind "Service"
+// or with no Kind set (defaults to Service per Gateway API spec).
+func hasServiceBackend(rule gwapiv1.HTTPRouteRule) bool {
+	for _, ref := range rule.BackendRefs {
+		kind := ptr.Deref(ref.Kind, gwapiv1.Kind("Service"))
+		if kind == "Service" {
+			return true
+		}
+	}
+	return false
 }
 
 // schemeForProtocol returns the URL scheme for a Gateway API protocol.
@@ -367,7 +386,7 @@ func combineIntoURLs(hostnames []string, scheme string, port gwapiv1.PortNumber,
 			urlStr = fmt.Sprintf("%s://%s%s", scheme, joinHostPort(hostname, &port), path)
 		} else {
 			// Use standard port - omit from URL for cleaner appearance
-			urlStr = fmt.Sprintf("%s://%s%s", scheme, hostname, path)
+			urlStr = fmt.Sprintf("%s://%s%s", scheme, joinHostPort(hostname, nil), path)
 		}
 
 		url, err := apis.ParseURL(urlStr)
@@ -383,10 +402,14 @@ func combineIntoURLs(hostnames []string, scheme string, port gwapiv1.PortNumber,
 
 // joinHostPort safely combines a hostname and port into a host:port string
 // Uses net.JoinHostPort to handle IPv6 addresses correctly with brackets
-// Returns just the host if port is nil or zero
+// Returns just the host if port is nil or zero (with IPv6 bracket wrapping)
 func joinHostPort(host string, port *gwapiv1.PortNumber) string {
 	if port != nil && *port != 0 {
-		return net.JoinHostPort(host, fmt.Sprint(*port))
+		return net.JoinHostPort(host, strconv.Itoa(int(*port)))
+	}
+	// IPv6 addresses need brackets in URLs even without an explicit port
+	if strings.Contains(host, ":") {
+		return "[" + host + "]"
 	}
 	return host
 }
@@ -482,7 +505,7 @@ func IsHTTPRouteReady(route *gwapiv1.HTTPRoute) bool {
 	// Multiple controllers may write separate status entries for the same ParentRef,
 	// so we only require that at least one entry exists per spec ref.
 	for _, specRef := range route.Spec.ParentRefs {
-		if !hasMatchingParentStatus(specRef, route.Status.Parents) {
+		if !hasMatchingParentStatus(specRef, route.Status.Parents, gwapiv1.Namespace(route.Namespace)) {
 			return false
 		}
 	}
@@ -495,9 +518,9 @@ func IsHTTPRouteReady(route *gwapiv1.HTTPRoute) bool {
 // controller (i.e., has the Accepted condition set). Policy or extension
 // controllers may also write status entries for the same ParentRef but without
 // setting the Accepted condition, so those entries alone are not sufficient.
-func hasMatchingParentStatus(specRef gwapiv1.ParentReference, parents []gwapiv1.RouteParentStatus) bool {
+func hasMatchingParentStatus(specRef gwapiv1.ParentReference, parents []gwapiv1.RouteParentStatus, defaultNS gwapiv1.Namespace) bool {
 	for i := range parents {
-		if parentRefMatches(specRef, parents[i].ParentRef) &&
+		if parentRefMatches(specRef, parents[i].ParentRef, defaultNS) &&
 			meta.FindStatusCondition(parents[i].Conditions, string(gwapiv1.RouteConditionAccepted)) != nil {
 			return true
 		}
@@ -507,13 +530,13 @@ func hasMatchingParentStatus(specRef gwapiv1.ParentReference, parents []gwapiv1.
 
 // parentRefMatches returns true when two ParentReferences identify the same parent,
 // applying Gateway API defaulting rules for optional fields.
-// Note: Namespace comparison uses empty string default. In practice, both spec and status
-// refs should have consistent namespace handling (either both explicit or both implicit).
-func parentRefMatches(a, b gwapiv1.ParentReference) bool {
+// defaultNS is used when Namespace is omitted (nil) from a ParentReference, which
+// per Gateway API spec defaults to the route's own namespace.
+func parentRefMatches(a, b gwapiv1.ParentReference, defaultNS gwapiv1.Namespace) bool {
 	return a.Name == b.Name &&
 		ptr.Deref(a.Group, gwapiv1.GroupName) == ptr.Deref(b.Group, gwapiv1.GroupName) &&
 		ptr.Deref(a.Kind, "Gateway") == ptr.Deref(b.Kind, "Gateway") &&
-		ptr.Deref(a.Namespace, "") == ptr.Deref(b.Namespace, "") &&
+		ptr.Deref(a.Namespace, defaultNS) == ptr.Deref(b.Namespace, defaultNS) &&
 		ptr.Deref(a.SectionName, "") == ptr.Deref(b.SectionName, "") &&
 		ptr.Deref(a.Port, 0) == ptr.Deref(b.Port, 0)
 }
@@ -523,7 +546,7 @@ func parentRefMatches(a, b gwapiv1.ParentReference) bool {
 // Status entries without the Accepted condition (e.g. from policy controllers) are skipped.
 // A condition is stale when its ObservedGeneration is less than the route's Generation.
 func areGatewayConditionsReady(route *gwapiv1.HTTPRoute) bool {
-	if route == nil {
+	if route == nil || len(route.Status.Parents) == 0 {
 		return false
 	}
 	for _, parent := range route.Status.Parents {
@@ -565,7 +588,14 @@ func findNonReadyGatewayCondition(route *gwapiv1.HTTPRoute) *metav1.Condition {
 		}
 		resolvedRefCond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionResolvedRefs))
 		if resolvedRefCond == nil {
-			continue
+			// ResolvedRefs not yet reported — areGatewayConditionsReady treats this as not-ready,
+			// so surface a synthesized condition for diagnostics.
+			return &metav1.Condition{
+				Type:    string(gwapiv1.RouteConditionResolvedRefs),
+				Status:  metav1.ConditionUnknown,
+				Reason:  "ConditionMissing",
+				Message: "ResolvedRefs condition not yet reported by gateway controller",
+			}
 		}
 		stale = resolvedRefCond.ObservedGeneration > 0 && resolvedRefCond.ObservedGeneration < route.Generation
 		if resolvedRefCond.Status != metav1.ConditionTrue || stale {

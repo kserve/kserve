@@ -292,6 +292,34 @@ func TestDiscoverURLs(t *testing.T) {
 			gateways: []*gwapiv1.Gateway{HTTPSGateway("https-gateway", "test-ns", "203.0.113.1")},
 			assert:   expectURLs("https://203.0.113.1/"),
 		},
+		{
+			name: "TLS protocol listener uses HTTPS scheme",
+			route: HTTPRoute("tls-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("tls-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("tls-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "tls",
+						Protocol: gwapiv1.TLSProtocolType,
+						Port:     443,
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("https://203.0.113.1/"),
+		},
+		{
+			name: "IPv6 gateway address - brackets in URL",
+			route: HTTPRoute("ipv6-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("ipv6-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{HTTPGateway("ipv6-gateway", "test-ns", "2001:db8::1")},
+			assert:   expectURLs("http://[2001:db8::1]/"),
+		},
 
 		// ===== Multiple parent refs =====
 		{
@@ -615,28 +643,26 @@ func TestDiscoverURLs(t *testing.T) {
 				}),
 				WithHostnames("api.example.com"),
 			),
-			gateway: Gateway("mismatched-section-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListeners(
-					gwapiv1.Listener{
-						Name:     "http-listener",
-						Protocol: gwapiv1.HTTPProtocolType,
-						Port:     80,
-					},
-					gwapiv1.Listener{
-						Name:     "https-listener",
-						Protocol: gwapiv1.HTTPSProtocolType,
-						Port:     443,
-					},
+			gateways: []*gwapiv1.Gateway{
+				Gateway("mismatched-section-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(
+						gwapiv1.Listener{
+							Name:     "http-listener",
+							Protocol: gwapiv1.HTTPProtocolType,
+							Port:     80,
+						},
+						gwapiv1.Listener{
+							Name:     "https-listener",
+							Protocol: gwapiv1.HTTPSProtocolType,
+							Port:     443,
+						},
+					),
+					WithAddresses("203.0.113.1"),
 				),
-				WithAddresses("203.0.113.1"),
-			),
-			// The current behavior silently falls through to Listeners[0] (HTTP/80),
-			// producing "http://api.example.com/" instead of erroring. This is wrong
-			// because the caller explicitly asked for "nonexistent-listener" and should
-			// be told it doesn't exist rather than getting a URL from the wrong listener.
-			expectedErrorCheck: func(err error) bool {
-				return err != nil
+			},
+			assert: func(g Gomega, urls []string, err error) {
+				g.Expect(err).To(HaveOccurred())
 			},
 		},
 		{
@@ -645,13 +671,15 @@ func TestDiscoverURLs(t *testing.T) {
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
 				WithParentRef(GatewayRef("no-listener-gateway", RefInNamespace("test-ns"))),
 			),
-			gateway: Gateway("no-listener-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				// No WithListener — Gateway has empty Listeners slice
-				WithAddresses("203.0.113.1"),
-			),
-			expectedErrorCheck: func(err error) bool {
-				return err != nil
+			gateways: []*gwapiv1.Gateway{
+				Gateway("no-listener-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					// No WithListener — Gateway has empty Listeners slice
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: func(g Gomega, urls []string, err error) {
+				g.Expect(err).To(HaveOccurred())
 			},
 		},
 		{
