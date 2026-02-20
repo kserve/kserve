@@ -9254,6 +9254,9 @@ spec:
                             - targetPorts
                             type: object
                         type: object
+                      replicas:
+                        format: int32
+                        type: integer
                       template:
                         properties:
                           activeDeadlineSeconds:

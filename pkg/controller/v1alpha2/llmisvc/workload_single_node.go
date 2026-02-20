@@ -275,6 +275,12 @@ func (r *LLMISVCReconciler) propagateDeploymentStatus(ctx context.Context, expec
 		return fmt.Errorf("failed to get current deployment %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
 	}
 	for _, cond := range curr.Status.Conditions {
+		if cond.Type == appsv1.DeploymentProgressing {
+			if cond.Status == corev1.ConditionFalse {
+				notReady(cond.Reason, cond.Message)
+			}
+		}
+
 		if cond.Type == appsv1.DeploymentAvailable {
 			if cond.Status == corev1.ConditionTrue {
 				ready()
