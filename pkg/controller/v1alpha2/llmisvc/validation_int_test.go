@@ -794,7 +794,7 @@ var _ = Describe("LLMInferenceServiceConfig webhook validation", func() {
 		}
 		Expect(envTest.Client.Create(ctx, ns)).To(Succeed())
 
-		DeferCleanup(func() {
+		DeferCleanup(func(ctx context.Context) {
 			ns := ns
 			envTest.DeleteAll(ctx, ns)
 		})
