@@ -284,13 +284,21 @@ func (l *LLMInferenceServiceValidator) validateImmutableParallelism(basePath *fi
 func (l *LLMInferenceServiceValidator) validateSchedulerConfig(svc *LLMInferenceService) field.ErrorList {
 	var allErrs field.ErrorList
 
-	if svc.Spec.Router == nil ||
-		svc.Spec.Router.Scheduler == nil ||
-		svc.Spec.Router.Scheduler.Config == nil {
+	if svc.Spec.Router == nil || svc.Spec.Router.Scheduler == nil {
 		return allErrs
 	}
 
-	configPath := field.NewPath("spec", "router", "scheduler", "config")
+	schedulerPath := field.NewPath("spec", "router", "scheduler")
+
+	if svc.Spec.Router.Scheduler.Replicas != nil && *svc.Spec.Router.Scheduler.Replicas <= 0 {
+		allErrs = append(allErrs, field.Invalid(schedulerPath.Child("replicas"), *svc.Spec.Router.Scheduler.Replicas, "scheduler replicas must be greater than zero"))
+	}
+
+	if svc.Spec.Router.Scheduler.Config == nil {
+		return allErrs
+	}
+
+	configPath := schedulerPath.Child("config")
 
 	if svc.Spec.Router.Scheduler.Config.Ref == nil && svc.Spec.Router.Scheduler.Config.Inline == nil {
 		allErrs = append(allErrs, field.Invalid(

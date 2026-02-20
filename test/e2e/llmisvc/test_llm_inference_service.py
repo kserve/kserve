@@ -95,14 +95,22 @@ class TestCase:
                     "workload-llmd-simulator",
                 ],
                 prompt="KServe is a",
-                before_test=[lambda: create_router_resources(
-                    gateways=[ROUTER_GATEWAYS[0]],
-                )],
-                after_test=[lambda: delete_router_resources(
-                    gateways=[ROUTER_GATEWAYS[0]],
-                )],
+                before_test=[
+                    lambda: create_router_resources(
+                        gateways=[ROUTER_GATEWAYS[0]],
+                    )
+                ],
+                after_test=[
+                    lambda: delete_router_resources(
+                        gateways=[ROUTER_GATEWAYS[0]],
+                    )
+                ],
             ),
-            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node, pytest.mark.llmd_simulator],
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.llmd_simulator,
+            ],
         ),
         pytest.param(
             TestCase(
@@ -307,6 +315,18 @@ class TestCase:
                 service_name="scheduler-configmap-ref-test",
                 before_test=[create_scheduler_configmap],
                 after_test=[delete_scheduler_configmap],
+            ),
+            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+        ),
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "scheduler-with-replicas",
+                    "workload-llmd-simulator",
+                ],
+                prompt="KServe is a",
+                service_name="scheduler-ha-replicas-test",
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
