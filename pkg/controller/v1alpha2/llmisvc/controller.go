@@ -476,14 +476,13 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 					continue
 				}
 
-				// Check if service explicitly references this config
-				for _, ref := range llmSvc.Spec.BaseRefs {
-					if ref.Name == sub.Name {
-						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
-							Namespace: llmSvc.Namespace,
-							Name:      llmSvc.Name,
-						}})
-					}
+				// Check if service explicitly references this config or uses it via versioned config resolution
+				if llmSvc.IsUsingLLMInferenceServiceConfig(sub.Name) {
+					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+						Namespace: llmSvc.Namespace,
+						Name:      llmSvc.Name,
+					}})
+					continue
 				}
 			}
 
