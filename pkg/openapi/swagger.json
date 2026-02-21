@@ -3754,6 +3754,19 @@
       "description": "LoggerSpec specifies optional payload logging available for all components",
       "type": "object",
       "properties": {
+        "batchInterval": {
+          "description": "Max duration to wait before flushing a partial batch (e.g. \"5s\", \"100ms\"). Only used when BatchSize \u003e 1. Defaults to \"0\" (no time-based flushing).",
+          "type": "string"
+        },
+        "batchSize": {
+          "description": "Number of log records per batch for blob storage. Defaults to 1 (immediate).",
+          "type": "integer",
+          "format": "int32"
+        },
+        "marshallerUrl": {
+          "description": "URL of the log marshaller service that transforms log records before storage. Defaults to the embedded JSON marshaller at http://localhost:9083/marshal.",
+          "type": "string"
+        },
         "metadataAnnotations": {
           "description": "Matched inference service annotations for propagating to inference logger cloud events.",
           "type": "array",
