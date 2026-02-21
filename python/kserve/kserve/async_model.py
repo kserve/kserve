@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import atexit
 import asyncio
 import functools
 import inspect
@@ -54,6 +55,13 @@ class AsyncModel(Model):
 
     _shared_executor: Optional[ThreadPoolExecutor] = None
     _max_workers: Optional[int] = None
+    _cleanup_registered: bool = False
+
+    @classmethod
+    def _cleanup_executor(cls):
+        if cls._shared_executor is not None:
+            cls._shared_executor.shutdown(wait=False, cancel_futures=True)
+            cls._shared_executor = None
 
     @classmethod
     def _get_executor(cls) -> Optional[ThreadPoolExecutor]:
@@ -66,10 +74,13 @@ class AsyncModel(Model):
                 try:
                     cls._max_workers = int(env_workers)
                 except ValueError:
-                    cls._max_workers = None
+                    cls._max_workers = -1
 
         if cls._max_workers and cls._max_workers > 0:
             cls._shared_executor = ThreadPoolExecutor(max_workers=cls._max_workers)
+            if not cls._cleanup_registered:
+                atexit.register(cls._cleanup_executor)
+                cls._cleanup_registered = True
             return cls._shared_executor
 
         return None
