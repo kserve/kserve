@@ -11,7 +11,7 @@ install_dependencies:
 # 1. First run install_cpu_dependencies to install huggingfaceserver dependencies
 # 2. Then run setup_vllm.sh LAST to build vLLM from source with torch CPU
 #
-# The key issue: kserve[llm] depends on vllm==0.11.2 which requires torchvision==0.24.0,
+# The key issue: kserve[llm] depends on vllm==0.15.1 which requires torchvision==0.24.0,
 # but torch==2.8.0+cpu requires torchvision==0.23.0+cpu. To avoid this conflict:
 # - We temporarily replace kserve[llm] with kserve (no vllm dependency)
 # - setup_vllm.sh must run LAST to ensure torch 2.8.0+cpu is not overwritten
