@@ -29,6 +29,19 @@ class SyncPredictModel(AsyncModel):
         return threading.get_ident()
 
 
+@pytest.fixture(autouse=True)
+def reset_async_model_state():
+    SyncPredictModel._cleanup_executor()
+    SyncPredictModel._shared_executor = None
+    SyncPredictModel._max_workers = None
+    SyncPredictModel._cleanup_registered = False
+    yield
+    SyncPredictModel._cleanup_executor()
+    SyncPredictModel._shared_executor = None
+    SyncPredictModel._max_workers = None
+    SyncPredictModel._cleanup_registered = False
+
+
 @pytest.mark.asyncio
 async def test_async_model_offloads_sync_predict():
     model = SyncPredictModel()
@@ -43,3 +56,18 @@ async def test_async_model_env_workers(monkeypatch):
     executor = SyncPredictModel._get_executor()
     assert isinstance(executor, ThreadPoolExecutor)
     assert executor._max_workers == 1
+
+
+def test_async_model_invalid_env_workers(monkeypatch):
+    monkeypatch.setenv("ASYNC_MODEL_WORKERS", "invalid")
+    executor = SyncPredictModel._get_executor()
+    assert executor is None
+    assert SyncPredictModel._max_workers == -1
+
+
+def test_async_model_cleanup_shared_executor(monkeypatch):
+    monkeypatch.setenv("ASYNC_MODEL_WORKERS", "1")
+    executor = SyncPredictModel._get_executor()
+    assert isinstance(executor, ThreadPoolExecutor)
+    SyncPredictModel._cleanup_executor()
+    assert SyncPredictModel._shared_executor is None
