@@ -163,7 +163,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				if route.ServiceName == "" {
 					continue
 				}
-				err := r.Client.Get(ctx, types.NamespacedName{Namespace: graph.Namespace, Name: route.ServiceName}, &isvc)
+				err := r.Get(ctx, types.NamespacedName{Namespace: graph.Namespace, Name: route.ServiceName}, &isvc)
 				if err == nil {
 					if graph.Spec.Nodes[node].Steps[i].ServiceURL == "" {
 						serviceUrl, err := isvcutils.GetPredictorEndpoint(ctx, r.Client, &isvc)
@@ -192,9 +192,9 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
 	}
 
-	deploymentMode := isvcutils.GetDeploymentMode(graph.Status.DeploymentMode, graph.ObjectMeta.Annotations, deployConfig)
+	deploymentMode := isvcutils.GetDeploymentMode(graph.Status.DeploymentMode, graph.Annotations, deployConfig)
 	r.Log.Info("Inference graph deployment ", "deployment mode ", deploymentMode)
-	if deploymentMode == constants.RawDeployment {
+	if deploymentMode == constants.Standard {
 		// Create inference graph resources such as deployment, service, hpa in raw deployment mode
 		deployment, url, err := handleInferenceGraphRawDeployment(ctx, r.Client, r.Clientset, r.Scheme, graph, routerConfig)
 		if err != nil {
@@ -229,8 +229,8 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		if !ksvcAvailable {
 			r.Recorder.Event(graph, corev1.EventTypeWarning, "ServerlessModeRejected",
-				"It is not possible to use Serverless deployment mode when Knative Services are not available")
-			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Serverless, but Knative Serving is not available", graph.Name))
+				"It is not possible to use Knative deployment mode when Knative Services are not available")
+			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Knative, but Knative Serving is not available", graph.Name))
 		}
 
 		// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
@@ -255,9 +255,9 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 
 		r.Log.Info("updating inference graph status", "status", ksvcStatus)
-		graph.Status.Conditions = ksvcStatus.Status.Conditions
+		graph.Status.Conditions = ksvcStatus.Conditions
 		// @TODO Need to check the status of all the graph components, find the inference services from all the nodes and collect the status
-		for _, con := range ksvcStatus.Status.Conditions {
+		for _, con := range ksvcStatus.Conditions {
 			if con.Type == apis.ConditionReady {
 				if con.Status == "True" {
 					graph.Status.URL = ksvcStatus.URL

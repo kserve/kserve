@@ -3,3 +3,7 @@ kind: Kustomization
 
 resources:
 - manager.yaml
+- ../rbac/localmodelnode
+
+patches:
+- path: localmodelnode_agent_image_patch.yaml

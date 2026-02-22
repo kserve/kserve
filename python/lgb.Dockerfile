@@ -25,6 +25,13 @@ RUN cd kserve && uv sync --active --no-cache
 COPY kserve kserve
 RUN cd kserve && uv sync --active --no-cache
 
+# Copy and install dependencies for kserve-storage using uv
+COPY storage/pyproject.toml storage/uv.lock storage/
+RUN cd storage && uv sync --active --no-cache
+
+COPY storage storage
+RUN cd storage && uv pip install . --no-cache
+
 # Install dependencies for lgbserver using uv
 COPY lgbserver/pyproject.toml lgbserver/uv.lock lgbserver/
 RUN cd lgbserver && uv sync --active --no-cache
@@ -60,6 +67,7 @@ RUN useradd kserve -m -u 1000 -d /home/kserve
 COPY --from=builder --chown=kserve:kserve third_party third_party
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder kserve kserve
+COPY --from=builder storage storage
 COPY --from=builder lgbserver lgbserver
 
 USER 1000

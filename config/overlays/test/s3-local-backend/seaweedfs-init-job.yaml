@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: s3-init
+spec:
+  template:
+    spec:
+      containers:
+      - name: s3-init
+        image: docker.io/amazon/aws-cli:2.33.11@sha256:88ea087837da1b31a3afeeb4538888244a3087a867ddb1909848643fcc4b324e
+        command:
+        - /bin/sh
+        - -c
+        - |
+          aws s3 mb s3://example-models || true
+          curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o sklearn-model.joblib
+          aws s3 cp sklearn-model.joblib s3://example-models/sklearn/model.joblib  --no-verify-ssl
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: mlpipeline-s3-artifact
+              key: accesskey
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: mlpipeline-s3-artifact
+              key: secretkey
+        - name: AWS_DEFAULT_REGION
+          value: "us-east-1"
+        - name: AWS_ENDPOINT_URL_S3
+          value: "http://s3-service.kserve:8333"
+      restartPolicy: Never
+  backoffLimit: 3

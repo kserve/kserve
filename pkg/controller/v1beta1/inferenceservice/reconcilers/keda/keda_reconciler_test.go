@@ -84,7 +84,7 @@ func TestGetKedaMetrics_ExternalMetricSourceType(t *testing.T) {
 	assert.Equal(t, "prometheus", triggers[0].Type)
 	assert.Equal(t, "http://prometheus-server", triggers[0].Metadata["serverAddress"])
 	assert.Equal(t, "http_requests_total", triggers[0].Metadata["query"])
-	assert.Equal(t, "100.000000", triggers[0].Metadata["threshold"])
+	assert.Equal(t, "100.9", triggers[0].Metadata["threshold"])
 }
 
 func TestGetKedaMetrics_PodMetricSourceType(t *testing.T) {
@@ -102,7 +102,7 @@ func TestGetKedaMetrics_PodMetricSourceType(t *testing.T) {
 	assert.Equal(t, "http://otel-server", triggers[0].Metadata["scalerAddress"])
 	// The metricQuery should now include namespace and deployment selectors
 	assert.Equal(t, "sum(otel_query{namespace=\"test-namespace\", deployment=\"test-component\"})", triggers[0].Metadata["metricQuery"])
-	assert.Equal(t, "200.000000", triggers[0].Metadata["targetValue"])
+	assert.Equal(t, "200", triggers[0].Metadata["targetValue"])
 }
 
 func TestCreateKedaScaledObject(t *testing.T) {
@@ -269,7 +269,7 @@ func TestGetKedaMetrics_AverageValueMetricSourceType(t *testing.T) {
 						Name: v1beta1.ResourceMetricCPU,
 						Target: v1beta1.MetricTarget{
 							Type:         v1beta1.AverageValueMetricType,
-							AverageValue: ptr.To(resource.MustParse("150m")),
+							AverageValue: v1beta1.NewMetricQuantity("150m"),
 						},
 					},
 				},
@@ -299,7 +299,7 @@ func TestGetKedaMetrics_ValueMetricSourceType(t *testing.T) {
 						Name: v1beta1.ResourceMetricMemory,
 						Target: v1beta1.MetricTarget{
 							Type:  v1beta1.ValueMetricType,
-							Value: ptr.To(resource.MustParse("512Mi")),
+							Value: v1beta1.NewMetricQuantity("512Mi"),
 						},
 					},
 				},
@@ -492,7 +492,7 @@ func TestGetKedaMetrics_ResourceMetricSourceType_AverageValue(t *testing.T) {
 						Name: v1beta1.ResourceMetricMemory,
 						Target: v1beta1.MetricTarget{
 							Type:         v1beta1.AverageValueMetricType,
-							AverageValue: ptr.To(resource.MustParse("256Mi")),
+							AverageValue: v1beta1.NewMetricQuantity("256Mi"),
 						},
 					},
 				},
@@ -521,7 +521,7 @@ func TestGetKedaMetrics_ResourceMetricSourceType_Value(t *testing.T) {
 						Name: v1beta1.ResourceMetricMemory,
 						Target: v1beta1.MetricTarget{
 							Type:  v1beta1.ValueMetricType,
-							Value: ptr.To(resource.MustParse("512Mi")),
+							Value: v1beta1.NewMetricQuantity("512Mi"),
 						},
 					},
 				},
@@ -554,7 +554,7 @@ func TestGetKedaMetrics_ExternalMetricSourceType_WithNamespaceAndAuth(t *testing
 							Namespace:     "test-ns",
 						},
 						Target: v1beta1.MetricTarget{
-							Value: ptr.To(resource.MustParse("123")),
+							Value: v1beta1.NewMetricQuantity("123"),
 						},
 						Authentication: &v1beta1.ExtMetricAuthentication{
 							AuthModes: "bearer",
@@ -575,7 +575,7 @@ func TestGetKedaMetrics_ExternalMetricSourceType_WithNamespaceAndAuth(t *testing
 	assert.Equal(t, "prometheus", trigger.Type)
 	assert.Equal(t, "http://prometheus-server", trigger.Metadata["serverAddress"])
 	assert.Equal(t, "http_requests_total", trigger.Metadata["query"])
-	assert.Equal(t, "123.000000", trigger.Metadata["threshold"])
+	assert.Equal(t, "123", trigger.Metadata["threshold"])
 	assert.Equal(t, "test-ns", trigger.Metadata["namespace"])
 	assert.Equal(t, "bearer", trigger.Metadata["authModes"])
 	assert.NotNil(t, trigger.AuthenticationRef)
@@ -599,7 +599,7 @@ func TestGetKedaMetrics_ExternalMetricSourceType_WithoutNamespaceOrAuth(t *testi
 							Query:         "http_requests_total",
 						},
 						Target: v1beta1.MetricTarget{
-							Value: ptr.To(resource.MustParse("99")),
+							Value: v1beta1.NewMetricQuantity("99"),
 						},
 					},
 				},
@@ -614,7 +614,7 @@ func TestGetKedaMetrics_ExternalMetricSourceType_WithoutNamespaceOrAuth(t *testi
 	assert.Equal(t, "prometheus", trigger.Type)
 	assert.Equal(t, "http://prometheus-server", trigger.Metadata["serverAddress"])
 	assert.Equal(t, "http_requests_total", trigger.Metadata["query"])
-	assert.Equal(t, "99.000000", trigger.Metadata["threshold"])
+	assert.Equal(t, "99", trigger.Metadata["threshold"])
 	assert.Nil(t, trigger.AuthenticationRef)
 }
 
@@ -636,7 +636,7 @@ func TestGetKedaMetrics_PodMetricSourceType_Success(t *testing.T) {
 							OperationOverTime: "sum",
 						},
 						Target: v1beta1.MetricTarget{
-							Value: ptr.To(resource.MustParse("200")),
+							Value: v1beta1.NewMetricQuantity("200"),
 						},
 					},
 				},
@@ -650,7 +650,7 @@ func TestGetKedaMetrics_PodMetricSourceType_Success(t *testing.T) {
 	trigger := triggers[0]
 	assert.Equal(t, "external", trigger.Type)
 	assert.Equal(t, "sum(otel_query{namespace=\"test-namespace\", deployment=\"test-component\"})", trigger.Metadata["metricQuery"])
-	assert.Equal(t, "200.000000", trigger.Metadata["targetValue"])
+	assert.Equal(t, "200", trigger.Metadata["targetValue"])
 	assert.Equal(t, "http://otel-server", trigger.Metadata["scalerAddress"])
 	assert.Equal(t, "sum", trigger.Metadata["operationOverTime"])
 }
@@ -803,7 +803,7 @@ func createComponentExtensionWithExternalMetric() *v1beta1.ComponentExtensionSpe
 							Namespace:     "test-namespace",
 						},
 						Target: v1beta1.MetricTarget{
-							Value: ptr.To(resource.MustParse("100")),
+							Value: v1beta1.NewMetricQuantity("100.9"),
 						},
 					},
 				},
@@ -826,7 +826,7 @@ func createComponentExtensionWithPodMetric() *v1beta1.ComponentExtensionSpec {
 							OperationOverTime: "sum",
 						},
 						Target: v1beta1.MetricTarget{
-							Value: ptr.To(resource.MustParse("200")),
+							Value: v1beta1.NewMetricQuantity("200"),
 						},
 					},
 				},
@@ -841,5 +841,177 @@ func createScaledObject(minReplicas, maxReplicas int32) *kedav1alpha1.ScaledObje
 			MinReplicaCount: ptr.To(minReplicas),
 			MaxReplicaCount: ptr.To(maxReplicas),
 		},
+	}
+}
+
+func TestGetKedaMetrics_StringPreservation(t *testing.T) {
+	tests := []struct {
+		name           string
+		metricType     v1beta1.MetricSourceType
+		targetType     v1beta1.MetricTargetType
+		inputValue     string
+		expectedOutput string
+		setupMetric    func(string) *v1beta1.MetricsSpec
+	}{
+		{
+			name:           "Resource AverageValue preserves decimal",
+			metricType:     v1beta1.ResourceMetricSourceType,
+			targetType:     v1beta1.AverageValueMetricType,
+			inputValue:     "0.6",
+			expectedOutput: "0.6",
+			setupMetric: func(value string) *v1beta1.MetricsSpec {
+				mq := &v1beta1.MetricQuantity{
+					Original: value,
+					Quantity: resource.MustParse("600m"),
+				}
+				return &v1beta1.MetricsSpec{
+					Type: v1beta1.ResourceMetricSourceType,
+					Resource: &v1beta1.ResourceMetricSource{
+						Name: v1beta1.ResourceMetricCPU,
+						Target: v1beta1.MetricTarget{
+							Type:         v1beta1.AverageValueMetricType,
+							AverageValue: mq,
+						},
+					},
+				}
+			},
+		},
+		{
+			name:           "Resource Value preserves memory unit",
+			metricType:     v1beta1.ResourceMetricSourceType,
+			targetType:     v1beta1.ValueMetricType,
+			inputValue:     "50Gi",
+			expectedOutput: "50Gi",
+			setupMetric: func(value string) *v1beta1.MetricsSpec {
+				mq := &v1beta1.MetricQuantity{
+					Original: value,
+					Quantity: resource.MustParse("50Gi"),
+				}
+				return &v1beta1.MetricsSpec{
+					Type: v1beta1.ResourceMetricSourceType,
+					Resource: &v1beta1.ResourceMetricSource{
+						Name: v1beta1.ResourceMetricMemory,
+						Target: v1beta1.MetricTarget{
+							Type:  v1beta1.ValueMetricType,
+							Value: mq,
+						},
+					},
+				}
+			},
+		},
+		{
+			name:           "Milli values preserved as-is",
+			metricType:     v1beta1.ResourceMetricSourceType,
+			targetType:     v1beta1.AverageValueMetricType,
+			inputValue:     "900m",
+			expectedOutput: "900m",
+			setupMetric: func(value string) *v1beta1.MetricsSpec {
+				mq := &v1beta1.MetricQuantity{
+					Original: value,
+					Quantity: resource.MustParse("900m"),
+				}
+				return &v1beta1.MetricsSpec{
+					Type: v1beta1.ResourceMetricSourceType,
+					Resource: &v1beta1.ResourceMetricSource{
+						Name: v1beta1.ResourceMetricCPU,
+						Target: v1beta1.MetricTarget{
+							Type:         v1beta1.AverageValueMetricType,
+							AverageValue: mq,
+						},
+					},
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			componentMeta := metav1.ObjectMeta{
+				Name:      "test-component",
+				Namespace: "test-namespace",
+			}
+
+			metric := tt.setupMetric(tt.inputValue)
+			componentExt := &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Metrics: []v1beta1.MetricsSpec{*metric},
+				},
+			}
+
+			configMap := &corev1.ConfigMap{
+				Data: map[string]string{
+					"otelCollector": `{"endpoint": "http://otlp:4317"}`,
+				},
+			}
+
+			triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
+			require.NoError(t, err)
+			require.Len(t, triggers, 1)
+
+			trigger := triggers[0]
+
+			// Verify the original string value is preserved in metadata
+			switch tt.metricType {
+			case v1beta1.ResourceMetricSourceType:
+				assert.Equal(t, tt.expectedOutput, trigger.Metadata["value"],
+					"Resource metric should preserve original string value")
+			case v1beta1.PodMetricSourceType:
+				assert.Equal(t, tt.expectedOutput, trigger.Metadata["threshold"],
+					"PodMetric should preserve original string value")
+			case v1beta1.ExternalMetricSourceType:
+				assert.Equal(t, tt.expectedOutput, trigger.Metadata["threshold"],
+					"External metric should preserve original string value")
+			}
+		})
+	}
+}
+
+func TestGetOriginalStringMQ(t *testing.T) {
+	tests := []struct {
+		name        string
+		mq          *v1beta1.MetricQuantity
+		fallback    string
+		expectedOut string
+	}{
+		{
+			name: "Valid MetricQuantity with raw value",
+			mq: &v1beta1.MetricQuantity{
+				Original: "0.6",
+				Quantity: resource.MustParse("600m"),
+			},
+			fallback:    "default",
+			expectedOut: "0.6",
+		},
+		{
+			name:        "Nil MetricQuantity returns fallback",
+			mq:          nil,
+			fallback:    "fallback",
+			expectedOut: "fallback",
+		},
+		{
+			name: "Empty raw value returns fallback",
+			mq: &v1beta1.MetricQuantity{
+				Original: "",
+				Quantity: resource.MustParse("1"),
+			},
+			fallback:    "fallback",
+			expectedOut: "fallback",
+		},
+		{
+			name: "Memory unit preserved",
+			mq: &v1beta1.MetricQuantity{
+				Original: "50Gi",
+				Quantity: resource.MustParse("50Gi"),
+			},
+			fallback:    "default",
+			expectedOut: "50Gi",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getOriginalStringMQ(tt.mq, tt.fallback)
+			assert.Equal(t, tt.expectedOut, result)
+		})
 	}
 }

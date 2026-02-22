@@ -196,7 +196,7 @@ func TestBatcherInjector(t *testing.T) {
 		injector := &BatcherInjector{
 			batcherConfig,
 		}
-		injector.InjectBatcher(scenario.original)
+		_ = injector.InjectBatcher(scenario.original)
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}

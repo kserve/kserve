@@ -42,6 +42,17 @@ var (
 	AutoscalerConfigmapNamespace = GetEnvOrDefault("KNATIVE_CONFIG_AUTOSCALER_NAMESPACE", DefaultKnServingNamespace)
 )
 
+// Kueue Constants
+const (
+	KueueAPIGroupName = "kueue.x-k8s.io"
+)
+
+// GIE InferencePool API Group Constants
+const (
+	InferencePoolV1APIGroupName       = "inference.networking.k8s.io"
+	InferencePoolV1Alpha2APIGroupName = "inference.networking.x-k8s.io"
+)
+
 // InferenceService Constants
 var (
 	InferenceServiceName                  = "inferenceservice"
@@ -124,6 +135,8 @@ var (
 	LoggerCredentialPathKey                     = KServeAPIGroupName + "/logger-secret-path"
 	LoggerCredentialFileKey                     = KServeAPIGroupName + "/logger-secret-file"
 	DisableAutoUpdateAnnotationKey              = KServeAPIGroupName + "/disable-auto-update"
+	ModelFormatAnnotationKey                    = "modelFormat"
+	InferencePoolMigratedAnnotationKey          = KServeAPIGroupName + "/inferencepool-migrated"
 )
 
 // InferenceService Internal Annotations
@@ -371,6 +384,43 @@ const (
 	InferenceServiceLabel       = "serving.kserve.io/inferenceservice"
 )
 
+// Kubernetes recommended label keys (https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/)
+const (
+	KubernetesAppNameLabelKey   = "app.kubernetes.io/name"
+	KubernetesInstanceLabelKey  = "app.kubernetes.io/instance"
+	KubernetesPartOfLabelKey    = "app.kubernetes.io/part-of"
+	KubernetesComponentLabelKey = "app.kubernetes.io/component"
+)
+
+// KServe workload component label (key and value for "kserve.io/component" on workload resources)
+const (
+	KServeComponentLabelKey = "kserve.io/component"
+	KServeComponentWorkload = "workload"
+)
+
+// LLM-d role label (key and values for "llm-d.ai/role" on workload pods)
+const (
+	LLMDRoleLabelKey = "llm-d.ai/role"
+	LLMDRoleDecode   = "decode"
+	LLMDRolePrefill  = "prefill"
+	LLMDRoleBoth     = "both"
+)
+
+// LLMInferenceService label constants (uses Kubernetes recommended label keys above)
+const (
+	LLMInferenceServicePartOfValue = "llminferenceservice"
+	// LLMInferenceService component label values (for KubernetesComponentLabelKey)
+	LLMComponentRouter                = "llminferenceservice-router"
+	LLMComponentRouterScheduler       = "llminferenceservice-router-scheduler"
+	LLMComponentWorkload              = "llminferenceservice-workload"
+	LLMComponentWorkloadPrefill       = "llminferenceservice-workload-prefill"
+	LLMComponentWorkloadWorker        = "llminferenceservice-workload-worker"
+	LLMComponentWorkloadLeader        = "llminferenceservice-workload-leader"
+	LLMComponentWorkloadWorkerPrefill = "llminferenceservice-workload-worker-prefill"
+	LLMComponentWorkloadLeaderPrefill = "llminferenceservice-workload-leader-prefill"
+	LLMComponentInference             = "inference" // used in sample/template resources
+)
+
 // InferenceService canary constants
 const (
 	InferenceServiceCanary = "canary"
@@ -434,6 +484,7 @@ var (
 		autoscaling.MaxScaleAnnotationKey,
 		StorageInitializerSourceUriInternalAnnotationKey,
 		"kubectl.kubernetes.io/last-applied-configuration",
+		ModelFormatAnnotationKey,
 	}
 
 	RevisionTemplateLabelDisallowedList = []string{
@@ -456,10 +507,32 @@ const (
 type DeploymentModeType string
 
 const (
-	Serverless          DeploymentModeType = "Serverless"
-	RawDeployment       DeploymentModeType = "RawDeployment"
+	LegacyServerless    DeploymentModeType = "Serverless" // deprecated: use Knative
+	Knative             DeploymentModeType = "Knative"
+	LegacyRawDeployment DeploymentModeType = "RawDeployment" // deprecated: use Standard
+	Standard            DeploymentModeType = "Standard"
+	DefaultDeployment   DeploymentModeType = Standard
 	ModelMeshDeployment DeploymentModeType = "ModelMesh"
 )
+
+// ParseDeploymentMode parses deployment mode string from annotations and normalizes legacy modes
+func ParseDeploymentMode(mode string) DeploymentModeType {
+	if mode == "" {
+		return DefaultDeployment
+	}
+
+	deploymentMode := DeploymentModeType(mode)
+
+	// Normalize legacy modes
+	switch deploymentMode {
+	case LegacyRawDeployment:
+		return Standard
+	case LegacyServerless:
+		return Knative
+	default:
+		return deploymentMode
+	}
+}
 
 const (
 	DefaultNSKnativeServing = "knative-serving"
@@ -650,9 +723,10 @@ func InferenceServicePrefix(name string) string {
 
 func PredictPath(name string, protocol InferenceServiceProtocol) string {
 	path := ""
-	if protocol == ProtocolV1 {
+	switch protocol {
+	case ProtocolV1:
 		path = fmt.Sprintf("/v1/models/%s:predict", name)
-	} else if protocol == ProtocolV2 {
+	case ProtocolV2:
 		path = fmt.Sprintf("/v2/models/%s/infer", name)
 	}
 	return path

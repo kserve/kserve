@@ -27,8 +27,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -251,12 +249,12 @@ type MetricTarget struct {
 
 	// value is the target value of the metric (as a quantity).
 	// +optional
-	Value *resource.Quantity `json:"value,omitempty"`
+	Value *MetricQuantity `json:"value,omitempty"`
 
 	// averageValue is the target value of the average of the
 	// metric across all relevant pods (as a quantity)
 	// +optional
-	AverageValue *resource.Quantity `json:"averageValue,omitempty"`
+	AverageValue *MetricQuantity `json:"averageValue,omitempty"`
 
 	// averageUtilization is the target value of the average of the
 	// resource metric across all relevant pods, represented as a percentage of
@@ -401,7 +399,7 @@ func validateContainerConcurrency(containerConcurrency *int64) error {
 
 func validateLogger(logger *LoggerSpec) error {
 	if logger != nil {
-		if !(logger.Mode == LogAll || logger.Mode == LogRequest || logger.Mode == LogResponse) {
+		if logger.Mode != LogAll && logger.Mode != LogRequest && logger.Mode != LogResponse {
 			return errors.New(InvalidLoggerType)
 		}
 		if logger.Storage != nil {
@@ -442,7 +440,7 @@ func NonNilComponents(objects []ComponentImplementation) (results []ComponentImp
 // ExactlyOneErrorFor creates an error for the component's one-of semantic.
 func ExactlyOneErrorFor(component Component) error {
 	componentType := reflect.ValueOf(component).Type().Elem()
-	implementationTypes := []string{}
+	implementationTypes := make([]string, 0, componentType.NumField()-1)
 	for i := range componentType.NumField() - 1 {
 		implementationTypes = append(implementationTypes, componentType.Field(i).Name)
 	}

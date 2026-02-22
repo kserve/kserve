@@ -134,7 +134,7 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 		return err
 	}
 
-	_, localModelDisabledForIsvc := isvc.ObjectMeta.Annotations[constants.DisableLocalModelKey]
+	_, localModelDisabledForIsvc := isvc.Annotations[constants.DisableLocalModelKey]
 	var models *v1alpha1.LocalModelCacheList
 	if !localModelDisabledForIsvc && localModelConfig.Enabled {
 		var c client.Client
@@ -155,15 +155,27 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 }
 
 func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, securityConfig *SecurityConfig, models *v1alpha1.LocalModelCacheList) {
-	deploymentMode, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]
+	deploymentMode, ok := isvc.Annotations[constants.DeploymentMode]
+
+	// Normalize deprecated annotation values
+	if ok {
+		if deploymentMode == string(constants.LegacyRawDeployment) {
+			isvc.Annotations[constants.DeploymentMode] = string(constants.Standard)
+			deploymentMode = string(constants.Standard)
+		}
+		if deploymentMode == string(constants.LegacyServerless) {
+			isvc.Annotations[constants.DeploymentMode] = string(constants.Knative)
+			deploymentMode = string(constants.Knative)
+		}
+	}
 
 	if !ok && deployConfig != nil {
 		if deployConfig.DefaultDeploymentMode == string(constants.ModelMeshDeployment) ||
-			deployConfig.DefaultDeploymentMode == string(constants.RawDeployment) {
-			if isvc.ObjectMeta.Annotations == nil {
-				isvc.ObjectMeta.Annotations = map[string]string{}
+			deployConfig.DefaultDeploymentMode == string(constants.Standard) {
+			if isvc.Annotations == nil {
+				isvc.Annotations = map[string]string{}
 			}
-			isvc.ObjectMeta.Annotations[constants.DeploymentMode] = deployConfig.DefaultDeploymentMode
+			isvc.Annotations[constants.DeploymentMode] = deployConfig.DefaultDeploymentMode
 		}
 	}
 	components := []Component{isvc.Spec.Transformer, isvc.Spec.Explainer}
@@ -243,11 +255,24 @@ func (isvc *InferenceService) setPredictorModelDefaults() {
 		isvc.assignPaddleRuntime()
 	}
 
-	if isvc.Spec.Predictor.Model != nil && isvc.Spec.Predictor.Model.ProtocolVersion == nil {
-		if isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelTriton {
-			// set 'v2' as default protocol version for triton server
+	if isvc.Spec.Predictor.Model != nil {
+		// Set 'v2' as default protocol version for triton server
+		if isvc.Spec.Predictor.Model.ProtocolVersion == nil &&
+			isvc.Spec.Predictor.Model.ModelFormat.Name == constants.SupportedModelTriton {
 			protocolV2 := constants.ProtocolV2
 			isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV2
+		}
+
+		// Add framework annotation from modelFormat
+		if isvc.Spec.Predictor.Model.ModelFormat.Name != "" {
+			modelFormat := isvc.Spec.Predictor.Model.ModelFormat.Name
+			if isvc.Annotations == nil {
+				isvc.Annotations = make(map[string]string)
+			}
+			// Only set if not already present (allow user override)
+			if _, exists := isvc.Annotations[constants.ModelFormatAnnotationKey]; !exists {
+				isvc.Annotations[constants.ModelFormatAnnotationKey] = modelFormat
+			}
 		}
 	}
 }
@@ -408,10 +433,10 @@ func (isvc *InferenceService) SetMlServerDefaults() {
 	case constants.SupportedModelMLFlow:
 		modelClass = constants.MLServerModelClassMLFlow
 	}
-	if isvc.ObjectMeta.Labels == nil {
-		isvc.ObjectMeta.Labels = map[string]string{constants.ModelClassLabel: modelClass}
+	if isvc.Labels == nil {
+		isvc.Labels = map[string]string{constants.ModelClassLabel: modelClass}
 	} else {
-		isvc.ObjectMeta.Labels[constants.ModelClassLabel] = modelClass
+		isvc.Labels[constants.ModelClassLabel] = modelClass
 	}
 }
 
@@ -422,13 +447,13 @@ func (isvc *InferenceService) SetTorchServeDefaults() {
 		isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV1
 	}
 	// set torchserve service envelope based on protocol version
-	if isvc.ObjectMeta.Labels == nil {
-		isvc.ObjectMeta.Labels = map[string]string{constants.ServiceEnvelope: constants.ServiceEnvelopeKServe}
+	if isvc.Labels == nil {
+		isvc.Labels = map[string]string{constants.ServiceEnvelope: constants.ServiceEnvelopeKServe}
 	} else {
-		isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServe
+		isvc.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServe
 	}
 	if (constants.ProtocolV2 == *isvc.Spec.Predictor.Model.ProtocolVersion) || (constants.ProtocolGRPCV2 == *isvc.Spec.Predictor.Model.ProtocolVersion) {
-		isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServeV2
+		isvc.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServeV2
 	}
 
 	// set torchserve env variable "PROTOCOL_VERSION" based on ProtocolVersion

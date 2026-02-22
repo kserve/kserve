@@ -1,0 +1,112 @@
+# Comprehensive Test Definition - All Features Demo
+#
+# This definition file demonstrates ALL available features:
+# - FILE_NAME override
+# - DESCRIPTION
+# - METHOD specification
+# - GLOBAL_ENV (override global-vars.env defaults)
+# - Component-specific env variables
+# - Mix of components with and without env vars
+# - Comments and documentation
+
+# ============================================================================
+# Basic Configuration
+# ============================================================================
+
+FILE_NAME: comprehensive-installer
+DESCRIPTION: Comprehensive test installer demonstrating all features
+METHOD: helm
+
+# ============================================================================
+# Global Environment Variables (Override Defaults)
+# ============================================================================
+# These override the defaults from global-vars.env
+# They apply to ALL components unless overridden at component level
+
+GLOBAL_ENV:
+  # Override namespace defaults
+  KSERVE_NAMESPACE: production-kserve
+  KEDA_NAMESPACE: production-keda
+  ISTIO_NAMESPACE: production-istio
+
+  # Custom global settings
+  REINSTALL: "false"
+  VERBOSE: "true"
+
+# ============================================================================
+# Components with Various Configurations
+# ============================================================================
+
+COMPONENTS:
+  # Component 1: No environment variables (uses global defaults)
+  - name: cert-manager
+
+  # Component 2: With component-specific environment variables
+  - name: istio
+    env:
+      # These override even the GLOBAL_ENV settings (only for this component)
+      ISTIO_NAMESPACE: custom-istio-for-this-install
+      ISTIO_VERSION: "1.24.1"
+      ISTIO_BASE_EXTRA_ARGS: "--set global.proxy.resources.requests.cpu=100m"
+
+  # Component 3: Gateway API (no env vars)
+  - name: gateway-api-crd
+
+  # Component 4: KEDA with specific configuration
+  - name: keda
+    env:
+      KEDA_NAMESPACE: special-keda-namespace
+      KEDA_VERSION: "2.15.0"
+
+  # Component 5: KEDA OTel addon (uses KEDA_NAMESPACE from component 4's scope? No! Uses global)
+  - name: keda-otel-addon
+
+  # Component 6: OpenTelemetry with custom settings
+  - name: opentelemetry
+    env:
+      OTEL_NAMESPACE: observability
+      OTEL_RELEASE_NAME: production-otel-operator
+
+  # Component 7: KServe with deployment mode
+  - name: kserve-kustomize
+    env:
+      # This component gets KSERVE_NAMESPACE from GLOBAL_ENV (production-kserve)
+      DEPLOYMENT_MODE: Standard
+      OVERLAY_NAME: production
+
+  # Component 8: LWS operator (no env vars, uses all defaults)
+  - name: lws-operator
+
+# ============================================================================
+# Expected Behavior
+# ============================================================================
+#
+# 1. cert-manager:
+#    - Uses GLOBAL_ENV settings (if any apply to it)
+#
+# 2. istio:
+#    - ISTIO_NAMESPACE=custom-istio-for-this-install (component override)
+#    - ISTIO_VERSION=1.24.1 (component-specific)
+#    - ISTIO_BASE_EXTRA_ARGS set
+#
+# 3. gateway-api-crd:
+#    - No specific env, uses defaults
+#
+# 4. keda:
+#    - KEDA_NAMESPACE=special-keda-namespace (component override)
+#    - KEDA_VERSION=2.15.0
+#
+# 5. keda-otel-addon:
+#    - KEDA_NAMESPACE=production-keda (from GLOBAL_ENV, not from keda component)
+#
+# 6. opentelemetry:
+#    - OTEL_NAMESPACE=observability (component override)
+#    - OTEL_RELEASE_NAME=production-otel-operator
+#
+# 7. kserve-kustomize:
+#    - KSERVE_NAMESPACE=production-kserve (from GLOBAL_ENV)
+#    - DEPLOYMENT_MODE=Standard (component-specific)
+#    - OVERLAY_NAME=production (component-specific)
+#
+# 8. lws-operator:
+#    - All defaults from global-vars.env

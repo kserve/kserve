@@ -279,7 +279,7 @@ func TestCreateHPA(t *testing.T) {
 									Name: v1beta1.ResourceMetricMemory,
 									Target: v1beta1.MetricTarget{
 										Type:         v1beta1.AverageValueMetricType,
-										AverageValue: ptr.To(resource.MustParse("1Gi")),
+										AverageValue: v1beta1.NewMetricQuantity("1Gi"),
 									},
 								},
 							},
@@ -367,6 +367,45 @@ func TestCreateHPA(t *testing.T) {
 					MinReplicas:    ptr.To(int32(1)),
 					MaxReplicas:    int32(1),
 					Behavior:       &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "nil componentExt for createHPA",
+			args: args{
+				objectMeta: metav1.ObjectMeta{
+					Name:      "nil-component-ext",
+					Namespace: "default",
+				},
+				componentExt: nil,
+			},
+			expected: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "nil-component-ext",
+					Namespace: "default",
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "nil-component-ext",
+					},
+					MinReplicas: &defaultMinReplicas,
+					MaxReplicas: 1,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
+								Name: corev1.ResourceCPU,
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: &defaultUtilization,
+								},
+							},
+						},
+					},
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 				},
 			},
 			err: nil,
@@ -805,7 +844,7 @@ func TestGetHPAMetrics(t *testing.T) {
 								Name: v1beta1.ResourceMetricMemory,
 								Target: v1beta1.MetricTarget{
 									Type:         v1beta1.AverageValueMetricType,
-									AverageValue: ptr.To(resource.MustParse("500Mi")),
+									AverageValue: v1beta1.NewMetricQuantity("500Mi"),
 								},
 							},
 						},
@@ -846,7 +885,7 @@ func TestGetHPAMetrics(t *testing.T) {
 								Name: v1beta1.ResourceMetricMemory,
 								Target: v1beta1.MetricTarget{
 									Type:         v1beta1.AverageValueMetricType,
-									AverageValue: ptr.To(resource.MustParse("1Gi")),
+									AverageValue: v1beta1.NewMetricQuantity("1Gi"),
 								},
 							},
 						},
@@ -871,6 +910,22 @@ func TestGetHPAMetrics(t *testing.T) {
 						Target: autoscalingv2.MetricTarget{
 							Type:         autoscalingv2.AverageValueMetricType,
 							AverageValue: ptr.To(resource.MustParse("1Gi")),
+						},
+					},
+				},
+			},
+		},
+		{
+			name:         "nil componentExt should return default CPU metric",
+			componentExt: nil,
+			expectedSpecs: []autoscalingv2.MetricSpec{
+				{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
+						Name: corev1.ResourceCPU,
+						Target: autoscalingv2.MetricTarget{
+							Type:               autoscalingv2.UtilizationMetricType,
+							AverageUtilization: ptr.To(int32(80)),
 						},
 					},
 				},
@@ -1145,11 +1200,12 @@ func TestReconcile(t *testing.T) {
 				Name:      tc.desiredHPA.Name,
 			}, resultHPA)
 
-			if tc.expectedAction == "create" || tc.expectedAction == "update" {
+			switch tc.expectedAction {
+			case "create", "update":
 				require.NoError(t, err, "Expected HPA to exist after %s action", tc.expectedAction)
 				assert.Equal(t, tc.desiredHPA.Spec.MinReplicas, resultHPA.Spec.MinReplicas)
 				assert.Equal(t, tc.desiredHPA.Spec.MaxReplicas, resultHPA.Spec.MaxReplicas)
-			} else if tc.expectedAction == "delete" {
+			case "delete":
 				assert.True(t, apierr.IsNotFound(err), "Expected HPA to be deleted")
 			}
 		})

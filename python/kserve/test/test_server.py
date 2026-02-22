@@ -20,6 +20,7 @@ import os
 import re
 from typing import Dict
 from unittest import mock
+from unittest.mock import Mock
 
 import avro.io
 import avro.schema
@@ -33,7 +34,7 @@ from cloudevents.http import CloudEvent
 from fastapi.testclient import TestClient
 from ray import serve
 
-from kserve import Model, ModelRepository, ModelServer
+from kserve import Model, ModelRepository, ModelServer, model_server
 from kserve.constants.constants import (
     FASTAPI_APP_IMPORT_STRING,
     INFERENCE_CONTENT_LENGTH_HEADER,
@@ -1412,3 +1413,64 @@ class TestModelServerWithPredictorConfig:
 
         # Context should handle None predictor config gracefully
         # The DataPlane should still be functional even without predictor config
+
+
+@pytest.mark.asyncio
+class TestModelServerEventLoopWithDummy:
+    async def test_start_passes_event_loop_to_rest_server(self, monkeypatch):
+        created = {}
+
+        class DummyREST:
+            def __init__(self, *args, **kwargs):
+                created["instance"] = self
+                self.event_loop = kwargs.get("event_loop")
+
+            def start(self):
+                return None
+
+        # Patch to capture constructor and avoid side effects
+        monkeypatch.setattr(model_server, "RESTServer", DummyREST)
+        monkeypatch.setattr(model_server.asyncio, "run", Mock())
+        monkeypatch.setattr(
+            model_server.ModelServer, "setup_event_loop", lambda _: None
+        )
+        monkeypatch.setattr(
+            model_server.ModelServer, "register_signal_handler", lambda _: None
+        )
+
+        ms = model_server.ModelServer(workers=1, event_loop="uvloop")
+        m = DummyModel("TestModel")
+        m.load()
+        ms.start(models=[m])
+
+        assert isinstance(created.get("instance"), DummyREST)
+        assert created["instance"].event_loop == "uvloop"
+
+    async def test_start_passes_event_loop_to_rest_multiprocess(self, monkeypatch):
+        created = {}
+
+        class DummyMulti:
+            def __init__(self, *args, **kwargs):
+                created["instance"] = self
+                self.event_loop = kwargs.get("event_loop")
+
+            def start(self):
+                return None
+
+        # Patch multiprocess REST server and side effects
+        monkeypatch.setattr(model_server, "RESTServerMultiProcess", DummyMulti)
+        monkeypatch.setattr(model_server.asyncio, "run", Mock())
+        monkeypatch.setattr(
+            model_server.ModelServer, "setup_event_loop", lambda _: None
+        )
+        monkeypatch.setattr(
+            model_server.ModelServer, "register_signal_handler", lambda _: None
+        )
+
+        ms = model_server.ModelServer(workers=4, event_loop="asyncio")
+        m = DummyModel("TestModel")
+        m.load()
+        ms.start(models=[m])
+
+        assert isinstance(created.get("instance"), DummyMulti)
+        assert created["instance"].event_loop == "asyncio"

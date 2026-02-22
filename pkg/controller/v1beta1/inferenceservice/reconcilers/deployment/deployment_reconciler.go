@@ -35,6 +35,7 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmp"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -58,8 +59,9 @@ func NewDeploymentReconciler(client kclient.Client,
 	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+	deployConfig *v1beta1.DeployConfig,
 ) (*DeploymentReconciler, error) {
-	deploymentList, err := createRawDeployment(componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
+	deploymentList, err := createRawDeployment(componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec, deployConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create raw deployment: %w", err)
 	}
@@ -75,6 +77,7 @@ func NewDeploymentReconciler(client kclient.Client,
 func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+	deployConfig *v1beta1.DeployConfig,
 ) ([]*appsv1.Deployment, error) {
 	var deploymentList []*appsv1.Deployment
 	var workerNodeReplicas int32
@@ -82,7 +85,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 	var workerNodeGpuCount string
 	multiNodeEnabled := false
 
-	defaultDeployment := createRawDefaultDeployment(componentMeta, componentExt, podSpec)
+	defaultDeployment := createRawDefaultDeployment(componentMeta, componentExt, podSpec, deployConfig)
 	if workerPodSpec != nil {
 		multiNodeEnabled = true
 
@@ -122,7 +125,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 
 	// workerNode deployment
 	if multiNodeEnabled {
-		workerDeployment := createRawWorkerDeployment(workerComponentMeta, componentExt, workerPodSpec, componentMeta.Name, workerNodeReplicas)
+		workerDeployment := createRawWorkerDeployment(workerComponentMeta, componentExt, workerPodSpec, componentMeta.Name, workerNodeReplicas, deployConfig)
 
 		// Update GPU resource of workerPodSpec
 		if err := addGPUResourceToDeployment(workerDeployment, constants.WorkerContainerName, workerNodeGpuCount); err != nil {
@@ -137,6 +140,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
+	deployConfig *v1beta1.DeployConfig,
 ) *appsv1.Deployment {
 	podMetadata := componentMeta
 	podMetadata.Labels["app"] = constants.GetRawServiceLabel(componentMeta.Name)
@@ -155,11 +159,15 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 			},
 		},
 	}
-	if componentExt.DeploymentStrategy != nil {
+	if componentExt != nil && componentExt.DeploymentStrategy != nil {
+		// User-specified deployment strategy takes precedence
 		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
+	} else {
+		// Use configmap rollout strategy as fallback
+		setDefaultDeploymentSpec(&deployment.Spec)
+		applyRolloutStrategyFromConfigmap(&deployment.Spec, deployConfig)
 	}
-	setDefaultDeploymentSpec(&deployment.Spec)
-	if componentExt.MinReplicas != nil && deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassNone) {
+	if componentExt != nil && componentExt.MinReplicas != nil && deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassNone) {
 		deployment.Spec.Replicas = ptr.To(*componentExt.MinReplicas)
 	}
 
@@ -169,6 +177,7 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, predictorName string, replicas int32,
+	deployConfig *v1beta1.DeployConfig,
 ) *appsv1.Deployment {
 	podMetadata := componentMeta
 	workerPredictorName := constants.GetRawWorkerServiceLabel(predictorName)
@@ -188,12 +197,17 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 			},
 		},
 	}
-	if componentExt.DeploymentStrategy != nil {
+	if componentExt != nil && componentExt.DeploymentStrategy != nil {
+		// User-specified deployment strategy takes precedence
 		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
+	} else {
+		// Use configmap rollout strategy as fallback
+		setDefaultDeploymentSpec(&deployment.Spec)
+		applyRolloutStrategyFromConfigmap(&deployment.Spec, deployConfig)
 	}
-	setDefaultDeploymentSpec(&deployment.Spec)
 
 	// For multinode, it needs to keep original pods until new pods are ready with rollingUpdate strategy
+	// This overrides any rollout strategy for multinode deployments
 	if deployment.Spec.Strategy.Type == appsv1.RollingUpdateDeploymentStrategyType {
 		deployment.Spec.Strategy.RollingUpdate = &appsv1.RollingUpdateDeployment{
 			MaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "0%"},
@@ -212,8 +226,8 @@ func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client 
 	// get deployment
 	existingDeployment := &appsv1.Deployment{}
 	err := client.Get(ctx, types.NamespacedName{
-		Namespace: deployment.ObjectMeta.Namespace,
-		Name:      deployment.ObjectMeta.Name,
+		Namespace: deployment.Namespace,
+		Name:      deployment.Name,
 	}, existingDeployment)
 	if err != nil {
 		if apierr.IsNotFound(err) {
@@ -344,6 +358,39 @@ func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
 	}
 }
 
+// applyRolloutStrategyFromConfigmap applies the rollout strategy configuration from configmap to the deployment spec
+func applyRolloutStrategyFromConfigmap(spec *appsv1.DeploymentSpec, deployConfig *v1beta1.DeployConfig) {
+	// Only apply rollout strategy when DefaultDeploymentMode is Standard
+	if deployConfig == nil || deployConfig.DefaultDeploymentMode != "Standard" {
+		return
+	}
+
+	// If no rollout strategy configured, don't apply rollout strategy
+	if deployConfig.DeploymentRolloutStrategy == nil || deployConfig.DeploymentRolloutStrategy.DefaultRollout == nil {
+		return
+	}
+
+	rollout := deployConfig.DeploymentRolloutStrategy.DefaultRollout
+
+	// Ensure we have a rolling update strategy
+	if spec.Strategy.Type != appsv1.RollingUpdateDeploymentStrategyType {
+		spec.Strategy.Type = appsv1.RollingUpdateDeploymentStrategyType
+	}
+
+	// Initialize RollingUpdate if nil
+	if spec.Strategy.RollingUpdate == nil {
+		spec.Strategy.RollingUpdate = &appsv1.RollingUpdateDeployment{}
+	}
+
+	// Apply rollout strategy directly from configmap values
+	if rollout.MaxSurge != "" {
+		spec.Strategy.RollingUpdate.MaxSurge = &intstr.IntOrString{Type: intstr.String, StrVal: rollout.MaxSurge}
+	}
+	if rollout.MaxUnavailable != "" {
+		spec.Strategy.RollingUpdate.MaxUnavailable = &intstr.IntOrString{Type: intstr.String, StrVal: rollout.MaxUnavailable}
+	}
+}
+
 // addGPUResourceToDeployment assigns GPU resources to a specific container in a Deployment.
 //
 // Parameters:
@@ -456,4 +503,23 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 		}
 	}
 	return r.DeploymentList, nil
+}
+
+// GetWorkloads returns Deployments as generic Objects for controller references
+func (r *DeploymentReconciler) GetWorkloads() []metav1.Object {
+	workloads := make([]metav1.Object, len(r.DeploymentList))
+	for i, dep := range r.DeploymentList {
+		workloads[i] = dep
+	}
+	return workloads
+}
+
+// SetControllerReferences sets owner references on all Deployments
+func (r *DeploymentReconciler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
+	for _, deployment := range r.DeploymentList {
+		if err := controllerutil.SetControllerReference(owner, deployment, scheme); err != nil {
+			return err
+		}
+	}
+	return nil
 }

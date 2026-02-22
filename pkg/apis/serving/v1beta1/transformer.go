@@ -26,13 +26,18 @@ type TransformerSpec struct {
 	PodSpec `json:",inline"`
 	// Component extension defines the deployment configurations for a transformer
 	ComponentExtensionSpec `json:",inline"`
+
+	// Spec for multiple storage uris.
+	// +listType=atomic
+	// +kubebuilder:validation:MinItems=1
+	StorageUris []StorageUri `json:"storageUris,omitempty"`
 }
 
 // GetImplementations returns the implementations for the component
 func (s *TransformerSpec) GetImplementations() []ComponentImplementation {
 	implementations := []ComponentImplementation{}
 	// This struct is not a pointer, so it will never be nil; include if containers are specified
-	if len(s.PodSpec.Containers) != 0 {
+	if len(s.Containers) != 0 {
 		implementations = append(implementations, NewCustomTransformer(&s.PodSpec))
 	}
 	return implementations

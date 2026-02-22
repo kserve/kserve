@@ -1,4 +1,4 @@
-owners:
+project-leads:
   - terrytangyuan
   - yuzisun
 
@@ -12,6 +12,7 @@ approvers:
 
 reviewers:
   - andyi2it
+  - cjohannsen-cloudera
   - cmaddalozzo
   - Datta0
   - gavrissh
@@ -20,6 +21,7 @@ reviewers:
   - johnugeorge
   - Jooho
   - lizzzcai
+  - pierDipi
   - rachitchauhan43
   - sivanantha321
   - spolti

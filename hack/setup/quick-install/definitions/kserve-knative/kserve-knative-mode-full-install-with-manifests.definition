@@ -1,0 +1,17 @@
+DESCRIPTION: Install KServe Knative Mode and all related dependencies with manifests included in the script.
+METHOD: helm
+EMBED_MANIFESTS: true
+
+TOOLS:
+  - helm
+  - kustomize
+  - yq
+  
+COMPONENTS:
+  - name: cert-manager
+  - name: istio
+  - name: istio-ingress-class
+  - name: keda
+  - name: keda-otel-addon
+  - name: opentelemetry
+  - name: kserve

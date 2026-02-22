@@ -8,9 +8,9 @@ spec:
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: xgboost
-      version: "1"
+      version: "2"
       autoSelect: true
-      priority: 1
+      priority: 2
   protocolVersions:
     - v1
     - v2

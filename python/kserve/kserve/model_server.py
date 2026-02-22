@@ -116,6 +116,18 @@ parser.add_argument(
     help="The asgi access logging format. It allows to override only the `uvicorn.access`'s format configuration "
     "with a richer set of fields",
 )
+parser.add_argument(
+    "--event-loop",
+    dest="event_loop",
+    default="auto",
+    type=str,
+    choices=["auto", "asyncio", "uvloop"],
+    help=(
+        "Event loop implementation used by the HTTP server. "
+        "Valid values are 'auto' (default; use uvloop if available), "
+        "'asyncio', or 'uvloop'."
+    ),
+)
 
 # Model arguments: The arguments are passed to the kserve.Model object
 parser.add_argument(
@@ -206,6 +218,7 @@ class ModelServer:
         enable_docs_url: bool = args.enable_docs_url,
         enable_latency_logging: bool = args.enable_latency_logging,
         access_log_format: str = args.access_log_format,
+        event_loop: str = args.event_loop,
         grace_period: int = 30,
         predictor_config: Optional[PredictorConfig] = None,
     ):
@@ -227,6 +240,7 @@ class ModelServer:
                                ASGI specs that don't describe how access logging should be implemented in detail
                                (please refer to this Uvicorn
                                [github issue](https://github.com/encode/uvicorn/issues/527) for more info).
+            event_loop: Uvicorn event loop. Default: ``'auto'``. It supports "auto", "asyncio", "uvloop".
             grace_period: The grace period in seconds to wait for the server to stop. Default: ``30``.
             predictor_config: Optional configuration for the predictor. Default: ``None``.
         """
@@ -236,6 +250,7 @@ class ModelServer:
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.workers = workers
+        self.event_loop = event_loop
         self.max_threads = max_threads
         self.max_asyncio_workers = max_asyncio_workers
         self.enable_grpc = enable_grpc
@@ -317,6 +332,7 @@ class ModelServer:
                 workers=self.workers,
                 grace_period=self.grace_period,
                 log_config_file=args.log_config_file,
+                event_loop=self.event_loop,
             )
             self.servers.append(self._rest_multiprocess_server.start())
         else:
@@ -328,6 +344,7 @@ class ModelServer:
                 access_log_format=self.access_log_format,
                 workers=self.workers,
                 grace_period=self.grace_period,
+                event_loop=self.event_loop,
             )
             self.servers.append(self._rest_server.start())
         if self.enable_grpc:
