@@ -41,6 +41,10 @@ const (
 	LoggerArgumentMode                = "--log-mode"
 	LoggerArgumentStorePath           = "--log-store-path"
 	LoggerArgumentStoreFormat         = "--log-store-format"
+	LoggerArgumentMarshallerUrl       = "--log-marshaller-url"
+	LoggerArgumentMarshallerPort      = "--log-marshaller-port"
+	LoggerArgumentBatchSize           = "--log-batch-size"
+	LoggerArgumentBatchInterval       = "--log-batch-interval"
 	LoggerArgumentInferenceService    = "--inference-service"
 	LoggerArgumentNamespace           = "--namespace"
 	LoggerArgumentEndpoint            = "--endpoint"
@@ -71,6 +75,9 @@ type LoggerConfig struct {
 	CaCertFile    string                     `json:"caCertFile"`
 	TlsSkipVerify bool                       `json:"tlsSkipVerify"`
 	Store         *v1beta1.LoggerStorageSpec `json:"storage"`
+	MarshallerURL string                     `json:"marshallerUrl,omitempty"`
+	BatchSize     int                        `json:"batchSize,omitempty"`
+	BatchInterval string                     `json:"batchInterval,omitempty"`
 }
 
 type AgentInjector struct {
@@ -121,6 +128,15 @@ func getLoggerConfigs(pod *corev1.Pod, configMap *corev1.ConfigMap, isvc *v1beta
 		// if the inference service spec includes a logger spec, use it instead
 		log.Info("This Inference Service contains a logging spec. This will be used as the logger configuration.", "name", isvc.Name, "namespace", isvc.Namespace)
 		loggerConfig.Store = isvc.Spec.Predictor.Logger.Storage
+		if isvc.Spec.Predictor.Logger.MarshallerURL != nil {
+			loggerConfig.MarshallerURL = *isvc.Spec.Predictor.Logger.MarshallerURL
+		}
+		if isvc.Spec.Predictor.Logger.BatchSize != nil {
+			loggerConfig.BatchSize = *isvc.Spec.Predictor.Logger.BatchSize
+		}
+		if isvc.Spec.Predictor.Logger.BatchInterval != nil {
+			loggerConfig.BatchInterval = *isvc.Spec.Predictor.Logger.BatchInterval
+		}
 	} else {
 		if isvc == nil {
 			log.Info("The Inference Service is not found. The global ConfigMap will be used as the logger configuration", "name", pod.Name, "namespace", pod.Namespace)
@@ -259,6 +275,15 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		if storageFormat != "" {
 			loggerArgs = append(loggerArgs, LoggerArgumentStoreFormat)
 			loggerArgs = append(loggerArgs, storageFormat)
+		}
+		if ag.loggerConfig.MarshallerURL != "" {
+			loggerArgs = append(loggerArgs, LoggerArgumentMarshallerUrl, ag.loggerConfig.MarshallerURL)
+		}
+		if ag.loggerConfig.BatchSize > 0 {
+			loggerArgs = append(loggerArgs, LoggerArgumentBatchSize, strconv.Itoa(ag.loggerConfig.BatchSize))
+		}
+		if ag.loggerConfig.BatchInterval != "" {
+			loggerArgs = append(loggerArgs, LoggerArgumentBatchInterval, ag.loggerConfig.BatchInterval)
 		}
 		logHeaderMetadata, ok := pod.Annotations[constants.LoggerMetadataHeadersInternalAnnotationKey]
 		if ok {

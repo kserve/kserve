@@ -85,6 +85,20 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 	labels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
 	labels[constants.LLMDRoleLabelKey] = role
 
+	annotationsToPass := []string{
+		"prometheus.io/scrape",
+		"prometheus.io/port",
+		"prometheus.io/path",
+		"prometheus.io/scheme",
+	}
+	deploymentAnnotations := map[string]string{}
+	llmSvcAnnotations := llmSvc.GetAnnotations()
+	for _, annotationKey := range annotationsToPass {
+		if _, ok := llmSvcAnnotations[annotationKey]; ok {
+			deploymentAnnotations[annotationKey] = llmSvcAnnotations[annotationKey]
+		}
+	}
+
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve"),
@@ -101,7 +115,8 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
+					Labels:      labels,
+					Annotations: deploymentAnnotations,
 				},
 			},
 		},
@@ -260,6 +275,12 @@ func (r *LLMISVCReconciler) propagateDeploymentStatus(ctx context.Context, expec
 		return fmt.Errorf("failed to get current deployment %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
 	}
 	for _, cond := range curr.Status.Conditions {
+		if cond.Type == appsv1.DeploymentProgressing {
+			if cond.Status == corev1.ConditionFalse {
+				notReady(cond.Reason, cond.Message)
+			}
+		}
+
 		if cond.Type == appsv1.DeploymentAvailable {
 			if cond.Status == corev1.ConditionTrue {
 				ready()

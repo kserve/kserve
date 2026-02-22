@@ -45,7 +45,7 @@ class MockPool:
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    def map(self, func, iterable):
+    def imap_unordered(self, func, iterable, chunksize=1):
         """Execute tasks synchronously instead of in parallel processes"""
         return [func(item) for item in iterable]
 

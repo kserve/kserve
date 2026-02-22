@@ -107,6 +107,7 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 //+kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
+//+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is the main entry point for the reconciliation loop.
 // It fetches the LLMInferenceService and delegates the reconciliation of its constituent parts.
@@ -265,8 +266,8 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}, builder.WithPredicates(childResourcesPredicate)).
 		Watches(&corev1.ConfigMap{}, r.enqueueOnConfigMapChange(logger)).
 		Watches(&corev1.Pod{},
-			handler.EnqueueRequestsFromMapFunc(r.PodInitContainersFunc),
-			builder.WithPredicates(PodInitContainersPredicate()))
+			handler.EnqueueRequestsFromMapFunc(r.EnqueueOnLLMInferenceServicePods),
+			builder.WithPredicates(PodStatusPredicate()))
 
 	if err := gwapiv1.Install(mgr.GetScheme()); err != nil {
 		return fmt.Errorf("failed to add GIE APIs to scheme: %w", err)
@@ -475,14 +476,13 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 					continue
 				}
 
-				// Check if service explicitly references this config
-				for _, ref := range llmSvc.Spec.BaseRefs {
-					if ref.Name == sub.Name {
-						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
-							Namespace: llmSvc.Namespace,
-							Name:      llmSvc.Name,
-						}})
-					}
+				// Check if service explicitly references this config or uses it via versioned config resolution
+				if llmSvc.IsUsingLLMInferenceServiceConfig(sub.Name) {
+					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+						Namespace: llmSvc.Namespace,
+						Name:      llmSvc.Name,
+					}})
+					continue
 				}
 			}
 
@@ -549,9 +549,9 @@ func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler
 	})
 }
 
-// PodInitContainersFunc maps pod events to LLMInferenceService reconcile requests.
+// EnqueueOnLLMInferenceServicePods maps pod events to LLMInferenceService reconcile requests.
 // It extracts the owning LLMInferenceService name from pod labels.
-func (r *LLMISVCReconciler) PodInitContainersFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+func (r *LLMISVCReconciler) EnqueueOnLLMInferenceServicePods(ctx context.Context, obj client.Object) []reconcile.Request {
 	pod, ok := obj.(*corev1.Pod)
 	if !ok || pod == nil {
 		return nil
@@ -569,9 +569,9 @@ func (r *LLMISVCReconciler) PodInitContainersFunc(ctx context.Context, obj clien
 	return nil
 }
 
-// PodInitContainersPredicate filters pod updates to those where InitContainerStatuses changed.
-// Pod identity (part-of/name labels) is enforced by the cache (cmd/llmisvc) and PodInitContainersFunc.
-func PodInitContainersPredicate() predicate.Funcs {
+// PodStatusPredicate filters pod updates to those where InitContainerStatuses or PodIPs changed.
+// Pod identity (part-of/name labels) is enforced by the cache (cmd/llmisvc) and EnqueueOnLLMInferenceServicePods.
+func PodStatusPredicate() predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			newPod, ok := e.ObjectNew.(*corev1.Pod)
@@ -579,10 +579,15 @@ func PodInitContainersPredicate() predicate.Funcs {
 				return false
 			}
 			oldPod := e.ObjectOld.(*corev1.Pod)
-			return !equality.Semantic.DeepEqual(
+			initContainersChanged := !equality.Semantic.DeepEqual(
 				oldPod.Status.InitContainerStatuses,
 				newPod.Status.InitContainerStatuses,
 			)
+			podIPsChanged := !equality.Semantic.DeepEqual(
+				oldPod.Status.PodIPs,
+				newPod.Status.PodIPs,
+			)
+			return initContainersChanged || podIPsChanged
 		},
 		CreateFunc:  func(e event.CreateEvent) bool { return false },
 		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
