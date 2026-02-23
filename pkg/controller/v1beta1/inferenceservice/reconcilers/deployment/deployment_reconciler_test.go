@@ -1091,7 +1091,7 @@ func TestDeploymentReconciler_Reconcile(t *testing.T) {
 		Type:    appsv1.DeploymentReplicaFailure,
 		Status:  corev1.ConditionTrue,
 		Reason:  "FailedCreate",
-		Message: `admission webhook "pod.bcsidentity.identity.bloomberg.com" denied the request: BCSIdentity "kserve-workshop" not found`,
+		Message: `admission webhook "pod-policy.example.com" denied the request: identity "my-identity" not found`,
 	}
 	availableFalseCondition := appsv1.DeploymentCondition{
 		Type:    appsv1.DeploymentAvailable,
@@ -1119,7 +1119,7 @@ func TestDeploymentReconciler_Reconcile(t *testing.T) {
 			wantErr:              false,
 		},
 		{
-			name: "deployment exists with ReplicaFailure (BCSIdentity not found): existingDep returned so conditions are visible",
+			name: "deployment exists with ReplicaFailure (admission webhook denied): existingDep returned so conditions are visible",
 			serverDeployment: func() *appsv1.Deployment {
 				d := makeDeployment("test-predictor", "test-ns")
 				d.Status.Conditions = []appsv1.DeploymentCondition{

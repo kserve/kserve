@@ -9822,9 +9822,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 //
 // Bug 2: Previously, DeploymentReconciler.Reconcile returned the in-memory desired
 // deployment (no .Status.Conditions) instead of the server-side existing deployment.
-// As a result, a ReplicaFailure condition (e.g. from an admission-webhook like BCSIdentity
-// denying pod creation) was silently lost.  After the fix the ISVC PredictorReady condition
-// must carry the reason and message from the deployment's ReplicaFailure condition.
+// As a result, a ReplicaFailure condition (e.g. from an admission webhook denying pod
+// creation) was silently lost.  After the fix the ISVC PredictorReady condition must
+// carry the reason and message from the deployment's ReplicaFailure condition.
 var _ = Context("When a Standard-mode predictor deployment develops a ReplicaFailure", func() {
 	It("should surface the failure reason in the InferenceService PredictorReady condition", func() {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -9873,7 +9873,7 @@ var _ = Context("When a Standard-mode predictor deployment develops a ReplicaFai
 		}, timeout, interval).Should(Succeed())
 
 		By("patching the deployment status with a ReplicaFailure condition (simulating webhook denial)")
-		replicaFailureMsg := `admission webhook "pod.bcsidentity.identity.bloomberg.com" denied the request: BCSIdentity "kserve-workshop" not found`
+		replicaFailureMsg := `admission webhook "pod-policy.example.com" denied the request: identity "my-identity" not found`
 		updatedDeployment := actualDeployment.DeepCopy()
 		updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
 			{
