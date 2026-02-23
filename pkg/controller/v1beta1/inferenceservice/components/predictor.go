@@ -191,6 +191,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		podLabelKey = constants.RawDeploymentAppLabel
 		// This is main RawKubeReconciler to create objects (deployment, svc, scaler)
 		if err := p.reconcileRawDeployment(ctx, isvc, objectMeta, workerObjectMeta, &podSpec, workerPodSpec); err != nil {
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -198,6 +199,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		podLabelKey = constants.RevisionLabel
 
 		if kstatus, err = p.reconcileKnativeDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
 	}
