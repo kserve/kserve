@@ -379,7 +379,10 @@ type templateGlobalConfig struct {
 // ReplaceVariables processes the configuration as a Go template to substitute
 // variables with values from the LLM service and global configuration.
 func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig, reconcilerConfig *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
-	templateBytes, _ := json.Marshal(llmSvcCfg)
+	templateBytes, err := json.Marshal(llmSvcCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal config for template processing: %w", err)
+	}
 	buf := bytes.NewBuffer(nil)
 	var gc templateGlobalConfig
 	if reconcilerConfig != nil {
