@@ -134,6 +134,9 @@ func TestReconcileSingleNodeMainServiceAccount_Default_DeletesManagedSA(t *testi
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      managedSAName,
 			Namespace: ns,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
 		},
 	}
 

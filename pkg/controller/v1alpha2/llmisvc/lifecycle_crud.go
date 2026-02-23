@@ -58,46 +58,44 @@ func Create[O client.Object, T client.Object](ctx context.Context, c clientWithR
 // It ensures only the owner can delete the resource and handles garbage collection properly
 func Delete[O client.Object, T client.Object](ctx context.Context, c clientWithRecorder, owner O, expected T) error {
 	typeLogLine := logLineForObject(expected)
-	isOwnerNil := reflect.ValueOf(owner).IsNil()
+	hasOwner := !reflect.ValueOf(owner).IsNil()
 
-	ownerLogLine := ""
-	if !isOwnerNil {
-		ownerLogLine = logLineForObject(owner)
-	}
-
-	if isNamespaced, err := apiutil.IsObjectNamespaced(expected, c.Scheme(), c.RESTMapper()); err != nil && !meta.IsNoMatchError(err) {
-		return fmt.Errorf("failed to resolve if resource is namespaced %s: %w", typeLogLine, err)
-	} else if isNamespaced && !isOwnerNil {
-		if !metav1.IsControlledBy(expected, owner) {
-			return fmt.Errorf("failed to delete %s %s/%s: it is not controlled by %s %s/%s",
-				typeLogLine,
-				expected.GetNamespace(), expected.GetName(),
-				ownerLogLine,
-				owner.GetNamespace(), owner.GetName(),
-			)
-		} else if !owner.GetDeletionTimestamp().IsZero() {
-			// If the owner is being deleted, assume the owned resource is going
-			// to be automatically garbage colleted by the cluster
+	existing := expected.DeepCopyObject().(T)
+	if err := c.Get(ctx, client.ObjectKeyFromObject(expected), existing); err != nil {
+		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			return nil
 		}
+		return fmt.Errorf("failed to get %s %s/%s: %w", typeLogLine, expected.GetNamespace(), expected.GetName(), err)
 	}
 
-	// Don't re-try deletion, if the owned object is already being deleted
-	if !expected.GetDeletionTimestamp().IsZero() {
+	if !existing.GetDeletionTimestamp().IsZero() {
 		return nil
 	}
 
-	if err := c.Delete(ctx, expected); err != nil {
-		if !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
-			return fmt.Errorf("failed to delete %s %s/%s: %w", typeLogLine, expected.GetNamespace(), expected.GetName(), err)
+	// Use namespace presence as a proxy for "is namespaced" to avoid the extra
+	// Scheme/RESTMapper lookups that apiutil.IsObjectNamespaced requires.
+	// Cluster-scoped resources (e.g. ClusterRoleBinding) always have an empty namespace.
+	if hasOwner && existing.GetNamespace() != "" {
+		if !metav1.IsControlledBy(existing, owner) {
+			return fmt.Errorf("cannot delete %s %s/%s: not owned by %s %s/%s",
+				typeLogLine, existing.GetNamespace(), existing.GetName(),
+				logLineForObject(owner), owner.GetNamespace(), owner.GetName())
 		}
-		return nil
+		if !owner.GetDeletionTimestamp().IsZero() {
+			return nil // GC will handle
+		}
 	}
 
-	if !isOwnerNil {
+	if err := c.Delete(ctx, existing); err != nil {
+		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+			return nil // already deleted
+		}
+		return fmt.Errorf("failed to delete %s %s/%s: %w", typeLogLine, expected.GetNamespace(), expected.GetName(), err)
+	}
+
+	if hasOwner {
 		c.Eventf(owner, corev1.EventTypeNormal, "Deleted", "Deleted %s %s/%s", typeLogLine, expected.GetNamespace(), expected.GetName())
 	}
-
 	return nil
 }
 

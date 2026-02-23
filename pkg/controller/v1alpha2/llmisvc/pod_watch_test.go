@@ -33,18 +33,16 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 )
 
-// predicateWithCacheSelector wraps the pod init-containers predicate with the same
-// cache logic as the real llmisvc controller (cmd/llmisvc main.go): only pods
-// matching ChildResourcesLabelSelector are in the cache, and the mapper only
-// enqueues when the pod has a non-empty name label. Using this in tests
-// exercises the combined "cache + predicate" behavior so filtering by labels
-// is tested as part of the same pipeline as the real controller.
+// predicateWithCacheSelector wraps PodStatusPredicate with the same cache logic
+// as the real llmisvc controller (cmd/llmisvc main.go): only pods matching
+// ChildResourcesLabelSelector are in the cache, and the mapper only enqueues
+// when the pod has a non-empty name label.
 func predicateWithCacheSelector() predicate.Funcs {
 	sel, err := metav1.LabelSelectorAsSelector(&llmisvc.ChildResourcesLabelSelector)
 	if err != nil {
 		panic(err)
 	}
-	inner := llmisvc.PodInitContainersPredicate()
+	inner := llmisvc.PodStatusPredicate()
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			newPod, ok := e.ObjectNew.(*corev1.Pod)
@@ -65,13 +63,13 @@ func predicateWithCacheSelector() predicate.Funcs {
 	}
 }
 
-var _ = Describe("Pod InitContainers Watch", func() {
+var _ = Describe("Pod Watch", func() {
 	// Test the mapper function that maps pods to LLMInferenceService reconcile requests
-	Describe("PodInitContainersFunc", func() {
+	Describe("EnqueueOnLLMInferenceServicePods", func() {
 		var reconciler *llmisvc.LLMISVCReconciler
 
 		BeforeEach(func() {
-			// Note: Client is not needed for the PodInitContainersFunc mapper
+			// Note: Client is not needed for the EnqueueOnLLMInferenceServicePods mapper
 			// as it only reads labels from the pod object passed directly
 			reconciler = &llmisvc.LLMISVCReconciler{}
 		})
@@ -89,7 +87,7 @@ var _ = Describe("Pod InitContainers Watch", func() {
 					},
 				}
 
-				requests := reconciler.PodInitContainersFunc(context.Background(), pod)
+				requests := reconciler.EnqueueOnLLMInferenceServicePods(context.Background(), pod)
 
 				Expect(requests).To(HaveLen(1))
 				Expect(requests[0]).To(Equal(reconcile.Request{
@@ -112,7 +110,7 @@ var _ = Describe("Pod InitContainers Watch", func() {
 					},
 				}
 
-				requests := reconciler.PodInitContainersFunc(context.Background(), pod)
+				requests := reconciler.EnqueueOnLLMInferenceServicePods(context.Background(), pod)
 
 				Expect(requests).To(HaveLen(1))
 				Expect(requests[0].NamespacedName.Namespace).To(Equal("custom-namespace"))
@@ -133,7 +131,7 @@ var _ = Describe("Pod InitContainers Watch", func() {
 					},
 				}
 
-				requests := reconciler.PodInitContainersFunc(context.Background(), pod)
+				requests := reconciler.EnqueueOnLLMInferenceServicePods(context.Background(), pod)
 
 				Expect(requests).To(BeNil())
 			})
@@ -146,7 +144,7 @@ var _ = Describe("Pod InitContainers Watch", func() {
 					},
 				}
 
-				requests := reconciler.PodInitContainersFunc(context.Background(), pod)
+				requests := reconciler.EnqueueOnLLMInferenceServicePods(context.Background(), pod)
 
 				Expect(requests).To(BeNil())
 			})
@@ -161,13 +159,13 @@ var _ = Describe("Pod InitContainers Watch", func() {
 					},
 				}
 
-				requests := reconciler.PodInitContainersFunc(context.Background(), configMap)
+				requests := reconciler.EnqueueOnLLMInferenceServicePods(context.Background(), configMap)
 
 				Expect(requests).To(BeNil())
 			})
 
 			It("should return nil for nil object", func() {
-				requests := reconciler.PodInitContainersFunc(context.Background(), nil)
+				requests := reconciler.EnqueueOnLLMInferenceServicePods(context.Background(), nil)
 
 				Expect(requests).To(BeNil())
 			})
@@ -176,7 +174,7 @@ var _ = Describe("Pod InitContainers Watch", func() {
 
 	// Test the predicate that filters pod updates. Uses predicateWithCacheSelector
 	// so the test controller has the same cache logic as the real llmisvc controller.
-	Describe("PodInitContainersPredicate", func() {
+	Describe("PodStatusPredicate", func() {
 		var pred predicate.Funcs
 
 		BeforeEach(func() {
@@ -340,6 +338,129 @@ var _ = Describe("Pod InitContainers Watch", func() {
 					})
 
 					Expect(result).To(BeTrue())
+				})
+			})
+
+			Context("when PodIPs change", func() {
+				It("should return true when PodIPs are assigned", func() {
+					oldPod := &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-pod",
+							Namespace: "default",
+							Labels: map[string]string{
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
+							},
+						},
+						Status: corev1.PodStatus{
+							PodIPs: []corev1.PodIP{},
+						},
+					}
+
+					newPod := &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-pod",
+							Namespace: "default",
+							Labels: map[string]string{
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
+							},
+						},
+						Status: corev1.PodStatus{
+							PodIPs: []corev1.PodIP{
+								{IP: "10.0.0.5"},
+							},
+						},
+					}
+
+					result := pred.Update(event.UpdateEvent{
+						ObjectOld: oldPod,
+						ObjectNew: newPod,
+					})
+
+					Expect(result).To(BeTrue())
+				})
+
+				It("should return true when PodIPs change value", func() {
+					oldPod := &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-pod",
+							Namespace: "default",
+							Labels: map[string]string{
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
+							},
+						},
+						Status: corev1.PodStatus{
+							PodIPs: []corev1.PodIP{
+								{IP: "10.0.0.5"},
+							},
+						},
+					}
+
+					newPod := &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-pod",
+							Namespace: "default",
+							Labels: map[string]string{
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
+							},
+						},
+						Status: corev1.PodStatus{
+							PodIPs: []corev1.PodIP{
+								{IP: "10.0.0.99"},
+							},
+						},
+					}
+
+					result := pred.Update(event.UpdateEvent{
+						ObjectOld: oldPod,
+						ObjectNew: newPod,
+					})
+
+					Expect(result).To(BeTrue())
+				})
+
+				It("should return false when PodIPs are unchanged", func() {
+					oldPod := &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-pod",
+							Namespace: "default",
+							Labels: map[string]string{
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
+							},
+						},
+						Status: corev1.PodStatus{
+							PodIPs: []corev1.PodIP{
+								{IP: "10.0.0.5"},
+							},
+						},
+					}
+
+					newPod := &corev1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-pod",
+							Namespace: "default",
+							Labels: map[string]string{
+								constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+								constants.KubernetesAppNameLabelKey: "my-llmisvc",
+							},
+						},
+						Status: corev1.PodStatus{
+							PodIPs: []corev1.PodIP{
+								{IP: "10.0.0.5"},
+							},
+						},
+					}
+
+					result := pred.Update(event.UpdateEvent{
+						ObjectOld: oldPod,
+						ObjectNew: newPod,
+					})
+
+					Expect(result).To(BeFalse())
 				})
 			})
 
@@ -565,12 +686,12 @@ var _ = Describe("Pod InitContainers Watch", func() {
 				}
 
 				// Pod1 change should only reconcile llmisvc1
-				requests1 := reconciler.PodInitContainersFunc(context.Background(), pod1)
+				requests1 := reconciler.EnqueueOnLLMInferenceServicePods(context.Background(), pod1)
 				Expect(requests1).To(HaveLen(1))
 				Expect(requests1[0].Name).To(Equal("llmisvc1"))
 
 				// Pod2 change should only reconcile llmisvc2
-				requests2 := reconciler.PodInitContainersFunc(context.Background(), pod2)
+				requests2 := reconciler.EnqueueOnLLMInferenceServicePods(context.Background(), pod2)
 				Expect(requests2).To(HaveLen(1))
 				Expect(requests2[0].Name).To(Equal("llmisvc2"))
 			})
@@ -591,7 +712,7 @@ var _ = Describe("Pod InitContainers Watch", func() {
 					},
 				}
 
-				requests := reconciler.PodInitContainersFunc(context.Background(), regularPod)
+				requests := reconciler.EnqueueOnLLMInferenceServicePods(context.Background(), regularPod)
 				Expect(requests).To(BeNil())
 			})
 		})

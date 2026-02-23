@@ -113,13 +113,13 @@ func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infe
 		}
 
 		if getExistingErr != nil && ingressIsNotFound {
-			log.Info("creating ingress", "ingressName", isvc.Name, "err", err)
+			log.Info("creating ingress", "ingressName", isvc.Name)
 			if err := r.client.Create(ctx, ingress); err != nil {
 				log.Error(err, "Failed to create ingress", "name", ingress.Name)
 				return ctrl.Result{}, err
 			}
 		} else if !semanticIngressEquals(ingress, existingIngress) {
-			log.Info("updating ingress", "ingressName", isvc.Name, "err", err)
+			log.Info("updating ingress", "ingressName", isvc.Name)
 			if err := r.client.Update(ctx, ingress); err != nil {
 				log.Error(err, "Failed to update ingress", "name", ingress.Name)
 				return ctrl.Result{}, err
@@ -313,8 +313,8 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 
 	ingress := &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        isvc.ObjectMeta.Name,
-			Namespace:   isvc.ObjectMeta.Namespace,
+			Name:        isvc.Name,
+			Namespace:   isvc.Namespace,
 			Annotations: isvc.Annotations,
 		},
 		Spec: netv1.IngressSpec{

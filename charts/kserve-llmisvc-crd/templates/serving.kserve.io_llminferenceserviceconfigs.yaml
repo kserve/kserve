@@ -8106,9 +8106,6 @@ spec:
                                                         enum:
                                                           - 301
                                                           - 302
-                                                          - 303
-                                                          - 307
-                                                          - 308
                                                         type: integer
                                                     type: object
                                                   responseHeaderModifier:
@@ -8616,9 +8613,6 @@ spec:
                                                   enum:
                                                     - 301
                                                     - 302
-                                                    - 303
-                                                    - 307
-                                                    - 308
                                                   type: integer
                                               type: object
                                             responseHeaderModifier:
@@ -9042,6 +9036,9 @@ spec:
                                 - targetPortNumber
                               type: object
                           type: object
+                        replicas:
+                          format: int32
+                          type: integer
                         template:
                           properties:
                             activeDeadlineSeconds:
@@ -28430,9 +28427,6 @@ spec:
                                                         enum:
                                                           - 301
                                                           - 302
-                                                          - 303
-                                                          - 307
-                                                          - 308
                                                         type: integer
                                                     type: object
                                                   responseHeaderModifier:
@@ -28940,9 +28934,6 @@ spec:
                                                   enum:
                                                     - 301
                                                     - 302
-                                                    - 303
-                                                    - 307
-                                                    - 308
                                                   type: integer
                                               type: object
                                             responseHeaderModifier:
@@ -29358,6 +29349,9 @@ spec:
                                 - targetPorts
                               type: object
                           type: object
+                        replicas:
+                          format: int32
+                          type: integer
                         template:
                           properties:
                             activeDeadlineSeconds:

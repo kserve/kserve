@@ -37,7 +37,7 @@ var _ = Describe("Validating config configs", func() {
 			)
 
 			// when
-			admissionError := envTest.Client.Create(ctx, preset)
+			admissionError := envTest.Create(ctx, preset)
 
 			// then
 			Expect(admissionError).To(HaveOccurred())
@@ -54,7 +54,7 @@ var _ = Describe("Validating config configs", func() {
 
 			// when
 			preset.Spec.Model.Name = ptr.To("{{ ChildName .ObjectMeta.Name \"-inference-pool\" }}")
-			admissionError := envTest.Client.Update(ctx, preset)
+			admissionError := envTest.Update(ctx, preset)
 
 			// then
 			Expect(admissionError).To(HaveOccurred())
@@ -73,7 +73,7 @@ var _ = Describe("Validating config configs", func() {
 			}
 
 			// when
-			admissionError := envTest.Client.Create(ctx, preset)
+			admissionError := envTest.Create(ctx, preset)
 
 			// then
 			Expect(admissionError).To(HaveOccurred())

@@ -19,6 +19,7 @@ package llmisvc_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -151,6 +152,15 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 			Eventually(LLMInferenceServiceIsReady(llmSvc, func(g Gomega, current *v1alpha2.LLMInferenceService) {
 				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.HTTPRoutesReady), "True"))
+
+				// Verify versioned config resolution: Status.Annotations should map
+				// each well-known config suffix to the actual config name used.
+				// Uses the default "kserve-" prefix (matching LLM_INFERENCE_SERVICE_CONFIG_PREFIX default).
+				g.Expect(current.Status.Annotations).NotTo(BeNil())
+
+				for _, name := range llmisvc.WellKnownDefaultConfigs.UnsortedList() {
+					g.Expect(current.Status.Annotations).To(HaveKeyWithValue(llmisvc.StaticWellKnownConfigResolverPrefix+strings.TrimPrefix(name, "kserve-"), name))
+				}
 			})).WithContext(ctx).Should(Succeed())
 		})
 
@@ -256,7 +266,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					return err
 				}
 				deployment.Spec.Replicas = ptr.To[int32](3)
-				return envTest.Client.Update(ctx, deployment)
+				return envTest.Update(ctx, deployment)
 			})
 			Expect(errRetry).ToNot(HaveOccurred())
 
@@ -322,7 +332,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					return err
 				}
 				deployment.Spec.Replicas = ptr.To[int32](5)
-				return envTest.Client.Update(ctx, deployment)
+				return envTest.Update(ctx, deployment)
 			})
 			Expect(errRetry).ToNot(HaveOccurred())
 
@@ -522,11 +532,11 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 				Eventually(func(g Gomega, ctx context.Context) error {
 					svc := &corev1.Service{}
-					err := envTest.Client.Get(ctx, client.ObjectKey{Name: svcName, Namespace: testNs.Name}, svc)
+					err := envTest.Get(ctx, client.ObjectKey{Name: svcName, Namespace: testNs.Name}, svc)
 					g.Expect(err).ToNot(HaveOccurred())
 					g.Expect(svc.Spec.Selector).To(Equal(llmisvc.GetWorkloadLabelSelector(llmSvc.ObjectMeta, &llmSvc.Spec)))
 					return nil
-				})
+				}).WithContext(ctx).Should(Succeed())
 
 				ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvc)
 
@@ -804,7 +814,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			DeferCleanup(func(ctx context.Context) {
 				// Restore the default gateway after the test (pass or fail)
 				existing := &gwapiv1.Gateway{}
-				err := envTest.Client.Get(ctx, types.NamespacedName{
+				err := envTest.Get(ctx, types.NamespacedName{
 					Name:      constants.GatewayName,
 					Namespace: constants.KServeNamespace,
 				}, existing)
@@ -838,7 +848,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
 			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
 			defer func() {
-				envTest.DeleteAll(namespace)
+				envTest.DeleteAll(ctx, namespace)
 			}()
 
 			customGatewayName := "my-custom-gateway"
@@ -1329,9 +1339,9 @@ func ensureHTTPRouteReady(ctx context.Context, c client.Client, route *gwapiv1.H
 	// Set the status conditions to simulate the Gateway controller making the HTTPRoute ready
 	// HTTPRoute readiness is determined by parent status conditions
 	if len(createdRoute.Spec.ParentRefs) > 0 {
-		createdRoute.Status.RouteStatus.Parents = make([]gwapiv1.RouteParentStatus, len(createdRoute.Spec.ParentRefs))
+		createdRoute.Status.Parents = make([]gwapiv1.RouteParentStatus, len(createdRoute.Spec.ParentRefs))
 		for i, parentRef := range createdRoute.Spec.ParentRefs {
-			createdRoute.Status.RouteStatus.Parents[i] = gwapiv1.RouteParentStatus{
+			createdRoute.Status.Parents[i] = gwapiv1.RouteParentStatus{
 				ParentRef:      parentRef,
 				ControllerName: "gateway.networking.k8s.io/gateway-controller",
 				Conditions: []metav1.Condition{

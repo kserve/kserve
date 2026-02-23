@@ -314,6 +314,7 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 	if src.Scheduler != nil {
 		dst.Scheduler = &v1alpha2.SchedulerSpec{
 			Template: src.Scheduler.Template,
+			Replicas: src.Scheduler.Replicas,
 		}
 		if src.Scheduler.Pool != nil {
 			dst.Scheduler.Pool = &v1alpha2.InferencePoolSpec{
@@ -385,6 +386,7 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 	if src.Scheduler != nil {
 		dst.Scheduler = &SchedulerSpec{
 			Template: src.Scheduler.Template,
+			Replicas: src.Scheduler.Replicas,
 		}
 		if src.Scheduler.Pool != nil {
 			dst.Scheduler.Pool = &InferencePoolSpec{

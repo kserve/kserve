@@ -152,15 +152,15 @@ func TestDiscoverURLs(t *testing.T) {
 				WithParentRef(GatewayRef("multi-rule-gateway", RefInNamespace("test-ns"))),
 				WithHTTPRule(
 					Matches(PathPrefixMatch("/ns/name/v1/completions")),
-					BackendRefs(BackendRefInferencePool("pool")),
+					WithBackendRefs(BackendRefInferencePool("pool")),
 				),
 				WithHTTPRule(
 					Matches(PathPrefixMatch("/ns/name/v1/chat/completions")),
-					BackendRefs(BackendRefInferencePool("pool")),
+					WithBackendRefs(BackendRefInferencePool("pool")),
 				),
 				WithHTTPRule(
 					Matches(PathPrefixMatch("/ns/name")),
-					BackendRefs(BackendRefService("svc")),
+					WithBackendRefs(BackendRefService("svc")),
 				),
 			),
 			gateway: Gateway("multi-rule-gateway",
@@ -177,11 +177,11 @@ func TestDiscoverURLs(t *testing.T) {
 				WithParentRef(GatewayRef("no-svc-gateway", RefInNamespace("test-ns"))),
 				WithHTTPRule(
 					Matches(PathPrefixMatch("/ns/name/v1/completions")),
-					BackendRefs(BackendRefInferencePool("pool")),
+					WithBackendRefs(BackendRefInferencePool("pool")),
 				),
 				WithHTTPRule(
 					Matches(PathPrefixMatch("/ns/name/v1/chat/completions")),
-					BackendRefs(BackendRefInferencePool("pool")),
+					WithBackendRefs(BackendRefInferencePool("pool")),
 				),
 			),
 			gateway: Gateway("no-svc-gateway",
@@ -198,11 +198,11 @@ func TestDiscoverURLs(t *testing.T) {
 				WithParentRef(GatewayRef("default-kind-gateway", RefInNamespace("test-ns"))),
 				WithHTTPRule(
 					Matches(PathPrefixMatch("/ns/name/v1/completions")),
-					BackendRefs(BackendRefInferencePool("pool")),
+					WithBackendRefs(BackendRefInferencePool("pool")),
 				),
 				WithHTTPRule(
 					Matches(PathPrefixMatch("/ns/name")),
-					BackendRefs(gwapiv1.HTTPBackendRef{
+					WithBackendRefs(gwapiv1.HTTPBackendRef{
 						BackendRef: gwapiv1.BackendRef{
 							BackendObjectReference: gwapiv1.BackendObjectReference{
 								// Kind nil defaults to "Service" per Gateway API spec
