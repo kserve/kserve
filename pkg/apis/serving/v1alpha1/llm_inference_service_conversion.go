@@ -339,8 +339,9 @@ func convertInferencePoolSpecToV1(src *igwapiv1alpha2.InferencePoolSpec) *igwapi
 	dstPool := &igwapiv1.InferencePool{}
 
 	if err := srcPool.ConvertTo(dstPool); err != nil {
-		// Fallback: return empty spec on error (should not happen in practice)
-		return &igwapiv1.InferencePoolSpec{}
+		// Return nil rather than an empty spec — callers nil-check Pool.Spec, and an
+		// empty spec would bypass those guards with invalid zero-value fields.
+		return nil
 	}
 
 	return &dstPool.Spec
@@ -411,8 +412,9 @@ func convertInferencePoolSpecFromV1(src *igwapiv1.InferencePoolSpec) *igwapiv1al
 	dstPool := &igwapiv1alpha2.InferencePool{}
 
 	if err := dstPool.ConvertFrom(srcPool); err != nil {
-		// Fallback: return empty spec on error (should not happen in practice)
-		return &igwapiv1alpha2.InferencePoolSpec{}
+		// Return nil rather than an empty spec — callers nil-check Pool.Spec, and an
+		// empty spec would bypass those guards with invalid zero-value fields.
+		return nil
 	}
 
 	return &dstPool.Spec
