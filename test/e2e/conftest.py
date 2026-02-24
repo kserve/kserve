@@ -24,6 +24,12 @@ from kserve import InferenceRESTClient, RESTConfig
 from kserve.constants.constants import PredictorProtocol
 from kserve.logging import logger, KSERVE_LOG_CONFIG
 
+from .common.http_retry import (
+    DEFAULT_RETRY_BACKOFF_FACTOR,
+    DEFAULT_RETRY_STATUS_CODES,
+    DEFAULT_RETRY_TOTAL,
+)
+
 
 @pytest.fixture(scope="session", autouse=True)
 def configure_logger():
@@ -35,17 +41,23 @@ def configure_logger():
 
 @pytest.fixture(scope="session")
 def event_loop():
-    return asyncio.get_event_loop()
+    """Provide a dedicated loop for session-scoped async E2E fixtures."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    try:
+        yield loop
+    finally:
+        loop.close()
 
 
 @pytest_asyncio.fixture(scope="session")
 async def rest_v1_client():
     transport = RetryTransport(
         retry=Retry(
-            total=4,
-            backoff_factor=1,
+            total=DEFAULT_RETRY_TOTAL,
+            backoff_factor=DEFAULT_RETRY_BACKOFF_FACTOR,
+            backoff_jitter=0.0,
             allowed_methods=["GET", "POST"],
-            status_forcelist=[404, 429, 502, 503, 504],
+            status_forcelist=list(DEFAULT_RETRY_STATUS_CODES),
             retry_on_exceptions=[
                 httpx.TimeoutException,
                 httpx.NetworkError,
@@ -69,10 +81,11 @@ async def rest_v1_client():
 async def rest_v2_client():
     transport = RetryTransport(
         retry=Retry(
-            total=4,
-            backoff_factor=1,
+            total=DEFAULT_RETRY_TOTAL,
+            backoff_factor=DEFAULT_RETRY_BACKOFF_FACTOR,
+            backoff_jitter=0.0,
             allowed_methods=["GET", "POST"],
-            status_forcelist=[404, 429, 502, 503, 504],
+            status_forcelist=list(DEFAULT_RETRY_STATUS_CODES),
             retry_on_exceptions=[
                 httpx.TimeoutException,
                 httpx.NetworkError,

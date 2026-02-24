@@ -113,23 +113,6 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 	httpRouteRefs := httpRoutePath.Child("refs")
 	httpRouteSpec := httpRoutePath.Child("spec")
 
-	zero := GatewayRoutesSpec{}
-	if ptr.Deref(router.Route, zero) == zero && router.Gateway != nil && router.Gateway.Refs != nil {
-		return field.ErrorList{
-			field.Invalid(
-				gwRefsPath,
-				router.Gateway.Refs,
-				fmt.Sprintf("unsupported configuration: custom gateway ('%s') cannot be used with managed route ('%s: {}'); "+
-					"either provide your own HTTP routes ('%s') or remove '%s' to use the managed gateway",
-					gwRefsPath,
-					routePath,
-					httpRouteRefs,
-					gwRefsPath,
-				),
-			),
-		}
-	}
-
 	httpRoute := router.Route.HTTP
 	if httpRoute == nil {
 		return field.ErrorList{}
@@ -162,13 +145,14 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 		))
 	}
 
-	// Managed route spec cannot be used with user-defined gateway refs
-	if httpRoute.Spec != nil && router.Gateway != nil && len(router.Gateway.Refs) > 0 {
+	// Managed route spec referring to the gateway cannot be used with user-defined gateway refs
+	if httpRoute.Spec != nil && len(httpRoute.Spec.ParentRefs) > 0 &&
+		router.Gateway != nil && len(router.Gateway.Refs) > 0 {
 		allErrs = append(allErrs, field.Invalid(
 			httpRoutePath.Child("spec"),
 			httpRoute.Spec,
 			fmt.Sprintf("unsupported configuration: managed HTTP route spec ('%s') cannot be used with custom gateway refs ('%s'); "+
-				"either remove '%s' or '%s'",
+				"either remove '%s' or '%s.parentRefs'",
 				httpRouteSpec, gwRefsPath, gwRefsPath, httpRouteSpec,
 			),
 		))
@@ -300,13 +284,21 @@ func (l *LLMInferenceServiceValidator) validateImmutableParallelism(basePath *fi
 func (l *LLMInferenceServiceValidator) validateSchedulerConfig(svc *LLMInferenceService) field.ErrorList {
 	var allErrs field.ErrorList
 
-	if svc.Spec.Router == nil ||
-		svc.Spec.Router.Scheduler == nil ||
-		svc.Spec.Router.Scheduler.Config == nil {
+	if svc.Spec.Router == nil || svc.Spec.Router.Scheduler == nil {
 		return allErrs
 	}
 
-	configPath := field.NewPath("spec", "router", "scheduler", "config")
+	schedulerPath := field.NewPath("spec", "router", "scheduler")
+
+	if svc.Spec.Router.Scheduler.Replicas != nil && *svc.Spec.Router.Scheduler.Replicas <= 0 {
+		allErrs = append(allErrs, field.Invalid(schedulerPath.Child("replicas"), *svc.Spec.Router.Scheduler.Replicas, "scheduler replicas must be greater than zero"))
+	}
+
+	if svc.Spec.Router.Scheduler.Config == nil {
+		return allErrs
+	}
+
+	configPath := schedulerPath.Child("config")
 
 	if svc.Spec.Router.Scheduler.Config.Ref == nil && svc.Spec.Router.Scheduler.Config.Inline == nil {
 		allErrs = append(allErrs, field.Invalid(

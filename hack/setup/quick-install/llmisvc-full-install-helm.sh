@@ -40,7 +40,7 @@ find_repo_root() {
     local skip="${2:-false}"
 
     while [[ "$current_dir" != "/" ]]; do
-        if [[ -d "${current_dir}/.git" ]]; then
+        if [[ -e "${current_dir}/.git" ]]; then
             echo "$current_dir"
             return 0
         fi
@@ -133,6 +133,21 @@ log_success() {
 
 log_warning() {
     echo -e "${YELLOW}[WARNING]${RESET} $*" >&2
+}
+
+is_positive() {
+  input_val=$1
+  if [[ z$input_val == z ]]; then
+    input_val="no"
+  fi
+
+  if [[ $input_val == '0' || $input_val == "true" || $input_val == 'True' || $input_val == 'yes' || $input_val == 'Yes' || $input_val == 'y' || $input_val == 'Y' ]]; then
+    echo 0
+  elif [[ $input_val == '1' || $input_val == 'false' || $input_val == 'False' || $input_val == 'no' || $input_val == 'No' || $input_val == 'n' || $input_val == 'N' ]]; then
+    echo 1
+  else    
+    echo 2
+  fi
 }
 
 
@@ -443,18 +458,17 @@ set_env_with_priority() {
     local current_value
     eval "current_value=\${${var_name}}"
 
-    # If current value differs from default/component/global, it must be runtime - keep it
-    if [ -n "$current_value" ] && [ "$current_value" != "$default_value" ] &&
-       [ "$current_value" != "$component_value" ] && [ "$current_value" != "$global_value" ]; then
+    # If current value exists and differs from default, it's a runtime value - keep it
+    if [ -n "$current_value" ] && [ -n "$default_value" ] && [ "$current_value" != "$default_value" ]; then
         # This is a runtime value, keep it
         return
     fi
 
     # Apply priority: component env > global env > default
     if [ -n "$component_value" ]; then
-        export "$var_name=$component_value"
+        eval "export $var_name=\"$component_value\""
     elif [ -n "$global_value" ]; then
-        export "$var_name=$global_value"
+        eval "export $var_name=\"$global_value\""
     fi
     # If both are empty, variable keeps its default value
 }
@@ -497,7 +511,7 @@ export RELEASE
 # Version Dependencies (from kserve-deps.env)
 #================================================
 
-GOLANGCI_LINT_VERSION=v1.64.8
+GOLANGCI_LINT_VERSION=v2.9.0
 CONTROLLER_TOOLS_VERSION=v0.19.0
 ENVTEST_VERSION=latest
 YQ_VERSION=v4.52.1
@@ -505,13 +519,13 @@ HELM_VERSION=v3.16.3
 KUSTOMIZE_VERSION=v5.5.0
 HELM_DOCS_VERSION=v1.12.0
 BLACK_FMT_VERSION=24.3
-FLAKE8_LINT_VERSION=7.1
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
+RUFF_VERSION=0.14.13
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
-ENVOY_GATEWAY_VERSION=v1.5.0
-ENVOY_AI_GATEWAY_VERSION=v0.4.0
+ENVOY_GATEWAY_VERSION=v1.6.3
+ENVOY_AI_GATEWAY_VERSION=v0.5.0
 KNATIVE_OPERATOR_VERSION=v1.16.0
 KNATIVE_SERVING_VERSION=1.15.2
 KEDA_OTEL_ADDON_VERSION=v0.0.6
@@ -520,8 +534,8 @@ ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.17.2
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.7.0
-GATEWAY_API_VERSION=v1.3.0
-GIE_VERSION=v1.2.0
+GATEWAY_API_VERSION=v1.4.1
+GIE_VERSION=v1.3.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -540,6 +554,7 @@ DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-Knative}"
 GATEWAY_NETWORK_LAYER="${GATEWAY_NETWORK_LAYER:-false}"
 LLMISVC="${LLMISVC:-false}"
 EMBED_MANIFESTS="${EMBED_MANIFESTS:-false}"
+EMBED_TEMPLATES="${EMBED_TEMPLATES:-false}"
 KSERVE_CUSTOM_ISVC_CONFIGS="${KSERVE_CUSTOM_ISVC_CONFIGS:-}"
 
 #================================================
@@ -561,6 +576,33 @@ TARGET_DEPLOYMENT_NAMES=(
 USE_LOCAL_CHARTS="${USE_LOCAL_CHARTS:-false}"
 CHARTS_DIR="${REPO_ROOT}/charts"
 SET_KSERVE_VERSION="${SET_KSERVE_VERSION:-}"
+
+#================================================
+# Template Functions (EMBED_TEMPLATES MODE)
+#================================================
+
+# ============================================================================
+# Template Functions: external-lb
+# ============================================================================
+
+get_metallb_config() {
+    cat <<'METALLB_CONFIG_EOF'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+    - name: default
+      protocol: layer2
+      addresses:
+      - {{START}}-{{END}}
+METALLB_CONFIG_EOF
+}
+
+
 
 #================================================
 # Component Functions
@@ -767,8 +809,14 @@ install_external_lb() {
 
             log_info "Configuring MetalLB IP range: ${START}-${END}"
 
-            sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" \
-                "${TEMPLATE_DIR}/metallb-config.yaml.tmpl" | kubectl apply -f -
+            if [ "$EMBED_TEMPLATES" = "true" ]; then
+                get_metallb_config | \
+                    sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" | \
+                    kubectl apply -f -
+            else
+                sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" \
+                    "${TEMPLATE_DIR}/metallb-config.yaml.tmpl" | kubectl apply -f -
+            fi
 
             kubectl rollout restart deployment controller -n metallb-system
             kubectl rollout status deployment controller -n metallb-system --timeout=60s
@@ -1219,11 +1267,11 @@ install_kserve_helm() {
             log_info "  - ${update}"
         done
         update_isvc_config "${config_updates[@]}"
-        if [ "${LLMISVC}" != "true" ]; then
+        if [ $(is_positive ${LLMISVC}) = "1" ]; then
             kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
         fi
     else
-        if [ "${LLMISVC}" = "true" ]; then
+        if [ $(is_positive ${LLMISVC}) = "0" ]; then
             log_info "No configuration updates needed for LLMISVC (GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
         else
             log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
@@ -1273,7 +1321,7 @@ main() {
     echo "Install KServe LLM InferenceService and all related dependencies using helm."
     echo "=========================================="
 
-
+    export EMBED_TEMPLATES="true"
 
     install_helm
     install_yq

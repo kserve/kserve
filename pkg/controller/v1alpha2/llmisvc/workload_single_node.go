@@ -76,14 +76,28 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context,
 }
 
 func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
-	role := "decode"
+	role := constants.LLMDRoleDecode
 	if llmSvc.Spec.Prefill == nil {
-		role = "both"
+		role = constants.LLMDRoleBoth
 	}
 
 	labels := r.singleNodeLabels(llmSvc)
-	labels["kserve.io/component"] = "workload"
-	labels["llm-d.ai/role"] = role
+	labels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
+	labels[constants.LLMDRoleLabelKey] = role
+
+	annotationsToPass := []string{
+		"prometheus.io/scrape",
+		"prometheus.io/port",
+		"prometheus.io/path",
+		"prometheus.io/scheme",
+	}
+	deploymentAnnotations := map[string]string{}
+	llmSvcAnnotations := llmSvc.GetAnnotations()
+	for _, annotationKey := range annotationsToPass {
+		if _, ok := llmSvcAnnotations[annotationKey]; ok {
+			deploymentAnnotations[annotationKey] = llmSvcAnnotations[annotationKey]
+		}
+	}
 
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -101,7 +115,8 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
+					Labels:      labels,
+					Annotations: deploymentAnnotations,
 				},
 			},
 		},
@@ -130,13 +145,17 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 			}
 		} else if llmSvc.Spec.Template.ServiceAccountName != "" {
 			serviceAccount = &corev1.ServiceAccount{}
-			err := r.Client.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
+			err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, serviceAccount)
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch existing single node main service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Template.ServiceAccountName, err)
 			}
 		}
 
-		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, &d.Spec.Template.Spec, config); err != nil {
+		curr := &appsv1.Deployment{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get current deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+		}
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to main deployment: %w", err)
 		}
 	}
@@ -173,11 +192,11 @@ func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmS
 
 func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
 	labels := map[string]string{
-		"app.kubernetes.io/component": "llminferenceservice-workload-prefill",
-		"app.kubernetes.io/name":      llmSvc.GetName(),
-		"app.kubernetes.io/part-of":   "llminferenceservice",
-		"kserve.io/component":         "workload",
-		"llm-d.ai/role":               "prefill",
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadPrefill,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		constants.KServeComponentLabelKey:     constants.KServeComponentWorkload,
+		constants.LLMDRoleLabelKey:            constants.LLMDRolePrefill,
 	}
 
 	d := &appsv1.Deployment{
@@ -211,13 +230,17 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		var existingServiceAccount *corev1.ServiceAccount = nil
 		if llmSvc.Spec.Prefill.Template.ServiceAccountName != "" {
 			existingServiceAccount = &corev1.ServiceAccount{}
-			err := r.Client.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Prefill.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+			err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Prefill.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch existing single node prefill service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Prefill.Template.ServiceAccountName, err)
 			}
 		}
 
-		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, &d.Spec.Template.Spec, config); err != nil {
+		curr := &appsv1.Deployment{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get current prefill deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+		}
+		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to prefill deployment: %w", err)
 		}
 	}
@@ -246,12 +269,18 @@ func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInfe
 func (r *LLMISVCReconciler) propagateDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
 	curr := &appsv1.Deployment{}
 	err := retry.OnError(retry.DefaultRetry, apierrors.IsNotFound, func() error {
-		return r.Client.Get(ctx, client.ObjectKeyFromObject(expected), curr)
+		return r.Get(ctx, client.ObjectKeyFromObject(expected), curr)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get current deployment %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
 	}
 	for _, cond := range curr.Status.Conditions {
+		if cond.Type == appsv1.DeploymentProgressing {
+			if cond.Status == corev1.ConditionFalse {
+				notReady(cond.Reason, cond.Message)
+			}
+		}
+
 		if cond.Type == appsv1.DeploymentAvailable {
 			if cond.Status == corev1.ConditionTrue {
 				ready()
@@ -351,7 +380,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainServiceAccount(ctx context.Con
 		useExistingServiceAccount = true
 		log.FromContext(ctx).V(2).Info("Using existing service account for single node main workload", "serviceAccountName", existingServiceAccountName)
 		existingServiceAccount := &corev1.ServiceAccount{}
-		err := r.Client.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+		err := r.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
 		if err != nil {
 			return nil, useExistingServiceAccount, fmt.Errorf("failed to fetch existing single node main service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
 		}
@@ -416,8 +445,8 @@ func (r *LLMISVCReconciler) expectedSingleNodeRoleBinding(llmSvc *v1alpha2.LLMIn
 
 func (r *LLMISVCReconciler) singleNodeLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 	return map[string]string{
-		"app.kubernetes.io/component": "llminferenceservice-workload",
-		"app.kubernetes.io/name":      llmSvc.GetName(),
-		"app.kubernetes.io/part-of":   "llminferenceservice",
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
 }

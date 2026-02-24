@@ -2997,6 +2997,12 @@ spec:
                       type: object
                     logger:
                       properties:
+                        batchInterval:
+                          type: string
+                        batchSize:
+                          type: integer
+                        marshallerUrl:
+                          type: string
                         metadataAnnotations:
                           items:
                             type: string
@@ -7811,6 +7817,12 @@ spec:
                       type: object
                     logger:
                       properties:
+                        batchInterval:
+                          type: string
+                        batchSize:
+                          type: integer
+                        marshallerUrl:
+                          type: string
                         metadataAnnotations:
                           items:
                             type: string
@@ -21491,6 +21503,12 @@ spec:
                       type: object
                     logger:
                       properties:
+                        batchInterval:
+                          type: string
+                        batchSize:
+                          type: integer
+                        marshallerUrl:
+                          type: string
                         metadataAnnotations:
                           items:
                             type: string

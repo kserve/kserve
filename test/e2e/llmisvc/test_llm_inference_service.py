@@ -42,6 +42,7 @@ from .test_resources import (
     ROUTER_ROUTES,
 )
 from .logging import log_execution, logger
+from ..common.http_retry import post_with_retry
 
 KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
 
@@ -85,6 +86,32 @@ class TestCase:
 @pytest.mark.parametrize(
     "test_case",
     [
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-with-gateway-ref",
+                    "router-with-managed-route",
+                    "model-fb-opt-125m",
+                    "workload-llmd-simulator",
+                ],
+                prompt="KServe is a",
+                before_test=[
+                    lambda: create_router_resources(
+                        gateways=[ROUTER_GATEWAYS[0]],
+                    )
+                ],
+                after_test=[
+                    lambda: delete_router_resources(
+                        gateways=[ROUTER_GATEWAYS[0]],
+                    )
+                ],
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.llmd_simulator,
+            ],
+        ),
         pytest.param(
             TestCase(
                 base_refs=[
@@ -291,6 +318,18 @@ class TestCase:
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "scheduler-with-replicas",
+                    "workload-llmd-simulator",
+                ],
+                prompt="KServe is a",
+                service_name="scheduler-ha-replicas-test",
+            ),
+            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+        ),
     ],
     indirect=["test_case"],
     ids=generate_test_id,
@@ -410,10 +449,10 @@ def wait_for_model_response(
             f"Calling LLM service at {completion_url} with payload {test_payload}"
         )
         try:
-            response = requests.post(
+            response = post_with_retry(
                 completion_url,
                 headers={"Content-Type": "application/json"},
-                json=test_payload,
+                json_data=test_payload,
                 timeout=test_case.response_timeout,
             )
         except Exception as e:

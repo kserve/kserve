@@ -76,7 +76,7 @@ func (c *LocalModelReconciler) deleteModelFromNodes(ctx context.Context, localMo
 	nodeGroups map[string]*v1alpha1.LocalModelNodeGroup,
 ) (ctrl.Result, error) {
 	// finalizer does not exist, nothing to do here!
-	if !utils.Includes(localModel.ObjectMeta.Finalizers, finalizerName) {
+	if !utils.Includes(localModel.Finalizers, finalizerName) {
 		return ctrl.Result{}, nil
 	}
 	c.Log.Info("deleting model", "name", localModel.Name)
@@ -90,7 +90,7 @@ func (c *LocalModelReconciler) deleteModelFromNodes(ctx context.Context, localMo
 		}
 		for _, node := range append(readyNodes.Items, notReadyNodes.Items...) {
 			localModelNode := &v1alpha1.LocalModelNode{}
-			err := c.Client.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
+			err := c.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
 			if err != nil {
 				if apierr.IsNotFound(err) {
 					c.Log.Info("localmodelNode not found", "node", node.Name)
@@ -109,7 +109,7 @@ func (c *LocalModelReconciler) deleteModelFromNodes(ctx context.Context, localMo
 	}
 
 	patch := client.MergeFrom(localModel.DeepCopy())
-	localModel.ObjectMeta.Finalizers = utils.RemoveString(localModel.ObjectMeta.Finalizers, finalizerName)
+	localModel.Finalizers = utils.RemoveString(localModel.Finalizers, finalizerName)
 	if err := c.Patch(ctx, localModel, patch); err != nil {
 		c.Log.Error(err, "Cannot remove finalizer", "model name", localModel.Name)
 		return ctrl.Result{}, err
@@ -166,7 +166,7 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 	localModelNodeGroups map[string]*v1alpha1.LocalModelNodeGroup, defaultNodeGroup *v1alpha1.LocalModelNodeGroup, jobNamespace string,
 ) error {
 	isvcs := &v1beta1.InferenceServiceList{}
-	if err := c.Client.List(ctx, isvcs, client.MatchingFields{localModelKey: localModel.Name}); err != nil {
+	if err := c.List(ctx, isvcs, client.MatchingFields{localModelKey: localModel.Name}); err != nil {
 		c.Log.Error(err, "List isvc error")
 		return err
 	}
@@ -176,7 +176,7 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 	for _, isvc := range isvcs.Items {
 		isvcNames = append(isvcNames, v1alpha1.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace})
 		// isvc has nodegroup annotation
-		if isvcNodeGroup, ok := isvc.ObjectMeta.Annotations[constants.NodeGroupAnnotationKey]; ok {
+		if isvcNodeGroup, ok := isvc.Annotations[constants.NodeGroupAnnotationKey]; ok {
 			if nodeGroup, ok := localModelNodeGroups[isvcNodeGroup]; ok {
 				if _, ok := namespaceToNodeGroups[isvc.Namespace]; !ok {
 					namespaceToNodeGroups[isvc.Namespace] = map[string]*v1alpha1.LocalModelNodeGroup{}
@@ -266,13 +266,13 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Step 1 - Checks if the CR is in the deletion process
-	if localModel.ObjectMeta.DeletionTimestamp.IsZero() {
+	if localModel.DeletionTimestamp.IsZero() {
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then lets add the finalizer and update the object. This is equivalent
 		// registering our finalizer.
-		if !utils.Includes(localModel.ObjectMeta.Finalizers, finalizerName) {
+		if !utils.Includes(localModel.Finalizers, finalizerName) {
 			patch := client.MergeFrom(localModel.DeepCopy())
-			localModel.ObjectMeta.Finalizers = append(localModel.ObjectMeta.Finalizers, finalizerName)
+			localModel.Finalizers = append(localModel.Finalizers, finalizerName)
 			if err := c.Patch(ctx, localModel, patch); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -349,7 +349,7 @@ func (c *LocalModelReconciler) nodeFunc(ctx context.Context, obj client.Object) 
 	node := obj.(*corev1.Node)
 	requests := []reconcile.Request{}
 	models := &v1alpha1.LocalModelCacheList{}
-	if err := c.Client.List(ctx, models); err != nil {
+	if err := c.List(ctx, models); err != nil {
 		c.Log.Error(err, "list models error when reconciling nodes")
 		return []reconcile.Request{}
 	}
@@ -380,7 +380,7 @@ func (c *LocalModelReconciler) nodeFunc(ctx context.Context, obj client.Object) 
 // Given a node object, checks if it matches any node group CR, then reconcile all local models that has this node group to create download jobs.
 func (c *LocalModelReconciler) localmodelNodeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
 	localmodelNode := obj.(*v1alpha1.LocalModelNode)
-	requests := []reconcile.Request{}
+	requests := make([]reconcile.Request, 0, len(localmodelNode.Spec.LocalModels))
 	for _, modelInfo := range localmodelNode.Spec.LocalModels {
 		requests = append(requests, reconcile.Request{
 			NamespacedName: types.NamespacedName{
@@ -445,22 +445,7 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	}
 
-	nodePredicates := predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			// Only reconciles the local model crs when the node becomes ready from not ready
-			// Todo: add tests
-			oldNode := e.ObjectNew.(*corev1.Node)
-			newNode := e.ObjectNew.(*corev1.Node)
-			return !isNodeReady(*oldNode) && isNodeReady(*newNode)
-		},
-		CreateFunc: func(e event.CreateEvent) bool {
-			// Do nothing here, generates local model cr reconcile requests in nodeFunc
-			return true
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return false
-		},
-	}
+	nodePredicates := nodeReadyPredicate()
 
 	// Define predicates to filter events based on changes to the status field
 	localModelNodePredicates := predicate.Funcs{
@@ -498,6 +483,27 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Updates model status when localmodelnode status changes
 		Watches(&v1alpha1.LocalModelNode{}, handler.EnqueueRequestsFromMapFunc(c.localmodelNodeFunc), builder.WithPredicates(localModelNodePredicates)).
 		Complete(c)
+}
+
+// nodeReadyPredicate returns a predicate that triggers reconciliation only when
+// a node transitions from NotReady to Ready (e.g. when a new node joins via
+// cluster autoscaler), or when a new node is created.
+func nodeReadyPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			// Only reconciles the local model crs when the node becomes ready from not ready
+			oldNode := e.ObjectOld.(*corev1.Node)
+			newNode := e.ObjectNew.(*corev1.Node)
+			return !isNodeReady(*oldNode) && isNodeReady(*newNode)
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			// Do nothing here, generates local model cr reconcile requests in nodeFunc
+			return true
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return false
+		},
+	}
 }
 
 func isNodeReady(node corev1.Node) bool {
@@ -540,7 +546,7 @@ func (c *LocalModelReconciler) DeleteModelFromNode(ctx context.Context, localmod
 		if modelInfo.ModelName == localModel.Name {
 			patch = client.MergeFrom(localmodelNode.DeepCopy())
 			localmodelNode.Spec.LocalModels = append(localmodelNode.Spec.LocalModels[:i], localmodelNode.Spec.LocalModels[i+1:]...)
-			if err := c.Client.Patch(ctx, localmodelNode, patch); err != nil {
+			if err := c.Patch(ctx, localmodelNode, patch); err != nil {
 				c.Log.Error(err, "Update localmodelnode", "name", localmodelNode.Name)
 				return err
 			}
@@ -571,7 +577,7 @@ func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmo
 		patch = client.MergeFrom(localmodelNode.DeepCopy())
 		localmodelNode.Spec.LocalModels = append(localmodelNode.Spec.LocalModels, v1alpha1.LocalModelInfo{ModelName: localModel.Name, SourceModelUri: localModel.Spec.SourceModelUri})
 	}
-	if err := c.Client.Patch(ctx, localmodelNode, patch); err != nil {
+	if err := c.Patch(ctx, localmodelNode, patch); err != nil {
 		c.Log.Error(err, "Update localmodelnode", "name", localmodelNode.Name)
 		return err
 	}
@@ -610,7 +616,7 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 		}
 		for _, node := range readyNodes.Items {
 			localModelNode := &v1alpha1.LocalModelNode{}
-			err := c.Client.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
+			err := c.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
 			found := true
 			if err != nil {
 				if apierr.IsNotFound(err) {
@@ -628,7 +634,7 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 					},
 					Spec: v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{{ModelName: localModel.Name, SourceModelUri: localModel.Spec.SourceModelUri}}},
 				}
-				if err := c.Client.Create(ctx, localModelNode); err != nil {
+				if err := c.Create(ctx, localModelNode); err != nil {
 					c.Log.Error(err, "Create localmodelnode", "name", node.Name)
 					return err
 				}

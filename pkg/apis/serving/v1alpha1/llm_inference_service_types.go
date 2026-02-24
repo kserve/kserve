@@ -276,6 +276,9 @@ type SchedulerSpec struct {
 
 	// Config is the configuration for the EndpointPicker.
 	Config *SchedulerConfigSpec `json:"config,omitempty"`
+
+	// Replicas is the number of replicas for the scheduler.
+	Replicas *int32 `json:"replicas,omitempty"`
 }
 
 type SchedulerConfigSpec struct {

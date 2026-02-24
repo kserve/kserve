@@ -60,17 +60,22 @@ type IngressReconciler struct {
 	scheme        *runtime.Scheme
 	ingressConfig *v1beta1.IngressConfig
 	isvcConfig    *v1beta1.InferenceServicesConfig
+	// isVirtualServiceAvailable indicates whether Istio VirtualService CRD
+	// exists in the cluster. If false, VirtualService reconciliation is skipped.
+	isVirtualServiceAvailable bool
 }
 
 func NewIngressReconciler(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
 	ingressConfig *v1beta1.IngressConfig, isvcConfig *v1beta1.InferenceServicesConfig,
+	isVirtualServiceAvailable bool,
 ) *IngressReconciler {
 	return &IngressReconciler{
-		client:        client,
-		clientset:     clientset,
-		scheme:        scheme,
-		ingressConfig: ingressConfig,
-		isvcConfig:    isvcConfig,
+		client:                    client,
+		clientset:                 clientset,
+		scheme:                    scheme,
+		ingressConfig:             ingressConfig,
+		isvcConfig:                isvcConfig,
+		isVirtualServiceAvailable: isVirtualServiceAvailable,
 	}
 }
 
@@ -232,6 +237,12 @@ func getHostBasedServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.Ingr
 func (ir *IngressReconciler) reconcileVirtualService(ctx context.Context, isvc *v1beta1.InferenceService) error {
 	disableIstioVirtualHost := ir.ingressConfig.DisableIstioVirtualHost
 
+	// If Istio VirtualService CRD is not present in the cluster, gracefully skip VirtualService reconciliation.
+	// This allows KServe to operate with non-Istio network layers (e.g., Kourier) without failing.
+	if !ir.isVirtualServiceAvailable {
+		return nil
+	}
+
 	domainList := getDomainList(ctx, ir.clientset)
 	desiredIngress := createIngress(isvc, ir.ingressConfig, domainList, ir.isvcConfig) // actually the virtual service
 
@@ -338,8 +349,8 @@ func (ir *IngressReconciler) reconcileExternalService(ctx context.Context, isvc 
 			log.Info("Reconciling external service diff (-desired, +observed):", "diff", diff)
 			log.Info("Updating external service", "namespace", existing.Namespace, "name", existing.Name)
 			existing.Spec = desired.Spec
-			existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
-			existing.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
+			existing.Labels = desired.Labels
+			existing.Annotations = desired.Annotations
 			err = ir.client.Update(ctx, existing)
 			if err != nil {
 				return errors.Wrapf(err, "fails to update external name service")
@@ -717,8 +728,8 @@ func getDomainList(ctx context.Context, clientset kubernetes.Interface) *[]strin
 
 func routeSemanticEquals(desired, existing *istioclientv1beta1.VirtualService) bool {
 	return cmp.Equal(desired.Spec.DeepCopy(), existing.Spec.DeepCopy(), protocmp.Transform()) &&
-		equality.Semantic.DeepEqual(desired.ObjectMeta.Labels, existing.ObjectMeta.Labels) &&
-		equality.Semantic.DeepEqual(desired.ObjectMeta.Annotations, existing.ObjectMeta.Annotations)
+		equality.Semantic.DeepEqual(desired.Labels, existing.Labels) &&
+		equality.Semantic.DeepEqual(desired.Annotations, existing.Annotations)
 }
 
 func getHostPrefix(isvc *v1beta1.InferenceService, disableIstioVirtualHost bool) string {

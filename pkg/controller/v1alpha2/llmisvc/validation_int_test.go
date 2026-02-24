@@ -17,6 +17,7 @@ limitations under the License.
 package llmisvc_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -66,11 +67,11 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 		)
 		Expect(envTest.Client.Create(ctx, httpRoute)).To(Succeed())
 
-		DeferCleanup(func() {
+		DeferCleanup(func(ctx context.Context) {
 			httpRoute := httpRoute
 			gateway := gateway
 			ns := ns
-			envTest.DeleteAll(httpRoute, gateway, ns)
+			envTest.DeleteAll(ctx, httpRoute, gateway, ns)
 		})
 	})
 
@@ -84,13 +85,13 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 				fixture.WithHTTPRouteSpec(&fixture.HTTPRoute("test-route",
 					fixture.WithHTTPRule(
 						fixture.Matches(fixture.PathPrefixMatch("/test")),
-						fixture.BackendRefs(fixture.ServiceRef("test-service", 80, 1)),
+						fixture.WithBackendRefs(fixture.ServiceRef("test-service", 80, 1)),
 					),
 				).Spec),
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -107,51 +108,73 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
 			Expect(errValidation.Error()).To(ContainSubstring("cannot be used with a managed gateway"))
 		})
 
-		It("should reject LLMInferenceService with managed route and user-defined gateway refs", func(ctx SpecContext) {
-			// given
-			llmSvc := fixture.LLMInferenceService("test-spec-with-gateway-refs",
-				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
-				fixture.WithModelURI("hf://facebook/opt-125m"),
-				fixture.WithGatewayRefs(fixture.LLMGatewayRef("test-gateway", nsName)),
-				fixture.WithManagedRoute(),
-			)
-
-			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
-
-			// then
-			Expect(errValidation).To(HaveOccurred())
-			Expect(errValidation.Error()).To(ContainSubstring("cannot be used with managed route"))
-		})
-
-		It("should reject LLMInferenceService with managed route spec and user-defined gateway refs", func(ctx SpecContext) {
-			// given
-			llmSvc := fixture.LLMInferenceService("test-spec-with-gateway-refs",
+		It("should accept LLMInferenceService with custom gateway refs and managed route spec without parentRefs", func(ctx SpecContext) {
+			// given - custom gateway refs with a route spec that has no parentRefs is valid
+			// because the controller overwrites the HTTPRoute's ParentRefs from gateway.refs during reconciliation
+			llmSvc := fixture.LLMInferenceService("test-custom-gw-managed-route",
 				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
 				fixture.WithModelURI("hf://facebook/opt-125m"),
 				fixture.WithGatewayRefs(fixture.LLMGatewayRef("test-gateway", nsName)),
 				fixture.WithHTTPRouteSpec(&fixture.HTTPRoute("test-route",
 					fixture.WithHTTPRule(
 						fixture.Matches(fixture.PathPrefixMatch("/test")),
-						fixture.BackendRefs(fixture.ServiceRef("custom-backend", 8080, 1)),
+						fixture.WithBackendRefs(fixture.ServiceRef("custom-backend", 8080, 1)),
+					),
+				).Spec),
+			)
+
+			// then
+			Expect(envTest.Client.Create(ctx, llmSvc)).To(Succeed())
+		})
+
+		It("should accept but warn when managed route spec has consistent parentRefs with gateway refs", func(ctx SpecContext) {
+			// given - parentRefs match gateway.refs, so it's redundant but valid
+			llmSvc := fixture.LLMInferenceService("test-spec-with-gateway-refs",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithGatewayRefs(fixture.LLMGatewayRef("test-gateway", nsName)),
+				fixture.WithHTTPRouteSpec(&fixture.HTTPRoute("test-route",
+					fixture.WithParentRef(fixture.GatewayParentRef("test-gateway", nsName)),
+					fixture.WithHTTPRule(
+						fixture.Matches(fixture.PathPrefixMatch("/test")),
+						fixture.WithBackendRefs(fixture.ServiceRef("custom-backend", 8080, 1)),
 						fixture.Timeouts("30s", "60s"),
 					),
 				).Spec),
 			)
 
+			// then - should be accepted (redundant but consistent)
+			Expect(envTest.Client.Create(ctx, llmSvc)).To(Succeed())
+		})
+
+		It("should reject LLMInferenceService with conflicting parentRefs and gateway refs", func(ctx SpecContext) {
+			// given - parentRefs point to a different gateway than gateway.refs
+			llmSvc := fixture.LLMInferenceService("test-conflicting-refs",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithGatewayRefs(fixture.LLMGatewayRef("test-gateway", nsName)),
+				fixture.WithHTTPRouteSpec(&fixture.HTTPRoute("test-route",
+					fixture.WithParentRef(fixture.GatewayParentRef("different-gateway", nsName)),
+					fixture.WithHTTPRule(
+						fixture.Matches(fixture.PathPrefixMatch("/test")),
+						fixture.WithBackendRefs(fixture.ServiceRef("custom-backend", 8080, 1)),
+					),
+				).Spec),
+			)
+
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
-			Expect(errValidation.Error()).To(ContainSubstring("unsupported configuration"))
+			Expect(errValidation.Error()).To(ContainSubstring("conflict"))
 		})
 	})
 
@@ -169,7 +192,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -187,7 +210,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -205,7 +228,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -221,7 +244,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -241,7 +264,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -257,7 +280,7 @@ var _ = Describe("LLMInferenceService webhook validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -398,9 +421,9 @@ var _ = Describe("LLMInferenceService API validation", func() {
 		}
 		Expect(envTest.Client.Create(ctx, ns)).To(Succeed())
 
-		DeferCleanup(func() {
+		DeferCleanup(func(ctx context.Context) {
 			ns := ns
-			envTest.DeleteAll(ns)
+			envTest.DeleteAll(ctx, ns)
 		})
 	})
 	Context("scheduler config validation", func() {
@@ -418,7 +441,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			}
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -446,7 +469,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			}
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -469,7 +492,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			}
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -495,7 +518,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			}
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred())
@@ -556,6 +579,76 @@ var _ = Describe("LLMInferenceService API validation", func() {
 		})
 	})
 
+	Context("scheduler replicas validation", func() {
+		It("should reject LLMInferenceService with zero scheduler replicas", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-zero-scheduler-replicas",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithSchedulerReplicas(0),
+			)
+
+			// when
+			errValidation := envTest.Create(ctx, llmSvc)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("scheduler replicas must be greater than zero"))
+		})
+
+		It("should reject LLMInferenceService with negative scheduler replicas", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-negative-scheduler-replicas",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithSchedulerReplicas(-1),
+			)
+
+			// when
+			errValidation := envTest.Create(ctx, llmSvc)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("scheduler replicas must be greater than zero"))
+		})
+
+		It("should accept LLMInferenceService with positive scheduler replicas", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-positive-scheduler-replicas",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithSchedulerReplicas(2),
+			)
+
+			// then
+			Expect(envTest.Client.Create(ctx, llmSvc)).To(Succeed())
+		})
+
+		It("should accept LLMInferenceService with scheduler replicas of 1", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-one-scheduler-replica",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithSchedulerReplicas(1),
+			)
+
+			// then
+			Expect(envTest.Client.Create(ctx, llmSvc)).To(Succeed())
+		})
+
+		It("should accept LLMInferenceService without scheduler replicas specified", func(ctx SpecContext) {
+			// given
+			llmSvc := fixture.LLMInferenceService("test-no-scheduler-replicas",
+				fixture.InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				fixture.WithModelURI("hf://facebook/opt-125m"),
+				fixture.WithManagedScheduler(),
+			)
+
+			// then
+			Expect(envTest.Client.Create(ctx, llmSvc)).To(Succeed())
+		})
+	})
+
 	Context("Integer value validation", func() {
 		It("should reject LLMInferenceService with negative workload replicas", func(ctx SpecContext) {
 			// given
@@ -566,7 +659,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred(), "Expected the Create call to fail due to a validation error, but it succeeded")
@@ -584,7 +677,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred(), "Expected the Create call to fail due to a validation error, but it succeeded")
@@ -602,7 +695,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred(), "Expected the Create call to fail due to a validation error, but it succeeded")
@@ -621,7 +714,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred(), "Expected the Create call to fail due to a validation error, but it succeeded")
@@ -640,7 +733,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred(), "Expected the Create call to fail due to a validation error, but it succeeded")
@@ -658,7 +751,7 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred(), "Expected the Create call to fail due to a validation error, but it succeeded")
@@ -676,11 +769,99 @@ var _ = Describe("LLMInferenceService API validation", func() {
 			)
 
 			// when
-			errValidation := envTest.Client.Create(ctx, llmSvc)
+			errValidation := envTest.Create(ctx, llmSvc)
 
 			// then
 			Expect(errValidation).To(HaveOccurred(), "Expected the Create call to fail due to a validation error, but it succeeded")
 			Expect(errValidation.Error()).To(ContainSubstring("spec.parallelism.dataRPCPort in body should be less than or equal to 65535"))
+		})
+	})
+})
+
+var _ = Describe("LLMInferenceServiceConfig webhook validation", func() {
+	var (
+		ns     *corev1.Namespace
+		nsName string
+	)
+
+	BeforeEach(func(ctx SpecContext) {
+		nsName = fmt.Sprintf("test-llmisvcconfig-validation-%d", time.Now().UnixNano())
+
+		ns = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: nsName,
+			},
+		}
+		Expect(envTest.Client.Create(ctx, ns)).To(Succeed())
+
+		DeferCleanup(func(ctx context.Context) {
+			ns := ns
+			envTest.DeleteAll(ctx, ns)
+		})
+	})
+
+	Context("scheduler replicas validation", func() {
+		It("should reject LLMInferenceServiceConfig with zero scheduler replicas", func(ctx SpecContext) {
+			// given
+			config := fixture.LLMInferenceServiceConfig("test-config-zero-scheduler-replicas",
+				fixture.InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+				fixture.WithConfigSchedulerReplicas(0),
+			)
+
+			// when
+			errValidation := envTest.Create(ctx, config)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("scheduler replicas must be greater than zero"))
+		})
+
+		It("should reject LLMInferenceServiceConfig with negative scheduler replicas", func(ctx SpecContext) {
+			// given
+			config := fixture.LLMInferenceServiceConfig("test-config-negative-scheduler-replicas",
+				fixture.InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+				fixture.WithConfigSchedulerReplicas(-1),
+			)
+
+			// when
+			errValidation := envTest.Create(ctx, config)
+
+			// then
+			Expect(errValidation).To(HaveOccurred())
+			Expect(errValidation.Error()).To(ContainSubstring("scheduler replicas must be greater than zero"))
+		})
+
+		It("should accept LLMInferenceServiceConfig with positive scheduler replicas", func(ctx SpecContext) {
+			// given
+			config := fixture.LLMInferenceServiceConfig("test-config-positive-scheduler-replicas",
+				fixture.InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+				fixture.WithConfigSchedulerReplicas(2),
+			)
+
+			// then
+			Expect(envTest.Client.Create(ctx, config)).To(Succeed())
+		})
+
+		It("should accept LLMInferenceServiceConfig with scheduler replicas of 1", func(ctx SpecContext) {
+			// given
+			config := fixture.LLMInferenceServiceConfig("test-config-one-scheduler-replica",
+				fixture.InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+				fixture.WithConfigSchedulerReplicas(1),
+			)
+
+			// then
+			Expect(envTest.Client.Create(ctx, config)).To(Succeed())
+		})
+
+		It("should accept LLMInferenceServiceConfig without scheduler replicas specified", func(ctx SpecContext) {
+			// given
+			config := fixture.LLMInferenceServiceConfig("test-config-no-scheduler-replicas",
+				fixture.InNamespace[*v1alpha2.LLMInferenceServiceConfig](nsName),
+				fixture.WithConfigManagedScheduler(),
+			)
+
+			// then
+			Expect(envTest.Client.Create(ctx, config)).To(Succeed())
 		})
 	})
 })

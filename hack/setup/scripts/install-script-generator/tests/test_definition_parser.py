@@ -180,3 +180,373 @@ COMPONENTS:
     result = definition_parser.parse_definition(definition_file)
 
     assert result["release"] is True
+
+
+# ============================================================================
+# Unit Tests for Helper Functions
+# ============================================================================
+
+def test_resolve_definition_path_relative(tmp_path):
+    """Test resolving relative path."""
+    base_file = tmp_path / "subdir" / "main.definition"
+    base_file.parent.mkdir(parents=True)
+    base_file.touch()
+
+    result = definition_parser.resolve_definition_path("./other.definition", base_file)
+    expected = (tmp_path / "subdir" / "other.definition").resolve()
+
+    assert result == expected
+
+
+def test_resolve_definition_path_parent_dir(tmp_path):
+    """Test resolving parent directory path."""
+    base_file = tmp_path / "subdir" / "main.definition"
+    base_file.parent.mkdir(parents=True)
+    base_file.touch()
+
+    result = definition_parser.resolve_definition_path("../common/base.definition", base_file)
+    expected = (tmp_path / "common" / "base.definition").resolve()
+
+    assert result == expected
+
+
+def test_resolve_definition_path_absolute(tmp_path):
+    """Test resolving absolute path."""
+    base_file = tmp_path / "main.definition"
+    base_file.touch()
+
+    absolute_path = "/absolute/path/to/file.definition"
+    result = definition_parser.resolve_definition_path(absolute_path, base_file)
+
+    assert result == Path(absolute_path)
+
+
+def test_merge_tools_no_duplicates():
+    """Test merging tools without duplicates."""
+    base = ["helm", "kubectl"]
+    new = ["kustomize", "yq"]
+
+    result = definition_parser.merge_tools(base, new)
+
+    assert result == ["helm", "kubectl", "kustomize", "yq"]
+
+
+def test_merge_tools_with_duplicates():
+    """Test merging tools with duplicates (last-wins)."""
+    base = ["helm", "kubectl", "yq"]
+    new = ["helm", "kustomize"]  # helm is duplicate
+
+    result = definition_parser.merge_tools(base, new)
+
+    # helm should be removed from base and added at end
+    assert result == ["kubectl", "yq", "helm", "kustomize"]
+
+
+def test_merge_tools_case_insensitive():
+    """Test merging tools with case-insensitive duplicate detection."""
+    base = ["Helm", "kubectl"]
+    new = ["helm", "kustomize"]  # Helm vs helm
+
+    result = definition_parser.merge_tools(base, new)
+
+    # Helm should be treated as duplicate of helm
+    assert result == ["kubectl", "helm", "kustomize"]
+
+
+def test_merge_components_no_duplicates():
+    """Test merging components without duplicates."""
+    base = [
+        {"name": "cert-manager", "env": {}},
+        {"name": "istio", "env": {}}
+    ]
+    new = [
+        {"name": "kserve-helm", "env": {}}
+    ]
+
+    result = definition_parser.merge_components(base, new)
+
+    assert len(result) == 3
+    assert result[0]["name"] == "cert-manager"
+    assert result[1]["name"] == "istio"
+    assert result[2]["name"] == "kserve-helm"
+
+
+def test_merge_components_with_duplicates():
+    """Test merging components with duplicates (last-wins)."""
+    base = [
+        {"name": "cert-manager", "env": {}},
+        {"name": "kserve-helm", "env": {"NAMESPACE": "kserve"}},
+        {"name": "istio", "env": {}}
+    ]
+    new = [
+        {"name": "kserve-helm", "env": {"NAMESPACE": "custom"}}  # duplicate - override
+    ]
+
+    result = definition_parser.merge_components(base, new)
+
+    # kserve-helm should be removed from base and new one added at end
+    assert len(result) == 3
+    assert result[0]["name"] == "cert-manager"
+    assert result[1]["name"] == "istio"
+    assert result[2]["name"] == "kserve-helm"
+    assert result[2]["env"]["NAMESPACE"] == "custom"  # new env value
+
+
+def test_merge_components_overwrites_env():
+    """Test that merging components overwrites env (last-wins)."""
+    base = [
+        {"name": "component-a", "env": {"VAR1": "base-value", "VAR2": "keep"}}
+    ]
+    new = [
+        {"name": "component-a", "env": {"VAR1": "new-value", "VAR3": "added"}}
+    ]
+
+    result = definition_parser.merge_components(base, new)
+
+    assert len(result) == 1
+    assert result[0]["name"] == "component-a"
+    # Entire component is replaced - env is not merged, but replaced
+    assert result[0]["env"] == {"VAR1": "new-value", "VAR3": "added"}
+
+
+# ============================================================================
+# Integration Tests for INCLUDE_DEFINITIONS
+# ============================================================================
+
+def test_include_single_file(tmp_path):
+    """Test including a single definition file."""
+    # Create base definition
+    base_content = """
+COMPONENTS:
+  - cert-manager
+  - istio
+TOOLS:
+  - helm
+  - kubectl
+"""
+    base_file = tmp_path / "base.definition"
+    base_file.write_text(base_content)
+
+    # Create main definition that includes base
+    main_content = """
+INCLUDE_DEFINITIONS:
+  - ./base.definition
+COMPONENTS:
+  - kserve-helm
+TOOLS:
+  - kustomize
+"""
+    main_file = tmp_path / "main.definition"
+    main_file.write_text(main_content)
+
+    result = definition_parser.parse_definition(main_file)
+
+    # Tools should be merged
+    assert result["tools"] == ["helm", "kubectl", "kustomize"]
+
+    # Components should be merged
+    assert len(result["components"]) == 3
+    assert result["components"][0]["name"] == "cert-manager"
+    assert result["components"][1]["name"] == "istio"
+    assert result["components"][2]["name"] == "kserve-helm"
+
+
+def test_include_multiple_files(tmp_path):
+    """Test including multiple definition files."""
+    # Create first base
+    base1_content = """
+COMPONENTS:
+  - cert-manager
+TOOLS:
+  - helm
+"""
+    base1_file = tmp_path / "base1.definition"
+    base1_file.write_text(base1_content)
+
+    # Create second base
+    base2_content = """
+COMPONENTS:
+  - istio
+TOOLS:
+  - kubectl
+"""
+    base2_file = tmp_path / "base2.definition"
+    base2_file.write_text(base2_content)
+
+    # Create main definition
+    main_content = """
+INCLUDE_DEFINITIONS:
+  - ./base1.definition
+  - ./base2.definition
+COMPONENTS:
+  - kserve-helm
+TOOLS:
+  - kustomize
+"""
+    main_file = tmp_path / "main.definition"
+    main_file.write_text(main_content)
+
+    result = definition_parser.parse_definition(main_file)
+
+    # Check merged results
+    assert result["tools"] == ["helm", "kubectl", "kustomize"]
+    assert len(result["components"]) == 3
+    assert [c["name"] for c in result["components"]] == ["cert-manager", "istio", "kserve-helm"]
+
+
+def test_include_nested_files(tmp_path):
+    """Test nested includes (A includes B, B includes C)."""
+    # Create deepest file
+    c_content = """
+COMPONENTS:
+  - cert-manager
+"""
+    c_file = tmp_path / "c.definition"
+    c_file.write_text(c_content)
+
+    # Create middle file
+    b_content = """
+INCLUDE_DEFINITIONS:
+  - ./c.definition
+COMPONENTS:
+  - istio
+"""
+    b_file = tmp_path / "b.definition"
+    b_file.write_text(b_content)
+
+    # Create top file
+    a_content = """
+INCLUDE_DEFINITIONS:
+  - ./b.definition
+COMPONENTS:
+  - kserve-helm
+"""
+    a_file = tmp_path / "a.definition"
+    a_file.write_text(a_content)
+
+    result = definition_parser.parse_definition(a_file)
+
+    # Check that all components are included in order
+    assert len(result["components"]) == 3
+    assert [c["name"] for c in result["components"]] == ["cert-manager", "istio", "kserve-helm"]
+
+
+def test_include_cycle_detection(tmp_path):
+    """Test that circular dependencies are detected."""
+    # Create A that includes B
+    a_content = """
+INCLUDE_DEFINITIONS:
+  - ./b.definition
+COMPONENTS:
+  - component-a
+"""
+    a_file = tmp_path / "a.definition"
+    a_file.write_text(a_content)
+
+    # Create B that includes A (circular)
+    b_content = """
+INCLUDE_DEFINITIONS:
+  - ./a.definition
+COMPONENTS:
+  - component-b
+"""
+    b_file = tmp_path / "b.definition"
+    b_file.write_text(b_content)
+
+    # Should raise ValueError about circular dependency
+    with pytest.raises(ValueError, match="Circular dependency detected"):
+        definition_parser.parse_definition(a_file)
+
+
+def test_include_file_not_found(tmp_path):
+    """Test error when included file doesn't exist."""
+    main_content = """
+INCLUDE_DEFINITIONS:
+  - ./nonexistent.definition
+COMPONENTS:
+  - cert-manager
+"""
+    main_file = tmp_path / "main.definition"
+    main_file.write_text(main_content)
+
+    with pytest.raises(ValueError, match="Included definition file not found"):
+        definition_parser.parse_definition(main_file)
+
+
+def test_include_with_component_env_override(tmp_path):
+    """Test that component env can be overridden (last-wins)."""
+    # Create base with env
+    base_content = """
+COMPONENTS:
+  - name: kserve-helm
+    env:
+      NAMESPACE: kserve
+      VERSION: v1.0
+"""
+    base_file = tmp_path / "base.definition"
+    base_file.write_text(base_content)
+
+    # Create main that overrides env
+    main_content = """
+INCLUDE_DEFINITIONS:
+  - ./base.definition
+COMPONENTS:
+  - name: kserve-helm
+    env:
+      NAMESPACE: custom
+      DEPLOY: "true"
+"""
+    main_file = tmp_path / "main.definition"
+    main_file.write_text(main_content)
+
+    result = definition_parser.parse_definition(main_file)
+
+    # Should have only one kserve-helm component with new env
+    assert len(result["components"]) == 1
+    assert result["components"][0]["name"] == "kserve-helm"
+    assert result["components"][0]["env"] == {"NAMESPACE": "custom", "DEPLOY": "true"}
+
+
+def test_empty_include_list(tmp_path):
+    """Test that empty INCLUDE_DEFINITIONS list works."""
+    content = """
+INCLUDE_DEFINITIONS: []
+COMPONENTS:
+  - cert-manager
+"""
+    definition_file = tmp_path / "test.definition"
+    definition_file.write_text(content)
+
+    result = definition_parser.parse_definition(definition_file)
+
+    assert len(result["components"]) == 1
+    assert result["components"][0]["name"] == "cert-manager"
+
+
+def test_no_include_field(tmp_path):
+    """Test that missing INCLUDE_DEFINITIONS field works (backward compatibility)."""
+    content = """
+COMPONENTS:
+  - cert-manager
+"""
+    definition_file = tmp_path / "test.definition"
+    definition_file.write_text(content)
+
+    result = definition_parser.parse_definition(definition_file)
+
+    assert len(result["components"]) == 1
+    assert result["components"][0]["name"] == "cert-manager"
+
+
+def test_include_invalid_type(tmp_path):
+    """Test that INCLUDE_DEFINITIONS must be a list."""
+    content = """
+INCLUDE_DEFINITIONS: "not-a-list"
+COMPONENTS:
+  - cert-manager
+"""
+    definition_file = tmp_path / "test.definition"
+    definition_file.write_text(content)
+
+    with pytest.raises(ValueError, match="INCLUDE_DEFINITIONS must be a list"):
+        definition_parser.parse_definition(definition_file)
