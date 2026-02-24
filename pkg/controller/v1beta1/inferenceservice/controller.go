@@ -155,9 +155,15 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if deploymentMode == constants.ModelMeshDeployment {
 		if isvc.Spec.Transformer == nil {
-			// Skip if no transformers
+			// Skip if no transformers; still ensure status is written
 			r.Log.Info("Skipping reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
 				"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
+			if isvc.Status.GetCondition(apis.ConditionReady) == nil {
+				isvc.Status.InitializeConditions()
+			}
+			if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
+				r.Log.Error(err, "Error updating status when skipping ModelMesh reconciliation")
+			}
 			return ctrl.Result{}, nil
 		}
 		// Continue to reconcile when there is a transformer
@@ -212,22 +218,37 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
+	// Ensure status is initialized so we always have a status section (fixes empty status when reconciliation fails early).
+	// This must happen before any early-return path that calls updateStatus.
+	if isvc.Status.GetCondition(apis.ConditionReady) == nil {
+		isvc.Status.InitializeConditions()
+	}
+
 	// Abort early if the resolved deployment mode is Knative, but Knative Services are not available
 	if deploymentMode == constants.Knative {
 		ksvcAvailable, checkKsvcErr := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
 		if checkKsvcErr != nil {
+			if updateErr := r.updateStatus(ctx, isvc, deploymentMode); updateErr != nil {
+				r.Log.Error(updateErr, "Error updating status after Knative CRD availability check failure")
+			}
 			return reconcile.Result{}, checkKsvcErr
 		}
 
 		if !ksvcAvailable {
 			r.Recorder.Event(isvc, corev1.EventTypeWarning, "ServerlessModeRejected",
 				"It is not possible to use Knative deployment mode when Knative Services are not available")
+			if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
+				r.Log.Error(err, "Error updating status when Knative mode rejected")
+			}
 			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceService '%s' is Knative, but Knative Serving is not available", isvc.Name))
 		}
 
 		// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
 		allowZeroInitialScale, err := knutils.CheckZeroInitialScaleAllowed(ctx, r.Clientset)
 		if err != nil {
+			if updateErr := r.updateStatus(ctx, isvc, deploymentMode); updateErr != nil {
+				r.Log.Error(updateErr, "Error updating status after zero-initial-scale check failure")
+			}
 			return ctrl.Result{}, errors.Wrapf(err, "failed to retrieve the knative autoscaler configuration")
 		}
 
@@ -240,6 +261,9 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Reconcile cabundleConfigMap
 	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset)
 	if err := caBundleConfigMapReconciler.Reconcile(ctx, isvc.Namespace); err != nil {
+		if updateErr := r.updateStatus(ctx, isvc, deploymentMode); updateErr != nil {
+			r.Log.Error(updateErr, "Error updating status after cabundle configmap reconcile failure")
+		}
 		return reconcile.Result{}, err
 	}
 
@@ -352,6 +376,9 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
 	result, err := ingressReconciler.Reconcile(ctx, isvc)
 	if err != nil {
+		if updateErr := r.updateStatus(ctx, isvc, deploymentMode); updateErr != nil {
+			r.Log.Error(updateErr, "Error updating status after ingress reconcile failure")
+		}
 		return result, errors.Wrapf(err, "fails to reconcile ingress")
 	}
 	if result.Requeue || result.RequeueAfter > 0 {
@@ -365,6 +392,9 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Reconcile modelConfig
 	configMapReconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Clientset, r.Scheme)
 	if err := configMapReconciler.Reconcile(ctx, isvc); err != nil {
+		if updateErr := r.updateStatus(ctx, isvc, deploymentMode); updateErr != nil {
+			r.Log.Error(updateErr, "Error updating status after modelconfig reconcile failure")
+		}
 		return reconcile.Result{}, err
 	}
 
