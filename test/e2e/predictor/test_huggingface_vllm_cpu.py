@@ -56,10 +56,17 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
                 "512",
                 "--dtype",
                 "bfloat16",
+                "--enforce-eager",
+            ],
+            env=[
+                client.V1EnvVar(
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
+                ),
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "10Gi"},
-                limits={"cpu": "2", "memory": "10Gi"},
+                requests={"cpu": "2", "memory": "7Gi"},
+                limits={"cpu": "2", "memory": "7Gi"},
             ),
         ),
     )
@@ -105,10 +112,17 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
                 "512",
                 "--dtype",
                 "bfloat16",
+                "--enforce-eager",
+            ],
+            env=[
+                client.V1EnvVar(
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
+                ),
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "10Gi"},
-                limits={"cpu": "2", "memory": "10Gi"},
+                requests={"cpu": "2", "memory": "7Gi"},
+                limits={"cpu": "2", "memory": "7Gi"},
             ),
         ),
     )
@@ -156,10 +170,17 @@ def test_huggingface_vllm_cpu_openai_completions():
                 "512",
                 "--dtype",
                 "bfloat16",
+                "--enforce-eager",
+            ],
+            env=[
+                client.V1EnvVar(
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
+                ),
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "10Gi"},
-                limits={"cpu": "2", "memory": "10Gi"},
+                requests={"cpu": "2", "memory": "7Gi"},
+                limits={"cpu": "2", "memory": "7Gi"},
             ),
         ),
     )
@@ -204,10 +225,17 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
                 "512",
                 "--dtype",
                 "bfloat16",
+                "--enforce-eager",
+            ],
+            env=[
+                client.V1EnvVar(
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
+                ),
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "10Gi"},
-                limits={"cpu": "2", "memory": "10Gi"},
+                requests={"cpu": "2", "memory": "7Gi"},
+                limits={"cpu": "2", "memory": "7Gi"},
             ),
         ),
     )
@@ -258,6 +286,12 @@ def test_huggingface_vllm_cpu_rerank():
                 "--dtype",
                 "bfloat16",
                 "--enforce-eager",
+            ],
+            env=[
+                client.V1EnvVar(
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
+                ),
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "6Gi"},
