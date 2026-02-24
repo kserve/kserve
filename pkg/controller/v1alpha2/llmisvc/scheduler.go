@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"path"
 	"slices"
 	"sort"
 
@@ -148,7 +149,10 @@ func (r *LLMISVCReconciler) reconcileSchedulerServiceAccount(ctx context.Context
 }
 
 func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	scheduler := r.expectedSchedulerDeployment(ctx, llmSvc)
+	scheduler, err := r.expectedSchedulerDeployment(ctx, llmSvc)
+	if err != nil {
+		return fmt.Errorf("failed to get expected scheduler deployment %s/%s: %w", scheduler.GetNamespace(), scheduler.GetName(), err)
+	}
 	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		if isStopped {
 			llmSvc.MarkSchedulerWorkloadNotReady("Stopped", "Service is stopped")
@@ -334,7 +338,7 @@ func (r *LLMISVCReconciler) expectedSchedulerInferencePoolV1Alpha2(ctx context.C
 	return ip
 }
 
-func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) *appsv1.Deployment {
+func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*appsv1.Deployment, error) {
 	labels := SchedulerLabels(llmSvc)
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -392,11 +396,42 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 				)
 			}
 		}
+
+		if isUsingPreciseSchedulingPlugin(llmSvc.Spec) {
+			var existingServiceAccount *corev1.ServiceAccount = nil
+			if llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
+				existingServiceAccount = &corev1.ServiceAccount{}
+				err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+				if err != nil {
+					return d, fmt.Errorf("failed to fetch existing scheduler service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, err)
+				}
+			}
+
+			curr := &appsv1.Deployment{}
+			if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
+				return d, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+			}
+
+			config, err := LoadConfig(ctx, r.Clientset)
+			if err != nil {
+				return d, fmt.Errorf("failed to load config for scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+			}
+
+			modelName := llmSvc.GetName()
+			if llmSvc.Spec.Model.Name != nil {
+				modelName = *llmSvc.Spec.Model.Name
+			}
+			modelPath := path.Join(constants.DefaultModelLocalMountPath, modelName)
+
+			if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, tokenizerContainerName, modelPath); err != nil {
+				return d, fmt.Errorf("failed to attach model artifacts to scheduler deployment: %w", err)
+			}
+		}
 	}
 
 	log.FromContext(ctx).V(2).Info("Expected router scheduler deployment", "deployment", d)
 
-	return d
+	return d, nil
 }
 
 func schedulerConfigText(llmSvc *v1alpha2.LLMInferenceService) string {
@@ -643,6 +678,8 @@ func semanticRoleBindingIsEqual(expected *rbacv1.RoleBinding, curr *rbacv1.RoleB
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }
+
+const tokenizerContainerName = "tokenizer"
 
 func SchedulerLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 	return map[string]string{

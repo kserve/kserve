@@ -53,7 +53,7 @@ const CaBundleVolumeName = "cabundle-cert"
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, curr corev1.PodSpec, podSpec *corev1.PodSpec, config *Config) error {
+func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, curr corev1.PodSpec, podSpec *corev1.PodSpec, config *Config, containerName string, modelPath string) error {
 	modelUri := llmSvc.Spec.Model.URI.String()
 	schema, _, sepFound := strings.Cut(modelUri, "://")
 
@@ -72,7 +72,7 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 
 	switch schema + "://" {
 	case constants.PvcURIPrefix:
-		return r.attachPVCModelArtifact(modelUri, podSpec)
+		return r.attachPVCModelArtifact(modelUri, podSpec, containerName, modelPath)
 
 	case constants.OciURIPrefix:
 		// Check of OCI is enabled
@@ -80,13 +80,13 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 			return errors.New("OCI modelcars is not enabled")
 		}
 
-		return r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig)
+		return r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig, containerName, modelPath)
 
 	case constants.HfURIPrefix:
-		return r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig)
+		return r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath)
 
 	case constants.S3URIPrefix:
-		return r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig)
+		return r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath)
 	}
 
 	return fmt.Errorf("unsupported schema in model URI: %s", modelUri)
@@ -104,8 +104,8 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachOciModelArtifact(modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig) error {
-	if err := utils.ConfigureModelcarToContainer(modelUri, podSpec, "main", storageConfig); err != nil {
+func (r *LLMISVCReconciler) attachOciModelArtifact(modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
+	if err := utils.ConfigureModelcarToContainer(modelUri, podSpec, containerName, modelPath, storageConfig); err != nil {
 		return err
 	}
 
@@ -125,21 +125,21 @@ func (r *LLMISVCReconciler) attachOciModelArtifact(modelUri string, podSpec *cor
 //	An error if attaching the PVC model artifact fails, otherwise nil.
 //
 // TODO: For now, this supports only direct mount. Copying from PVC would come later (if it makes sense at all).
-func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *corev1.PodSpec) error {
+func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *corev1.PodSpec, containerName string, modelPath string) error {
 	pvcName, pvcPath, err := utils.ParsePvcURI(modelUri)
 	if err != nil {
 		return err
 	}
 
 	storageMountParams := utils.StorageMountParams{
-		MountPath:  constants.DefaultModelLocalMountPath,
+		MountPath:  modelPath,
 		VolumeName: constants.PvcSourceMountName,
 		ReadOnly:   true,
 		PVCName:    pvcName,
 		SubPath:    pvcPath,
 	}
 
-	if err := utils.AddModelMount(storageMountParams, "main", podSpec); err != nil {
+	if err := utils.AddModelMount(storageMountParams, containerName, podSpec); err != nil {
 		return err
 	}
 
@@ -161,8 +161,8 @@ func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *cor
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
-	if err := r.attachStorageInitializer(modelUri, curr, podSpec, storageConfig); err != nil {
+func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, containerName string, modelPath string) error {
+	if err := r.attachStorageInitializer(modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
@@ -208,8 +208,8 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
-	if err := r.attachStorageInitializer(modelUri, curr, podSpec, storageConfig); err != nil {
+func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, containerName string, modelPath string) error {
+	if err := r.attachStorageInitializer(modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
@@ -249,10 +249,10 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig) error {
+func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
 	containerArgs := []string{
 		modelUri,
-		constants.DefaultModelLocalMountPath,
+		modelPath,
 	}
 	storageMountParams := utils.StorageMountParams{
 		MountPath:  constants.DefaultModelLocalMountPath,
@@ -278,7 +278,7 @@ func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev
 	}
 
 	storageMountParams.ReadOnly = true
-	if err := utils.AddModelMount(storageMountParams, "main", podSpec); err != nil {
+	if err := utils.AddModelMount(storageMountParams, containerName, podSpec); err != nil {
 		return err
 	}
 

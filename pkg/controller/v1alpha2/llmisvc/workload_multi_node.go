@@ -201,7 +201,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 			currLeaderSpec = currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec
 		}
 
-		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config); err != nil {
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to leader template: %w", err)
 		}
 
@@ -226,7 +226,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		}
 		expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config); err != nil {
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to worker template: %w", err)
 		}
 
@@ -322,7 +322,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 				currLeaderSpec = currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec
 			}
 
-			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config); err != nil {
+			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill leader template: %w", err)
 			}
 		}
@@ -330,7 +330,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec = *llmSvc.Spec.Prefill.Worker.DeepCopy()
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config); err != nil {
+			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill worker template: %w", err)
 			}
 		}

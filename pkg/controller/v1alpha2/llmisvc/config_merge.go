@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -37,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -59,8 +61,9 @@ const (
 	configDecodeWorkerDataParallelNameSuffix  = "config-llm-decode-worker-data-parallel"
 	configPrefillWorkerDataParallelNameSuffix = "config-llm-prefill-worker-data-parallel"
 	// Router and scheduler configurations
-	configRouterSchedulerNameSuffix = "config-llm-scheduler"
-	configRouterRouteNameSuffix     = "config-llm-router-route"
+	configRouterSchedulerNameSuffix        = "config-llm-scheduler"
+	configRouterSchedulerPreciseNameSuffix = "config-llm-scheduler-precise"
+	configRouterRouteNameSuffix            = "config-llm-router-route"
 )
 
 var (
@@ -75,6 +78,7 @@ var (
 	configPrefillWorkerPipelineParallelName = configPrefix + configPrefillWorkerPipelineParallelNameSuffix
 	configPrefillWorkerDataParallelName     = configPrefix + configPrefillWorkerDataParallelNameSuffix
 	configRouterSchedulerName               = configPrefix + configRouterSchedulerNameSuffix
+	configRouterSchedulerPreciseName        = configPrefix + configRouterSchedulerPreciseNameSuffix
 	configRouterRouteName                   = configPrefix + configRouterRouteNameSuffix
 )
 
@@ -95,7 +99,12 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configPrefillTemplateName,
 	configPrefillWorkerDataParallelName,
 	configRouterSchedulerName,
+	configRouterSchedulerPreciseName,
 	configRouterRouteName,
+)
+
+const (
+	precisePrefixCacheScorerName = "precise-prefix-cache-scorer"
 )
 
 var useVersionedConfig, _ = strconv.ParseBool(constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_VERSIONED_CONFIG", "true"))
@@ -155,6 +164,10 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	refs := make([]corev1.LocalObjectReference, 0, len(llmSvc.Spec.BaseRefs))
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && !resolvedSpec.Router.Scheduler.Pool.HasRef() {
 		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerName)})
+
+		if isUsingPreciseSchedulingPlugin(resolvedSpec) {
+			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerPreciseName)})
+		}
 	}
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Route != nil && !resolvedSpec.Router.Route.HTTP.HasRefs() {
 		// For the HTTP route configuration we don't use versioned defaults since this configuration depends on the
@@ -345,6 +358,34 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	}
 
 	return llmSvcCfg, nil
+}
+
+func isUsingPreciseSchedulingPlugin(spec v1alpha2.LLMInferenceServiceSpec) bool {
+	rawCfg := schedulerConfigText(&v1alpha2.LLMInferenceService{Spec: spec})
+	if rawCfg == "" {
+		return false
+	}
+
+	var cfg map[string]interface{}
+	if err := yaml.Unmarshal([]byte(rawCfg), &cfg); err != nil {
+		return false
+	}
+
+	plugins, found, err := unstructured.NestedSlice(cfg, "plugins")
+	if err != nil || !found {
+		return false
+	}
+
+	for _, p := range plugins {
+		plugin, ok := p.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if pluginType, ok := plugin["type"].(string); ok && pluginType == precisePrefixCacheScorerName {
+			return true
+		}
+	}
+	return false
 }
 
 // ToParentRefs converts a slice of UntypedObjectReference (gateway refs) to a slice
