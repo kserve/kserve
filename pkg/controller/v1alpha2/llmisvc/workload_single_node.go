@@ -263,6 +263,7 @@ func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInfe
 	approvedAnnotationPrefixes := []string{
 		"k8s.v1.cni.cncf.io",
 		constants.KueueAPIGroupName,
+		"prometheus.io",
 	}
 	approvedLabelPrefixes := []string{
 		constants.KueueAPIGroupName,

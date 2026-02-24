@@ -101,6 +101,29 @@ func TestPropagateDeploymentMetadata(t *testing.T) {
 			unexpectedAnnotations: []string{"kubectl.kubernetes.io/last-applied-configuration"},
 		},
 		{
+			name: "should propagate prometheus.io annotations from top-level metadata",
+			objectMetaAnnotations: map[string]string{
+				"prometheus.io/scrape":  "true",
+				"prometheus.io/port":    "8080",
+				"prometheus.io/path":    "/metrics",
+				"prometheus.io/scheme":  "https",
+				"random.annotation/foo": "bar",
+			},
+			expectedDeploymentAnnotations: map[string]string{
+				"prometheus.io/scrape": "true",
+				"prometheus.io/port":   "8080",
+				"prometheus.io/path":   "/metrics",
+				"prometheus.io/scheme": "https",
+			},
+			expectedPodAnnotations: map[string]string{
+				"prometheus.io/scrape": "true",
+				"prometheus.io/port":   "8080",
+				"prometheus.io/path":   "/metrics",
+				"prometheus.io/scheme": "https",
+			},
+			unexpectedAnnotations: []string{"random.annotation/foo"},
+		},
+		{
 			name: "should always propagate WorkloadSpec labels and annotations to Pod template",
 			objectMetaLabels: map[string]string{
 				"kueue.x-k8s.io/queue-name": "meta-val",
