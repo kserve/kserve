@@ -367,17 +367,37 @@ func ToParentRefs(gatewayRefs []v1alpha2.UntypedObjectReference) []gwapiv1.Paren
 	return parentRefs
 }
 
+// templateGlobalConfig exposes only the non-sensitive fields of Config to templates.
+// StorageConfig and CredentialConfig are intentionally excluded to prevent template
+// injection from accessing internal controller configuration.
+type templateGlobalConfig struct {
+	SystemNamespace         string
+	IngressGatewayName      string
+	IngressGatewayNamespace string
+}
+
 // ReplaceVariables processes the configuration as a Go template to substitute
 // variables with values from the LLM service and global configuration.
 func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig, reconcilerConfig *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
-	templateBytes, _ := json.Marshal(llmSvcCfg)
+	templateBytes, err := json.Marshal(llmSvcCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal config for template processing: %w", err)
+	}
 	buf := bytes.NewBuffer(nil)
+	var gc templateGlobalConfig
+	if reconcilerConfig != nil {
+		gc = templateGlobalConfig{
+			SystemNamespace:         reconcilerConfig.SystemNamespace,
+			IngressGatewayName:      reconcilerConfig.IngressGatewayName,
+			IngressGatewayNamespace: reconcilerConfig.IngressGatewayNamespace,
+		}
+	}
 	config := struct {
 		*v1alpha2.LLMInferenceService
-		GlobalConfig *Config
+		GlobalConfig templateGlobalConfig
 	}{
 		LLMInferenceService: llmSvc,
-		GlobalConfig:        reconcilerConfig,
+		GlobalConfig:        gc,
 	}
 	t, err := template.New("config").
 		Funcs(map[string]any{

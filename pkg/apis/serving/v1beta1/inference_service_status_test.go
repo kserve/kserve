@@ -246,6 +246,34 @@ func TestPropagateRawStatus(t *testing.T) {
 	}
 }
 
+// TestPropagateRawStatus_EmptyDeploymentList verifies that PropagateRawStatus does not
+// panic and still sets the condition when no deployments have been created yet.
+// This is the safety guard added as part of the Bug 1 fix: before the fix,
+// accessing deploymentList[0] on an empty slice would panic.
+func TestPropagateRawStatus_EmptyDeploymentList(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	status := &InferenceServiceStatus{
+		Status:      duckv1.Status{},
+		Address:     &duckv1.Addressable{},
+		URL:         &apis.URL{},
+		ModelStatus: ModelStatus{},
+	}
+
+	parsedURL, _ := url.Parse("http://test-predictor-default.default.example.com")
+	serviceURL := (*apis.URL)(parsedURL)
+
+	// Must not panic on empty list.
+	g.Expect(func() {
+		status.PropagateRawStatus(PredictorComponent, []*appsv1.Deployment{}, serviceURL)
+	}).ToNot(gomega.Panic())
+
+	// The predictor condition should still be set (to False, since no deployment is available).
+	g.Expect(status.IsConditionFalse(PredictorReady)).To(gomega.BeTrue())
+	// ObservedGeneration must remain 0 — the guard must NOT access the empty slice.
+	g.Expect(status.ObservedGeneration).To(gomega.Equal(int64(0)))
+}
+
 func TestPropagateRawStatusWithMessages(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -264,6 +292,59 @@ func TestPropagateRawStatusWithMessages(t *testing.T) {
 	g.Expect(status.IsConditionFalse(PredictorReady)).To(gomega.BeTrue())
 	g.Expect(status.Conditions[0].Message).To(gomega.Equal(errorMsg))
 	g.Expect(status.Conditions[0].Reason).To(gomega.Equal(reason))
+}
+
+// TestPropagateRawStatusWithMessages_AllComponents verifies that
+// PropagateRawStatusWithMessages correctly sets the component-specific ready
+// condition for each of the three component types (Predictor, Transformer,
+// Explainer). This is important because the Transformer and Explainer
+// components now call this function on reconcile failure (Standard and Knative
+// modes) just as the Predictor does.
+func TestPropagateRawStatusWithMessages_AllComponents(t *testing.T) {
+	tests := []struct {
+		name          string
+		component     ComponentType
+		wantCondition apis.ConditionType
+	}{
+		{
+			name:          "predictor component sets PredictorReady=False",
+			component:     PredictorComponent,
+			wantCondition: PredictorReady,
+		},
+		{
+			name:          "transformer component sets TransformerReady=False",
+			component:     TransformerComponent,
+			wantCondition: TransformerReady,
+		},
+		{
+			name:          "explainer component sets ExplainerReady=False",
+			component:     ExplainerComponent,
+			wantCondition: ExplainerReady,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+
+			status := &InferenceServiceStatus{
+				Status:      duckv1.Status{},
+				ModelStatus: ModelStatus{},
+			}
+
+			const reason = "ReconcileFailed"
+			const msg = "some reconcile error"
+
+			status.PropagateRawStatusWithMessages(tt.component, reason, msg, corev1.ConditionFalse)
+
+			cond := status.GetCondition(tt.wantCondition)
+			g.Expect(cond).NotTo(gomega.BeNil(),
+				"condition %s should be set", tt.wantCondition)
+			g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionFalse))
+			g.Expect(cond.Reason).To(gomega.Equal(reason))
+			g.Expect(cond.Message).To(gomega.Equal(msg))
+		})
+	}
 }
 
 func TestPropagateStatus(t *testing.T) {

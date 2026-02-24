@@ -1,5 +1,4 @@
 DESCRIPTION: Install KServe LLM InferenceService dependencies only
-METHOD: helm
 
 TOOLS:
   - helm
