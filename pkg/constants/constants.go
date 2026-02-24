@@ -313,6 +313,7 @@ const (
 	KServeContainerPrometheusMetricsPathEnvVarKey     = "KSERVE_CONTAINER_PROMETHEUS_METRICS_PATH"
 	ModelInitModeEnvVarKey                            = "MODEL_INIT_MODE"
 	QueueProxyAggregatePrometheusMetricsPortEnvVarKey = "AGGREGATE_PROMETHEUS_METRICS_PORT"
+	InferenceServiceNameEnvVarKey                     = "INFERENCE_SERVICE_NAME"
 )
 
 type InferenceServiceComponent string

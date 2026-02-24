@@ -18,6 +18,16 @@ DESCRIPTION: Comprehensive test installer demonstrating all features
 METHOD: helm
 
 # ============================================================================
+# Embedded Manifests (Optional)
+# ============================================================================
+
+# EMBED_MANIFESTS: Generate standalone script with embedded Kubernetes manifests
+# - true: Embeds KServe manifests in script (large file, no repo needed)
+# - false: Script uses kustomize build at runtime (requires repo)
+# Default: false
+EMBED_MANIFESTS: true
+
+# ============================================================================
 # Global Environment Variables (Override Defaults)
 # ============================================================================
 # These override the defaults from global-vars.env

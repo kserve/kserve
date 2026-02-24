@@ -1,26 +1,16 @@
 DESCRIPTION: Install KServe Standard Mode, LLMISvc, and all related dependencies with manifests included in the script.
-METHOD: helm
 EMBED_MANIFESTS: true
-
 
 TOOLS:
   - helm
   - kustomize
   - yq
   
+INCLUDE_DEFINITIONS:
+  - ./kserve-standard-mode-dependency-install.definition
+    
 COMPONENTS:
-  - name: cert-manager
-  - name: keda
-  - name: keda-otel-addon
-  - name: opentelemetry
-  # LLMISVC
-  - name: external-lb
-  - name: gateway-api-extension-crd
-  - name: envoy-gateway
-  - name: envoy-ai-gateway
-  - name: gateway-api-gwclass
-  - name: gateway-api-gw
-  - name: lws-operator
-  - name: kserve
+  - name: kserve-kustomize
     env:
       DEPLOYMENT_MODE: Standard
+      INSTALL_RUNTIMES: true

@@ -88,7 +88,10 @@ func DiscoverURLs(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute
 
 	// Extract URLs from each gateway based on its listeners and addresses
 	for _, g := range gateways {
-		listener := selectListener(g.gateway, g.parentRef.SectionName)
+		listener, err := selectListener(g.gateway, g.parentRef.SectionName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to select listener for Gateway %s/%s: %w", g.gateway.Namespace, g.gateway.Name, err)
+		}
 		scheme := extractSchemeFromListener(listener)
 		port := listener.Port
 
@@ -190,21 +193,25 @@ func hasServiceBackend(rule gwapiv1.HTTPRouteRule) bool {
 	return false
 }
 
-// selectListener chooses the appropriate listener from a Gateway
+// selectListener chooses the appropriate listener from a Gateway.
 // If a specific sectionName is provided, it searches for that listener by name
-// Otherwise, it defaults to the first listener in the Gateway
-func selectListener(gateway *gwapiv1.Gateway, sectionName *gwapiv1.SectionName) *gwapiv1.Listener {
-	if sectionName != nil {
-		// Search for the specifically named listener
-		for _, listener := range gateway.Spec.Listeners {
-			if listener.Name == *sectionName {
-				return &listener
-			}
-		}
+// and returns an error if no match is found. Otherwise, it defaults to the
+// first listener. Returns an error if the Gateway has no listeners.
+func selectListener(gateway *gwapiv1.Gateway, sectionName *gwapiv1.SectionName) (*gwapiv1.Listener, error) {
+	if len(gateway.Spec.Listeners) == 0 {
+		return nil, fmt.Errorf("gateway %s/%s has no listeners", gateway.Namespace, gateway.Name)
 	}
 
-	// Default to the first listener if no specific section is requested
-	return &gateway.Spec.Listeners[0]
+	if sectionName != nil {
+		for i := range gateway.Spec.Listeners {
+			if gateway.Spec.Listeners[i].Name == *sectionName {
+				return &gateway.Spec.Listeners[i], nil
+			}
+		}
+		return nil, fmt.Errorf("gateway %s/%s has no listener named %q", gateway.Namespace, gateway.Name, *sectionName)
+	}
+
+	return &gateway.Spec.Listeners[0], nil
 }
 
 // extractSchemeFromListener determines the URL scheme (http/https) based on the listener protocol

@@ -263,3 +263,103 @@ func TestShouldRecreateCertificate(t *testing.T) {
 		})
 	}
 }
+
+func TestSemanticCertificateSecretIsEqual(t *testing.T) {
+	freshKey, freshCert := generateTestCert(t,
+		[]string{"localhost"},
+		[]net.IP{net.ParseIP("127.0.0.1")},
+		time.Now().Add(24*time.Hour),
+	)
+	oldKey, oldCert := generateTestCert(t,
+		[]string{"localhost"},
+		[]net.IP{net.ParseIP("127.0.0.1")},
+		time.Now().Add(24*time.Hour),
+	)
+
+	tests := []struct {
+		name     string
+		expected *corev1.Secret
+		curr     *corev1.Secret
+		want     bool
+	}{
+		{
+			name: "same data, not expired - should be equal",
+			expected: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "test"},
+				},
+				Data: map[string][]byte{"tls.key": freshKey, "tls.crt": freshCert},
+				Type: corev1.SecretTypeTLS,
+			},
+			curr: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "test"},
+					Annotations: map[string]string{
+						certificatesExpirationAnnotation: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+					},
+				},
+				Data: map[string][]byte{"tls.key": freshKey, "tls.crt": freshCert},
+				Type: corev1.SecretTypeTLS,
+			},
+			want: true,
+		},
+		{
+			name: "different data, not expired - should not be equal",
+			expected: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "test"},
+				},
+				Data: map[string][]byte{"tls.key": freshKey, "tls.crt": freshCert},
+				Type: corev1.SecretTypeTLS,
+			},
+			curr: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "test"},
+					Annotations: map[string]string{
+						certificatesExpirationAnnotation: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+					},
+				},
+				Data: map[string][]byte{"tls.key": oldKey, "tls.crt": oldCert},
+				Type: corev1.SecretTypeTLS,
+			},
+			want: false,
+		},
+		{
+			// This is the renewal scenario: the current cert is expired and
+			// the expected secret contains a freshly generated cert. The
+			// equality check must return false so that the Reconcile generic
+			// function performs the update and persists the new certificate.
+			name: "expired current cert with fresh expected cert - must not be equal (renewal)",
+			expected: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "test"},
+					Annotations: map[string]string{
+						certificatesExpirationAnnotation: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+					},
+				},
+				Data: map[string][]byte{"tls.key": freshKey, "tls.crt": freshCert},
+				Type: corev1.SecretTypeTLS,
+			},
+			curr: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "test"},
+					Annotations: map[string]string{
+						certificatesExpirationAnnotation: time.Now().Add(-time.Hour).Format(time.RFC3339),
+					},
+				},
+				Data: map[string][]byte{"tls.key": oldKey, "tls.crt": oldCert},
+				Type: corev1.SecretTypeTLS,
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := llmisvc.SemanticCertificateSecretIsEqual(tt.expected, tt.curr)
+			if got != tt.want {
+				t.Errorf("SemanticCertificateSecretIsEqual() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
