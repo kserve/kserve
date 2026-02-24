@@ -117,6 +117,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | kserve.servingruntime.huggingfaceserver.securityContext.privileged | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.servingruntime.huggingfaceserver.tag | string | `"v0.16.0"` |  |
+| kserve.servingruntime.huggingfaceserver.vllmEnableV1Multiprocessing | string | `"0"` |  |
 | kserve.servingruntime.huggingfaceserver_multinode.disabled | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver_multinode.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.huggingfaceserver_multinode.securityContext.allowPrivilegeEscalation | bool | `false` |  |
