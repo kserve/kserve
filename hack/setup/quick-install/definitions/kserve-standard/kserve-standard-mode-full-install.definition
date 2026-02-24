@@ -6,18 +6,10 @@ TOOLS:
   - kustomize
   - yq
   
+INCLUDE_DEFINITIONS:
+  - ./kserve-standard-mode-dependency-install.definition
+    
 COMPONENTS:
-  - name: cert-manager
-  - name: keda
-  - name: keda-otel-addon
-  - name: opentelemetry
-  # LLMISVC
-  - name: external-lb
-  - name: envoy-gateway
-  - name: envoy-ai-gateway
-  - name: gateway-api-gwclass
-  - name: gateway-api-gw  
-  - name: lws-operator
-  - name: kserve
+  - name: kserve-helm
     env:
       DEPLOYMENT_MODE: Standard

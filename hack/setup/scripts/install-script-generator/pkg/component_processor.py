@@ -21,6 +21,7 @@ from typing import Any, Optional
 
 from . import bash_parser
 from . import file_reader
+from . import template_embedder
 
 
 # Section markers for extraction
@@ -76,7 +77,7 @@ def find_component_script(component: str, infra_dir: Path, method: Optional[str]
     return None
 
 
-def process_component(comp_config: dict[str, Any], infra_dir: Path, method: Optional[str] = None) -> dict[str, Any]:
+def process_component(comp_config: dict[str, Any], infra_dir: Path, method: Optional[str] = None, embed_templates: bool = False) -> dict[str, Any]:
     """Process single component: find script, extract and rename functions.
 
     Args:
@@ -85,6 +86,7 @@ def process_component(comp_config: dict[str, Any], infra_dir: Path, method: Opti
                      - env: Environment variables for this component
         infra_dir: Infrastructure directory path
         method: Installation method (e.g., "helm", "kustomize"), optional
+        embed_templates: Whether to discover and embed template files
 
     Returns:
         Processed component data dict with keys:
@@ -95,6 +97,8 @@ def process_component(comp_config: dict[str, Any], infra_dir: Path, method: Opti
         - uninstall_code: Uninstall function code
         - variables: List of variable declarations
         - include_section: Code to include in generated script
+        - template_functions: Bash functions for embedded templates (if embed_templates=True)
+        - has_templates: Boolean indicating if templates were found
         - env: Environment variables
 
     Raises:
@@ -147,6 +151,13 @@ def process_component(comp_config: dict[str, Any], infra_dir: Path, method: Opti
     # Also rename any calls to install within uninstall function (less common but possible)
     uninstall_code = bash_parser.rename_bash_function(uninstall_code, "install", install_func)
 
+    # Discover and embed template files if requested
+    template_functions = ""
+    if embed_templates:
+        templates = template_embedder.discover_component_templates(name, infra_dir)
+        if templates:
+            template_functions = template_embedder.generate_template_functions(name, templates)
+
     return {
         "name": name,
         "install_func": install_func,
@@ -155,5 +166,7 @@ def process_component(comp_config: dict[str, Any], infra_dir: Path, method: Opti
         "uninstall_code": uninstall_code,
         "variables": variables,
         "include_section": include_section,
+        "template_functions": template_functions,
+        "has_templates": bool(template_functions),
         "env": comp_config["env"]
     }
