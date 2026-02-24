@@ -473,6 +473,8 @@ spec:
       env:
         - name: LMCACHE_USE_EXPERIMENTAL
           value: "{{ .Values.kserve.servingruntime.huggingfaceserver.lmcacheUseExperimental }}"
+        - name: VLLM_ENABLE_V1_MULTIPROCESSING
+          value: "{{ .Values.kserve.servingruntime.huggingfaceserver.vllmEnableV1Multiprocessing }}"
       securityContext:
           {{- with .Values.kserve.servingruntime.huggingfaceserver.securityContext}}
           {{- toYaml . | nindent 10 }}

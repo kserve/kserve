@@ -355,6 +355,7 @@ kserve:
           drop:
             - ALL
       lmcacheUseExperimental: "True"
+      vllmEnableV1Multiprocessing: "0"
       devShm:
         enabled: false
         sizeLimit: ""
