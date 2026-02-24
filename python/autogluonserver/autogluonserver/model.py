@@ -28,34 +28,44 @@ from kserve_storage import Storage
 ENV_PREDICT_PROBA = "PREDICT_PROBA"
 
 
+def _get_features(predictor) -> list:
+    """Return list of feature names. AutoGluon exposes this as a method features(), not an attribute."""
+    if predictor is None:
+        return []
+    f = getattr(predictor, "features", None)
+    if f is None:
+        return []
+    return f() if callable(f) else list(f)
+
+
 def _tensor_to_dataframe(instances, predictor) -> pd.DataFrame:
     """Build a DataFrame with model feature names from v2 tensor input (ndarray or DataFrame with integer columns)."""
+    features = _get_features(predictor)
     if isinstance(instances, np.ndarray):
-        if not hasattr(predictor, "features") or not predictor.features:
+        if not features:
             return pd.DataFrame(instances)
         arr = instances
         if arr.ndim == 1:
             arr = arr.reshape(1, -1)
-        n_features = len(predictor.features)
+        n_features = len(features)
         if arr.shape[1] != n_features:
             raise InferenceError(
                 f"v2 tensor has {arr.shape[1]} columns but model expects {n_features} features "
-                f"(order: {predictor.features}). Send data in row-major order matching GET /v2/models/{{name}} inputs."
+                f"(order: {features}). Send data in row-major order matching GET /v2/models/{{name}} inputs."
             )
-        return pd.DataFrame(arr, columns=predictor.features)
+        return pd.DataFrame(arr, columns=features)
 
     if isinstance(instances, pd.DataFrame):
         cols = instances.columns.tolist()
         # Integer column names 0,1,...,n-1 from v2 path without column semantics
         if (
-            hasattr(predictor, "features")
-            and predictor.features
-            and len(cols) == len(predictor.features)
+            features
+            and len(cols) == len(features)
             and all(isinstance(c, (int, np.integer)) for c in cols)
             and cols == list(range(len(cols)))
         ):
             df = instances.copy()
-            df.columns = predictor.features
+            df.columns = features
             return df
         return instances
 
@@ -78,14 +88,15 @@ class AutoGluonModel(Model):
         return self.ready
 
     def get_input_types(self) -> List[Dict]:
-        """Return v2 model metadata inputs: one tensor per feature, in predictor.features order."""
+        """Return v2 model metadata inputs: one tensor per feature, in predictor.features() order."""
         predictor = getattr(self, "_predictor", None)
-        if predictor is None or not getattr(predictor, "features", None):
+        features = _get_features(predictor)
+        if not features:
             return []
         # One entry per feature so clients know column order for v2 tensor payloads
         return [
             {"name": name, "datatype": "FP64", "shape": [-1]}
-            for name in predictor.features
+            for name in features
         ]
 
     def get_output_types(self) -> List[Dict]:
