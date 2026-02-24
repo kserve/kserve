@@ -118,8 +118,8 @@ async def test_vllm_modelcache():
                 "bfloat16",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "7Gi"},
-                limits={"cpu": "2", "memory": "7Gi"},
+                requests={"cpu": "2", "memory": "10Gi"},
+                limits={"cpu": "2", "memory": "10Gi"},
             ),
             storage_uri=storage_uri,
         ),

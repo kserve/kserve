@@ -22,8 +22,6 @@ spec:
       env:
         - name: LMCACHE_USE_EXPERIMENTAL
           value: "True"
-        - name: VLLM_ENABLE_V1_MULTIPROCESSING
-          value: "0"
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
