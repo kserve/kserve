@@ -158,13 +158,22 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 
 	podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)
 
+	// Add InferenceService name as environment variable to transformer container
+	// Use the actual container name from the podSpec (first container)
+	transformerContainerName := podSpec.Containers[0].Name
+	if err := isvcutils.AddEnvVarToPodSpec(&podSpec, transformerContainerName, constants.InferenceServiceNameEnvVarKey, isvc.Name); err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to add INFERENCE_SERVICE_NAME environment variable to container %s", transformerContainerName)
+	}
+
 	// Here we allow switch between knative and vanilla deployment
 	if p.deploymentMode == constants.Standard {
 		if err := p.reconcileTransformerRawDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.TransformerComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
 	} else {
 		if err := p.reconcileTransformerKnativeDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.TransformerComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
 	}

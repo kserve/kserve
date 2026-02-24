@@ -87,7 +87,7 @@ func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, 
 		return Delete(ctx, r, llmSvc, expected)
 	}
 
-	if err := Reconcile(ctx, r, llmSvc, &corev1.Secret{}, expected, semanticCertificateSecretIsEqual); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &corev1.Secret{}, expected, SemanticCertificateSecretIsEqual); err != nil {
 		return fmt.Errorf("failed to reconcile self-signed TLS certificate: %w", err)
 	}
 	return nil
@@ -312,11 +312,11 @@ func (r *LLMISVCReconciler) collectIPAddresses(ctx context.Context, llmSvc *v1al
 	return ips.List(), nil
 }
 
-// semanticCertificateSecretIsEqual is a semantic comparison for secrets that is specifically meant to compare TLS
+// SemanticCertificateSecretIsEqual is a semantic comparison for secrets that is specifically meant to compare TLS
 // certificates secrets handling expiration and renewal.
-func semanticCertificateSecretIsEqual(expected *corev1.Secret, curr *corev1.Secret) bool {
+func SemanticCertificateSecretIsEqual(expected *corev1.Secret, curr *corev1.Secret) bool {
 	if isCertificateExpired(curr) {
-		return true
+		return false
 	}
 
 	expectedAnnotations := maps.Clone(expected.Annotations)

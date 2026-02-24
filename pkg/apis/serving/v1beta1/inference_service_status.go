@@ -428,7 +428,9 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 
 	ss.SetCondition(readyCondition, componentReadyCondition)
 	ss.Components[component] = statusSpec
-	ss.ObservedGeneration = deploymentList[0].Status.ObservedGeneration
+	if len(deploymentList) > 0 {
+		ss.ObservedGeneration = deploymentList[0].Status.ObservedGeneration
+	}
 }
 
 func getDeploymentCondition(deploymentList []*appsv1.Deployment, conditionType appsv1.DeploymentConditionType) *apis.Condition {
