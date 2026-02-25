@@ -322,6 +322,12 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 				Spec: convertInferencePoolSpecToV1(src.Scheduler.Pool.Spec),
 			}
 		}
+		if src.Scheduler.Config != nil {
+			dst.Scheduler.Config = &v1alpha2.SchedulerConfigSpec{
+				Inline: src.Scheduler.Config.Inline,
+				Ref:    src.Scheduler.Config.Ref,
+			}
+		}
 	}
 
 	return dst
@@ -393,6 +399,12 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 			dst.Scheduler.Pool = &InferencePoolSpec{
 				Ref:  src.Scheduler.Pool.Ref,
 				Spec: convertInferencePoolSpecFromV1(src.Scheduler.Pool.Spec),
+			}
+		}
+		if src.Scheduler.Config != nil {
+			dst.Scheduler.Config = &SchedulerConfigSpec{
+				Inline: src.Scheduler.Config.Inline,
+				Ref:    src.Scheduler.Config.Ref,
 			}
 		}
 	}
