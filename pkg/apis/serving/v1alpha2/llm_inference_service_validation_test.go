@@ -17,9 +17,16 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -143,4 +150,390 @@ func TestParentRefsMatchGatewayRefs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newBaseLLMInferenceServiceV1Alpha2() *LLMInferenceService {
+	return &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-isvc",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+			},
+		},
+	}
+}
+
+func TestValidateWorkloadScaling(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	tests := []struct {
+		name           string
+		workload       *WorkloadSpec
+		wantErrCount   int
+		wantErrStrings []string
+	}{
+		{
+			name: "valid: scaling with WVA + HPA",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						VariantCost: "10.0",
+						HPA:         &HPAScalingSpec{},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: scaling with WVA + KEDA and idleReplicaCount",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(2)),
+					MaxReplicas: ptr.To(int32(10)),
+					WVA: &WVASpec{
+						VariantCost: "5.0",
+						KEDA: &KEDAScalingSpec{
+							PollingInterval:  ptr.To(int32(30)),
+							CooldownPeriod:   ptr.To(int32(60)),
+							IdleReplicaCount: ptr.To(int32(1)),
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name:         "valid: no scaling configured",
+			workload:     &WorkloadSpec{},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: scaling with only maxReplicas (no minReplicas)",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						HPA: &HPAScalingSpec{},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: variantCost integer format",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						VariantCost: "10",
+						HPA:         &HPAScalingSpec{},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: variantCost decimal format",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						VariantCost: "0.5",
+						HPA:         &HPAScalingSpec{},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: HPA with behavior configured",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						HPA: &HPAScalingSpec{
+							Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+								ScaleUp: &autoscalingv2.HPAScalingRules{
+									StabilizationWindowSeconds: ptr.To(int32(60)),
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "error: replicas and scaling both set",
+			workload: &WorkloadSpec{
+				Replicas: ptr.To(int32(3)),
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						HPA: &HPAScalingSpec{},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"scaling and replicas are mutually exclusive"},
+		},
+		{
+			name: "error: scaling without maxReplicas",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(1)),
+					WVA: &WVASpec{
+						HPA: &HPAScalingSpec{},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"maxReplicas is required when scaling is configured"},
+		},
+		{
+			name: "error: minReplicas > maxReplicas",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(10)),
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						HPA: &HPAScalingSpec{},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"minReplicas (10) cannot exceed maxReplicas (5)"},
+		},
+		{
+			name: "error: scaling without WVA",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"wva is required when scaling is configured"},
+		},
+		{
+			name: "error: WVA with both HPA and KEDA",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						HPA:  &HPAScalingSpec{},
+						KEDA: &KEDAScalingSpec{},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"hpa and keda are mutually exclusive"},
+		},
+		{
+			name: "error: WVA with neither HPA nor KEDA",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA:         &WVASpec{},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"either hpa or keda must be specified"},
+		},
+		{
+			name: "error: invalid variantCost - alphabetic",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						VariantCost: "abc",
+						HPA:         &HPAScalingSpec{},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"variantCost must be a non-negative numeric string"},
+		},
+		{
+			name: "error: invalid variantCost - negative",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						VariantCost: "-1",
+						HPA:         &HPAScalingSpec{},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"variantCost must be a non-negative numeric string"},
+		},
+		{
+			name: "error: invalid variantCost - multiple dots",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						VariantCost: "10.0.1",
+						HPA:         &HPAScalingSpec{},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"variantCost must be a non-negative numeric string"},
+		},
+		{
+			name: "error: KEDA idleReplicaCount without minReplicas",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(10)),
+					WVA: &WVASpec{
+						KEDA: &KEDAScalingSpec{
+							IdleReplicaCount: ptr.To(int32(1)),
+						},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"minReplicas is required when idleReplicaCount is set"},
+		},
+		{
+			name: "error: KEDA idleReplicaCount >= minReplicas",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(2)),
+					MaxReplicas: ptr.To(int32(10)),
+					WVA: &WVASpec{
+						KEDA: &KEDAScalingSpec{
+							IdleReplicaCount: ptr.To(int32(3)),
+						},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"idleReplicaCount (3) must be less than minReplicas (2)"},
+		},
+		{
+			name: "error: KEDA idleReplicaCount == minReplicas",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(2)),
+					MaxReplicas: ptr.To(int32(10)),
+					WVA: &WVASpec{
+						KEDA: &KEDAScalingSpec{
+							IdleReplicaCount: ptr.To(int32(2)),
+						},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"idleReplicaCount (2) must be less than minReplicas (2)"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := validator.validateWorkloadScaling(field.NewPath("spec"), tt.workload)
+			assert.Len(t, errs, tt.wantErrCount, "expected %d errors, got %d: %v", tt.wantErrCount, len(errs), errs)
+			for _, wantStr := range tt.wantErrStrings {
+				found := false
+				for _, e := range errs {
+					if strings.Contains(e.Error(), wantStr) {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "expected error containing %q, got: %v", wantStr, errs)
+			}
+		})
+	}
+}
+
+func TestValidateScaling_PrefillWorkload(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	t.Run("error on prefill scaling uses correct field path", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.Prefill = &WorkloadSpec{
+			Replicas: ptr.To(int32(3)),
+			Scaling: &ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA: &WVASpec{
+					HPA: &HPAScalingSpec{},
+				},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.prefill.scaling",
+			"error should reference spec.prefill.scaling path")
+		assert.Contains(t, errs[0].Detail, "scaling and replicas are mutually exclusive")
+	})
+
+	t.Run("both decode and prefill with valid scaling", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MinReplicas: ptr.To(int32(1)),
+				MaxReplicas: ptr.To(int32(5)),
+				WVA: &WVASpec{
+					HPA: &HPAScalingSpec{},
+				},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MinReplicas: ptr.To(int32(2)),
+				MaxReplicas: ptr.To(int32(8)),
+				WVA: &WVASpec{
+					KEDA: &KEDAScalingSpec{
+						IdleReplicaCount: ptr.To(int32(1)),
+					},
+				},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		assert.Empty(t, errs, "expected no errors for valid scaling on both workloads")
+	})
+
+	t.Run("errors on both decode and prefill are reported", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		// Decode: missing WVA
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+			},
+		}
+		// Prefill: missing maxReplicas
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				WVA: &WVASpec{
+					HPA: &HPAScalingSpec{},
+				},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		require.Len(t, errs, 2, "expected errors from both decode and prefill workloads")
+
+		foundDecodeErr := false
+		foundPrefillErr := false
+		for _, e := range errs {
+			if strings.Contains(e.Field, "spec.scaling") && !strings.Contains(e.Field, "prefill") {
+				foundDecodeErr = true
+			}
+			if strings.Contains(e.Field, "spec.prefill.scaling") {
+				foundPrefillErr = true
+			}
+		}
+		assert.True(t, foundDecodeErr, "expected error on spec.scaling path for decode workload")
+		assert.True(t, foundPrefillErr, "expected error on spec.prefill.scaling path for prefill workload")
+	})
 }
