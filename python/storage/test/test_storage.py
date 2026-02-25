@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 
 from kserve_storage import Storage
+from kserve_storage.kserve_storage import _should_download, _parse_patterns_from_env
 
 STORAGE_MODULE = "kserve_storage.kserve_storage"
 HTTPS_URI_TARGZ = "https://foo.bar/model.tar.gz"
@@ -271,7 +272,9 @@ def test_download_azure_blob_called_with_matching_uri(mock_download_azure_blob):
     for uri in azure_blob_uris:
         Storage.download(uri, out_dir="dest_path")
 
-    expected_calls = [mock.call(uri, "dest_path") for uri in azure_blob_uris]
+    expected_calls = [
+        mock.call(uri, "dest_path", None, None) for uri in azure_blob_uris
+    ]
     mock_download_azure_blob.assert_has_calls(expected_calls)
 
 
@@ -288,7 +291,9 @@ def test_download_azure_file_share_called_with_matching_uri(
     for uri in azure_file_uris:
         Storage.download(uri, out_dir="dest_path")
 
-    expected_calls = [mock.call(uri, "dest_path") for uri in azure_file_uris]
+    expected_calls = [
+        mock.call(uri, "dest_path", None, None) for uri in azure_file_uris
+    ]
     mock_download_azure_file_share.assert_has_calls(expected_calls)
 
 
@@ -427,3 +432,94 @@ def test_git_repo_download_public_repo_no_auth(mock_clone):
     # No username or password should be passed for public repos
     assert "username" not in kwargs
     assert "password" not in kwargs
+
+
+# Tests for _should_download and _parse_patterns_from_env
+
+
+class TestShouldDownload:
+    def test_no_patterns_allows_all(self):
+        assert _should_download("model.safetensors") is True
+        assert _should_download("subdir/model.bin") is True
+
+    def test_allow_patterns_match(self):
+        assert (
+            _should_download("model.safetensors", allow_patterns=["*.safetensors"])
+            is True
+        )
+        assert _should_download("model.bin", allow_patterns=["*.safetensors"]) is False
+
+    def test_allow_patterns_multiple(self):
+        patterns = ["*.safetensors", "*.json"]
+        assert _should_download("model.safetensors", allow_patterns=patterns) is True
+        assert _should_download("config.json", allow_patterns=patterns) is True
+        assert _should_download("model.bin", allow_patterns=patterns) is False
+
+    def test_ignore_patterns_match(self):
+        assert _should_download("model.safetensors", ignore_patterns=["*.bin"]) is True
+        assert _should_download("model.bin", ignore_patterns=["*.bin"]) is False
+
+    def test_ignore_patterns_multiple(self):
+        patterns = ["*.bin", "*.gguf"]
+        assert _should_download("model.safetensors", ignore_patterns=patterns) is True
+        assert _should_download("model.bin", ignore_patterns=patterns) is False
+        assert _should_download("model.gguf", ignore_patterns=patterns) is False
+
+    def test_both_patterns(self):
+        allow = ["*.safetensors", "*.json"]
+        ignore = ["config.json"]
+        assert _should_download("model.safetensors", allow, ignore) is True
+        assert _should_download("config.json", allow, ignore) is False
+        assert _should_download("tokenizer.json", allow, ignore) is True
+        assert _should_download("model.bin", allow, ignore) is False
+
+    def test_subdirectory_matching(self):
+        assert (
+            _should_download(
+                "subdir/model.safetensors", allow_patterns=["*.safetensors"]
+            )
+            is True
+        )
+        assert (
+            _should_download("deep/nested/model.bin", ignore_patterns=["*.bin"])
+            is False
+        )
+
+    def test_empty_patterns_treated_as_none(self):
+        assert _should_download("model.bin", allow_patterns=[]) is True
+        assert _should_download("model.bin", ignore_patterns=[]) is True
+
+
+class TestParsePatterns:
+    def test_not_set(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            assert _parse_patterns_from_env("STORAGE_ALLOW_PATTERNS") is None
+
+    def test_empty_string(self):
+        with mock.patch.dict(os.environ, {"STORAGE_ALLOW_PATTERNS": ""}):
+            assert _parse_patterns_from_env("STORAGE_ALLOW_PATTERNS") is None
+
+    def test_json_array(self):
+        with mock.patch.dict(
+            os.environ,
+            {"STORAGE_ALLOW_PATTERNS": '["*.safetensors", "*.json"]'},
+        ):
+            result = _parse_patterns_from_env("STORAGE_ALLOW_PATTERNS")
+            assert result == ["*.safetensors", "*.json"]
+
+    def test_comma_separated(self):
+        with mock.patch.dict(
+            os.environ, {"STORAGE_ALLOW_PATTERNS": "*.safetensors,*.json"}
+        ):
+            result = _parse_patterns_from_env("STORAGE_ALLOW_PATTERNS")
+            assert result == ["*.safetensors", "*.json"]
+
+    def test_single_pattern(self):
+        with mock.patch.dict(os.environ, {"STORAGE_ALLOW_PATTERNS": "*.safetensors"}):
+            result = _parse_patterns_from_env("STORAGE_ALLOW_PATTERNS")
+            assert result == ["*.safetensors"]
+
+    def test_json_single_string(self):
+        with mock.patch.dict(os.environ, {"STORAGE_ALLOW_PATTERNS": '"*.safetensors"'}):
+            result = _parse_patterns_from_env("STORAGE_ALLOW_PATTERNS")
+            assert result == ["*.safetensors"]
