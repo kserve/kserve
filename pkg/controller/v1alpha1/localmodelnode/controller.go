@@ -84,8 +84,9 @@ var (
 	storageInitializerConfig   *pkgtypes.StorageInitializerConfig
 )
 
-// Returns the nodegroup of a node
-// NOTE: Assuming a node could only belong to 1 nodegroup
+// Returns the first matching nodegroup for a node.
+// NOTE: A node may match multiple nodegroups with overlapping affinity.
+// This is only used as a fallback when modelInfo.NodeGroup is not set.
 func (c *LocalModelNodeReconciler) getNodeGroupFromNode(ctx context.Context, nodeName string) (*v1alpha1.LocalModelNodeGroup, error) {
 	node := &corev1.Node{}
 	if err := c.Get(ctx, types.NamespacedName{Name: nodeName}, node); err != nil {
@@ -110,17 +111,23 @@ func (c *LocalModelNodeReconciler) getNodeGroupFromNode(ctx context.Context, nod
 
 func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode v1alpha1.LocalModelNode, modelInfo v1alpha1.LocalModelInfo) (*batchv1.Job, error) {
 	jobName := modelInfo.ModelName + "-" + localModelNode.Name
-	nodeGroup, err := c.getNodeGroupFromNode(ctx, nodeName)
-	if nodeGroup == nil {
-		c.Log.Error(err, "Failed to get node group for current node", "node name", nodeName)
-		return nil, err
+
+	// Use NodeGroup from modelInfo if set, otherwise fall back to getNodeGroupFromNode
+	nodeGroupName := modelInfo.NodeGroup
+	if nodeGroupName == "" {
+		nodeGroup, err := c.getNodeGroupFromNode(ctx, nodeName)
+		if nodeGroup == nil {
+			c.Log.Error(err, "Failed to get node group for current node", "node name", nodeName)
+			return nil, err
+		}
+		nodeGroupName = nodeGroup.Name
 	}
 
-	pvcName := modelInfo.ModelName + "-" + nodeGroup.Name
+	pvcName := modelInfo.ModelName + "-" + nodeGroupName
 	if modelInfo.Namespace != "" {
 		pvcName += "-download"
 	}
-	c.Log.Info("Using PVC name to create download job", "current node", nodeName, "node group", nodeGroup.Name, "PVC name", pvcName)
+	c.Log.Info("Using PVC name to create download job", "current node", nodeName, "node group", nodeGroupName, "PVC name", pvcName)
 
 	// First, try to get container spec from ClusterStorageContainer for backward compatibility
 	container, err := c.getContainerSpecForStorageUri(ctx, modelInfo.SourceModelUri)
