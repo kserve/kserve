@@ -1031,6 +1031,167 @@ var _ = Describe("LocalModelNode controller", func() {
 			}, timeout, interval).Should(BeTrue(), "Status should use namespace/modelName as key")
 		})
 
+		It("should use NodeGroup from modelInfo for PVC name when overlapping nodegroups exist", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			fsMock.clear()
+
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: map[string]string{
+					"localModel": `{
+						"jobNamespace": "kserve-localmodel-jobs",
+						"defaultJobImage": "kserve/storage-initializer:latest"
+					}`,
+					"storageInitializer": `{
+						"image": "kserve/storage-initializer:latest",
+						"cpuRequest": "100m",
+						"cpuLimit": "1",
+						"memoryRequest": "200Mi",
+						"memoryLimit": "1Gi"
+					}`,
+				},
+			}
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			// Create two nodegroups with SAME node affinity (overlapping)
+			overlappingNodeAffinity := &corev1.VolumeNodeAffinity{
+				Required: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{
+						{
+							MatchExpressions: []corev1.NodeSelectorRequirement{
+								{
+									Key:      "node.kubernetes.io/instance-type",
+									Operator: corev1.NodeSelectorOpIn,
+									Values:   []string{"gpu"},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			// First nodegroup - qwen-nodegroup (alphabetically first, will be returned by getNodeGroupFromNode)
+			qwenNodeGroupSpec := v1alpha1.LocalModelNodeGroupSpec{
+				PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+					AccessModes:                   []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					VolumeMode:                    ptr.To(corev1.PersistentVolumeFilesystem),
+					Capacity:                      corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("2Gi")},
+					StorageClassName:              "standard",
+					PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+					PersistentVolumeSource: corev1.PersistentVolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: "/models",
+							Type: ptr.To(corev1.HostPathDirectory),
+						},
+					},
+					NodeAffinity: overlappingNodeAffinity,
+				},
+				PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					Resources:   corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("2Gi")}},
+				},
+			}
+			qwenNodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "qwen-nodegroup",
+				},
+				Spec: qwenNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, qwenNodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, qwenNodeGroup)
+
+			sklearnNodeGroupSpec := v1alpha1.LocalModelNodeGroupSpec{
+				PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+					AccessModes:                   []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					VolumeMode:                    ptr.To(corev1.PersistentVolumeFilesystem),
+					Capacity:                      corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("2Gi")},
+					StorageClassName:              "standard",
+					PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+					PersistentVolumeSource: corev1.PersistentVolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: "/models",
+							Type: ptr.To(corev1.HostPathDirectory),
+						},
+					},
+					NodeAffinity: overlappingNodeAffinity,
+				},
+				PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					Resources:   corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("2Gi")}},
+				},
+			}
+			sklearnNodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn-nodegroup",
+				},
+				Spec: sklearnNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, sklearnNodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, sklearnNodeGroup)
+
+			nodeName = "worker-overlapping"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{
+						{
+							Type:   corev1.NodeReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			sklearnModelName := "sklearn-model"
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+				},
+				Spec: v1alpha1.LocalModelNodeSpec{
+					LocalModels: []v1alpha1.LocalModelInfo{
+						{
+							SourceModelUri: "s3://bucket/sklearn-model",
+							ModelName:      sklearnModelName,
+							NodeGroup:      "sklearn-nodegroup", // Explicitly specify the correct nodegroup
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			// Wait for the download job to be created
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{
+				"model": sklearnModelName,
+				"node":  nodeName,
+			}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 1
+			}, timeout, interval).Should(BeTrue(), "Download job should be created")
+
+			// Verify the job uses the CORRECT PVC name (sklearn-model-sklearn-nodegroup)
+			job := &jobs.Items[0]
+			Expect(job.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			pvcVolume := job.Spec.Template.Spec.Volumes[0]
+			Expect(pvcVolume.PersistentVolumeClaim).NotTo(BeNil())
+			Expect(pvcVolume.PersistentVolumeClaim.ClaimName).To(Equal("sklearn-model-sklearn-nodegroup"),
+				"PVC name should use NodeGroup from modelInfo, not the first matching nodegroup from getNodeGroupFromNode")
+		})
+
 		It("Should append -download suffix to PVC name for namespace-scoped models", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
@@ -1069,20 +1230,6 @@ var _ = Describe("LocalModelNode controller", func() {
 					PersistentVolumeSpec: corev1.PersistentVolumeSpec{
 						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 						Capacity:    corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("10Gi")},
-						NodeAffinity: &corev1.VolumeNodeAffinity{
-							Required: &corev1.NodeSelector{
-								NodeSelectorTerms: []corev1.NodeSelectorTerm{
-									{
-										MatchExpressions: []corev1.NodeSelectorRequirement{
-											{
-												Key:      "node-role.kubernetes.io/worker",
-												Operator: corev1.NodeSelectorOpExists,
-											},
-										},
-									},
-								},
-							},
-						},
 					},
 					PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
 						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -1115,6 +1262,7 @@ var _ = Describe("LocalModelNode controller", func() {
 					{
 						SourceModelUri: sourceModelUri,
 						ModelName:      sklearnModelName,
+						NodeGroup:      sklearnNodeGroupName,
 						Namespace:      nsModelNamespace,
 					},
 				},
