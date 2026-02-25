@@ -13,8 +13,8 @@ spec:
         - -c
         - |
           aws s3 mb s3://example-models || true
-          curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o sklearn-model.joblib
-          aws s3 cp sklearn-model.joblib s3://example-models/sklearn/model.joblib  --no-verify-ssl
+          curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o /tmp/sklearn-model.joblib
+          aws s3 cp /tmp/sklearn-model.joblib s3://example-models/sklearn/model.joblib  --no-verify-ssl
         env:
         - name: AWS_ACCESS_KEY_ID
           valueFrom:

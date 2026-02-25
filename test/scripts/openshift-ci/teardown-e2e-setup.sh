@@ -41,7 +41,7 @@ mkdir -p $HOME/.local/bin
 MY_PATH=$(dirname "$0")
 PROJECT_ROOT=$MY_PATH/../../../
 
-echo "Deleting KServe with Minio"
+echo "Deleting KServe with SeaweedFS"
 kustomize build $PROJECT_ROOT/config/overlays/test |
   sed "s|kserve/storage-initializer:latest|${STORAGE_INITIALIZER_IMAGE}|" |
   sed "s|kserve/agent:latest|${KSERVE_AGENT_IMAGE}|" |
@@ -50,15 +50,15 @@ kustomize build $PROJECT_ROOT/config/overlays/test |
   oc delete -f - --ignore-not-found || true
 
 if [[ "${1:-}" =~ kserve_on_openshift ]]; then
-  echo "Deleting TLS MinIO resources and generated certificates"
+  echo "Deleting TLS SeaweedFS resources and generated certificates"
   kustomize build $PROJECT_ROOT/test/overlays/openshift-ci |
     oc delete -n kserve -f - --ignore-not-found || true
-  oc delete secret minio-tls-custom -n kserve --ignore-not-found || true
-  oc delete secret minio-tls-serving -n kserve --ignore-not-found || true
-  # Clean up storage-config secret entries for TLS MinIO
+  oc delete secret seaweedfs-tls-custom -n kserve --ignore-not-found || true
+  oc delete secret seaweedfs-tls-serving -n kserve --ignore-not-found || true
+  # Clean up storage-config secret entries for TLS S3
   if oc get secret storage-config -n kserve-ci-e2e-test > /dev/null 2>&1; then
     oc patch secret storage-config -n kserve-ci-e2e-test --type=json \
-      -p='[{"op": "remove", "path": "/data/localTLSMinIOServing"}, {"op": "remove", "path": "/data/localTLSMinIOCustom"}]' 2>/dev/null || true
+      -p='[{"op": "remove", "path": "/data/localTLSS3Serving"}, {"op": "remove", "path": "/data/localTLSS3Custom"}]' 2>/dev/null || true
   fi
   rm -rf $PROJECT_ROOT/test/scripts/openshift-ci/tls/certs
 fi
@@ -78,7 +78,7 @@ echo "Delete CI namespace and ServingRuntimes"
 # Tear down the CI namespace (Kubernetes will automatically clean up all resources including ServiceMeshMember)
 "$MY_PATH/teardown-ci-namespace.sh" "${1:-}" "kserve-ci-e2e-test"
 
-oc delete -f $PROJECT_ROOT/config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test --ignore-not-found || true
+oc delete -f $PROJECT_ROOT/config/overlays/test/s3-local-backend/mlpipeline-s3-artifact-secret.yaml -n kserve-ci-e2e-test --ignore-not-found || true
 
 kustomize build $PROJECT_ROOT/config/overlays/test/clusterresources |
   sed 's/ClusterServingRuntime/ServingRuntime/' |
