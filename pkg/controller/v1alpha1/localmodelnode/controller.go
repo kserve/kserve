@@ -21,6 +21,8 @@ limitations under the License.
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=get;watch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get
 package localmodelnode
@@ -52,13 +54,16 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
+	"github.com/kserve/kserve/pkg/credentials"
+	pkgtypes "github.com/kserve/kserve/pkg/types"
 )
 
 type LocalModelNodeReconciler struct {
 	client.Client
-	Clientset *kubernetes.Clientset
-	Log       logr.Logger
-	Scheme    *runtime.Scheme
+	Clientset         *kubernetes.Clientset
+	Log               logr.Logger
+	Scheme            *runtime.Scheme
+	CredentialBuilder *credentials.CredentialBuilder
 }
 
 const (
@@ -76,6 +81,7 @@ var (
 	nodeName                                 = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
 	modelsRootFolder                         = filepath.Join(MountPath, "models")
 	fsHelper                   FileSystemInterface
+	storageInitializerConfig   *pkgtypes.StorageInitializerConfig
 )
 
 // Returns the nodegroup of a node
@@ -112,9 +118,15 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	pvcName := modelInfo.ModelName + "-" + nodeGroup.Name
 	c.Log.Info("Found the nodegroup of current node. Using the following PVC name to create download job", "current node", nodeName, "node group", nodeGroup.Name, "PVC name", pvcName)
 
+	// First, try to get container spec from ClusterStorageContainer for backward compatibility
 	container, err := c.getContainerSpecForStorageUri(ctx, modelInfo.SourceModelUri)
 	if err != nil {
 		return nil, err
+	}
+
+	// If no ClusterStorageContainer match, use StorageInitializerConfig
+	if container == nil {
+		container = c.getContainerSpecFromConfig(storageInitializerConfig)
 	}
 
 	container.Args = []string{modelInfo.SourceModelUri, MountPath}
@@ -126,6 +138,28 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 			SubPath:   filepath.Join("models", modelInfo.ModelName),
 		},
 	}
+
+	// Initialize volumes with the PVC volume
+	volumes := []corev1.Volume{
+		{
+			Name: PvcSourceMountName,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvcName,
+				},
+			},
+		},
+	}
+
+	// Inject credentials based on modelInfo configuration
+	// Only inject if credentials are explicitly configured in LocalModelCache
+	if modelInfo.ServiceAccountName != "" || modelInfo.Storage != nil {
+		if err := c.injectCredentials(ctx, container, &volumes, modelInfo); err != nil {
+			c.Log.Error(err, "Failed to inject credentials", "model", modelInfo.ModelName)
+			// Don't fail the job creation, continue with whatever credentials were injected
+		}
+	}
+
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: jobName,
@@ -139,16 +173,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 					NodeName:      nodeName,
 					Containers:    []corev1.Container{*container},
 					RestartPolicy: corev1.RestartPolicyNever,
-					Volumes: []corev1.Volume{
-						{
-							Name: PvcSourceMountName,
-							VolumeSource: corev1.VolumeSource{
-								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: pvcName,
-								},
-							},
-						},
-					},
+					Volumes:       volumes,
 					SecurityContext: &corev1.PodSecurityContext{
 						FSGroup: FSGroup,
 					},
@@ -171,7 +196,53 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	return createdJob, err
 }
 
+func (c *LocalModelNodeReconciler) getContainerSpecFromConfig(config *pkgtypes.StorageInitializerConfig) *corev1.Container {
+	image := defaultJobImage
+	if config != nil && config.Image != "" {
+		image = config.Image
+	}
+
+	container := &corev1.Container{
+		Name:                     DownloadContainerName,
+		Image:                    image,
+		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+	}
+
+	return container
+}
+
+// injectCredentials injects credentials into the container based on the modelInfo configuration
+func (c *LocalModelNodeReconciler) injectCredentials(ctx context.Context, container *corev1.Container,
+	volumes *[]corev1.Volume, modelInfo v1alpha1.LocalModelInfo,
+) error {
+	if c.CredentialBuilder == nil {
+		c.Log.Info("CredentialBuilder not initialized, skipping credential injection")
+		return nil
+	}
+
+	// If storage spec with key is provided, use storage spec credentials
+	if modelInfo.Storage != nil && modelInfo.Storage.StorageKey != nil {
+		var params map[string]string
+		if modelInfo.Storage.Parameters != nil {
+			params = *modelInfo.Storage.Parameters
+		}
+		c.Log.Info("Injecting storage spec credentials", "storageKey", *modelInfo.Storage.StorageKey)
+		return c.CredentialBuilder.CreateStorageSpecSecretEnvs(
+			ctx, jobNamespace, nil, *modelInfo.Storage.StorageKey, params, container)
+	}
+
+	// Use service account credentials
+	serviceAccountName := modelInfo.ServiceAccountName
+	if serviceAccountName == "" {
+		serviceAccountName = "default"
+	}
+	c.Log.Info("Injecting service account credentials", "serviceAccountName", serviceAccountName)
+	return c.CredentialBuilder.CreateSecretVolumeAndEnv(
+		ctx, jobNamespace, nil, serviceAccountName, container, volumes)
+}
+
 // Fetches container spec for model download container, use the default KServe image if not found
+// This function is kept for backward compatibility with ClusterStorageContainer
 func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Context, storageUri string) (*corev1.Container, error) {
 	storageContainers := &v1alpha1.ClusterStorageContainerList{}
 	if err := c.List(ctx, storageContainers); err != nil {
@@ -194,12 +265,7 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 		}
 	}
 
-	defaultContainer := &corev1.Container{
-		Name:                     DownloadContainerName,
-		Image:                    defaultJobImage,
-		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-	}
-	return defaultContainer, nil
+	return nil, nil
 }
 
 func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelName string, nodeName string) (*batchv1.Job, int, error) {
@@ -444,6 +510,18 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 	if localModelConfig.JobTTLSecondsAfterFinished != nil {
 		jobTTLSecondsAfterFinished = *localModelConfig.JobTTLSecondsAfterFinished
+	}
+
+	// Load StorageInitializerConfig for container spec
+	storageInitializerConfig, err = v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
+	if err != nil {
+		c.Log.Error(err, "Failed to get storage initializer config, using defaults")
+		// Don't fail, just use defaults
+	}
+
+	// Initialize CredentialBuilder if not already initialized
+	if c.CredentialBuilder == nil {
+		c.CredentialBuilder = credentials.NewCredentialBuilder(c.Client, c.Clientset, isvcConfigMap)
 	}
 
 	if err := c.downloadModels(ctx, &localModelNode); err != nil {
