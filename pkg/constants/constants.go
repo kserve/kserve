@@ -161,6 +161,7 @@ var (
 	PredictorHostAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/predictor-host"
 	PredictorProtocolAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/predictor-protocol"
 	LocalModelLabel                                  = InferenceServiceInternalAnnotationsPrefix + "/localmodel"
+	LocalModelNamespaceLabel                         = InferenceServiceInternalAnnotationsPrefix + "/localmodel-namespace"
 	LocalModelSourceUriAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/localmodel-sourceuri"
 	LocalModelPVCNameAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/localmodel-pvc-name"
 )
