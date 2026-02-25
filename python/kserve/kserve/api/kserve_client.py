@@ -20,6 +20,9 @@ import requests
 from kubernetes import client, config
 
 from ..models.v1alpha1_local_model_cache import V1alpha1LocalModelCache
+from ..models.v1alpha1_local_model_namespace_cache import (
+    V1alpha1LocalModelNamespaceCache,
+)
 from ..models.v1alpha1_local_model_node_group import V1alpha1LocalModelNodeGroup
 from .creds_utils import set_gcs_credentials, set_s3_credentials, set_azure_credentials
 from .watch import isvc_watch
@@ -831,4 +834,148 @@ class KServeClient(object):
         current_local_model_cache = self.get_local_model_cache(name, version=version)
         raise RuntimeError(
             f"Timeout while caching the model. The current state of LocalModelCache is: {current_local_model_cache}"
+        )
+
+    def create_local_model_namespace_cache(
+        self,
+        localmodelnamespacecache: V1alpha1LocalModelNamespaceCache,
+        namespace: str = None,
+    ) -> object:
+        """
+        Create a local model namespace cache
+
+        :param localmodelnamespacecache: local model namespace cache object
+        :param namespace: namespace for the resource. If not provided, uses the namespace from the object metadata.
+        :return: created local model namespace cache object
+        """
+        version = localmodelnamespacecache.api_version.split("/")[1]
+        if namespace is None:
+            namespace = localmodelnamespacecache.metadata.namespace
+
+        try:
+            output = self.api_instance.create_namespaced_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                namespace,
+                constants.KSERVE_PLURAL_LOCALMODELNAMESPACECACHE,
+                localmodelnamespacecache,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                f"Exception when calling CustomObjectsApi->create_namespaced_custom_object:{e}%s\n"
+            ) from e
+        return output
+
+    def get_local_model_namespace_cache(
+        self,
+        name: str,
+        namespace: str,
+        version: str = constants.KSERVE_V1ALPHA1_VERSION,
+    ) -> object:
+        """
+        Get the local model namespace cache
+
+        :param name: existing local model namespace cache name
+        :param namespace: namespace of the resource
+        :param version: api group version. Default to v1alpha1
+        :return: local model namespace cache object
+        """
+        try:
+            return self.api_instance.get_namespaced_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                namespace,
+                constants.KSERVE_PLURAL_LOCALMODELNAMESPACECACHE,
+                name,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                f"Exception when calling CustomObjectsApi->get_namespaced_custom_object:{e}%s\n"
+            ) from e
+
+    def delete_local_model_namespace_cache(
+        self,
+        name: str,
+        namespace: str,
+        version: str = constants.KSERVE_V1ALPHA1_VERSION,
+    ):
+        """
+        Delete the local model namespace cache
+
+        :param name: local model namespace cache name
+        :param namespace: namespace of the resource
+        :param version: api group version. Default to v1alpha1
+        """
+        try:
+            self.api_instance.delete_namespaced_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                namespace,
+                constants.KSERVE_PLURAL_LOCALMODELNAMESPACECACHE,
+                name,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                f"Exception when calling CustomObjectsApi->delete_namespaced_custom_object:{e}%s\n"
+            ) from e
+
+    def is_local_model_namespace_cache_ready(
+        self,
+        name: str,
+        namespace: str,
+        nodes: List[str],
+        version: str = constants.KSERVE_V1ALPHA1_VERSION,
+    ) -> bool:
+        """
+        Verify if the model is successfully cached on the specified node.
+
+        :param name: local model namespace cache name
+        :param namespace: namespace of the resource
+        :param nodes: list of node names to check if the model is cached
+        :param version: api group version
+        :return: true if the model is successfully cached, else false.
+        """
+        local_model_namespace_cache = self.get_local_model_namespace_cache(
+            name, namespace, version=version
+        )
+        node_status = local_model_namespace_cache.get("status", {}).get(
+            "nodeStatus", {}
+        )
+        for node in nodes:
+            if node_status.get(node, "") != "NodeDownloaded":
+                return False
+        return True
+
+    def wait_local_model_namespace_cache_ready(
+        self,
+        name: str,
+        namespace: str,
+        nodes: List[str],
+        version: str = constants.KSERVE_V1ALPHA1_VERSION,
+        timeout_seconds: int = 600,
+        polling_interval: int = 10,
+    ):
+        """
+        Wait for model to be cached locally for specified nodes until timeout.
+
+        :param name: local model namespace cache name
+        :param namespace: namespace of the resource
+        :param nodes: list of node names to check if the model is cached
+        :param version: api group version
+        :param timeout_seconds: timeout seconds for waiting, default to 600s.
+        :param polling_interval: The time interval to poll status
+        :return:
+        """
+        for _ in range(round(timeout_seconds / polling_interval)):
+            time.sleep(polling_interval)
+            if self.is_local_model_namespace_cache_ready(
+                name, namespace, nodes, version=version
+            ):
+                return
+
+        current_local_model_namespace_cache = self.get_local_model_namespace_cache(
+            name, namespace, version=version
+        )
+        raise RuntimeError(
+            f"Timeout while caching the model. The current state of LocalModelNamespaceCache is: {current_local_model_namespace_cache}"
         )

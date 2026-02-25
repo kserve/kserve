@@ -1204,6 +1204,12 @@ jobs:
           name: ${{ env.HUGGINGFACE_IMG }}-${{ env.TAG }}
           path: /tmp-images
 
+      - name: Download sklearn server image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
+          path: /tmp-images
+
       - name: Load runtime docker images
         run: |
           files=$(find /tmp-images -maxdepth 1 -type f)
