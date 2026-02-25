@@ -116,7 +116,6 @@ async def test_vllm_modelcache():
                 "512",
                 "--dtype",
                 "bfloat16",
-                "--enforce-eager",
             ],
             env=[
                 client.V1EnvVar(
