@@ -26,6 +26,11 @@ type LocalModelInfo struct {
 	// Namespace of the LocalModelNamespaceCache CR (empty for cluster-scoped LocalModelCache)
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
+	// NodeGroup specifies which LocalModelNodeGroup this model belongs to.
+	// Used by the agent to construct the correct PVC name when multiple nodegroups
+	// have overlapping node affinity.
+	// +optional
+	NodeGroup string `json:"nodeGroup,omitempty"`
 	// ServiceAccountName specifies the service account to use for credential lookup.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`

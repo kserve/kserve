@@ -96,12 +96,15 @@ func ExtractLocalModelParams(localModelCache *v1alpha1.LocalModelCache, localMod
 }
 
 // CreateLocalModelInfo creates a LocalModelInfo from either LocalModelCache or LocalModelNamespaceCache
-func CreateLocalModelInfo(localModelCache *v1alpha1.LocalModelCache, localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache) v1alpha1.LocalModelInfo {
+// nodeGroupName specifies which LocalModelNodeGroup this model belongs to, used by the agent
+// to construct the correct PVC name when multiple nodegroups have overlapping node affinity.
+func CreateLocalModelInfo(localModelCache *v1alpha1.LocalModelCache, localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache, nodeGroupName string) v1alpha1.LocalModelInfo {
 	params := ExtractLocalModelParams(localModelCache, localModelNamespaceCache)
 	return v1alpha1.LocalModelInfo{
 		ModelName:          params.Name,
 		SourceModelUri:     params.SourceModelUri,
 		Namespace:          params.Namespace,
+		NodeGroup:          nodeGroupName,
 		ServiceAccountName: params.ServiceAccountName,
 		Storage:            params.Storage,
 	}
@@ -556,7 +559,7 @@ func UpdateLocalModelNode(
 	nodeGroupName string,
 ) error {
 	params := ExtractLocalModelParams(localModelCache, localModelNamespaceCache)
-	newModelInfo := CreateLocalModelInfo(localModelCache, localModelNamespaceCache)
+	newModelInfo := CreateLocalModelInfo(localModelCache, localModelNamespaceCache, nodeGroupName)
 
 	var patch client.Patch
 	updated := false
@@ -564,6 +567,7 @@ func UpdateLocalModelNode(
 		if modelInfo.ModelName == params.Name && modelInfo.Namespace == params.Namespace {
 			needsUpdate := modelInfo.SourceModelUri != params.SourceModelUri ||
 				modelInfo.ServiceAccountName != params.ServiceAccountName ||
+				modelInfo.NodeGroup != nodeGroupName ||
 				!StorageSpecEqual(modelInfo.Storage, params.Storage)
 			if !needsUpdate {
 				return nil
@@ -612,7 +616,7 @@ func ReconcileLocalModelNode(
 	}
 
 	for nodeGroupName, nodeGroup := range nodeGroups {
-		modelInfo := CreateLocalModelInfo(localModelCache, localModelNamespaceCache)
+		modelInfo := CreateLocalModelInfo(localModelCache, localModelNamespaceCache, nodeGroupName)
 		statusKey := modelInfo.GetStatusKey()
 		readyNodes, notReadyNodes, err := GetNodesFromNodeGroup(ctx, nodeGroup, c)
 		if err != nil {
