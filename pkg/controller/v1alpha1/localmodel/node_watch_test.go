@@ -23,13 +23,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel/reconcilers"
 )
 
 var _ = Describe("Node Ready Predicate", func() {
 	var pred predicate.Funcs
 
 	BeforeEach(func() {
-		pred = nodeReadyPredicate()
+		pred = reconcilers.NodeReadyPredicate()
 	})
 
 	Describe("UpdateFunc", func() {
