@@ -598,10 +598,17 @@
             "default": ""
           }
         },
+        "serviceAccountName": {
+          "description": "ServiceAccountName specifies the service account to use for credential lookup.",
+          "type": "string"
+        },
         "sourceModelUri": {
           "description": "Original StorageUri",
           "type": "string",
           "default": ""
+        },
+        "storage": {
+          "$ref": "#/definitions/v1alpha1.LocalModelStorageSpec"
         }
       }
     },
@@ -746,6 +753,24 @@
           "items": {
             "default": {},
             "$ref": "#/definitions/v1alpha1.LocalModelInfo"
+          }
+        }
+      }
+    },
+    "v1alpha1.LocalModelStorageSpec": {
+      "description": "LocalModelStorageSpec defines credential and storage configuration for model download",
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "The Storage Key in the secret for this object.",
+          "type": "string"
+        },
+        "parameters": {
+          "description": "Parameters to override the default storage credentials and config.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
           }
         }
       }
