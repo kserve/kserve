@@ -1,0 +1,82 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-sglang-template
+spec:
+  template:
+    containers:
+      - image: lmsysorg/sglang:latest
+        imagePullPolicy: IfNotPresent
+        name: main
+        ports:
+          - containerPort: 8000
+            protocol: TCP
+        command:
+          - python
+          - -m
+          - sglang.launch_server
+          - --model-path
+          - /mnt/models
+          - --served-model-name
+          - "{{ .Spec.Model.Name }}"
+          - --port
+          - "8000"
+          - --host
+          - 0.0.0.0
+        env:
+          - name: HOME
+            value: /home
+          - name: HF_HUB_CACHE
+            value: /models
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: FallbackToLogsOnError
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 60
+        volumeMounts:
+          - mountPath: /home
+            name: home
+          - mountPath: /dev/shm
+            name: dshm
+          - mountPath: /models
+            name: model-cache
+          - mountPath: /etc/ssl/certs
+            name: tls-certs
+            readOnly: true
+    terminationGracePeriodSeconds: 30
+    volumes:
+      - emptyDir: {}
+        name: home
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 1Gi
+        name: dshm
+      - emptyDir: {}
+        name: model-cache
+      - name: tls-certs
+        secret:
+          secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"

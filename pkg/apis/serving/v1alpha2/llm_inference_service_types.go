@@ -60,8 +60,25 @@ type LLMInferenceServiceConfig struct {
 	Spec LLMInferenceServiceSpec `json:"spec,omitempty"`
 }
 
+// LLMRuntime defines the supported LLM inference runtimes.
+// +kubebuilder:validation:Enum=vllm;sglang
+type LLMRuntime string
+
+const (
+	// LLMRuntimeVLLM is the vLLM inference runtime.
+	LLMRuntimeVLLM LLMRuntime = "vllm"
+	// LLMRuntimeSGLang is the SGLang inference runtime.
+	LLMRuntimeSGLang LLMRuntime = "sglang"
+)
+
 // LLMInferenceServiceSpec defines the desired state of LLMInferenceService.
 type LLMInferenceServiceSpec struct {
+	// Runtime specifies the LLM inference runtime to use (vllm or sglang).
+	// If not specified, defaults to vllm.
+	// +optional
+	// +kubebuilder:default=vllm
+	Runtime LLMRuntime `json:"runtime,omitempty"`
+
 	// Model specification, including its URI, potential LoRA adapters, and storage details.
 	// It's optional for `LLMInferenceServiceConfig` kind.
 	// +optional
