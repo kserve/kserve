@@ -895,6 +895,35 @@ func TestMergePodSpec(t *testing.T) {
 				},
 			},
 		},
+		"MergeWithSchedulerName": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				NodeSelector: map[string]string{
+					"foo": "bar",
+				},
+				SchedulerName: "custom-scheduler",
+			},
+			podSpecOverride: &PodSpec{
+				ServiceAccountName: "testAccount",
+			},
+			expected: &corev1.PodSpec{
+				NodeSelector: map[string]string{
+					"foo": "bar",
+				},
+				ServiceAccountName: "testAccount",
+				SchedulerName:      "custom-scheduler",
+			},
+		},
+		"OverrideSchedulerName": {
+			podSpecBase: &v1alpha1.ServingRuntimePodSpec{
+				SchedulerName: "runtime-scheduler",
+			},
+			podSpecOverride: &PodSpec{
+				SchedulerName: "isvc-scheduler",
+			},
+			expected: &corev1.PodSpec{
+				SchedulerName: "isvc-scheduler",
+			},
+		},
 	}
 
 	for name, scenario := range scenarios {
