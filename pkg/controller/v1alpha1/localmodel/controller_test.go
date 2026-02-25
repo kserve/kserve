@@ -275,11 +275,13 @@ var _ = Describe("CachedModel controller", func() {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName1}, localModelNode1)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
+			Expect(localModelNode1.Spec.LocalModels).Should(ContainElement(v1alpha1.LocalModelInfo{ModelName: cachedModel.Name, SourceModelUri: sourceModelUri, NodeGroup: "gpu1"}))
 			localModelNode2 := &v1alpha1.LocalModelNode{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName2}, localModelNode2)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
+			Expect(localModelNode2.Spec.LocalModels).Should(ContainElement(v1alpha1.LocalModelInfo{ModelName: cachedModel.Name, SourceModelUri: sourceModelUri, NodeGroup: "gpu2"}))
 
 			// Todo: Test agent download
 			// Update the LocalModelNode status to be successful
@@ -852,6 +854,7 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 				ModelName:      modelName,
 				SourceModelUri: sourceModelUri,
 				Namespace:      testNamespace,
+				NodeGroup:      "gpu1",
 			}
 			Expect(localModelNode1.Spec.LocalModels).Should(ContainElement(expectedModelInfo))
 
@@ -1134,6 +1137,7 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 				ModelName:      clusterModelName,
 				SourceModelUri: sourceModelUri,
 				Namespace:      "", // Empty for cluster-scoped
+				NodeGroup:      "gpu1",
 			}
 			Expect(localModelNode.Spec.LocalModels).Should(ContainElement(clusterModelInfo))
 
@@ -1141,6 +1145,7 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 				ModelName:      nsModelName,
 				SourceModelUri: sourceModelUri,
 				Namespace:      testNamespace,
+				NodeGroup:      "gpu1",
 			}
 			Expect(localModelNode.Spec.LocalModels).Should(ContainElement(nsModelInfo))
 		})
