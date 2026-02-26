@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -268,8 +267,7 @@ func TestAttachOciModelArtifact_TargetContainer(t *testing.T) {
 			},
 			wantModelcarArgs: []string{
 				"sh", "-c",
-				fmt.Sprintf("mkdir -p %s && ln -sf /proc/$$$$/root/models %s && sleep infinity",
-					utils.GetParentDirectory(constants.DefaultModelLocalMountPath),
+				fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity",
 					constants.DefaultModelLocalMountPath),
 			},
 		},
@@ -325,19 +323,21 @@ func TestAttachOciModelArtifact_TargetContainer(t *testing.T) {
 	}
 }
 
-func TestIsUsingPreciseSchedulingPlugin(t *testing.T) {
+func TestIsUsingTokenizerSidecar(t *testing.T) {
 	tests := []struct {
 		name string
 		spec v1alpha2.LLMInferenceServiceSpec
 		want bool
 	}{
 		{
-			name: "inline config with precise-prefix-cache-scorer plugin",
+			name: "tokenizer container present",
 			spec: v1alpha2.LLMInferenceServiceSpec{
 				Router: &v1alpha2.RouterSpec{
 					Scheduler: &v1alpha2.SchedulerSpec{
-						Config: &v1alpha2.SchedulerConfigSpec{
-							Inline: &runtime.RawExtension{Raw: []byte(`{"plugins":[{"type":"precise-prefix-cache-scorer"}]}`)},
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: tokenizerContainerName},
+							},
 						},
 					},
 				},
@@ -345,12 +345,16 @@ func TestIsUsingPreciseSchedulingPlugin(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "inline config with precise plugin among others",
+			name: "tokenizer container among others",
 			spec: v1alpha2.LLMInferenceServiceSpec{
 				Router: &v1alpha2.RouterSpec{
 					Scheduler: &v1alpha2.SchedulerSpec{
-						Config: &v1alpha2.SchedulerConfigSpec{
-							Inline: &runtime.RawExtension{Raw: []byte(`{"plugins":[{"type":"queue-scorer"},{"type":"precise-prefix-cache-scorer"},{"type":"max-score-picker"}]}`)},
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "scheduler"},
+								{Name: tokenizerContainerName},
+								{Name: "other"},
+							},
 						},
 					},
 				},
@@ -358,12 +362,15 @@ func TestIsUsingPreciseSchedulingPlugin(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "inline config without precise plugin",
+			name: "no tokenizer container",
 			spec: v1alpha2.LLMInferenceServiceSpec{
 				Router: &v1alpha2.RouterSpec{
 					Scheduler: &v1alpha2.SchedulerSpec{
-						Config: &v1alpha2.SchedulerConfigSpec{
-							Inline: &runtime.RawExtension{Raw: []byte(`{"plugins":[{"type":"queue-scorer"},{"type":"prefix-cache-scorer"}]}`)},
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "scheduler"},
+								{Name: "other"},
+							},
 						},
 					},
 				},
@@ -371,12 +378,12 @@ func TestIsUsingPreciseSchedulingPlugin(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "inline config with empty plugins list",
+			name: "empty containers list",
 			spec: v1alpha2.LLMInferenceServiceSpec{
 				Router: &v1alpha2.RouterSpec{
 					Scheduler: &v1alpha2.SchedulerSpec{
-						Config: &v1alpha2.SchedulerConfigSpec{
-							Inline: &runtime.RawExtension{Raw: []byte(`{"plugins":[]}`)},
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{},
 						},
 					},
 				},
@@ -384,73 +391,12 @@ func TestIsUsingPreciseSchedulingPlugin(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "inline config with no plugins key",
+			name: "nil template",
 			spec: v1alpha2.LLMInferenceServiceSpec{
 				Router: &v1alpha2.RouterSpec{
-					Scheduler: &v1alpha2.SchedulerSpec{
-						Config: &v1alpha2.SchedulerConfigSpec{
-							Inline: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1alpha1","kind":"EndpointPickerConfig"}`)},
-						},
-					},
+					Scheduler: &v1alpha2.SchedulerSpec{},
 				},
 			},
-			want: false,
-		},
-		{
-			name: "inline YAML config with precise plugin",
-			spec: v1alpha2.LLMInferenceServiceSpec{
-				Router: &v1alpha2.RouterSpec{
-					Scheduler: &v1alpha2.SchedulerSpec{
-						Config: &v1alpha2.SchedulerConfigSpec{
-							Inline: &runtime.RawExtension{Raw: []byte("plugins:\n- type: queue-scorer\n- type: precise-prefix-cache-scorer\n")},
-						},
-					},
-				},
-			},
-			want: true,
-		},
-		{
-			name: "malformed YAML in inline config",
-			spec: v1alpha2.LLMInferenceServiceSpec{
-				Router: &v1alpha2.RouterSpec{
-					Scheduler: &v1alpha2.SchedulerSpec{
-						Config: &v1alpha2.SchedulerConfigSpec{
-							Inline: &runtime.RawExtension{Raw: []byte("{{not valid yaml")},
-						},
-					},
-				},
-			},
-			want: false,
-		},
-		{
-			name: "plugins key is not a list",
-			spec: v1alpha2.LLMInferenceServiceSpec{
-				Router: &v1alpha2.RouterSpec{
-					Scheduler: &v1alpha2.SchedulerSpec{
-						Config: &v1alpha2.SchedulerConfigSpec{
-							Inline: &runtime.RawExtension{Raw: []byte(`{"plugins":"not-a-list"}`)},
-						},
-					},
-				},
-			},
-			want: false,
-		},
-		{
-			name: "plugin entry is not a map",
-			spec: v1alpha2.LLMInferenceServiceSpec{
-				Router: &v1alpha2.RouterSpec{
-					Scheduler: &v1alpha2.SchedulerSpec{
-						Config: &v1alpha2.SchedulerConfigSpec{
-							Inline: &runtime.RawExtension{Raw: []byte(`{"plugins":["just-a-string"]}`)},
-						},
-					},
-				},
-			},
-			want: false,
-		},
-		{
-			name: "nil router",
-			spec: v1alpha2.LLMInferenceServiceSpec{},
 			want: false,
 		},
 		{
@@ -461,31 +407,17 @@ func TestIsUsingPreciseSchedulingPlugin(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "nil config falls back to default (no prefill) - no precise plugin",
-			spec: v1alpha2.LLMInferenceServiceSpec{
-				Router: &v1alpha2.RouterSpec{
-					Scheduler: &v1alpha2.SchedulerSpec{},
-				},
-			},
-			want: false,
-		},
-		{
-			name: "nil config with prefill falls back to default - no precise plugin",
-			spec: v1alpha2.LLMInferenceServiceSpec{
-				Router: &v1alpha2.RouterSpec{
-					Scheduler: &v1alpha2.SchedulerSpec{},
-				},
-				Prefill: &v1alpha2.WorkloadSpec{},
-			},
+			name: "nil router",
+			spec: v1alpha2.LLMInferenceServiceSpec{},
 			want: false,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := isUsingPreciseSchedulingPlugin(tc.spec)
+			got := isUsingTokenizerSidecar(tc.spec)
 			if got != tc.want {
-				t.Errorf("isUsingPreciseSchedulingPlugin() = %v, want %v", got, tc.want)
+				t.Errorf("isUsingTokenizerSidecar() = %v, want %v", got, tc.want)
 			}
 		})
 	}

@@ -21,9 +21,8 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
-
 	"slices"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,6 +38,11 @@ import (
 )
 
 const CaBundleVolumeName = "cabundle-cert"
+
+var tokenizerOnlyDownload = corev1.EnvVar{
+	Name:  "STORAGE_ALLOW_PATTERNS",
+	Value: `["tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.json", "merges.txt", "config.json", "generation_config.json"]`,
+}
 
 // attachModelArtifacts configures a PodSpec to fetch and use a model from a provided URI in the LLMInferenceService.
 // The storage backend (PVC, OCI, Hugging Face, or S3) is determined from the URI schema and the appropriate helper function
@@ -192,12 +196,7 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 		injectCaBundle(llmSvc.Namespace, podSpec, initContainer, storageConfig)
 
 		if containerName == tokenizerContainerName {
-			utils.AddEnvVars(initContainer, []corev1.EnvVar{
-				{
-					Name:  "STORAGE_ALLOW_PATTERNS",
-					Value: `["tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.json", "merges.txt", "config.json", "generation_config.json"]`,
-				},
-			})
+			utils.AddEnvVars(initContainer, []corev1.EnvVar{*tokenizerOnlyDownload.DeepCopy()})
 		}
 	}
 
@@ -257,12 +256,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 		}
 
 		if containerName == tokenizerContainerName {
-			utils.AddEnvVars(initContainer, []corev1.EnvVar{
-				{
-					Name:  "STORAGE_ALLOW_PATTERNS",
-					Value: `["tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.json", "merges.txt", "config.json", "generation_config.json"]`,
-				},
-			})
+			utils.AddEnvVars(initContainer, []corev1.EnvVar{*tokenizerOnlyDownload.DeepCopy()})
 		}
 	}
 

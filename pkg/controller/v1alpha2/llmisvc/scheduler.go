@@ -399,7 +399,7 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 			}
 		}
 
-		if isUsingPreciseSchedulingPlugin(llmSvc.Spec) {
+		if isUsingTokenizerSidecar(llmSvc.Spec) {
 			var existingServiceAccount *corev1.ServiceAccount
 			if llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
 				existingServiceAccount = &corev1.ServiceAccount{}

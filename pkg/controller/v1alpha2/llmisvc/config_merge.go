@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -38,10 +37,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // Configuration template name suffixes for different LLM deployment patterns
@@ -353,32 +352,11 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	return llmSvcCfg, nil
 }
 
-func isUsingPreciseSchedulingPlugin(spec v1alpha2.LLMInferenceServiceSpec) bool {
-	rawCfg := schedulerConfigText(&v1alpha2.LLMInferenceService{Spec: spec})
-	if rawCfg == "" {
+func isUsingTokenizerSidecar(spec v1alpha2.LLMInferenceServiceSpec) bool {
+	if spec.Router == nil || spec.Router.Scheduler == nil || spec.Router.Scheduler.Template == nil {
 		return false
 	}
-
-	var cfg map[string]interface{}
-	if err := yaml.Unmarshal([]byte(rawCfg), &cfg); err != nil {
-		return false
-	}
-
-	plugins, found, err := unstructured.NestedSlice(cfg, "plugins")
-	if err != nil || !found {
-		return false
-	}
-
-	for _, p := range plugins {
-		plugin, ok := p.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		if pluginType, ok := plugin["type"].(string); ok && pluginType == precisePrefixCacheScorerName {
-			return true
-		}
-	}
-	return false
+	return utils.GetContainerWithName(spec.Router.Scheduler.Template, tokenizerContainerName) != nil
 }
 
 // ToParentRefs converts a slice of UntypedObjectReference (gateway refs) to a slice
