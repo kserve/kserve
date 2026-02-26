@@ -12,6 +12,7 @@ on:
       - "!docs/**"
       - "!**.md"
       - ".github/workflows/python-test.yml"
+      - ".github/actions/free-up-disk-space/**"
   workflow_dispatch:
 
 concurrency:

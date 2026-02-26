@@ -19,6 +19,7 @@ on:
       - "!docs/**"
       - "!**.md"
       - ".github/workflows/tf2openapi-docker-publisher.yml"
+      - ".github/actions/free-up-disk-space/**"
 
 env:
   IMAGE_NAME: tf2openapi
