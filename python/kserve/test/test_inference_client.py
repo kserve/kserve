@@ -18,12 +18,23 @@ import httpx
 import numpy as np
 import pytest
 import pytest_asyncio
+import json
+from unittest.mock import patch, MagicMock, AsyncMock, mock_open, ANY
 
-from kserve import InferenceRESTClient, InferRequest, InferInput
+from kserve import InferenceRESTClient, InferRequest, InferInput, InferenceGRPCClient, InferResponse
 from kserve.model_server import app as kserve_app
 from kserve.errors import UnsupportedProtocol
-from kserve.inference_client import RESTConfig
+from kserve.inference_client import USE_CLIENT_DEFAULT, RESTConfig
 from kserve.protocol.infer_type import RequestedOutput
+from kserve.protocol.grpc.grpc_predict_v2_pb2 import (
+    ServerReadyResponse,
+    ServerLiveResponse,
+    ModelReadyResponse,
+    ServerReadyRequest,
+    ServerLiveRequest,
+    ModelReadyRequest,
+)
+import grpc
 from test.test_server import DummyModel
 
 
@@ -562,3 +573,461 @@ class TestInferenceRESTClient:
                 headers={"Host": "test-server.com"},
                 timeout=1.3,
             )
+
+########################################################
+# Tests for __init__ of InferenceGRPCClient
+########################################################
+
+@pytest.mark.asyncio
+@patch("grpc.aio.insecure_channel")
+def test_inference_grpc_client_init_insecure_channel(mock_insecure_channel):
+    # Arrange
+    mock_channel = MagicMock()
+    mock_insecure_channel.return_value = mock_channel
+
+    url = "localhost"
+    retries = 3
+    timeout = 30
+
+    # Act
+    client = InferenceGRPCClient(
+        url=url,
+        use_ssl=False,
+        retries=retries,
+        timeout=timeout,
+    )
+
+    # Assert
+    # Port should be auto-appended for insecure channel
+    mock_insecure_channel.assert_called_once()
+    called_url = mock_insecure_channel.call_args[0][0]
+    assert called_url == "localhost:80"
+
+    # Validate channel options
+    options = mock_insecure_channel.call_args[1]["options"]
+    assert ("grpc.enable_retries", 1) in options
+
+    # Validate retry service config exists
+    service_config = [
+        opt for opt in options if opt[0] == "grpc.service_config"
+    ]
+    assert len(service_config) == 1
+
+    config_json = json.loads(service_config[0][1])
+    assert config_json["methodConfig"][0]["retryPolicy"]["maxAttempts"] == retries
+
+    # Validate client attributes
+    assert client._channel == mock_channel
+    assert client._timeout == timeout
+    assert client._verbose is False
+    assert client._client_stub is not None
+
+
+@patch("grpc.aio.secure_channel")
+def test_inference_grpc_client_init_secure_channel(mock_secure_channel):
+    # Arrange
+    mock_channel = MagicMock()
+    mock_secure_channel.return_value = mock_channel
+
+    url = "example.com"
+
+    # Act
+    client = InferenceGRPCClient(
+        url=url,
+        use_ssl=True,
+    )
+
+    # Assert
+    # Port should be auto-appended for secure channel
+    mock_secure_channel.assert_called_once()
+    called_url = mock_secure_channel.call_args[0][0]
+    assert called_url == "example.com:443"
+
+    assert client._channel == mock_channel
+    assert client._client_stub is not None
+
+@patch("grpc.aio.insecure_channel")
+def test_init_with_channel_args_adds_retry_and_service_config(
+    mock_insecure_channel,
+):
+    # Arrange
+    mock_channel = MagicMock()
+    mock_insecure_channel.return_value = mock_channel
+
+    # channel_args provided WITHOUT grpc.enable_retries and grpc.service_config
+    channel_args = [
+        ("grpc.max_send_message_length", -1),
+    ]
+
+    retries = 3
+
+    # Act
+    InferenceGRPCClient(
+        url="localhost",
+        use_ssl=False,
+        channel_args=channel_args,
+        retries=retries,
+    )
+
+    # Assert
+    mock_insecure_channel.assert_called_once()
+
+    # Extract final channel options passed to gRPC
+    passed_options = mock_insecure_channel.call_args[1]["options"]
+
+    # Original option should remain
+    assert ("grpc.max_send_message_length", -1) in passed_options
+
+    # grpc.enable_retries should be added
+    assert ("grpc.enable_retries", 1) in passed_options
+
+    # grpc.service_config should be added
+    service_configs = [
+        opt for opt in passed_options if opt[0] == "grpc.service_config"
+    ]
+    assert len(service_configs) == 1
+
+    # Validate retry count inside service config
+    service_config_json = json.loads(service_configs[0][1])
+    retry_policy = service_config_json["methodConfig"][0]["retryPolicy"]
+    assert retry_policy["maxAttempts"] == retries
+
+def test_init_channel_args_service_config_exists():
+    channel_args = [("grpc.service_config", "{}")]
+    
+    with patch("grpc.aio.secure_channel") as mock_secure_channel:
+        mock_creds = MagicMock(spec=grpc.ChannelCredentials)
+        client = InferenceGRPCClient(
+            url="localhost",
+            creds=mock_creds,
+            channel_args=channel_args,
+        )
+    
+        # Assert grpc.aio.secure_channel called with modified options
+        mock_secure_channel.assert_called_once()
+        assert ("grpc.enable_retries", 1) in mock_secure_channel.call_args.kwargs["options"]
+        # service_config should not be appended again
+        assert sum(1 for k, _ in mock_secure_channel.call_args.kwargs["options"] if k=="grpc.service_config") == 1
+
+def test_init_uses_secure_channel_with_creds():
+    with patch("grpc.aio.secure_channel") as mock_secure_channel:
+        mock_creds = MagicMock(spec=grpc.ChannelCredentials)
+        client = InferenceGRPCClient(url="localhost", creds=mock_creds)
+
+        # Use ANY for the 'options' argument
+        mock_secure_channel.assert_called_once_with(
+            "localhost:80",
+            mock_creds,
+            options=ANY
+        )
+
+
+def test_init_reads_cert_key_chain_files():
+    m_open = mock_open(read_data=b"dummy-bytes")
+    with patch("builtins.open", m_open), patch("grpc.ssl_channel_credentials") as mock_ssl_creds, patch("grpc.aio.secure_channel") as mock_secure_channel:
+        client = InferenceGRPCClient(
+            url="localhost",
+            use_ssl=True,
+            root_certificates="/fake/root.crt",
+            private_key="/fake/private.key",
+            certificate_chain="/fake/chain.crt"
+        )
+
+        # Assert open called for each file
+        m_open.assert_any_call("/fake/root.crt", "rb")
+        m_open.assert_any_call("/fake/private.key", "rb")
+        m_open.assert_any_call("/fake/chain.crt", "rb")
+
+        # Assert grpc.ssl_channel_credentials called with file contents
+        mock_ssl_creds.assert_called_once_with(
+            root_certificates=b"dummy-bytes",
+            private_key=b"dummy-bytes",
+            certificate_chain=b"dummy-bytes",
+        )
+
+        # Assert secure_channel called with ssl creds
+        mock_secure_channel.assert_called_once()
+
+################################################
+
+@pytest.mark.asyncio
+async def test_aenter_returns_self():
+    # Arrange
+    client = InferenceGRPCClient(url="localhost")
+    client._channel = MagicMock()
+    client._channel.close = AsyncMock()
+
+    # Act
+    result = await client.__aenter__()
+
+    # Assert
+    assert result is client
+
+
+@pytest.mark.asyncio
+async def test_close_closes_channel():
+    # Arrange
+    client = InferenceGRPCClient(url="localhost")
+    client._channel = MagicMock()
+    client._channel.close = AsyncMock()
+
+    # Act
+    await client.close()
+
+    # Assert
+    client._channel.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_aexit_calls_close():
+    # Arrange
+    client = InferenceGRPCClient(url="localhost")
+    client._channel = MagicMock()
+    client._channel.close = AsyncMock()
+
+    # Act
+    await client.__aexit__(None, None, None)
+
+    # Assert
+    client._channel.close.assert_awaited_once()
+
+#########################################################
+# Tests for infer method
+##########################################################
+
+@pytest.mark.asyncio
+@patch("grpc.aio.insecure_channel")
+async def test_infer_success(mock_insecure_channel):
+    # Arrange
+    mock_channel = MagicMock()
+    mock_insecure_channel.return_value = mock_channel
+
+    client = InferenceGRPCClient(
+        url="localhost",
+        timeout=30,
+    )
+
+    # Mock InferRequest
+    mock_infer_request = MagicMock(spec=InferRequest)
+    grpc_request = MagicMock()
+    mock_infer_request.to_grpc.return_value = grpc_request
+
+    # Mock gRPC stub call
+    grpc_response = MagicMock()
+    client._client_stub.ModelInfer = AsyncMock(return_value=grpc_response)
+
+    # Mock InferResponse conversion
+    expected_response = MagicMock(spec=InferResponse)
+    with patch.object(
+        InferResponse, "from_grpc", return_value=expected_response
+    ) as mock_from_grpc:
+
+        # Act
+        response = await client.infer(
+            infer_request=mock_infer_request,
+            timeout=USE_CLIENT_DEFAULT,
+            headers=(("x-test", "true"),),
+        )
+
+    # Assert
+    mock_infer_request.to_grpc.assert_called_once()
+
+    client._client_stub.ModelInfer.assert_awaited_once_with(
+        request=grpc_request,
+        metadata=(("x-test", "true"),),
+        timeout=30,  # client default timeout used
+    )
+
+    mock_from_grpc.assert_called_once_with(grpc_response)
+    assert response is expected_response
+
+@pytest.mark.asyncio
+@patch("grpc.aio.insecure_channel")
+async def test_infer_invalid_input_raises(mock_insecure_channel):
+    mock_insecure_channel.return_value = MagicMock()
+    client = InferenceGRPCClient(url="localhost")
+
+    with pytest.raises(Exception):
+        await client.infer(infer_request={"not": "valid"})
+
+@pytest.mark.asyncio
+@patch("grpc.aio.insecure_channel")
+async def test_infer_propagates_grpc_error(mock_insecure_channel):
+    mock_insecure_channel.return_value = MagicMock()
+    client = InferenceGRPCClient(url="localhost")
+
+    mock_infer_request = MagicMock(spec=InferRequest)
+    mock_infer_request.to_grpc.return_value = MagicMock()
+
+    client._client_stub.ModelInfer = AsyncMock(
+        side_effect=grpc.RpcError("boom")
+    )
+
+    with pytest.raises(grpc.RpcError):
+        await client.infer(mock_infer_request)
+
+@pytest.mark.asyncio
+@patch("grpc.aio.insecure_channel")
+async def test_is_server_ready_true(mock_insecure_channel):
+    # Arrange
+    mock_insecure_channel.return_value = MagicMock()
+    client = InferenceGRPCClient(url="localhost")
+
+    grpc_response = ServerReadyResponse(ready=True)
+    client._client_stub.ServerReady = AsyncMock(return_value=grpc_response)
+
+    # Act
+    result = await client.is_server_ready()
+
+    # Assert
+    assert result is True
+    client._client_stub.ServerReady.assert_awaited_once()
+
+@pytest.mark.asyncio
+@patch("grpc.aio.insecure_channel")
+async def test_is_server_ready_false(mock_insecure_channel):
+    # Arrange
+    mock_insecure_channel.return_value = MagicMock()
+    client = InferenceGRPCClient(url="localhost")
+
+    grpc_response = ServerReadyResponse(ready=False)
+    client._client_stub.ServerReady = AsyncMock(return_value=grpc_response)
+
+    # Act
+    result = await client.is_server_ready()
+
+    # Assert
+    assert result is False
+    client._client_stub.ServerReady.assert_awaited_once()
+
+@pytest.mark.asyncio
+@patch("grpc.aio.insecure_channel")
+async def test_is_server_ready_propagates_grpc_error(mock_insecure_channel):
+    # Arrange
+    mock_insecure_channel.return_value = MagicMock()
+    client = InferenceGRPCClient(url="localhost")
+
+    client._client_stub.ServerReady = AsyncMock(
+        side_effect=grpc.RpcError("boom")
+    )
+
+    # Act + Assert
+    with pytest.raises(grpc.RpcError):
+        await client.is_server_ready()
+
+    client._client_stub.ServerReady.assert_awaited_once()
+
+
+##################################################
+# Tests for is_server_live method
+##################################################
+@pytest.mark.asyncio
+@patch("grpc.aio.insecure_channel")
+async def test_is_server_live_true(mock_insecure_channel):
+    # Arrange
+    mock_insecure_channel.return_value = MagicMock()
+    client = InferenceGRPCClient(url="localhost")
+
+    grpc_response = ServerLiveResponse(live=True)
+    client._client_stub.ServerLive = AsyncMock(return_value=grpc_response)
+
+    # Act
+    result = await client.is_server_live()
+
+    # Assert
+    assert result is True
+    client._client_stub.ServerLive.assert_awaited_once()
+
+@pytest.mark.asyncio
+@patch("grpc.aio.insecure_channel")
+async def test_is_server_live_false(mock_insecure_channel):
+    # Arrange
+    mock_insecure_channel.return_value = MagicMock()
+    client = InferenceGRPCClient(url="localhost")
+
+    grpc_response = ServerLiveResponse(live=False)
+    client._client_stub.ServerLive = AsyncMock(return_value=grpc_response)
+
+    # Act
+    result = await client.is_server_live()
+
+    # Assert
+    assert result is False
+    client._client_stub.ServerLive.assert_awaited_once()
+
+@pytest.mark.asyncio
+@patch("grpc.aio.insecure_channel")
+async def test_is_server_live_propagates_grpc_error(mock_insecure_channel):
+    # Arrange
+    mock_insecure_channel.return_value = MagicMock()
+    client = InferenceGRPCClient(url="localhost")
+
+    client._client_stub.ServerLive = AsyncMock(
+        side_effect=grpc.RpcError("boom")
+    )
+
+    # Act + Assert
+    with pytest.raises(grpc.RpcError):
+        await client.is_server_live()
+
+    client._client_stub.ServerLive.assert_awaited_once()
+
+##################################################
+# Tests for is_model_ready method  
+##################################################
+@pytest.mark.asyncio
+@patch("grpc.aio.insecure_channel")
+async def test_is_model_ready_true(mock_insecure_channel):
+    # Arrange
+    mock_insecure_channel.return_value = MagicMock()
+    client = InferenceGRPCClient(url="localhost")
+
+    grpc_response = ModelReadyResponse(ready=True)
+    client._client_stub.ModelReady = AsyncMock(return_value=grpc_response)
+
+    # Act
+    result = await client.is_model_ready(model_name="test-model")
+
+    # Assert
+    assert result is True
+    client._client_stub.ModelReady.assert_awaited_once()
+
+    # Optional: verify correct request content
+    args, kwargs = client._client_stub.ModelReady.call_args
+    assert isinstance(args[0], ModelReadyRequest)
+    assert args[0].name == "test-model"
+
+@pytest.mark.asyncio
+@patch("grpc.aio.insecure_channel")
+async def test_is_model_ready_false(mock_insecure_channel):
+    # Arrange
+    mock_insecure_channel.return_value = MagicMock()
+    client = InferenceGRPCClient(url="localhost")
+
+    grpc_response = ModelReadyResponse(ready=False)
+    client._client_stub.ModelReady = AsyncMock(return_value=grpc_response)
+
+    # Act
+    result = await client.is_model_ready(model_name="test-model")
+
+    # Assert
+    assert result is False
+    client._client_stub.ModelReady.assert_awaited_once()
+
+@pytest.mark.asyncio
+@patch("grpc.aio.insecure_channel")
+async def test_is_model_ready_propagates_grpc_error(mock_insecure_channel):
+    # Arrange
+    mock_insecure_channel.return_value = MagicMock()
+    client = InferenceGRPCClient(url="localhost")
+
+    client._client_stub.ModelReady = AsyncMock(
+        side_effect=grpc.RpcError("boom")
+    )
+
+    # Act + Assert
+    with pytest.raises(grpc.RpcError):
+        await client.is_model_ready(model_name="missing-model")
+
+    client._client_stub.ModelReady.assert_awaited_once()
+
