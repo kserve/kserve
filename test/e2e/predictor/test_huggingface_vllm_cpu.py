@@ -168,7 +168,6 @@ def test_huggingface_vllm_cpu_openai_completions():
                 "512",
                 "--dtype",
                 "bfloat16",
-                "--enforce-eager",
             ],
             env=[
                 client.V1EnvVar(
