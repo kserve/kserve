@@ -594,7 +594,7 @@ func (ss *InferenceServiceStatus) SetCondition(conditionType apis.ConditionType,
 	case condition.Status == corev1.ConditionUnknown:
 		conditionSet.Manage(ss).MarkUnknown(conditionType, condition.Reason, condition.Message)
 	case condition.Status == corev1.ConditionTrue:
-		conditionSet.Manage(ss).MarkTrue(conditionType)
+		conditionSet.Manage(ss).MarkTrueWithReason(conditionType, condition.Reason, condition.Message)
 	case condition.Status == corev1.ConditionFalse:
 		conditionSet.Manage(ss).MarkFalse(conditionType, condition.Reason, condition.Message)
 	}

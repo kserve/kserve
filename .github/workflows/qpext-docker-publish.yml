@@ -12,6 +12,13 @@ on:
 
   # Run tests for any PRs.
   pull_request:
+    paths:
+      - "qpext/**"
+      - "!python/**"
+      - "!.github/**"
+      - "!docs/**"
+      - "!**.md"
+      - ".github/workflows/qpext-docker-publish.yml"
 
 env:
   IMAGE_NAME: qpext

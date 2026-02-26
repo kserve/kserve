@@ -62,6 +62,7 @@ class V1alpha1ServingRuntimeSpec(object):
         'node_selector': 'dict(str, str)',
         'protocol_versions': 'list[str]',
         'replicas': 'int',
+        'scheduler_name': 'str',
         'storage_helper': 'V1alpha1StorageHelper',
         'supported_model_formats': 'list[V1alpha1SupportedModelFormat]',
         'tolerations': 'list[V1Toleration]',
@@ -85,6 +86,7 @@ class V1alpha1ServingRuntimeSpec(object):
         'node_selector': 'nodeSelector',
         'protocol_versions': 'protocolVersions',
         'replicas': 'replicas',
+        'scheduler_name': 'schedulerName',
         'storage_helper': 'storageHelper',
         'supported_model_formats': 'supportedModelFormats',
         'tolerations': 'tolerations',
@@ -92,7 +94,7 @@ class V1alpha1ServingRuntimeSpec(object):
         'worker_spec': 'workerSpec'
     }
 
-    def __init__(self, affinity=None, annotations=None, built_in_adapter=None, containers=None, disabled=None, grpc_data_endpoint=None, grpc_endpoint=None, host_ipc=None, http_data_endpoint=None, image_pull_secrets=None, labels=None, multi_model=None, node_selector=None, protocol_versions=None, replicas=None, storage_helper=None, supported_model_formats=None, tolerations=None, volumes=None, worker_spec=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, annotations=None, built_in_adapter=None, containers=None, disabled=None, grpc_data_endpoint=None, grpc_endpoint=None, host_ipc=None, http_data_endpoint=None, image_pull_secrets=None, labels=None, multi_model=None, node_selector=None, protocol_versions=None, replicas=None, scheduler_name=None, storage_helper=None, supported_model_formats=None, tolerations=None, volumes=None, worker_spec=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1ServingRuntimeSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -113,6 +115,7 @@ class V1alpha1ServingRuntimeSpec(object):
         self._node_selector = None
         self._protocol_versions = None
         self._replicas = None
+        self._scheduler_name = None
         self._storage_helper = None
         self._supported_model_formats = None
         self._tolerations = None
@@ -149,6 +152,8 @@ class V1alpha1ServingRuntimeSpec(object):
             self.protocol_versions = protocol_versions
         if replicas is not None:
             self.replicas = replicas
+        if scheduler_name is not None:
+            self.scheduler_name = scheduler_name
         if storage_helper is not None:
             self.storage_helper = storage_helper
         if supported_model_formats is not None:
@@ -502,6 +507,29 @@ class V1alpha1ServingRuntimeSpec(object):
         """
 
         self._replicas = replicas
+
+    @property
+    def scheduler_name(self):
+        """Gets the scheduler_name of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+
+        If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.  # noqa: E501
+
+        :return: The scheduler_name of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._scheduler_name
+
+    @scheduler_name.setter
+    def scheduler_name(self, scheduler_name):
+        """Sets the scheduler_name of this V1alpha1ServingRuntimeSpec.
+
+        If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.  # noqa: E501
+
+        :param scheduler_name: The scheduler_name of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._scheduler_name = scheduler_name
 
     @property
     def storage_helper(self):
