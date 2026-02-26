@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	localmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel"
 	localmodelwebhook "github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
@@ -129,6 +130,12 @@ func main() {
 	setupLog.Info("Setting up KServe v1beta1 scheme")
 	if err := v1beta1.AddToScheme(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add KServe v1beta1 to scheme")
+		os.Exit(1)
+	}
+
+	setupLog.Info("Setting up KServe v1alpha2 scheme")
+	if err := v1alpha2.AddToScheme(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add KServe v1alpha2 to scheme")
 		os.Exit(1)
 	}
 
