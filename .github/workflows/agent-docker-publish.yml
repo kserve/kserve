@@ -19,6 +19,7 @@ on:
       - "!python/**"
       - "!**.md"
       - ".github/workflows/agent-docker-publish.yml"
+      - ".github/actions/free-up-disk-space/**"
 
 
 env:
