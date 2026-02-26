@@ -19,6 +19,7 @@ on:
       - "!docs/**"
       - "!**.md"
       - ".github/workflows/kserve-localmodel-controller-docker-publish.yml"
+      - ".github/actions/free-up-disk-space/**"
 
 env:
   IMAGE_NAME: kserve-localmodel-controller
