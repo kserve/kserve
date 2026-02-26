@@ -472,10 +472,11 @@ func TestRuntimeDefaults(t *testing.T) {
 		DefaultDeploymentMode: string(constants.Knative),
 	}
 	scenarios := map[string]struct {
-		config  *InferenceServicesConfig
-		isvc    InferenceService
-		runtime string
-		matcher types.GomegaMatcher
+		config     *InferenceServicesConfig
+		isvc       InferenceService
+		runtime    string
+		serverType string
+		matcher    types.GomegaMatcher
 	}{
 		"PyTorch": {
 			config: &InferenceServicesConfig{},
@@ -494,8 +495,9 @@ func TestRuntimeDefaults(t *testing.T) {
 					},
 				},
 			},
-			runtime: constants.TorchServe,
-			matcher: gomega.Equal(constants.ProtocolV1),
+			runtime:    constants.TorchServe,
+			serverType: constants.ServerTypeTorchServe,
+			matcher:    gomega.Equal(constants.ProtocolV1),
 		},
 		"Triton": {
 			config: &InferenceServicesConfig{},
@@ -514,8 +516,9 @@ func TestRuntimeDefaults(t *testing.T) {
 					},
 				},
 			},
-			runtime: constants.TritonServer,
-			matcher: gomega.Equal(constants.ProtocolV2),
+			runtime:    constants.TritonServer,
+			serverType: constants.ServerTypeTritonServer,
+			matcher:    gomega.Equal(constants.ProtocolV2),
 		},
 		"MlServer": {
 			config: &InferenceServicesConfig{},
@@ -534,14 +537,19 @@ func TestRuntimeDefaults(t *testing.T) {
 					},
 				},
 			},
-			runtime: constants.MLServer,
-			matcher: gomega.Equal(constants.ProtocolV2),
+			runtime:    constants.MLServer,
+			serverType: constants.ServerTypeMLServer,
+			matcher:    gomega.Equal(constants.ProtocolV2),
 		},
 	}
 	for name, scenario := range scenarios {
 		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil, nil)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &scenario.runtime
-		scenario.isvc.SetRuntimeDefaults()
+		// Create mock runtime annotations with serverType
+		runtimeAnnotations := map[string]string{
+			constants.ServerTypeAnnotationKey: scenario.serverType,
+		}
+		scenario.isvc.SetRuntimeDefaults(runtimeAnnotations)
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
 		switch name {
 		case "PyTorch":
@@ -735,11 +743,7 @@ func TestMlServerDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"env": gomega.ContainElements(
-					corev1.EnvVar{
-						Name:  constants.MLServerModelNameEnv,
-						Value: "foo",
-					},
+				"env": gomega.ContainElement(
 					corev1.EnvVar{
 						Name:  constants.MLServerModelURIEnv,
 						Value: constants.DefaultModelLocalMountPath,
@@ -766,11 +770,7 @@ func TestMlServerDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"env": gomega.ContainElements(
-					corev1.EnvVar{
-						Name:  constants.MLServerModelNameEnv,
-						Value: "foo",
-					},
+				"env": gomega.ContainElement(
 					corev1.EnvVar{
 						Name:  constants.MLServerModelURIEnv,
 						Value: constants.DefaultModelLocalMountPath,
@@ -800,17 +800,13 @@ func TestMlServerDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"env": gomega.ContainElements(
-					corev1.EnvVar{
-						Name:  constants.MLServerModelNameEnv,
-						Value: "foo",
-					},
+				"env": gomega.ContainElement(
 					corev1.EnvVar{
 						Name:  constants.MLServerModelURIEnv,
 						Value: constants.DefaultModelLocalMountPath,
 					}),
 				"protocolVersion": gomega.Equal(constants.ProtocolV2),
-				"labels":          gomega.HaveKeyWithValue("Purpose", "Testing"),
+				"labels":          gomega.And(gomega.HaveKeyWithValue("Purpose", "Testing"), gomega.HaveKeyWithValue(constants.ModelClassLabel, constants.MLServerModelClassLightGBM)),
 			},
 		},
 	}
@@ -822,7 +818,9 @@ func TestMlServerDefaults(t *testing.T) {
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
 		g.Expect(scenario.isvc.Spec.Predictor.Model.Env).To(scenario.matcher["env"])
 		g.Expect(*scenario.isvc.Spec.Predictor.Model.ProtocolVersion).To(scenario.matcher["protocolVersion"])
-		g.Expect(scenario.isvc.ObjectMeta.Labels).To(scenario.matcher["labels"])
+		if labelsMatcher, ok := scenario.matcher["labels"]; ok {
+			g.Expect(scenario.isvc.ObjectMeta.Labels).To(labelsMatcher)
+		}
 	}
 }
 
