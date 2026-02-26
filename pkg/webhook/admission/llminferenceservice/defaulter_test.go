@@ -58,6 +58,7 @@ func TestSetLocalModelLabel(t *testing.T) {
 
 	scenarios := map[string]struct {
 		llmSvc       v1alpha2.LLMInferenceService
+		models       *v1alpha1.LocalModelCacheList
 		expectMatch  bool
 		matchedModel string
 		nodeGroup    string
@@ -74,6 +75,7 @@ func TestSetLocalModelLabel(t *testing.T) {
 					},
 				},
 			},
+			models:       localModels,
 			expectMatch:  true,
 			matchedModel: "model1",
 			nodeGroup:    gpu1,
@@ -93,6 +95,7 @@ func TestSetLocalModelLabel(t *testing.T) {
 					},
 				},
 			},
+			models:       localModels,
 			expectMatch:  true,
 			matchedModel: "model1",
 			nodeGroup:    gpu2,
@@ -109,6 +112,26 @@ func TestSetLocalModelLabel(t *testing.T) {
 					},
 				},
 			},
+			models:      localModels,
+			expectMatch: false,
+		},
+		"DisableLocalModel": {
+			llmSvc: v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm-disabled",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.DisableLocalModelKey: "true",
+					},
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						URI: mustParseURL("hf://meta-llama/Llama-3-8b"),
+					},
+				},
+			},
+			// When disabled, Default() skips model fetching — both lists stay nil
+			models:      nil,
 			expectMatch: false,
 		},
 	}
@@ -118,7 +141,7 @@ func TestSetLocalModelLabel(t *testing.T) {
 			g := gomega.NewGomegaWithT(t)
 			llmSvc := scenario.llmSvc.DeepCopy()
 
-			SetLocalModelLabel(llmSvc, localModels, nil)
+			SetLocalModelLabel(llmSvc, scenario.models, nil)
 
 			if scenario.expectMatch {
 				g.Expect(llmSvc.Labels).NotTo(gomega.BeNil())
@@ -179,4 +202,44 @@ func TestSetLocalModelLabel_NamespaceScopedPrecedence(t *testing.T) {
 	// Namespace-scoped should win
 	g.Expect(llmSvc.Labels[constants.LocalModelLabel]).To(gomega.Equal("ns-cache"))
 	g.Expect(llmSvc.Labels[constants.LocalModelNamespaceLabel]).To(gomega.Equal("default"))
+}
+
+func TestDeleteLocalModelMetadata(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mustParseURL := func(s string) apis.URL {
+		u, err := apis.ParseURL(s)
+		if err != nil {
+			t.Fatalf("failed to parse URL %q: %v", s, err)
+		}
+		return *u
+	}
+
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cleanup",
+			Namespace: "default",
+			Labels: map[string]string{
+				constants.LocalModelLabel:          "old-cache",
+				constants.LocalModelNamespaceLabel: "old-ns",
+			},
+			Annotations: map[string]string{
+				constants.LocalModelSourceUriAnnotationKey: "hf://old-model",
+				constants.LocalModelPVCNameAnnotationKey:   "old-pvc",
+			},
+		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Model: v1alpha2.LLMModelSpec{
+				URI: mustParseURL("hf://different-org/different-model"),
+			},
+		},
+	}
+
+	// Call with no matching models — should clean up stale metadata
+	SetLocalModelLabel(llmSvc, &v1alpha1.LocalModelCacheList{}, nil)
+
+	g.Expect(llmSvc.Labels[constants.LocalModelLabel]).To(gomega.BeEmpty())
+	g.Expect(llmSvc.Labels[constants.LocalModelNamespaceLabel]).To(gomega.BeEmpty())
+	g.Expect(llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey]).To(gomega.BeEmpty())
+	g.Expect(llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey]).To(gomega.BeEmpty())
 }
