@@ -9,10 +9,16 @@ metadata:
 spec:
   model:
     uri: hf://facebook/opt-125m
-    name: facebook/opt-125m
+    name: opt-125m
   replicas: 2
   router:
     scheduler:
+      template:
+        containers:
+          - name: tokenizer
+            env:
+              - name: LOG_LEVEL
+                value: DEBUG
       config:
         inline:
           apiVersion: inference.networking.x-k8s.io/v1alpha1
@@ -83,5 +89,5 @@ spec:
             cpu: "1"
             memory: 2Gi
           requests:
-            cpu: 200m
-            memory: 2Gi
+            cpu: 100m
+            memory: 100Mi

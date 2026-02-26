@@ -1,0 +1,17 @@
+name: enforce-required-checks
+on:
+  pull_request:
+jobs:
+  enforce-all-checks:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+    steps:
+      - name: job status check
+        uses: poseidon/wait-for-status-checks@v0.6.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          interval: 10s
+          # seconds to wait before first poll. 
+          delay: 120s
+          timeout: 10800s # 3 hour (based on the highest avg runtime of a job https://github.com/kserve/kserve/actions/metrics/performance?tab=jobs) 

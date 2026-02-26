@@ -70,11 +70,11 @@ jobs:
         env:
           # Do not use ${{ github.event.pull_request.title }} directly in run command.
           TITLE: ${{ github.event.pull_request.title }}
-        # We want to make sure that each commit "subject" is <=60 characters not to
+        # We want to make sure that each commit "subject" is <=75 characters not to
         # be truncated in the git log as well as in the GitHub UI.
         # https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/process/submitting-patches.rst?id=bc7938deaca7f474918c41a0372a410049bd4e13#n664
         run: |
-          if (( ${#TITLE} > 60 )); then
-            echo "The PR title is too long. Please keep it <=60 characters."
+          if (( ${#TITLE} > 75 )); then
+            echo "The PR title is too long. Please keep it <=75 characters."
             exit 1
           fi
