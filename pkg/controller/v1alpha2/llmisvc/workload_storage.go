@@ -23,6 +23,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"slices"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -233,6 +235,26 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 		); err != nil {
 			return err
 		}
+
+		currentInitContainer := utils.GetInitContainerWithName(&curr, constants.StorageInitializerContainerName)
+
+		// Add HF default env vars when the init container is new or already has HF_ env vars
+		// from a previous reconciliation. Skip only when upgrading from an older operator version
+		// that didn't set these vars, to avoid unnecessary pod restarts.
+		if currentInitContainer == nil || slices.ContainsFunc(currentInitContainer.Env, func(e corev1.EnvVar) bool {
+			return strings.HasPrefix(e.Name, "HF_")
+		}) {
+			utils.AddDefaultHuggingFaceEnvVars(initContainer)
+		}
+
+		if containerName == tokenizerContainerName {
+			utils.AddEnvVars(initContainer, []corev1.EnvVar{
+				{
+					Name:  "STORAGE_ALLOW_PATTERNS",
+					Value: `["tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.json", "merges.txt", "config.json", "generation_config.json"]`,
+				},
+			})
+		}
 	}
 
 	return nil
@@ -252,7 +274,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
 	containerArgs := []string{
 		modelUri,
-		modelPath,
+		constants.DefaultModelLocalMountPath,
 	}
 	storageMountParams := utils.StorageMountParams{
 		MountPath:  constants.DefaultModelLocalMountPath,
@@ -278,6 +300,7 @@ func (r *LLMISVCReconciler) attachStorageInitializer(modelUri string, curr corev
 	}
 
 	storageMountParams.ReadOnly = true
+	storageMountParams.MountPath = modelPath
 	if err := utils.AddModelMount(storageMountParams, containerName, podSpec); err != nil {
 		return err
 	}

@@ -61,9 +61,8 @@ const (
 	configDecodeWorkerDataParallelNameSuffix  = "config-llm-decode-worker-data-parallel"
 	configPrefillWorkerDataParallelNameSuffix = "config-llm-prefill-worker-data-parallel"
 	// Router and scheduler configurations
-	configRouterSchedulerNameSuffix        = "config-llm-scheduler"
-	configRouterSchedulerPreciseNameSuffix = "config-llm-scheduler-precise"
-	configRouterRouteNameSuffix            = "config-llm-router-route"
+	configRouterSchedulerNameSuffix = "config-llm-scheduler"
+	configRouterRouteNameSuffix     = "config-llm-router-route"
 )
 
 var (
@@ -78,7 +77,6 @@ var (
 	configPrefillWorkerPipelineParallelName = configPrefix + configPrefillWorkerPipelineParallelNameSuffix
 	configPrefillWorkerDataParallelName     = configPrefix + configPrefillWorkerDataParallelNameSuffix
 	configRouterSchedulerName               = configPrefix + configRouterSchedulerNameSuffix
-	configRouterSchedulerPreciseName        = configPrefix + configRouterSchedulerPreciseNameSuffix
 	configRouterRouteName                   = configPrefix + configRouterRouteNameSuffix
 )
 
@@ -99,7 +97,6 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configPrefillTemplateName,
 	configPrefillWorkerDataParallelName,
 	configRouterSchedulerName,
-	configRouterSchedulerPreciseName,
 	configRouterRouteName,
 )
 
@@ -164,10 +161,6 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	refs := make([]corev1.LocalObjectReference, 0, len(llmSvc.Spec.BaseRefs))
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && !resolvedSpec.Router.Scheduler.Pool.HasRef() {
 		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerName)})
-
-		if isUsingPreciseSchedulingPlugin(resolvedSpec) {
-			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerPreciseName)})
-		}
 	}
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Route != nil && !resolvedSpec.Router.Route.HTTP.HasRefs() {
 		// For the HTTP route configuration we don't use versioned defaults since this configuration depends on the

@@ -241,7 +241,7 @@ func GetVolumeNameFromPath(path string) string {
 // AddDefaultHuggingFaceEnvVars adds default HuggingFace optimization environment variables
 // to the container if they are not already present. This prevents conflicts when merging
 // container specs where users may have defined these variables with different configurations.
-func AddDefaultHuggingFaceEnvVars(container *corev1.Container) {
+func AddDefaultHuggingFaceEnvVars(container *corev1.Container, additional ...corev1.EnvVar) {
 	defaultHFEnvVars := []corev1.EnvVar{
 		{
 			Name:  "HF_HUB_ENABLE_HF_TRANSFER",
@@ -257,18 +257,24 @@ func AddDefaultHuggingFaceEnvVars(container *corev1.Container) {
 		},
 	}
 
-	for _, defaultEnvVar := range defaultHFEnvVars {
+	defaultHFEnvVars = append(defaultHFEnvVars, additional...)
+
+	AddEnvVars(container, defaultHFEnvVars)
+}
+
+func AddEnvVars(container *corev1.Container, vars []corev1.EnvVar) {
+	for _, envVar := range vars {
 		// Check if the environment variable already exists
 		exists := false
 		for _, existingEnvVar := range container.Env {
-			if existingEnvVar.Name == defaultEnvVar.Name {
+			if existingEnvVar.Name == envVar.Name {
 				exists = true
 				break
 			}
 		}
 		// Only add if it doesn't already exist
 		if !exists {
-			container.Env = append(container.Env, defaultEnvVar)
+			container.Env = append(container.Env, envVar)
 		}
 	}
 }
