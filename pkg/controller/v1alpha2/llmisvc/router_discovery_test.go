@@ -524,6 +524,58 @@ func TestDiscoverURLs(t *testing.T) {
 			expectedURLs: []string{"https://secure.example.com/"},
 		},
 		{
+			name: "sectionName does not match any listener - should error, not silently use wrong listener",
+			route: HTTPRoute("mismatched-section-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(gwapiv1.ParentReference{
+					Name:        "mismatched-section-gateway",
+					Namespace:   ptr.To(gwapiv1.Namespace("test-ns")),
+					SectionName: ptr.To(gwapiv1.SectionName("nonexistent-listener")),
+					Group:       ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:        ptr.To(gwapiv1.Kind("Gateway")),
+				}),
+				WithHostnames("api.example.com"),
+			),
+			gateway: Gateway("mismatched-section-gateway",
+				InNamespace[*gwapiv1.Gateway]("test-ns"),
+				WithListeners(
+					gwapiv1.Listener{
+						Name:     "http-listener",
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+					},
+					gwapiv1.Listener{
+						Name:     "https-listener",
+						Protocol: gwapiv1.HTTPSProtocolType,
+						Port:     443,
+					},
+				),
+				WithAddresses("203.0.113.1"),
+			),
+			// The current behavior silently falls through to Listeners[0] (HTTP/80),
+			// producing "http://api.example.com/" instead of erroring. This is wrong
+			// because the caller explicitly asked for "nonexistent-listener" and should
+			// be told it doesn't exist rather than getting a URL from the wrong listener.
+			expectedErrorCheck: func(err error) bool {
+				return err != nil
+			},
+		},
+		{
+			name: "gateway with no listeners - should error, not panic",
+			route: HTTPRoute("no-listener-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("no-listener-gateway", RefInNamespace("test-ns"))),
+			),
+			gateway: Gateway("no-listener-gateway",
+				InNamespace[*gwapiv1.Gateway]("test-ns"),
+				// No WithListener — Gateway has empty Listeners slice
+				WithAddresses("203.0.113.1"),
+			),
+			expectedErrorCheck: func(err error) bool {
+				return err != nil
+			},
+		},
+		{
 			name: "multiple hostnames and addresses - comprehensive URL generation",
 			route: HTTPRoute("comprehensive-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),

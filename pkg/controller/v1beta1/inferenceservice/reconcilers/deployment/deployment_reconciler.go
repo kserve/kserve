@@ -449,6 +449,11 @@ func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerNa
 
 // Reconcile ...
 func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
+	// resultList holds the deployments whose .Status should be used for propagation.
+	// We prefer the server-side existingDep (which carries live .Status.Conditions such as
+	// ReplicaFailure) over the in-memory desiredDep (which has no status).
+	var resultList []*appsv1.Deployment
+
 	for _, desiredDep := range r.DeploymentList {
 		// Reconcile Deployment
 		checkResult, existingDep, err := r.checkDeploymentExist(ctx, r.client, desiredDep)
@@ -461,6 +466,8 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 		switch checkResult {
 		case constants.CheckResultCreate:
 			opErr = r.client.Create(ctx, desiredDep)
+			// Deployment was just created; status is empty on the server too, so use desiredDep.
+			resultList = append(resultList, desiredDep)
 		case constants.CheckResultUpdate:
 			curDeployment := existingDep.DeepCopy()
 			modDeployment := desiredDep.DeepCopy()
@@ -490,19 +497,31 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 
 			// Patch the deployment object with the strategic merge patch
 			opErr = r.client.Patch(ctx, existingDep, kclient.RawPatch(types.StrategicMergePatchType, patchByte))
+			// Use existingDep: it carries the current .Status.Conditions before this spec update.
+			resultList = append(resultList, existingDep)
+
+		case constants.CheckResultExisted:
+			// Spec is unchanged. existingDep has the live .Status.Conditions from the server
+			// (e.g. ReplicaFailure, Available, Progressing) which PropagateRawStatus needs.
+			resultList = append(resultList, existingDep)
 
 		case constants.CheckResultDelete:
 			log.Info("Deleting deployment", "namespace", existingDep.Namespace, "name", existingDep.Name)
 			if existingDep.GetDeletionTimestamp() == nil { // check if the deployment was already deleted
 				opErr = r.client.Delete(ctx, existingDep)
 			}
+			resultList = append(resultList, existingDep)
+
+		default:
+			// CheckResultSkipped or unknown: deployment does not exist, use desiredDep.
+			resultList = append(resultList, desiredDep)
 		}
 
 		if opErr != nil {
 			return nil, opErr
 		}
 	}
-	return r.DeploymentList, nil
+	return resultList, nil
 }
 
 // GetWorkloads returns Deployments as generic Objects for controller references

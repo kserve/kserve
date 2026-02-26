@@ -152,6 +152,16 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		}
 	}
 
+	// Add InferenceService name as environment variable to all containers
+	// In collocation mode, there may be multiple containers (predictor + transformer)
+	// https://kserve.github.io/website/docs/model-serving/predictive-inference/transformers/collocation
+	for i := range podSpec.Containers {
+		containerName := podSpec.Containers[i].Name
+		if err := isvcutils.AddEnvVarToPodSpec(&podSpec, containerName, constants.InferenceServiceNameEnvVarKey, isvc.Name); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "failed to add INFERENCE_SERVICE_NAME environment variable to container %s", containerName)
+		}
+	}
+
 	predictorName := constants.PredictorServiceName(isvc.Name)
 
 	// Labels and annotations from predictor component
@@ -191,6 +201,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		podLabelKey = constants.RawDeploymentAppLabel
 		// This is main RawKubeReconciler to create objects (deployment, svc, scaler)
 		if err := p.reconcileRawDeployment(ctx, isvc, objectMeta, workerObjectMeta, &podSpec, workerPodSpec); err != nil {
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -198,6 +209,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		podLabelKey = constants.RevisionLabel
 
 		if kstatus, err = p.reconcileKnativeDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
 	}

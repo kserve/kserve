@@ -122,6 +122,21 @@ log_warning() {
     echo -e "${YELLOW}[WARNING]${RESET} $*" >&2
 }
 
+is_positive() {
+  input_val=$1
+  if [[ z$input_val == z ]]; then
+    input_val="no"
+  fi
+
+  if [[ $input_val == '0' || $input_val == "true" || $input_val == 'True' || $input_val == 'yes' || $input_val == 'Yes' || $input_val == 'y' || $input_val == 'Y' ]]; then
+    echo 0
+  elif [[ $input_val == '1' || $input_val == 'false' || $input_val == 'False' || $input_val == 'no' || $input_val == 'No' || $input_val == 'n' || $input_val == 'N' ]]; then
+    echo 1
+  else    
+    echo 2
+  fi
+}
+
 
 # ============================================================================
 # Infrastructure Installation Helper Functions

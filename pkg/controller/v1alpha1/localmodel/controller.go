@@ -445,22 +445,7 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	}
 
-	nodePredicates := predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			// Only reconciles the local model crs when the node becomes ready from not ready
-			// Todo: add tests
-			oldNode := e.ObjectNew.(*corev1.Node)
-			newNode := e.ObjectNew.(*corev1.Node)
-			return !isNodeReady(*oldNode) && isNodeReady(*newNode)
-		},
-		CreateFunc: func(e event.CreateEvent) bool {
-			// Do nothing here, generates local model cr reconcile requests in nodeFunc
-			return true
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return false
-		},
-	}
+	nodePredicates := nodeReadyPredicate()
 
 	// Define predicates to filter events based on changes to the status field
 	localModelNodePredicates := predicate.Funcs{
@@ -498,6 +483,27 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Updates model status when localmodelnode status changes
 		Watches(&v1alpha1.LocalModelNode{}, handler.EnqueueRequestsFromMapFunc(c.localmodelNodeFunc), builder.WithPredicates(localModelNodePredicates)).
 		Complete(c)
+}
+
+// nodeReadyPredicate returns a predicate that triggers reconciliation only when
+// a node transitions from NotReady to Ready (e.g. when a new node joins via
+// cluster autoscaler), or when a new node is created.
+func nodeReadyPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			// Only reconciles the local model crs when the node becomes ready from not ready
+			oldNode := e.ObjectOld.(*corev1.Node)
+			newNode := e.ObjectNew.(*corev1.Node)
+			return !isNodeReady(*oldNode) && isNodeReady(*newNode)
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			// Do nothing here, generates local model cr reconcile requests in nodeFunc
+			return true
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return false
+		},
+	}
 }
 
 func isNodeReady(node corev1.Node) bool {

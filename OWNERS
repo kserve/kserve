@@ -1,14 +1,11 @@
-owners:
+project-leads:
   - terrytangyuan
   - yuzisun
 
 approvers:
   - Jooho
   - lizzzcai
-  - rachitchauhan43
   - sivanantha321
-  - terrytangyuan
-  - yuzisun
 
 reviewers:
   - andyi2it
@@ -19,11 +16,5 @@ reviewers:
   - greenmoon55
   - israel-hdez
   - johnugeorge
-  - Jooho
-  - lizzzcai
   - pierDipi
-  - rachitchauhan43
-  - sivanantha321
   - spolti
-  - terrytangyuan
-  - yuzisun

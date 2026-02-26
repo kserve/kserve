@@ -103,13 +103,20 @@ def generate_script(definition_file: Path, output_dir: Path):
     # Process components
     for comp_config in config["components"]:
         logger.log_info(f"  Processing: {comp_config['name']}")
-        comp = component_processor.process_component(comp_config, infra_dir, config["method"])
+        comp = component_processor.process_component(
+            comp_config,
+            infra_dir,
+            config["method"],
+            embed_templates=config.get("embed_templates", True)
+        )
         logger.log_info(f"    → {comp['install_func']}(), {comp['uninstall_func']}()")
+        if comp.get("has_templates"):
+            logger.log_info(f"    → Found templates for {comp['name']}")
         components.append(comp)
 
     # Generate content
     if config["embed_manifests"]:
-        logger.log_info("EMBED_MANIFESTS mode enabled - generating embedded KServe manifests...")
+        logger.log_info("EMBED_MANIFESTS mode enabled - generating embedded KServe manifests and component templates...")
     content = script_builder.generate_script_content(definition_file, config, components, repo_root)
 
     # Determine output file name

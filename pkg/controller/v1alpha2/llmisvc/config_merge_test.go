@@ -26,6 +26,7 @@ import (
 	ktesting "github.com/kserve/kserve/pkg/testing"
 
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
+	"github.com/kserve/kserve/pkg/credentials"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -1902,6 +1903,56 @@ func TestParentRefRewritingGuard(t *testing.T) {
 				if len(parentRefs) != len(gateway.Refs) {
 					t.Errorf("expected %d parent refs, got %d", len(gateway.Refs), len(parentRefs))
 				}
+			}
+		})
+	}
+}
+
+func TestReplaceVariables_TemplateInjection(t *testing.T) {
+	tests := []struct {
+		name   string
+		config string
+	}{
+		{
+			name: "access CredentialConfig via template injection",
+			config: `apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: "{{ .GlobalConfig.CredentialConfig.StorageSpecSecretName }}"
+spec:
+  model:
+    name: "safe-model"`,
+		},
+		{
+			name: "access StorageConfig via template injection",
+			config: `apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: injected
+spec:
+  model:
+    name: "{{ .GlobalConfig.StorageConfig }}"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			preset := &v1alpha2.LLMInferenceServiceConfig{}
+			if err := yaml.Unmarshal([]byte(tt.config), preset); err != nil {
+				t.Fatalf("Failed to unmarshal YAML: %v", err)
+			}
+
+			reconcilerConfig := &llmisvc.Config{
+				SystemNamespace:         "kserve",
+				IngressGatewayName:      "kserve-gateway",
+				IngressGatewayNamespace: "kserve",
+				CredentialConfig:        &credentials.CredentialConfig{StorageSpecSecretName: "super-secret"},
+			}
+
+			llmSvc := &v1alpha2.LLMInferenceService{}
+			_, err := llmisvc.ReplaceVariables(llmSvc, preset, reconcilerConfig)
+			if err == nil {
+				t.Errorf("ReplaceVariables() should reject template accessing sensitive GlobalConfig fields, but succeeded")
 			}
 		})
 	}

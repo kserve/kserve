@@ -19,6 +19,7 @@ package llmisvc_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -151,6 +152,15 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 			Eventually(LLMInferenceServiceIsReady(llmSvc, func(g Gomega, current *v1alpha2.LLMInferenceService) {
 				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.HTTPRoutesReady), "True"))
+
+				// Verify versioned config resolution: Status.Annotations should map
+				// each well-known config suffix to the actual config name used.
+				// Uses the default "kserve-" prefix (matching LLM_INFERENCE_SERVICE_CONFIG_PREFIX default).
+				g.Expect(current.Status.Annotations).NotTo(BeNil())
+
+				for _, name := range llmisvc.WellKnownDefaultConfigs.UnsortedList() {
+					g.Expect(current.Status.Annotations).To(HaveKeyWithValue(llmisvc.StaticWellKnownConfigResolverPrefix+strings.TrimPrefix(name, "kserve-"), name))
+				}
 			})).WithContext(ctx).Should(Succeed())
 		})
 

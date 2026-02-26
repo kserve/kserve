@@ -26,14 +26,20 @@ import (
 	"fmt"
 	"maps"
 	"math/big"
+	"net"
+	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/kmeta"
+	"knative.dev/pkg/network"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -55,10 +61,18 @@ const (
 func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	log.FromContext(ctx).Info("Reconciling self-signed certificates secret")
 
+	ips, err := r.collectIPAddresses(ctx, llmSvc)
+	if err != nil {
+		return fmt.Errorf("failed to collect IP addresses: %w", err)
+	}
+	dnsNames := r.collectDNSNames(ctx, llmSvc)
+
 	// Generating a new certificate is quite slow and expensive as it generates a new certificate, check if the current
 	// self-signed certificate (if any) is expired before creating a new one.
-	var certFunc createCertFunc = createSelfSignedTLSCertificate
-	if curr := r.getExistingSelfSignedCertificate(ctx, llmSvc); curr != nil && (isCertificateExpired(curr) || len(curr.Data["tls.key"]) == 0 || len(curr.Data["tls.crt"]) == 0) {
+	var certFunc createCertFunc = func() ([]byte, []byte, error) {
+		return createSelfSignedTLSCertificate(dnsNames, ips)
+	}
+	if curr := r.getExistingSelfSignedCertificate(ctx, llmSvc); curr != nil && !ShouldRecreateCertificate(curr, dnsNames, ips) {
 		certFunc = func() ([]byte, []byte, error) {
 			return curr.Data["tls.key"], curr.Data["tls.crt"], nil
 		}
@@ -73,7 +87,7 @@ func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, 
 		return Delete(ctx, r, llmSvc, expected)
 	}
 
-	if err := Reconcile(ctx, r, llmSvc, &corev1.Secret{}, expected, semanticCertificateSecretIsEqual); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &corev1.Secret{}, expected, SemanticCertificateSecretIsEqual); err != nil {
 		return fmt.Errorf("failed to reconcile self-signed TLS certificate: %w", err)
 	}
 	return nil
@@ -115,12 +129,19 @@ func (r *LLMISVCReconciler) expectedSelfSignedCertsSecret(llmSvc *v1alpha2.LLMIn
 }
 
 // createSelfSignedTLSCertificate creates a self-signed cert the server can use to serve TLS.
-func createSelfSignedTLSCertificate() ([]byte, []byte, error) {
+func createSelfSignedTLSCertificate(dnsNames []string, ipStrings []string) ([]byte, []byte, error) {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating serial number: %w", err)
 	}
+	ipAddresses := make([]net.IP, 0, len(ipStrings))
+	for _, ip := range ipStrings {
+		if p := net.ParseIP(ip); p != nil {
+			ipAddresses = append(ipAddresses, p)
+		}
+	}
+
 	now := time.Now()
 	notBefore := now.UTC()
 	template := x509.Certificate{
@@ -129,10 +150,12 @@ func createSelfSignedTLSCertificate() ([]byte, []byte, error) {
 			Organization: []string{"Kserve Self Signed"},
 		},
 		NotBefore:             notBefore,
-		NotAfter:              now.Add(certificateDuration).UTC(),
+		NotAfter:              now.Add(certificateDuration + certificateExpirationRenewBufferDuration).UTC(),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
+		DNSNames:              dnsNames,
+		IPAddresses:           ipAddresses,
 	}
 
 	priv, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -174,11 +197,126 @@ func isCertificateExpired(curr *corev1.Secret) bool {
 	return false
 }
 
-// semanticCertificateSecretIsEqual is a semantic comparison for secrets that is specifically meant to compare TLS
-// certificates secrets handling expiration and renewal.
-func semanticCertificateSecretIsEqual(expected *corev1.Secret, curr *corev1.Secret) bool {
-	if isCertificateExpired(curr) {
+func ShouldRecreateCertificate(curr *corev1.Secret, expectedDNSNames []string, expectedIPs []string) bool {
+	if curr == nil || isCertificateExpired(curr) || len(curr.Data["tls.key"]) == 0 || len(curr.Data["tls.crt"]) == 0 {
 		return true
+	}
+
+	// Decode PEM-encoded certificate
+	certBlock, _ := pem.Decode(curr.Data["tls.crt"])
+	if certBlock == nil {
+		return true
+	}
+	cert, certErr := x509.ParseCertificate(certBlock.Bytes)
+
+	// Decode PEM-encoded private key
+	keyBlock, _ := pem.Decode(curr.Data["tls.key"])
+	if keyBlock == nil {
+		return true
+	}
+	_, keyErr := x509.ParsePKCS8PrivateKey(keyBlock.Bytes) // Must match createSelfSignedTLSCertificate form.
+
+	if certErr != nil || keyErr != nil {
+		return true
+	}
+
+	expectedDnsNamesSet := sets.NewString(expectedDNSNames...)
+	currDnsNames := sets.NewString(cert.DNSNames...)
+	if !currDnsNames.IsSuperset(expectedDnsNamesSet) {
+		return true
+	}
+
+	// Only recreate certificates when the current IPs are not covering all possible IPs to account for temporary
+	// changes and avoid too frequent changes [current.IsSuperset(expected)].
+
+	expectedIpSet := sets.NewString(expectedIPs...)
+	currIps := sets.NewString()
+	for _, ip := range cert.IPAddresses {
+		if len(ip) > 0 {
+			currIps.Insert(ip.String())
+		}
+	}
+
+	if !currIps.IsSuperset(expectedIpSet) {
+		return true
+	}
+
+	return time.Now().UTC().After(cert.NotAfter.UTC())
+}
+
+func (r *LLMISVCReconciler) collectDNSNames(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) []string {
+	dnsNames := []string{
+		"localhost", // P/D sidecar sends requests for decode over localhost
+		network.GetServiceHostname(kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"), llmSvc.GetNamespace()),
+		fmt.Sprintf("%s.%s.svc", kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"), llmSvc.GetNamespace()),
+	}
+
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Pool != nil {
+		infPoolSpec := llmSvc.Spec.Router.Scheduler.Pool.Spec
+		if llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
+			infPool := &igwapi.InferencePool{
+				ObjectMeta: metav1.ObjectMeta{Namespace: llmSvc.GetNamespace(), Name: llmSvc.Spec.Router.Scheduler.Pool.Ref.Name},
+			}
+
+			// If there is an error, this will be reported properly as part of the Router reconciliation.
+			if err := r.Get(ctx, client.ObjectKeyFromObject(infPool), infPool); err == nil {
+				infPoolSpec = &infPool.Spec
+			}
+		}
+
+		if infPoolSpec != nil {
+			dnsNames = append(dnsNames, network.GetServiceHostname(string(infPoolSpec.EndpointPickerRef.Name), llmSvc.GetNamespace()))
+			dnsNames = append(dnsNames, fmt.Sprintf("%s.%s.svc", string(infPoolSpec.EndpointPickerRef.Name), llmSvc.GetNamespace()))
+		}
+	}
+
+	sort.Strings(dnsNames)
+	return dnsNames
+}
+
+func (r *LLMISVCReconciler) collectIPAddresses(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) ([]string, error) {
+	pods := &corev1.PodList{}
+	listOptions := &client.ListOptions{
+		Namespace: llmSvc.Namespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			constants.KubernetesAppNameLabelKey: llmSvc.Name,
+			constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+		}),
+	}
+
+	if err := r.List(ctx, pods, listOptions); err != nil {
+		return nil, fmt.Errorf("failed to list pods associated with LLM inference service: %w", err)
+	}
+
+	ips := sets.NewString("127.0.0.1") // P/D sidecar sends requests for decode over local host
+	for _, pod := range pods.Items {
+		ips.Insert(pod.Status.PodIP)
+		for _, ip := range pod.Status.PodIPs {
+			ips.Insert(ip.IP)
+		}
+	}
+
+	services := &corev1.ServiceList{}
+	if err := r.List(ctx, services, listOptions); err != nil {
+		return nil, fmt.Errorf("failed to list services associated with LLM inference service: %w", err)
+	}
+
+	for _, svc := range services.Items {
+		ips.Insert(svc.Spec.ClusterIP)
+		for _, ip := range svc.Spec.ClusterIPs {
+			ips.Insert(ip)
+		}
+	}
+
+	// List sorts IPs, so that the resulting list is always the same regardless of the order of the IPs.
+	return ips.List(), nil
+}
+
+// SemanticCertificateSecretIsEqual is a semantic comparison for secrets that is specifically meant to compare TLS
+// certificates secrets handling expiration and renewal.
+func SemanticCertificateSecretIsEqual(expected *corev1.Secret, curr *corev1.Secret) bool {
+	if isCertificateExpired(curr) {
+		return false
 	}
 
 	expectedAnnotations := maps.Clone(expected.Annotations)
@@ -187,5 +325,6 @@ func semanticCertificateSecretIsEqual(expected *corev1.Secret, curr *corev1.Secr
 	return equality.Semantic.DeepDerivative(expected.Immutable, curr.Immutable) &&
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expectedAnnotations, curr.Annotations) &&
-		equality.Semantic.DeepDerivative(expected.Type, curr.Type)
+		equality.Semantic.DeepDerivative(expected.Type, curr.Type) &&
+		equality.Semantic.DeepDerivative(expected.Data, curr.Data)
 }
