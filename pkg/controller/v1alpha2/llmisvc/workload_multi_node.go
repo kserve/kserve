@@ -589,15 +589,18 @@ func (r *LLMISVCReconciler) expectedMultiNodeRoleBinding(llmSvc *v1alpha2.LLMInf
 }
 
 func (r *LLMISVCReconciler) propagateLeaderWorkerSetMetadata(llmSvc *v1alpha2.LLMInferenceService, expected *lwsapi.LeaderWorkerSet) {
+	localModelPrefix := constants.InferenceServiceInternalAnnotationsPrefix + "/localmodel"
 	// Define the prefixes to approve for annotations and labels
 	approvedAnnotationPrefixes := []string{
 		"leaderworkerset.sigs.k8s.io",
 		"k8s.v1.cni.cncf.io",
 		constants.KueueAPIGroupName,
 		"prometheus.io",
+		localModelPrefix,
 	}
 	approvedLabelPrefixes := []string{
 		constants.KueueAPIGroupName,
+		localModelPrefix,
 	}
 
 	// Propagate approved annotations to the LeaderWorkerSet's top-level metadata

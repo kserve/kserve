@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	controllerutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
@@ -178,6 +179,27 @@ func (c *LocalModelNamespaceCacheReconciler) isvcFuncNamespaceCache(ctx context.
 	}}
 }
 
+func (c *LocalModelNamespaceCacheReconciler) llmIsvcFuncNamespaceCache(ctx context.Context, obj client.Object) []reconcile.Request {
+	llmSvc := obj.(*v1alpha2.LLMInferenceService)
+	if llmSvc.Labels == nil {
+		return []reconcile.Request{}
+	}
+	modelName, hasModel := llmSvc.Labels[constants.LocalModelLabel]
+	modelNamespace, hasNamespace := llmSvc.Labels[constants.LocalModelNamespaceLabel]
+	if !hasModel || !hasNamespace {
+		return []reconcile.Request{}
+	}
+
+	c.Log.Info("Reconcile namespace-scoped localModel from LLM inference services", "name", modelName, "namespace", modelNamespace)
+
+	return []reconcile.Request{{
+		NamespacedName: types.NamespacedName{
+			Name:      modelName,
+			Namespace: modelNamespace,
+		},
+	}}
+}
+
 // Given a node object, checks if it matches any node group CR, then reconcile all namespace local models that has this node group.
 func (c *LocalModelNamespaceCacheReconciler) nodeFuncNamespaceCache(ctx context.Context, obj client.Object) []reconcile.Request {
 	node := obj.(*corev1.Node)
@@ -255,6 +277,18 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 		return err
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha2.LLMInferenceService{}, LocalModelNamespaceKey, func(rawObj client.Object) []string {
+		llmSvc := rawObj.(*v1alpha2.LLMInferenceService)
+		modelName, hasModel := llmSvc.GetLabels()[constants.LocalModelLabel]
+		modelNamespace, hasNamespace := llmSvc.GetLabels()[constants.LocalModelNamespaceLabel]
+		if hasModel && hasNamespace && llmSvc.GetNamespace() == modelNamespace {
+			return []string{modelName}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
 	isvcPredicates := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			oldNsLabel := e.ObjectOld.GetLabels()[constants.LocalModelNamespaceLabel]
@@ -272,6 +306,22 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 				return false
 			}
 			return true
+		},
+	}
+
+	llmIsvcPredicates := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldNsLabel := e.ObjectOld.GetLabels()[constants.LocalModelNamespaceLabel]
+			newNsLabel := e.ObjectNew.GetLabels()[constants.LocalModelNamespaceLabel]
+			return oldNsLabel != newNsLabel
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			_, ok := e.Object.GetLabels()[constants.LocalModelNamespaceLabel]
+			return ok
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			_, ok := e.Object.GetLabels()[constants.LocalModelNamespaceLabel]
+			return ok
 		},
 	}
 
@@ -300,6 +350,7 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 
 	if !localModelConfig.DisableVolumeManagement {
 		controllerBuilder.Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFuncNamespaceCache), builder.WithPredicates(isvcPredicates))
+		controllerBuilder.Watches(&v1alpha2.LLMInferenceService{}, handler.EnqueueRequestsFromMapFunc(c.llmIsvcFuncNamespaceCache), builder.WithPredicates(llmIsvcPredicates))
 	}
 
 	return controllerBuilder.
