@@ -46,6 +46,8 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 )
 
+const tokenizerContainerName = "tokenizer"
+
 // reconcileScheduler manages the scheduler component and its related resources
 // The scheduler handles load balancing for inference pods
 func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
@@ -151,7 +153,7 @@ func (r *LLMISVCReconciler) reconcileSchedulerServiceAccount(ctx context.Context
 func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	scheduler, err := r.expectedSchedulerDeployment(ctx, llmSvc)
 	if err != nil {
-		return fmt.Errorf("failed to get expected scheduler deployment %s/%s: %w", scheduler.GetNamespace(), scheduler.GetName(), err)
+		return fmt.Errorf("failed to get expected scheduler deployment: %w", err)
 	}
 	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
 		if isStopped {
@@ -398,7 +400,7 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		}
 
 		if isUsingPreciseSchedulingPlugin(llmSvc.Spec) {
-			var existingServiceAccount *corev1.ServiceAccount = nil
+			var existingServiceAccount *corev1.ServiceAccount
 			if llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
 				existingServiceAccount = &corev1.ServiceAccount{}
 				err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
@@ -678,8 +680,6 @@ func semanticRoleBindingIsEqual(expected *rbacv1.RoleBinding, curr *rbacv1.RoleB
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }
-
-const tokenizerContainerName = "tokenizer"
 
 func SchedulerLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 	return map[string]string{

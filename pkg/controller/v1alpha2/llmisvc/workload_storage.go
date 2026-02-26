@@ -190,6 +190,15 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 			return err
 		}
 		injectCaBundle(llmSvc.Namespace, podSpec, initContainer, storageConfig)
+
+		if containerName == tokenizerContainerName {
+			utils.AddEnvVars(initContainer, []corev1.EnvVar{
+				{
+					Name:  "STORAGE_ALLOW_PATTERNS",
+					Value: `["tokenizer.json", "tokenizer_config.json", "special_tokens_map.json", "vocab.json", "merges.txt", "config.json", "generation_config.json"]`,
+				},
+			})
+		}
 	}
 
 	return nil

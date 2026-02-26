@@ -10,6 +10,5 @@ resources:
   - config-llm-prefill-worker-data-parallel.yaml
   - config-llm-router-route.yaml
   - config-llm-scheduler.yaml
-  - config-llm-scheduler-precise.yaml
   - config-llm-template.yaml
   - config-llm-worker-data-parallel.yaml
