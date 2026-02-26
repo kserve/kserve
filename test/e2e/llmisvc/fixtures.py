@@ -733,7 +733,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
-                        "requests": {"cpu": "200m", "memory": "2Gi"},
+                        "requests": {"cpu": "20m", "memory": "20Mi"},
                     },
                 }
             ]

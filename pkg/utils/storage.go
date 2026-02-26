@@ -333,6 +333,20 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 	}
 }
 
+// modelcarCommand returns the shell command for the modelcar container.
+// When modelPath differs from the default, it prepends "mkdir -p" to create
+// the parent directory so that the symlink target exists. For the default path
+// the command is kept identical to the original to avoid unnecessary pod restarts
+// on upgrade.
+func modelcarCommand(modelPath string) string {
+	// $$$$ gets escaped by YAML to $$, which is the current PID
+	if modelPath != constants.DefaultModelLocalMountPath {
+		return fmt.Sprintf("mkdir -p %s && ln -sf /proc/$$$$/root/models %s && sleep infinity",
+			path.Dir(modelPath), modelPath)
+	}
+	return fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity", modelPath)
+}
+
 // CreateModelcarContainer creates the definition of a container holding a model intended to be used as a sidecar (modelcar).
 // The container is configured with CPU, memory, and UID settings from the storage initializer configuration.
 //
@@ -366,9 +380,7 @@ func CreateModelcarContainer(image string, modelPath string, storageConfig *type
 		Args: []string{
 			"sh",
 			"-c",
-			// $$$$ gets escaped by YAML to $$, which is the current PID
-			fmt.Sprintf("mkdir -p %s && ln -sf /proc/$$$$/root/models %s && sleep infinity",
-				path.Dir(modelPath), modelPath),
+			modelcarCommand(modelPath),
 		},
 		Resources: corev1.ResourceRequirements{
 			Limits: map[corev1.ResourceName]resource.Quantity{
