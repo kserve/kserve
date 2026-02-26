@@ -17,6 +17,7 @@ on:
       - "!docs/**"
       - "!**.md"
       - ".github/workflows/huggingface-docker-publish.yml"
+      - ".github/actions/free-up-disk-space/**"
 
 env:
   IMAGE_NAME: huggingfaceserver 
