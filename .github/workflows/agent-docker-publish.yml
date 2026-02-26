@@ -12,6 +12,15 @@ on:
 
   # Run tests for any PRs.
   pull_request:
+    paths:
+      - "**"
+      - "!.github/**"
+      - "!docs/**"
+      - "!python/**"
+      - "!**.md"
+      - ".github/workflows/agent-docker-publish.yml"
+      - ".github/actions/free-up-disk-space/**"
+
 
 env:
   IMAGE_NAME: agent

@@ -9,6 +9,7 @@ on:
       - "!docs/**"
       - "!**.md"
       - ".github/workflows/e2e-test.yml"
+      - ".github/actions/**"
   workflow_dispatch:
 
 env:
