@@ -8,6 +8,13 @@ on:
 
   # Run tests for any PRs.
   pull_request:
+    paths:
+      - "python/**"
+      - "!.github/**"
+      - "!docs/**"
+      - "!**.md"
+      - ".github/workflows/custom-model-grpc-publish.yml"
+      - ".github/actions/free-up-disk-space/**"
 
 env:
   IMAGE_NAME: custom-model-grpc

@@ -11,6 +11,13 @@ on:
       - v*
   # Run tests for any PRs.
   pull_request:
+    paths:
+      - "python/**"
+      - "!.github/**"
+      - "!docs/**"
+      - "!**.md"
+      - ".github/workflows/huggingface-cpu-docker-publish.yml"
+      - ".github/actions/free-up-disk-space/**"
 
 env:
   IMAGE_NAME: huggingfaceserver
