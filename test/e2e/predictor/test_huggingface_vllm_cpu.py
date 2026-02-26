@@ -111,7 +111,6 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
                 "512",
                 "--dtype",
                 "bfloat16",
-                "--enforce-eager",
             ],
             env=[
                 client.V1EnvVar(
