@@ -6,9 +6,12 @@ on:
     paths-ignore:
       - "**.md"
   pull_request:
-    branches: []
-    paths-ignore:
-      - "**.md"
+    paths:
+      - "python/**"
+      - "!.github/**"
+      - "!docs/**"
+      - "!**.md"
+      - ".github/workflows/python-test.yml"
   workflow_dispatch:
 
 concurrency:
