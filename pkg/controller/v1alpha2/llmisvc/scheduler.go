@@ -405,7 +405,13 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 				existingServiceAccount = &corev1.ServiceAccount{}
 				err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
 				if err != nil {
-					return d, fmt.Errorf("failed to fetch existing scheduler service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, err)
+					if !apierrors.IsNotFound(err) {
+						return d, fmt.Errorf("failed to fetch existing scheduler service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName, err)
+					}
+					// The service account may not exist yet (first reconciliation, cache lag)
+					// or may have already been deleted (stop flow). Let attachModelArtifacts
+					// handle credential injection with the default service account fallback.
+					existingServiceAccount = nil
 				}
 			}
 

@@ -2,7 +2,7 @@
 #
 # This sample uses the llm-d-inference-sim simulator instead of a real model server,
 # making it suitable for testing on CPU-only clusters.
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceService
 metadata:
   name: precise-prefix-test
