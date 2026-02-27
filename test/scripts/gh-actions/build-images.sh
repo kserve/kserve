@@ -70,6 +70,10 @@ else
   docker buildx build -f router.Dockerfile . -t "${ROUTER_IMG_TAG}" \
     -o type=docker,dest="${DOCKER_IMAGES_PATH}/${ROUTER_IMG}-${TAG}",compression-level=0
 
+  echo "Building llmisvc controller image"
+  docker buildx build -f llmisvc-controller.Dockerfile . -t "${LLMISVC_CONTROLLER_IMG_TAG}" \
+    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LLMISVC_CONTROLLER_IMG}-${TAG}",compression-level=0
+
   echo "Disk usage before Building storage initializer:"
           df -hT
 fi
