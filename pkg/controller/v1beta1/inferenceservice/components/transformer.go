@@ -132,19 +132,19 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 		}
 
 		// add predictor host and protocol to metadata
-		isvc.ObjectMeta.Annotations[constants.PredictorHostAnnotationKey] = predictorURL.Host
+		isvc.Annotations[constants.PredictorHostAnnotationKey] = predictorURL.Host
 		switch predictorURL.Scheme {
 		case "grpc":
-			isvc.ObjectMeta.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolGRPCV2)
+			isvc.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolGRPCV2)
 		case "http", "https":
 			// modelmesh supports v2 only
-			isvc.ObjectMeta.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolV2)
+			isvc.Annotations[constants.PredictorProtocolAnnotationKey] = string(constants.ProtocolV2)
 		default:
 			return ctrl.Result{}, fmt.Errorf("Predictor URL Scheme not supported: %v", predictorURL.Scheme)
 		}
 	}
 
-	if len(isvc.Spec.Transformer.PodSpec.Containers) == 0 {
+	if len(isvc.Spec.Transformer.Containers) == 0 {
 		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig, predictorName)
 		isvc.Spec.Transformer.PodSpec = v1beta1.PodSpec{
 			Containers: []corev1.Container{
@@ -153,18 +153,27 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 		}
 	} else {
 		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig, predictorName)
-		isvc.Spec.Transformer.PodSpec.Containers[0] = *container
+		isvc.Spec.Transformer.Containers[0] = *container
 	}
 
 	podSpec := corev1.PodSpec(isvc.Spec.Transformer.PodSpec)
 
+	// Add InferenceService name as environment variable to transformer container
+	// Use the actual container name from the podSpec (first container)
+	transformerContainerName := podSpec.Containers[0].Name
+	if err := isvcutils.AddEnvVarToPodSpec(&podSpec, transformerContainerName, constants.InferenceServiceNameEnvVarKey, isvc.Name); err != nil {
+		return ctrl.Result{}, errors.Wrapf(err, "failed to add INFERENCE_SERVICE_NAME environment variable to container %s", transformerContainerName)
+	}
+
 	// Here we allow switch between knative and vanilla deployment
 	if p.deploymentMode == constants.Standard {
 		if err := p.reconcileTransformerRawDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.TransformerComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
 	} else {
 		if err := p.reconcileTransformerKnativeDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.TransformerComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
 	}
@@ -218,17 +227,14 @@ func (p *Transformer) reconcileTransformerRawDeployment(ctx context.Context, isv
 	if err != nil {
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for transformer")
 	}
-	// set Deployment Controller
-	for _, deployment := range r.Deployment.DeploymentList {
-		if err := controllerutil.SetControllerReference(isvc, deployment, p.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set deployment owner reference for transformer")
-		}
+	// set Workload Controller
+	if err := r.Workload.SetControllerReferences(isvc, p.scheme); err != nil {
+		return errors.Wrapf(err, "fails to set workload owner reference for transformer")
 	}
+
 	// set Service Controller
-	for _, svc := range r.Service.ServiceList {
-		if err := controllerutil.SetControllerReference(isvc, svc, p.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set service owner reference for transformer")
-		}
+	if err := r.Service.SetControllerReferences(isvc, p.scheme); err != nil {
+		return errors.Wrapf(err, "fails to set service owner reference for transformer")
 	}
 	// set autoscaler Controller
 	if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, p.scheme); err != nil {

@@ -24,17 +24,25 @@ set -o pipefail
 
 find_repo_root() {
     local current_dir="${1:-$(pwd)}"
+    local skip="${2:-false}"
 
     while [[ "$current_dir" != "/" ]]; do
-        if [[ -d "${current_dir}/.git" ]]; then
+        if [[ -e "${current_dir}/.git" ]]; then
             echo "$current_dir"
             return 0
         fi
         current_dir="$(dirname "$current_dir")"
     done
 
-    echo "Error: Could not find git repository root" >&2
-    exit 1
+    # Git repository not found
+    if [[ "$skip" == "true" ]]; then
+        log_warning "Could not find git repository root, using current directory: $PWD"
+        echo "$PWD"
+        return 0
+    else
+        log_error "Could not find git repository root"
+        exit 1
+    fi
 }
 
 ensure_dir() {
@@ -52,7 +60,7 @@ detect_os() {
     case "$(uname -s)" in
         Linux*)  os="linux" ;;
         Darwin*) os="darwin" ;;
-        *)       echo "Unsupported OS" >&2; exit 1 ;;
+        *)       log_error "Unsupported OS detected: $(uname -s)" ; exit 1 ;;
     esac
     echo "$os"
 }
@@ -62,10 +70,26 @@ detect_arch() {
     case "$(uname -m)" in
         x86_64)  arch="amd64" ;;
         aarch64|arm64) arch="arm64" ;;
-        *)       echo "Unsupported architecture" >&2; exit 1 ;;
+        *)       log_error "Unsupported architecture detected: $(uname -m)" ; exit 1 ;;
     esac
     echo "$arch"
 }
+
+cleanup_bin_dir() {
+    # Remove BIN_DIR if it was created by this script
+    if [[ "${BIN_DIR_CREATED_BY_SCRIPT:-false}" == "true" ]] && [[ -d "${BIN_DIR:-}" ]]; then
+        log_info "Cleaning up BIN_DIR: ${BIN_DIR}"
+        rm -rf "${BIN_DIR}"
+    fi
+}
+
+cleanup() {
+    # Call all cleanup functions
+    cleanup_bin_dir
+}
+
+# Set up trap to run cleanup on exit
+trap cleanup EXIT
 
 # Color codes (disable if NO_COLOR is set or not a terminal)
 if [[ -z "${NO_COLOR:-}" ]] && [[ -t 1 ]]; then
@@ -83,7 +107,7 @@ else
 fi
 
 log_info() {
-    echo -e "${BLUE}[INFO]${RESET} $*"
+    echo -e "${BLUE}[INFO]${RESET} $*" >&2
 }
 
 log_error() {
@@ -91,11 +115,26 @@ log_error() {
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${RESET} $*"
+    echo -e "${GREEN}[SUCCESS]${RESET} $*" >&2
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${RESET} $*"
+    echo -e "${YELLOW}[WARNING]${RESET} $*" >&2
+}
+
+is_positive() {
+  input_val=$1
+  if [[ z$input_val == z ]]; then
+    input_val="no"
+  fi
+
+  if [[ $input_val == '0' || $input_val == "true" || $input_val == 'True' || $input_val == 'yes' || $input_val == 'Yes' || $input_val == 'y' || $input_val == 'Y' ]]; then
+    echo 0
+  elif [[ $input_val == '1' || $input_val == 'false' || $input_val == 'False' || $input_val == 'no' || $input_val == 'No' || $input_val == 'n' || $input_val == 'N' ]]; then
+    echo 1
+  else    
+    echo 2
+  fi
 }
 
 
@@ -144,7 +183,9 @@ wait_for_pods_created() {
     log_info "Waiting for pods with label '$label_selector' in namespace '$namespace' to be created..."
 
     while true; do
-        local pod_count=$(kubectl get pods -n "$namespace" -l "$label_selector" --no-headers 2>/dev/null | wc -l)
+        # Exclude terminating pods by filtering out Terminating status
+        local pod_count=$(kubectl get pods -n "$namespace" -l "$label_selector" \
+            --no-headers 2>/dev/null | grep -v "Terminating" | wc -l)
 
         if [ "$pod_count" -gt 0 ]; then
             log_info "Found $pod_count pod(s) with label '$label_selector'"
@@ -169,7 +210,19 @@ wait_for_pods_ready() {
     local timeout="${3:-180s}"
 
     log_info "Waiting for pods with label '$label_selector' in namespace '$namespace' to be ready..."
-    kubectl wait --for=condition=Ready pod -l "$label_selector" -n "$namespace" --timeout="$timeout"
+
+    # Get list of non-terminating pods and wait for them
+    local pods=$(kubectl get pods -n "$namespace" -l "$label_selector" \
+        --no-headers 2>/dev/null | grep -v "Terminating" | awk '{print $1}')
+
+    if [ -z "$pods" ]; then
+        log_error "No pods found with label '$label_selector' in namespace '$namespace'"
+        return 1
+    fi
+
+    for pod in $pods; do
+        kubectl wait --for=condition=Ready pod/"$pod" -n "$namespace" --timeout="$timeout" || return 1
+    done
 }
 
 # Wait for pods to be ready (combines both creation and ready checks)
@@ -226,6 +279,25 @@ wait_for_crd() {
     local timeout="${2:-60s}"
 
     log_info "Waiting for CRD '$crd_name' to be established..."
+
+    # Add small delay to allow CRD status to be initialized
+    sleep 2
+
+    # Retry logic to handle race condition where .status.conditions may not be initialized yet
+    local max_retries=10
+    local retry=0
+    while [ $retry -lt $max_retries ]; do
+        if kubectl wait --for=condition=Established --timeout="$timeout" crd/"$crd_name" 2>/dev/null; then
+            return 0
+        fi
+        retry=$((retry + 1))
+        if [ $retry -lt $max_retries ]; then
+            log_info "Retry $retry/$max_retries: Waiting for CRD status to be initialized..."
+            sleep 3
+        fi
+    done
+
+    # Final attempt with error output
     kubectl wait --for=condition=Established --timeout="$timeout" crd/"$crd_name"
 }
 
@@ -240,6 +312,80 @@ wait_for_crds() {
     done
 
     log_success "All CRDs are established!"
+}
+
+# Update multiple fields in KServe inferenceservice-config ConfigMap
+# Usage: update_isvc_config "ingress.enableGatewayApi=true" "deploy.defaultDeploymentMode=Standard"
+# Example:
+#   update_isvc_config "ingress.enableGatewayApi=true"
+#   update_isvc_config "ingress.enableGatewayApi=true" "ingress.className=\"envoy\""
+update_isvc_config() {
+    if [ $# -eq 0 ]; then
+        log_error "No update parameters provided"
+        return 1
+    fi
+
+    log_info "Updating inferenceservice-config..."
+
+    # Prepare updates as JSON array
+    local updates_file
+    updates_file=$(mktemp)
+
+    for arg in "$@"; do
+        local key="${arg%%=*}"
+        local raw_value="${arg#*=}"
+        local data_key="${key%%.*}"
+        local json_path="${key#*.}"
+        local value_json="$raw_value"
+
+        # Smart type detection: auto-quote strings, keep numbers/booleans/JSON as-is
+        if [[ ! $raw_value =~ ^\" ]] \
+           && [[ ! $raw_value =~ ^-?[0-9]+(\.[0-9]+)?$ ]] \
+           && [[ ! $raw_value =~ ^(true|false|null)$ ]] \
+           && [[ ! $raw_value =~ ^[{\[] ]]; then
+            value_json=$(jq -Rn --arg v "$raw_value" '$v')
+        fi
+
+        jq -n \
+            --arg data_key "$data_key" \
+            --arg path "$json_path" \
+            --argjson value "$value_json" \
+            '{data_key:$data_key, path:$path, value:$value}' >> "$updates_file"
+
+        log_info "  ✓ $data_key.$json_path = $value_json"
+    done
+
+    local updates_json
+    updates_json=$(jq -s '.' "$updates_file")
+    rm -f "$updates_file"
+
+    # Apply all updates with a single jq invocation
+    kubectl get configmap inferenceservice-config -n "${KSERVE_NAMESPACE}" -o json |
+        jq --argjson updates "$updates_json" '
+            # Helper function to safely set nested paths, creating intermediate objects as needed
+            def setpath_safe($parts; $value):
+                reduce range(0; ($parts|length)-1) as $i (.;
+                    $parts[:$i+1] as $prefix
+                    | if getpath($prefix) == null then setpath($prefix; {}) else . end
+                )
+                | setpath($parts; $value);
+
+            # Apply each update
+            reduce $updates[] as $item (.;
+                if .data[$item.data_key] == null or .data[$item.data_key] == "" then
+                    .
+                else
+                    .data[$item.data_key] |= (
+                        fromjson
+                        | setpath_safe($item.path | split("."); $item.value)
+                        | tojson
+                    )
+                end
+            )
+        ' |
+        kubectl apply -f -
+
+    log_success "ConfigMap updated successfully"
 }
 
 # Create namespace if it does not exist (skip if already exists)
@@ -292,8 +438,15 @@ version_gte() {
 if [[ -z "${REPO_ROOT:-}" ]]; then
     REPO_ROOT="$(find_repo_root "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")")"
     export REPO_ROOT
-    export BIN_DIR="${REPO_ROOT}/bin"
-    ensure_dir "${BIN_DIR}"
+
+    # Set up BIN_DIR - use repo bin if it exists, otherwise use temp directory
+    if [[ -d "${REPO_ROOT}/bin" ]]; then
+        export BIN_DIR="${REPO_ROOT}/bin"
+    else
+        export BIN_DIR="$(mktemp -d)"
+        log_info "Using temp BIN_DIR: ${BIN_DIR}"
+    fi
+
     export PATH="${BIN_DIR}:${PATH}"
 fi
 

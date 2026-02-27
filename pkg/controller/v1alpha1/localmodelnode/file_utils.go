@@ -66,7 +66,7 @@ func (f *FileSystemHelper) hasModelFolder(modelName string) (bool, error) {
 
 func (f *FileSystemHelper) ensureModelRootFolderExists() error {
 	// If the folder already exists, this will do nothing
-	if err := os.MkdirAll(f.modelsRootFolder, os.ModePerm); err != nil {
+	if err := os.MkdirAll(f.modelsRootFolder, os.ModePerm); err != nil { //nolint:gosec // G301: local model cache must be readable by model server running as a different UID
 		return err
 	}
 	return nil

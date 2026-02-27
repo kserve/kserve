@@ -119,12 +119,12 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	}
 
 	container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig, predictorName)
-	if len(isvc.Spec.Explainer.PodSpec.Containers) == 0 {
-		isvc.Spec.Explainer.PodSpec.Containers = []corev1.Container{
+	if len(isvc.Spec.Explainer.Containers) == 0 {
+		isvc.Spec.Explainer.Containers = []corev1.Container{
 			*container,
 		}
 	} else {
-		isvc.Spec.Explainer.PodSpec.Containers[0] = *container
+		isvc.Spec.Explainer.Containers[0] = *container
 	}
 
 	podSpec := corev1.PodSpec(isvc.Spec.Explainer.PodSpec)
@@ -132,10 +132,12 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	// Here we allow switch between knative and vanilla deployment
 	if e.deploymentMode == constants.Standard {
 		if err := e.reconcileExplainerRawDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.ExplainerComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
 	} else {
 		if err := e.reconcileExplainerKnativeDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.ExplainerComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
 	}
@@ -189,17 +191,14 @@ func (e *Explainer) reconcileExplainerRawDeployment(ctx context.Context, isvc *v
 	if err != nil {
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for explainer")
 	}
-	// set Deployment Controller
-	for _, deployment := range r.Deployment.DeploymentList {
-		if err := controllerutil.SetControllerReference(isvc, deployment, e.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set deployment owner reference for explainer")
-		}
+	// set Workload Controller
+	if err := r.Workload.SetControllerReferences(isvc, e.scheme); err != nil {
+		return errors.Wrapf(err, "fails to set workload owner reference for explainer")
 	}
+
 	// set Service Controller
-	for _, svc := range r.Service.ServiceList {
-		if err := controllerutil.SetControllerReference(isvc, svc, e.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set service owner reference for explainer")
-		}
+	if err := r.Service.SetControllerReferences(isvc, e.scheme); err != nil {
+		return errors.Wrapf(err, "fails to set service owner reference for explainer")
 	}
 	// set autoscaler Controller
 	if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, e.scheme); err != nil {

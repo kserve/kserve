@@ -16,11 +16,19 @@ import asyncio
 
 import pytest
 import pytest_asyncio
+from httpx_retries import Retry, RetryTransport
+import httpx
 
 import kserve
 from kserve import InferenceRESTClient, RESTConfig
 from kserve.constants.constants import PredictorProtocol
 from kserve.logging import logger, KSERVE_LOG_CONFIG
+
+from .common.http_retry import (
+    DEFAULT_RETRY_BACKOFF_FACTOR,
+    DEFAULT_RETRY_STATUS_CODES,
+    DEFAULT_RETRY_TOTAL,
+)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -33,13 +41,33 @@ def configure_logger():
 
 @pytest.fixture(scope="session")
 def event_loop():
-    return asyncio.get_event_loop()
+    """Provide a dedicated loop for session-scoped async E2E fixtures."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    try:
+        yield loop
+    finally:
+        loop.close()
 
 
 @pytest_asyncio.fixture(scope="session")
 async def rest_v1_client():
+    transport = RetryTransport(
+        retry=Retry(
+            total=DEFAULT_RETRY_TOTAL,
+            backoff_factor=DEFAULT_RETRY_BACKOFF_FACTOR,
+            backoff_jitter=0.0,
+            allowed_methods=["GET", "POST"],
+            status_forcelist=list(DEFAULT_RETRY_STATUS_CODES),
+            retry_on_exceptions=[
+                httpx.TimeoutException,
+                httpx.NetworkError,
+                httpx.RemoteProtocolError,
+            ],
+        ),
+    )
     v1_client = InferenceRESTClient(
         config=RESTConfig(
+            transport=transport,
             timeout=180,
             verbose=True,
             protocol=PredictorProtocol.REST_V1,
@@ -51,8 +79,23 @@ async def rest_v1_client():
 
 @pytest_asyncio.fixture(scope="session")
 async def rest_v2_client():
+    transport = RetryTransport(
+        retry=Retry(
+            total=DEFAULT_RETRY_TOTAL,
+            backoff_factor=DEFAULT_RETRY_BACKOFF_FACTOR,
+            backoff_jitter=0.0,
+            allowed_methods=["GET", "POST"],
+            status_forcelist=list(DEFAULT_RETRY_STATUS_CODES),
+            retry_on_exceptions=[
+                httpx.TimeoutException,
+                httpx.NetworkError,
+                httpx.RemoteProtocolError,
+            ],
+        ),
+    )
     v2_client = InferenceRESTClient(
         config=RESTConfig(
+            transport=transport,
             timeout=180,
             verbose=True,
             protocol=PredictorProtocol.REST_V2,

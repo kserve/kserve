@@ -5,23 +5,19 @@ kind: Kustomization
 namespace: kserve
 
 # Labels to add to all resources and selectors.
-#commonLabels:
-#  app.kubernetes.io/name: kserve
+labels:
+- pairs:
+    app.kubernetes.io/name: kserve
+    app.kubernetes.io/component: kserve
 resources:
+- ../certmanager/kserve
 - ../crd
-- ../configmap
 - ../rbac
 - ../manager
 - ../webhook
-- ../certmanager
-- ../localmodels
-- ../localmodelnodes
-- ../llmisvc
 
 generatorOptions:
   disableNameSuffixHash: true
-
-
 
 replacements:
 # Replace with the name of the webhook service.
@@ -61,11 +57,6 @@ replacements:
     select:
       kind: ValidatingWebhookConfiguration
       name: servingruntime.serving.kserve.io
-  - fieldPaths:
-      - webhooks.*.clientConfig.service.name
-    select:
-      kind: ValidatingWebhookConfiguration
-      name: localmodelcache.serving.kserve.io
   - fieldPaths:
     - spec.commonName
     - spec.dnsNames.0
@@ -113,11 +104,6 @@ replacements:
     select:
       kind: ValidatingWebhookConfiguration
       name: servingruntime.serving.kserve.io
-  - fieldPaths:
-    - webhooks.*.clientConfig.service.namespace
-    select:
-      kind: ValidatingWebhookConfiguration
-      name: localmodelcache.serving.kserve.io
   - fieldPaths:
     - spec.commonName
     - spec.dnsNames.0
@@ -184,14 +170,6 @@ replacements:
     select:
       kind: ValidatingWebhookConfiguration
       name: servingruntime.serving.kserve.io
-  - fieldPaths:
-      - metadata.annotations.[cert-manager.io/inject-ca-from]
-    options:
-      delimiter: '/'
-      index: 0
-    select:
-      kind: ValidatingWebhookConfiguration
-      name: localmodelcache.serving.kserve.io
     # Protect the /metrics endpoint by putting it behind auth.
     # Only one of manager_auth_proxy_patch.yaml and
     # manager_prometheus_metrics_patch.yaml should be enabled.
@@ -210,8 +188,5 @@ patches:
 - path: trainedmodel_validatingwebhook_cainjection_patch.yaml
 - path: clusterservingruntime_validatingwebhook_cainjection_patch.yaml
 - path: servingruntime_validationwebhook_cainjection_patch.yaml
-- path: localmodelcache_validatingwebhook_cainjection_patch.yaml
 - path: manager_resources_patch.yaml
 - path: cainjection_conversion_webhook.yaml
-- path: localmodel_manager_image_patch.yaml
-- path: localmodelnode_agent_image_patch.yaml

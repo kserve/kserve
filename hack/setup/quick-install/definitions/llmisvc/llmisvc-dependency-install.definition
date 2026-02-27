@@ -1,0 +1,15 @@
+DESCRIPTION: Install KServe LLM InferenceService dependencies only
+
+TOOLS:
+  - helm
+  - yq
+
+COMPONENTS:
+  - name: external-lb
+  - name: cert-manager
+  - name: gateway-api-extension-crd
+  - name: envoy-gateway
+  - name: envoy-ai-gateway
+  - name: gateway-api-gwclass
+  - name: gateway-api-gw
+  - name: lws-operator

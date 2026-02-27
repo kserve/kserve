@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/kmp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,19 +41,17 @@ var log = logf.Log.WithName("CaBundleConfigMapReconciler")
 type CaBundleConfigMapReconciler struct {
 	client    client.Client
 	clientset kubernetes.Interface
-	scheme    *runtime.Scheme
 }
 
-func NewCaBundleConfigMapReconciler(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme) *CaBundleConfigMapReconciler {
+func NewCaBundleConfigMapReconciler(client client.Client, clientset kubernetes.Interface) *CaBundleConfigMapReconciler {
 	return &CaBundleConfigMapReconciler{
 		client:    client,
 		clientset: clientset,
-		scheme:    scheme,
 	}
 }
 
-func (c *CaBundleConfigMapReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
-	log.Info("Reconciling CaBundleConfigMap", "namespace", isvc.Namespace)
+func (c *CaBundleConfigMapReconciler) Reconcile(ctx context.Context, namespace string) error {
+	log.Info("Reconciling CaBundleConfigMap", "namespace", namespace)
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, c.clientset)
 	if err != nil {
 		log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
@@ -73,7 +70,7 @@ func (c *CaBundleConfigMapReconciler) Reconcile(ctx context.Context, isvc *v1bet
 	if storageInitializerConfig.CaBundleConfigMapName == "" {
 		return nil
 	} else {
-		newCaBundleConfigMap, err = c.getCabundleConfigMapForUserNS(ctx, storageInitializerConfig.CaBundleConfigMapName, constants.KServeNamespace, isvc.Namespace)
+		newCaBundleConfigMap, err = c.getCabundleConfigMapForUserNS(ctx, storageInitializerConfig.CaBundleConfigMapName, constants.KServeNamespace, namespace)
 		if err != nil {
 			return fmt.Errorf("fails to get cabundle configmap for creating to user namespace: %w", err)
 		}
@@ -86,7 +83,7 @@ func (c *CaBundleConfigMapReconciler) Reconcile(ctx context.Context, isvc *v1bet
 	return nil
 }
 
-func (c *CaBundleConfigMapReconciler) getCabundleConfigMapForUserNS(ctx context.Context, caBundleNameInConfig string, kserveNamespace string, isvcNamespace string) (*corev1.ConfigMap, error) {
+func (c *CaBundleConfigMapReconciler) getCabundleConfigMapForUserNS(ctx context.Context, caBundleNameInConfig string, kserveNamespace string, namespace string) (*corev1.ConfigMap, error) {
 	var newCaBundleConfigMap *corev1.ConfigMap
 
 	// Check if cabundle configmap exist & the cabundle.crt exist in the data in controller namespace
@@ -101,7 +98,7 @@ func (c *CaBundleConfigMapReconciler) getCabundleConfigMapForUserNS(ctx context.
 			configData := map[string]string{
 				constants.DefaultCaBundleFileName: caBundleConfigMapData,
 			}
-			newCaBundleConfigMap = getDesiredCaBundleConfigMapForUserNS(constants.DefaultGlobalCaBundleConfigMapName, isvcNamespace, configData)
+			newCaBundleConfigMap = getDesiredCaBundleConfigMapForUserNS(constants.DefaultGlobalCaBundleConfigMapName, namespace, configData)
 		}
 	} else {
 		return nil, errors.Wrapf(err, "failed to get configmap %s from the cluster", caBundleNameInConfig)

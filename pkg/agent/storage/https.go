@@ -120,6 +120,7 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 	default:
 		paths := strings.Split(h.Uri.Path, "/")
 		fileName := paths[len(paths)-1]
+
 		fileFullName := filepath.Join(fileDirectory, fileName)
 		file, err := createNewFile(fileFullName)
 		if err != nil {
@@ -146,7 +147,25 @@ func (h *HTTPSDownloader) extractHeaders() (headers map[string]string, err error
 }
 
 func createNewFile(fileFullName string) (*os.File, error) {
+	protectedPaths := []string{"/etc", "/bin", "/dev", "/usr/bin", "/sbin", "/usr/sbin"}
 	fileFullName = filepath.Clean(fileFullName)
+
+	// Check if path starts with any protected directory
+	for _, protectedPath := range protectedPaths {
+		if strings.HasPrefix(fileFullName, protectedPath+"/") || fileFullName == protectedPath {
+			return nil, fmt.Errorf("access denied: cannot write to protected system directory %s", protectedPath)
+		}
+	}
+
+	// Reject any path containing traversal sequences upfront
+	if strings.Contains(fileFullName, "..") {
+		return nil, fmt.Errorf("path traversal detected in file path: %s", fileFullName)
+	}
+	// Reject paths that resolve to current directory or empty
+	if fileFullName == "." || fileFullName == "" {
+		return nil, fmt.Errorf("please provide the full file path. The provided path [%s] is not valid", fileFullName)
+	}
+
 	if FileExists(fileFullName) {
 		if err := os.Remove(fileFullName); err != nil {
 			return nil, fmt.Errorf("file is unable to be deleted: %w", err)
@@ -170,17 +189,17 @@ func extractZipFiles(reader io.Reader, dest string) error {
 	if err != nil {
 		return fmt.Errorf("unable to create new reader: %w", err)
 	}
+	dest = filepath.Clean(dest)
 
 	// Read all the files from zip archive
 	for _, zipFile := range zipReader.File {
-		dest = filepath.Clean(dest)
 		fileFullPath := filepath.Clean(filepath.Join(dest, filepath.Clean(zipFile.Name)))
 		if !strings.HasPrefix(fileFullPath, dest+string(os.PathSeparator)) {
 			return fmt.Errorf("%s: illegal file path", fileFullPath)
 		}
 
 		if zipFile.Mode().IsDir() {
-			err = os.MkdirAll(fileFullPath, 0o755)
+			err = os.MkdirAll(fileFullPath, 0o755) //nolint:gosec // G301: extracted model files must be readable by model server running as a different UID
 			if err != nil {
 				return fmt.Errorf("unable to create new directory %s", fileFullPath)
 			}
@@ -227,6 +246,7 @@ func extractTarFiles(reader io.Reader, dest string) error {
 	}(gzr)
 
 	tr := tar.NewReader(gzr)
+	dest = filepath.Clean(dest)
 
 	// Read all the files from tar archive
 	for {
@@ -237,10 +257,12 @@ func extractTarFiles(reader io.Reader, dest string) error {
 			return fmt.Errorf("unable to access next tar file: %w", err)
 		}
 
-		dest = filepath.Clean(dest)
 		fileFullPath := filepath.Clean(filepath.Join(dest, filepath.Clean(header.Name)))
+		if !strings.HasPrefix(fileFullPath, dest+string(os.PathSeparator)) {
+			return fmt.Errorf("%s: illegal file path", fileFullPath)
+		}
 		if header.Typeflag == tar.TypeDir {
-			err = os.MkdirAll(fileFullPath, 0o755)
+			err = os.MkdirAll(fileFullPath, 0o755) //nolint:gosec // G301: extracted model files must be readable by model server running as a different UID
 			if err != nil {
 				return fmt.Errorf("unable to create new directory %s", fileFullPath)
 			}

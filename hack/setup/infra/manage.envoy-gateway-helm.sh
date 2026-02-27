@@ -57,25 +57,15 @@ install() {
     fi
 
     log_info "Installing Envoy Gateway ${ENVOY_GATEWAY_VERSION}..."
-    helm install eg oci://docker.io/envoyproxy/gateway-helm \
+    helm upgrade -i eg oci://docker.io/envoyproxy/gateway-helm \
         --version "${ENVOY_GATEWAY_VERSION}" \
         -n envoy-gateway-system \
         --create-namespace \
         --wait
-
+    
     log_success "Successfully installed Envoy Gateway ${ENVOY_GATEWAY_VERSION} via Helm"
 
     wait_for_pods "envoy-gateway-system" "control-plane=envoy-gateway" "300s"
-
-    log_info "Creating Envoy GatewayClass..."
-    cat <<EOF | kubectl apply -f -
-apiVersion: gateway.networking.k8s.io/v1
-kind: GatewayClass
-metadata:
-  name: envoy
-spec:
-  controllerName: gateway.envoyproxy.io/gatewayclass-controller
-EOF
 
     log_success "Envoy Gateway is ready!"
 }

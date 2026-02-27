@@ -61,10 +61,10 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
-	isvcName := pod.ObjectMeta.Labels[constants.InferenceServiceLabel]
+	isvcName := pod.Labels[constants.InferenceServiceLabel]
 	isvc := &v1beta1.InferenceService{}
 	if err := mutator.Client.Get(ctx, types.NamespacedName{
-		Namespace: req.AdmissionRequest.Namespace,
+		Namespace: req.Namespace,
 		Name:      isvcName,
 	}, isvc); err != nil {
 		// failing to look up the inference service is not fatal, it only prevents accessing the embedded logging spec.
@@ -73,7 +73,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 	}
 
 	// For some reason pod namespace is always empty when coming to pod mutator, need to set from admission request
-	pod.Namespace = req.AdmissionRequest.Namespace
+	pod.Namespace = req.Namespace
 
 	if err := mutator.mutate(ctx, pod, configMap, isvc); err != nil {
 		log.Error(err, "Failed to mutate pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
@@ -86,7 +86,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
-	return admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
+	return admission.PatchResponseFromRaw(req.Object.Raw, patch)
 }
 
 func (mutator *Mutator) mutate(ctx context.Context, pod *corev1.Pod, configMap *corev1.ConfigMap, isvc *v1beta1.InferenceService) error {

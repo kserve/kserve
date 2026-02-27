@@ -224,6 +224,114 @@ func TestS3Secret(t *testing.T) {
 			},
 		},
 
+		"S3SecretAnnotationEndpointWithProtocol": {
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "s3-secret",
+					Annotations: map[string]string{
+						InferenceServiceS3SecretEndpointAnnotation: "https://s3.aws.com",
+						InferenceServiceS3SecretHttpsAnnotation:    "0",
+						InferenceServiceS3SecretSSLAnnotation:      "1",
+					},
+				},
+			},
+
+			expected: []corev1.EnvVar{
+				{
+					Name: AWSAccessKeyId,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "s3-secret",
+							},
+							Key: AWSAccessKeyIdName,
+						},
+					},
+				},
+				{
+					Name: AWSSecretAccessKey,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "s3-secret",
+							},
+							Key: AWSSecretAccessKeyName,
+						},
+					},
+				},
+				{
+					Name:  S3UseHttps,
+					Value: "1",
+				},
+				{
+					Name:  S3Endpoint,
+					Value: "s3.aws.com",
+				},
+				{
+					Name:  AWSEndpointUrl,
+					Value: "https://s3.aws.com",
+				},
+				{
+					Name:  S3VerifySSL,
+					Value: "1",
+				},
+			},
+		},
+
+		"S3SecretDataEndpointWithProtocol": {
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "s3-secret",
+				},
+				Data: map[string][]byte{
+					S3Endpoint:  []byte("http://s3.aws.com"),
+					S3UseHttps:  []byte("1"),
+					S3VerifySSL: []byte("0"),
+				},
+			},
+
+			expected: []corev1.EnvVar{
+				{
+					Name: AWSAccessKeyId,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "s3-secret",
+							},
+							Key: AWSAccessKeyIdName,
+						},
+					},
+				},
+				{
+					Name: AWSSecretAccessKey,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "s3-secret",
+							},
+							Key: AWSSecretAccessKeyName,
+						},
+					},
+				},
+				{
+					Name:  S3UseHttps,
+					Value: "0",
+				},
+				{
+					Name:  S3Endpoint,
+					Value: "s3.aws.com",
+				},
+				{
+					Name:  AWSEndpointUrl,
+					Value: "http://s3.aws.com",
+				},
+				{
+					Name:  S3VerifySSL,
+					Value: "0",
+				},
+			},
+		},
+
 		"S3SecretAnnotationEnvsWithAnonymousCredentials": {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -326,6 +434,56 @@ func TestS3Secret(t *testing.T) {
 				S3SecretAccessKeyName: "test-access-key",
 				S3UseHttps:            "0",
 				S3Endpoint:            "s3.aws.com",
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "s3-secret",
+				},
+			},
+			expected: []corev1.EnvVar{
+				{
+					Name: AWSAccessKeyId,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "s3-secret",
+							},
+							Key: "test-keyId",
+						},
+					},
+				},
+				{
+					Name: AWSSecretAccessKey,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "s3-secret",
+							},
+							Key: "test-access-key",
+						},
+					},
+				},
+				{
+					Name:  S3UseHttps,
+					Value: "0",
+				},
+				{
+					Name:  S3Endpoint,
+					Value: "s3.aws.com",
+				},
+				{
+					Name:  AWSEndpointUrl,
+					Value: "http://s3.aws.com",
+				},
+			},
+		},
+
+		"S3ConfigWithProtocol": {
+			config: S3Config{
+				S3AccessKeyIDName:     "test-keyId",
+				S3SecretAccessKeyName: "test-access-key",
+				S3UseHttps:            "1",
+				S3Endpoint:            "http://s3.aws.com",
 			},
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{

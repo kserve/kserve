@@ -41,6 +41,10 @@ const (
 	LoggerArgumentMode                = "--log-mode"
 	LoggerArgumentStorePath           = "--log-store-path"
 	LoggerArgumentStoreFormat         = "--log-store-format"
+	LoggerArgumentMarshallerUrl       = "--log-marshaller-url"
+	LoggerArgumentMarshallerPort      = "--log-marshaller-port"
+	LoggerArgumentBatchSize           = "--log-batch-size"
+	LoggerArgumentBatchInterval       = "--log-batch-interval"
 	LoggerArgumentInferenceService    = "--inference-service"
 	LoggerArgumentNamespace           = "--namespace"
 	LoggerArgumentEndpoint            = "--endpoint"
@@ -71,6 +75,9 @@ type LoggerConfig struct {
 	CaCertFile    string                     `json:"caCertFile"`
 	TlsSkipVerify bool                       `json:"tlsSkipVerify"`
 	Store         *v1beta1.LoggerStorageSpec `json:"storage"`
+	MarshallerURL string                     `json:"marshallerUrl,omitempty"`
+	BatchSize     int                        `json:"batchSize,omitempty"`
+	BatchInterval string                     `json:"batchInterval,omitempty"`
 }
 
 type AgentInjector struct {
@@ -121,6 +128,15 @@ func getLoggerConfigs(pod *corev1.Pod, configMap *corev1.ConfigMap, isvc *v1beta
 		// if the inference service spec includes a logger spec, use it instead
 		log.Info("This Inference Service contains a logging spec. This will be used as the logger configuration.", "name", isvc.Name, "namespace", isvc.Namespace)
 		loggerConfig.Store = isvc.Spec.Predictor.Logger.Storage
+		if isvc.Spec.Predictor.Logger.MarshallerURL != nil {
+			loggerConfig.MarshallerURL = *isvc.Spec.Predictor.Logger.MarshallerURL
+		}
+		if isvc.Spec.Predictor.Logger.BatchSize != nil {
+			loggerConfig.BatchSize = *isvc.Spec.Predictor.Logger.BatchSize
+		}
+		if isvc.Spec.Predictor.Logger.BatchInterval != nil {
+			loggerConfig.BatchInterval = *isvc.Spec.Predictor.Logger.BatchInterval
+		}
 	} else {
 		if isvc == nil {
 			log.Info("The Inference Service is not found. The global ConfigMap will be used as the logger configuration", "name", pod.Name, "namespace", pod.Namespace)
@@ -160,9 +176,9 @@ func getLoggerConfigs(pod *corev1.Pod, configMap *corev1.ConfigMap, isvc *v1beta
 
 func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 	// Only inject the model agent sidecar if the required annotations are set
-	_, injectLogger := pod.ObjectMeta.Annotations[constants.LoggerInternalAnnotationKey]
-	_, injectPuller := pod.ObjectMeta.Annotations[constants.AgentShouldInjectAnnotationKey]
-	_, injectBatcher := pod.ObjectMeta.Annotations[constants.BatcherInternalAnnotationKey]
+	_, injectLogger := pod.Annotations[constants.LoggerInternalAnnotationKey]
+	_, injectPuller := pod.Annotations[constants.AgentShouldInjectAnnotationKey]
+	_, injectBatcher := pod.Annotations[constants.BatcherInternalAnnotationKey]
 
 	if !injectLogger && !injectPuller && !injectBatcher {
 		return nil
@@ -178,13 +194,13 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 	var args []string
 	if injectPuller {
 		args = append(args, constants.AgentEnableFlag)
-		modelConfig, ok := pod.ObjectMeta.Annotations[constants.AgentModelConfigMountPathAnnotationKey]
+		modelConfig, ok := pod.Annotations[constants.AgentModelConfigMountPathAnnotationKey]
 		if ok {
 			args = append(args, constants.AgentConfigDirArgName)
 			args = append(args, modelConfig)
 		}
 
-		modelDir, ok := pod.ObjectMeta.Annotations[constants.AgentModelDirAnnotationKey]
+		modelDir, ok := pod.Annotations[constants.AgentModelDirAnnotationKey]
 		if ok {
 			args = append(args, constants.AgentModelDirArgName)
 			args = append(args, modelDir)
@@ -193,13 +209,13 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 	// Only inject if the batcher required annotations are set
 	if injectBatcher {
 		args = append(args, BatcherEnableFlag)
-		maxBatchSize, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxBatchSizeInternalAnnotationKey]
+		maxBatchSize, ok := pod.Annotations[constants.BatcherMaxBatchSizeInternalAnnotationKey]
 		if ok {
 			args = append(args, BatcherArgumentMaxBatchSize)
 			args = append(args, maxBatchSize)
 		}
 
-		maxLatency, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxLatencyInternalAnnotationKey]
+		maxLatency, ok := pod.Annotations[constants.BatcherMaxLatencyInternalAnnotationKey]
 		if ok {
 			args = append(args, BatcherArgumentMaxLatency)
 			args = append(args, maxLatency)
@@ -207,20 +223,20 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 	}
 	// Only inject if the logger required annotations are set
 	if injectLogger {
-		logUrl, ok := pod.ObjectMeta.Annotations[constants.LoggerSinkUrlInternalAnnotationKey]
+		logUrl, ok := pod.Annotations[constants.LoggerSinkUrlInternalAnnotationKey]
 		if !ok {
 			logUrl = ag.loggerConfig.DefaultUrl
 		}
 
-		logMode, ok := pod.ObjectMeta.Annotations[constants.LoggerModeInternalAnnotationKey]
+		logMode, ok := pod.Annotations[constants.LoggerModeInternalAnnotationKey]
 		if !ok {
 			logMode = string(v1beta1.LogAll)
 		}
 
-		inferenceServiceName := pod.ObjectMeta.Labels[constants.InferenceServiceLabel]
-		namespace := pod.ObjectMeta.Namespace
-		endpoint := pod.ObjectMeta.Labels[constants.KServiceEndpointLabel]
-		component := pod.ObjectMeta.Labels[constants.KServiceComponentLabel]
+		inferenceServiceName := pod.Labels[constants.InferenceServiceLabel]
+		namespace := pod.Namespace
+		endpoint := pod.Labels[constants.KServiceEndpointLabel]
+		component := pod.Labels[constants.KServiceComponentLabel]
 		storagePath := ""
 		if ag.loggerConfig.Store != nil {
 			if ag.loggerConfig.Store.Path != nil {
@@ -240,7 +256,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			LoggerArgumentLogUrl,
 			logUrl,
 			LoggerArgumentSourceUri,
-			pod.ObjectMeta.Name,
+			pod.Name,
 			LoggerArgumentMode,
 			logMode,
 			LoggerArgumentInferenceService,
@@ -260,17 +276,26 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			loggerArgs = append(loggerArgs, LoggerArgumentStoreFormat)
 			loggerArgs = append(loggerArgs, storageFormat)
 		}
-		logHeaderMetadata, ok := pod.ObjectMeta.Annotations[constants.LoggerMetadataHeadersInternalAnnotationKey]
+		if ag.loggerConfig.MarshallerURL != "" {
+			loggerArgs = append(loggerArgs, LoggerArgumentMarshallerUrl, ag.loggerConfig.MarshallerURL)
+		}
+		if ag.loggerConfig.BatchSize > 0 {
+			loggerArgs = append(loggerArgs, LoggerArgumentBatchSize, strconv.Itoa(ag.loggerConfig.BatchSize))
+		}
+		if ag.loggerConfig.BatchInterval != "" {
+			loggerArgs = append(loggerArgs, LoggerArgumentBatchInterval, ag.loggerConfig.BatchInterval)
+		}
+		logHeaderMetadata, ok := pod.Annotations[constants.LoggerMetadataHeadersInternalAnnotationKey]
 		if ok {
 			loggerArgs = append(loggerArgs, LoggerArgumentMetadataHeaders)
 			loggerArgs = append(loggerArgs, logHeaderMetadata)
 		}
-		logMetadataAnnotations, ok := pod.ObjectMeta.Annotations[constants.LoggerMetadataAnnotationsInternalAnnotationKey]
+		logMetadataAnnotations, ok := pod.Annotations[constants.LoggerMetadataAnnotationsInternalAnnotationKey]
 		if ok {
 			annotationKeys := strings.Split(logMetadataAnnotations, ",")
 			kvPairs := []string{}
 			for _, metadataAnnotation := range annotationKeys {
-				val, exists := pod.ObjectMeta.Annotations[metadataAnnotation]
+				val, exists := pod.Annotations[metadataAnnotation]
 				if exists {
 					kvPairs = append(kvPairs, fmt.Sprintf("%s=%s", metadataAnnotation, val))
 				} else {
@@ -462,7 +487,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 	// Add container to the spec
 	pod.Spec.Containers = append(pod.Spec.Containers, *agentContainer)
 
-	if _, ok := pod.ObjectMeta.Annotations[constants.AgentShouldInjectAnnotationKey]; ok {
+	if _, ok := pod.Annotations[constants.AgentShouldInjectAnnotationKey]; ok {
 		// Mount the modelDir volume to the pod and model agent container
 		err := mountModelDir(pod)
 		if err != nil {
@@ -479,7 +504,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 }
 
 func mountModelDir(pod *corev1.Pod) error {
-	if _, ok := pod.ObjectMeta.Annotations[constants.AgentModelDirAnnotationKey]; ok {
+	if _, ok := pod.Annotations[constants.AgentModelDirAnnotationKey]; ok {
 		modelDirVolume := corev1.Volume{
 			Name: constants.ModelDirVolumeName,
 			VolumeSource: corev1.VolumeSource{
@@ -496,7 +521,7 @@ func mountModelDir(pod *corev1.Pod) error {
 }
 
 func mountModelConfig(pod *corev1.Pod) error {
-	if modelConfigName, ok := pod.ObjectMeta.Annotations[constants.AgentModelConfigVolumeNameAnnotationKey]; ok {
+	if modelConfigName, ok := pod.Annotations[constants.AgentModelConfigVolumeNameAnnotationKey]; ok {
 		modelConfigVolume := corev1.Volume{
 			Name: constants.ModelConfigVolumeName,
 			VolumeSource: corev1.VolumeSource{

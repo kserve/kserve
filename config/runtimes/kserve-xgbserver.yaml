@@ -2,15 +2,17 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-xgbserver
+  annotations:
+    serving.kserve.io/server-type: xgbserver
 spec:
   annotations:
     prometheus.kserve.io/port: '8080'
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: xgboost
-      version: "1"
+      version: "2"
       autoSelect: true
-      priority: 1
+      priority: 2
   protocolVersions:
     - v1
     - v2

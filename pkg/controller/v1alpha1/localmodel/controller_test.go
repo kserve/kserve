@@ -153,8 +153,8 @@ var _ = Describe("CachedModel controller", func() {
 			configMap, clusterStorageContainer = genericSetup(ctx, configs, clusterStorageContainerSpec)
 			initializeManager(ctx, cfg)
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, clusterStorageContainer)
-				k8sClient.Delete(ctx, configMap)
+				_ = k8sClient.Delete(ctx, clusterStorageContainer)
+				_ = k8sClient.Delete(ctx, configMap)
 
 				By("canceling the context")
 				cancel()
@@ -294,7 +294,7 @@ var _ = Describe("CachedModel controller", func() {
 				if err != nil {
 					return false
 				}
-				if !(cachedModel.Status.ModelCopies.Available == 2 && cachedModel.Status.ModelCopies.Total == 2 && cachedModel.Status.ModelCopies.Failed == 0) {
+				if cachedModel.Status.ModelCopies.Available != 2 || cachedModel.Status.ModelCopies.Total != 2 || cachedModel.Status.ModelCopies.Failed != 0 {
 					return false
 				}
 				if cachedModel.Status.NodeStatus[nodeName1] != v1alpha1.NodeDownloaded {
@@ -485,8 +485,8 @@ var _ = Describe("CachedModel controller", func() {
 			configMap, clusterStorageContainer = genericSetup(ctx, configs, clusterStorageContainerSpec)
 			initializeManager(ctx, cfg)
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, clusterStorageContainer)
-				k8sClient.Delete(ctx, configMap)
+				_ = k8sClient.Delete(ctx, clusterStorageContainer)
+				_ = k8sClient.Delete(ctx, configMap)
 
 				By("canceling the context")
 				cancel()
@@ -556,8 +556,8 @@ var _ = Describe("CachedModel controller", func() {
 
 			initializeManager(ctx, cfg)
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, clusterStorageContainer)
-				k8sClient.Delete(ctx, configMap)
+				_ = k8sClient.Delete(ctx, clusterStorageContainer)
+				_ = k8sClient.Delete(ctx, configMap)
 
 				By("canceling the context")
 				cancel()

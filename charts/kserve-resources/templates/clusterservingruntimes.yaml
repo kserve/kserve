@@ -2,6 +2,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-lgbserver
+  annotations:
+    serving.kserve.io/server-type: lgbserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.lgbserver.disabled }}
   annotations:
@@ -18,6 +20,7 @@ spec:
   containers:
     - name: kserve-container
       image: "{{ .Values.kserve.servingruntime.lgbserver.image }}:{{ .Values.kserve.servingruntime.lgbserver.tag }}"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.lgbserver.imagePullPolicy }}
       args:
         - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
         - --model_dir=/mnt/models
@@ -44,6 +47,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-mlserver
+  annotations:
+    serving.kserve.io/server-type: mlserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.mlserver.disabled }}
   annotations:
@@ -88,6 +93,7 @@ spec:
   containers:
     - name: kserve-container
       image: "{{ .Values.kserve.servingruntime.mlserver.image }}:{{ .Values.kserve.servingruntime.mlserver.tag }}"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.mlserver.imagePullPolicy }}
       env:
         - name: "MLSERVER_MODEL_IMPLEMENTATION"
           value: "{{ .Values.kserve.servingruntime.mlserver.modelClassPlaceholder }}"
@@ -118,6 +124,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-paddleserver
+  annotations:
+    serving.kserve.io/server-type: paddleserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.paddleserver.disabled }}
   annotations:
@@ -134,6 +142,7 @@ spec:
   containers:
     - name: kserve-container
       image: "{{ .Values.kserve.servingruntime.paddleserver.image }}:{{ .Values.kserve.servingruntime.paddleserver.tag }}"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.paddleserver.imagePullPolicy }}
       args:
         - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
         - --model_dir=/mnt/models
@@ -159,6 +168,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-pmmlserver
+  annotations:
+    serving.kserve.io/server-type: pmmlserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.pmmlserver.disabled }}
   annotations:
@@ -179,6 +190,7 @@ spec:
   containers:
     - name: kserve-container
       image: "{{ .Values.kserve.servingruntime.pmmlserver.image }}:{{ .Values.kserve.servingruntime.pmmlserver.tag }}"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.pmmlserver.imagePullPolicy }}
       args:
         - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
         - --model_dir=/mnt/models
@@ -204,6 +216,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-sklearnserver
+  annotations:
+    serving.kserve.io/server-type: sklearnserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.sklearnserver.disabled }}
   annotations:
@@ -220,6 +234,7 @@ spec:
   containers:
     - name: kserve-container
       image: "{{ .Values.kserve.servingruntime.sklearnserver.image }}:{{ .Values.kserve.servingruntime.sklearnserver.tag }}"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.sklearnserver.imagePullPolicy }}
       args:
         - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
         - --model_dir=/mnt/models
@@ -245,6 +260,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-tensorflow-serving
+  annotations:
+    serving.kserve.io/server-type: tensorflow-serving
 spec:
   disabled: {{ .Values.kserve.servingruntime.tensorflow.disabled }}
   annotations:
@@ -265,6 +282,7 @@ spec:
   containers:
     - name: kserve-container
       image: "{{ .Values.kserve.servingruntime.tensorflow.image }}:{{ .Values.kserve.servingruntime.tensorflow.tag }}"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.tensorflow.imagePullPolicy }}
       command: [/usr/bin/tensorflow_model_server]
       args:
         - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
@@ -293,6 +311,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-torchserve
+  annotations:
+    serving.kserve.io/server-type: torchserve
 spec:
   disabled: {{ .Values.kserve.servingruntime.torchserve.disabled }}
   annotations:
@@ -310,6 +330,7 @@ spec:
   containers:
     - name: kserve-container
       image: "{{ .Values.kserve.servingruntime.torchserve.image }}:{{ .Values.kserve.servingruntime.torchserve.tag }}"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.torchserve.imagePullPolicy }}
       args:
         - torchserve
         - --start
@@ -339,6 +360,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-tritonserver
+  annotations:
+    serving.kserve.io/server-type: tritonserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.tritonserver.disabled }}
   annotations:
@@ -373,6 +396,7 @@ spec:
   containers:
     - name: kserve-container
       image: "{{ .Values.kserve.servingruntime.tritonserver.image }}:{{ .Values.kserve.servingruntime.tritonserver.tag }}"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.tritonserver.imagePullPolicy }}
       args:
         - tritonserver
         - --model-store=/mnt/models
@@ -401,6 +425,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-xgbserver
+  annotations:
+    serving.kserve.io/server-type: xgbserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.xgbserver.disabled }}
   annotations:
@@ -417,6 +443,7 @@ spec:
   containers:
     - name: kserve-container
       image: "{{ .Values.kserve.servingruntime.xgbserver.image }}:{{ .Values.kserve.servingruntime.xgbserver.tag }}"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.xgbserver.imagePullPolicy }}
       args:
         - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
         - --model_dir=/mnt/models
@@ -442,6 +469,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-huggingfaceserver
+  annotations:
+    serving.kserve.io/server-type: huggingfaceserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.huggingfaceserver.disabled }}
   annotations:
@@ -458,6 +487,7 @@ spec:
   containers:
     - name: kserve-container
       image: "{{ .Values.kserve.servingruntime.huggingfaceserver.image }}:{{ .Values.kserve.servingruntime.huggingfaceserver.tag }}"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.huggingfaceserver.imagePullPolicy }}
       args:
         - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
       env:
@@ -500,6 +530,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-huggingfaceserver-multinode
+  annotations:
+    serving.kserve.io/server-type: huggingfaceserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.huggingfaceserver.disabled }}
   annotations:
@@ -516,6 +548,7 @@ spec:
   containers:
     - name: kserve-container
       image: "{{ .Values.kserve.servingruntime.huggingfaceserver.image }}:{{ .Values.kserve.servingruntime.huggingfaceserver.tag }}-gpu"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.huggingfaceserver.imagePullPolicy }}
       args:
         - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
       command:
@@ -617,6 +650,7 @@ spec:
     containers:
       - name: worker-container
         image: "{{ .Values.kserve.servingruntime.huggingfaceserver.image }}:{{ .Values.kserve.servingruntime.huggingfaceserver.tag }}-gpu"
+        imagePullPolicy: {{ .Values.kserve.servingruntime.huggingfaceserver.imagePullPolicy }}
         command:
         - "bash"
         - "-c"

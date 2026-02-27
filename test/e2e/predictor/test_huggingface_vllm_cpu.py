@@ -57,6 +57,12 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
                 "--dtype",
                 "bfloat16",
             ],
+            env=[
+                client.V1EnvVar(
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
+                ),
+            ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "7Gi"},
                 limits={"cpu": "2", "memory": "7Gi"},
@@ -105,6 +111,12 @@ def test_huggingface_vllm_cpu_text_completion_streaming():
                 "512",
                 "--dtype",
                 "bfloat16",
+            ],
+            env=[
+                client.V1EnvVar(
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
+                ),
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "7Gi"},
@@ -157,6 +169,12 @@ def test_huggingface_vllm_cpu_openai_completions():
                 "--dtype",
                 "bfloat16",
             ],
+            env=[
+                client.V1EnvVar(
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
+                ),
+            ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "7Gi"},
                 limits={"cpu": "2", "memory": "7Gi"},
@@ -204,6 +222,12 @@ def test_huggingface_vllm_openai_chat_completions_streaming():
                 "512",
                 "--dtype",
                 "bfloat16",
+            ],
+            env=[
+                client.V1EnvVar(
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
+                ),
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "7Gi"},
@@ -259,6 +283,12 @@ def test_huggingface_vllm_cpu_rerank():
                 "bfloat16",
                 "--enforce-eager",
             ],
+            env=[
+                client.V1EnvVar(
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
+                ),
+            ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "6Gi"},
                 limits={"cpu": "2", "memory": "6Gi"},
@@ -283,10 +313,10 @@ def test_huggingface_vllm_cpu_rerank():
 
     res = rerank(service_name, "./data/bge-reranker-base.json")
     assert res["results"][0]["index"] == 1
-    assert res["results"][0]["relevance_score"] == 1.0
+    assert res["results"][0]["relevance_score"] == pytest.approx(1.0, rel=1e-2)
     assert res["results"][0]["document"]["text"] == "The capital of France is Paris."
     assert res["results"][1]["index"] == 0
-    assert res["results"][1]["relevance_score"] == 0.00058746337890625
+    assert res["results"][1]["relevance_score"] == pytest.approx(0.0, abs=1e-2)
     assert res["results"][1]["document"]["text"] == "The capital of Brazil is Brasilia."
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

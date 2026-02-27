@@ -1,0 +1,16 @@
+DESCRIPTION: Install KServe Standard Mode, LLMISvc, and all related dependencies with manifests included in the script.
+EMBED_MANIFESTS: true
+
+TOOLS:
+  - helm
+  - kustomize
+  - yq
+  
+INCLUDE_DEFINITIONS:
+  - ./kserve-standard-mode-dependency-install.definition
+    
+COMPONENTS:
+  - name: kserve-kustomize
+    env:
+      DEPLOYMENT_MODE: Standard
+      INSTALL_RUNTIMES: true

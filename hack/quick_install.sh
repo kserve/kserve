@@ -18,15 +18,14 @@ Help() {
    echo
 }
 
-export ISTIO_VERSION=1.27.1
-export KNATIVE_OPERATOR_VERSION=v1.15.7
-export KNATIVE_SERVING_VERSION=1.15.2
-export KSERVE_VERSION=v0.16.0
-export CERT_MANAGER_VERSION=v1.16.1
-export GATEWAY_API_VERSION=v1.2.1
-export KEDA_VERSION=2.14.0
 SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 export SCRIPT_DIR
+
+source "${SCRIPT_DIR}/setup/common.sh"
+REPO_ROOT="$(find_repo_root "${SCRIPT_DIR}")"
+
+source "${REPO_ROOT}/kserve-deps.env"
+installKserve=true
 
 uninstall() {
    helm uninstall --ignore-not-found istio-ingressgateway -n istio-system
@@ -161,7 +160,4 @@ if [ "${installKserve}" = false ]; then
    exit
 fi
 # Install KServe
-helm install kserve-crd oci://ghcr.io/kserve/charts/kserve-crd --version ${KSERVE_VERSION} --namespace kserve --create-namespace --wait
-helm install kserve oci://ghcr.io/kserve/charts/kserve --version ${KSERVE_VERSION} --namespace kserve --create-namespace --wait \
-   --set-string kserve.controller.deploymentMode="${deploymentMode}"
-echo "😀 Successfully installed KServe"
+DEPLOYMENT_MODE=${deploymentMode} ${SCRIPT_DIR}/setup/infra/manage.kserve-helm.sh

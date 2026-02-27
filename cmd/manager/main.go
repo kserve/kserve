@@ -50,7 +50,6 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
 	v1beta1controller "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice"
 	"github.com/kserve/kserve/pkg/utils"
-	"github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 	"github.com/kserve/kserve/pkg/webhook/admission/servingruntime"
 )
@@ -122,6 +121,13 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	setupLog.Info("Setting up manager")
+
+	cacheOpts, err := v1beta1controller.NewCacheOptions()
+	if err != nil {
+		setupLog.Error(err, "unable to create cache options")
+		os.Exit(1)
+	}
+
 	mgr, err := manager.New(cfg, manager.Options{
 		Metrics: metricsserver.Options{
 			BindAddress: options.metricsAddr,
@@ -132,6 +138,7 @@ func main() {
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       LeaderLockName,
 		HealthProbeBindAddress: options.probeAddr,
+		Cache:                  cacheOpts,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to set up overall controller manager")
@@ -204,7 +211,7 @@ func main() {
 
 	kedaFound, kedaCheckErr := utils.IsCrdAvailable(cfg, kedav1alpha1.SchemeGroupVersion.String(), constants.KedaScaledObjectKind)
 	if kedaCheckErr != nil {
-		setupLog.Error(ksvcCheckErr, "error when checking if KEDA ScaledObject kind is available")
+		setupLog.Error(kedaCheckErr, "error when checking if KEDA ScaledObject kind is available")
 		os.Exit(1)
 	}
 	if kedaFound {
@@ -217,7 +224,7 @@ func main() {
 
 	otelFound, otelCheckErr := utils.IsCrdAvailable(cfg, otelv1beta1.GroupVersion.String(), constants.OpenTelemetryCollector)
 	if otelCheckErr != nil {
-		setupLog.Error(ksvcCheckErr, "error when checking if OpentelemetryCollector kind is available")
+		setupLog.Error(otelCheckErr, "error when checking if OpentelemetryCollector kind is available")
 		os.Exit(1)
 	}
 	if otelFound {
@@ -326,14 +333,6 @@ func main() {
 		WithValidator(&v1beta1.InferenceServiceValidator{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "v1beta1")
-		os.Exit(1)
-	}
-
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.LocalModelCache{}).
-		WithValidator(&localmodelcache.LocalModelCacheValidator{Client: mgr.GetClient()}).
-		Complete(); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "localmodelcache")
 		os.Exit(1)
 	}
 

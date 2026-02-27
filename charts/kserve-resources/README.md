@@ -17,6 +17,10 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | kserve.agent.image | string | `"kserve/agent"` |  |
+| kserve.agent.resources.limits.cpu | string | `"1"` |  |
+| kserve.agent.resources.limits.memory | string | `"1Gi"` |  |
+| kserve.agent.resources.requests.cpu | string | `"100m"` |  |
+| kserve.agent.resources.requests.memory | string | `"100Mi"` |  |
 | kserve.agent.tag | string | `"v0.16.0"` |  |
 | kserve.autoscaler.scaleDownStabilizationWindowSeconds | string | `"300"` |  |
 | kserve.autoscaler.scaleUpStabilizationWindowSeconds | string | `"0"` |  |
@@ -38,6 +42,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | kserve.controller.gateway.localGateway.gateway | string | `"knative-serving/knative-local-gateway"` | localGateway specifies the gateway which handles the network traffic within the cluster. |
 | kserve.controller.gateway.localGateway.gatewayService | string | `"knative-local-gateway.istio-system.svc.cluster.local"` | localGatewayService specifies the hostname of the local gateway service. |
 | kserve.controller.gateway.localGateway.knativeGatewayService | string | `""` | knativeLocalGatewayService specifies the hostname of the Knative's local gateway service. When unset, the value of "localGatewayService" will be used. When enabling strict mTLS in Istio, KServe local gateway should be created and pointed to the Knative local gateway. |
+| kserve.controller.gateway.pathTemplate | string | `""` | pathTemplate specifies the template for generating path based url for each inference service. If the value is an empty string, then path based routing will be disabled. |
 | kserve.controller.gateway.urlScheme | string | `"http"` | HTTP endpoint url scheme. |
 | kserve.controller.image | string | `"kserve/kserve-controller"` | KServe controller container image name. |
 | kserve.controller.imagePullSecrets | list | `[]` | Reference to one or more secrets to be used when pulling images. For more information, see [Pull an Image from a Private Registry](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/).  For example:  imagePullSecrets:    - name: "image-pull-secret" |
@@ -108,6 +113,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | kserve.servingruntime.huggingfaceserver.disabled | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver.hostIPC.enabled | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver.image | string | `"kserve/huggingfaceserver"` |  |
+| kserve.servingruntime.huggingfaceserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.huggingfaceserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.huggingfaceserver.lmcacheUseExperimental | string | `"True"` |  |
 | kserve.servingruntime.huggingfaceserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
@@ -125,6 +131,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | kserve.servingruntime.huggingfaceserver_multinode.shm.sizeLimit | string | `"3Gi"` |  |
 | kserve.servingruntime.lgbserver.disabled | bool | `false` |  |
 | kserve.servingruntime.lgbserver.image | string | `"kserve/lgbserver"` |  |
+| kserve.servingruntime.lgbserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.lgbserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.lgbserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.lgbserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
@@ -133,6 +140,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | kserve.servingruntime.lgbserver.tag | string | `"v0.16.0"` |  |
 | kserve.servingruntime.mlserver.disabled | bool | `false` |  |
 | kserve.servingruntime.mlserver.image | string | `"docker.io/seldonio/mlserver"` |  |
+| kserve.servingruntime.mlserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.mlserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.mlserver.modelClassPlaceholder | string | `"{{.Labels.modelClass}}"` |  |
 | kserve.servingruntime.mlserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
@@ -143,6 +151,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | kserve.servingruntime.modelNamePlaceholder | string | `"{{.Name}}"` |  |
 | kserve.servingruntime.paddleserver.disabled | bool | `false` |  |
 | kserve.servingruntime.paddleserver.image | string | `"kserve/paddleserver"` |  |
+| kserve.servingruntime.paddleserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.paddleserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.paddleserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.paddleserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
@@ -151,6 +160,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | kserve.servingruntime.paddleserver.tag | string | `"v0.16.0"` |  |
 | kserve.servingruntime.pmmlserver.disabled | bool | `false` |  |
 | kserve.servingruntime.pmmlserver.image | string | `"kserve/pmmlserver"` |  |
+| kserve.servingruntime.pmmlserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.pmmlserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.pmmlserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.pmmlserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
@@ -159,6 +169,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | kserve.servingruntime.pmmlserver.tag | string | `"v0.16.0"` |  |
 | kserve.servingruntime.sklearnserver.disabled | bool | `false` |  |
 | kserve.servingruntime.sklearnserver.image | string | `"kserve/sklearnserver"` |  |
+| kserve.servingruntime.sklearnserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.sklearnserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.sklearnserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.sklearnserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
@@ -167,6 +178,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | kserve.servingruntime.sklearnserver.tag | string | `"v0.16.0"` |  |
 | kserve.servingruntime.tensorflow.disabled | bool | `false` |  |
 | kserve.servingruntime.tensorflow.image | string | `"tensorflow/serving"` |  |
+| kserve.servingruntime.tensorflow.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.tensorflow.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.tensorflow.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.tensorflow.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
@@ -176,6 +188,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | kserve.servingruntime.tensorflow.tag | string | `"2.6.2"` |  |
 | kserve.servingruntime.torchserve.disabled | bool | `false` |  |
 | kserve.servingruntime.torchserve.image | string | `"pytorch/torchserve-kfs"` |  |
+| kserve.servingruntime.torchserve.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.torchserve.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.torchserve.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.torchserve.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
@@ -186,6 +199,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | kserve.servingruntime.torchserve.tag | string | `"0.9.0"` |  |
 | kserve.servingruntime.tritonserver.disabled | bool | `false` |  |
 | kserve.servingruntime.tritonserver.image | string | `"nvcr.io/nvidia/tritonserver"` |  |
+| kserve.servingruntime.tritonserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.tritonserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.tritonserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.tritonserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
@@ -195,6 +209,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | kserve.servingruntime.tritonserver.tag | string | `"23.05-py3"` |  |
 | kserve.servingruntime.xgbserver.disabled | bool | `false` |  |
 | kserve.servingruntime.xgbserver.image | string | `"kserve/xgbserver"` |  |
+| kserve.servingruntime.xgbserver.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.servingruntime.xgbserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.xgbserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.xgbserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
@@ -215,8 +230,9 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | kserve.storage.resources.limits.memory | string | `"1Gi"` |  |
 | kserve.storage.resources.requests.cpu | string | `"100m"` |  |
 | kserve.storage.resources.requests.memory | string | `"100Mi"` |  |
-| kserve.storage.s3 | object | `{"CABundle":"","accessKeyIdName":"AWS_ACCESS_KEY_ID","endpoint":"","region":"","secretAccessKeyName":"AWS_SECRET_ACCESS_KEY","useAnonymousCredential":"","useHttps":"","useVirtualBucket":"","verifySSL":""}` | Configurations for S3 storage |
-| kserve.storage.s3.CABundle | string | `""` | The path to the certificate bundle to use for HTTPS certificate validation. |
+| kserve.storage.s3 | object | `{"CABundle":"","CABundleConfigMap":"","accessKeyIdName":"AWS_ACCESS_KEY_ID","endpoint":"","region":"","secretAccessKeyName":"AWS_SECRET_ACCESS_KEY","useAnonymousCredential":"","useHttps":"","useVirtualBucket":"","verifySSL":""}` | Configurations for S3 storage |
+| kserve.storage.s3.CABundle | string | `""` | When used with a configured CA bundle config map, specifies the full path (mount path + file name) for the mounted config map data. When used absent of a configured CA bundle config map, specifies the path to a certificate bundle to use for HTTPS certificate validation. |
+| kserve.storage.s3.CABundleConfigMap | string | `""` | Mounted CA bundle config map name. |
 | kserve.storage.s3.accessKeyIdName | string | `"AWS_ACCESS_KEY_ID"` | AWS S3 static access key id. |
 | kserve.storage.s3.endpoint | string | `""` | AWS S3 endpoint. |
 | kserve.storage.s3.region | string | `""` | Default region name of AWS S3. |

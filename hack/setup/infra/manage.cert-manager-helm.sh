@@ -69,7 +69,7 @@ install() {
 
     log_success "Successfully installed cert-manager ${CERT_MANAGER_VERSION} via Helm"
 
-    wait_for_pods "cert-manager" "app in (cert-manager,webhook)" "180s"
+    wait_for_pods "cert-manager" "app in (cert-manager,webhook,cainjector)" "180s"
 
     log_success "cert-manager is ready!"
 }

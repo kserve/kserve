@@ -9,43 +9,20 @@ on:
       - "!docs/**"
       - "!**.md"
       - ".github/workflows/e2e-test.yml"
+      - ".github/actions/**"
   workflow_dispatch:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  TAG: ${{ github.sha }}
   DOCKER_IMAGES_PATH: "/mnt/docker-images"
-  DOCKER_REPO: "kserve"
+  KO_DOCKER_REPO: "kserve"
   # artifact prefixes for bulk download
   PREDICTOR_ARTIFACT_PREFIX: "pred"
   EXPLAINER_ARTIFACT_PREFIX: "exp"
   TRANSFORMER_ARTIFACT_PREFIX: "trans"
   GRAPH_ARTIFACT_PREFIX: "graph"
   BASE_ARTIFACT_PREFIX: "base"
-  # Controller images
-  CONTROLLER_IMG: "kserve-controller"
-  LOCALMODEL_CONTROLLER_IMG: "kserve-localmodel-controller"
-  LOCALMODEL_AGENT_IMG: "kserve-localmodelnode-agent"
-  STORAGE_INIT_IMG: "storage-initializer"
-  AGENT_IMG: "agent"
-  ROUTER_IMG: "router"
-  # Predictor runtime server images
-  SKLEARN_IMG: "sklearnserver"
-  XGB_IMG: "xgbserver"
-  LGB_IMG: "lgbserver"
-  PMML_IMG: "pmmlserver"
-  PADDLE_IMG: "paddleserver"
-  CUSTOM_MODEL_GRPC_IMG: "custom-model-grpc"
-  CUSTOM_MODEL_GRPC_IMG_TAG: "kserve/custom-model-grpc:${{ github.sha }}"
-  HUGGINGFACE_IMG: "huggingfaceserver"
-  # Explainer images
-  ART_IMG: "art-explainer"
-  # Transformer images
-  IMAGE_TRANSFORMER_IMG: "image-transformer"
-  IMAGE_TRANSFORMER_IMG_TAG: "kserve/image-transformer:${{ github.sha }}"
-  CUSTOM_TRANSFORMER_GRPC_IMG: "custom-image-transformer-grpc"
-  # Graph images
-  SUCCESS_200_ISVC_IMG: "success-200-isvc"
-  ERROR_404_ISVC_IMG: "error-404-isvc"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -57,6 +34,9 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
 
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
@@ -77,48 +57,48 @@ jobs:
       - name: Upload controller image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.CONTROLLER_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CONTROLLER_IMG }}-${{ github.sha }}
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.CONTROLLER_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CONTROLLER_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
       - name: Upload localmodel controller image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LOCALMODEL_CONTROLLER_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LOCALMODEL_CONTROLLER_IMG }}-${{ github.sha }}
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LOCALMODEL_CONTROLLER_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LOCALMODEL_CONTROLLER_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
       - name: Upload localmodel agent image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LOCALMODEL_AGENT_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LOCALMODEL_AGENT_IMG }}-${{ github.sha }}
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LOCALMODEL_AGENT_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LOCALMODEL_AGENT_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
       - name: Upload agent image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.AGENT_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.AGENT_IMG }}-${{ github.sha }}
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.AGENT_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.AGENT_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
       - name: Upload storage initializer image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.STORAGE_INIT_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.STORAGE_INIT_IMG }}-${{ github.sha }}
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
       - name: Upload router image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.ROUTER_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.ROUTER_IMG }}-${{ github.sha }}
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.ROUTER_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.ROUTER_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
@@ -127,6 +107,9 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
 
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
@@ -147,72 +130,72 @@ jobs:
       - name: Upload sklearn artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.SKLEARN_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.SKLEARN_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
       - name: Upload xgb server image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.XGB_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.XGB_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
       - name: Upload lgb server image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.LGB_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LGB_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.LGB_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LGB_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
       - name: Upload pmml server image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PMML_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.PMML_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PMML_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.PMML_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
       - name: Upload paddle image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PADDLE_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.PADDLE_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PADDLE_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.PADDLE_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
       - name: Upload image transformer image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.IMAGE_TRANSFORMER_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.IMAGE_TRANSFORMER_IMG }}-${{ github.sha }}
+          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.IMAGE_TRANSFORMER_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.IMAGE_TRANSFORMER_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
       - name: Upload custom model grpc image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
       - name: Upload custom model transformer grpc image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.CUSTOM_TRANSFORMER_GRPC_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CUSTOM_TRANSFORMER_GRPC_IMG }}-${{ github.sha }}
+          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.CUSTOM_TRANSFORMER_GRPC_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CUSTOM_TRANSFORMER_GRPC_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
       - name: Upload huggingface image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.HUGGINGFACE_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.HUGGINGFACE_IMG }}-${{ github.sha }}
+          name: ${{ env.HUGGINGFACE_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.HUGGINGFACE_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
@@ -221,6 +204,9 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -238,8 +224,8 @@ jobs:
       - name: Upload art explainer image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.EXPLAINER_ARTIFACT_PREFIX }}-${{ env.ART_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.ART_IMG }}-${{ github.sha }}
+          name: ${{ env.EXPLAINER_ARTIFACT_PREFIX }}-${{ env.ART_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.ART_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
@@ -248,6 +234,9 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
 
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
@@ -268,16 +257,16 @@ jobs:
       - name: Upload success_200_isvc predictor image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.GRAPH_ARTIFACT_PREFIX }}-${{ env.SUCCESS_200_ISVC_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.SUCCESS_200_ISVC_IMG }}-${{ github.sha }}
+          name: ${{ env.GRAPH_ARTIFACT_PREFIX }}-${{ env.SUCCESS_200_ISVC_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.SUCCESS_200_ISVC_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
       - name: Upload error_404_isvc predictor image
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.GRAPH_ARTIFACT_PREFIX }}-${{ env.ERROR_404_ISVC_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.ERROR_404_ISVC_IMG }}-${{ github.sha }}
+          name: ${{ env.GRAPH_ARTIFACT_PREFIX }}-${{ env.ERROR_404_ISVC_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.ERROR_404_ISVC_IMG }}-${{ env.TAG }}
           compression-level: 0
           if-no-files-found: error
 
@@ -287,6 +276,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
 
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
@@ -299,7 +291,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
@@ -350,6 +342,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
 
@@ -361,7 +356,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
@@ -382,19 +377,19 @@ jobs:
       - name: Download sklearn server image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Download custom model grpc image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Download xgb server image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Load docker images
@@ -435,6 +430,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -443,7 +441,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
@@ -467,13 +465,13 @@ jobs:
       - name: Download sklearn server image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Download xgb server image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Load docker images
@@ -486,8 +484,6 @@ jobs:
 
       - name: Install KServe
         run: |
-          # export VIRTUAL_ENV=python/kserve/.venv
-          # source $VIRTUAL_ENV/bin/activate
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
@@ -511,6 +507,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -519,7 +518,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
@@ -536,31 +535,31 @@ jobs:
       - name: Download sklearn server image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Download xgb server image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Download lgb server image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.LGB_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.LGB_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Download transformer image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.IMAGE_TRANSFORMER_IMG }}-${{ github.sha }}
+          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.IMAGE_TRANSFORMER_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Download Art Explainer image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.EXPLAINER_ARTIFACT_PREFIX }}-${{ env.ART_IMG }}-${{ github.sha }}
+          name: ${{ env.EXPLAINER_ARTIFACT_PREFIX }}-${{ env.ART_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Load docker images
@@ -573,15 +572,12 @@ jobs:
 
       - name: Install KServe
         run: |
+          export KSERVE_CUSTOM_ISVC_CONFIGS='ingress.pathTemplate=/serving/{{ .Namespace }}/{{ .Name }}|ingress.ingressDomain=mydomain.com'
+          export NETWORK_LAYER='istio-ingress'
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
-
-      - name: Patch inferenceservice config
-        run: |
-          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-path-template.yaml
-          kubectl describe configmaps -n kserve inferenceservice-config
 
       - name: Run E2E tests with path-based routing
         timeout-minutes: 30
@@ -605,6 +601,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
 
@@ -615,7 +614,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
@@ -634,7 +633,7 @@ jobs:
       - name: Download sklearn server image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Load docker images
@@ -652,7 +651,7 @@ jobs:
           kubectl describe pods -n kserve
       - name: Patch qpext image
         run: |
-          kubectl patch configmaps -n knative-serving config-deployment --patch '{"data": {"queue-sidecar-image": "kserve/qpext:${{ github.sha }}"}}'
+          kubectl patch configmaps -n knative-serving config-deployment --patch '{"data": {"queue-sidecar-image": "kserve/qpext:${{ env.TAG }}"}}'
           kubectl describe configmaps -n knative-serving config-deployment
       - name: Run queue proxy extension E2E tests
         timeout-minutes: 30
@@ -671,6 +670,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -679,7 +681,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
@@ -727,6 +729,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
 
@@ -738,7 +743,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
@@ -766,19 +771,19 @@ jobs:
       - name: Download sklearn server image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Download xgb server image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Download custom model grpc image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Download transformer and explainer artifacts
@@ -798,7 +803,7 @@ jobs:
 
       - name: Install KServe
         run: |
-          ./test/scripts/gh-actions/setup-kserve.sh "raw" ${{ matrix.network-layer }}
+          ./test/scripts/gh-actions/setup-kserve.sh "Standard" ${{ matrix.network-layer }}
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
@@ -806,11 +811,6 @@ jobs:
       - name: Log the config map
         run: |
           kubectl describe configmaps -n kserve inferenceservice-config
-
-      - name: Enable Gateway API
-        if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
-        run: |
-          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-enable-gateway-api.yaml
 
       - name: Run E2E tests
         timeout-minutes: 30
@@ -852,6 +852,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
 
@@ -863,7 +866,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
@@ -891,7 +894,7 @@ jobs:
       - name: Download sklearn server image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Load docker images
@@ -904,7 +907,7 @@ jobs:
 
       - name: Install KServe
         run: |
-          ./test/scripts/gh-actions/setup-kserve.sh "raw" "istio-ingress"
+          ./test/scripts/gh-actions/setup-kserve.sh "Standard" "istio-ingress"
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
@@ -931,6 +934,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
 
@@ -942,7 +948,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
@@ -965,13 +971,13 @@ jobs:
       - name: Download sklearn server image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Download xgb server image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ github.sha }}
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Load docker images
@@ -984,15 +990,11 @@ jobs:
 
       - name: Install KServe
         run: |
+          export KSERVE_CUSTOM_ISVC_CONFIGS='ingress.disableIstioVirtualHost=true'
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
-
-      - name: Patch inferenceservice config to disable istio
-        run: |
-          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-disable-istio.yaml
-          kubectl describe configmaps -n kserve inferenceservice-config
 
       - name: Run E2E tests
         timeout-minutes: 30
@@ -1015,6 +1017,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
 
@@ -1025,7 +1030,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
@@ -1039,7 +1044,7 @@ jobs:
       - name: Download huggingface server image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.HUGGINGFACE_IMG }}-${{ github.sha }}
+          name: ${{ env.HUGGINGFACE_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Load docker images
@@ -1074,6 +1079,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
 
@@ -1084,7 +1092,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
@@ -1098,7 +1106,7 @@ jobs:
       - name: Download huggingface server image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.HUGGINGFACE_IMG }}-${{ github.sha }}
+          name: ${{ env.HUGGINGFACE_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Load docker images
@@ -1133,6 +1141,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
 
@@ -1144,7 +1155,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - name: Create tmp-images directory
         run: |
@@ -1191,7 +1202,7 @@ jobs:
       - name: Download huggingface server image
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.HUGGINGFACE_IMG }}-${{ github.sha }}
+          name: ${{ env.HUGGINGFACE_IMG }}-${{ env.TAG }}
           path: /tmp-images
 
       - name: Load runtime docker images
@@ -1214,17 +1225,12 @@ jobs:
 
       - name: Install KServe
         run: |
+          export KSERVE_CUSTOM_ISVC_CONFIGS="localModel.enabled=true|localModel.defaultJobImage=kserve/storage-initializer:${GITHUB_SHA}"
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
-
-      - name: Enable modelcache
-        run: |
-          sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice-enable-modelcache.yaml
-          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-enable-modelcache.yaml
           kubectl describe configmaps -n kserve inferenceservice-config
-
       - name: Create localmodel job namespace
         run: |
           kubectl create ns kserve-localmodel-jobs

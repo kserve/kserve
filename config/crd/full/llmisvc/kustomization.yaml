@@ -4,3 +4,7 @@ kind: Kustomization
 resources:
   - serving.kserve.io_llminferenceservices.yaml
   - serving.kserve.io_llminferenceserviceconfigs.yaml
+
+patches:
+  - path: llmisvc_conversion_webhook_patch.yaml
+  - path: llmisvcconfig_conversion_webhook_patch.yaml

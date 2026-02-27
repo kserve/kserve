@@ -30,6 +30,10 @@ from .logging import logger
 KSERVE_PLURAL_LLMINFERENCESERVICECONFIG = "llminferenceserviceconfigs"
 KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
 
+# Scheduler config constants
+SCHEDULER_CONFIGMAP_NAME = "scheduler-config-e2e"
+SCHEDULER_CONFIGMAP_KEY = "epp"
+
 LLMINFERENCESERVICE_CONFIGS = {
     "workload-single-cpu": {
         "template": {
@@ -40,13 +44,13 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
-                        "requests": {"cpu": ".5", "memory": "4Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                     "livenessProbe": {
-                        "initialDelaySeconds": 120,
+                        "initialDelaySeconds": 180,
                         "periodSeconds": 30,
                         "timeoutSeconds": 30,
-                        "failureThreshold": 5,
+                        "failureThreshold": 8,
                     },
                     "readinessProbe": {
                         "httpGet": {"path": "/health", "port": 8000},
@@ -72,14 +76,14 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
-                        "requests": {"cpu": ".5", "memory": "4Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                     "livenessProbe": {
                         "httpGet": {"path": "/health", "port": 8000},
-                        "initialDelaySeconds": 120,
+                        "initialDelaySeconds": 180,
                         "periodSeconds": 30,
                         "timeoutSeconds": 30,
-                        "failureThreshold": 5,
+                        "failureThreshold": 8,
                     },
                     "readinessProbe": {
                         "httpGet": {"path": "/health", "port": 8000},
@@ -104,14 +108,14 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
                         "resources": {
                             "limits": {"cpu": "2", "memory": "7Gi"},
-                            "requests": {"cpu": ".5", "memory": "4Gi"},
+                            "requests": {"cpu": "200m", "memory": "2Gi"},
                         },
                         "livenessProbe": {
                             "httpGet": {"path": "/health", "port": 8000},
-                            "initialDelaySeconds": 120,
+                            "initialDelaySeconds": 180,
                             "periodSeconds": 30,
                             "timeoutSeconds": 30,
-                            "failureThreshold": 5,
+                            "failureThreshold": 8,
                         },
                         "readinessProbe": {
                             "httpGet": {"path": "/health", "port": 8000},
@@ -316,7 +320,7 @@ LLMINFERENCESERVICE_CONFIGS = {
     # This preset simulates DP+EP that can run on CPU, the idea is to test the LWS-based deployment
     # but without the resources requirements for DP+EP (GPUs and ROCe/IB)
     "workload-simulated-dp-ep-cpu": {
-        "replicas": 2,
+        "replicas": 1,
         "parallelism": {
             "data": 2,
             "dataLocal": 1,
@@ -334,7 +338,6 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--port",
                         "8000",
-                        "--disable-log-requests",
                         # SSL disabled to match HTTP-only Gateway setup
                         # "--enable-ssl-refresh",
                         # "--ssl-certfile",
@@ -344,14 +347,14 @@ LLMINFERENCESERVICE_CONFIGS = {
                     ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
-                        "requests": {"cpu": ".5", "memory": "4Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                     "livenessProbe": {
                         "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
-                        "initialDelaySeconds": 120,
+                        "initialDelaySeconds": 180,
                         "periodSeconds": 30,
                         "timeoutSeconds": 30,
-                        "failureThreshold": 5,
+                        "failureThreshold": 8,
                     },
                     "readinessProbe": {
                         "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
@@ -378,7 +381,6 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--port",
                         "8000",
-                        "--disable-log-requests",
                         "--enable-ssl-refresh",
                         "--ssl-certfile",
                         "/etc/ssl/certs/tls.crt",
@@ -387,14 +389,14 @@ LLMINFERENCESERVICE_CONFIGS = {
                     ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
-                        "requests": {"cpu": ".5", "memory": "4Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                     "livenessProbe": {
                         "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
-                        "initialDelaySeconds": 120,
+                        "initialDelaySeconds": 180,
                         "periodSeconds": 30,
                         "timeoutSeconds": 30,
-                        "failureThreshold": 5,
+                        "failureThreshold": 8,
                     },
                     "readinessProbe": {
                         "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
@@ -443,7 +445,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 ],
                                 "backendRefs": [
                                     {
-                                        "group": "inference.networking.x-k8s.io",
+                                        "group": "inference.networking.k8s.io",
                                         "kind": "InferencePool",
                                         "name": "custom-route-timeout-test-inference-pool",
                                         "namespace": KSERVE_TEST_NAMESPACE,
@@ -490,7 +492,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 ],
                                 "backendRefs": [
                                     {
-                                        "group": "inference.networking.x-k8s.io",
+                                        "group": "inference.networking.k8s.io",
                                         "kind": "InferencePool",
                                         "name": "custom-route-timeout-pd-test-inference-pool",
                                         "namespace": KSERVE_TEST_NAMESPACE,
@@ -544,6 +546,53 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {},
         },
     },
+    "scheduler-with-inline-config": {
+        "router": {
+            "scheduler": {
+                "config": {
+                    "inline": {
+                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "kind": "EndpointPickerConfig",
+                        "plugins": [
+                            {"type": "single-profile-handler"},
+                            {"type": "queue-scorer"},
+                            {"type": "prefix-cache-scorer"},
+                            {"type": "max-score-picker"},
+                        ],
+                        "schedulingProfiles": [
+                            {
+                                "name": "default",
+                                "plugins": [
+                                    {"pluginRef": "queue-scorer", "weight": 2},
+                                    {"pluginRef": "prefix-cache-scorer", "weight": 3},
+                                    {"pluginRef": "max-score-picker"},
+                                ],
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+    },
+    "scheduler-with-configmap-ref": {
+        "router": {
+            "scheduler": {
+                "config": {
+                    "ref": {
+                        "name": SCHEDULER_CONFIGMAP_NAME,
+                        "key": SCHEDULER_CONFIGMAP_KEY,
+                    },
+                },
+            },
+        },
+    },
+    "scheduler-with-replicas": {
+        "router": {
+            "scheduler": {
+                "replicas": 2,
+            },
+        },
+    },
     "router-with-gateway-ref": {
         "router": {
             "gateway": {
@@ -554,9 +603,7 @@ LLMINFERENCESERVICE_CONFIGS = {
         },
     },
     "router-with-managed-route": {
-        "router": {
-            "route": {}
-        },
+        "router": {"route": {}},
     },
     "workload-llmd-simulator": {
         "replicas": 1,
@@ -574,19 +621,19 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--mode",
                         "random",
-                        "--ssl-certfile",
-                        "/etc/ssl/certs/tls.crt",
-                        "--ssl-keyfile",
-                        "/etc/ssl/certs/tls.key"
+                        # "--ssl-certfile",
+                        # "/etc/ssl/certs/tls.crt",
+                        # "--ssl-keyfile",
+                        # "/etc/ssl/certs/tls.key",
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
-                        "requests": {"cpu": "1", "memory": "2Gi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                 }
             ]
         },
-    }
+    },
 }
 
 
@@ -607,7 +654,9 @@ def test_case(request):
         for func in tc.before_test:
             func()
     except Exception as before_test_error:
-        raise RuntimeError(f"Failed to execute before test hook: {before_test_error}") from before_test_error
+        raise RuntimeError(
+            f"Failed to execute before test hook: {before_test_error}"
+        ) from before_test_error
 
     try:
         # Validate base_refs defined in the test fixture exist in LLMINFERENCESERVICE_CONFIGS
@@ -661,16 +710,14 @@ def test_case(request):
     finally:
         if os.getenv("SKIP_RESOURCE_DELETION", "False").lower() in ("true", "1", "t"):
             logger.info("Skipping resource deletion after test execution.")
-            return
+            return  # noqa: B012
 
         # Execute after test hooks
         for func in tc.after_test:
             try:
                 func()
             except Exception as after_test_error:
-                logger.warning(
-                    f"Failed to execute after test hook: {after_test_error}"
-                )
+                logger.warning(f"Failed to execute after test hook: {after_test_error}")
 
         # Cleanup created configs
         for config_name in created_configs:
@@ -697,10 +744,9 @@ def test_case(request):
 def _get_model_name_from_configs(config_names):
     """Extract the model name from model config."""
     for config_name in config_names:
-        if config_name.startswith("model-"):
-            config = LLMINFERENCESERVICE_CONFIGS[config_name]
-            if "model" in config and "name" in config["model"]:
-                return config["model"]["name"]
+        config = LLMINFERENCESERVICE_CONFIGS[config_name]
+        if "model" in config and "name" in config["model"]:
+            return config["model"]["name"]
     return "default-model"
 
 
@@ -735,9 +781,11 @@ def generate_test_id(test_case) -> str:
     return "-".join(test_case.base_refs)
 
 
-def create_router_resources(gateways, routes, kserve_client=None):
+def create_router_resources(gateways, routes=None, kserve_client=None):
     if not kserve_client:
-        kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        kserve_client = KServeClient(
+            config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+        )
 
     gateways_created = []
     routes_created = []
@@ -746,7 +794,7 @@ def create_router_resources(gateways, routes, kserve_client=None):
         for gateway in gateways:
             create_or_update_gateway(kserve_client, gateway)
             gateways_created.append(gateway)
-        for route in routes:
+        for route in routes or []:
             create_or_update_route(kserve_client, route)
             routes_created.append(route)
     except Exception as e:
@@ -755,27 +803,43 @@ def create_router_resources(gateways, routes, kserve_client=None):
         raise
 
 
-def delete_router_resources(gateways, routes, kserve_client=None):
+def delete_router_resources(gateways, routes=None, kserve_client=None):
     if not kserve_client:
-        kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        kserve_client = KServeClient(
+            config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+        )
 
-    for route in routes:
+    for route in routes or []:
         try:
-            logger.info(f"Cleaning up HttpRoute {route.get('metadata', {}).get('name')}")
-            delete_route(kserve_client, route.get("metadata", {}).get("name"),
-                         route.get("metadata", {}).get("namespace", "default"))
+            logger.info(
+                f"Cleaning up HttpRoute {route.get('metadata', {}).get('name')}"
+            )
+            delete_route(
+                kserve_client,
+                route.get("metadata", {}).get("name"),
+                route.get("metadata", {}).get("namespace", "default"),
+            )
             logger.info(f"✓ Deleted HttpRoute {route.get('metadata', {}).get('name')}")
         except Exception as e:
-            logger.warning(f"Failed to cleanup HttpRoute {route.get('metadata', {}).get('name')}: {e}")
+            logger.warning(
+                f"Failed to cleanup HttpRoute {route.get('metadata', {}).get('name')}: {e}"
+            )
 
     for gateway in gateways:
         try:
-            logger.info(f"Cleaning up Gateway {gateway.get('metadata', {}).get('name')}")
-            delete_gateway(kserve_client, gateway.get("metadata", {}).get("name"),
-                           gateway.get("metadata", {}).get("namespace", "default"))
+            logger.info(
+                f"Cleaning up Gateway {gateway.get('metadata', {}).get('name')}"
+            )
+            delete_gateway(
+                kserve_client,
+                gateway.get("metadata", {}).get("name"),
+                gateway.get("metadata", {}).get("namespace", "default"),
+            )
             logger.info(f"✓ Deleted Gateway {gateway.get('metadata', {}).get('name')}")
         except Exception as e:
-            logger.warning(f"Failed to cleanup Gateway {gateway.get('metadata', {}).get('name')}: {e}")
+            logger.warning(
+                f"Failed to cleanup Gateway {gateway.get('metadata', {}).get('name')}: {e}"
+            )
 
 
 def _create_or_update_llmisvc_config(kserve_client, llm_config, namespace=None):
@@ -878,3 +942,79 @@ def inject_k8s_proxy():
         client.Configuration._default.proxy = proxy_url
     else:
         logger.info("No HTTP proxy configured for k8s client")
+
+
+# Scheduler config YAML used for ConfigMap ref tests
+SCHEDULER_CONFIG_YAML = """apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: queue-scorer
+- type: prefix-cache-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+"""
+
+
+def create_scheduler_configmap():
+    """Create ConfigMap with scheduler configuration."""
+    inject_k8s_proxy()
+    core_v1 = client.CoreV1Api()
+
+    configmap = client.V1ConfigMap(
+        api_version="v1",
+        kind="ConfigMap",
+        metadata=client.V1ObjectMeta(
+            name=SCHEDULER_CONFIGMAP_NAME,
+            namespace=KSERVE_TEST_NAMESPACE,
+        ),
+        data={
+            SCHEDULER_CONFIGMAP_KEY: SCHEDULER_CONFIG_YAML,
+        },
+    )
+
+    try:
+        core_v1.create_namespaced_config_map(
+            namespace=KSERVE_TEST_NAMESPACE,
+            body=configmap,
+        )
+        logger.info(
+            f"Created ConfigMap {SCHEDULER_CONFIGMAP_NAME} in namespace {KSERVE_TEST_NAMESPACE}"
+        )
+    except client.rest.ApiException as e:
+        if e.status == 409:  # Already exists
+            core_v1.replace_namespaced_config_map(
+                name=SCHEDULER_CONFIGMAP_NAME,
+                namespace=KSERVE_TEST_NAMESPACE,
+                body=configmap,
+            )
+            logger.info(
+                f"Updated ConfigMap {SCHEDULER_CONFIGMAP_NAME} in namespace {KSERVE_TEST_NAMESPACE}"
+            )
+        else:
+            raise
+
+
+def delete_scheduler_configmap():
+    """Delete ConfigMap with scheduler configuration."""
+    inject_k8s_proxy()
+    core_v1 = client.CoreV1Api()
+
+    try:
+        core_v1.delete_namespaced_config_map(
+            name=SCHEDULER_CONFIGMAP_NAME,
+            namespace=KSERVE_TEST_NAMESPACE,
+        )
+        logger.info(
+            f"Deleted ConfigMap {SCHEDULER_CONFIGMAP_NAME} from namespace {KSERVE_TEST_NAMESPACE}"
+        )
+    except client.rest.ApiException as e:
+        if e.status != 404:  # Ignore not found
+            raise

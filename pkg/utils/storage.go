@@ -274,8 +274,8 @@ func AddDefaultHuggingFaceEnvVars(container *corev1.Container) {
 
 func GetStorageResources(storageURIs []string, storagePaths []string) ([]corev1.VolumeMount, []corev1.Volume, []string, error) {
 	initContainerArgs := make([]string, 0, len(storageURIs)*2)
-	var volumeMounts []corev1.VolumeMount
-	var volumes []corev1.Volume
+	volumeMounts := make([]corev1.VolumeMount, 0, 1)
+	volumes := make([]corev1.Volume, 0, 1)
 	mountPaths := make([]string, 0, len(storageURIs))
 
 	for i := range storageURIs {
@@ -315,11 +315,6 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 		Image:                    storageInitializerImage,
 		Args:                     containerArgs,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-		VolumeMounts: []corev1.VolumeMount{{
-			Name:      constants.StorageInitializerVolumeName,
-			MountPath: constants.DefaultModelLocalMountPath,
-			ReadOnly:  false,
-		}},
 		Resources: corev1.ResourceRequirements{
 			Limits: map[corev1.ResourceName]resource.Quantity{
 				corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),

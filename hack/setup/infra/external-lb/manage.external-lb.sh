@@ -44,7 +44,7 @@ fi
 
 # VARIABLES
 PLATFORM="${PLATFORM:-$(detect_platform)}"
-TEMPLATE_DIR="${SCRIPT_DIR}/templates"
+TEMPLATE_DIR="${REPO_ROOT}/hack/setup/infra/external-lb/templates"
 # VARIABLES END
 
 uninstall() {
@@ -101,7 +101,7 @@ install() {
                 log_info "cloud-provider-kind is already running"
             else
                 log_info "Starting cloud-provider-kind..."
-                cloud-provider-kind > /dev/null 2>&1 &
+                nohup cloud-provider-kind > /dev/null 2>&1 &
                 sleep 2
 
                 if pgrep -f cloud-provider-kind > /dev/null; then
@@ -118,6 +118,7 @@ install() {
 
             log_info "Enabling MetalLB addon..."
             minikube addons enable metallb
+            kubectl wait --for=condition=ready pod -l app=metallb -n metallb-system --timeout=60s
 
             MINIKUBE_IP=$(minikube ip)
             if [[ -z "${MINIKUBE_IP}" ]]; then
@@ -133,15 +134,24 @@ install() {
 
             log_info "Configuring MetalLB IP range: ${START}-${END}"
 
-            sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" \
-                "${TEMPLATE_DIR}/metallb-config.yaml.tmpl" | kubectl apply -f -
+            if [ "$EMBED_TEMPLATES" = "true" ]; then
+                get_metallb_config | \
+                    sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" | \
+                    kubectl apply -f -
+            else
+                sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" \
+                    "${TEMPLATE_DIR}/metallb-config.yaml.tmpl" | kubectl apply -f -
+            fi
 
+            kubectl rollout restart deployment controller -n metallb-system
+            kubectl rollout status deployment controller -n metallb-system --timeout=60s
+            
             log_success "MetalLB configured successfully with IP range: ${START}-${END}"
             ;;
 
         openshift|kubernetes)
             log_info "Platform ${PLATFORM} does not require external LB setup. Skipping."
-            exit 0
+            return 0
             ;;
 
         *)

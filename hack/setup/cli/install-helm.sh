@@ -27,13 +27,14 @@ install() {
 
     log_info "Installing Helm ${HELM_VERSION} for ${os}/${arch}..."
 
-    if command -v helm &>/dev/null; then
-        local current_version=$(helm version --template='{{.Version}}' 2>/dev/null)
-        if [[ -n "$current_version" ]] && version_gte "$current_version" "$HELM_VERSION"; then
-            log_info "Helm ${current_version} is already installed (>= ${HELM_VERSION})"
+    # Check if helm is already installed in BIN_DIR with the exact required version
+    if [[ -f "${BIN_DIR}/helm" ]]; then
+        local current_version=$("${BIN_DIR}/helm" version --template='{{.Version}}' 2>/dev/null)
+        if [[ "$current_version" == "$HELM_VERSION" ]]; then
+            log_info "Helm ${current_version} is already installed in ${BIN_DIR}"
             return 0
         fi
-        [[ -n "$current_version" ]] && log_info "Upgrading Helm from ${current_version} to ${HELM_VERSION}..."
+        [[ -n "$current_version" ]] && log_info "Replacing Helm ${current_version} with ${HELM_VERSION} in ${BIN_DIR}..."
     fi
 
     local temp_dir=$(mktemp -d)
