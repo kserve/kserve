@@ -381,8 +381,6 @@ class HuggingfaceGenerativeModel(
         """
         if request.frequency_penalty is not None and request.frequency_penalty > 0:
             raise OpenAIError("'frequency_penalty' is not supported")
-        if request.best_of is not None and request.best_of > 1:
-            raise OpenAIError("'best_of' > 1 is not supported")
         if request.n is not None and request.n > 1:
             # TODO: support 'n' by using num
             raise OpenAIError("'n' > 1 is not supported")
