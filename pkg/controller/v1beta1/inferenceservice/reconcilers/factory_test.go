@@ -94,11 +94,12 @@ func TestCreateIngressReconciler(t *testing.T) {
 
 	// Standard mode with Gateway API
 	params := IngressReconcilerParams{
-		Client:        fakeClient,
-		Clientset:     fakeClientset,
-		Scheme:        scheme,
-		IngressConfig: &v1beta1.IngressConfig{EnableGatewayAPI: true},
-		IsvcConfig:    &v1beta1.InferenceServicesConfig{},
+		Client:                    fakeClient,
+		Clientset:                 fakeClientset,
+		Scheme:                    scheme,
+		IngressConfig:             &v1beta1.IngressConfig{EnableGatewayAPI: true},
+		IsvcConfig:                &v1beta1.InferenceServicesConfig{},
+		IsVirtualServiceAvailable: false,
 	}
 	rec, err := factory.CreateIngressReconciler(constants.Standard, params)
 	require.NoError(t, err)

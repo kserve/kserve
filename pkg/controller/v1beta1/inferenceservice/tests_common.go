@@ -376,6 +376,9 @@ func getDeploymentWithKServiceLabel(predictorDeploymentKey types.NamespacedName,
 								"--model_base_path=" + constants.DefaultModelLocalMountPath,
 								"--rest_api_timeout_in_ms=60000",
 							},
+							Env: []corev1.EnvVar{
+								{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+							},
 							Resources: defaultResource,
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{

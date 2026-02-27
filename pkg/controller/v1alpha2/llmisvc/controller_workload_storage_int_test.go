@@ -69,17 +69,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should configure direct PVC mount when model uri starts with pvc://", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-pvc"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			modelURL, err := apis.ParseURL("pvc://facebook-models/opt-125m")
 			Expect(err).ToNot(HaveOccurred())
@@ -87,7 +77,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -107,7 +97,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then
@@ -115,7 +105,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -123,7 +113,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -134,17 +124,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should configure a modelcar when model uri starts with oci://", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-oci"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			modelURL, err := apis.ParseURL("oci://registry.io/user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
@@ -152,7 +132,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -172,7 +152,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then
@@ -180,7 +160,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -188,7 +168,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -199,16 +179,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should use storage-initializer to download model when uri starts with hf://", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-hf"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelURL, err := apis.ParseURL("hf://user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
@@ -216,7 +187,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -236,7 +207,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then
@@ -244,7 +215,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -252,7 +223,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -263,23 +234,14 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should use storage-initializer and set proper env variables when uri starts with hf:// and credentials are configured", func(ctx SpecContext) {
 			// setup test dependencies
 			svcName := "test-llm-storage-hf-with-credentials"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest)
 
 			secretName := kmeta.ChildName(svcName, "-secret")
 			hfTokenValue := "test-token"
 			credentialSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      secretName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				StringData: map[string]string{
 					hf.HFTokenKey: hfTokenValue,
@@ -291,12 +253,12 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			serviceAccount := &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceAccountName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Secrets: []corev1.ObjectReference{
 					{
 						Name:      secretName,
-						Namespace: nsName,
+						Namespace: testNs.Name,
 					},
 				},
 			}
@@ -308,7 +270,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -335,7 +297,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// retrieve the created deployments
@@ -343,7 +305,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -351,7 +313,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -399,16 +361,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			// setup test dependencies
 			svcName := "test-llm-storage-s3"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest)
 
 			modelURL, err := apis.ParseURL("s3://user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
@@ -416,7 +369,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -434,7 +387,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			}
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// Ensure the global-ca-bundle config map is created in the llmisvc's namespace
@@ -442,7 +395,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      constants.DefaultGlobalCaBundleConfigMapName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, generatedGlobalCaBundleConfigMap)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -451,7 +404,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -459,7 +412,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -603,22 +556,13 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-config"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest)
 
 			localCaBundleConfigMapName := "local-s3-custom-certs"
 			localCaBundleconfigMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      localCaBundleConfigMapName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Data: map[string]string{
 					"localcerts.crt": "test-cert",
@@ -634,7 +578,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			credentialSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      secretName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 					Annotations: map[string]string{
 						s3.InferenceServiceS3SecretEndpointAnnotation: s3Endpoint,
 						s3.InferenceServiceS3SecretHttpsAnnotation:    s3UseHttps,
@@ -653,12 +597,12 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			serviceAccount := &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceAccountName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Secrets: []corev1.ObjectReference{
 					{
 						Name:      secretName,
-						Namespace: nsName,
+						Namespace: testNs.Name,
 					},
 				},
 			}
@@ -670,7 +614,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -696,7 +640,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			}
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// retrieve the created deployments
@@ -704,7 +648,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -712,7 +656,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -785,22 +729,13 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-with-credentials"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest)
 
 			s3CaBundleConfigMapName := "s3-custom-certs"
 			s3CaBundleconfigMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      s3CaBundleConfigMapName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Data: map[string]string{
 					"s3.crt": "test-cert",
@@ -816,7 +751,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			credentialSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      secretName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 					Annotations: map[string]string{
 						s3.InferenceServiceS3SecretEndpointAnnotation:    s3Endpoint,
 						s3.InferenceServiceS3SecretHttpsAnnotation:       s3UseHttps,
@@ -837,12 +772,12 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			serviceAccount := &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceAccountName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Secrets: []corev1.ObjectReference{
 					{
 						Name:      secretName,
-						Namespace: nsName,
+						Namespace: testNs.Name,
 					},
 				},
 			}
@@ -854,7 +789,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -880,7 +815,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			}
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// retrieve the created deployments
@@ -888,7 +823,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -896,7 +831,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -969,22 +904,13 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-with-iam-credentials"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest)
 
 			s3CaBundleConfigMapName := "s3-custom-certs"
 			s3CaBundleconfigMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      s3CaBundleConfigMapName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Data: map[string]string{
 					"s3.crt": "test-cert",
@@ -1001,7 +927,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			serviceAccount := &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceAccountName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 					Annotations: map[string]string{
 						credentials.AwsIrsaAnnotationKey:                 s3IamRole,
 						s3.InferenceServiceS3SecretEndpointAnnotation:    s3Endpoint,
@@ -1021,7 +947,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -1047,7 +973,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			}
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// retrieve the created deployments
@@ -1055,7 +981,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1063,7 +989,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1118,7 +1044,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      serviceAccountName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedServiceAccount)
 			}).WithContext(ctx).Should(Succeed())
 			Expect(expectedServiceAccount.Annotations[credentials.AwsIrsaAnnotationKey]).To(BeEquivalentTo(s3IamRole))
@@ -1127,17 +1053,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should NOT create storage-initializer when explicitly disabled for s3:// URI", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-s3-disabled"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			modelURL, err := apis.ParseURL("s3://user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
@@ -1145,7 +1061,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -1168,7 +1084,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then
@@ -1176,7 +1092,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1184,7 +1100,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1196,17 +1112,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should NOT create storage-initializer when explicitly disabled for hf:// URI", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-hf-disabled"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			modelURL, err := apis.ParseURL("hf://meta-llama/Llama-3.2-1B-Instruct")
 			Expect(err).ToNot(HaveOccurred())
@@ -1214,7 +1120,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -1237,7 +1143,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then
@@ -1245,7 +1151,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1253,7 +1159,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1265,17 +1171,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should NOT configure PVC storage when storage-initializer is disabled", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-pvc-si-disabled"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			modelURL, err := apis.ParseURL("pvc://facebook-models/opt-125m")
 			Expect(err).ToNot(HaveOccurred())
@@ -1283,7 +1179,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -1306,7 +1202,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then
@@ -1314,7 +1210,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1322,7 +1218,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1337,17 +1233,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should NOT configure OCI storage when storage-initializer is disabled", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-oci-si-disabled"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			modelURL, err := apis.ParseURL("oci://registry.io/user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
@@ -1355,7 +1241,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -1378,7 +1264,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then
@@ -1386,7 +1272,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1394,7 +1280,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1411,17 +1297,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should configure direct PVC mount when model uri starts with pvc://", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-pvc-mn"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			modelURL, err := apis.ParseURL("pvc://facebook-models/opt-125m")
 			Expect(err).ToNot(HaveOccurred())
@@ -1429,7 +1305,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -1461,7 +1337,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then
@@ -1469,7 +1345,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1477,7 +1353,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1488,17 +1364,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should configure a modelcar when model uri starts with oci://", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-oci-mn"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			modelURL, err := apis.ParseURL("oci://registry.io/user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
@@ -1506,7 +1372,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -1540,7 +1406,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then
@@ -1548,7 +1414,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1556,7 +1422,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1567,17 +1433,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("should use storage-initializer to download model when uri starts with hf://", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-storage-hf-mn"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			modelURL, err := apis.ParseURL("hf://user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
@@ -1585,7 +1441,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -1619,7 +1475,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// then
@@ -1627,7 +1483,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1635,7 +1491,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1646,24 +1502,14 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 		It("multi node should use storage-initializer and set proper env variables when uri starts with hf:// and credentials are configured", func(ctx SpecContext) {
 			// setup test dependencies
 			svcName := "test-llm-storage-hf-mn-with-credentials"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			secretName := kmeta.ChildName(svcName, "-secret")
 			hfTokenValue := "test-token"
 			credentialSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      secretName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				StringData: map[string]string{
 					hf.HFTokenKey: hfTokenValue,
@@ -1675,12 +1521,12 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			serviceAccount := &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceAccountName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Secrets: []corev1.ObjectReference{
 					{
 						Name:      secretName,
-						Namespace: nsName,
+						Namespace: testNs.Name,
 					},
 				},
 			}
@@ -1692,7 +1538,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -1737,7 +1583,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// retrieve the created LeaderWorkerSets
@@ -1745,7 +1591,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1753,7 +1599,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1801,18 +1647,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-mn"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
-
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			modelURL, err := apis.ParseURL("s3://user-id/repo-id:tag")
 			Expect(err).ToNot(HaveOccurred())
@@ -1820,7 +1655,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -1852,7 +1687,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			}
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// Ensure the global-ca-bundle config map is created in the llmisvc's namespace
@@ -1860,7 +1695,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      constants.DefaultGlobalCaBundleConfigMapName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, generatedGlobalCaBundleConfigMap)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1869,7 +1704,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1877,7 +1712,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -1932,24 +1767,13 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-config-mn"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
-
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			localCaBundleConfigMapName := "local-s3-custom-certs"
 			localCaBundleconfigMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      localCaBundleConfigMapName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Data: map[string]string{
 					"localcerts.crt": "test-cert",
@@ -1965,7 +1789,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			credentialSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      secretName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 					Annotations: map[string]string{
 						s3.InferenceServiceS3SecretEndpointAnnotation: s3Endpoint,
 						s3.InferenceServiceS3SecretHttpsAnnotation:    s3UseHttps,
@@ -1984,12 +1808,12 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			serviceAccount := &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceAccountName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Secrets: []corev1.ObjectReference{
 					{
 						Name:      secretName,
-						Namespace: nsName,
+						Namespace: testNs.Name,
 					},
 				},
 			}
@@ -2001,7 +1825,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -2045,7 +1869,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			}
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// retrieve the created leader worker sets
@@ -2053,7 +1877,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -2061,7 +1885,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -2132,24 +1956,13 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-mn-with-credentials"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
-
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			s3CaBundleConfigMapName := "s3-custom-certs"
 			s3CaBundleconfigMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      s3CaBundleConfigMapName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Data: map[string]string{
 					"s3.crt": "test-cert",
@@ -2165,7 +1978,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			credentialSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      secretName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 					Annotations: map[string]string{
 						s3.InferenceServiceS3SecretEndpointAnnotation:    s3Endpoint,
 						s3.InferenceServiceS3SecretHttpsAnnotation:       s3UseHttps,
@@ -2186,12 +1999,12 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			serviceAccount := &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceAccountName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Secrets: []corev1.ObjectReference{
 					{
 						Name:      secretName,
-						Namespace: nsName,
+						Namespace: testNs.Name,
 					},
 				},
 			}
@@ -2203,7 +2016,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -2248,7 +2061,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// retrieve the created leader worker sets
@@ -2256,7 +2069,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -2264,7 +2077,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -2335,24 +2148,13 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			// setup test dependencies
 			svcName := "test-llm-storage-s3-mn-with-iam-credentials"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(namespace)
-			}()
-
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
 
 			s3CaBundleConfigMapName := "s3-custom-certs"
 			s3CaBundleconfigMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      s3CaBundleConfigMapName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Data: map[string]string{
 					"s3.crt": "test-cert",
@@ -2369,7 +2171,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			serviceAccount := &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceAccountName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 					Annotations: map[string]string{
 						credentials.AwsIrsaAnnotationKey:                 s3IamRole,
 						s3.InferenceServiceS3SecretEndpointAnnotation:    s3Endpoint,
@@ -2389,7 +2191,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -2434,7 +2236,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
 			// retrieve the created leader worker sets
@@ -2442,7 +2244,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -2450,7 +2252,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-kserve-mn-prefill",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillLWS)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -2503,7 +2305,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-sa",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedMainServiceAccount)
 			}).WithContext(ctx).Should(Succeed())
 
@@ -2511,7 +2313,7 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{
 					Name:      svcName + "-sa",
-					Namespace: nsName,
+					Namespace: testNs.Name,
 				}, expectedPrefillServiceAccount)
 			}).WithContext(ctx).Should(Succeed())
 

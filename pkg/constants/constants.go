@@ -139,6 +139,11 @@ var (
 	InferencePoolMigratedAnnotationKey          = KServeAPIGroupName + "/inferencepool-migrated"
 )
 
+// ServingRuntime Server Type Annotations
+var (
+	ServerTypeAnnotationKey = KServeAPIGroupName + "/server-type"
+)
+
 // InferenceService Internal Annotations
 var (
 	InferenceServiceInternalAnnotationsPrefix        = "internal." + KServeAPIGroupName
@@ -313,6 +318,7 @@ const (
 	KServeContainerPrometheusMetricsPathEnvVarKey     = "KSERVE_CONTAINER_PROMETHEUS_METRICS_PATH"
 	ModelInitModeEnvVarKey                            = "MODEL_INIT_MODE"
 	QueueProxyAggregatePrometheusMetricsPortEnvVarKey = "AGGREGATE_PROMETHEUS_METRICS_PORT"
+	InferenceServiceNameEnvVarKey                     = "INFERENCE_SERVICE_NAME"
 )
 
 type InferenceServiceComponent string
@@ -382,6 +388,43 @@ const (
 const (
 	ParentInferenceServiceLabel = "inferenceservice"
 	InferenceServiceLabel       = "serving.kserve.io/inferenceservice"
+)
+
+// Kubernetes recommended label keys (https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/)
+const (
+	KubernetesAppNameLabelKey   = "app.kubernetes.io/name"
+	KubernetesInstanceLabelKey  = "app.kubernetes.io/instance"
+	KubernetesPartOfLabelKey    = "app.kubernetes.io/part-of"
+	KubernetesComponentLabelKey = "app.kubernetes.io/component"
+)
+
+// KServe workload component label (key and value for "kserve.io/component" on workload resources)
+const (
+	KServeComponentLabelKey = "kserve.io/component"
+	KServeComponentWorkload = "workload"
+)
+
+// LLM-d role label (key and values for "llm-d.ai/role" on workload pods)
+const (
+	LLMDRoleLabelKey = "llm-d.ai/role"
+	LLMDRoleDecode   = "decode"
+	LLMDRolePrefill  = "prefill"
+	LLMDRoleBoth     = "both"
+)
+
+// LLMInferenceService label constants (uses Kubernetes recommended label keys above)
+const (
+	LLMInferenceServicePartOfValue = "llminferenceservice"
+	// LLMInferenceService component label values (for KubernetesComponentLabelKey)
+	LLMComponentRouter                = "llminferenceservice-router"
+	LLMComponentRouterScheduler       = "llminferenceservice-router-scheduler"
+	LLMComponentWorkload              = "llminferenceservice-workload"
+	LLMComponentWorkloadPrefill       = "llminferenceservice-workload-prefill"
+	LLMComponentWorkloadWorker        = "llminferenceservice-workload-worker"
+	LLMComponentWorkloadLeader        = "llminferenceservice-workload-leader"
+	LLMComponentWorkloadWorkerPrefill = "llminferenceservice-workload-worker-prefill"
+	LLMComponentWorkloadLeaderPrefill = "llminferenceservice-workload-leader-prefill"
+	LLMComponentInference             = "inference" // used in sample/template resources
 )
 
 // InferenceService canary constants
@@ -501,7 +544,7 @@ const (
 	DefaultNSKnativeServing = "knative-serving"
 )
 
-// built-in runtime servers
+// built-in runtime servers names
 const (
 	SKLearnServer     = "kserve-sklearnserver"
 	MLServer          = "kserve-mlserver"
@@ -515,9 +558,49 @@ const (
 	HuggingFaceServer = "kserve-huggingfaceserver"
 )
 
+// Server type annotation values
+const (
+	ServerTypeMLServer          = "mlserver"
+	ServerTypeTritonServer      = "tritonserver"
+	ServerTypeTorchServe        = "torchserve"
+	ServerTypeOVMS              = "ovms"
+	ServerTypePredictiveServer  = "predictiveserver"
+	ServerTypeHuggingFaceServer = "huggingfaceserver"
+	ServerTypePMMLServer        = "pmmlserver"
+	ServerTypeLightGBMServer    = "lightgbmserver"
+	ServerTypePaddleServer      = "paddleserver"
+	ServerTypeTensorflowServing = "tensorflow-serving"
+	ServerTypePyTorchServer     = "pytorchserver"
+	ServerTypeSKLearnServer     = "sklearnserver"
+	ServerTypeXGBoostServer     = "xgbserver"
+)
+
+// GetServerTypeFromRuntimeName converts runtime name to server type for backward compatibility.
+// This enables fallback from annotation-based to name-based runtime detection.
+func GetServerTypeFromRuntimeName(runtimeName string) string {
+	switch runtimeName {
+	case MLServer:
+		return ServerTypeMLServer
+	case TorchServe:
+		return ServerTypeTorchServe
+	case TritonServer:
+		return ServerTypeTritonServer
+	default:
+		return ""
+	}
+}
+
 const (
 	ModelClassLabel = "modelClass"
 	ServiceEnvelope = "serviceEnvelope"
+)
+
+// MLServer environment variables
+const (
+	MLServerLoadModelsStartupEnv   = "MLSERVER_LOAD_MODELS_AT_STARTUP"
+	MLServerModelImplementationEnv = "MLSERVER_MODEL_IMPLEMENTATION"
+	MLServerModelNameEnv           = "MLSERVER_MODEL_NAME"
+	MLServerModelURIEnv            = "MLSERVER_MODEL_URI"
 )
 
 // allowed model class implementation in mlserver
@@ -686,9 +769,10 @@ func InferenceServicePrefix(name string) string {
 
 func PredictPath(name string, protocol InferenceServiceProtocol) string {
 	path := ""
-	if protocol == ProtocolV1 {
+	switch protocol {
+	case ProtocolV1:
 		path = fmt.Sprintf("/v1/models/%s:predict", name)
-	} else if protocol == ProtocolV2 {
+	case ProtocolV2:
 		path = fmt.Sprintf("/v2/models/%s/infer", name)
 	}
 	return path

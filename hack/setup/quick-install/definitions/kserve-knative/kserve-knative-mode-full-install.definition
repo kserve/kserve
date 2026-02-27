@@ -1,5 +1,4 @@
 DESCRIPTION: Install KServe Knative Mode and all related dependencies using helm.
-METHOD: helm
 RELEASE: true
 
 TOOLS:
@@ -7,11 +6,8 @@ TOOLS:
   - kustomize
   - yq
   
+INCLUDE_DEFINITIONS:
+  - ./kserve-knative-mode-dependency-install.definition
+    
 COMPONENTS:
-  - name: cert-manager
-  - name: istio
-  - name: istio-ingress-class
-  - name: keda
-  - name: keda-otel-addon
-  - name: opentelemetry
-  - name: kserve
+  - name: kserve-helm

@@ -76,7 +76,7 @@ func TestLogger(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	StartDispatcher(5, &MockStore{}, logger)
+	StartDispatcher(5, &MockStore{}, &ImmediateBatch{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
 		"default", httpProxy, nil, "", nil, true)
@@ -113,7 +113,7 @@ func TestLoggerWithMetadata(t *testing.T) {
 		if req.Header["Ce-Type"][0] == "org.kubeflow.serving.inference.request" {
 			metadata := map[string][]string{}
 
-			json.Unmarshal([]byte(req.Header["Ce-Metadata"][0]), &metadata)
+			_ = json.Unmarshal([]byte(req.Header["Ce-Metadata"][0]), &metadata)
 
 			g.Expect(metadata["Foo"]).To(gomega.Equal([]string{"bar"}))
 
@@ -148,7 +148,7 @@ func TestLoggerWithMetadata(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	StartDispatcher(5, &MockStore{}, logger)
+	StartDispatcher(5, &MockStore{}, &ImmediateBatch{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
 		"default", httpProxy, []string{"Foo", "Fizz"}, "", nil, true)
@@ -185,7 +185,7 @@ func TestLoggerWithAnnotation(t *testing.T) {
 		if req.Header["Ce-Type"][0] == "org.kubeflow.serving.inference.request" {
 			annotations := map[string]string{}
 
-			json.Unmarshal([]byte(req.Header["Ce-Annotations"][0]), &annotations)
+			_ = json.Unmarshal([]byte(req.Header["Ce-Annotations"][0]), &annotations)
 
 			g.Expect(annotations["Foo"]).To(gomega.Equal("Bar"))
 
@@ -220,7 +220,7 @@ func TestLoggerWithAnnotation(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	StartDispatcher(5, &MockStore{}, logger)
+	StartDispatcher(5, &MockStore{}, &ImmediateBatch{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
 		"default", httpProxy, nil, "", map[string]string{"Foo": "Bar", "Fizz": "Buzz"}, true)
@@ -265,7 +265,7 @@ func TestBadResponse(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	StartDispatcher(1, &MockStore{}, logger)
+	StartDispatcher(1, &MockStore{}, &ImmediateBatch{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
 		"default", httpProxy, nil, "", nil, true)
@@ -331,7 +331,7 @@ func TestLoggerWithS3Store(t *testing.T) {
 	}
 	store := NewMockStore(spec)
 
-	StartDispatcher(5, store, logger)
+	StartDispatcher(5, store, &ImmediateBatch{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 
 	logSvcUrl, err := url.Parse("s3://bucket")

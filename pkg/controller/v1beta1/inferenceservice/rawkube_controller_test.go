@@ -75,7 +75,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
 
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 			serviceName := "raw-foo"
 			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
@@ -138,6 +138,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			expectedDeployment := getDeploymentWithKServiceLabel(predictorDeploymentKey, serviceName, isvc)
 			Expect(actualDeployment.Spec).To(BeComparableTo(expectedDeployment.Spec))
+
+			// Verify INFERENCE_SERVICE_NAME environment variable is set
+			verifyEnvKeyValueDeployments(actualDeployment, constants.InferenceServiceNameEnvVarKey, serviceName)
 
 			// check service
 			actualService := &corev1.Service{}
@@ -429,7 +432,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-customized"
@@ -532,6 +535,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -923,7 +929,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-2"
@@ -1003,6 +1009,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -1374,7 +1383,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-test-env"
@@ -1809,7 +1818,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				isvc := defaultIsvc(serviceKey, string(constants.AutoscalerClassKeda), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				isvc.Annotations["sidecar.opentelemetry.io/inject"] = "true"
-				isvc.Spec.Predictor.ComponentExtensionSpec.AutoScaling = &v1beta1.AutoScalingSpec{
+				isvc.Spec.Predictor.AutoScaling = &v1beta1.AutoScalingSpec{
 					Metrics: getDefaultMetrics(),
 				}
 				Expect(k8sClient.Create(ctx, isvc)).NotTo(HaveOccurred())
@@ -1937,7 +1946,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				isvc := defaultIsvc(serviceKey, string(constants.AutoscalerClassKeda), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				isvc.Annotations["sidecar.opentelemetry.io/inject"] = "true"
-				isvc.Spec.Predictor.ComponentExtensionSpec.AutoScaling = &v1beta1.AutoScalingSpec{
+				isvc.Spec.Predictor.AutoScaling = &v1beta1.AutoScalingSpec{
 					Metrics: getDefaultMetrics(),
 				}
 				Expect(k8sClient.Create(ctx, isvc)).NotTo(HaveOccurred())
@@ -2092,7 +2101,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				isvc := defaultIsvc(serviceKey, string(constants.AutoscalerClassKeda), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				isvc.Annotations["sidecar.opentelemetry.io/inject"] = "true"
-				isvc.Spec.Predictor.ComponentExtensionSpec.AutoScaling = &v1beta1.AutoScalingSpec{
+				isvc.Spec.Predictor.AutoScaling = &v1beta1.AutoScalingSpec{
 					Metrics: getDefaultMetrics(),
 				}
 				Expect(k8sClient.Create(ctx, isvc)).NotTo(HaveOccurred())
@@ -2276,7 +2285,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				isvc := defaultIsvc(serviceKey, string(constants.AutoscalerClassKeda), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				isvc.Annotations["sidecar.opentelemetry.io/inject"] = "true"
-				isvc.Spec.Predictor.ComponentExtensionSpec.AutoScaling = &v1beta1.AutoScalingSpec{
+				isvc.Spec.Predictor.AutoScaling = &v1beta1.AutoScalingSpec{
 					Metrics: getDefaultMetrics(),
 				}
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
@@ -3274,7 +3283,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Update the ServingRuntime spec
 			servingRuntimeToUpdate := &v1alpha1.ServingRuntime{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: servingRuntimeName, Namespace: isvcNamespace}, servingRuntimeToUpdate)).Should(Succeed())
-			servingRuntimeToUpdate.Spec.ServingRuntimePodSpec.Labels["key1"] = "updatedServingRuntime"
+			servingRuntimeToUpdate.Spec.Labels["key1"] = "updatedServingRuntime"
 			Eventually(func() error {
 				return k8sClient.Update(ctx, servingRuntimeToUpdate)
 			}, timeout, interval).Should(Succeed())
@@ -3407,7 +3416,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Update the ServingRuntime spec
 			servingRuntimeToUpdate := &v1alpha1.ServingRuntime{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: servingRuntimeName, Namespace: isvcNamespace}, servingRuntimeToUpdate)).Should(Succeed())
-			servingRuntimeToUpdate.Spec.ServingRuntimePodSpec.Labels["key1"] = "updatedServingRuntime"
+			servingRuntimeToUpdate.Spec.Labels["key1"] = "updatedServingRuntime"
 			Eventually(func() error {
 				return k8sClient.Update(ctx, servingRuntimeToUpdate)
 			}, timeout, interval).Should(Succeed())
@@ -3565,7 +3574,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Update the ServingRuntime spec
 			servingRuntimeToUpdate := &v1alpha1.ServingRuntime{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: servingRuntimeName, Namespace: isvcNamespace}, servingRuntimeToUpdate)).Should(Succeed())
-			servingRuntimeToUpdate.Spec.ServingRuntimePodSpec.Labels["key1"] = "updatedServingRuntime"
+			servingRuntimeToUpdate.Spec.Labels["key1"] = "updatedServingRuntime"
 			Expect(k8sClient.Update(ctx, servingRuntimeToUpdate)).Should(Succeed())
 
 			// Wait until the ServingRuntime reflects the updated spec.
@@ -3776,7 +3785,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Update the ServingRuntime spec
 			servingRuntimeToUpdate := &v1alpha1.ServingRuntime{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: servingRuntimePytorchName, Namespace: isvcNamespace}, servingRuntimeToUpdate)).Should(Succeed())
-			servingRuntimeToUpdate.Spec.ServingRuntimePodSpec.Labels["key1"] = "updatedServingRuntime"
+			servingRuntimeToUpdate.Spec.Labels["key1"] = "updatedServingRuntime"
 			Eventually(func() error {
 				return k8sClient.Update(ctx, servingRuntimeToUpdate)
 			}, timeout, interval).Should(Succeed())
@@ -3823,7 +3832,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			// Create InferenceService
@@ -4063,7 +4072,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			// Create InferenceService
@@ -4469,7 +4478,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-trans"
@@ -4605,6 +4614,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
 									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -4686,6 +4698,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										fmt.Sprintf("%s.%s", predictorServiceKey.Name, predictorServiceKey.Namespace),
 										"--http_port",
 										"8080",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -5270,7 +5285,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-exp"
@@ -5408,6 +5423,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -6052,7 +6070,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-path"
@@ -6506,7 +6524,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-trans-path"
@@ -6645,6 +6663,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
 									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -6726,6 +6747,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										fmt.Sprintf("%s.%s", predictorServiceKey.Name, predictorServiceKey.Namespace),
 										"--http_port",
 										"8080",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -7358,7 +7382,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-exp-path"
@@ -7496,6 +7520,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -8233,7 +8260,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-1"
@@ -8354,7 +8381,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-3"
@@ -8505,7 +8532,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo"
@@ -8754,7 +8781,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			configs := getRawKubeTestConfigs()
 			configMap := createInferenceServiceConfigMap(configs)
 			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
-			DeferCleanup(func() { k8sClient.Delete(ctx, configMap) })
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, configMap) })
 
 			// Create a ServingRuntime
 			servingRuntime := &v1alpha1.ServingRuntime{
@@ -8810,7 +8837,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, servingRuntime)).NotTo(HaveOccurred())
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, servingRuntime)
+				_ = k8sClient.Delete(ctx, servingRuntime)
 			})
 		})
 		It("Should have services/deployments for head/worker without an autoscaler when workerSpec is set in isvc", func() {
@@ -8844,7 +8871,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
+				_ = k8sClient.Delete(ctx, isvc)
 			})
 
 			// Verify inferenceService is created
@@ -8951,7 +8978,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
+				_ = k8sClient.Delete(ctx, isvc)
 			})
 
 			// Verify inferenceService is created
@@ -9018,7 +9045,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
+				_ = k8sClient.Delete(ctx, isvc)
 			})
 
 			// Verify if predictor deployment (default deployment) is created
@@ -9091,7 +9118,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
+				_ = k8sClient.Delete(ctx, isvc)
 			})
 
 			// Verify if predictor deployment (default deployment) is created
@@ -9168,7 +9195,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
+				_ = k8sClient.Delete(ctx, isvc)
 			})
 
 			// Verify if predictor deployment (default deployment) is created
@@ -9257,7 +9284,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
+				_ = k8sClient.Delete(ctx, isvc)
 			})
 
 			// Verify if predictor deployment (default deployment) is created
@@ -9346,7 +9373,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
+				_ = k8sClient.Delete(ctx, isvc)
 			})
 
 			// Verify if predictor deployment (default deployment) is created
@@ -9435,7 +9462,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			DeferCleanup(func() { k8sClient.Delete(ctx, isvc) })
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, isvc) })
 
 			updatedIsvc := &v1beta1.InferenceService{}
 			Eventually(func() bool {
@@ -9523,7 +9550,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			DeferCleanup(func() { k8sClient.Delete(ctx, isvc) })
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, isvc) })
 
 			// Verify if predictor deployment (default deployment) is created
 			Eventually(func() bool {
@@ -9582,7 +9609,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			DeferCleanup(func() { k8sClient.Delete(ctx, isvc) })
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, isvc) })
 
 			// Verify if predictor deployment (default deployment) is created
 			Eventually(func() bool {
@@ -9617,7 +9644,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Update a infereceService
 			By("updating the InferenceService")
 			updatedIsvc := &v1beta1.InferenceService{}
-			k8sClient.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvcNamespace}, updatedIsvc)
+			_ = k8sClient.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvcNamespace}, updatedIsvc)
 			// Add label to isvc to create a new rs
 			if updatedIsvc.Labels == nil {
 				updatedIsvc.Labels = make(map[string]string)
@@ -9707,7 +9734,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Disabled: ptr.To(false),
 				},
 			}
-			k8sClient.Create(ctx, servingRuntime)
+			Expect(k8sClient.Create(ctx, servingRuntime)).Should(Succeed())
 			defer k8sClient.Delete(ctx, servingRuntime)
 
 			serviceName := "raw-headless-port"
@@ -9810,6 +9837,105 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue(),
 				"status.address.url should include :8080 for headless service")
 		})
+	})
+})
+
+// TestDeploymentReplicaFailurePropagatedToIsvcStatus is an integration test that covers
+// the combined fix for Bug 1 and Bug 2 from issue #5113.
+//
+// Bug 1: Without InitializeConditions on early paths the ISVC status could be completely
+// empty. After the fix the status section must always contain at least the "Ready"
+// condition once the first reconciliation cycle completes.
+//
+// Bug 2: Previously, DeploymentReconciler.Reconcile returned the in-memory desired
+// deployment (no .Status.Conditions) instead of the server-side existing deployment.
+// As a result, a ReplicaFailure condition (e.g. from an admission webhook denying pod
+// creation) was silently lost.  After the fix the ISVC PredictorReady condition must
+// carry the reason and message from the deployment's ReplicaFailure condition.
+var _ = Context("When a Standard-mode predictor deployment develops a ReplicaFailure", func() {
+	It("should surface the failure reason in the InferenceService PredictorReady condition", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+
+		By("setting up configmap and serving runtime")
+		configs := getRawKubeTestConfigs()
+		configMap := createInferenceServiceConfigMap(configs)
+		Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, configMap) })
+
+		servingRuntime := getServingRuntime("tf-serving-raw", "default")
+		Expect(k8sClient.Create(ctx, &servingRuntime)).To(Or(Succeed(), MatchError(ContainSubstring("already exists"))))
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, &servingRuntime) })
+
+		By("creating the InferenceService")
+		serviceName := "raw-replica-failure-test"
+		serviceKey := types.NamespacedName{Name: serviceName, Namespace: "default"}
+
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        serviceKey.Name,
+				Namespace:   serviceKey.Namespace,
+				Annotations: getDefaultAnnotations(constants.AutoscalerClassNone),
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{
+					Tensorflow: &v1beta1.TFServingSpec{
+						PredictorExtensionSpec: getCommonPredictorExtensionSpec(),
+					},
+				},
+			},
+		}
+		isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+		Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, isvc) })
+
+		By("waiting for the controller to create the predictor deployment")
+		predictorDeploymentKey := types.NamespacedName{
+			Name:      constants.PredictorServiceName(serviceKey.Name),
+			Namespace: serviceKey.Namespace,
+		}
+		actualDeployment := &appsv1.Deployment{}
+		Eventually(func() error {
+			return k8sClient.Get(ctx, predictorDeploymentKey, actualDeployment)
+		}, timeout, interval).Should(Succeed())
+
+		By("patching the deployment status with a ReplicaFailure condition (simulating webhook denial)")
+		replicaFailureMsg := `admission webhook "pod-policy.example.com" denied the request: identity "my-identity" not found`
+		updatedDeployment := actualDeployment.DeepCopy()
+		updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
+			{
+				Type:    appsv1.DeploymentReplicaFailure,
+				Status:  corev1.ConditionTrue,
+				Reason:  "FailedCreate",
+				Message: replicaFailureMsg,
+			},
+			{
+				Type:    appsv1.DeploymentAvailable,
+				Status:  corev1.ConditionFalse,
+				Reason:  "MinimumReplicasUnavailable",
+				Message: "Deployment does not have minimum availability.",
+			},
+		}
+		Expect(k8sClient.Status().Update(ctx, updatedDeployment)).NotTo(HaveOccurred())
+
+		By("verifying the ISVC PredictorReady condition reflects ReplicaFailure (Bug 2 fix)")
+		updatedIsvc := &v1beta1.InferenceService{}
+		Eventually(func() bool {
+			if err := k8sClient.Get(ctx, serviceKey, updatedIsvc); err != nil {
+				return false
+			}
+			cond := updatedIsvc.Status.GetCondition(v1beta1.PredictorReady)
+			return cond != nil &&
+				cond.IsFalse() &&
+				cond.Reason == "FailedCreate" &&
+				cond.Message == replicaFailureMsg
+		}, timeout, interval).Should(BeTrue(),
+			"PredictorReady condition should be False with FailedCreate reason from ReplicaFailure")
+
+		By("verifying the ISVC status section is never completely empty (Bug 1 fix)")
+		// The overall Ready condition must exist regardless of deployment state.
+		Expect(updatedIsvc.Status.GetCondition(apis.ConditionReady)).NotTo(BeNil(),
+			"ConditionReady must be present: status section should not be empty after reconciliation")
 	})
 })
 

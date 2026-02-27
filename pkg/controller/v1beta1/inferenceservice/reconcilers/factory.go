@@ -62,6 +62,9 @@ type IngressReconcilerParams struct {
 	Scheme        *runtime.Scheme
 	IngressConfig *v1beta1.IngressConfig
 	IsvcConfig    *v1beta1.InferenceServicesConfig
+	// IsVirtualServiceAvailable indicates whether the Istio VirtualService CRD
+	// exists in the cluster and should be used by the Ingress reconciler.
+	IsVirtualServiceAvailable bool
 }
 
 // ReconcilerFactory creates appropriate reconcilers based on deployment mode
@@ -140,6 +143,7 @@ func (f *ReconcilerFactory) CreateIngressReconciler(
 		// Knative Service
 		return ingress.NewIngressReconciler(
 			params.Client, params.Clientset, params.Scheme, params.IngressConfig, params.IsvcConfig,
+			params.IsVirtualServiceAvailable,
 		), nil
 
 	default:

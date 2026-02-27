@@ -123,6 +123,8 @@ func (l *LLMInferenceServiceConfigValidator) validate(ctx context.Context, confi
 		))
 	}
 
+	allErrs = append(allErrs, l.validateScheduler(config)...)
+
 	if len(allErrs) > 0 {
 		return apierrors.NewInvalid(
 			LLMInferenceServiceConfigGVK.GroupKind(),
@@ -138,4 +140,20 @@ func (l *LLMInferenceServiceConfigValidator) validate(ctx context.Context, confi
 
 	logger.V(2).Info("LLMInferenceServiceConfig v1alpha2 is valid", "config", config)
 	return nil
+}
+
+func (l *LLMInferenceServiceConfigValidator) validateScheduler(config *LLMInferenceServiceConfig) []*field.Error {
+	var allErrs field.ErrorList
+
+	if config.Spec.Router == nil || config.Spec.Router.Scheduler == nil {
+		return nil
+	}
+
+	schedulerPath := field.NewPath("spec").Child("router").Child("scheduler")
+
+	if config.Spec.Router.Scheduler.Replicas != nil && *config.Spec.Router.Scheduler.Replicas <= 0 {
+		allErrs = append(allErrs, field.Invalid(schedulerPath.Child("replicas"), *config.Spec.Router.Scheduler.Replicas, "scheduler replicas must be greater than zero"))
+	}
+
+	return allErrs
 }

@@ -55,7 +55,7 @@ const CaBundleVolumeName = "cabundle-cert"
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, podSpec *corev1.PodSpec, config *Config) error {
+func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, curr corev1.PodSpec, podSpec *corev1.PodSpec, config *Config) error {
 	modelUri := llmSvc.Spec.Model.URI.String()
 	schema, _, sepFound := strings.Cut(modelUri, "://")
 
@@ -85,10 +85,10 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		return r.attachOciModelArtifact(modelUri, podSpec, config.StorageConfig)
 
 	case constants.HfURIPrefix:
-		return r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, podSpec, config.StorageConfig, config.CredentialConfig)
+		return r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig)
 
 	case constants.S3URIPrefix:
-		return r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, podSpec, config.StorageConfig, config.CredentialConfig)
+		return r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig)
 	}
 
 	return fmt.Errorf("unsupported schema in model URI: %s", modelUri)
@@ -163,15 +163,15 @@ func (r *LLMISVCReconciler) attachPVCModelArtifact(modelUri string, podSpec *cor
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
-	if err := r.attachStorageInitializer(ctx, modelUri, podSpec, storageConfig); err != nil {
+func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+	if err := r.attachStorageInitializer(ctx, modelUri, curr, podSpec, storageConfig); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
 		// If service account is nil, fetch the default service account
 		if serviceAccount == nil {
 			serviceAccount = &corev1.ServiceAccount{}
-			err := r.Client.Get(ctx, types.NamespacedName{Name: "default", Namespace: llmSvc.Namespace}, serviceAccount)
+			err := r.Get(ctx, types.NamespacedName{Name: "default", Namespace: llmSvc.Namespace}, serviceAccount)
 			if err != nil {
 				log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
 				injectCaBundle(llmSvc.Namespace, podSpec, initContainer, storageConfig)
@@ -210,15 +210,15 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
-	if err := r.attachStorageInitializer(ctx, modelUri, podSpec, storageConfig); err != nil {
+func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) error {
+	if err := r.attachStorageInitializer(ctx, modelUri, curr, podSpec, storageConfig); err != nil {
 		return err
 	}
 	if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
 		// If service account is nil, fetch the default service account
 		if serviceAccount == nil {
 			serviceAccount = &corev1.ServiceAccount{}
-			err := r.Client.Get(ctx, types.NamespacedName{Name: "default", Namespace: llmSvc.Namespace}, serviceAccount)
+			err := r.Get(ctx, types.NamespacedName{Name: "default", Namespace: llmSvc.Namespace}, serviceAccount)
 			if err != nil {
 				log.FromContext(ctx).Error(err, "Failed to find default service account", "namespace", llmSvc.Namespace)
 				return nil
@@ -251,7 +251,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 // Returns:
 //
 //	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachStorageInitializer(ctx context.Context, modelUri string, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig) error {
+func (r *LLMISVCReconciler) attachStorageInitializer(ctx context.Context, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig) error {
 	containerArgs := []string{
 		modelUri,
 		constants.DefaultModelLocalMountPath,
@@ -261,31 +261,37 @@ func (r *LLMISVCReconciler) attachStorageInitializer(ctx context.Context, modelU
 		VolumeName: constants.StorageInitializerVolumeName,
 		ReadOnly:   false,
 	}
-	initContainer := utils.CreateInitContainerWithConfig(storageConfig, containerArgs)
+	copied := *storageConfig
+	for _, ic := range curr.InitContainers {
+		if ic.Name == constants.StorageInitializerContainerName {
+			copied.Image = ic.Image
+		}
+	}
 
-	// Use shared helpers to get CSC spec for this URI, then merge into initContainer
+	initContainer := utils.CreateInitContainerWithConfig(&copied, containerArgs)
+
 	storageContainerSpec, err := pod.GetStorageContainerSpec(ctx, modelUri, r.Client)
 	if err != nil {
-		// If the ClusterStorageContainer CRD is not found (e.g. only llmisvc chart is installed),
-		// we should just skip the env injection and proceed with the default initialization.
 		if meta.IsNoMatchError(err) {
 			log.FromContext(ctx).V(1).Info("ClusterStorageContainer CRD not found, skipping env injection", "error", err)
 		} else {
 			return fmt.Errorf("failed to get ClusterStorageContainer spec for URI %s: %w", modelUri, err)
 		}
 	} else if storageContainerSpec != nil {
-		// Only merge if we found a valid spec
 		if err := pod.MergeContainerSpecs(initContainer, &storageContainerSpec.Container); err != nil {
 			return fmt.Errorf("failed to merge ClusterStorageContainer container spec: %w", err)
 		}
 	}
-
 	podSpec.InitContainers = append(podSpec.InitContainers, *initContainer)
 
-	utils.AddModelMount(storageMountParams, initContainer.Name, podSpec)
+	if err := utils.AddModelMount(storageMountParams, initContainer.Name, podSpec); err != nil {
+		return err
+	}
 
 	storageMountParams.ReadOnly = true
-	utils.AddModelMount(storageMountParams, "main", podSpec)
+	if err := utils.AddModelMount(storageMountParams, "main", podSpec); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -377,10 +383,8 @@ func injectCaBundle(namespace string, podSpec *corev1.PodSpec, initContainer *co
 }
 
 func needCaBundleMount(caBundleConfigMapName string, initContainer *corev1.Container) bool {
-	result := false
-	if caBundleConfigMapName != "" {
-		result = true
-	}
+	result := caBundleConfigMapName != ""
+
 	for _, envVar := range initContainer.Env {
 		if envVar.Name == s3.AWSCABundleConfigMap {
 			result = true

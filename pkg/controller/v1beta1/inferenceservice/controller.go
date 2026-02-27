@@ -113,6 +113,8 @@ type InferenceServiceReconciler struct {
 	Log          logr.Logger
 	Scheme       *runtime.Scheme
 	Recorder     record.EventRecorder
+	// VirtualServiceAvailable indicates whether the Istio VirtualService CRD exists in the cluster.
+	VirtualServiceAvailable bool
 }
 
 func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -153,9 +155,15 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if deploymentMode == constants.ModelMeshDeployment {
 		if isvc.Spec.Transformer == nil {
-			// Skip if no transformers
+			// Skip if no transformers; still ensure status is written
 			r.Log.Info("Skipping reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
 				"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
+			if isvc.Status.GetCondition(apis.ConditionReady) == nil {
+				isvc.Status.InitializeConditions()
+			}
+			if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
+				r.Log.Error(err, "Error updating status when skipping ModelMesh reconciliation")
+			}
 			return ctrl.Result{}, nil
 		}
 		// Continue to reconcile when there is a transformer
@@ -167,13 +175,13 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	finalizerName := "inferenceservice.finalizers"
 
 	// examine DeletionTimestamp to determine if object is under deletion
-	if isvc.ObjectMeta.DeletionTimestamp.IsZero() {
+	if isvc.DeletionTimestamp.IsZero() {
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then lets add the finalizer and update the object. This is equivalent
 		// registering our finalizer.
 		if !controllerutil.ContainsFinalizer(isvc, finalizerName) {
 			controllerutil.AddFinalizer(isvc, finalizerName)
-			patchYaml := "metadata:\n  finalizers: [" + strings.Join(isvc.ObjectMeta.Finalizers, ",") + "]"
+			patchYaml := "metadata:\n  finalizers: [" + strings.Join(isvc.Finalizers, ",") + "]"
 			patchJson, _ := yaml.YAMLToJSON([]byte(patchYaml))
 			if err := r.Patch(ctx, isvc, client.RawPatch(types.MergePatchType, patchJson)); err != nil {
 				return ctrl.Result{}, err
@@ -191,7 +199,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 			// remove our finalizer from the list and update it.
 			controllerutil.RemoveFinalizer(isvc, finalizerName)
-			patchYaml := "metadata:\n  finalizers: [" + strings.Join(isvc.ObjectMeta.Finalizers, ",") + "]"
+			patchYaml := "metadata:\n  finalizers: [" + strings.Join(isvc.Finalizers, ",") + "]"
 			patchJson, _ := yaml.YAMLToJSON([]byte(patchYaml))
 			if err := r.Patch(ctx, isvc, client.RawPatch(types.MergePatchType, patchJson)); err != nil {
 				return ctrl.Result{}, err
@@ -210,22 +218,37 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
+	// Ensure status is initialized so we always have a status section (fixes empty status when reconciliation fails early).
+	// This must happen before any early-return path that calls updateStatus.
+	if isvc.Status.GetCondition(apis.ConditionReady) == nil {
+		isvc.Status.InitializeConditions()
+	}
+
 	// Abort early if the resolved deployment mode is Knative, but Knative Services are not available
 	if deploymentMode == constants.Knative {
 		ksvcAvailable, checkKsvcErr := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
 		if checkKsvcErr != nil {
+			if updateErr := r.updateStatus(ctx, isvc, deploymentMode); updateErr != nil {
+				r.Log.Error(updateErr, "Error updating status after Knative CRD availability check failure")
+			}
 			return reconcile.Result{}, checkKsvcErr
 		}
 
 		if !ksvcAvailable {
 			r.Recorder.Event(isvc, corev1.EventTypeWarning, "ServerlessModeRejected",
 				"It is not possible to use Knative deployment mode when Knative Services are not available")
+			if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
+				r.Log.Error(err, "Error updating status when Knative mode rejected")
+			}
 			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceService '%s' is Knative, but Knative Serving is not available", isvc.Name))
 		}
 
 		// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
 		allowZeroInitialScale, err := knutils.CheckZeroInitialScaleAllowed(ctx, r.Clientset)
 		if err != nil {
+			if updateErr := r.updateStatus(ctx, isvc, deploymentMode); updateErr != nil {
+				r.Log.Error(updateErr, "Error updating status after zero-initial-scale check failure")
+			}
 			return ctrl.Result{}, errors.Wrapf(err, "failed to retrieve the knative autoscaler configuration")
 		}
 
@@ -238,6 +261,9 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Reconcile cabundleConfigMap
 	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset)
 	if err := caBundleConfigMapReconciler.Reconcile(ctx, isvc.Namespace); err != nil {
+		if updateErr := r.updateStatus(ctx, isvc, deploymentMode); updateErr != nil {
+			r.Log.Error(updateErr, "Error updating status after cabundle configmap reconcile failure")
+		}
 		return reconcile.Result{}, err
 	}
 
@@ -322,14 +348,25 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Reconcile ingress using factory
 	factory := reconcilers.NewReconcilerFactory()
 
+	// Notify user when the Istio VirtualService CRD is not present but
+	// Istio virtual host is expected (disableIstioVirtualHost == false).
+	// This makes the skip visible instead of silent.
+	if !r.VirtualServiceAvailable && !ingressConfig.DisableIstioVirtualHost {
+		r.Log.Error(nil, "Istio VirtualService CRD not present; VirtualService reconciliation skipped",
+			"InferenceService", isvc.Name, "namespace", isvc.Namespace)
+		r.Recorder.Event(isvc, corev1.EventTypeWarning, "VirtualServiceCRDNotFound",
+			"Istio VirtualService CRD not present; VirtualService reconciliation skipped. If you do not use Istio, set ingress.disableIstioVirtualHost=true.")
+	}
+
 	ingressReconciler, err := factory.CreateIngressReconciler(
 		deploymentMode,
 		reconcilers.IngressReconcilerParams{
-			Client:        r.Client,
-			Clientset:     r.Clientset,
-			Scheme:        r.Scheme,
-			IngressConfig: ingressConfig,
-			IsvcConfig:    isvcConfig,
+			Client:                    r.Client,
+			Clientset:                 r.Clientset,
+			Scheme:                    r.Scheme,
+			IngressConfig:             ingressConfig,
+			IsvcConfig:                isvcConfig,
+			IsVirtualServiceAvailable: r.VirtualServiceAvailable,
 		},
 	)
 	if err != nil {
@@ -339,6 +376,9 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
 	result, err := ingressReconciler.Reconcile(ctx, isvc)
 	if err != nil {
+		if updateErr := r.updateStatus(ctx, isvc, deploymentMode); updateErr != nil {
+			r.Log.Error(updateErr, "Error updating status after ingress reconcile failure")
+		}
 		return result, errors.Wrapf(err, "fails to reconcile ingress")
 	}
 	if result.Requeue || result.RequeueAfter > 0 {
@@ -352,6 +392,9 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Reconcile modelConfig
 	configMapReconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Clientset, r.Scheme)
 	if err := configMapReconciler.Reconcile(ctx, isvc); err != nil {
+		if updateErr := r.updateStatus(ctx, isvc, deploymentMode); updateErr != nil {
+			r.Log.Error(updateErr, "Error updating status after modelconfig reconcile failure")
+		}
 		return reconcile.Result{}, err
 	}
 
@@ -433,7 +476,7 @@ func (r *InferenceServiceReconciler) servingRuntimeFunc(ctx context.Context, obj
 
 	var isvcList v1beta1.InferenceServiceList
 	// List all InferenceServices in the same namespace.
-	if err := r.Client.List(ctx, &isvcList, client.InNamespace(runtimeObj.Namespace)); err != nil {
+	if err := r.List(ctx, &isvcList, client.InNamespace(runtimeObj.Namespace)); err != nil {
 		r.Log.Error(err, "unable to list InferenceServices", "runtime", runtimeObj.Name)
 		return nil
 	}
@@ -467,7 +510,7 @@ func (r *InferenceServiceReconciler) clusterServingRuntimeFunc(ctx context.Conte
 	}
 
 	var isvcList v1beta1.InferenceServiceList
-	if err := r.Client.List(ctx, &isvcList, client.InNamespace(clusterServingRuntimeObj.Namespace)); err != nil {
+	if err := r.List(ctx, &isvcList, client.InNamespace(clusterServingRuntimeObj.Namespace)); err != nil {
 		r.Log.Error(err, "unable to list InferenceServices", "clusterServingRuntime", clusterServingRuntimeObj.Name)
 		return nil
 	}
@@ -590,6 +633,8 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	if err != nil {
 		return err
 	}
+	// Store the availability so Reconcile can pass it to the IngressReconciler.
+	r.VirtualServiceAvailable = vsFound
 
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1beta1.InferenceService{}, "spec.predictor.model.runtime", func(rawObj client.Object) []string {
 		isvc, ok := rawObj.(*v1beta1.InferenceService)

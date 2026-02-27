@@ -1388,7 +1388,7 @@ class V1beta1ExplainerSpec(object):
     def service_account(self):
         """Gets the service_account of this V1beta1ExplainerSpec.  # noqa: E501
 
-        DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.  # noqa: E501
+        DeprecatedServiceAccount is a deprecated alias for ServiceAccountName.  Deprecated: Use serviceAccountName instead.  # noqa: E501
 
         :return: The service_account of this V1beta1ExplainerSpec.  # noqa: E501
         :rtype: str
@@ -1399,7 +1399,7 @@ class V1beta1ExplainerSpec(object):
     def service_account(self, service_account):
         """Sets the service_account of this V1beta1ExplainerSpec.
 
-        DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.  # noqa: E501
+        DeprecatedServiceAccount is a deprecated alias for ServiceAccountName.  Deprecated: Use serviceAccountName instead.  # noqa: E501
 
         :param service_account: The service_account of this V1beta1ExplainerSpec.  # noqa: E501
         :type: str

@@ -46,7 +46,7 @@ func (m mockAzureClient) NewListBlobsFlatPager(bucket string, options *azblob.Li
 			},
 			Fetcher: func(context.Context, *azblob.ListBlobsFlatResponse) (azblob.ListBlobsFlatResponse, error) {
 				containerBucket := m.buckets[bucket]
-				blobItems := make([]*container.BlobItem, 0)
+				blobItems := make([]*container.BlobItem, 0, len(containerBucket.objects))
 				for _, obj := range containerBucket.objects {
 					blobItems = append(blobItems, obj.blobItem)
 				}
@@ -68,7 +68,7 @@ func (m mockAzureClient) DownloadFile(ctx context.Context, bucket string, prefix
 	containerBucket := m.buckets[bucket]
 	for key, obj := range containerBucket.objects {
 		if key == prefix {
-			file.Write(obj.buffer)
+			_, _ = file.Write(obj.buffer)
 			return int64(len(obj.buffer)), nil
 		}
 	}
