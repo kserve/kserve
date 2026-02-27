@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: llmisvc-manager-role
+  name: kserve-llmisvc-manager-role
 rules:
 - nonResourceURLs:
   - /metrics
@@ -12,8 +12,11 @@ rules:
   - ""
   resources:
   - configmaps
+  - pods
   verbs:
   - get
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -22,14 +25,6 @@ rules:
   - create
   - patch
   - update
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
 - apiGroups:
   - ""
   resources:
@@ -70,6 +65,18 @@ rules:
   verbs:
   - create
 - apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - discovery.k8s.io
   resources:
   - endpointslices
@@ -92,9 +99,10 @@ rules:
   - update
   - watch
 - apiGroups:
+  - inference.networking.k8s.io
   - inference.networking.x-k8s.io
   resources:
-  - inferencemodels
+  - inferenceobjectives
   - inferencepools
   verbs:
   - create

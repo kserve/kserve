@@ -24,7 +24,7 @@ set -o pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2>/dev/null)"
 source "${SCRIPT_DIR}/../../../hack/setup/common.sh"
 
-SET_KSERVE_VERSION=${GITHUB_SHA} make deploy-helm
+SET_KSERVE_VERSION=${TAG} make deploy-helm
 
 cat ./charts/kserve-resources/values.yaml
 

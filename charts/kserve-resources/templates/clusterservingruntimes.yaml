@@ -2,6 +2,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-lgbserver
+  annotations:
+    serving.kserve.io/server-type: lgbserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.lgbserver.disabled }}
   annotations:
@@ -45,6 +47,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-mlserver
+  annotations:
+    serving.kserve.io/server-type: mlserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.mlserver.disabled }}
   annotations:
@@ -120,6 +124,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-paddleserver
+  annotations:
+    serving.kserve.io/server-type: paddleserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.paddleserver.disabled }}
   annotations:
@@ -162,6 +168,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-pmmlserver
+  annotations:
+    serving.kserve.io/server-type: pmmlserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.pmmlserver.disabled }}
   annotations:
@@ -208,6 +216,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-sklearnserver
+  annotations:
+    serving.kserve.io/server-type: sklearnserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.sklearnserver.disabled }}
   annotations:
@@ -250,6 +260,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-tensorflow-serving
+  annotations:
+    serving.kserve.io/server-type: tensorflow-serving
 spec:
   disabled: {{ .Values.kserve.servingruntime.tensorflow.disabled }}
   annotations:
@@ -299,6 +311,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-torchserve
+  annotations:
+    serving.kserve.io/server-type: torchserve
 spec:
   disabled: {{ .Values.kserve.servingruntime.torchserve.disabled }}
   annotations:
@@ -346,6 +360,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-tritonserver
+  annotations:
+    serving.kserve.io/server-type: tritonserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.tritonserver.disabled }}
   annotations:
@@ -409,6 +425,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-xgbserver
+  annotations:
+    serving.kserve.io/server-type: xgbserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.xgbserver.disabled }}
   annotations:
@@ -451,6 +469,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-huggingfaceserver
+  annotations:
+    serving.kserve.io/server-type: huggingfaceserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.huggingfaceserver.disabled }}
   annotations:
@@ -510,6 +530,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-huggingfaceserver-multinode
+  annotations:
+    serving.kserve.io/server-type: huggingfaceserver
 spec:
   disabled: {{ .Values.kserve.servingruntime.huggingfaceserver.disabled }}
   annotations:

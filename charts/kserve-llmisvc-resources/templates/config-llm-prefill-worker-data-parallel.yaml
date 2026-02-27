@@ -1,4 +1,4 @@
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-prefill-worker-data-parallel
@@ -6,7 +6,7 @@ spec:
   prefill:
     template:
       containers:
-        - image: ghcr.io/llm-d/llm-d-dev:v0.2.2
+        - image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
           imagePullPolicy: IfNotPresent
           name: main
           ports:
@@ -15,7 +15,6 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-          args:
             - |-
 
               if [ "$KSERVE_INFER_ROCE" = "true" ]; then
@@ -104,7 +103,7 @@ spec:
                         fi
                     done
 
-                    # Use deterministic fallback if counts are equal - prefer lower index number  
+                    # Use deterministic fallback if counts are equal - prefer lower index number
                     if [ ${#gid_index_count[@]} -gt 1 ]; then
                         echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                         # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -150,6 +149,7 @@ spec:
                 --data-parallel-rpc-port {{`{{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }}`}} \
                 --data-parallel-start-rank $START_RANK \
                 ${VLLM_ADDITIONAL_ARGS} \
+                $@ \
                 --trust-remote-code"
                 # BackendTLSPolicy is not implemented yet so disable SSL for now
                 # --enable-ssl-refresh \
@@ -157,6 +157,8 @@ spec:
                 # /etc/ssl/certs/tls.crt \
                 # --ssl-keyfile \
                 # /etc/ssl/certs/tls.key"
+            # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve
+            - "--"
           env:
             - name: HOME
               value: /home
@@ -184,7 +186,6 @@ spec:
               path: /health
               port: 8000
               scheme: HTTP
-            initialDelaySeconds: 300
             periodSeconds: 10
             timeoutSeconds: 10
             failureThreshold: 3
@@ -193,10 +194,16 @@ spec:
               path: /health
               port: 8000
               scheme: HTTP
-            initialDelaySeconds: 200
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 60
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+              scheme: HTTP
+            failureThreshold: 60
+            periodSeconds: 10
           volumeMounts:
             - mountPath: /home
               name: home
@@ -222,7 +229,7 @@ spec:
             secretName: '{{ "{{" }} ChildName .ObjectMeta.Name `-kserve-self-signed-certs` {{ "}}" }}'
     worker:
       containers:
-        - image: ghcr.io/llm-d/llm-d-dev:v0.2.2
+        - image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
           imagePullPolicy: IfNotPresent
           name: main
           ports:
@@ -231,7 +238,6 @@ spec:
           command:
             - "/bin/bash"
             - "-c"
-          args:
             - |-
 
               if [ "$KSERVE_INFER_ROCE" = "true" ]; then
@@ -320,7 +326,7 @@ spec:
                         fi
                     done
 
-                    # Use deterministic fallback if counts are equal - prefer lower index number  
+                    # Use deterministic fallback if counts are equal - prefer lower index number
                     if [ ${#gid_index_count[@]} -gt 1 ]; then
                         echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
                         # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
@@ -365,14 +371,17 @@ spec:
                 --data-parallel-rpc-port {{`{{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }}`}} \
                 --data-parallel-start-rank $START_RANK \
                 ${VLLM_ADDITIONAL_ARGS} \
+                $@ \
                 --trust-remote-code \
-                --headless"                
+                --headless"
                 # BackendTLSPolicy is not implemented yet so disable SSL for now
                 # --enable-ssl-refresh \
                 # --ssl-certfile \
                 # /etc/ssl/certs/tls.crt \
                 # --ssl-keyfile \
                 # /etc/ssl/certs/tls.key"
+            # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve
+            - "--"
           env:
             - name: HOME
               value: /home

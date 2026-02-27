@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
@@ -479,11 +480,11 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			name: "Set RAY_NODE_COUNT to 3 when pipelineParallelSize is 3 and tensorParallelSize is 1, with 2 worker node replicas",
 			modifyArgs: func(updatedArgs args) args {
 				if updatedArgs.podSpec.Containers[0].Name == constants.InferenceServiceContainerName {
-					isvcutils.AddEnvVarToPodSpec(updatedArgs.podSpec, constants.InferenceServiceContainerName, constants.PipelineParallelSizeEnvName, "3")
-					isvcutils.AddEnvVarToPodSpec(updatedArgs.podSpec, constants.InferenceServiceContainerName, constants.RayNodeCountEnvName, "3")
+					_ = isvcutils.AddEnvVarToPodSpec(updatedArgs.podSpec, constants.InferenceServiceContainerName, constants.PipelineParallelSizeEnvName, "3")
+					_ = isvcutils.AddEnvVarToPodSpec(updatedArgs.podSpec, constants.InferenceServiceContainerName, constants.RayNodeCountEnvName, "3")
 				}
 				if updatedArgs.workerPodSpec.Containers[0].Name == constants.WorkerContainerName {
-					isvcutils.AddEnvVarToPodSpec(updatedArgs.workerPodSpec, constants.WorkerContainerName, constants.RayNodeCountEnvName, "3")
+					_ = isvcutils.AddEnvVarToPodSpec(updatedArgs.workerPodSpec, constants.WorkerContainerName, constants.RayNodeCountEnvName, "3")
 				}
 				return updatedArgs
 			},
@@ -1010,6 +1011,194 @@ func TestCheckDeploymentExist(t *testing.T) {
 	}
 }
 
+// mockClientForReconcile is a mock client used to test DeploymentReconciler.Reconcile.
+// It records which operations were called and allows configuring Get/Create/Patch/Delete behaviour.
+type mockClientForReconcile struct {
+	kclient.Client
+	// getDeployment is returned by Get calls; nil means "not found".
+	getDeployment *appsv1.Deployment
+	// getErr, if non-nil, is returned by Get instead.
+	getErr error
+	// createErr, patchErr, deleteErr allow injecting failures.
+	createErr error
+	patchErr  error
+	deleteErr error
+}
+
+func (m *mockClientForReconcile) Get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+	if m.getErr != nil {
+		return m.getErr
+	}
+	if m.getDeployment == nil {
+		return errors.NewNotFound(appsv1.Resource("deployment"), key.Name)
+	}
+	d := obj.(*appsv1.Deployment)
+	*d = *m.getDeployment.DeepCopy()
+	return nil
+}
+
+func (m *mockClientForReconcile) Update(_ context.Context, _ kclient.Object, _ ...kclient.UpdateOption) error {
+	// Simulate dry-run update: always succeeds.
+	return nil
+}
+
+func (m *mockClientForReconcile) Create(_ context.Context, _ kclient.Object, _ ...kclient.CreateOption) error {
+	return m.createErr
+}
+
+func (m *mockClientForReconcile) Patch(_ context.Context, _ kclient.Object, _ kclient.Patch, _ ...kclient.PatchOption) error {
+	return m.patchErr
+}
+
+func (m *mockClientForReconcile) Delete(_ context.Context, _ kclient.Object, _ ...kclient.DeleteOption) error {
+	return m.deleteErr
+}
+
+func (m *mockClientForReconcile) Scheme() *runtime.Scheme { return runtime.NewScheme() }
+
+// makeDeployment is a helper that builds a minimal Deployment for tests.
+func makeDeployment(name, namespace string) *appsv1.Deployment {
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Annotations: map[string]string{
+				constants.AutoscalerClass: string(constants.AutoscalerClassNone),
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": name},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": name}},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: constants.InferenceServiceContainerName, Image: "test-image"},
+					},
+				},
+			},
+		},
+	}
+}
+
+// TestDeploymentReconciler_Reconcile verifies that Reconcile returns the server-side
+// deployment (with live .Status.Conditions) rather than the in-memory desired deployment
+// (which has no status). This is the fix for Bug 2: deployment conditions such as
+// ReplicaFailure were previously invisible to PropagateRawStatus.
+func TestDeploymentReconciler_Reconcile(t *testing.T) {
+	replicaFailureCondition := appsv1.DeploymentCondition{
+		Type:    appsv1.DeploymentReplicaFailure,
+		Status:  corev1.ConditionTrue,
+		Reason:  "FailedCreate",
+		Message: `admission webhook "pod-policy.example.com" denied the request: identity "my-identity" not found`,
+	}
+	availableFalseCondition := appsv1.DeploymentCondition{
+		Type:    appsv1.DeploymentAvailable,
+		Status:  corev1.ConditionFalse,
+		Reason:  "MinimumReplicasUnavailable",
+		Message: "Deployment does not have minimum availability.",
+	}
+
+	tests := []struct {
+		name string
+		// serverDeployment is the deployment returned by Get (nil = not found).
+		serverDeployment *appsv1.Deployment
+		// wantStatusConditions is the expected Conditions on the first returned deployment.
+		wantStatusConditions []appsv1.DeploymentCondition
+		// wantCreate is true when we expect Create to be called (new deployment).
+		wantCreate bool
+		wantErr    bool
+	}{
+		{
+			name:             "deployment does not exist: Create is called, desiredDep returned with empty status",
+			serverDeployment: nil,
+			// Newly created deployment has no conditions yet.
+			wantStatusConditions: nil,
+			wantCreate:           true,
+			wantErr:              false,
+		},
+		{
+			name: "deployment exists with ReplicaFailure (admission webhook denied): existingDep returned so conditions are visible",
+			serverDeployment: func() *appsv1.Deployment {
+				d := makeDeployment("test-predictor", "test-ns")
+				d.Status.Conditions = []appsv1.DeploymentCondition{
+					replicaFailureCondition,
+					availableFalseCondition,
+				}
+				d.Status.ObservedGeneration = 1
+				return d
+			}(),
+			// Bug 2 fix: ReplicaFailure MUST appear in the returned deployment.
+			wantStatusConditions: []appsv1.DeploymentCondition{
+				replicaFailureCondition,
+				availableFalseCondition,
+			},
+			wantCreate: false,
+			wantErr:    false,
+		},
+		{
+			name: "deployment exists and spec is unchanged (CheckResultExisted): existingDep with conditions returned",
+			serverDeployment: func() *appsv1.Deployment {
+				d := makeDeployment("test-predictor", "test-ns")
+				d.Status.Conditions = []appsv1.DeploymentCondition{
+					{
+						Type:    appsv1.DeploymentAvailable,
+						Status:  corev1.ConditionTrue,
+						Reason:  "MinimumReplicasAvailable",
+						Message: "Deployment has minimum availability.",
+					},
+				}
+				d.Status.ObservedGeneration = 2
+				return d
+			}(),
+			wantStatusConditions: []appsv1.DeploymentCondition{
+				{
+					Type:    appsv1.DeploymentAvailable,
+					Status:  corev1.ConditionTrue,
+					Reason:  "MinimumReplicasAvailable",
+					Message: "Deployment has minimum availability.",
+				},
+			},
+			wantCreate: false,
+			wantErr:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			desiredDep := makeDeployment("test-predictor", "test-ns")
+
+			mockClient := &mockClientForReconcile{
+				getDeployment: tt.serverDeployment,
+			}
+
+			r := &DeploymentReconciler{
+				client:         mockClient,
+				DeploymentList: []*appsv1.Deployment{desiredDep},
+			}
+
+			resultList, err := r.Reconcile(t.Context())
+
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Len(t, resultList, 1, "resultList should contain exactly one deployment")
+
+			gotConditions := resultList[0].Status.Conditions
+			if len(tt.wantStatusConditions) == 0 {
+				assert.Empty(t, gotConditions,
+					"expected no status conditions on newly created deployment")
+			} else {
+				assert.Equal(t, tt.wantStatusConditions, gotConditions,
+					"returned deployment should carry the server-side status conditions")
+			}
+		})
+	}
+}
+
 func TestNewDeploymentReconciler(t *testing.T) {
 	type fields struct {
 		client       kclient.Client
@@ -1439,4 +1628,45 @@ func TestCreateRawDeploymentWithPrecedence(t *testing.T) {
 			assert.Equal(t, tt.expectedMaxUnavailable, deployment.Spec.Strategy.RollingUpdate.MaxUnavailable, tt.description+" - MaxUnavailable")
 		})
 	}
+}
+
+// Test interface methods added for WorkloadReconciler interface
+func TestGetWorkloads(t *testing.T) {
+	deployment1 := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "deployment1"}}
+	deployment2 := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "deployment2"}}
+
+	reconciler := &DeploymentReconciler{
+		DeploymentList: []*appsv1.Deployment{deployment1, deployment2},
+	}
+
+	workloads := reconciler.GetWorkloads()
+	assert.Len(t, workloads, 2)
+	assert.Equal(t, "deployment1", workloads[0].GetName())
+	assert.Equal(t, "deployment2", workloads[1].GetName())
+}
+
+func TestSetControllerReferences(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = v1beta1.AddToScheme(scheme)
+	_ = appsv1.AddToScheme(scheme)
+
+	owner := &v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-isvc", Namespace: "default", UID: "test-uid"},
+	}
+
+	deployment1 := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "deployment1", Namespace: "default"}}
+	deployment2 := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "deployment2", Namespace: "default"}}
+
+	reconciler := &DeploymentReconciler{
+		DeploymentList: []*appsv1.Deployment{deployment1, deployment2},
+	}
+
+	err := reconciler.SetControllerReferences(owner, scheme)
+	require.NoError(t, err)
+
+	// Verify owner references were set
+	assert.Len(t, deployment1.GetOwnerReferences(), 1)
+	assert.Equal(t, owner.Name, deployment1.GetOwnerReferences()[0].Name)
+	assert.Len(t, deployment2.GetOwnerReferences(), 1)
+	assert.Equal(t, owner.Name, deployment2.GetOwnerReferences()[0].Name)
 }

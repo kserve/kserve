@@ -69,16 +69,18 @@ install() {
     log_info "Adding OpenTelemetry Helm repository..."
     helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts --force-update
 
-    log_info "Installing OpenTelemetry Operator..."
+    log_info "Installing OpenTelemetry Operator ${OPENTELEMETRY_OPERATOR_VERSION}..."
     helm install "${OTEL_RELEASE_NAME}" open-telemetry/opentelemetry-operator \
         --namespace "${OTEL_NAMESPACE}" \
         --create-namespace \
+        --version "${OPENTELEMETRY_OPERATOR_VERSION}" \
         --wait \
+        --set "manager.collectorImage.repository=otel/opentelemetry-collector-contrib" \
         ${OTEL_OPERATOR_EXTRA_ARGS:-}
 
     log_success "Successfully installed OpenTelemetry Operator via Helm"
 
-    wait_for_pods "${OTEL_NAMESPACE}" "app.kubernetes.io/instance=${OTEL_RELEASE_NAME}" "300s"
+    wait_for_pods "${OTEL_NAMESPACE}" "app.kubernetes.io/name=opentelemetry-operator" "300s"
 
     log_success "OpenTelemetry Operator is ready!"
 }

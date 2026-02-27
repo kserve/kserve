@@ -58,7 +58,7 @@ install() {
 
     wait_for_crds "60s" \
         "inferencepools.inference.networking.x-k8s.io" \
-        "inferencemodels.inference.networking.x-k8s.io"
+        "inferenceobjectives.inference.networking.x-k8s.io"
 
     log_success "Gateway Inference Extension CRDs are ready!"
 }

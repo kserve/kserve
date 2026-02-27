@@ -1,11 +1,11 @@
-apiVersion: serving.kserve.io/v1alpha1
+apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-decode-template
 spec:
   template:
     containers:
-      - image: ghcr.io/llm-d/llm-d-dev:v0.2.2
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -15,7 +15,6 @@ spec:
           - vllm
           - serve
           - /mnt/models
-        args:
           - --served-model-name
           - "{{`{{ .Spec.Model.Name }}`}}"
           - --port
@@ -49,7 +48,6 @@ spec:
             path: /health
             port: 8001
             scheme: HTTP
-          initialDelaySeconds: 120
           periodSeconds: 10
           timeoutSeconds: 10
           failureThreshold: 3
@@ -58,10 +56,16 @@ spec:
             path: /health
             port: 8001
             scheme: HTTP
-          initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 60
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8001
+            scheme: HTTP
+          failureThreshold: 60
+          periodSeconds: 10
         volumeMounts:
           - mountPath: /home
             name: home
@@ -75,7 +79,7 @@ spec:
     initContainers:
       - name: llm-d-routing-sidecar
         imagePullPolicy: IfNotPresent
-        image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.2.0
+        image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.4.0
         restartPolicy: Always
         ports:
           - containerPort: 8000

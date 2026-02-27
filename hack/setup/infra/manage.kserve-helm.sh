@@ -160,7 +160,7 @@ install() {
             
         # Install KServe CRDs from local chart
         log_info "Installing KServe CRDs..."
-        helm install "${KSERVE_CRD_RELEASE_NAME}" "${CHARTS_DIR}/${CRD_DIR_NAME}" \
+        helm upgrade --install "${KSERVE_CRD_RELEASE_NAME}" "${CHARTS_DIR}/${CRD_DIR_NAME}" \
             --namespace "${KSERVE_NAMESPACE}" \
             --create-namespace \
             --wait \
@@ -168,7 +168,7 @@ install() {
 
         # Install KServe resources from local chart
         log_info "Installing KServe resources..."
-        helm install "${KSERVE_RELEASE_NAME}" "${CHARTS_DIR}/${CORE_DIR_NAME}" \
+        helm upgrade --install "${KSERVE_RELEASE_NAME}" "${CHARTS_DIR}/${CORE_DIR_NAME}" \
             --namespace "${KSERVE_NAMESPACE}" \
             --create-namespace \
             --wait \
@@ -181,7 +181,7 @@ install() {
 
         # Install KServe CRDs
         log_info "Installing KServe CRDs..."
-        helm install "${KSERVE_CRD_RELEASE_NAME}" \
+        helm upgrade --install "${KSERVE_CRD_RELEASE_NAME}" \
             oci://ghcr.io/kserve/charts/${CRD_DIR_NAME} \
             --version "${KSERVE_VERSION}" \
             --namespace "${KSERVE_NAMESPACE}" \
@@ -191,7 +191,7 @@ install() {
 
         # Install KServe resources
         log_info "Installing KServe resources..."
-        if ! helm install "${KSERVE_RELEASE_NAME}" \
+        if ! helm upgrade --install "${KSERVE_RELEASE_NAME}" \
             oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
             --version "${KSERVE_VERSION}" \
             --namespace "${KSERVE_NAMESPACE}" \
@@ -250,11 +250,11 @@ install() {
             log_info "  - ${update}"
         done
         update_isvc_config "${config_updates[@]}"
-        if [ "${LLMISVC}" != "true" ]; then
+        if [ $(is_positive ${LLMISVC}) = "1" ]; then
             kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
         fi
     else
-        if [ "${LLMISVC}" = "true" ]; then
+        if [ $(is_positive ${LLMISVC}) = "0" ]; then
             log_info "No configuration updates needed for LLMISVC (GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
         else
             log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"

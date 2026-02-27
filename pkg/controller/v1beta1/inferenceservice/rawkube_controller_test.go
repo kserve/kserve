@@ -55,33 +55,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 	kserveGateway := types.NamespacedName{Name: "kserve-ingress-gateway", Namespace: "kserve"}
 
-	configs := map[string]string{
-		"explainers": `{
-				"alibi": {
-					"image": "kserve/alibi-explainer",
-					"defaultImageVersion": "latest"
-				}
-			}`,
-		"ingress": `{
-				"enableGatewayApi": true,
-				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
-				"ingressGateway": "knative-serving/knative-ingress-gateway",
-				"localGateway": "knative-serving/knative-local-gateway",
-				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
-				"additionalIngressDomains": ["additional.example.com"]
-			}`,
-		"storageInitializer": `{
-				"image" : "kserve/storage-initializer:latest",
-				"memoryRequest": "100Mi",
-				"memoryLimit": "1Gi",
-				"cpuRequest": "100m",
-				"cpuLimit": "1",
-				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"cpuModelcar": "10m",
-	           	"memoryModelcar": "15Mi"
-			}`,
-	}
+	configs := getRawKubeTestConfigs()
 
 	// Checks that any Kubernetes object does not exist
 	expectResourceDoesNotExist := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
@@ -101,7 +75,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
 
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 			serviceName := "raw-foo"
 			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
@@ -164,6 +138,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			expectedDeployment := getDeploymentWithKServiceLabel(predictorDeploymentKey, serviceName, isvc)
 			Expect(actualDeployment.Spec).To(BeComparableTo(expectedDeployment.Spec))
+
+			// Verify INFERENCE_SERVICE_NAME environment variable is set
+			verifyEnvKeyValueDeployments(actualDeployment, constants.InferenceServiceNameEnvVarKey, serviceName)
 
 			// check service
 			actualService := &corev1.Service{}
@@ -241,7 +218,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -313,7 +290,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -455,7 +432,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-customized"
@@ -558,6 +535,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -672,7 +652,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -744,7 +724,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -949,7 +929,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-2"
@@ -1029,6 +1009,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -1160,7 +1143,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -1232,7 +1215,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -1400,7 +1383,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-test-env"
@@ -1522,33 +1505,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 	Context("When creating inference service with raw kube predictor and serving.kserve.io/stop", func() {
 		// --- Default values ---
-		configs := map[string]string{
-			"explainers": `{
-				"alibi": {
-					"image": "kserve/alibi-explainer",
-					"defaultImageVersion": "latest"
-				}
-			}`,
-			"ingress": `{
-				"enableGatewayApi": true,
-				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
-				"ingressGateway": "knative-serving/knative-ingress-gateway",
-				"localGateway": "knative-serving/knative-local-gateway",
-				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
-				"additionalIngressDomains": ["additional.example.com"]
-			}`,
-			"storageInitializer": `{
-				"image" : "kserve/storage-initializer:latest",
-				"memoryRequest": "100Mi",
-				"memoryLimit": "1Gi",
-				"cpuRequest": "100m",
-				"cpuLimit": "1",
-				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"cpuModelcar": "10m",
-	           	"memoryModelcar": "15Mi"
-			}`,
-		}
+		configs := getRawKubeTestConfigs()
 
 		defaultIsvc := func(serviceKey types.NamespacedName, autoscaler string, qty *v1beta1.MetricQuantity) *v1beta1.InferenceService {
 			predictor := v1beta1.PredictorSpec{
@@ -1861,7 +1818,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				isvc := defaultIsvc(serviceKey, string(constants.AutoscalerClassKeda), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				isvc.Annotations["sidecar.opentelemetry.io/inject"] = "true"
-				isvc.Spec.Predictor.ComponentExtensionSpec.AutoScaling = &v1beta1.AutoScalingSpec{
+				isvc.Spec.Predictor.AutoScaling = &v1beta1.AutoScalingSpec{
 					Metrics: getDefaultMetrics(),
 				}
 				Expect(k8sClient.Create(ctx, isvc)).NotTo(HaveOccurred())
@@ -1989,7 +1946,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				isvc := defaultIsvc(serviceKey, string(constants.AutoscalerClassKeda), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				isvc.Annotations["sidecar.opentelemetry.io/inject"] = "true"
-				isvc.Spec.Predictor.ComponentExtensionSpec.AutoScaling = &v1beta1.AutoScalingSpec{
+				isvc.Spec.Predictor.AutoScaling = &v1beta1.AutoScalingSpec{
 					Metrics: getDefaultMetrics(),
 				}
 				Expect(k8sClient.Create(ctx, isvc)).NotTo(HaveOccurred())
@@ -2144,7 +2101,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				isvc := defaultIsvc(serviceKey, string(constants.AutoscalerClassKeda), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "false"
 				isvc.Annotations["sidecar.opentelemetry.io/inject"] = "true"
-				isvc.Spec.Predictor.ComponentExtensionSpec.AutoScaling = &v1beta1.AutoScalingSpec{
+				isvc.Spec.Predictor.AutoScaling = &v1beta1.AutoScalingSpec{
 					Metrics: getDefaultMetrics(),
 				}
 				Expect(k8sClient.Create(ctx, isvc)).NotTo(HaveOccurred())
@@ -2328,7 +2285,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				isvc := defaultIsvc(serviceKey, string(constants.AutoscalerClassKeda), v1beta1.NewMetricQuantity("10Gi"))
 				isvc.Annotations[constants.StopAnnotationKey] = "true"
 				isvc.Annotations["sidecar.opentelemetry.io/inject"] = "true"
-				isvc.Spec.Predictor.ComponentExtensionSpec.AutoScaling = &v1beta1.AutoScalingSpec{
+				isvc.Spec.Predictor.AutoScaling = &v1beta1.AutoScalingSpec{
 					Metrics: getDefaultMetrics(),
 				}
 				Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
@@ -3213,33 +3170,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 	})
 	Context("When Updating a Serving Runtime", func() {
-		configs := map[string]string{
-			"explainers": `{
-				"alibi": {
-					"image": "kserve/alibi-explainer",
-					"defaultImageVersion": "latest"
-				}
-			}`,
-			"ingress": `{
-				"enableGatewayApi": true,
-				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
-				"ingressGateway": "knative-serving/knative-ingress-gateway",
-				"localGateway": "knative-serving/knative-local-gateway",
-				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
-				"additionalIngressDomains": ["additional.example.com"]
-			}`,
-			"storageInitializer": `{
-				"image" : "kserve/storage-initializer:latest",
-				"memoryRequest": "100Mi",
-				"memoryLimit": "1Gi",
-				"cpuRequest": "100m",
-				"cpuLimit": "1",
-				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"cpuModelcar": "10m",
-	           	"memoryModelcar": "15Mi"
-			}`,
-		}
+		configs := getRawKubeTestConfigs()
+
 		ctx := context.Background()
 		It("InferenceService should reconcile the deployment if auto-update annotation is not present", func() {
 			// Create configmap
@@ -3351,7 +3283,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Update the ServingRuntime spec
 			servingRuntimeToUpdate := &v1alpha1.ServingRuntime{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: servingRuntimeName, Namespace: isvcNamespace}, servingRuntimeToUpdate)).Should(Succeed())
-			servingRuntimeToUpdate.Spec.ServingRuntimePodSpec.Labels["key1"] = "updatedServingRuntime"
+			servingRuntimeToUpdate.Spec.Labels["key1"] = "updatedServingRuntime"
 			Eventually(func() error {
 				return k8sClient.Update(ctx, servingRuntimeToUpdate)
 			}, timeout, interval).Should(Succeed())
@@ -3484,7 +3416,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Update the ServingRuntime spec
 			servingRuntimeToUpdate := &v1alpha1.ServingRuntime{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: servingRuntimeName, Namespace: isvcNamespace}, servingRuntimeToUpdate)).Should(Succeed())
-			servingRuntimeToUpdate.Spec.ServingRuntimePodSpec.Labels["key1"] = "updatedServingRuntime"
+			servingRuntimeToUpdate.Spec.Labels["key1"] = "updatedServingRuntime"
 			Eventually(func() error {
 				return k8sClient.Update(ctx, servingRuntimeToUpdate)
 			}, timeout, interval).Should(Succeed())
@@ -3642,7 +3574,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Update the ServingRuntime spec
 			servingRuntimeToUpdate := &v1alpha1.ServingRuntime{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: servingRuntimeName, Namespace: isvcNamespace}, servingRuntimeToUpdate)).Should(Succeed())
-			servingRuntimeToUpdate.Spec.ServingRuntimePodSpec.Labels["key1"] = "updatedServingRuntime"
+			servingRuntimeToUpdate.Spec.Labels["key1"] = "updatedServingRuntime"
 			Expect(k8sClient.Update(ctx, servingRuntimeToUpdate)).Should(Succeed())
 
 			// Wait until the ServingRuntime reflects the updated spec.
@@ -3853,7 +3785,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Update the ServingRuntime spec
 			servingRuntimeToUpdate := &v1alpha1.ServingRuntime{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: servingRuntimePytorchName, Namespace: isvcNamespace}, servingRuntimeToUpdate)).Should(Succeed())
-			servingRuntimeToUpdate.Spec.ServingRuntimePodSpec.Labels["key1"] = "updatedServingRuntime"
+			servingRuntimeToUpdate.Spec.Labels["key1"] = "updatedServingRuntime"
 			Eventually(func() error {
 				return k8sClient.Update(ctx, servingRuntimeToUpdate)
 			}, timeout, interval).Should(Succeed())
@@ -3887,32 +3819,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	})
 
 	Context("When creating inference service with raw kube predictor and ingress creation disabled", func() {
-		configs := map[string]string{
-			"explainers": `{
-	             "alibi": {
-	                "image": "kfserving/alibi-explainer",
-			      "defaultImageVersion": "latest"
-	             }
-	          }`,
-			"ingress": `{
-			   "kserveIngressGateway": "kserve/kserve-ingress-gateway",
-               "ingressGateway": "knative-serving/knative-ingress-gateway",
-               "localGateway": "knative-serving/knative-local-gateway",
-               "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
-               "ingressDomain": "example.com",
-			   "additionalIngressDomains": ["additional.example.com"],
-			   "disableIngressCreation": true
-            }`,
-			"storageInitializer": `{
-				"image" : "kserve/storage-initializer:latest",
-				"memoryRequest": "100Mi",
-				"memoryLimit": "1Gi",
-				"cpuRequest": "100m",
-				"cpuLimit": "1",
-				"cpuModelcar": "10m",
-				"memoryModelcar": "15Mi"
-			}`,
-		}
+		configs := mergeJSONField(getRawKubeTestConfigs(), "ingress", map[string]interface{}{
+			"disableIngressCreation": true,
+			"ingressDomain":          "example.com",
+		})
 
 		It("Should have service/deployment/hpa created and http route should not be created", func() {
 			By("By creating a new InferenceService")
@@ -3922,7 +3832,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			// Create InferenceService
@@ -4149,33 +4059,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 	})
 	Context("When creating inference service with raw kube predictor with domain template", func() {
-		configs := map[string]string{
-			"explainers": `{
-               "alibi": {
-                  "image": "kfserving/alibi-explainer",
-			      "defaultImageVersion": "latest"
-               }
-            }`,
-			"ingress": `{
-			   "enableGatewayApi": true,
-			   "kserveIngressGateway": "kserve/kserve-ingress-gateway",
-               "ingressGateway": "knative-serving/knative-ingress-gateway",
-               "localGateway": "knative-serving/knative-local-gateway",
-               "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
-               "ingressDomain": "example.com",
-               "domainTemplate": "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}",
-			   "additionalIngressDomains": ["additional.example.com"]
-            }`,
-			"storageInitializer": `{
-				"image" : "kserve/storage-initializer:latest",
-				"memoryRequest": "100Mi",
-				"memoryLimit": "1Gi",
-				"cpuRequest": "100m",
-				"cpuLimit": "1",
-				"cpuModelcar": "10m",
-				"memoryModelcar": "15Mi"
-			}`,
-		}
+		configs := mergeJSONField(getRawKubeTestConfigs(), "ingress", map[string]interface{}{
+			"ingressDomain":  "example.com",
+			"domainTemplate": "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}",
+		})
 
 		It("Should have httproute/service/deployment/hpa created", func() {
 			By("By creating a new InferenceService")
@@ -4185,7 +4072,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			// Create InferenceService
@@ -4325,7 +4212,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -4397,7 +4284,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -4581,33 +4468,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 	})
 	Context("When creating inference service with raw kube predictor and transformer", func() {
-		configs := map[string]string{
-			"explainers": `{
-				"alibi": {
-					"image": "kserve/alibi-explainer",
-					"defaultImageVersion": "latest"
-				}
-			}`,
-			"ingress": `{
-				"enableGatewayApi": true,
-				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
-				"ingressGateway": "knative-serving/knative-ingress-gateway",
-				"localGateway": "knative-serving/knative-local-gateway",
-				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
-				"additionalIngressDomains": ["additional.example.com"]
-			}`,
-			"storageInitializer": `{
-				"image" : "kserve/storage-initializer:latest",
-				"memoryRequest": "100Mi",
-				"memoryLimit": "1Gi",
-				"cpuRequest": "100m",
-				"cpuLimit": "1",
-				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"cpuModelcar": "10m",
-	           	"memoryModelcar": "15Mi"
-			}`,
-		}
+		configs := getRawKubeTestConfigs()
 
 		It("Should have httproute/service/deployment/hpa created for transformer and predictor", func() {
 			By("By creating a new InferenceService")
@@ -4617,7 +4478,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-trans"
@@ -4753,6 +4614,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
 									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -4834,6 +4698,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										fmt.Sprintf("%s.%s", predictorServiceKey.Name, predictorServiceKey.Namespace),
 										"--http_port",
 										"8080",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -5004,7 +4871,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(transformerServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -5076,7 +4943,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -5148,7 +5015,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(transformerServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -5408,33 +5275,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 	})
 	Context("When creating inference service with raw kube predictor and explainer", func() {
-		configs := map[string]string{
-			"explainers": `{
-				"art": {
-					"image": "kserve/art-explainer",
-					"defaultImageVersion": "latest"
-				}
-			}`,
-			"ingress": `{
-				"enableGatewayApi": true,
-				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
-				"ingressGateway": "knative-serving/knative-ingress-gateway",
-				"localGateway": "knative-serving/knative-local-gateway",
-				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
-				"additionalIngressDomains": ["additional.example.com"]
-			}`,
-			"storageInitializer": `{
-				"image" : "kserve/storage-initializer:latest",
-				"memoryRequest": "100Mi",
-				"memoryLimit": "1Gi",
-				"cpuRequest": "100m",
-				"cpuLimit": "1",
-				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"cpuModelcar": "10m",
-	           	"memoryModelcar": "15Mi"
-			}`,
-		}
+		configs := getRawKubeTestConfigs()
 
 		It("Should have httproute/service/deployment/hpa created for explainer and predictor", func() {
 			By("By creating a new InferenceService")
@@ -5444,7 +5285,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-exp"
@@ -5582,6 +5423,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -5765,7 +5609,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(explainerServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -5809,7 +5653,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -5881,7 +5725,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -5953,7 +5797,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(explainerServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -6213,35 +6057,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 	})
 	Context("When creating inference service with raw kube path based routing predictor", func() {
-		configs := map[string]string{
-			"explainers": `{
-				"alibi": {
-					"image": "kserve/alibi-explainer",
-					"defaultImageVersion": "latest"
-				}
-			}`,
-			"ingress": `{
-				"enableGatewayApi": true,
-				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
-				"ingressGateway": "knative-serving/knative-ingress-gateway",
-				"localGateway": "knative-serving/knative-local-gateway",
-				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
-				"additionalIngressDomains": ["additional.example.com"],
-				"ingressDomain": "example.com",
-				"pathTemplate": "/serving/{{ .Namespace }}/{{ .Name }}"
-			}`,
-			"storageInitializer": `{
-				"image" : "kserve/storage-initializer:latest",
-				"memoryRequest": "100Mi",
-				"memoryLimit": "1Gi",
-				"cpuRequest": "100m",
-				"cpuLimit": "1",
-				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"cpuModelcar": "10m",
-	           	"memoryModelcar": "15Mi"
-			}`,
-		}
+		configs := mergeJSONField(getRawKubeTestConfigs(), "ingress", map[string]interface{}{
+			"ingressDomain": "example.com",
+			"pathTemplate":  "/serving/{{ .Namespace }}/{{ .Name }}",
+		})
 
 		It("Should have httproute/service/deployment/hpa created", func() {
 			By("By creating a new InferenceService")
@@ -6251,7 +6070,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-path"
@@ -6392,7 +6211,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -6436,7 +6255,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -6508,7 +6327,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -6692,35 +6511,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 	})
 	Context("When creating inference service with raw kube path based routing predictor and transformer", func() {
-		configs := map[string]string{
-			"explainers": `{
-				"alibi": {
-					"image": "kserve/alibi-explainer",
-					"defaultImageVersion": "latest"
-				}
-			}`,
-			"ingress": `{
-				"enableGatewayApi": true,
-				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
-				"ingressGateway": "knative-serving/knative-ingress-gateway",
-				"localGateway": "knative-serving/knative-local-gateway",
-				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
-				"additionalIngressDomains": ["additional.example.com"],
-				"ingressDomain": "example.com",
-				"pathTemplate": "/serving/{{ .Namespace }}/{{ .Name }}"
-			}`,
-			"storageInitializer": `{
-				"image" : "kserve/storage-initializer:latest",
-				"memoryRequest": "100Mi",
-				"memoryLimit": "1Gi",
-				"cpuRequest": "100m",
-				"cpuLimit": "1",
-				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"cpuModelcar": "10m",
-	           	"memoryModelcar": "15Mi"
-			}`,
-		}
+		configs := mergeJSONField(getRawKubeTestConfigs(), "ingress", map[string]interface{}{
+			"ingressDomain": "example.com",
+			"pathTemplate":  "/serving/{{ .Namespace }}/{{ .Name }}",
+		})
 
 		It("Should have ingress/service/deployment/hpa created for transformer and predictor", func() {
 			By("By creating a new InferenceService")
@@ -6730,7 +6524,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-trans-path"
@@ -6869,6 +6663,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
 									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
 										ProbeHandler: corev1.ProbeHandler{
@@ -6950,6 +6747,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										fmt.Sprintf("%s.%s", predictorServiceKey.Name, predictorServiceKey.Namespace),
 										"--http_port",
 										"8080",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -7121,7 +6921,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(transformerServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -7165,7 +6965,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(transformerServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -7237,7 +7037,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -7309,7 +7109,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(transformerServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -7569,35 +7369,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 	})
 	Context("When creating inference service with raw kube path based routing predictor and explainer", func() {
-		configs := map[string]string{
-			"explainers": `{
-				"art": {
-					"image": "kserve/art-explainer",
-					"defaultImageVersion": "latest"
-				}
-			}`,
-			"ingress": `{
-				"enableGatewayApi": true,
-				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
-				"ingressGateway": "knative-serving/knative-ingress-gateway",
-				"localGateway": "knative-serving/knative-local-gateway",
-				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
-				"additionalIngressDomains": ["additional.example.com"],
-				"ingressDomain": "example.com",
-				"pathTemplate": "/serving/{{ .Namespace }}/{{ .Name }}"
-			}`,
-			"storageInitializer": `{
-				"image" : "kserve/storage-initializer:latest",
-				"memoryRequest": "100Mi",
-				"memoryLimit": "1Gi",
-				"cpuRequest": "100m",
-				"cpuLimit": "1",
-				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"cpuModelcar": "10m",
-	           	"memoryModelcar": "15Mi"
-			}`,
-		}
+		configs := mergeJSONField(getRawKubeTestConfigs(), "ingress", map[string]interface{}{
+			"ingressDomain": "example.com",
+			"pathTemplate":  "/serving/{{ .Namespace }}/{{ .Name }}",
+		})
 
 		It("Should have httproute/service/deployment/hpa created for explainer and predictor", func() {
 			By("By creating a new InferenceService")
@@ -7607,7 +7382,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-exp-path"
@@ -7745,6 +7520,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
+									},
+									Env: []corev1.EnvVar{
+										{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 									},
 									Resources: defaultResource,
 									ReadinessProbe: &corev1.Probe{
@@ -7929,7 +7707,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(explainerServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -7973,7 +7751,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -8017,7 +7795,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(explainerServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -8061,7 +7839,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -8133,7 +7911,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -8205,7 +7983,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
 											Name:      gwapiv1.ObjectName(explainerServiceKey.Name),
 											Namespace: (*gwapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
-											Port:      (*gwapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
+											Port:      ptr.To(int32(constants.CommonDefaultHttpPort)),
 										},
 										Weight: ptr.To(int32(1)),
 									},
@@ -8465,36 +8243,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 	})
 	Context("When creating inference service with raw kube predictor with gateway api disabled", func() {
-		configs := map[string]string{
-			"explainers": `{
-				"alibi": {
-					"image": "kserve/alibi-explainer",
-					"defaultImageVersion": "latest"
-				}
-			}`,
-			"ingress": `{
-				"enableGatewayAPI": false,
-				"ingressGateway": "knative-serving/knative-ingress-gateway",
-				"localGateway": "knative-serving/knative-local-gateway",
-				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
-			}`,
-			"storageInitializer": `{
-				"image" : "kserve/storage-initializer:latest",
-				"memoryRequest": "100Mi",
-				"memoryLimit": "1Gi",
-				"cpuRequest": "100m",
-				"cpuLimit": "1",
-				"CaBundleConfigMapName": "",
-				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-				"cpuModelcar": "10m",
-	           	"memoryModelcar": "15Mi"
-			}`,
-			"opentelemetryCollector": `{
-				"scrapeInterval": "5s",
-				"metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
-				"metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
-			}`,
-		}
+		configs := mergeJSONField(getRawKubeTestConfigs(), "ingress", map[string]interface{}{
+			"enableGatewayApi": false,
+		})
+		configs["opentelemetryCollector"] = `{
+			"scrapeInterval": "5s",
+			"metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
+			"metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
+		}`
+
 		It("Should have KEDA ScaledObject created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
@@ -8503,7 +8260,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-1"
@@ -8624,7 +8381,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo-3"
@@ -8775,7 +8532,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving-raw", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			serviceName := "raw-foo"
@@ -9021,27 +8778,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			storageUri = "pvc://llama-3-8b-pvc/hf/8b_instruction_tuned"
 
 			// Create a ConfigMap
-			configs := map[string]string{
-				"ingress": `{
-            		"ingressGateway": "knative-serving/knative-ingress-gateway",
-            		"localGateway": "knative-serving/knative-local-gateway",
-            		"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
-        		}`,
-				"storageInitializer": `{
-            		"image" : "kserve/storage-initializer:latest",
-           	 		"memoryRequest": "100Mi",
-            		"memoryLimit": "1Gi",
-            		"cpuRequest": "100m",
-            		"cpuLimit": "1",
-            		"CaBundleConfigMapName": "",
-            		"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-					"cpuModelcar": "10m",
-		           	"memoryModelcar": "15Mi"
-        		}`,
-			}
+			configs := getRawKubeTestConfigs()
 			configMap := createInferenceServiceConfigMap(configs)
 			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
-			DeferCleanup(func() { k8sClient.Delete(ctx, configMap) })
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, configMap) })
 
 			// Create a ServingRuntime
 			servingRuntime := &v1alpha1.ServingRuntime{
@@ -9097,7 +8837,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, servingRuntime)).NotTo(HaveOccurred())
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, servingRuntime)
+				_ = k8sClient.Delete(ctx, servingRuntime)
 			})
 		})
 		It("Should have services/deployments for head/worker without an autoscaler when workerSpec is set in isvc", func() {
@@ -9131,7 +8871,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
+				_ = k8sClient.Delete(ctx, isvc)
 			})
 
 			// Verify inferenceService is created
@@ -9238,7 +8978,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
+				_ = k8sClient.Delete(ctx, isvc)
 			})
 
 			// Verify inferenceService is created
@@ -9305,7 +9045,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
+				_ = k8sClient.Delete(ctx, isvc)
 			})
 
 			// Verify if predictor deployment (default deployment) is created
@@ -9378,7 +9118,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
+				_ = k8sClient.Delete(ctx, isvc)
 			})
 
 			// Verify if predictor deployment (default deployment) is created
@@ -9455,7 +9195,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
+				_ = k8sClient.Delete(ctx, isvc)
 			})
 
 			// Verify if predictor deployment (default deployment) is created
@@ -9544,7 +9284,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
+				_ = k8sClient.Delete(ctx, isvc)
 			})
 
 			// Verify if predictor deployment (default deployment) is created
@@ -9633,7 +9373,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
+				_ = k8sClient.Delete(ctx, isvc)
 			})
 
 			// Verify if predictor deployment (default deployment) is created
@@ -9722,7 +9462,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			DeferCleanup(func() { k8sClient.Delete(ctx, isvc) })
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, isvc) })
 
 			updatedIsvc := &v1beta1.InferenceService{}
 			Eventually(func() bool {
@@ -9810,7 +9550,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			DeferCleanup(func() { k8sClient.Delete(ctx, isvc) })
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, isvc) })
 
 			// Verify if predictor deployment (default deployment) is created
 			Eventually(func() bool {
@@ -9869,7 +9609,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			DeferCleanup(func() { k8sClient.Delete(ctx, isvc) })
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, isvc) })
 
 			// Verify if predictor deployment (default deployment) is created
 			Eventually(func() bool {
@@ -9904,7 +9644,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Update a infereceService
 			By("updating the InferenceService")
 			updatedIsvc := &v1beta1.InferenceService{}
-			k8sClient.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvcNamespace}, updatedIsvc)
+			_ = k8sClient.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvcNamespace}, updatedIsvc)
 			// Add label to isvc to create a new rs
 			if updatedIsvc.Labels == nil {
 				updatedIsvc.Labels = make(map[string]string)
@@ -9930,6 +9670,272 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return false
 			}, timeout, interval).Should(BeTrue())
 		})
+	})
+
+	Context("When creating inference service with headless service (ServiceClusterIPNone)", func() {
+		It("Should include port 8080 in status.address.url", func() {
+			By("By creating a new InferenceService with headless service enabled")
+			ctx := context.Background()
+
+			// Create configmap with serviceClusterIPNone enabled
+			configs := map[string]string{
+				"ingress": `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"localGateway": "knative-serving/knative-local-gateway",
+					"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
+				}`,
+				"storageInitializer": `{
+					"image": "kserve/storage-initializer:latest",
+					"memoryRequest": "100Mi",
+					"memoryLimit": "1Gi",
+					"cpuRequest": "100m",
+					"cpuLimit": "1",
+					"caBundleConfigMapName": "",
+					"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+					"cpuModelcar": "10m",
+					"memoryModelcar": "15Mi"
+				}`,
+				"service": `{"serviceClusterIPNone": true}`,
+			}
+			configMap := createInferenceServiceConfigMap(configs)
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			// Create ServingRuntime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-serving-raw",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    ptr.To("1"),
+							AutoSelect: ptr.To(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:    "kserve-container",
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: ptr.To(false),
+				},
+			}
+			Expect(k8sClient.Create(ctx, servingRuntime)).Should(Succeed())
+			defer k8sClient.Delete(ctx, servingRuntime)
+
+			serviceName := "raw-headless-port"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
+
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						constants.DeploymentMode: string(constants.Standard),
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: ptr.To(int32(1)),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: ptr.To("1.14.0"),
+								Container: corev1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			inferenceService := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Wait for deployment to be created
+			actualDeployment := &appsv1.Deployment{}
+			predictorDeploymentKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, predictorDeploymentKey, actualDeployment)
+			}, timeout, interval).Should(Succeed())
+
+			// Wait for service to be created and verify it's headless
+			actualService := &corev1.Service{}
+			predictorServiceKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, predictorServiceKey, actualService)
+			}, timeout, interval).Should(Succeed())
+
+			// Verify service is headless (ClusterIP: None)
+			Expect(actualService.Spec.ClusterIP).To(Equal(corev1.ClusterIPNone),
+				"Service should be headless (ClusterIP: None) when serviceClusterIPNone is enabled")
+
+			// Update deployment status to trigger status reconciliation
+			updatedDeployment := actualDeployment.DeepCopy()
+			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
+				{
+					Type:   appsv1.DeploymentAvailable,
+					Status: corev1.ConditionTrue,
+				},
+			}
+			Expect(k8sClient.Status().Update(ctx, updatedDeployment)).NotTo(HaveOccurred())
+
+			// Verify status.address.url includes port 8080
+			expectedIsvcStatus := getExpectedIsvcStatusWithPort(serviceKey, constants.InferenceServiceDefaultHttpPort)
+			Eventually(func() string {
+				isvc := &v1beta1.InferenceService{}
+				if err := k8sClient.Get(ctx, serviceKey, isvc); err != nil {
+					return err.Error()
+				}
+				return cmp.Diff(expectedIsvcStatus, isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+			}, timeout, interval).Should(BeEmpty())
+
+			// Double-check the address URL contains :8080
+			Eventually(func() bool {
+				isvc := &v1beta1.InferenceService{}
+				if err := k8sClient.Get(ctx, serviceKey, isvc); err != nil {
+					return false
+				}
+				if isvc.Status.Address == nil || isvc.Status.Address.URL == nil {
+					return false
+				}
+				expectedHost := serviceKey.Name + "-predictor." + serviceKey.Namespace + ".svc.cluster.local:8080"
+				return isvc.Status.Address.URL.Host == expectedHost
+			}, timeout, interval).Should(BeTrue(),
+				"status.address.url should include :8080 for headless service")
+		})
+	})
+})
+
+// TestDeploymentReplicaFailurePropagatedToIsvcStatus is an integration test that covers
+// the combined fix for Bug 1 and Bug 2 from issue #5113.
+//
+// Bug 1: Without InitializeConditions on early paths the ISVC status could be completely
+// empty. After the fix the status section must always contain at least the "Ready"
+// condition once the first reconciliation cycle completes.
+//
+// Bug 2: Previously, DeploymentReconciler.Reconcile returned the in-memory desired
+// deployment (no .Status.Conditions) instead of the server-side existing deployment.
+// As a result, a ReplicaFailure condition (e.g. from an admission webhook denying pod
+// creation) was silently lost.  After the fix the ISVC PredictorReady condition must
+// carry the reason and message from the deployment's ReplicaFailure condition.
+var _ = Context("When a Standard-mode predictor deployment develops a ReplicaFailure", func() {
+	It("should surface the failure reason in the InferenceService PredictorReady condition", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+
+		By("setting up configmap and serving runtime")
+		configs := getRawKubeTestConfigs()
+		configMap := createInferenceServiceConfigMap(configs)
+		Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, configMap) })
+
+		servingRuntime := getServingRuntime("tf-serving-raw", "default")
+		Expect(k8sClient.Create(ctx, &servingRuntime)).To(Or(Succeed(), MatchError(ContainSubstring("already exists"))))
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, &servingRuntime) })
+
+		By("creating the InferenceService")
+		serviceName := "raw-replica-failure-test"
+		serviceKey := types.NamespacedName{Name: serviceName, Namespace: "default"}
+
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        serviceKey.Name,
+				Namespace:   serviceKey.Namespace,
+				Annotations: getDefaultAnnotations(constants.AutoscalerClassNone),
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{
+					Tensorflow: &v1beta1.TFServingSpec{
+						PredictorExtensionSpec: getCommonPredictorExtensionSpec(),
+					},
+				},
+			},
+		}
+		isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+		Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, isvc) })
+
+		By("waiting for the controller to create the predictor deployment")
+		predictorDeploymentKey := types.NamespacedName{
+			Name:      constants.PredictorServiceName(serviceKey.Name),
+			Namespace: serviceKey.Namespace,
+		}
+		actualDeployment := &appsv1.Deployment{}
+		Eventually(func() error {
+			return k8sClient.Get(ctx, predictorDeploymentKey, actualDeployment)
+		}, timeout, interval).Should(Succeed())
+
+		By("patching the deployment status with a ReplicaFailure condition (simulating webhook denial)")
+		replicaFailureMsg := `admission webhook "pod-policy.example.com" denied the request: identity "my-identity" not found`
+		updatedDeployment := actualDeployment.DeepCopy()
+		updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
+			{
+				Type:    appsv1.DeploymentReplicaFailure,
+				Status:  corev1.ConditionTrue,
+				Reason:  "FailedCreate",
+				Message: replicaFailureMsg,
+			},
+			{
+				Type:    appsv1.DeploymentAvailable,
+				Status:  corev1.ConditionFalse,
+				Reason:  "MinimumReplicasUnavailable",
+				Message: "Deployment does not have minimum availability.",
+			},
+		}
+		Expect(k8sClient.Status().Update(ctx, updatedDeployment)).NotTo(HaveOccurred())
+
+		By("verifying the ISVC PredictorReady condition reflects ReplicaFailure (Bug 2 fix)")
+		updatedIsvc := &v1beta1.InferenceService{}
+		Eventually(func() bool {
+			if err := k8sClient.Get(ctx, serviceKey, updatedIsvc); err != nil {
+				return false
+			}
+			cond := updatedIsvc.Status.GetCondition(v1beta1.PredictorReady)
+			return cond != nil &&
+				cond.IsFalse() &&
+				cond.Reason == "FailedCreate" &&
+				cond.Message == replicaFailureMsg
+		}, timeout, interval).Should(BeTrue(),
+			"PredictorReady condition should be False with FailedCreate reason from ReplicaFailure")
+
+		By("verifying the ISVC status section is never completely empty (Bug 1 fix)")
+		// The overall Ready condition must exist regardless of deployment state.
+		Expect(updatedIsvc.Status.GetCondition(apis.ConditionReady)).NotTo(BeNil(),
+			"ConditionReady must be present: status section should not be empty after reconciliation")
 	})
 })
 

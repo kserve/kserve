@@ -21,18 +21,18 @@ import (
 )
 
 type LogRequest struct {
-	Url              *url.URL
-	Bytes            *[]byte
-	ContentType      string
-	ReqType          string
-	Id               string
-	SourceUri        *url.URL
-	InferenceService string
-	Namespace        string
-	Component        string
-	Endpoint         string
-	Metadata         map[string][]string
-	Annotations      map[string]string
-	CertName         string
-	TlsSkipVerify    bool
+	Url              *url.URL            `json:"url,omitempty"`
+	Bytes            *[]byte             `json:"bytes,omitempty"`
+	ContentType      string              `json:"contentType,omitempty"`
+	ReqType          string              `json:"reqType,omitempty"`
+	Id               string              `json:"id,omitempty"`
+	SourceUri        *url.URL            `json:"sourceUri,omitempty"`
+	InferenceService string              `json:"inferenceService,omitempty"`
+	Namespace        string              `json:"namespace,omitempty"`
+	Component        string              `json:"component,omitempty"`
+	Endpoint         string              `json:"endpoint,omitempty"`
+	Metadata         map[string][]string `json:"metadata,omitempty"`
+	Annotations      map[string]string   `json:"annotations,omitempty"`
+	CertName         string              `json:"certName,omitempty"`
+	TlsSkipVerify    bool                `json:"tlsSkipVerify,omitempty"`
 }

@@ -6,9 +6,13 @@ on:
         paths-ignore:
             - "**.md"
     pull_request:
-        branches: []
-        paths-ignore:
-            - "**.md"
+        paths:
+          - "**"
+          - "!python/**"
+          - "!.github/**"
+          - "!docs/**"
+          - "!**.md"
+          - ".github/workflows/go.yml"
     workflow_dispatch:
 
 concurrency:

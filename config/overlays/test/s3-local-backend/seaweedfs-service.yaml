@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: s3-service
+  namespace: seaweedfs
+spec:
+  ports:
+  - name: master-ui
+    port: 9333
+    protocol: TCP
+    targetPort: 9333
+  - name: filer-ui
+    port: 8888
+    protocol: TCP
+    targetPort: 8888
+  - name: s3
+    port: 8333
+    protocol: TCP
+    targetPort: 8333
+  - name: volume
+    port: 9340
+    protocol: TCP
+    targetPort: 9340
+  - name: admin-ui
+    port: 23646
+    protocol: TCP
+    targetPort: 23646
+  selector:
+    app: seaweedfs

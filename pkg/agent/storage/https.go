@@ -189,17 +189,17 @@ func extractZipFiles(reader io.Reader, dest string) error {
 	if err != nil {
 		return fmt.Errorf("unable to create new reader: %w", err)
 	}
+	dest = filepath.Clean(dest)
 
 	// Read all the files from zip archive
 	for _, zipFile := range zipReader.File {
-		dest = filepath.Clean(dest)
 		fileFullPath := filepath.Clean(filepath.Join(dest, filepath.Clean(zipFile.Name)))
 		if !strings.HasPrefix(fileFullPath, dest+string(os.PathSeparator)) {
 			return fmt.Errorf("%s: illegal file path", fileFullPath)
 		}
 
 		if zipFile.Mode().IsDir() {
-			err = os.MkdirAll(fileFullPath, 0o755)
+			err = os.MkdirAll(fileFullPath, 0o755) //nolint:gosec // G301: extracted model files must be readable by model server running as a different UID
 			if err != nil {
 				return fmt.Errorf("unable to create new directory %s", fileFullPath)
 			}
@@ -246,6 +246,7 @@ func extractTarFiles(reader io.Reader, dest string) error {
 	}(gzr)
 
 	tr := tar.NewReader(gzr)
+	dest = filepath.Clean(dest)
 
 	// Read all the files from tar archive
 	for {
@@ -256,10 +257,12 @@ func extractTarFiles(reader io.Reader, dest string) error {
 			return fmt.Errorf("unable to access next tar file: %w", err)
 		}
 
-		dest = filepath.Clean(dest)
 		fileFullPath := filepath.Clean(filepath.Join(dest, filepath.Clean(header.Name)))
+		if !strings.HasPrefix(fileFullPath, dest+string(os.PathSeparator)) {
+			return fmt.Errorf("%s: illegal file path", fileFullPath)
+		}
 		if header.Typeflag == tar.TypeDir {
-			err = os.MkdirAll(fileFullPath, 0o755)
+			err = os.MkdirAll(fileFullPath, 0o755) //nolint:gosec // G301: extracted model files must be readable by model server running as a different UID
 			if err != nil {
 				return fmt.Errorf("unable to create new directory %s", fileFullPath)
 			}

@@ -8,6 +8,13 @@ on:
 
   # Run tests for any PRs.
   pull_request:
+    paths:
+      - "python/**"
+      - "!.github/**"
+      - "!docs/**"
+      - "!**.md"
+      - ".github/workflows/transformer-docker-publish.yml"
+      - ".github/actions/free-up-disk-space/**"
 
 env:
   IMAGE_NAME: image-transformer
