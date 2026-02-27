@@ -48,6 +48,7 @@ class BaseKServeModel(ABC):
     This class implements the expectations of model repository and model server.
     """
 
+    @abstractmethod
     def __init__(self, name: str):
         """
         Adds the required attributes
@@ -91,7 +92,7 @@ class BaseKServeModel(ABC):
         self.ready = False
 
     def stop_engine(self):
-        """Stop Engine handler can be overriden to perform the engine shutdown"""
+        """Stop Engine handler can be overridden to perform the engine shutdown"""
         self.ready = False
 
 

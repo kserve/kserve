@@ -33,7 +33,7 @@ FROM base AS builder
 
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-ln -s /root/.local/bin/uv /usr/local/bin/uv
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
 # Install build dependencies
 RUN --mount=type=cache,target=/var/cache/apt \
@@ -52,10 +52,7 @@ RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 ARG TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
-ARG IPEX_EXTRA_INDEX_URL="https://pytorch-extension.intel.com/release-whl/stable/cpu/us/"
-ARG TORCH_VERSION=2.7.0
-ARG INTEL_EXTENSION_FOR_PYTORCH_VERSION=2.7.0
-ARG TORCHVISION_VERSION=0.22.0
+ARG TORCH_VERSION=2.10.0
 
 # Install kserve using UV
 COPY kserve kserve
@@ -63,6 +60,13 @@ RUN cd kserve && \
     uv sync --active --no-cache && \
     uv cache clean && \
     rm -rf ~/.cache/uv
+
+ # Copy and install dependencies for kserve-storage using uv
+COPY storage/pyproject.toml storage/uv.lock storage/
+RUN cd storage && uv sync --active --no-cache
+
+COPY storage storage
+RUN cd storage && uv pip install . --no-cache  
 
 # Install huggingfaceserver using UV
 COPY huggingfaceserver huggingfaceserver
@@ -74,12 +78,9 @@ RUN cd huggingfaceserver && \
     uv sync --active --no-cache && \
     uv cache clean && \
     rm -rf ~/.cache/uv
-RUN pip install --no-cache --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-index-url ${IPEX_EXTRA_INDEX_URL} \
-    'intel_extension_for_pytorch~='${INTEL_EXTENSION_FOR_PYTORCH_VERSION} \
-    intel-openmp
 
 # install vllm
-ARG VLLM_VERSION=0.9.0.1
+ARG VLLM_VERSION=0.15.1
 ARG VLLM_CPU_DISABLE_AVX512=true
 ENV VLLM_CPU_DISABLE_AVX512=${VLLM_CPU_DISABLE_AVX512}
 ARG VLLM_CPU_AVX512BF16=1
@@ -91,12 +92,12 @@ RUN git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-
 
 # Install vLLM build requirements
 RUN cd vllm && \
-    uv pip install --no-cache -v -r requirements/build.txt && \
+    uv pip install --no-cache -v --index-strategy unsafe-best-match --extra-index-url ${TORCH_EXTRA_INDEX_URL} -r requirements/cpu-build.txt && \
     uv cache clean
 
 # Install vLLM cpu requirements
 RUN cd vllm && \
-    uv pip install --no-cache -v --index-strategy unsafe-best-match -r requirements/cpu.txt && \
+    uv pip install --no-cache -v --index-strategy unsafe-best-match --extra-index-url ${TORCH_EXTRA_INDEX_URL} -r requirements/cpu.txt && \
     uv cache clean
 
 # Build vLLM wheel
@@ -134,6 +135,7 @@ COPY --from=builder --chown=kserve:kserve third_party third_party
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder --chown=kserve:kserve huggingfaceserver huggingfaceserver
 COPY --from=builder --chown=kserve:kserve kserve kserve
+COPY --from=builder --chown=kserve:kserve storage storage
 
 RUN df -hT
 

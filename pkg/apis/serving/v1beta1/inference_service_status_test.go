@@ -54,146 +54,15 @@ func TestInferenceServiceDuckType(t *testing.T) {
 	}
 }
 
-func TestInferenceServiceIsReady(t *testing.T) {
-	cases := []struct {
-		name          string
-		ServiceStatus knservingv1.ServiceStatus
-		routeStatus   knservingv1.RouteStatus
-		isReady       bool
-	}{{
-		name:          "empty status should not be ready",
-		ServiceStatus: knservingv1.ServiceStatus{},
-		isReady:       false,
-	}, {
-		name: "Different condition type should not be ready",
-		ServiceStatus: knservingv1.ServiceStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   "Foo",
-					Status: corev1.ConditionTrue,
-				}},
-			},
-		},
-		isReady: false,
-	}, {
-		name: "False condition status should not be ready",
-		ServiceStatus: knservingv1.ServiceStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   knservingv1.ServiceConditionReady,
-					Status: corev1.ConditionFalse,
-				}},
-			},
-		},
-		isReady: false,
-	}, {
-		name: "Unknown condition status should not be ready",
-		ServiceStatus: knservingv1.ServiceStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   knservingv1.ServiceConditionReady,
-					Status: corev1.ConditionUnknown,
-				}},
-			},
-		},
-		isReady: false,
-	}, {
-		name: "Missing condition status should not be ready",
-		ServiceStatus: knservingv1.ServiceStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type: knservingv1.ConfigurationConditionReady,
-				}},
-			},
-		},
-		isReady: false,
-	}, {
-		name: "True condition status should be ready",
-		ServiceStatus: knservingv1.ServiceStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{
-					{
-						Type:   "ConfigurationsReady",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   "RoutesReady",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   knservingv1.ServiceConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-		},
-		isReady: true,
-	}, {
-		name: "Conditions with ready status should be ready",
-		ServiceStatus: knservingv1.ServiceStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{
-					{
-						Type:   "Foo",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   "RoutesReady",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   "ConfigurationsReady",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   knservingv1.ServiceConditionReady,
-						Status: corev1.ConditionTrue,
-					},
-				},
-			},
-		},
-		isReady: true,
-	}, {
-		name: "Multiple conditions with ready status false should not be ready",
-		ServiceStatus: knservingv1.ServiceStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{
-					{
-						Type:   "Foo",
-						Status: corev1.ConditionTrue,
-					},
-					{
-						Type:   knservingv1.ConfigurationConditionReady,
-						Status: corev1.ConditionFalse,
-					},
-				},
-			},
-		},
-		isReady: false,
-	}}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			status := InferenceServiceStatus{}
-			status.PropagateStatus(PredictorComponent, &tc.ServiceStatus)
-			if e, a := tc.isReady, status.IsConditionReady(PredictorReady); e != a {
-				t.Errorf("%q expected: %v got: %v conditions: %v", tc.name, e, a, status.Conditions)
-			}
-		})
-	}
-}
-
 func TestPropagateRawStatus(t *testing.T) {
-	deployment := &appsv1.Deployment{
-		TypeMeta: metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				"deployment.kubernetes.io/revision": "1",
-			},
-		},
-		Spec: appsv1.DeploymentSpec{},
-		Status: appsv1.DeploymentStatus{
-			Conditions: []appsv1.DeploymentCondition{
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		deploymentConditions []appsv1.DeploymentCondition
+		expectedReadyStatus  bool
+	}{
+		"Available true": {
+			deploymentConditions: []appsv1.DeploymentCondition{
 				{
 					Type:    appsv1.DeploymentAvailable,
 					Status:  corev1.ConditionTrue,
@@ -204,21 +73,205 @@ func TestPropagateRawStatus(t *testing.T) {
 					},
 				},
 			},
+			expectedReadyStatus: true,
+		},
+		"Available true, Progressing succeeded": {
+			deploymentConditions: []appsv1.DeploymentCondition{
+				{
+					Type:    appsv1.DeploymentAvailable,
+					Status:  corev1.ConditionTrue,
+					Reason:  "MinimumReplicasAvailable",
+					Message: "Deployment has minimum availability.",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+				{
+					Type:    appsv1.DeploymentProgressing,
+					Status:  corev1.ConditionTrue,
+					Reason:  "NewReplicaSetAvailable",
+					Message: "ReplicaSet has successfully progressed.",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			expectedReadyStatus: true,
+		},
+		"Available true, Progressing failed": {
+			deploymentConditions: []appsv1.DeploymentCondition{
+				{
+					Type:    appsv1.DeploymentAvailable,
+					Status:  corev1.ConditionTrue,
+					Reason:  "MinimumReplicasAvailable",
+					Message: "Deployment has minimum availability.",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+				{
+					Type:    appsv1.DeploymentProgressing,
+					Status:  corev1.ConditionFalse,
+					Reason:  "",
+					Message: "ProgressDeadlineExceeded",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			expectedReadyStatus: false,
+		},
+		"Available false, Progressing failed": {
+			deploymentConditions: []appsv1.DeploymentCondition{
+				{
+					Type:    appsv1.DeploymentAvailable,
+					Status:  corev1.ConditionFalse,
+					Reason:  "MinimumReplicasUnavailable",
+					Message: "Deployment does not have minimum availability.",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+				{
+					Type:    appsv1.DeploymentProgressing,
+					Status:  corev1.ConditionFalse,
+					Reason:  "",
+					Message: "Some error happened", // Deployment is deemed failed when Progressing is false with a message
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			expectedReadyStatus: false,
+		},
+		"Available false, Progressing completed": {
+			deploymentConditions: []appsv1.DeploymentCondition{
+				{
+					Type:    appsv1.DeploymentAvailable,
+					Status:  corev1.ConditionFalse,
+					Reason:  "MinimumReplicasUnavailable",
+					Message: "Deployment does not have minimum availability.",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+				{
+					Type:    appsv1.DeploymentProgressing,
+					Status:  corev1.ConditionTrue,
+					Reason:  "NewReplicaSetAvailable",
+					Message: "",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			expectedReadyStatus: false,
+		},
+		"Available false, Progressing ongoing": {
+			deploymentConditions: []appsv1.DeploymentCondition{
+				{
+					Type:    appsv1.DeploymentAvailable,
+					Status:  corev1.ConditionFalse,
+					Reason:  "MinimumReplicasUnavailable",
+					Message: "Deployment does not have minimum availability.",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+				{
+					Type:    appsv1.DeploymentProgressing,
+					Status:  corev1.ConditionTrue,
+					Reason:  "NewReplicaSetCreated",
+					Message: "",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			expectedReadyStatus: false,
+		},
+		"Available true, ReplicaFailure true": {
+			deploymentConditions: []appsv1.DeploymentCondition{
+				{
+					Type:    appsv1.DeploymentAvailable,
+					Status:  corev1.ConditionTrue,
+					Reason:  "MinimumReplicasAvailable",
+					Message: "Deployment has minimum availability.",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+				{
+					Type:    appsv1.DeploymentReplicaFailure,
+					Status:  corev1.ConditionTrue,
+					Reason:  "replica failure",
+					Message: "replica failure",
+					LastTransitionTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
+			expectedReadyStatus: false,
 		},
 	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			deployment := &appsv1.Deployment{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"deployment.kubernetes.io/revision": "1",
+					},
+				},
+				Spec: appsv1.DeploymentSpec{},
+				Status: appsv1.DeploymentStatus{
+					Conditions: scenario.deploymentConditions,
+				},
+			}
+			status := &InferenceServiceStatus{
+				Status:      duckv1.Status{},
+				Address:     &duckv1.Addressable{},
+				URL:         &apis.URL{},
+				ModelStatus: ModelStatus{},
+			}
+			parsedUrl, _ := url.Parse("http://test-predictor-default.default.example.com")
+			url := (*apis.URL)(parsedUrl)
+			deploymentList := []*appsv1.Deployment{deployment}
+			status.PropagateRawStatus(PredictorComponent, deploymentList, url)
+			res := status.IsConditionReady(PredictorReady)
+
+			g.Expect(res).To(gomega.Equal(scenario.expectedReadyStatus))
+		})
+	}
+}
+
+// TestPropagateRawStatus_EmptyDeploymentList verifies that PropagateRawStatus does not
+// panic and still sets the condition when no deployments have been created yet.
+// This is the safety guard added as part of the Bug 1 fix: before the fix,
+// accessing deploymentList[0] on an empty slice would panic.
+func TestPropagateRawStatus_EmptyDeploymentList(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
 	status := &InferenceServiceStatus{
 		Status:      duckv1.Status{},
 		Address:     &duckv1.Addressable{},
 		URL:         &apis.URL{},
 		ModelStatus: ModelStatus{},
 	}
-	parsedUrl, _ := url.Parse("http://test-predictor-default.default.example.com")
-	url := (*apis.URL)(parsedUrl)
-	deploymentList := []*appsv1.Deployment{deployment}
-	status.PropagateRawStatus(PredictorComponent, deploymentList, url)
-	if res := status.IsConditionReady(PredictorReady); !res {
-		t.Errorf("expected: %v got: %v conditions: %v", true, res, status.Conditions)
-	}
+
+	parsedURL, _ := url.Parse("http://test-predictor-default.default.example.com")
+	serviceURL := (*apis.URL)(parsedURL)
+
+	// Must not panic on empty list.
+	g.Expect(func() {
+		status.PropagateRawStatus(PredictorComponent, []*appsv1.Deployment{}, serviceURL)
+	}).ToNot(gomega.Panic())
+
+	// The predictor condition should still be set (to False, since no deployment is available).
+	g.Expect(status.IsConditionFalse(PredictorReady)).To(gomega.BeTrue())
+	// ObservedGeneration must remain 0 — the guard must NOT access the empty slice.
+	g.Expect(status.ObservedGeneration).To(gomega.Equal(int64(0)))
 }
 
 func TestPropagateRawStatusWithMessages(t *testing.T) {
@@ -239,6 +292,59 @@ func TestPropagateRawStatusWithMessages(t *testing.T) {
 	g.Expect(status.IsConditionFalse(PredictorReady)).To(gomega.BeTrue())
 	g.Expect(status.Conditions[0].Message).To(gomega.Equal(errorMsg))
 	g.Expect(status.Conditions[0].Reason).To(gomega.Equal(reason))
+}
+
+// TestPropagateRawStatusWithMessages_AllComponents verifies that
+// PropagateRawStatusWithMessages correctly sets the component-specific ready
+// condition for each of the three component types (Predictor, Transformer,
+// Explainer). This is important because the Transformer and Explainer
+// components now call this function on reconcile failure (Standard and Knative
+// modes) just as the Predictor does.
+func TestPropagateRawStatusWithMessages_AllComponents(t *testing.T) {
+	tests := []struct {
+		name          string
+		component     ComponentType
+		wantCondition apis.ConditionType
+	}{
+		{
+			name:          "predictor component sets PredictorReady=False",
+			component:     PredictorComponent,
+			wantCondition: PredictorReady,
+		},
+		{
+			name:          "transformer component sets TransformerReady=False",
+			component:     TransformerComponent,
+			wantCondition: TransformerReady,
+		},
+		{
+			name:          "explainer component sets ExplainerReady=False",
+			component:     ExplainerComponent,
+			wantCondition: ExplainerReady,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+
+			status := &InferenceServiceStatus{
+				Status:      duckv1.Status{},
+				ModelStatus: ModelStatus{},
+			}
+
+			const reason = "ReconcileFailed"
+			const msg = "some reconcile error"
+
+			status.PropagateRawStatusWithMessages(tt.component, reason, msg, corev1.ConditionFalse)
+
+			cond := status.GetCondition(tt.wantCondition)
+			g.Expect(cond).NotTo(gomega.BeNil(),
+				"condition %s should be set", tt.wantCondition)
+			g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionFalse))
+			g.Expect(cond.Reason).To(gomega.Equal(reason))
+			g.Expect(cond.Message).To(gomega.Equal(msg))
+		})
+	}
 }
 
 func TestPropagateStatus(t *testing.T) {
@@ -1384,6 +1490,97 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 			g.Expect(scenario.isvcStatus.ModelStatus.ModelRevisionStates).To(gomega.Equal(scenario.expectedRevisionStates))
 			g.Expect(scenario.isvcStatus.ModelStatus.TransitionStatus).To(gomega.Equal(scenario.expectedTransitionStatus))
 			g.Expect(scenario.isvcStatus.ModelStatus.LastFailureInfo).To(gomega.Equal(scenario.expectedFailureInfo))
+		})
+	}
+}
+
+func TestPropagateModelStatus_ReadyPodsCountingOnly(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Test case that specifically verifies PropagateModelStatus only counts ready pods
+	// regardless of model state transitions or other conditions
+	scenarios := map[string]struct {
+		name                    string
+		initialModelState       ModelState
+		initialTransitionStatus TransitionStatus
+		podList                 *corev1.PodList
+		rawDeployment           bool
+		serviceStatus           *knservingv1.ServiceStatus
+		statusSpec              ComponentStatusSpec
+		expectedReadyCount      int
+	}{
+		"ready pods count independent of Loading state": {
+			initialModelState:       Loading,
+			initialTransitionStatus: InProgress,
+			podList: &corev1.PodList{Items: []corev1.Pod{
+				{Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}}},  // Ready
+				{Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}}},  // Ready
+				{Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionFalse}}}}, // Unready
+			}},
+			rawDeployment:      true,
+			serviceStatus:      &knservingv1.ServiceStatus{},
+			statusSpec:         ComponentStatusSpec{LatestReadyRevision: "test", LatestCreatedRevision: "test"},
+			expectedReadyCount: 2,
+		},
+		"ready pods count independent of FailedToLoad state": {
+			initialModelState:       FailedToLoad,
+			initialTransitionStatus: BlockedByFailedLoad,
+			podList: &corev1.PodList{Items: []corev1.Pod{
+				{Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}}},  // Ready
+				{Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionFalse}}}}, // Unready
+			}},
+			rawDeployment:      true,
+			serviceStatus:      &knservingv1.ServiceStatus{},
+			statusSpec:         ComponentStatusSpec{LatestReadyRevision: "test", LatestCreatedRevision: "test"},
+			expectedReadyCount: 1,
+		},
+		"ready pods count independent of Pending state": {
+			initialModelState:       Pending,
+			initialTransitionStatus: InProgress,
+			podList: &corev1.PodList{Items: []corev1.Pod{
+				{Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}}}, // Ready
+				{Status: corev1.PodStatus{Phase: corev1.PodPending, Conditions: []corev1.PodCondition{}}},                                                      // Unready (pending)
+			}},
+			rawDeployment:      true,
+			serviceStatus:      &knservingv1.ServiceStatus{},
+			statusSpec:         ComponentStatusSpec{LatestReadyRevision: "test", LatestCreatedRevision: "test"},
+			expectedReadyCount: 1,
+		},
+		"no ready pods in any state": {
+			initialModelState:       Loaded,
+			initialTransitionStatus: UpToDate,
+			podList: &corev1.PodList{Items: []corev1.Pod{
+				{Status: corev1.PodStatus{Phase: corev1.PodRunning, Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionFalse}}}}, // Unready
+				{Status: corev1.PodStatus{Phase: corev1.PodPending, Conditions: []corev1.PodCondition{}}},                                                       // Unready (pending)
+			}},
+			rawDeployment:      true,
+			serviceStatus:      &knservingv1.ServiceStatus{},
+			statusSpec:         ComponentStatusSpec{LatestReadyRevision: "test", LatestCreatedRevision: "test"},
+			expectedReadyCount: 0,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			isvcStatus := &InferenceServiceStatus{
+				ModelStatus: ModelStatus{
+					TransitionStatus: scenario.initialTransitionStatus,
+					ModelRevisionStates: &ModelRevisionStates{
+						ActiveModelState: scenario.initialModelState,
+						TargetModelState: scenario.initialModelState,
+					},
+				},
+			}
+
+			returnValue := isvcStatus.PropagateModelStatus(scenario.statusSpec, scenario.podList, scenario.rawDeployment, scenario.serviceStatus)
+
+			g.Expect(returnValue).To(gomega.BeTrue())
+			g.Expect(isvcStatus.ModelStatus.ModelCopies).ToNot(gomega.BeNil())
+			g.Expect(isvcStatus.ModelStatus.ModelCopies.TotalCopies).To(gomega.Equal(scenario.expectedReadyCount))
+
+			// Verify consistency with countReadyPods
+			directCount := countReadyPods(scenario.podList)
+			g.Expect(isvcStatus.ModelStatus.ModelCopies.TotalCopies).To(gomega.Equal(directCount))
 		})
 	}
 }

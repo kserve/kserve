@@ -45,7 +45,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 		runtime      string
 		matcher      map[string]types.GomegaMatcher
 	}{
-		"Serverless": {
+		"Knative": {
 			config: &InferenceServicesConfig{
 				Explainers: ExplainersConfig{
 					ARTExplainer: ExplainerConfig{
@@ -61,7 +61,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			deployConfig: &DeployConfig{
-				DefaultDeploymentMode: "Serverless",
+				DefaultDeploymentMode: string(constants.Knative),
 			},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -100,7 +100,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"Annotations": gomega.BeNil(),
+				"Annotations": gomega.HaveKeyWithValue(constants.ModelFormatAnnotationKey, constants.SupportedModelTensorflow),
 			},
 		},
 		"When annotations is nil in raw deployment": {
@@ -119,7 +119,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			deployConfig: &DeployConfig{
-				DefaultDeploymentMode: string(constants.RawDeployment),
+				DefaultDeploymentMode: string(constants.Standard),
 			},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -158,7 +158,10 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"Annotations": gomega.Equal(map[string]string{constants.DeploymentMode: string(constants.RawDeployment)}),
+				"Annotations": gomega.Equal(map[string]string{
+					constants.DeploymentMode:           string(constants.Standard),
+					constants.ModelFormatAnnotationKey: constants.SupportedModelTensorflow,
+				}),
 			},
 		},
 		"ONNX": {
@@ -177,7 +180,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			deployConfig: &DeployConfig{
-				DefaultDeploymentMode: "Serverless",
+				DefaultDeploymentMode: string(constants.Knative),
 			},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -216,7 +219,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"Annotations": gomega.BeNil(),
+				"Annotations": gomega.HaveKeyWithValue(constants.ModelFormatAnnotationKey, constants.SupportedModelONNX),
 			},
 		},
 		"PMML": {
@@ -235,7 +238,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			deployConfig: &DeployConfig{
-				DefaultDeploymentMode: "Serverless",
+				DefaultDeploymentMode: string(constants.Knative),
 			},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -274,7 +277,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"Annotations": gomega.BeNil(),
+				"Annotations": gomega.HaveKeyWithValue(constants.ModelFormatAnnotationKey, constants.SupportedModelPMML),
 			},
 		},
 		"Paddle": {
@@ -293,7 +296,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			deployConfig: &DeployConfig{
-				DefaultDeploymentMode: "Serverless",
+				DefaultDeploymentMode: string(constants.Knative),
 			},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -332,7 +335,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"Annotations": gomega.BeNil(),
+				"Annotations": gomega.HaveKeyWithValue(constants.ModelFormatAnnotationKey, constants.SupportedModelPaddle),
 			},
 		},
 	}
@@ -375,7 +378,7 @@ func TestCustomPredictorDefaultsConfig(t *testing.T) {
 		},
 	}
 	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
+		DefaultDeploymentMode: string(constants.Knative),
 	}
 	isvc := InferenceService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -436,7 +439,7 @@ func TestInferenceServiceDefaultsModelMeshAnnotation(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := &InferenceServicesConfig{}
 	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
+		DefaultDeploymentMode: string(constants.Knative),
 	}
 	isvc := InferenceService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -466,13 +469,14 @@ func TestRuntimeDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
+		DefaultDeploymentMode: string(constants.Knative),
 	}
 	scenarios := map[string]struct {
-		config  *InferenceServicesConfig
-		isvc    InferenceService
-		runtime string
-		matcher types.GomegaMatcher
+		config     *InferenceServicesConfig
+		isvc       InferenceService
+		runtime    string
+		serverType string
+		matcher    types.GomegaMatcher
 	}{
 		"PyTorch": {
 			config: &InferenceServicesConfig{},
@@ -491,8 +495,9 @@ func TestRuntimeDefaults(t *testing.T) {
 					},
 				},
 			},
-			runtime: constants.TorchServe,
-			matcher: gomega.Equal(constants.ProtocolV1),
+			runtime:    constants.TorchServe,
+			serverType: constants.ServerTypeTorchServe,
+			matcher:    gomega.Equal(constants.ProtocolV1),
 		},
 		"Triton": {
 			config: &InferenceServicesConfig{},
@@ -511,8 +516,9 @@ func TestRuntimeDefaults(t *testing.T) {
 					},
 				},
 			},
-			runtime: constants.TritonServer,
-			matcher: gomega.Equal(constants.ProtocolV2),
+			runtime:    constants.TritonServer,
+			serverType: constants.ServerTypeTritonServer,
+			matcher:    gomega.Equal(constants.ProtocolV2),
 		},
 		"MlServer": {
 			config: &InferenceServicesConfig{},
@@ -531,14 +537,19 @@ func TestRuntimeDefaults(t *testing.T) {
 					},
 				},
 			},
-			runtime: constants.MLServer,
-			matcher: gomega.Equal(constants.ProtocolV2),
+			runtime:    constants.MLServer,
+			serverType: constants.ServerTypeMLServer,
+			matcher:    gomega.Equal(constants.ProtocolV2),
 		},
 	}
 	for name, scenario := range scenarios {
 		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil, nil)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &scenario.runtime
-		scenario.isvc.SetRuntimeDefaults()
+		// Create mock runtime annotations with serverType
+		runtimeAnnotations := map[string]string{
+			constants.ServerTypeAnnotationKey: scenario.serverType,
+		}
+		scenario.isvc.SetRuntimeDefaults(runtimeAnnotations)
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
 		switch name {
 		case "PyTorch":
@@ -558,7 +569,7 @@ func TestTorchServeDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
+		DefaultDeploymentMode: string(constants.Knative),
 	}
 	protocolVersion := constants.ProtocolV2
 	scenarios := map[string]struct {
@@ -624,7 +635,7 @@ func TestSetTritonDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
+		DefaultDeploymentMode: string(constants.Knative),
 	}
 	scenarios := map[string]struct {
 		config  *InferenceServicesConfig
@@ -683,7 +694,7 @@ func TestMlServerDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
+		DefaultDeploymentMode: string(constants.Knative),
 	}
 	scenarios := map[string]struct {
 		config  *InferenceServicesConfig
@@ -732,11 +743,7 @@ func TestMlServerDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"env": gomega.ContainElements(
-					corev1.EnvVar{
-						Name:  constants.MLServerModelNameEnv,
-						Value: "foo",
-					},
+				"env": gomega.ContainElement(
 					corev1.EnvVar{
 						Name:  constants.MLServerModelURIEnv,
 						Value: constants.DefaultModelLocalMountPath,
@@ -763,11 +770,7 @@ func TestMlServerDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"env": gomega.ContainElements(
-					corev1.EnvVar{
-						Name:  constants.MLServerModelNameEnv,
-						Value: "foo",
-					},
+				"env": gomega.ContainElement(
 					corev1.EnvVar{
 						Name:  constants.MLServerModelURIEnv,
 						Value: constants.DefaultModelLocalMountPath,
@@ -797,17 +800,13 @@ func TestMlServerDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"env": gomega.ContainElements(
-					corev1.EnvVar{
-						Name:  constants.MLServerModelNameEnv,
-						Value: "foo",
-					},
+				"env": gomega.ContainElement(
 					corev1.EnvVar{
 						Name:  constants.MLServerModelURIEnv,
 						Value: constants.DefaultModelLocalMountPath,
 					}),
 				"protocolVersion": gomega.Equal(constants.ProtocolV2),
-				"labels":          gomega.HaveKeyWithValue("Purpose", "Testing"),
+				"labels":          gomega.And(gomega.HaveKeyWithValue("Purpose", "Testing"), gomega.HaveKeyWithValue(constants.ModelClassLabel, constants.MLServerModelClassLightGBM)),
 			},
 		},
 	}
@@ -819,7 +818,9 @@ func TestMlServerDefaults(t *testing.T) {
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
 		g.Expect(scenario.isvc.Spec.Predictor.Model.Env).To(scenario.matcher["env"])
 		g.Expect(*scenario.isvc.Spec.Predictor.Model.ProtocolVersion).To(scenario.matcher["protocolVersion"])
-		g.Expect(scenario.isvc.ObjectMeta.Labels).To(scenario.matcher["labels"])
+		if labelsMatcher, ok := scenario.matcher["labels"]; ok {
+			g.Expect(scenario.isvc.ObjectMeta.Labels).To(labelsMatcher)
+		}
 	}
 }
 
@@ -827,7 +828,7 @@ func TestLocalModelAnnotation(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
+		DefaultDeploymentMode: string(constants.Knative),
 	}
 	protocolVersion := constants.ProtocolV2
 	gpu1, gpu2 := "gpu1", "gpu2"
@@ -989,7 +990,7 @@ func TestLocalModelAnnotationWithTensorflow(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
+		DefaultDeploymentMode: string(constants.Knative),
 	}
 	gpu1, gpu2 := "gpu1", "gpu2"
 	model1 := &v1alpha1.LocalModelCache{
@@ -1152,7 +1153,7 @@ func TestDisableAutomountServiceAccountToken(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
+		DefaultDeploymentMode: string(constants.Knative),
 	}
 	securityConfig := &SecurityConfig{
 		AutoMountServiceAccountToken: false,
@@ -1360,16 +1361,16 @@ func TestDefault(t *testing.T) {
 				},
 			},
 			mutateFunc: func(isvc *InferenceService) *InferenceService {
-				// Simulate a DeployConfig with RawDeployment as default
+				// Simulate a DeployConfig with Standard as default
 				deployConfig := &DeployConfig{
-					DefaultDeploymentMode: string(constants.RawDeployment),
+					DefaultDeploymentMode: string(constants.Standard),
 				}
 				isvc.DefaultInferenceService(nil, deployConfig, nil, nil)
 				return isvc
 			},
 			verify: func(g *gomega.WithT, isvc *InferenceService) {
 				g.Expect(isvc.ObjectMeta.Annotations).NotTo(gomega.BeNil())
-				g.Expect(isvc.ObjectMeta.Annotations[constants.DeploymentMode]).To(gomega.Equal(string(constants.RawDeployment)))
+				g.Expect(isvc.ObjectMeta.Annotations[constants.DeploymentMode]).To(gomega.Equal(string(constants.Standard)))
 
 				// Should still convert ONNX to Model
 				g.Expect(isvc.Spec.Predictor.ONNX).To(gomega.BeNil())
@@ -1388,7 +1389,7 @@ func TestDefault(t *testing.T) {
 				isvc = scenario.mutateFunc(isvc)
 			} else {
 				// Otherwise apply default settings
-				isvc.DefaultInferenceService(nil, &DeployConfig{DefaultDeploymentMode: "Serverless"}, nil, nil)
+				isvc.DefaultInferenceService(nil, &DeployConfig{DefaultDeploymentMode: string(constants.Knative)}, nil, nil)
 			}
 
 			// Verify the results
@@ -1499,7 +1500,7 @@ func TestLocalModelLabelAssignment(t *testing.T) {
 			isvc := scenario.isvc.DeepCopy()
 
 			// Apply defaults first (converts to Model)
-			isvc.DefaultInferenceService(nil, &DeployConfig{DefaultDeploymentMode: "Serverless"}, nil, nil)
+			isvc.DefaultInferenceService(nil, &DeployConfig{DefaultDeploymentMode: string(constants.Knative)}, nil, nil)
 
 			// Set local model label
 			isvc.setLocalModelLabel(localModels)
@@ -1529,7 +1530,7 @@ func TestAssignHuggingFaceRuntime(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
+		DefaultDeploymentMode: string(constants.Knative),
 	}
 
 	scenarios := map[string]struct {
@@ -1671,4 +1672,55 @@ func TestDefaultInferenceServiceWithLocalModel(t *testing.T) {
 	g.Expect(isvc.ObjectMeta.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "local-model"))
 	g.Expect(isvc.ObjectMeta.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelSourceUriAnnotationKey, "gs://testbucket/testmodel"))
 	g.Expect(isvc.ObjectMeta.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "local-model-node-group-1"))
+}
+
+func TestDefaultInferenceServiceNormalizesLegacyDeploymentMode(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: string(constants.Knative),
+	}
+
+	// Test RawDeployment -> Standard normalization
+	isvcRaw := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-raw",
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.DeploymentMode: string(constants.LegacyRawDeployment),
+			},
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://testbucket/testmodel"),
+					},
+				},
+			},
+		},
+	}
+	isvcRaw.DefaultInferenceService(nil, deployConfig, nil, nil)
+	g.Expect(isvcRaw.Annotations[constants.DeploymentMode]).To(gomega.Equal(string(constants.Standard)))
+
+	// Test Serverless -> Knative normalization
+	isvcServerless := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-serverless",
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.DeploymentMode: string(constants.LegacyServerless),
+			},
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://testbucket/testmodel"),
+					},
+				},
+			},
+		},
+	}
+	isvcServerless.DefaultInferenceService(nil, deployConfig, nil, nil)
+	g.Expect(isvcServerless.Annotations[constants.DeploymentMode]).To(gomega.Equal(string(constants.Knative)))
 }

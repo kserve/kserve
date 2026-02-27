@@ -7,6 +7,7 @@ Name | Type | Description | Notes
 **condition** | **str** | routing based on the condition | [optional] 
 **data** | **str** | request data sent to the next route with input/output from the previous step $request $response.predictions | [optional] 
 **dependency** | **str** | to decide whether a step is a hard or a soft dependency in the Inference Graph | [optional] 
+**map_predictions_to_instances** | **bool** | If true, maps the &#39;predictions&#39; field from the previous step&#39;s response to the &#39;instances&#39; field of this step&#39;s request. Useful in sequential inference graphs where one step&#39;s output becomes the input for the next. | [optional] 
 **name** | **str** | Unique name for the step within this node | [optional] 
 **node_name** | **str** | The node name for routing as next step | [optional] 
 **service_name** | **str** | named reference for InferenceService | [optional] 

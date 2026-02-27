@@ -20,8 +20,10 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-echo "Installing uv..."
-pip install uv
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2>/dev/null)"
+source "${SCRIPT_DIR}/../../../hack/setup/common.sh"
+
+${REPO_ROOT}/hack/setup/cli/install-uv.sh
 
 echo "Creating virtual environment..."
 uv venv

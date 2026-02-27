@@ -23,91 +23,106 @@ set -o nounset
 set -o pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2>/dev/null)"
-DEPLOYMENT_MODE="${1:-'serverless'}"
-NETWORK_LAYER="${2:-'istio'}"
-ENABLE_KEDA="${3:-'false'}"
+source "${SCRIPT_DIR}/../../../hack/setup/common.sh"
+REPO_ROOT="$(find_repo_root "${SCRIPT_DIR}")"
 
-ISTIO_VERSION="1.23.2"
-CERT_MANAGER_VERSION="v1.16.1"
-YQ_VERSION="v4.28.1"
-GATEWAY_API_VERSION="v1.2.1"
-ENVOY_GATEWAY_VERSION="v1.2.2"
+source "${REPO_ROOT}/kserve-deps.env"
 
-echo "Installing yq ..."
-wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
+DEPLOYMENT_MODE="${1:-serverless}"
+NETWORK_LAYER="${2:-istio}"
+ENABLE_KEDA="${3:-false}"
+LLMISVC="${4:-false}"
 
-if [[ $NETWORK_LAYER == "istio-gatewayapi" || $NETWORK_LAYER == "envoy-gatewayapi" ]]; then
-  echo "Installing Gateway CRDs ..."
-  kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
+# Parse network layer configuration
+USES_GATEWAY_API=false
+USES_ISTIO=false
+USES_ENVOY=false
+USES_ISTIO_INGRESS=false
+
+case "$NETWORK_LAYER" in
+  istio-gatewayapi)
+    USES_GATEWAY_API=true
+    USES_ISTIO=true
+    ;;
+  envoy-gatewayapi)
+    USES_GATEWAY_API=true
+    USES_ENVOY=true
+    ;;
+  istio-ingress)
+    USES_ISTIO=true
+    USES_ISTIO_INGRESS=true
+    ;;
+  istio)
+    USES_ISTIO=true
+    ;;
+esac
+
+${REPO_ROOT}/hack/setup/cli/install-yq.sh
+${REPO_ROOT}/hack/setup/cli/install-helm.sh
+${REPO_ROOT}/hack/setup/infra/manage.cert-manager-helm.sh
+
+if [[ $LLMISVC == "false" ]]; then
+  # Install Gateway API CRDs if needed
+  if [[ $USES_GATEWAY_API == true ]]; then
+    ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-crd.sh
+  fi
+
+  # Install Istio with minimal resources for CI/test environment
+  if [[ $USES_ISTIO == true ]]; then
+    export ISTIOD_EXTRA_ARGS="--set resources.requests.cpu=5m --set resources.requests.memory=32Mi --set meshConfig.accessLogFile=/dev/stdout"
+    export ISTIO_GATEWAY_EXTRA_ARGS="--set resources.requests.cpu=5m --set resources.requests.memory=32Mi --set resources.limits.cpu=100m --set resources.limits.memory=128Mi"
+    ${REPO_ROOT}/hack/setup/infra/manage.istio-helm.sh
+  fi
+
+  # Install Envoy Gateway
+  if [[ $USES_ENVOY == true ]]; then
+    export GATEWAY_NETWORK_LAYER="${NETWORK_LAYER%%-*}"
+    ${REPO_ROOT}/hack/setup/infra/manage.envoy-gateway-helm.sh
+    ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-gwclass.sh
+  fi
+
+  # Install Istio IngressClass
+  if [[ $USES_ISTIO_INGRESS == true ]]; then
+    ${REPO_ROOT}/hack/setup/infra/manage.istio-ingress-class.sh
+  fi
+
+  # Install KServe Gateway for Gateway API or LLM use cases
+  if [[ $USES_GATEWAY_API == true ]]; then
+    export GATEWAYCLASS_NAME="${NETWORK_LAYER%%-*}"
+    ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-gw.sh
+  fi
+
+  shopt -s nocasematch
+  if [[ $DEPLOYMENT_MODE == "serverless" ]] || [[ $DEPLOYMENT_MODE == "Knative" ]]; then
+    # Serverless mode - Install Knative Operator and Serving (Istio network layer)
+    echo "Installing Knative Operator and Serving...(NETWORK_LAYER: ${NETWORK_LAYER})"  
+    NETWORK_LAYER="${NETWORK_LAYER}" ${REPO_ROOT}/hack/setup/infra/knative/manage.knative-operator-helm.sh
+  fi
+else
+  ${REPO_ROOT}/hack/setup/quick-install/llmisvc-dependency-install.sh  
+  
+  # reduce lws operator resources
+  kubectl scale deployment lws-controller-manager -n lws-system --replicas=1
+  kubectl patch deployment lws-controller-manager -n lws-system --type=json -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/resources", "value": {"requests": {"cpu": "20m", "memory": "64Mi"}, "limits": {"cpu": "100m", "memory": "256Mi"}}}]'
+  kubectl wait deployment lws-controller-manager -n lws-system --for condition=Available --timeout=300s
+  
 fi
 
-if [[ $NETWORK_LAYER == "istio-ingress" || $NETWORK_LAYER == "istio-gatewayapi" || $NETWORK_LAYER == "istio" ]]; then
-  echo "Installing Istio ..."
-  mkdir istio_tmp
-  pushd istio_tmp >/dev/null
-  curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${ISTIO_VERSION} sh -
-  cd istio-${ISTIO_VERSION}
-  export PATH=$PWD/bin:$PATH
-  istioctl manifest generate --set meshConfig.accessLogFile=/dev/stdout >${SCRIPT_DIR}/../../overlays/istio/generated-manifest.yaml
-  popd
-  kubectl create ns istio-system
-  for i in {1..3}; do kubectl apply -k test/overlays/istio && break || sleep 15; done
-
-  echo "Waiting for Istio to be ready ..."
-  kubectl wait --for=condition=Ready pods --all --timeout=240s -n istio-system
-elif [[ $NETWORK_LAYER == "envoy-gatewayapi" ]]; then
-  echo "Installing Envoy Gateway ..."
-  helm install eg oci://docker.io/envoyproxy/gateway-helm --version ${ENVOY_GATEWAY_VERSION} -n envoy-gateway-system --create-namespace --wait
-  kubectl wait --timeout=5m -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available
-
-  echo "Creating envoy GatewayClass ..."
-  cat <<EOF | kubectl apply -f -
-  apiVersion: gateway.networking.k8s.io/v1
-  kind: GatewayClass
-  metadata:
-    name: envoy
-  spec:
-    controllerName: gateway.envoyproxy.io/gatewayclass-controller  
-EOF
-fi
-
-if [[ $NETWORK_LAYER == "istio-ingress" ]]; then
-  echo "Creating istio ingress class"
-  cat <<EOF | kubectl apply -f -
-  apiVersion: networking.k8s.io/v1
-  kind: IngressClass
-  metadata:
-    name: istio
-  spec:
-    controller: istio.io/ingress-controller
-EOF
-fi
-
-shopt -s nocasematch
-if [[ $DEPLOYMENT_MODE == "serverless" ]]; then
-  # Serverless mode
-  source ./test/scripts/gh-actions/install-knative-operator.sh
-  echo "Installing Knative serving ..."
-  kubectl apply -f ./test/overlays/knative/knative-serving-istio.yaml
-  echo "Waiting for Knative to be ready ..."
-  kubectl wait --for=condition=Ready -n knative-serving KnativeServing knative-serving --timeout=300s
-  # echo "Add knative hpa..."
-  # kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-hpa.yaml
-fi
 shopt -u nocasematch
 
 if [[ $DEPLOYMENT_MODE == "raw" ]]; then
   if [[ $ENABLE_KEDA == "true" ]]; then
-    echo "Installing KEDA ..."
-    kubectl apply -f ./test/overlays/keda/keda.yaml
-    kubectl apply -f ./test/overlays/opentelemetry/opentelemetry-operator.yaml
+    echo "KEDA and OpenTelemetry will be installed via Helm later in the script..."
+    echo "Installing KEDA and OpenTelemetry components..."
+
+    # Install KEDA
+    ${REPO_ROOT}/hack/setup/infra/manage.keda-helm.sh
+
+    # Install OpenTelemetry Operator with specific collector image
+    ${REPO_ROOT}/hack/setup/infra/manage.opentelemetry-helm.sh
+
+    # Install KEDA OTel add-on with validating admission policy disabled
+    export KEDA_OTEL_ADDON_EXTRA_ARGS="--set validatingAdmissionPolicy.enabled=false"
+    ${REPO_ROOT}/hack/setup/infra/manage.keda-otel-addon-helm.sh
   fi
 fi
-
-echo "Installing cert-manager ..."
-kubectl create namespace cert-manager
-sleep 2
-kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml
-
-echo "Waiting for cert-manager to be ready ..."
-kubectl wait --for=condition=ready pod -l 'app in (cert-manager,webhook)' --timeout=180s -n cert-manager

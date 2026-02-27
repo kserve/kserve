@@ -1,0 +1,13 @@
+DESCRIPTION: Install KServe Knative Mode and all related dependencies using helm.
+RELEASE: true
+
+TOOLS:
+  - helm
+  - kustomize
+  - yq
+  
+INCLUDE_DEFINITIONS:
+  - ./kserve-knative-mode-dependency-install.definition
+    
+COMPONENTS:
+  - name: kserve-helm

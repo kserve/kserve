@@ -113,6 +113,11 @@ type ServingRuntimePodSpec struct {
 	// +optional
 	HostIPC bool `json:"hostIPC,omitempty" protobuf:"varint,13,opt,name=hostIPC"`
 
+	// If specified, the pod will be dispatched by specified scheduler.
+	// If not specified, the pod will be dispatched by default scheduler.
+	// +optional
+	SchedulerName string `json:"schedulerName,omitempty"`
+
 	// Possibly other things here
 }
 

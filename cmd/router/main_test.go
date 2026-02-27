@@ -50,10 +50,18 @@ func Int64Ptr(i int64) *int64 {
 func TestSimpleModelChainer(t *testing.T) {
 	// Start a local HTTP server
 	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		_, err := io.ReadAll(req.Body)
+		var request map[string]interface{}
+		raw_request, err := io.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
+		err = json.Unmarshal(raw_request, &request)
+		if err != nil {
+			return
+		}
+		_, ok := request["instances"]
+		assert.True(t, ok)
+
 		response := map[string]interface{}{"predictions": "1"}
 		responseBytes, err := json.Marshal(response)
 		if err != nil {
@@ -70,10 +78,18 @@ func TestSimpleModelChainer(t *testing.T) {
 	}
 	defer model1.Close()
 	model2 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		_, err := io.ReadAll(req.Body)
+		var request map[string]interface{}
+		raw_request, err := io.ReadAll(req.Body)
 		if err != nil {
 			return
 		}
+		err = json.Unmarshal(raw_request, &request)
+		if err != nil {
+			return
+		}
+		_, ok := request["predictions"]
+		assert.True(t, ok)
+
 		response := map[string]interface{}{"predictions": "2"}
 		responseBytes, err := json.Marshal(response)
 		if err != nil {
@@ -100,6 +116,7 @@ func TestSimpleModelChainer(t *testing.T) {
 						InferenceTarget: v1alpha1.InferenceTarget{
 							ServiceURL: model1Url.String(),
 						},
+						MapPredictionsToInstances: true,
 					},
 					{
 						StepName: "model2",
@@ -113,7 +130,7 @@ func TestSimpleModelChainer(t *testing.T) {
 		},
 	}
 	input := map[string]interface{}{
-		"instances": []string{
+		"predictions": []string{
 			"test",
 			"test2",
 		},
@@ -933,7 +950,7 @@ func TestServerTimeout(t *testing.T) {
 				time.Sleep(testCase.serviceStepDuration)
 				response := map[string]interface{}{"predictions": "1"}
 				responseBytes, _ := json.Marshal(response)
-				rw.Write(responseBytes)
+				_, _ = rw.Write(responseBytes)
 			}))
 			model1Url, err := apis.ParseURL(model1.URL)
 			if err != nil {
@@ -949,7 +966,7 @@ func TestServerTimeout(t *testing.T) {
 				time.Sleep(testCase.serviceStepDuration)
 				response := map[string]interface{}{"predictions": "2"}
 				responseBytes, _ := json.Marshal(response)
-				rw.Write(responseBytes)
+				_, _ = rw.Write(responseBytes)
 			}))
 			model2Url, err := apis.ParseURL(model2.URL)
 			if err != nil {
@@ -998,6 +1015,7 @@ func TestServerTimeout(t *testing.T) {
 			t.Cleanup(func() {
 				http.DefaultServeMux = http.NewServeMux() // reset http handlers
 				signalChan <- syscall.SIGTERM             // shutdown the server
+				time.Sleep(100 * time.Millisecond)        // wait for server to release port before next subtest
 			})
 
 			// Call the InferenceGraph

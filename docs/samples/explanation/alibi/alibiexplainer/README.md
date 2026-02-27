@@ -34,7 +34,7 @@ Install the development dependencies with:
 make dev_install
 ```
 
-The following indicates a successful install.
+The following indicates a successful install:
 
 ```
       Successfully installed alibiexplainer

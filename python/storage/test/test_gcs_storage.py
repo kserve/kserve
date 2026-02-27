@@ -133,7 +133,11 @@ def test_gcs_model_unpack_archive_file(
 
     mock_dir = create_mock_dir("bar/")
     mock_file = create_mock_dir_with_file("bar", "mock.zip")
-    MockZipFile.return_value = mock_file
+
+    # Properly set up the mock zipfile context manager
+    mock_zipfile = mock.MagicMock()
+    MockZipFile.return_value = mock_zipfile
+    mock_zipfile.__enter__.return_value = mock_zipfile
 
     mock_bucket = mock.MagicMock()
     mock_bucket.list_blobs().__iter__.return_value = [
@@ -146,9 +150,89 @@ def test_gcs_model_unpack_archive_file(
 
     download_arg_list = get_call_args(mock_file.download_to_filename.call_args_list)
 
-    extract_arg_list = get_call_args(mock_file.extractall.call_args_list)
-
+    # Check that extractall was called on the zipfile mock
+    assert len(download_arg_list) > 0, "download_to_filename was never called"
     assert "/mock.zip" in download_arg_list[0][0]
-    assert output_dir == extract_arg_list[0][0]
-    assert mock_file.close.called
+    assert mock_zipfile.extractall.called
+    assert output_dir == mock_zipfile.extractall.call_args[0][0]
     assert mock_remove.called
+
+
+@mock.patch("google.cloud.storage.Client")
+def test_gcs_allow_patterns(mock_client):
+    gcs_path = "gs://foo/bar"
+
+    mock_dir = create_mock_dir("bar/")
+    mock_safetensors = create_mock_dir_with_file("bar", "weights.safetensors")
+    mock_bin = create_mock_dir_with_file("bar", "weights.bin")
+    mock_json = create_mock_dir_with_file("bar", "config.json")
+
+    mock_bucket = mock.MagicMock()
+    mock_bucket.list_blobs().__iter__.return_value = [
+        mock_dir,
+        mock_safetensors,
+        mock_bin,
+        mock_json,
+    ]
+    mock_client.return_value.bucket.return_value = mock_bucket
+
+    Storage._download_gcs(
+        gcs_path, "/tmp/dest", allow_patterns=["*.safetensors", "*.json"]
+    )
+
+    # safetensors and json should be downloaded, bin should not
+    assert mock_safetensors.download_to_filename.called
+    assert mock_json.download_to_filename.called
+    assert not mock_bin.download_to_filename.called
+
+
+@mock.patch("google.cloud.storage.Client")
+def test_gcs_ignore_patterns(mock_client):
+    gcs_path = "gs://foo/bar"
+
+    mock_dir = create_mock_dir("bar/")
+    mock_safetensors = create_mock_dir_with_file("bar", "weights.safetensors")
+    mock_bin = create_mock_dir_with_file("bar", "weights.bin")
+    mock_json = create_mock_dir_with_file("bar", "config.json")
+
+    mock_bucket = mock.MagicMock()
+    mock_bucket.list_blobs().__iter__.return_value = [
+        mock_dir,
+        mock_safetensors,
+        mock_bin,
+        mock_json,
+    ]
+    mock_client.return_value.bucket.return_value = mock_bucket
+
+    Storage._download_gcs(gcs_path, "/tmp/dest", ignore_patterns=["*.bin"])
+
+    # bin should not be downloaded, others should
+    assert mock_safetensors.download_to_filename.called
+    assert mock_json.download_to_filename.called
+    assert not mock_bin.download_to_filename.called
+
+
+@mock.patch("google.cloud.storage.Client")
+def test_gcs_no_patterns_downloads_all(mock_client):
+    gcs_path = "gs://foo/bar"
+
+    mock_dir = create_mock_dir("bar/")
+    mock_safetensors = create_mock_dir_with_file("bar", "weights.safetensors")
+    mock_bin = create_mock_dir_with_file("bar", "weights.bin")
+    mock_json = create_mock_dir_with_file("bar", "config.json")
+
+    mock_bucket = mock.MagicMock()
+    mock_bucket.list_blobs().__iter__.return_value = [
+        mock_dir,
+        mock_safetensors,
+        mock_bin,
+        mock_json,
+    ]
+    mock_client.return_value.bucket.return_value = mock_bucket
+
+    Storage._download_gcs(gcs_path, "/tmp/dest")
+
+    # all files should be downloaded
+    assert mock_safetensors.download_to_filename.called
+    assert mock_bin.download_to_filename.called
+    assert mock_json.download_to_filename.called

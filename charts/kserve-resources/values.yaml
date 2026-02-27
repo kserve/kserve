@@ -1,8 +1,15 @@
 kserve:
-  version: &defaultVersion v0.15.2
+  version: &defaultVersion v0.16.0
   agent:
     image: kserve/agent
     tag: *defaultVersion
+    resources:
+      requests:
+        memory: 100Mi
+        cpu: 100m
+      limits:
+        memory: 1Gi
+        cpu: "1"
   router:
     image: kserve/router
     tag: *defaultVersion
@@ -33,6 +40,9 @@ kserve:
 
     # -- Flag for enabling model sidecar feature.
     enableModelcar: true
+
+    # -- Model sidecar UID.
+    uidModelcar: 1010
 
     # -- Model sidecar cpu requirement.
     cpuModelcar: 10m
@@ -78,7 +88,11 @@ kserve:
       # -- Whether to use anonymous credentials to download the model or not, default to false.
       useAnonymousCredential: ""
 
-      # -- The path to the certificate bundle to use for HTTPS certificate validation.
+      # -- Mounted CA bundle config map name.
+      CABundleConfigMap: ""
+
+      # -- When used with a configured CA bundle config map, specifies the full path (mount path + file name) for the mounted config map data.
+      # When used absent of a configured CA bundle config map, specifies the path to a certificate bundle to use for HTTPS certificate validation.
       CABundle: ""
 
   metricsaggregator:
@@ -91,8 +105,8 @@ kserve:
     # the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port.
     enablePrometheusScraping: "false"
   controller:
-    # -- KServe deployment mode: "Serverless", "RawDeployment".
-    deploymentMode: "Serverless"
+    # -- KServe deployment mode: "Standard", "Knative".
+    deploymentMode: "Knative"
 
     # -- KServe controller manager rbac proxy contrainer image
     rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.18.0
@@ -164,6 +178,9 @@ kserve:
 
       # -- Ingress domain template for RawDeployment mode, for Serverless mode it is configured in Knative.
       domainTemplate: "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
+
+      # -- pathTemplate specifies the template for generating path based url for each inference service. If the value is an empty string, then path based routing will be disabled.
+      pathTemplate: ""
 
       # -- HTTP endpoint url scheme.
       urlScheme: http
@@ -282,6 +299,7 @@ kserve:
       image: tensorflow/serving
       tag: 2.6.2
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         runAsUser: 1000 # User is not defined in the Dockerfile, so we need to set it here to run as non-root
         allowPrivilegeEscalation: false
@@ -296,6 +314,7 @@ kserve:
       tag: 1.7.1
       modelClassPlaceholder: "{{.Labels.modelClass}}"
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
@@ -308,6 +327,7 @@ kserve:
       image: kserve/sklearnserver
       tag: *defaultVersion
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
@@ -320,6 +340,7 @@ kserve:
       image: kserve/xgbserver
       tag: *defaultVersion
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
@@ -332,6 +353,7 @@ kserve:
       image: kserve/huggingfaceserver
       tag: *defaultVersion
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
@@ -363,6 +385,7 @@ kserve:
       image: nvcr.io/nvidia/tritonserver
       tag: 23.05-py3
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         runAsUser: 1000 # https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/customization_guide/deploy.html#run-as-a-non-root-user
         allowPrivilegeEscalation: false
@@ -376,6 +399,7 @@ kserve:
       image: kserve/pmmlserver
       tag: *defaultVersion
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
@@ -388,6 +412,7 @@ kserve:
       image: kserve/paddleserver
       tag: *defaultVersion
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
@@ -400,6 +425,7 @@ kserve:
       image: kserve/lgbserver
       tag: *defaultVersion
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
@@ -413,6 +439,7 @@ kserve:
       tag: 0.9.0
       serviceEnvelopePlaceholder: "{{.Labels.serviceEnvelope}}"
       imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
       securityContext:
         runAsUser: 1000 # User ID is not defined in the Dockerfile, so we need to set it here to run as non-root
         allowPrivilegeEscalation: false
@@ -456,3 +483,15 @@ kserve:
       requests:
         cpu: "1"
         memory: "2Gi"
+  opentelemetryCollector:
+    scrapeInterval: "5s"
+    metricReceiverEndpoint: "keda-otel-scaler.keda.svc:4317"
+    metricScalerEndpoint: "keda-otel-scaler.keda.svc:4318"
+    resource:
+      cpuLimit: "1"
+      memoryLimit: "2Gi"
+      cpuRequest: "200m"
+      memoryRequest: "512Mi"
+  autoscaler:
+    scaleUpStabilizationWindowSeconds: "0"
+    scaleDownStabilizationWindowSeconds: "300"

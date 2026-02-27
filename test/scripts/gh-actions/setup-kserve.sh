@@ -21,49 +21,49 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-DEPLOYMENT_MODE="${1:-'serverless'}"
-NETWORK_LAYER="${2:-'istio'}"
 
-make deploy-ci
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2>/dev/null)"
+source "${SCRIPT_DIR}/../../../hack/setup/common.sh"
 
-shopt -s nocasematch
-if [[ $DEPLOYMENT_MODE == "raw" ]];then
-  echo "Patching default deployment mode to raw deployment"
-  kubectl patch cm -n kserve inferenceservice-config --patch='{"data": {"deploy": "{\"defaultDeploymentMode\": \"RawDeployment\"}"}}'
+export DEPLOYMENT_MODE="${1:-'Knative'}"
+export NETWORK_LAYER="${2:-'istio'}"
+export GATEWAY_NETWORK_LAYER="false"
+export LLMISVC="${LLMISVC:-'false'}"
 
-  if [[ $NETWORK_LAYER == "envoy-gatewayapi" ]]; then
-    echo "Creating Envoy Gateway ..."
-    kubectl apply -f config/overlays/test/gateway/ingress_gateway.yaml
-    sleep 10
-    echo "Waiting for envoy gateway to be ready ..."
-    kubectl wait --timeout=5m -n envoy-gateway-system pod -l serving.kserve.io/gateway=kserve-ingress-gateway --for=condition=Ready
-  elif [[ $NETWORK_LAYER == "istio-gatewayapi" ]]; then
-    echo "Creating Istio Gateway ..."
-    # Replace gatewayclass name
-    sed -i 's/envoy/istio/g' config/overlays/test/gateway/ingress_gateway.yaml
-    kubectl apply -f config/overlays/test/gateway/ingress_gateway.yaml
-    sleep 10
-    echo "Waiting for istio gateway to be ready ..."
-    kubectl wait --timeout=5m -n kserve pod -l serving.kserve.io/gateway=kserve-ingress-gateway --for=condition=Ready
-  fi
+# Extract gateway class name from NETWORK_LAYER (e.g., "envoy-gatewayapi" -> "envoy")
+# If NETWORK_LAYER contains "-", extract the first part; otherwise, use "false"
+if [[ $NETWORK_LAYER == *"-gatewayapi"* ]]; then
+  export GATEWAY_NETWORK_LAYER="${NETWORK_LAYER%%-*}"
 fi
-shopt -u nocasematch
 
-echo "Waiting for KServe started ..."
-kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
-kubectl get events -A
-
-echo "Add testing models to minio storage ..."
-kubectl apply -f config/overlays/test/minio/minio-init-job.yaml -n kserve
-kubectl wait --for=condition=complete --timeout=90s job/minio-init -n kserve
+echo "Installing KServe using Kustomize..."
 
 echo "Creating a namespace kserve-ci-test ..."
 kubectl create namespace kserve-ci-e2e-test
-
-echo "Add storageSpec testing secrets ..."
-kubectl apply -f config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test
 
 echo "Installing KServe Python SDK ..."
 pushd python/kserve >/dev/null
     uv sync --active --group test
 popd
+
+
+if [[ $LLMISVC == "false" ]]; then  
+  KSERVE_OVERLAY_DIR=test INSTALL_RUNTIMES=false ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh 
+
+  echo "Installing KServe Runtimes..."
+  kubectl apply --server-side=true -k config/overlays/test/clusterresources
+
+  kubectl get events -A
+
+  echo "Add testing models to s3 storage ..."
+  kubectl apply -f config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml -n kserve
+  kubectl wait --for=condition=complete --timeout=90s job/s3-init -n kserve
+
+  echo "Add storageSpec testing secrets ..."
+  kubectl apply -f config/overlays/test/s3-local-backend/storage-config-secret.yaml -n kserve-ci-e2e-test
+else
+  KSERVE_OVERLAY_DIR=test-llmisvc ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh
+fi
+
+echo "Show inferenceservice-config configmap..."
+kubectl get configmap inferenceservice-config -n kserve

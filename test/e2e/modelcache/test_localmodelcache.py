@@ -117,9 +117,15 @@ async def test_vllm_modelcache():
                 "--dtype",
                 "bfloat16",
             ],
+            env=[
+                client.V1EnvVar(
+                    name="VLLM_CPU_KVCACHE_SPACE",
+                    value="1",
+                ),
+            ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "6Gi"},
-                limits={"cpu": "2", "memory": "6Gi"},
+                requests={"cpu": "2", "memory": "7Gi"},
+                limits={"cpu": "2", "memory": "7Gi"},
             ),
             storage_uri=storage_uri,
         ),

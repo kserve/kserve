@@ -72,10 +72,10 @@ func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) 
 	// Reconcile differences and update
 	// knative mutator defaults the enableServiceLinks to false which would generate a diff despite no changes on desired knative service
 	// https://github.com/knative/serving/blob/main/pkg/apis/serving/v1/revision_defaults.go#L134
-	if desired.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks == nil &&
-		existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks != nil &&
-		!*existing.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks {
-		desired.Spec.ConfigurationSpec.Template.Spec.EnableServiceLinks = proto.Bool(false)
+	if desired.Spec.Template.Spec.EnableServiceLinks == nil &&
+		existing.Spec.Template.Spec.EnableServiceLinks != nil &&
+		!*existing.Spec.Template.Spec.EnableServiceLinks {
+		desired.Spec.Template.Spec.EnableServiceLinks = proto.Bool(false)
 	}
 	diff, err := kmp.SafeDiff(desired.Spec.ConfigurationSpec, existing.Spec.ConfigurationSpec)
 	if err != nil {
@@ -83,7 +83,7 @@ func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) 
 	}
 	log.Info("inference graph knative service configuration diff (-desired, +observed):", "diff", diff)
 	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
-	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
+	existing.Labels = desired.Labels
 	existing.Spec.Traffic = desired.Spec.Traffic
 	return nil
 }
@@ -92,10 +92,26 @@ func (r *GraphKnativeServiceReconciler) Reconcile(ctx context.Context) (*knservi
 	desired := r.Service
 	existing := &knservingv1.Service{}
 
+	forceStopRuntime := false
+	if val, exist := desired.Spec.Template.Annotations[constants.StopAnnotationKey]; exist {
+		forceStopRuntime = strings.EqualFold(val, "true")
+	}
+
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		log.Info("Updating inference graph knative service", "namespace", desired.Namespace, "name", desired.Name)
 		if err := r.client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing); err != nil {
 			return err
+		}
+
+		if forceStopRuntime {
+			log.Info("Deleting inference graph knative service", "namespace", existing.Namespace, "name", existing.Name)
+			if existing.GetDeletionTimestamp() == nil { // check if the ksvc was already deleted
+				err := r.client.Delete(ctx, existing)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
 		}
 
 		// Set ResourceVersion which is required for update operation.
@@ -121,9 +137,13 @@ func (r *GraphKnativeServiceReconciler) Reconcile(ctx context.Context) (*knservi
 		return r.client.Update(ctx, existing)
 	})
 	if err != nil {
+		// Create service if it does not exist
 		if apierr.IsNotFound(err) {
-			log.Info("Creating inference graph knative service", "namespace", desired.Namespace, "name", desired.Name)
-			return &desired.Status, r.client.Create(ctx, desired)
+			if !forceStopRuntime {
+				log.Info("Creating inference graph knative service", "namespace", desired.Namespace, "name", desired.Name)
+				return &desired.Status, r.client.Create(ctx, desired)
+			}
+			return &desired.Status, nil
 		}
 		return &existing.Status, errors.Wrapf(err, "fails to reconcile inference graph knative service")
 	}
@@ -132,7 +152,7 @@ func (r *GraphKnativeServiceReconciler) Reconcile(ctx context.Context) (*knservi
 
 func semanticEquals(desiredService, service *knservingv1.Service) bool {
 	return equality.Semantic.DeepEqual(desiredService.Spec.ConfigurationSpec, service.Spec.ConfigurationSpec) &&
-		equality.Semantic.DeepEqual(desiredService.ObjectMeta.Labels, service.ObjectMeta.Labels) &&
+		equality.Semantic.DeepEqual(desiredService.Labels, service.Labels) &&
 		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec)
 }
 

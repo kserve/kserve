@@ -80,32 +80,30 @@ func BuildSecretEnvs(secret *corev1.Secret, s3Config *S3Config) []corev1.EnvVar 
 	if s3Config.S3SecretAccessKeyName != "" {
 		s3SecretAccessKeyName = s3Config.S3SecretAccessKeyName
 	}
-	envs := []corev1.EnvVar{
-		{
-			Name: AWSAccessKeyId,
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secret.Name,
-					},
-					Key: s3AccessKeyIdName,
+	envs := make([]corev1.EnvVar, 0, 2)
+	envs = append(envs, corev1.EnvVar{
+		Name: AWSAccessKeyId,
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secret.Name,
 				},
+				Key: s3AccessKeyIdName,
 			},
 		},
-		{
-			Name: AWSSecretAccessKey,
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secret.Name,
-					},
-					Key: s3SecretAccessKeyName,
+	}, corev1.EnvVar{
+		Name: AWSSecretAccessKey,
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secret.Name,
 				},
+				Key: s3SecretAccessKeyName,
 			},
 		},
-	}
+	})
 
-	envs = append(envs, BuildS3EnvVars(secret.Annotations, s3Config)...)
+	envs = append(envs, BuildS3EnvVars(secret.Annotations, &secret.Data, s3Config)...)
 
 	return envs
 }

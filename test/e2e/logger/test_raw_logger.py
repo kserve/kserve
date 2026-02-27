@@ -33,7 +33,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
-annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
+annotations = {"serving.kserve.io/deploymentMode": "Standard"}
 
 
 @pytest.mark.raw
@@ -66,10 +66,23 @@ async def test_kserve_logger(rest_v1_client, network_layer):
     await base_test(msg_dumper, service_name, predictor, rest_v1_client, network_layer)
 
 
+@pytest.mark.asyncio(scope="session")
 @pytest.mark.rawcipn
 async def test_kserve_logger_cipn(rest_v1_client, network_layer):
     msg_dumper = "message-dumper-raw-cipn"
     before(msg_dumper)
+
+    # Verify msg_dumper's status.address.url includes :8080 for headless mode
+    isvc_status = kserve_client.get(
+        msg_dumper,
+        namespace=KSERVE_TEST_NAMESPACE,
+        version=constants.KSERVE_V1BETA1_VERSION,
+    )
+    address_url = isvc_status.get("status", {}).get("address", {}).get("url", "")
+    assert ":8080" in address_url, (
+        f"Expected status.address.url to include ':8080' for headless service, "
+        f"got: {address_url}"
+    )
 
     service_name = "isvc-logger-raw-cipn"
     predictor = V1beta1PredictorSpec(

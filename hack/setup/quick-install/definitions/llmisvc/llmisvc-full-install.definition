@@ -1,0 +1,15 @@
+DESCRIPTION: Install KServe LLM InferenceService and all related dependencies using helm.
+RELEASE: true
+
+TOOLS:
+  - helm
+  - yq
+
+INCLUDE_DEFINITIONS:
+  - ./llmisvc-dependency-install.definition
+    
+COMPONENTS:
+  - name: kserve-helm
+    env:
+      LLMISVC: "true"
+

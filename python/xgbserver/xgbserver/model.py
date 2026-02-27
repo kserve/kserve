@@ -23,7 +23,7 @@ from kserve.utils.utils import get_predict_input, get_predict_response
 from xgboost import XGBModel
 
 from kserve import Model
-from kserve.storage import Storage
+from kserve_storage import Storage
 
 BOOSTER_FILE_EXTENSIONS = (".bst", ".json", ".ubj")
 
@@ -55,8 +55,10 @@ class XGBoostModel(Model):
                 f"Only one is allowed within model_dir: {model_files}"
             )
 
+        with open(model_files[0], "rb") as f:
+            model_bytes = f.read()
         self._booster = xgb.Booster(
-            params={"nthread": self.nthread}, model_file=model_files[0]
+            params={"nthread": self.nthread}, model_file=bytearray(model_bytes)
         )
         self.ready = True
         return self.ready

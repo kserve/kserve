@@ -38,8 +38,19 @@ const (
 )
 
 var (
-	KServeNamespace              = getEnvOrDefault("POD_NAMESPACE", "kserve")
-	AutoscalerConfigmapNamespace = getEnvOrDefault("KNATIVE_CONFIG_AUTOSCALER_NAMESPACE", DefaultKnServingNamespace)
+	KServeNamespace              = GetEnvOrDefault("POD_NAMESPACE", "kserve")
+	AutoscalerConfigmapNamespace = GetEnvOrDefault("KNATIVE_CONFIG_AUTOSCALER_NAMESPACE", DefaultKnServingNamespace)
+)
+
+// Kueue Constants
+const (
+	KueueAPIGroupName = "kueue.x-k8s.io"
+)
+
+// GIE InferencePool API Group Constants
+const (
+	InferencePoolV1APIGroupName       = "inference.networking.k8s.io"
+	InferencePoolV1Alpha2APIGroupName = "inference.networking.x-k8s.io"
 )
 
 // InferenceService Constants
@@ -124,6 +135,13 @@ var (
 	LoggerCredentialPathKey                     = KServeAPIGroupName + "/logger-secret-path"
 	LoggerCredentialFileKey                     = KServeAPIGroupName + "/logger-secret-file"
 	DisableAutoUpdateAnnotationKey              = KServeAPIGroupName + "/disable-auto-update"
+	ModelFormatAnnotationKey                    = "modelFormat"
+	InferencePoolMigratedAnnotationKey          = KServeAPIGroupName + "/inferencepool-migrated"
+)
+
+// ServingRuntime Server Type Annotations
+var (
+	ServerTypeAnnotationKey = KServeAPIGroupName + "/server-type"
 )
 
 // InferenceService Internal Annotations
@@ -167,6 +185,22 @@ const (
 var (
 	DefaultStorageSpecSecret     = "storage-config"
 	DefaultStorageSpecSecretPath = "/mnt/storage-secret" // #nosec G101
+)
+
+const (
+	HfURIPrefix  = "hf://"
+	OciURIPrefix = "oci://"
+	PvcURIPrefix = "pvc://"
+	S3URIPrefix  = "s3://"
+
+	PvcSourceMountName           = "kserve-pvc-source"
+	StorageInitializerVolumeName = "kserve-provision-location"
+
+	StorageInitializerContainerImage        = "kserve/storage-initializer"
+	StorageInitializerContainerImageVersion = "latest"
+
+	CpuModelcarDefault    = "10m"
+	MemoryModelcarDefault = "15Mi"
 )
 
 // Controller Constants
@@ -259,10 +293,11 @@ var (
 
 // GPU Constants
 const (
-	NvidiaGPUResourceType = "nvidia.com/gpu"
-	AmdGPUResourceType    = "amd.com/gpu"
-	IntelGPUResourceType  = "intel.com/gpu"
-	GaudiGPUResourceType  = "habana.ai/gaudi"
+	NvidiaGPUResourceType          = "nvidia.com/gpu"
+	NvidiaMigGPUResourceTypePrefix = "nvidia.com/mig"
+	AmdGPUResourceType             = "amd.com/gpu"
+	IntelGPUResourceType           = "intel.com/gpu"
+	GaudiGPUResourceType           = "habana.ai/gaudi"
 )
 
 var CustomGPUResourceTypesAnnotationKey = KServeAPIGroupName + "/gpu-resource-types"
@@ -281,7 +316,9 @@ const (
 	CustomSpecMultiModelServerEnvVarKey               = "MULTI_MODEL_SERVER"
 	KServeContainerPrometheusMetricsPortEnvVarKey     = "KSERVE_CONTAINER_PROMETHEUS_METRICS_PORT"
 	KServeContainerPrometheusMetricsPathEnvVarKey     = "KSERVE_CONTAINER_PROMETHEUS_METRICS_PATH"
+	ModelInitModeEnvVarKey                            = "MODEL_INIT_MODE"
 	QueueProxyAggregatePrometheusMetricsPortEnvVarKey = "AGGREGATE_PROMETHEUS_METRICS_PORT"
+	InferenceServiceNameEnvVarKey                     = "INFERENCE_SERVICE_NAME"
 )
 
 type InferenceServiceComponent string
@@ -353,6 +390,43 @@ const (
 	InferenceServiceLabel       = "serving.kserve.io/inferenceservice"
 )
 
+// Kubernetes recommended label keys (https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/)
+const (
+	KubernetesAppNameLabelKey   = "app.kubernetes.io/name"
+	KubernetesInstanceLabelKey  = "app.kubernetes.io/instance"
+	KubernetesPartOfLabelKey    = "app.kubernetes.io/part-of"
+	KubernetesComponentLabelKey = "app.kubernetes.io/component"
+)
+
+// KServe workload component label (key and value for "kserve.io/component" on workload resources)
+const (
+	KServeComponentLabelKey = "kserve.io/component"
+	KServeComponentWorkload = "workload"
+)
+
+// LLM-d role label (key and values for "llm-d.ai/role" on workload pods)
+const (
+	LLMDRoleLabelKey = "llm-d.ai/role"
+	LLMDRoleDecode   = "decode"
+	LLMDRolePrefill  = "prefill"
+	LLMDRoleBoth     = "both"
+)
+
+// LLMInferenceService label constants (uses Kubernetes recommended label keys above)
+const (
+	LLMInferenceServicePartOfValue = "llminferenceservice"
+	// LLMInferenceService component label values (for KubernetesComponentLabelKey)
+	LLMComponentRouter                = "llminferenceservice-router"
+	LLMComponentRouterScheduler       = "llminferenceservice-router-scheduler"
+	LLMComponentWorkload              = "llminferenceservice-workload"
+	LLMComponentWorkloadPrefill       = "llminferenceservice-workload-prefill"
+	LLMComponentWorkloadWorker        = "llminferenceservice-workload-worker"
+	LLMComponentWorkloadLeader        = "llminferenceservice-workload-leader"
+	LLMComponentWorkloadWorkerPrefill = "llminferenceservice-workload-worker-prefill"
+	LLMComponentWorkloadLeaderPrefill = "llminferenceservice-workload-leader-prefill"
+	LLMComponentInference             = "inference" // used in sample/template resources
+)
+
 // InferenceService canary constants
 const (
 	InferenceServiceCanary = "canary"
@@ -379,6 +453,9 @@ const (
 	// WorkerContainerName is for worker node container
 	WorkerContainerName     = "worker-container"
 	QueueProxyContainerName = "queue-proxy"
+
+	ModelcarContainerName     = "modelcar"
+	ModelcarInitContainerName = "modelcar-init"
 )
 
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
@@ -413,6 +490,7 @@ var (
 		autoscaling.MaxScaleAnnotationKey,
 		StorageInitializerSourceUriInternalAnnotationKey,
 		"kubectl.kubernetes.io/last-applied-configuration",
+		ModelFormatAnnotationKey,
 	}
 
 	RevisionTemplateLabelDisallowedList = []string{
@@ -435,16 +513,38 @@ const (
 type DeploymentModeType string
 
 const (
-	Serverless          DeploymentModeType = "Serverless"
-	RawDeployment       DeploymentModeType = "RawDeployment"
+	LegacyServerless    DeploymentModeType = "Serverless" // deprecated: use Knative
+	Knative             DeploymentModeType = "Knative"
+	LegacyRawDeployment DeploymentModeType = "RawDeployment" // deprecated: use Standard
+	Standard            DeploymentModeType = "Standard"
+	DefaultDeployment   DeploymentModeType = Standard
 	ModelMeshDeployment DeploymentModeType = "ModelMesh"
 )
+
+// ParseDeploymentMode parses deployment mode string from annotations and normalizes legacy modes
+func ParseDeploymentMode(mode string) DeploymentModeType {
+	if mode == "" {
+		return DefaultDeployment
+	}
+
+	deploymentMode := DeploymentModeType(mode)
+
+	// Normalize legacy modes
+	switch deploymentMode {
+	case LegacyRawDeployment:
+		return Standard
+	case LegacyServerless:
+		return Knative
+	default:
+		return deploymentMode
+	}
+}
 
 const (
 	DefaultNSKnativeServing = "knative-serving"
 )
 
-// built-in runtime servers
+// built-in runtime servers names
 const (
 	SKLearnServer     = "kserve-sklearnserver"
 	MLServer          = "kserve-mlserver"
@@ -458,9 +558,49 @@ const (
 	HuggingFaceServer = "kserve-huggingfaceserver"
 )
 
+// Server type annotation values
+const (
+	ServerTypeMLServer          = "mlserver"
+	ServerTypeTritonServer      = "tritonserver"
+	ServerTypeTorchServe        = "torchserve"
+	ServerTypeOVMS              = "ovms"
+	ServerTypePredictiveServer  = "predictiveserver"
+	ServerTypeHuggingFaceServer = "huggingfaceserver"
+	ServerTypePMMLServer        = "pmmlserver"
+	ServerTypeLightGBMServer    = "lightgbmserver"
+	ServerTypePaddleServer      = "paddleserver"
+	ServerTypeTensorflowServing = "tensorflow-serving"
+	ServerTypePyTorchServer     = "pytorchserver"
+	ServerTypeSKLearnServer     = "sklearnserver"
+	ServerTypeXGBoostServer     = "xgbserver"
+)
+
+// GetServerTypeFromRuntimeName converts runtime name to server type for backward compatibility.
+// This enables fallback from annotation-based to name-based runtime detection.
+func GetServerTypeFromRuntimeName(runtimeName string) string {
+	switch runtimeName {
+	case MLServer:
+		return ServerTypeMLServer
+	case TorchServe:
+		return ServerTypeTorchServe
+	case TritonServer:
+		return ServerTypeTritonServer
+	default:
+		return ""
+	}
+}
+
 const (
 	ModelClassLabel = "modelClass"
 	ServiceEnvelope = "serviceEnvelope"
+)
+
+// MLServer environment variables
+const (
+	MLServerLoadModelsStartupEnv   = "MLSERVER_LOAD_MODELS_AT_STARTUP"
+	MLServerModelImplementationEnv = "MLSERVER_MODEL_IMPLEMENTATION"
+	MLServerModelNameEnv           = "MLSERVER_MODEL_NAME"
+	MLServerModelURIEnv            = "MLSERVER_MODEL_URI"
 )
 
 // allowed model class implementation in mlserver
@@ -572,7 +712,7 @@ func (v InferenceServiceVerb) String() string {
 	return string(v)
 }
 
-func getEnvOrDefault(key string, fallback string) string {
+func GetEnvOrDefault(key string, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
 	}
@@ -629,9 +769,10 @@ func InferenceServicePrefix(name string) string {
 
 func PredictPath(name string, protocol InferenceServiceProtocol) string {
 	path := ""
-	if protocol == ProtocolV1 {
+	switch protocol {
+	case ProtocolV1:
 		path = fmt.Sprintf("/v1/models/%s:predict", name)
-	} else if protocol == ProtocolV2 {
+	case ProtocolV2:
 		path = fmt.Sprintf("/v2/models/%s/infer", name)
 	}
 	return path

@@ -18,7 +18,6 @@ spec:
         - --tensor-parallel-size=1
         - --enforce-eager
         - --disable-log-stats
-        - --disable-log-requests
       resources:
         limits:
           cpu: "24"

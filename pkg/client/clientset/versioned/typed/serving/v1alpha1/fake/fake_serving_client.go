@@ -40,6 +40,10 @@ func (c *FakeServingV1alpha1) InferenceGraphs(namespace string) v1alpha1.Inferen
 	return newFakeInferenceGraphs(c, namespace)
 }
 
+func (c *FakeServingV1alpha1) LLMInferenceServices(namespace string) v1alpha1.LLMInferenceServiceInterface {
+	return newFakeLLMInferenceServices(c, namespace)
+}
+
 func (c *FakeServingV1alpha1) LocalModelCaches(namespace string) v1alpha1.LocalModelCacheInterface {
 	return newFakeLocalModelCaches(c, namespace)
 }

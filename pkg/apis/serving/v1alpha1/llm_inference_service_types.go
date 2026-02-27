@@ -19,16 +19,33 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+)
+
+// Criticality defines how important it is to serve the model compared to other models.
+// Criticality is intentionally a bounded enum to contain the possibilities that need to
+// be supported by the load balancing algorithm.
+// +kubebuilder:validation:Enum=Critical;Standard;Sheddable
+type Criticality string
+
+const (
+	// Critical - Requests to this model should be shed last.
+	Critical Criticality = "Critical"
+	// Standard - Requests to this model will be queued or shed before critical traffic.
+	Standard Criticality = "Standard"
+	// Sheddable - Requests to this model should be shed before critical and standard traffic.
+	Sheddable Criticality = "Sheddable"
 )
 
 // LLMInferenceService is the Schema for the llminferenceservices API, representing a single LLM deployment.
 // It orchestrates the creation of underlying Kubernetes resources like Deployments and Services,
 // and configures networking for exposing the model.
 // +k8s:openapi-gen=true
+// +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"
@@ -59,7 +76,13 @@ type LLMInferenceServiceConfig struct {
 // LLMInferenceServiceSpec defines the desired state of LLMInferenceService.
 type LLMInferenceServiceSpec struct {
 	// Model specification, including its URI, potential LoRA adapters, and storage details.
+	// It's optional for `LLMInferenceServiceConfig` kind.
+	// +optional
 	Model LLMModelSpec `json:"model"`
+
+	// StorageInitializer configuration for model artifact fetching.
+	// +optional
+	StorageInitializer *StorageInitializerSpec `json:"storageInitializer,omitempty"`
 
 	// WorkloadSpec configurations for the primary inference deployment.
 	// In a standard setup, this defines the main model server deployment.
@@ -90,6 +113,7 @@ type LLMInferenceServiceSpec struct {
 type WorkloadSpec struct {
 	// Number of replicas for the deployment.
 	// +optional
+	// +kubebuilder:validation:Minimum=0
 	Replicas *int32 `json:"replicas,omitempty"`
 
 	// Parallelism configurations for the runtime, such as tensor and pipeline parallelism.
@@ -126,16 +150,12 @@ type LLMModelSpec struct {
 	// Criticality defines how important it is to serve the model compared to other models.
 	// This is used by the Inference Gateway scheduler.
 	// +optional
-	Criticality *igwapi.Criticality `json:"criticality,omitempty"`
+	Criticality *Criticality `json:"criticality,omitempty"`
 
 	// LoRA (Low-Rank Adaptation) adapters configurations.
 	// Allows for specifying one or more LoRA adapters to be applied to the base model.
 	// +optional
 	LoRA *LoRASpec `json:"lora,omitempty"`
-
-	// Storage specification for the model, such as path and credentials.
-	// This is used by the storage-initializer to correctly download the model from the specified URI.
-	Storage *LLMStorageSpec `json:"storage,omitempty"`
 }
 
 // LoRASpec defines the configuration for LoRA adapters.
@@ -143,7 +163,33 @@ type LoRASpec struct {
 	// Adapters is the static specification for one or more LoRA adapters.
 	// Each adapter is defined by its own ModelSpec.
 	// +optional
-	Adapters []ModelSpec `json:"adapters,omitempty"`
+	// This type is recursive https://github.com/kubernetes-sigs/controller-tools/issues/585
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	Adapters []LLMModelSpec `json:"adapters,omitempty"`
+}
+
+// StorageInitializerSpec defines the configuration for the storage initializer.
+// The storage initializer is an initContainer responsible for downloading model artifacts
+// from remote storage (s3://, hf://) before the main container starts.
+//
+// Example - Disable storage initializer:
+//
+//	storageInitializer:
+//	  enabled: false
+//
+// Example - Explicitly enable (same as default):
+//
+//	storageInitializer:
+//	  enabled: true
+type StorageInitializerSpec struct {
+	// Enabled controls whether the storage-initializer initContainer is created.
+	// When nil or true, storage-initializer is created for applicable URIs (s3://, hf://).
+	// When explicitly set to false, storage-initializer creation is skipped.
+	// This is useful when models are pre-loaded via alternative mechanisms (e.g., custom init containers, modelcars).
+	// Default: true (nil is treated as true for backward compatibility)
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // RouterSpec defines the routing configuration for exposing the service.
@@ -216,8 +262,8 @@ type IngressSpec struct {
 //
 // The Scheduler is only effective when having multiple inference pod replicas.
 //
-// Step 1: Gateway (Envoy) <-- ExtProc --> EPP (select the optimal replica to handle the request)
-// Step 2: Gateway (Envoy) <-- forward request --> Inference Pod X
+// Step 1: Gateway (Envoy) &lt;-- ExtProc --&gt; EPP (select the optimal replica to handle the request)
+// Step 2: Gateway (Envoy) &lt;-- forward request --&gt; Inference Pod X
 type SchedulerSpec struct {
 	// Pool configuration for the InferencePool, which is part of the Inference Gateway extension.
 	// +optional
@@ -227,6 +273,20 @@ type SchedulerSpec struct {
 	// This configures the Endpoint Picker (EPP) Deployment.
 	// +optional
 	Template *corev1.PodSpec `json:"template,omitempty"`
+
+	// Config is the configuration for the EndpointPicker.
+	Config *SchedulerConfigSpec `json:"config,omitempty"`
+
+	// Replicas is the number of replicas for the scheduler.
+	Replicas *int32 `json:"replicas,omitempty"`
+}
+
+type SchedulerConfigSpec struct {
+	// Inline EndpointPickerConfig
+	Inline *runtime.RawExtension `json:"inline,omitempty"`
+
+	// Ref is a reference to a ConfigMap key with EndpointPickerConfig.
+	Ref *corev1.ConfigMapKeySelector `json:"ref,omitempty"`
 }
 
 // InferencePoolSpec defines the configuration for an InferencePool.
@@ -245,26 +305,28 @@ type InferencePoolSpec struct {
 type ParallelismSpec struct {
 	// Tensor parallelism size.
 	// +optional
-	Tensor *int64 `json:"tensor,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	Tensor *int32 `json:"tensor,omitempty"`
 	// Pipeline parallelism size.
 	// +optional
-	Pipeline *int64 `json:"pipeline,omitempty"`
-	// TODO more to be added ...
-}
-
-// LLMStorageSpec is a copy of the v1beta1.StorageSpec. It is duplicated here to avoid
-// import cycles between the v1alpha1 and v1beta1 API packages.
-type LLMStorageSpec struct {
-	// The path to the model object in the storage. It cannot co-exist
-	// with the storageURI.
+	// +kubebuilder:validation:Minimum=1
+	Pipeline *int32 `json:"pipeline,omitempty"`
+	// Data parallelism size.
 	// +optional
-	Path *string `json:"path,omitempty"`
-	// Parameters to override the default storage credentials and config.
+	// +kubebuilder:validation:Minimum=1
+	Data *int32 `json:"data,omitempty"`
+	// DataLocal data local parallelism size.
 	// +optional
-	Parameters *map[string]string `json:"parameters,omitempty"`
-	// The Storage Key in the secret for this model.
+	// +kubebuilder:validation:Minimum=1
+	DataLocal *int32 `json:"dataLocal,omitempty"`
+	// DataRPCPort is the data parallelism RPC port.
 	// +optional
-	StorageKey *string `json:"key,omitempty"`
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	DataRPCPort *int32 `json:"dataRPCPort,omitempty"`
+	// Expert enables expert parallelism.
+	// +optional
+	Expert bool `json:"expert,omitempty"`
 }
 
 // UntypedObjectReference is a reference to an object without a specific Group/Version/Kind.
