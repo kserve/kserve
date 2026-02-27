@@ -28,7 +28,7 @@ install() {
     log_info "Installing Kustomize ${KUSTOMIZE_VERSION} for ${os}/${arch}..."
 
     if command -v kustomize &>/dev/null; then
-        local current_version=$(kustomize version --short 2>/dev/null | grep -oP 'v[0-9.]+')
+        local current_version=$(kustomize version --short 2>/dev/null | grep -oE 'v[0-9.]+')
         if [[ -n "$current_version" ]] && version_gte "$current_version" "$KUSTOMIZE_VERSION"; then
             log_info "Kustomize ${current_version} is already installed (>= ${KUSTOMIZE_VERSION})"
             return 0
