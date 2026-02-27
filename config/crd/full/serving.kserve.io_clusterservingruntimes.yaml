@@ -1333,6 +1333,8 @@ spec:
                   type: array
                 replicas:
                   type: integer
+                schedulerName:
+                  type: string
                 storageHelper:
                   properties:
                     disabled:
@@ -3359,6 +3361,8 @@ spec:
                       type: object
                     pipelineParallelSize:
                       type: integer
+                    schedulerName:
+                      type: string
                     tensorParallelSize:
                       type: integer
                     tolerations:

@@ -15,6 +15,8 @@
 import asyncio
 import base64
 from concurrent.futures import ThreadPoolExecutor
+import fnmatch
+from functools import partial
 import glob
 import gzip
 import json
@@ -26,7 +28,7 @@ import shutil
 import tarfile
 import tempfile
 import time
-from typing import Optional
+from typing import List, Optional
 import zipfile
 from pathlib import Path
 from typing import Tuple
@@ -73,18 +75,95 @@ _AZURE_MAX_FILE_CONCURRENCY = int(os.getenv("AZURE_MAX_FILE_CONCURRENCY", "4"))
 _AZURE_MAX_CHUNK_CONCURRENCY = int(os.getenv("AZURE_MAX_CHUNK_CONCURRENCY", "4"))
 
 
+def _should_download(
+    relative_path: str,
+    allow_patterns: Optional[List[str]] = None,
+    ignore_patterns: Optional[List[str]] = None,
+) -> bool:
+    """Determine whether a file should be downloaded based on allow/ignore patterns.
+
+    Uses fnmatch semantics consistent with huggingface_hub.snapshot_download.
+    Matching is performed against the relative path of the file.
+
+    Args:
+        relative_path: The relative path of the file (e.g., "subdir/model.safetensors").
+        allow_patterns: If set, only files matching at least one pattern are included.
+        ignore_patterns: If set, files matching any pattern are excluded.
+
+    Returns:
+        True if the file should be downloaded, False otherwise.
+    """
+    if allow_patterns is not None and len(allow_patterns) > 0:
+        if not any(fnmatch.fnmatch(relative_path, p) for p in allow_patterns):
+            return False
+
+    if ignore_patterns is not None and len(ignore_patterns) > 0:
+        if any(fnmatch.fnmatch(relative_path, p) for p in ignore_patterns):
+            return False
+
+    return True
+
+
+def _parse_patterns_from_env(env_var_name: str) -> Optional[List[str]]:
+    """Parse allow/ignore patterns from an environment variable.
+
+    Supports JSON array format: '["*.safetensors", "*.json"]'
+    Falls back to comma-separated: '*.safetensors,*.json'
+
+    Returns None if the env var is not set or empty.
+    """
+    value = os.environ.get(env_var_name, "").strip()
+    if not value:
+        return None
+
+    try:
+        parsed = json.loads(value)
+        if isinstance(parsed, list):
+            return [str(p).strip() for p in parsed if str(p).strip()]
+        return [str(parsed).strip()] if str(parsed).strip() else None
+    except (json.JSONDecodeError, TypeError):
+        patterns = [p.strip() for p in value.split(",") if p.strip()]
+        return patterns if patterns else None
+
+
 class Storage(object):
     @staticmethod
-    def download_files(source_uris: list[str], out_dirs: list[str]) -> list[str]:
+    def download_files(
+        source_uris: list[str],
+        out_dirs: list[str],
+        allow_patterns: Optional[List[str]] = None,
+        ignore_patterns: Optional[List[str]] = None,
+    ) -> list[str]:
+        download_fn = partial(
+            Storage.download,
+            allow_patterns=allow_patterns,
+            ignore_patterns=ignore_patterns,
+        )
         with ThreadPoolExecutor() as executor:
-            model_dirs = list(executor.map(Storage.download, source_uris, out_dirs))
+            model_dirs = list(executor.map(download_fn, source_uris, out_dirs))
         return model_dirs
 
     @staticmethod
-    def download(uri: str, out_dir: Optional[str] = None) -> str:
+    def download(
+        uri: str,
+        out_dir: Optional[str] = None,
+        allow_patterns: Optional[List[str]] = None,
+        ignore_patterns: Optional[List[str]] = None,
+    ) -> str:
         start = time.monotonic()
         Storage._update_with_storage_spec()
+
+        if allow_patterns is None:
+            allow_patterns = _parse_patterns_from_env("STORAGE_ALLOW_PATTERNS")
+        if ignore_patterns is None:
+            ignore_patterns = _parse_patterns_from_env("STORAGE_IGNORE_PATTERNS")
+
         logger.info("Copying contents of %s to local", uri)
+
+        if allow_patterns:
+            logger.info("Allow patterns: %s", allow_patterns)
+        if ignore_patterns:
+            logger.info("Ignore patterns: %s", ignore_patterns)
 
         if uri.startswith(_PVC_PREFIX) and not os.path.exists(uri):
             raise Exception(f"Cannot locate source uri {uri} for PVC")
@@ -97,7 +176,9 @@ class Storage(object):
             else:
                 if not os.path.exists(out_dir):
                     os.mkdir(out_dir)
-                model_dir = Storage._download_local(uri, out_dir)
+                model_dir = Storage._download_local(
+                    uri, out_dir, allow_patterns, ignore_patterns
+                )
         else:
             if out_dir is None:
                 out_dir = tempfile.mkdtemp()
@@ -109,17 +190,29 @@ class Storage(object):
                 # serving mode. The model agent will download models.
                 model_dir = out_dir
             elif uri.startswith(_GCS_PREFIX):
-                model_dir = Storage._download_gcs(uri, out_dir)
+                model_dir = Storage._download_gcs(
+                    uri, out_dir, allow_patterns, ignore_patterns
+                )
             elif uri.startswith(_S3_PREFIX):
-                model_dir = Storage._download_s3(uri, out_dir)
+                model_dir = Storage._download_s3(
+                    uri, out_dir, allow_patterns, ignore_patterns
+                )
             elif uri.startswith(_HDFS_PREFIX) or uri.startswith(_WEBHDFS_PREFIX):
-                model_dir = Storage._download_hdfs(uri, out_dir)
+                model_dir = Storage._download_hdfs(
+                    uri, out_dir, allow_patterns, ignore_patterns
+                )
             elif any(re.search(pattern, uri) for pattern in _AZURE_BLOB_RE):
-                model_dir = Storage._download_azure_blob(uri, out_dir)
+                model_dir = Storage._download_azure_blob(
+                    uri, out_dir, allow_patterns, ignore_patterns
+                )
             elif any(re.search(pattern, uri) for pattern in _AZURE_FILE_RE):
-                model_dir = Storage._download_azure_file_share(uri, out_dir)
+                model_dir = Storage._download_azure_file_share(
+                    uri, out_dir, allow_patterns, ignore_patterns
+                )
             elif uri.startswith(_HF_PREFIX):
-                model_dir = Storage._download_hf(uri, out_dir)
+                model_dir = Storage._download_hf(
+                    uri, out_dir, allow_patterns, ignore_patterns
+                )
             elif re.search(_GIT_RE, uri):
                 model_dir = Storage._download_git_repo(uri, out_dir)
             # "catch-all" pattern, should always be last
@@ -317,7 +410,12 @@ class Storage(object):
             return False, obj_key, str(e)
 
     @staticmethod
-    def _download_s3(uri, temp_dir: str) -> str:
+    def _download_s3(
+        uri,
+        temp_dir: str,
+        allow_patterns: Optional[List[str]] = None,
+        ignore_patterns: Optional[List[str]] = None,
+    ) -> str:
         import boto3
         from botocore.exceptions import ClientError, NoCredentialsError
 
@@ -353,6 +451,13 @@ class Storage(object):
                     exact_obj_found = True
                 else:
                     target_key = obj.key.removeprefix(bucket_path).lstrip("/")
+
+                # Apply file filtering (skip for exact object match)
+                if not exact_obj_found and not _should_download(
+                    target_key, allow_patterns, ignore_patterns
+                ):
+                    logger.info("Skipping %s due to file pattern filter", obj.key)
+                    continue
 
                 target_path = f"{temp_dir}/{target_key}"
 
@@ -415,7 +520,12 @@ class Storage(object):
         return temp_dir
 
     @staticmethod
-    def _download_hf(uri, temp_dir: str) -> str:
+    def _download_hf(
+        uri,
+        temp_dir: str,
+        allow_patterns: Optional[List[str]] = None,
+        ignore_patterns: Optional[List[str]] = None,
+    ) -> str:
         from huggingface_hub import snapshot_download
 
         from huggingface_hub.utils import (
@@ -457,7 +567,12 @@ class Storage(object):
         repo_id = f"{repo}/{model}"
 
         try:
-            snapshot_download(repo_id=repo_id, revision=revision, local_dir=temp_dir)
+            kwargs = dict(repo_id=repo_id, revision=revision, local_dir=temp_dir)
+            if allow_patterns:
+                kwargs["allow_patterns"] = allow_patterns
+            if ignore_patterns:
+                kwargs["ignore_patterns"] = ignore_patterns
+            snapshot_download(**kwargs)
         except (
             RepositoryNotFoundError,
             RevisionNotFoundError,
@@ -469,7 +584,12 @@ class Storage(object):
         return temp_dir
 
     @staticmethod
-    def _download_gcs(uri, temp_dir: str) -> str:
+    def _download_gcs(
+        uri,
+        temp_dir: str,
+        allow_patterns: Optional[List[str]] = None,
+        ignore_patterns: Optional[List[str]] = None,
+    ) -> str:
         from google.auth import exceptions as auth_exceptions
         from google.cloud import storage
         from google.api_core import exceptions as api_exceptions
@@ -519,6 +639,13 @@ class Storage(object):
                         subdir_object_key.strip() != ""
                         and not subdir_object_key.endswith("/")
                     ):
+                        if not _should_download(
+                            subdir_object_key, allow_patterns, ignore_patterns
+                        ):
+                            logger.info(
+                                "Skipping %s due to file pattern filter", blob.name
+                            )
+                            continue
                         dest_path = os.path.join(temp_dir, subdir_object_key)
                         logger.info("Downloading: %s", dest_path)
                         blob.download_to_filename(dest_path)
@@ -576,7 +703,12 @@ class Storage(object):
         return config
 
     @staticmethod
-    def _download_hdfs(uri, out_dir: str) -> str:
+    def _download_hdfs(
+        uri,
+        out_dir: str,
+        allow_patterns: Optional[List[str]] = None,
+        ignore_patterns: Optional[List[str]] = None,
+    ) -> str:
         from krbcontext.context import krbContext
         from hdfs.ext.kerberos import Client, KerberosClient
         from hdfs.util import HdfsError
@@ -644,11 +776,14 @@ class Storage(object):
                 dest_file_path = f"{out_dir}/{file_name}"
             else:
                 files = client.list(path)
-                file_count += len(files)
                 for f in files:
+                    if not _should_download(f, allow_patterns, ignore_patterns):
+                        logger.info("Skipping %s due to file pattern filter", f)
+                        continue
                     client.download(
                         f"{path}/{f}", out_dir, n_threads=int(config["N_THREADS"])
                     )
+                    file_count += 1
                     dest_file_path = f"{out_dir}/{f}"
         except (HdfsError, requests.exceptions.ConnectionError) as e:
             raise_storage_error("HDFS", uri, e, config["HDFS_NAMENODE"])
@@ -662,7 +797,12 @@ class Storage(object):
         return out_dir
 
     @staticmethod
-    async def _download_azure_blob_async(uri, out_dir: str) -> str:
+    async def _download_azure_blob_async(
+        uri,
+        out_dir: str,
+        allow_patterns: Optional[List[str]] = None,
+        ignore_patterns: Optional[List[str]] = None,
+    ) -> str:
         """Async Azure blob download with chunked streaming and multi-level semaphores"""
         from azure.storage.blob.aio import BlobServiceClient
         from azure.core.exceptions import (
@@ -707,6 +847,16 @@ class Storage(object):
                 async for blob in container_client.list_blobs(name_starts_with=prefix):
                     logger.info("Found blob: %s (%d bytes)", blob.name, blob.size)
                     if blob.size > 0:
+                        relative_path = blob.name.replace(prefix, "", 1).lstrip("/")
+                        if not relative_path:
+                            relative_path = os.path.basename(prefix)
+                        if not _should_download(
+                            relative_path, allow_patterns, ignore_patterns
+                        ):
+                            logger.info(
+                                "Skipping %s due to file pattern filter", blob.name
+                            )
+                            continue
                         blobs.append(blob)
 
                 if not blobs:
@@ -785,7 +935,10 @@ class Storage(object):
 
     @staticmethod
     def _download_azure_file_share(
-        uri, out_dir: str
+        uri,
+        out_dir: str,
+        allow_patterns: Optional[List[str]] = None,
+        ignore_patterns: Optional[List[str]] = None,
     ) -> str:  # pylint: disable=too-many-locals
         from azure.storage.fileshare import ShareServiceClient
         from azure.core.exceptions import (
@@ -833,6 +986,9 @@ class Storage(object):
                 parts = [prefix] if prefix else []
                 parts.append(file_item.name)
                 file_path = "/".join(parts).lstrip("/")
+                if not _should_download(file_path, allow_patterns, ignore_patterns):
+                    logger.info("Skipping %s due to file pattern filter", file_path)
+                    continue
                 dest_path = os.path.join(out_dir, file_path)
                 Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
                 logger.info("Downloading: %s to %s", file_item.name, dest_path)
@@ -859,9 +1015,18 @@ class Storage(object):
         return out_dir
 
     @staticmethod
-    def _download_azure_blob(uri, out_dir: str) -> str:
+    def _download_azure_blob(
+        uri,
+        out_dir: str,
+        allow_patterns: Optional[List[str]] = None,
+        ignore_patterns: Optional[List[str]] = None,
+    ) -> str:
         """Wrapper to run async blob download"""
-        return asyncio.run(Storage._download_azure_blob_async(uri, out_dir))
+        return asyncio.run(
+            Storage._download_azure_blob_async(
+                uri, out_dir, allow_patterns, ignore_patterns
+            )
+        )
 
     @staticmethod
     def _parse_azure_uri(uri):  # pylint: disable=too-many-locals
@@ -959,7 +1124,12 @@ class Storage(object):
         return out_dir
 
     @staticmethod
-    def _download_local(uri, out_dir=None) -> str:
+    def _download_local(
+        uri,
+        out_dir=None,
+        allow_patterns: Optional[List[str]] = None,
+        ignore_patterns: Optional[List[str]] = None,
+    ) -> str:
         local_path = uri.replace(_LOCAL_PREFIX, "", 1)
         if not os.path.exists(local_path):
             raise RuntimeError("Local path %s does not exist." % (uri))
@@ -975,6 +1145,9 @@ class Storage(object):
         file_count = 0
         for src in glob.glob(local_path):
             _, tail = os.path.split(src)
+            if not _should_download(tail, allow_patterns, ignore_patterns):
+                logger.info("Skipping %s due to file pattern filter", src)
+                continue
             dest_path = os.path.join(out_dir, tail)
             logger.info("Linking: %s to %s", src, dest_path)
             if not os.path.exists(dest_path):
