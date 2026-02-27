@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
+	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
@@ -459,6 +460,93 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			}
 			validateStorageInitializerVolumeMounts(expectedMainDeployment, expectedCaBundleVolumeMount)
 			validateStorageInitializerVolumeMounts(expectedPrefillDeployment, expectedCaBundleVolumeMount)
+		})
+
+		It("should inject env variables from ClusterStorageContainer when s3:// uri matches supported format", func(ctx SpecContext) {
+			cscName := "test-csc-s3-injection"
+			csc := &v1alpha1.ClusterStorageContainer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: cscName,
+				},
+				Spec: v1alpha1.StorageContainerSpec{
+					Container: corev1.Container{
+						Name: constants.StorageInitializerContainerName,
+						Env: []corev1.EnvVar{
+							{
+								Name:  "CUSTOM_CSC_ENV",
+								Value: "injected-value",
+							},
+						},
+					},
+					SupportedUriFormats: []v1alpha1.SupportedUriFormat{
+						{
+							Prefix: "s3://",
+						},
+					},
+				},
+			}
+			Expect(envTest.Client.Create(ctx, csc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Client.Delete(ctx, csc)).To(Succeed())
+			}()
+
+			svcName := "test-llm-csc-injection"
+			nsName := kmeta.ChildName(svcName, "-test")
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(namespace)
+			}()
+
+			modelURL, err := apis.ParseURL("s3://my-bucket/my-model")
+			Expect(err).ToNot(HaveOccurred())
+
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      svcName,
+					Namespace: nsName,
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("foo"),
+						URI:  *modelURL,
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{},
+					Router: &v1alpha2.RouterSpec{
+						Route:     &v1alpha2.GatewayRoutesSpec{},
+						Gateway:   &v1alpha2.GatewaySpec{},
+						Scheduler: &v1alpha2.SchedulerSpec{},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			}
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			expectedMainDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: nsName,
+				}, expectedMainDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			validateStorageInitializerIsConfigured(expectedMainDeployment, "s3://my-bucket/my-model")
+
+			expectedEnvVars := []corev1.EnvVar{
+				{
+					Name:  "CUSTOM_CSC_ENV",
+					Value: "injected-value",
+				},
+			}
+			validateStorageInitializerCredentials(expectedMainDeployment, expectedEnvVars)
 		})
 
 		It("should use storage-initializer to download model when uri starts with s3:// and s3 config is configured", func(ctx SpecContext) {
