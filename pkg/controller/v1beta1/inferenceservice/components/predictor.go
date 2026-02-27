@@ -281,9 +281,8 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 	var sRuntime v1alpha1.ServingRuntimeSpec
 
 	if isvc.Spec.Predictor.Model.Runtime != nil {
-		// set runtime defaults
-		isvc.SetRuntimeDefaults()
-		r, err, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, *isvc.Spec.Predictor.Model.Runtime, isvc.Namespace)
+		// Get runtime and annotations
+		r, runtimeAnnotations, err, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, *isvc.Spec.Predictor.Model.Runtime, isvc.Namespace)
 		if err != nil {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.RuntimeNotRecognized,
@@ -318,6 +317,9 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 			return sRuntime, fmt.Errorf("specified runtime %s does not support specified framework/version", *isvc.Spec.Predictor.Model.Runtime)
 		}
 
+		// set runtime defaults after validation
+		isvc.SetRuntimeDefaults(runtimeAnnotations)
+
 		sRuntime = *r
 		if isClusterServingRuntime {
 			isvc.Status.ClusterServingRuntimeName = *isvc.Spec.Predictor.Model.Runtime
@@ -341,7 +343,7 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 		// Get first supporting runtime.
 		sRuntime = runtimes[0].Spec
 		isvc.Spec.Predictor.Model.Runtime = &runtimes[0].Name
-		_, _, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, runtimes[0].Name, isvc.Namespace)
+		_, runtimeAnnotations, _, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, runtimes[0].Name, isvc.Namespace)
 		if isClusterServingRuntime {
 			isvc.Status.ClusterServingRuntimeName = runtimes[0].Name
 			isvc.Status.ServingRuntimeName = ""
@@ -350,8 +352,8 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 			isvc.Status.ClusterServingRuntimeName = ""
 		}
 
-		// set runtime defaults
-		isvc.SetRuntimeDefaults()
+		// set runtime defaults for auto-selected runtime
+		isvc.SetRuntimeDefaults(runtimeAnnotations)
 	}
 	// assign protocol version to inferenceservice based on runtime selected
 	if isvc.Spec.Predictor.Model.ProtocolVersion == nil {
