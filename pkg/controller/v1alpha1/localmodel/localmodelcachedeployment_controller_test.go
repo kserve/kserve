@@ -69,8 +69,9 @@ func TestLocalModelCacheDeploymentReconciler_CreateLocalModelCache(t *testing.T)
 	}
 
 	// Verify LocalModelCache was created
+	expectedName := "test-deployment-" + computeSpecHash(deployment.Spec)
 	cache := &v1alpha1.LocalModelCache{}
-	err = client.Get(context.Background(), types.NamespacedName{Name: "test-deployment-v1"}, cache)
+	err = client.Get(context.Background(), types.NamespacedName{Name: expectedName}, cache)
 	if err != nil {
 		t.Fatalf("LocalModelCache not created: %v", err)
 	}
@@ -122,7 +123,7 @@ func TestLocalModelCacheDeploymentReconciler_ExistingCache(t *testing.T) {
 
 	existingCache := &v1alpha1.LocalModelCache{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-deployment-v1",
+			Name: "test-deployment-" + computeSpecHash(deployment.Spec),
 			Labels: map[string]string{
 				constants.LocalModelCacheDeploymentLabel: "test-deployment",
 				constants.LocalModelCacheRevisionLabel:   "1",
@@ -173,31 +174,39 @@ func TestLocalModelCacheDeploymentReconciler_NewRevision(t *testing.T) {
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = v1alpha1.AddToScheme(scheme)
 
+	oldSpec := v1alpha1.LocalModelCacheDeploymentSpec{
+		SourceModelUri: "gs://testbucket/testmodel",
+		ModelSize:      resource.MustParse("4Gi"),
+		NodeGroups:     []string{"gpu"},
+	}
+
+	newSpec := v1alpha1.LocalModelCacheDeploymentSpec{
+		SourceModelUri: "gs://testbucket/testmodel-v2",
+		ModelSize:      resource.MustParse("8Gi"),
+		NodeGroups:     []string{"gpu"},
+	}
+
 	deployment := &v1alpha1.LocalModelCacheDeployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       "test-deployment",
-			Generation: 2, // New generation
+			Generation: 2,
 			UID:        "test-uid",
 		},
-		Spec: v1alpha1.LocalModelCacheDeploymentSpec{
-			SourceModelUri: "gs://testbucket/testmodel-v2",
-			ModelSize:      resource.MustParse("8Gi"),
-			NodeGroups:     []string{"gpu"},
-		},
+		Spec: newSpec,
 	}
 
 	existingCache := &v1alpha1.LocalModelCache{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-deployment-v1",
+			Name: "test-deployment-" + computeSpecHash(oldSpec),
 			Labels: map[string]string{
 				constants.LocalModelCacheDeploymentLabel: "test-deployment",
 				constants.LocalModelCacheRevisionLabel:   "1",
 			},
 		},
 		Spec: v1alpha1.LocalModelCacheSpec{
-			SourceModelUri: "gs://testbucket/testmodel",
-			ModelSize:      resource.MustParse("4Gi"),
-			NodeGroups:     []string{"gpu"},
+			SourceModelUri: oldSpec.SourceModelUri,
+			ModelSize:      oldSpec.ModelSize,
+			NodeGroups:     oldSpec.NodeGroups,
 		},
 	}
 
@@ -221,8 +230,9 @@ func TestLocalModelCacheDeploymentReconciler_NewRevision(t *testing.T) {
 	}
 
 	// Verify new cache created
+	newCacheName := "test-deployment-" + computeSpecHash(newSpec)
 	newCache := &v1alpha1.LocalModelCache{}
-	err = client.Get(context.Background(), types.NamespacedName{Name: "test-deployment-v2"}, newCache)
+	err = client.Get(context.Background(), types.NamespacedName{Name: newCacheName}, newCache)
 	if err != nil {
 		t.Fatalf("New LocalModelCache not created: %v", err)
 	}
@@ -232,8 +242,9 @@ func TestLocalModelCacheDeploymentReconciler_NewRevision(t *testing.T) {
 	}
 
 	// Verify old cache still exists
+	oldCacheName := "test-deployment-" + computeSpecHash(oldSpec)
 	oldCache := &v1alpha1.LocalModelCache{}
-	err = client.Get(context.Background(), types.NamespacedName{Name: "test-deployment-v1"}, oldCache)
+	err = client.Get(context.Background(), types.NamespacedName{Name: oldCacheName}, oldCache)
 	if err != nil {
 		t.Fatalf("Old LocalModelCache should still exist: %v", err)
 	}

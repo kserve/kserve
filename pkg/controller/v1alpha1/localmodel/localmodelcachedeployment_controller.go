@@ -18,6 +18,8 @@ package localmodel
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -54,11 +56,8 @@ func (r *LocalModelCacheDeploymentReconciler) Reconcile(ctx context.Context, req
 		return ctrl.Result{}, err
 	}
 
-	// Calculate revision number from generation
-	revision := localModelDeployment.Generation
-
-	// Check if LocalModelCache for this revision exists
-	lmcName := fmt.Sprintf("%s-v%d", localModelDeployment.Name, revision)
+	// Calculate revision name from spec hash
+	lmcName := fmt.Sprintf("%s-%s", localModelDeployment.Name, computeSpecHash(localModelDeployment.Spec))
 	existingLmc := &v1alpha1.LocalModelCache{}
 	err := r.Get(ctx, client.ObjectKey{Name: lmcName}, existingLmc)
 
@@ -69,7 +68,7 @@ func (r *LocalModelCacheDeploymentReconciler) Reconcile(ctx context.Context, req
 				Name: lmcName,
 				Labels: map[string]string{
 					constants.LocalModelCacheDeploymentLabel: localModelDeployment.Name,
-					constants.LocalModelCacheRevisionLabel:   fmt.Sprintf("%d", revision),
+					constants.LocalModelCacheRevisionLabel:   fmt.Sprintf("%d", localModelDeployment.Generation),
 				},
 				OwnerReferences: []metav1.OwnerReference{
 					*metav1.NewControllerRef(localModelDeployment, v1alpha1.SchemeGroupVersion.WithKind(constants.LocalModelCacheDeploymentKind)),
@@ -98,6 +97,12 @@ func (r *LocalModelCacheDeploymentReconciler) Reconcile(ctx context.Context, req
 	// Update revision list
 	if err := r.updateRevisionList(ctx, localModelDeployment); err != nil {
 		log.Error(err, "Failed to update revision list")
+		return ctrl.Result{}, err
+	}
+
+	// Clean up old revisions
+	if err := r.cleanupOldRevisions(ctx, localModelDeployment); err != nil {
+		log.Error(err, "Failed to cleanup old revisions")
 		return ctrl.Result{}, err
 	}
 
@@ -135,6 +140,64 @@ func (r *LocalModelCacheDeploymentReconciler) updateRevisionList(ctx context.Con
 	}
 	localModelDeployment.Status.Revisions = revisions
 	return nil
+}
+
+func (r *LocalModelCacheDeploymentReconciler) cleanupOldRevisions(ctx context.Context, deployment *v1alpha1.LocalModelCacheDeployment) error {
+	limit := int32(10)
+	if deployment.Spec.RevisionHistoryLimit != nil {
+		limit = *deployment.Spec.RevisionHistoryLimit
+	}
+
+	lmcList := &v1alpha1.LocalModelCacheList{}
+	if err := r.List(ctx, lmcList, client.MatchingLabels{
+		constants.LocalModelCacheDeploymentLabel: deployment.Name,
+	}); err != nil {
+		return err
+	}
+
+	// +1 for the current revision
+	if int32(len(lmcList.Items)) <= limit+1 {
+		return nil
+	}
+
+	// Sort by creation timestamp (oldest first)
+	items := lmcList.Items
+	for i := 0; i < len(items); i++ {
+		for j := i + 1; j < len(items); j++ {
+			if items[j].CreationTimestamp.Before(&items[i].CreationTimestamp) {
+				items[i], items[j] = items[j], items[i]
+			}
+		}
+	}
+
+	// Delete oldest revisions, skip current
+	toDelete := int32(len(items)) - (limit + 1)
+	for i := int32(0); i < toDelete; i++ {
+		if items[i].Name == deployment.Status.CurrentRevision {
+			continue
+		}
+		r.Log.Info("Deleting old revision", "name", items[i].Name)
+		if err := r.Delete(ctx, &items[i]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+	return nil
+}
+
+func computeSpecHash(spec v1alpha1.LocalModelCacheDeploymentSpec) string {
+	// Exclude RevisionHistoryLimit from hash — changing it should not create a new revision
+	hashSpec := struct {
+		SourceModelUri string
+		ModelSize      string
+		NodeGroups     []string
+	}{
+		SourceModelUri: spec.SourceModelUri,
+		ModelSize:      spec.ModelSize.String(),
+		NodeGroups:     spec.NodeGroups,
+	}
+	data, _ := json.Marshal(hashSpec)
+	hash := sha256.Sum256(data)
+	return fmt.Sprintf("%x", hash[:4])
 }
 
 func (r *LocalModelCacheDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {

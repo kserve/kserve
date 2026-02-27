@@ -32,6 +32,10 @@ type LocalModelCacheDeploymentSpec struct {
 	// Node groups to cache the model on
 	// +kubebuilder:validation:MinItems=1
 	NodeGroups []string `json:"nodeGroups"`
+	// Maximum number of old revisions to retain. Defaults to 10.
+	// +optional
+	// +kubebuilder:default=10
+	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
 }
 
 // LocalModelCacheDeploymentRevision represents a revision of the LocalModelCacheDeployment
