@@ -26,8 +26,7 @@ from . import manifest_builder
 from . import template_engine
 
 
-def build_component_variables(components: list[dict[str, Any]],
-                              global_env: dict[str, str]) -> str:
+def build_component_variables(components: list[dict[str, Any]], global_env: dict[str, str]) -> str:
     """Build component variables section with deduplication.
 
     Args:
@@ -77,7 +76,7 @@ def build_component_functions(components: list[dict[str, Any]]) -> str:
     """
     component_functions = ""
     for comp in components:
-        component_functions += f'''# ----------------------------------------
+        component_functions += f"""# ----------------------------------------
 # CLI/Component: {comp["name"]}
 # ----------------------------------------
 
@@ -85,8 +84,30 @@ def build_component_functions(components: list[dict[str, Any]]) -> str:
 
 {comp["install_code"]}
 
-'''
+"""
     return component_functions
+
+
+def build_component_template_functions(components: list[dict[str, Any]]) -> str:
+    """Build component template functions section.
+
+    Args:
+        components: List of processed components
+
+    Returns:
+        All component template getter functions as string
+    """
+    template_functions = ""
+    for comp in components:
+        if comp.get("template_functions"):
+            template_functions += f"""# ============================================================================
+# Template Functions: {comp["name"]}
+# ============================================================================
+
+{comp["template_functions"]}
+
+"""
+    return template_functions
 
 
 def build_definition_global_env(global_env: dict[str, str]) -> str:
@@ -103,13 +124,13 @@ def build_definition_global_env(global_env: dict[str, str]) -> str:
     if not global_env:
         return ""
 
-    env_lines = [f'    export {k}="${{{k}:-{v}}}"' for k, v in global_env.items()]
+    env_lines = [f'    export {k}="{v}"' for k, v in global_env.items()]
     return "\n".join(env_lines)
 
 
-def build_install_calls(components: list[dict[str, Any]],
-                        global_env: dict[str, str],
-                        embed_manifests: bool = False) -> str:
+def build_install_calls(
+    components: list[dict[str, Any]], global_env: dict[str, str], embed_manifests: bool = False
+) -> str:
     """Build install function calls with env handling.
 
     Uses set_env_with_priority helper function for proper env variable precedence.
@@ -128,7 +149,7 @@ def build_install_calls(components: list[dict[str, Any]],
         # Determine actual install function to call
         install_func = comp["install_func"]
         if embed_manifests and comp["name"] in ("kserve", "kserve-helm", "kserve-kustomize"):
-            install_func = "install_kserve_manifest"
+            install_func = "install_kserve_kustomize"
 
         if comp["env"]:
             env_calls = []
@@ -151,18 +172,18 @@ def build_install_calls(components: list[dict[str, Any]],
             # Add include_section if present
             include_code = ""
             if comp["include_section"]:
-                include_lines = [f'        {line}' for line in comp["include_section"]]
+                include_lines = [f"        {line}" for line in comp["include_section"]]
                 include_code = "\n" + "\n".join(include_lines) + "\n"
 
-            install_calls.append(f'    (\n{env_code}{include_code}\n        {install_func}\n    )')
+            install_calls.append(f"    (\n{env_code}{include_code}\n        {install_func}\n    )")
         else:
             # No env, but check if there's include_section
             if comp["include_section"]:
-                include_lines = [f'        {line}' for line in comp["include_section"]]
+                include_lines = [f"        {line}" for line in comp["include_section"]]
                 include_code = "\n".join(include_lines)
-                install_calls.append(f'    (\n{include_code}\n        {install_func}\n    )')
+                install_calls.append(f"    (\n{include_code}\n        {install_func}\n    )")
             else:
-                install_calls.append(f'    {install_func}')
+                install_calls.append(f"    {install_func}")
     return "\n".join(install_calls)
 
 
@@ -183,14 +204,13 @@ def build_uninstall_calls(components: list[dict[str, Any]], embed_manifests: boo
         uninstall_func = comp["uninstall_func"]
         if embed_manifests and comp["name"] in ("kserve-helm", "kserve-kustomize"):
             uninstall_func = "uninstall_kserve_manifest"
-        uninstall_calls.append(f'        {uninstall_func}')
+        uninstall_calls.append(f"        {uninstall_func}")
     return "\n".join(uninstall_calls)
 
 
-def generate_script_content(definition_file: Path,
-                            config: dict[str, Any],
-                            components: list[dict[str, Any]],
-                            repo_root: Path) -> str:
+def generate_script_content(
+    definition_file: Path, config: dict[str, Any], components: list[dict[str, Any]], repo_root: Path
+) -> str:
     """Generate complete script content by filling template.
 
     Args:
@@ -202,14 +222,18 @@ def generate_script_content(definition_file: Path,
     Returns:
         Complete script content
     """
+    # install script must include templates by default
+    config["global_env"]["EMBED_TEMPLATES"] = "true"
+    component_template_functions = build_component_template_functions(components)
+
     # Generate KServe manifest functions if EMBED_MANIFESTS mode
     kserve_manifest_functions = ""
     if config["embed_manifests"]:
-        crd_manifest, core_manifest = manifest_builder.build_kserve_manifests(
-            repo_root, config, components
-        )
+        config["global_env"]["EMBED_MANIFESTS"] = "true"
+        crd_manifest, core_manifest, runtime_manifest, llmisvcconfig_manifest = \
+            manifest_builder.build_kserve_manifests(repo_root, config, components)
         kserve_manifest_functions = manifest_builder.generate_manifest_functions(
-            crd_manifest, core_manifest
+            crd_manifest, core_manifest, runtime_manifest, llmisvcconfig_manifest
         )
 
     # Read common functions
@@ -226,10 +250,9 @@ def generate_script_content(definition_file: Path,
 
     # Read env files
     kserve_deps_content = "\n".join(file_reader.read_env_file(repo_root / "kserve-deps.env"))
-    global_vars_content = "\n".join(file_reader.read_env_file(
-        repo_root / "hack/setup/global-vars.env",
-        require_assignment=True
-    ))
+    global_vars_content = "\n".join(
+        file_reader.read_env_file(repo_root / "hack/setup/global-vars.env", require_assignment=True)
+    )
 
     # Build replacements dictionary
     replacements = {
@@ -242,6 +265,7 @@ def generate_script_content(definition_file: Path,
         "COMMON_FUNCTIONS": common_functions,
         "COMPONENT_VARIABLES": component_variables,
         "KSERVE_MANIFEST_FUNCTIONS": kserve_manifest_functions,
+        "COMPONENT_TEMPLATE_FUNCTIONS": component_template_functions,
         "COMPONENT_FUNCTIONS": component_functions,
         "DEFINITION_GLOBAL_ENV": definition_global_env,
         "UNINSTALL_CALLS": uninstall_calls,

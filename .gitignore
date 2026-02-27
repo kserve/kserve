@@ -73,3 +73,6 @@ docker-compose.yml
 
 # Istio installer downloaded by quick install
 istio-*
+
+# Claude code
+.claude/

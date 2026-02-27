@@ -2,6 +2,7 @@
   "id": "id", 
   "model": "model_name", 
   "usage": {
+    "prompt_tokens": 100,
     "total_tokens": 100
   },
   "results": [

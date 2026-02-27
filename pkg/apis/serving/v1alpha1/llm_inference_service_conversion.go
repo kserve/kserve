@@ -322,6 +322,12 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 				Spec: convertInferencePoolSpecToV1(src.Scheduler.Pool.Spec),
 			}
 		}
+		if src.Scheduler.Config != nil {
+			dst.Scheduler.Config = &v1alpha2.SchedulerConfigSpec{
+				Inline: src.Scheduler.Config.Inline,
+				Ref:    src.Scheduler.Config.Ref,
+			}
+		}
 	}
 
 	return dst
@@ -339,8 +345,9 @@ func convertInferencePoolSpecToV1(src *igwapiv1alpha2.InferencePoolSpec) *igwapi
 	dstPool := &igwapiv1.InferencePool{}
 
 	if err := srcPool.ConvertTo(dstPool); err != nil {
-		// Fallback: return empty spec on error (should not happen in practice)
-		return &igwapiv1.InferencePoolSpec{}
+		// Return nil rather than an empty spec — callers nil-check Pool.Spec, and an
+		// empty spec would bypass those guards with invalid zero-value fields.
+		return nil
 	}
 
 	return &dstPool.Spec
@@ -394,6 +401,12 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 				Spec: convertInferencePoolSpecFromV1(src.Scheduler.Pool.Spec),
 			}
 		}
+		if src.Scheduler.Config != nil {
+			dst.Scheduler.Config = &SchedulerConfigSpec{
+				Inline: src.Scheduler.Config.Inline,
+				Ref:    src.Scheduler.Config.Ref,
+			}
+		}
 	}
 
 	return dst
@@ -411,8 +424,9 @@ func convertInferencePoolSpecFromV1(src *igwapiv1.InferencePoolSpec) *igwapiv1al
 	dstPool := &igwapiv1alpha2.InferencePool{}
 
 	if err := dstPool.ConvertFrom(srcPool); err != nil {
-		// Fallback: return empty spec on error (should not happen in practice)
-		return &igwapiv1alpha2.InferencePoolSpec{}
+		// Return nil rather than an empty spec — callers nil-check Pool.Spec, and an
+		// empty spec would bypass those guards with invalid zero-value fields.
+		return nil
 	}
 
 	return &dstPool.Spec

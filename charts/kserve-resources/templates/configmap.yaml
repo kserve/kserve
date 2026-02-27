@@ -562,10 +562,10 @@ data:
   agent: |-
     {
         "image" : "{{ .Values.kserve.agent.image }}:{{ .Values.kserve.agent.tag }}",
-        "memoryRequest": "100Mi",
-        "memoryLimit": "1Gi",
-        "cpuRequest": "100m",
-        "cpuLimit": "1"
+        "memoryRequest": "{{ .Values.kserve.agent.resources.requests.memory }}",
+        "memoryLimit": "{{ .Values.kserve.agent.resources.limits.memory }}",
+        "cpuRequest": "{{ .Values.kserve.agent.resources.requests.cpu }}",
+        "cpuLimit": "{{ .Values.kserve.agent.resources.limits.cpu }}"
     }
   batcher: |-
     {

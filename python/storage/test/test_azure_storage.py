@@ -431,3 +431,115 @@ def test_file_share_no_prefix(
     mock_storage.assert_called_with(
         "https://accountname.file.core.windows.net", credential="some_token"
     )
+
+
+@mock.patch(STORAGE_MODULE + ".os.makedirs")
+@mock.patch("azure.storage.blob.aio.BlobServiceClient")
+def test_blob_allow_patterns(mock_storage, mock_makedirs):
+    # given
+    blob_path = "https://kfserving.blob.core.windows.net/triton/model/"
+    paths = [
+        "model/weights.safetensors",
+        "model/weights.bin",
+        "model/config.json",
+    ]
+    mock_blob, mock_container = create_mock_blob(mock_storage, paths)
+
+    # when
+    Storage._download_azure_blob(
+        blob_path, "dest_path", allow_patterns=["*.safetensors", "*.json"]
+    )
+
+    # then
+    arg_list = get_call_args(mock_container.get_blob_client.call_args_list)
+    blob_names = [a[0] for a in arg_list]
+    assert "model/weights.safetensors" in blob_names
+    assert "model/config.json" in blob_names
+    assert "model/weights.bin" not in blob_names
+
+
+@mock.patch(STORAGE_MODULE + ".os.makedirs")
+@mock.patch("azure.storage.blob.aio.BlobServiceClient")
+def test_blob_ignore_patterns(mock_storage, mock_makedirs):
+    # given
+    blob_path = "https://kfserving.blob.core.windows.net/triton/model/"
+    paths = [
+        "model/weights.safetensors",
+        "model/weights.bin",
+        "model/config.json",
+    ]
+    mock_blob, mock_container = create_mock_blob(mock_storage, paths)
+
+    # when
+    Storage._download_azure_blob(blob_path, "dest_path", ignore_patterns=["*.bin"])
+
+    # then
+    arg_list = get_call_args(mock_container.get_blob_client.call_args_list)
+    blob_names = [a[0] for a in arg_list]
+    assert "model/weights.bin" not in blob_names
+    assert len(blob_names) == 2
+
+
+@mock.patch(STORAGE_MODULE + ".os.makedirs")
+@mock.patch(STORAGE_MODULE + ".Storage._get_azure_storage_access_key")
+@mock.patch("azure.storage.fileshare.ShareServiceClient")
+def test_file_share_allow_patterns(mock_storage, mock_get_access_key, mock_makedirs):
+    # given
+    file_share_path = "https://kfserving.file.core.windows.net/triton/model/"
+    mock_get_access_key.return_value = "some_token"
+
+    mock_file_share, mock_file, mock_data = create_mock_objects_for_file_share(
+        mock_storage,
+        [
+            [
+                create_mock_file("weights.safetensors"),
+                create_mock_file("weights.bin"),
+                create_mock_file("config.json"),
+            ],
+            [],
+        ],
+    )
+
+    # when
+    Storage._download_azure_file_share(
+        file_share_path, "dest_path", allow_patterns=["*.safetensors", "*.json"]
+    )
+
+    # then
+    arg_list = get_call_args(mock_file.get_file_client.call_args_list)
+    file_paths = [a[0] for a in arg_list]
+    assert "model/weights.safetensors" in file_paths
+    assert "model/config.json" in file_paths
+    assert "model/weights.bin" not in file_paths
+
+
+@mock.patch(STORAGE_MODULE + ".os.makedirs")
+@mock.patch(STORAGE_MODULE + ".Storage._get_azure_storage_access_key")
+@mock.patch("azure.storage.fileshare.ShareServiceClient")
+def test_file_share_ignore_patterns(mock_storage, mock_get_access_key, mock_makedirs):
+    # given
+    file_share_path = "https://kfserving.file.core.windows.net/triton/model/"
+    mock_get_access_key.return_value = "some_token"
+
+    mock_file_share, mock_file, mock_data = create_mock_objects_for_file_share(
+        mock_storage,
+        [
+            [
+                create_mock_file("weights.safetensors"),
+                create_mock_file("weights.bin"),
+                create_mock_file("config.json"),
+            ],
+            [],
+        ],
+    )
+
+    # when
+    Storage._download_azure_file_share(
+        file_share_path, "dest_path", ignore_patterns=["*.bin"]
+    )
+
+    # then
+    arg_list = get_call_args(mock_file.get_file_client.call_args_list)
+    file_paths = [a[0] for a in arg_list]
+    assert "model/weights.bin" not in file_paths
+    assert len(file_paths) == 2
