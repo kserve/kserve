@@ -1505,7 +1505,7 @@ func TestLocalModelLabelAssignment(t *testing.T) {
 			isvc.DefaultInferenceService(nil, &DeployConfig{DefaultDeploymentMode: string(constants.Knative)}, nil, nil, nil)
 
 			// Set local model label
-			isvc.setLocalModelCacheDeploymentLabel(localModels, nil)
+			isvc.resolveLocalModel(localModels, nil)
 
 			if scenario.expectMatch {
 				g.Expect(isvc.Labels).NotTo(gomega.BeNil())
@@ -1526,6 +1526,73 @@ func TestLocalModelLabelAssignment(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLocalModelCacheDeploymentResolution(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	deployment := &v1alpha1.LocalModelCacheDeployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-deployment"},
+		Status: v1alpha1.LocalModelCacheDeploymentStatus{
+			CurrentRevision: "my-deployment-v1",
+		},
+	}
+
+	caches := &v1alpha1.LocalModelCacheList{
+		Items: []v1alpha1.LocalModelCache{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "my-deployment-v1"},
+				Spec: v1alpha1.LocalModelCacheSpec{
+					SourceModelUri: "gs://bucket/model-v1",
+					ModelSize:      resource.MustParse("4Gi"),
+					NodeGroups:     []string{"gpu"},
+				},
+			},
+		},
+	}
+
+	t.Run("resolves to currentRevision", func(t *testing.T) {
+		isvc := &InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-isvc"},
+		}
+		isvc.setLocalModelCacheFromDeployment(deployment, caches)
+		g.Expect(isvc.Labels[constants.LocalModelLabel]).To(gomega.Equal("my-deployment-v1"))
+		g.Expect(isvc.Annotations[constants.LocalModelPVCNameAnnotationKey]).To(gomega.Equal("my-deployment-v1-gpu"))
+		g.Expect(isvc.Annotations[constants.LocalModelRevisionAnnotationKey]).To(gomega.Equal("my-deployment-v1"))
+	})
+
+	t.Run("respects pinned revision annotation", func(t *testing.T) {
+		isvc := &InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "test-isvc",
+				Annotations: map[string]string{constants.LocalModelRevisionAnnotationKey: "my-deployment-v1"},
+			},
+		}
+		isvc.setLocalModelCacheFromDeployment(deployment, caches)
+		g.Expect(isvc.Labels[constants.LocalModelLabel]).To(gomega.Equal("my-deployment-v1"))
+	})
+
+	t.Run("clears metadata when deployment is nil", func(t *testing.T) {
+		isvc := &InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "test-isvc",
+				Labels: map[string]string{constants.LocalModelLabel: "old"},
+			},
+		}
+		isvc.setLocalModelCacheFromDeployment(nil, caches)
+		g.Expect(isvc.Labels[constants.LocalModelLabel]).To(gomega.BeEmpty())
+	})
+
+	t.Run("clears metadata when revision not found", func(t *testing.T) {
+		isvc := &InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "test-isvc",
+				Annotations: map[string]string{constants.LocalModelRevisionAnnotationKey: "nonexistent"},
+			},
+		}
+		isvc.setLocalModelCacheFromDeployment(deployment, caches)
+		g.Expect(isvc.Labels[constants.LocalModelLabel]).To(gomega.BeEmpty())
+	})
 }
 
 func TestAssignHuggingFaceRuntime(t *testing.T) {

@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 // LocalModelCacheDeploymentReconciler reconciles a LocalModelCacheDeployment object
@@ -67,11 +68,11 @@ func (r *LocalModelCacheDeploymentReconciler) Reconcile(ctx context.Context, req
 			ObjectMeta: metav1.ObjectMeta{
 				Name: lmcName,
 				Labels: map[string]string{
-					"serving.kserve.io/localmodelcachedeployment": localModelDeployment.Name,
-					"serving.kserve.io/revision":                  fmt.Sprintf("%d", revision),
+					constants.LocalModelCacheDeploymentLabel: localModelDeployment.Name,
+					constants.LocalModelCacheRevisionLabel:   fmt.Sprintf("%d", revision),
 				},
 				OwnerReferences: []metav1.OwnerReference{
-					*metav1.NewControllerRef(localModelDeployment, v1alpha1.SchemeGroupVersion.WithKind("LocalModelCacheDeployment")),
+					*metav1.NewControllerRef(localModelDeployment, v1alpha1.SchemeGroupVersion.WithKind(constants.LocalModelCacheDeploymentKind)),
 				},
 			},
 			Spec: v1alpha1.LocalModelCacheSpec{
@@ -86,7 +87,6 @@ func (r *LocalModelCacheDeploymentReconciler) Reconcile(ctx context.Context, req
 			return ctrl.Result{}, err
 		}
 		log.Info("Created LocalModelCache", "name", lmcName)
-		existingLmc = lmc
 	} else if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -96,7 +96,10 @@ func (r *LocalModelCacheDeploymentReconciler) Reconcile(ctx context.Context, req
 	localModelDeployment.Status.ObservedGeneration = localModelDeployment.Generation
 
 	// Update revision list
-	r.updateRevisionList(ctx, localModelDeployment)
+	if err := r.updateRevisionList(ctx, localModelDeployment); err != nil {
+		log.Error(err, "Failed to update revision list")
+		return ctrl.Result{}, err
+	}
 
 	if err := r.Status().Update(ctx, localModelDeployment); err != nil {
 		log.Error(err, "Failed to update LocalModelCacheDeployment status")
@@ -106,20 +109,23 @@ func (r *LocalModelCacheDeploymentReconciler) Reconcile(ctx context.Context, req
 	return ctrl.Result{}, nil
 }
 
-func (r *LocalModelCacheDeploymentReconciler) updateRevisionList(ctx context.Context, localModelDeployment *v1alpha1.LocalModelCacheDeployment) {
+func (r *LocalModelCacheDeploymentReconciler) updateRevisionList(ctx context.Context, localModelDeployment *v1alpha1.LocalModelCacheDeployment) error {
 	// List all LocalModelCaches owned by this LocalModelCacheDeployment
 	lmcList := &v1alpha1.LocalModelCacheList{}
 	if err := r.List(ctx, lmcList, client.MatchingLabels{
-		"serving.kserve.io/localmodelcachedeployment": localModelDeployment.Name,
+		constants.LocalModelCacheDeploymentLabel: localModelDeployment.Name,
 	}); err != nil {
-		return
+		return err
 	}
 
 	revisions := []v1alpha1.LocalModelCacheDeploymentRevision{}
 	for _, lmc := range lmcList.Items {
 		var revNum int32
-		if revLabel, ok := lmc.Labels["serving.kserve.io/revision"]; ok {
-			fmt.Sscanf(revLabel, "%d", &revNum)
+		if revLabel, ok := lmc.Labels[constants.LocalModelCacheRevisionLabel]; ok {
+			if _, err := fmt.Sscanf(revLabel, "%d", &revNum); err != nil {
+				r.Log.Error(err, "Failed to parse revision label", "name", lmc.Name, "label", revLabel)
+				continue
+			}
 		}
 		rev := v1alpha1.LocalModelCacheDeploymentRevision{
 			Name:     lmc.Name,
@@ -128,6 +134,7 @@ func (r *LocalModelCacheDeploymentReconciler) updateRevisionList(ctx context.Con
 		revisions = append(revisions, rev)
 	}
 	localModelDeployment.Status.Revisions = revisions
+	return nil
 }
 
 func (r *LocalModelCacheDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {

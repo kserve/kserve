@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -85,10 +86,10 @@ func TestLocalModelCacheDeploymentReconciler_CreateLocalModelCache(t *testing.T)
 	}
 
 	// Verify labels
-	if cache.Labels["serving.kserve.io/localmodelcachedeployment"] != "test-deployment" {
+	if cache.Labels[constants.LocalModelCacheDeploymentLabel] != "test-deployment" {
 		t.Errorf("Expected deployment label, got %v", cache.Labels)
 	}
-	if cache.Labels["serving.kserve.io/revision"] != "1" {
+	if cache.Labels[constants.LocalModelCacheRevisionLabel] != "1" {
 		t.Errorf("Expected revision label 1, got %v", cache.Labels)
 	}
 
@@ -123,11 +124,11 @@ func TestLocalModelCacheDeploymentReconciler_ExistingCache(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-deployment-v1",
 			Labels: map[string]string{
-				"serving.kserve.io/localmodelcachedeployment": "test-deployment",
-				"serving.kserve.io/revision":                  "1",
+				constants.LocalModelCacheDeploymentLabel: "test-deployment",
+				constants.LocalModelCacheRevisionLabel:   "1",
 			},
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(deployment, v1alpha1.SchemeGroupVersion.WithKind("LocalModelCacheDeployment")),
+				*metav1.NewControllerRef(deployment, v1alpha1.SchemeGroupVersion.WithKind(constants.LocalModelCacheDeploymentKind)),
 			},
 		},
 		Spec: v1alpha1.LocalModelCacheSpec{
@@ -189,8 +190,8 @@ func TestLocalModelCacheDeploymentReconciler_NewRevision(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-deployment-v1",
 			Labels: map[string]string{
-				"serving.kserve.io/localmodelcachedeployment": "test-deployment",
-				"serving.kserve.io/revision":                  "1",
+				constants.LocalModelCacheDeploymentLabel: "test-deployment",
+				constants.LocalModelCacheRevisionLabel:   "1",
 			},
 		},
 		Spec: v1alpha1.LocalModelCacheSpec{

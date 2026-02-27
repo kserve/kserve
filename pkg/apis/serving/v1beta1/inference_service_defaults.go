@@ -153,7 +153,7 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 		if deploymentName, ok := isvc.Labels[constants.LocalModelCacheDeploymentLabel]; ok {
 			localModelCacheDeployment = &v1alpha1.LocalModelCacheDeployment{}
 			if err := c.Get(ctx, client.ObjectKey{Name: deploymentName}, localModelCacheDeployment); err != nil {
-				mutatorLogger.Error(err, "Cannot get LocalModelCacheDeployment", "name", deploymentName)
+				mutatorLogger.Error(err, "LocalModelCacheDeployment not found, label value may be invalid", "name", deploymentName, "isvc", isvc.Name)
 				localModelCacheDeployment = nil
 			}
 		}
@@ -211,7 +211,7 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 		}
 	}
 
-	isvc.setLocalModelCacheDeploymentLabel(models, localModelCacheDeployment)
+	isvc.resolveLocalModel(models, localModelCacheDeployment)
 	if securityConfig != nil && !securityConfig.AutoMountServiceAccountToken {
 		disableAutomountServiceAccountToken(isvc)
 	}
@@ -561,7 +561,7 @@ func (isvc *InferenceService) setLocalModelCacheFromDeployment(localModel *v1alp
 
 // If there is a LocalModelCache resource, add the name of the LocalModelCache and sourceModelUri to the isvc,
 // which is used by the local model controller to manage PV/PVCs.
-func (isvc *InferenceService) setLocalModelCacheDeploymentLabel(models *v1alpha1.LocalModelCacheList, deployment *v1alpha1.LocalModelCacheDeployment) {
+func (isvc *InferenceService) resolveLocalModel(models *v1alpha1.LocalModelCacheList, deployment *v1alpha1.LocalModelCacheDeployment) {
 	// If LocalModelCacheDeployment is specified, use new logic
 	if deployment != nil {
 		isvc.setLocalModelCacheFromDeployment(deployment, models)
