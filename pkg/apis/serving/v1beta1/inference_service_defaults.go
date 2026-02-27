@@ -382,18 +382,23 @@ func (isvc *InferenceService) assignPaddleRuntime() {
 	isvc.Spec.Predictor.Paddle = nil
 }
 
-func (isvc *InferenceService) SetRuntimeDefaults() {
-	// add mlserver specific default values
-	if *isvc.Spec.Predictor.Model.Runtime == constants.MLServer {
+func (isvc *InferenceService) SetRuntimeDefaults(runtimeAnnotations map[string]string) {
+	// Try annotation-based approach first (new way)
+	serverType, exists := runtimeAnnotations[constants.ServerTypeAnnotationKey]
+
+	// Fallback to runtime name-based approach for backward compatibility (old way)
+	if !exists && isvc.Spec.Predictor.Model.Runtime != nil {
+		serverType = constants.GetServerTypeFromRuntimeName(*isvc.Spec.Predictor.Model.Runtime)
+	}
+
+	// Apply server-specific defaults based on server type
+	switch serverType {
+	case constants.ServerTypeMLServer:
 		isvc.SetMlServerDefaults()
-	}
-	// add torchserve specific default values
-	if *isvc.Spec.Predictor.Model.Runtime == constants.TorchServe {
-		isvc.SetTorchServeDefaults()
-	}
-	// add triton specific default values
-	if *isvc.Spec.Predictor.Model.Runtime == constants.TritonServer {
+	case constants.ServerTypeTritonServer:
 		isvc.SetTritonDefaults()
+	case constants.ServerTypeTorchServe:
+		isvc.SetTorchServeDefaults()
 	}
 }
 
@@ -423,7 +428,7 @@ func (isvc *InferenceService) SetMlServerDefaults() {
 			},
 		)
 	}
-	// set model class
+	// set model class as label (used by runtime template for MLSERVER_MODEL_IMPLEMENTATION)
 	modelClass := constants.MLServerModelClassSKLearn
 	switch isvc.Spec.Predictor.Model.ModelFormat.Name {
 	case constants.SupportedModelXGBoost:

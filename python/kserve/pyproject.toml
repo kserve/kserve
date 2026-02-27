@@ -16,10 +16,10 @@ dependencies = [
     "python-dateutil<3.0.0,>=2.8.0",
     "numpy<3.0.0,>=1.26.0",
     "psutil<6.0.0,>=5.9.6",
-    "grpcio<2.0.0,>=1.64.1",
-    "grpcio-tools<2.0.0,>=1.64.1",
+    "grpcio<2.0.0,>=1.73.0",
+    "grpcio-tools<2.0.0,>=1.73.0",
     "grpc-interceptor<1.0.0,>=0.15.4",
-    "protobuf<6.0.0,>=5.27.1",
+    "protobuf<7.0.0,>=6.33.5",
     "prometheus-client<1.0.0,>=0.20.0",
     "orjson<4.0.0,>=3.10.15",
     "httpx<1.0.0,>=0.27.2",
@@ -67,7 +67,7 @@ ray = [
     "ray[serve]>=2.43.0",
 ]
 llm = [
-    "vllm==0.11.2",
+    "vllm==0.15.1",
 ]
 
 [dependency-groups]
@@ -82,7 +82,7 @@ test = [
     "avro<2.0.0,>=1.11.0",
     "tomlkit<1.0.0,>=0.12.0",
     "jinja2<4.0.0,>=3.1.4",
-    "grpcio-testing<2.0.0,>=1.60.0",
+    "grpcio-testing<2.0.0,>=1.73.0",
     "httpx-retries>=0.4.5,<1.0.0",
 ]
 dev = [

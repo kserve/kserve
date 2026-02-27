@@ -152,6 +152,16 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		}
 	}
 
+	// Add InferenceService name as environment variable to all containers
+	// In collocation mode, there may be multiple containers (predictor + transformer)
+	// https://kserve.github.io/website/docs/model-serving/predictive-inference/transformers/collocation
+	for i := range podSpec.Containers {
+		containerName := podSpec.Containers[i].Name
+		if err := isvcutils.AddEnvVarToPodSpec(&podSpec, containerName, constants.InferenceServiceNameEnvVarKey, isvc.Name); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "failed to add INFERENCE_SERVICE_NAME environment variable to container %s", containerName)
+		}
+	}
+
 	predictorName := constants.PredictorServiceName(isvc.Name)
 
 	// Labels and annotations from predictor component
@@ -191,6 +201,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		podLabelKey = constants.RawDeploymentAppLabel
 		// This is main RawKubeReconciler to create objects (deployment, svc, scaler)
 		if err := p.reconcileRawDeployment(ctx, isvc, objectMeta, workerObjectMeta, &podSpec, workerPodSpec); err != nil {
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
 	} else {
@@ -198,6 +209,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		podLabelKey = constants.RevisionLabel
 
 		if kstatus, err = p.reconcileKnativeDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
 	}
@@ -269,9 +281,8 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 	var sRuntime v1alpha1.ServingRuntimeSpec
 
 	if isvc.Spec.Predictor.Model.Runtime != nil {
-		// set runtime defaults
-		isvc.SetRuntimeDefaults()
-		r, err, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, *isvc.Spec.Predictor.Model.Runtime, isvc.Namespace)
+		// Get runtime and annotations
+		r, runtimeAnnotations, err, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, *isvc.Spec.Predictor.Model.Runtime, isvc.Namespace)
 		if err != nil {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.RuntimeNotRecognized,
@@ -306,6 +317,9 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 			return sRuntime, fmt.Errorf("specified runtime %s does not support specified framework/version", *isvc.Spec.Predictor.Model.Runtime)
 		}
 
+		// set runtime defaults after validation
+		isvc.SetRuntimeDefaults(runtimeAnnotations)
+
 		sRuntime = *r
 		if isClusterServingRuntime {
 			isvc.Status.ClusterServingRuntimeName = *isvc.Spec.Predictor.Model.Runtime
@@ -329,7 +343,7 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 		// Get first supporting runtime.
 		sRuntime = runtimes[0].Spec
 		isvc.Spec.Predictor.Model.Runtime = &runtimes[0].Name
-		_, _, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, runtimes[0].Name, isvc.Namespace)
+		_, runtimeAnnotations, _, isClusterServingRuntime := isvcutils.GetServingRuntime(ctx, p.client, runtimes[0].Name, isvc.Namespace)
 		if isClusterServingRuntime {
 			isvc.Status.ClusterServingRuntimeName = runtimes[0].Name
 			isvc.Status.ServingRuntimeName = ""
@@ -338,8 +352,8 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 			isvc.Status.ClusterServingRuntimeName = ""
 		}
 
-		// set runtime defaults
-		isvc.SetRuntimeDefaults()
+		// set runtime defaults for auto-selected runtime
+		isvc.SetRuntimeDefaults(runtimeAnnotations)
 	}
 	// assign protocol version to inferenceservice based on runtime selected
 	if isvc.Spec.Predictor.Model.ProtocolVersion == nil {
