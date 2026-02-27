@@ -49,6 +49,7 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - localmodelcachedeployments
   - localmodelcaches
   - localmodelnodes
   verbs:
@@ -62,6 +63,7 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - localmodelcachedeployments/status
   - localmodelcaches/status
   verbs:
   - get
