@@ -598,13 +598,6 @@ LLMINFERENCESERVICE_CONFIGS = {
                                             "enableMetrics": True,
                                             "metricsLoggingInterval": 60000000000,
                                         },
-                                        "tokenizersPoolConfig": {
-                                            "modelName": "{{ .Spec.Model.Name }}",
-                                            "uds": {
-                                                "socketFile": "/tmp/tokenizer/tokenizer-uds.socket",
-                                            },
-                                            "hf": {"enabled": False},
-                                        },
                                     },
                                 },
                             },

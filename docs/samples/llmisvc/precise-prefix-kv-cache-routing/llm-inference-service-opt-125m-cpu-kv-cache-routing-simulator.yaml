@@ -36,12 +36,6 @@ spec:
                   kvBlockIndexConfig:
                     enableMetrics: true
                     metricsLoggingInterval: 60000000000
-                  tokenizersPoolConfig:
-                    modelName: "{{ .Spec.Model.Name }}"
-                    uds:
-                      socketFile: /tmp/tokenizer/tokenizer-uds.socket
-                    hf:
-                      enabled: false
             - type: queue-scorer
             - type: kv-cache-utilization-scorer
             - type: max-score-picker

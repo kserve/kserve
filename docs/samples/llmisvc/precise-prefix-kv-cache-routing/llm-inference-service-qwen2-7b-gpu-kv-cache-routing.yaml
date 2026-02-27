@@ -28,12 +28,6 @@ spec:
                   kvBlockIndexConfig:
                     enableMetrics: true                   # Enable Prometheus metrics for KV cache index
                     metricsLoggingInterval: 60000000000   # Log metrics every 60 seconds (in nanoseconds)
-                  tokenizersPoolConfig:
-                    modelName: "{{ .Spec.Model.Name }}"
-                    uds:
-                      socketFile: /tmp/tokenizer/tokenizer-uds.socket
-                    hf:
-                      enabled: false
             - type: queue-scorer
             - type: kv-cache-utilization-scorer
             - type: max-score-picker
