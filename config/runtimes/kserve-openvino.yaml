@@ -4,6 +4,7 @@ metadata:
   annotations:
     meta.helm.sh/release-name: kserve
     meta.helm.sh/release-namespace: kserve
+    serving.kserve.io/server-type: ovms
   labels:
     app.kubernetes.io/managed-by: Helm
   name: kserve-openvino
