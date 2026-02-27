@@ -368,3 +368,58 @@ func TestLoggerWithS3Store(t *testing.T) {
 	g.Expect(res.Annotations).To(gomega.HaveLen(1))
 	g.Expect(res.Annotations["test-annotation"]).To(gomega.Equal("test-value"))
 }
+
+func TestLoggerRequestTimestamp(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
+	predictorResponse := []byte(`{"instances":[[4,5,6]]}`)
+
+	responseChan := make(chan string)
+	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		b, err := io.ReadAll(req.Body)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		responseChan <- string(b)
+		_, err = rw.Write([]byte(`ok`))
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+
+		// Verify requesttimestamp is present and uses the same RFC3339 format as ce-time
+		g.Expect(req.Header.Get("Ce-Requesttimestamp")).ToNot(gomega.BeEmpty())
+		g.Expect(req.Header.Get("Ce-Requesttimestamp")).To(gomega.MatchRegexp(
+			`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}`))
+	}))
+	defer logSvc.Close()
+
+	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		b, err := io.ReadAll(req.Body)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
+		_, err = rw.Write(predictorResponse)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	}))
+	defer predictor.Close()
+
+	reader := bytes.NewReader(predictorRequest)
+	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
+	w := httptest.NewRecorder()
+	logger, _ := pkglogging.NewLogger("", "INFO")
+	logf.SetLogger(zap.New())
+	logSvcUrl, err := url.Parse(logSvc.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	sourceUri, err := url.Parse("http://localhost:9081/")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	targetUri, err := url.Parse(predictor.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	StartDispatcher(5, &MockStore{}, &ImmediateBatch{}, logger)
+	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
+	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
+		"default", httpProxy, nil, "", nil, true)
+
+	oh.ServeHTTP(w, r)
+
+	// get logRequest
+	<-responseChan
+	// get logResponse
+	<-responseChan
+}

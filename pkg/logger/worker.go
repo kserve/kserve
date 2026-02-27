@@ -45,8 +45,9 @@ const (
 	ComponentAttr        = "component"
 	MetadataAttr         = "metadata"
 	// endpoint would be either default or canary
-	EndpointAttr   = "endpoint"
-	AnnotationAttr = "annotations"
+	EndpointAttr    = "endpoint"
+	AnnotationAttr  = "annotations"
+	RequestTimeAttr = "requesttimestamp"
 
 	LoggerWorkerQueueSize = 100
 	CloudEventsIdHeader   = "Ce-Id"
@@ -127,6 +128,7 @@ func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 	event.SetExtension(NamespaceAttr, logReq.Namespace)
 	event.SetExtension(ComponentAttr, logReq.Component)
 	event.SetExtension(EndpointAttr, logReq.Endpoint)
+	event.SetExtension(RequestTimeAttr, logReq.RequestTime)
 
 	encodedMetadata, err := json.Marshal(logReq.Metadata)
 	if err != nil {
