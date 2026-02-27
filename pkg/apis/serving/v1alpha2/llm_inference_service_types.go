@@ -106,13 +106,13 @@ type WorkloadSpec struct {
 	// +kubebuilder:validation:Minimum=0
 	Replicas *int32 `json:"replicas,omitempty"`
 
-	// Scaling configuration for autoscaling the workload deployment.
+	// Scaling configuration for autoscaling this workload.
 	// When specified, the controller creates and manages autoscaling resources
 	// (VariantAutoscaling CR, ServiceMonitor, and the selected actuator — HPA or KEDA ScaledObject)
-	// targeting this workload's Deployment.
+	// targeting this workload.
 	// Mutually exclusive with the static 'replicas' field.
 	// In a disaggregated setup, each workload (decode and prefill) can have its own independent scaling configuration,
-	// resulting in separate VA CRs per deployment.
+	// resulting in separate autoscaling resources per workload.
 	// +optional
 	Scaling *ScalingSpec `json:"scaling,omitempty"`
 
@@ -318,16 +318,14 @@ type ScalingSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	MaxReplicas *int32 `json:"maxReplicas,omitempty"`
 
-	// WVA configures the Workload Variant Autoscaler (WVA) for saturation-based scaling.
-	// WVA scales based on GPU saturation metrics (KV cache utilization, queue depth)
+	// WVA configures the Workload Variant Autoscaler (WVA) for scaling.
+	// WVA scales based on a variety of inference metrics (KV cache utilization, queue depth, etc.)
 	// rather than traditional CPU/memory metrics.
 	// +optional
 	WVA *WVASpec `json:"wva,omitempty"`
 }
 
 // WVASpec configures the Workload Variant Autoscaler.
-// +kubebuilder:validation:XValidation:rule="!(has(self.hpa) && has(self.keda))",message="hpa and keda are mutually exclusive; choose one actuator backend"
-// +kubebuilder:validation:XValidation:rule="has(self.hpa) || has(self.keda)",message="either hpa or keda must be specified as the actuator backend"
 type WVASpec struct {
 	// VariantCost specifies the cost per replica for this variant (used in saturation analysis).
 	// Must be a non-negative numeric string (e.g., "10", "10.0", "0.5").
@@ -337,6 +335,16 @@ type WVASpec struct {
 	// +kubebuilder:default="10.0"
 	VariantCost string `json:"variantCost,omitempty"`
 
+	// ActuatorSpec defines the autoscaling actuator backend (HPA or KEDA).
+	// Exactly one of HPA or KEDA must be specified.
+	ActuatorSpec `json:",inline"`
+}
+
+// ActuatorSpec defines the autoscaling actuator backend for WVA.
+// Exactly one of HPA or KEDA must be specified.
+// +kubebuilder:validation:XValidation:rule="!(has(self.hpa) && has(self.keda))",message="hpa and keda are mutually exclusive; choose one actuator backend"
+// +kubebuilder:validation:XValidation:rule="has(self.hpa) || has(self.keda)",message="either hpa or keda must be specified as the actuator backend"
+type ActuatorSpec struct {
 	// HPA configures the HorizontalPodAutoscaler as the actuator backend.
 	// When specified, HPA reads the wva_desired_replicas metric via the Kubernetes Metrics API
 	// (requires Prometheus Adapter) and scales the deployment accordingly.
@@ -363,6 +371,8 @@ type HPAScalingSpec struct {
 
 // KEDAScalingSpec configures the KEDA ScaledObject for autoscaling.
 // The fields are directly from the upstream KEDA ScaledObject API.
+// +kubebuilder:validation:XValidation:rule="!has(self.advanced) || (size(self.advanced.scalingModifiers.formula) == 0 && size(self.advanced.scalingModifiers.target) == 0 && size(self.advanced.scalingModifiers.activationTarget) == 0 && size(self.advanced.scalingModifiers.metricType) == 0)",message="scalingModifiers must not be set; WVA controls the scaling metric formula and logic"
+// +kubebuilder:validation:XValidation:rule="!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0",message="horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name"
 type KEDAScalingSpec struct {
 	// PollingInterval is the interval in seconds to check each trigger on.
 	// Must be at least 1 second.
@@ -377,12 +387,25 @@ type KEDAScalingSpec struct {
 	// +kubebuilder:validation:Minimum=0
 	CooldownPeriod *int32 `json:"cooldownPeriod,omitempty"`
 
+	// InitialCooldownPeriod is the period in seconds to wait after the ScaledObject is created
+	// before KEDA starts evaluating triggers. Useful for LLM deployments where the model
+	// takes time to load before it can serve traffic, preventing premature scale-up decisions.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	InitialCooldownPeriod *int32 `json:"initialCooldownPeriod,omitempty"`
+
 	// IdleReplicaCount is the number of replicas KEDA will scale the resource down to
 	// when there are no triggers active. This must be less than minReplicas.
 	// If not set, KEDA will not scale below minReplicas.
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	IdleReplicaCount *int32 `json:"idleReplicaCount,omitempty"`
+
+	// Fallback defines the replica count to maintain when the scaler is in a fallback state
+	// (e.g., when Prometheus or WVA metrics are unavailable). This allows the deployment to
+	// hold a safe replica count during metric outages rather than scaling to zero.
+	// +optional
+	Fallback *kedav1alpha1.Fallback `json:"fallback,omitempty"`
 
 	// Advanced specifies the advanced KEDA configuration options.
 	// This includes HPA behavior configuration and restore-to-original replica count settings.

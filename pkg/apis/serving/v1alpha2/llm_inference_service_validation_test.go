@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -183,7 +184,9 @@ func TestValidateWorkloadScaling(t *testing.T) {
 					MaxReplicas: ptr.To(int32(5)),
 					WVA: &WVASpec{
 						VariantCost: "10.0",
-						HPA:         &HPAScalingSpec{},
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
 					},
 				},
 			},
@@ -197,10 +200,12 @@ func TestValidateWorkloadScaling(t *testing.T) {
 					MaxReplicas: ptr.To(int32(10)),
 					WVA: &WVASpec{
 						VariantCost: "5.0",
-						KEDA: &KEDAScalingSpec{
-							PollingInterval:  ptr.To(int32(30)),
-							CooldownPeriod:   ptr.To(int32(60)),
-							IdleReplicaCount: ptr.To(int32(1)),
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								PollingInterval:  ptr.To(int32(30)),
+								CooldownPeriod:   ptr.To(int32(60)),
+								IdleReplicaCount: ptr.To(int32(1)),
+							},
 						},
 					},
 				},
@@ -218,7 +223,9 @@ func TestValidateWorkloadScaling(t *testing.T) {
 				Scaling: &ScalingSpec{
 					MaxReplicas: ptr.To(int32(5)),
 					WVA: &WVASpec{
-						HPA: &HPAScalingSpec{},
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
 					},
 				},
 			},
@@ -231,7 +238,9 @@ func TestValidateWorkloadScaling(t *testing.T) {
 					MaxReplicas: ptr.To(int32(5)),
 					WVA: &WVASpec{
 						VariantCost: "10",
-						HPA:         &HPAScalingSpec{},
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
 					},
 				},
 			},
@@ -244,7 +253,9 @@ func TestValidateWorkloadScaling(t *testing.T) {
 					MaxReplicas: ptr.To(int32(5)),
 					WVA: &WVASpec{
 						VariantCost: "0.5",
-						HPA:         &HPAScalingSpec{},
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
 					},
 				},
 			},
@@ -257,10 +268,12 @@ func TestValidateWorkloadScaling(t *testing.T) {
 					MinReplicas: ptr.To(int32(1)),
 					MaxReplicas: ptr.To(int32(5)),
 					WVA: &WVASpec{
-						HPA: &HPAScalingSpec{
-							Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
-								ScaleUp: &autoscalingv2.HPAScalingRules{
-									StabilizationWindowSeconds: ptr.To(int32(60)),
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{
+								Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+									ScaleUp: &autoscalingv2.HPAScalingRules{
+										StabilizationWindowSeconds: ptr.To(int32(60)),
+									},
 								},
 							},
 						},
@@ -270,13 +283,187 @@ func TestValidateWorkloadScaling(t *testing.T) {
 			wantErrCount: 0,
 		},
 		{
+			name: "valid: empty variantCost (uses default)",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						VariantCost: "",
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: idleReplicaCount=1 minReplicas=2 (minimum valid combo)",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(2)),
+					MaxReplicas: ptr.To(int32(10)),
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								IdleReplicaCount: ptr.To(int32(1)),
+							},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: initialCooldownPeriod set",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								InitialCooldownPeriod: ptr.To(int32(60)),
+							},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: fallback set",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								Fallback: &kedav1alpha1.Fallback{
+									FailureThreshold: 3,
+									Replicas:         2,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: restoreToOriginalReplicaCount set in advanced",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								Advanced: &kedav1alpha1.AdvancedConfig{
+									RestoreToOriginalReplicaCount: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "error: scalingModifiers target set",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								Advanced: &kedav1alpha1.AdvancedConfig{
+									ScalingModifiers: kedav1alpha1.ScalingModifiers{
+										Target: "10",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"scalingModifiers must not be set"},
+		},
+		{
+			name: "error: scalingModifiers activationTarget set",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								Advanced: &kedav1alpha1.AdvancedConfig{
+									ScalingModifiers: kedav1alpha1.ScalingModifiers{
+										ActivationTarget: "1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"scalingModifiers must not be set"},
+		},
+		{
+			name: "error: scalingModifiers metricType set",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								Advanced: &kedav1alpha1.AdvancedConfig{
+									ScalingModifiers: kedav1alpha1.ScalingModifiers{
+										MetricType: autoscalingv2.AverageValueMetricType,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"scalingModifiers must not be set"},
+		},
+		{
+			name: "error: both scalingModifiers and hpa name set (2 errors)",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								Advanced: &kedav1alpha1.AdvancedConfig{
+									ScalingModifiers: kedav1alpha1.ScalingModifiers{
+										Formula: "wva_desired_replicas",
+									},
+									HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
+										Name: "my-hpa",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrCount:   2,
+			wantErrStrings: []string{"scalingModifiers must not be set", "horizontalPodAutoscalerConfig.name must not be set"},
+		},
+		{
 			name: "error: replicas and scaling both set",
 			workload: &WorkloadSpec{
 				Replicas: ptr.To(int32(3)),
 				Scaling: &ScalingSpec{
 					MaxReplicas: ptr.To(int32(5)),
 					WVA: &WVASpec{
-						HPA: &HPAScalingSpec{},
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
 					},
 				},
 			},
@@ -289,7 +476,9 @@ func TestValidateWorkloadScaling(t *testing.T) {
 				Scaling: &ScalingSpec{
 					MinReplicas: ptr.To(int32(1)),
 					WVA: &WVASpec{
-						HPA: &HPAScalingSpec{},
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
 					},
 				},
 			},
@@ -303,7 +492,9 @@ func TestValidateWorkloadScaling(t *testing.T) {
 					MinReplicas: ptr.To(int32(10)),
 					MaxReplicas: ptr.To(int32(5)),
 					WVA: &WVASpec{
-						HPA: &HPAScalingSpec{},
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
 					},
 				},
 			},
@@ -326,8 +517,10 @@ func TestValidateWorkloadScaling(t *testing.T) {
 				Scaling: &ScalingSpec{
 					MaxReplicas: ptr.To(int32(5)),
 					WVA: &WVASpec{
-						HPA:  &HPAScalingSpec{},
-						KEDA: &KEDAScalingSpec{},
+						ActuatorSpec: ActuatorSpec{
+							HPA:  &HPAScalingSpec{},
+							KEDA: &KEDAScalingSpec{},
+						},
 					},
 				},
 			},
@@ -352,7 +545,9 @@ func TestValidateWorkloadScaling(t *testing.T) {
 					MaxReplicas: ptr.To(int32(5)),
 					WVA: &WVASpec{
 						VariantCost: "abc",
-						HPA:         &HPAScalingSpec{},
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
 					},
 				},
 			},
@@ -366,7 +561,9 @@ func TestValidateWorkloadScaling(t *testing.T) {
 					MaxReplicas: ptr.To(int32(5)),
 					WVA: &WVASpec{
 						VariantCost: "-1",
-						HPA:         &HPAScalingSpec{},
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
 					},
 				},
 			},
@@ -380,7 +577,9 @@ func TestValidateWorkloadScaling(t *testing.T) {
 					MaxReplicas: ptr.To(int32(5)),
 					WVA: &WVASpec{
 						VariantCost: "10.0.1",
-						HPA:         &HPAScalingSpec{},
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
 					},
 				},
 			},
@@ -393,8 +592,10 @@ func TestValidateWorkloadScaling(t *testing.T) {
 				Scaling: &ScalingSpec{
 					MaxReplicas: ptr.To(int32(10)),
 					WVA: &WVASpec{
-						KEDA: &KEDAScalingSpec{
-							IdleReplicaCount: ptr.To(int32(1)),
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								IdleReplicaCount: ptr.To(int32(1)),
+							},
 						},
 					},
 				},
@@ -409,8 +610,10 @@ func TestValidateWorkloadScaling(t *testing.T) {
 					MinReplicas: ptr.To(int32(2)),
 					MaxReplicas: ptr.To(int32(10)),
 					WVA: &WVASpec{
-						KEDA: &KEDAScalingSpec{
-							IdleReplicaCount: ptr.To(int32(3)),
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								IdleReplicaCount: ptr.To(int32(3)),
+							},
 						},
 					},
 				},
@@ -425,8 +628,10 @@ func TestValidateWorkloadScaling(t *testing.T) {
 					MinReplicas: ptr.To(int32(2)),
 					MaxReplicas: ptr.To(int32(10)),
 					WVA: &WVASpec{
-						KEDA: &KEDAScalingSpec{
-							IdleReplicaCount: ptr.To(int32(2)),
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								IdleReplicaCount: ptr.To(int32(2)),
+							},
 						},
 					},
 				},
@@ -464,7 +669,9 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 			Scaling: &ScalingSpec{
 				MaxReplicas: ptr.To(int32(5)),
 				WVA: &WVASpec{
-					HPA: &HPAScalingSpec{},
+					ActuatorSpec: ActuatorSpec{
+						HPA: &HPAScalingSpec{},
+					},
 				},
 			},
 		}
@@ -483,7 +690,9 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 				MinReplicas: ptr.To(int32(1)),
 				MaxReplicas: ptr.To(int32(5)),
 				WVA: &WVASpec{
-					HPA: &HPAScalingSpec{},
+					ActuatorSpec: ActuatorSpec{
+						HPA: &HPAScalingSpec{},
+					},
 				},
 			},
 		}
@@ -492,8 +701,10 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 				MinReplicas: ptr.To(int32(2)),
 				MaxReplicas: ptr.To(int32(8)),
 				WVA: &WVASpec{
-					KEDA: &KEDAScalingSpec{
-						IdleReplicaCount: ptr.To(int32(1)),
+					ActuatorSpec: ActuatorSpec{
+						KEDA: &KEDAScalingSpec{
+							IdleReplicaCount: ptr.To(int32(1)),
+						},
 					},
 				},
 			},
@@ -501,6 +712,79 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 
 		errs := validator.validateScaling(svc)
 		assert.Empty(t, errs, "expected no errors for valid scaling on both workloads")
+	})
+
+	t.Run("scalingModifiers set - rejected", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA: &WVASpec{
+					ActuatorSpec: ActuatorSpec{
+						KEDA: &KEDAScalingSpec{
+							Advanced: &kedav1alpha1.AdvancedConfig{
+								ScalingModifiers: kedav1alpha1.ScalingModifiers{
+									Formula: "wva_desired_replicas",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeForbidden, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "scalingModifiers")
+	})
+
+	t.Run("horizontalPodAutoscalerConfig name set - rejected", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA: &WVASpec{
+					ActuatorSpec: ActuatorSpec{
+						KEDA: &KEDAScalingSpec{
+							Advanced: &kedav1alpha1.AdvancedConfig{
+								HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
+									Name: "my-hpa",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeForbidden, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "horizontalPodAutoscalerConfig")
+	})
+
+	t.Run("keda advanced with only behavior - allowed", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA: &WVASpec{
+					ActuatorSpec: ActuatorSpec{
+						KEDA: &KEDAScalingSpec{
+							Advanced: &kedav1alpha1.AdvancedConfig{
+								HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
+									Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		assert.Empty(t, errs, "expected no errors when only behavior is set in advanced")
 	})
 
 	t.Run("errors on both decode and prefill are reported", func(t *testing.T) {
@@ -515,7 +799,9 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 		svc.Spec.Prefill = &WorkloadSpec{
 			Scaling: &ScalingSpec{
 				WVA: &WVASpec{
-					HPA: &HPAScalingSpec{},
+					ActuatorSpec: ActuatorSpec{
+						HPA: &HPAScalingSpec{},
+					},
 				},
 			},
 		}

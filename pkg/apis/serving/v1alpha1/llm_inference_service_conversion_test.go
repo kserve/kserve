@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"testing"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -489,13 +490,15 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithHPA(t *testing.T) {
 					MaxReplicas: ptr.To(int32(10)),
 					WVA: &WVASpec{
 						VariantCost: "15.0",
-						HPA: &HPAScalingSpec{
-							Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
-								ScaleUp: &autoscalingv2.HPAScalingRules{
-									StabilizationWindowSeconds: ptr.To(int32(60)),
-								},
-								ScaleDown: &autoscalingv2.HPAScalingRules{
-									StabilizationWindowSeconds: ptr.To(int32(300)),
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{
+								Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+									ScaleUp: &autoscalingv2.HPAScalingRules{
+										StabilizationWindowSeconds: ptr.To(int32(60)),
+									},
+									ScaleDown: &autoscalingv2.HPAScalingRules{
+										StabilizationWindowSeconds: ptr.To(int32(300)),
+									},
 								},
 							},
 						},
@@ -558,10 +561,17 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithKEDA(t *testing.T) {
 					MaxReplicas: ptr.To(int32(20)),
 					WVA: &WVASpec{
 						VariantCost: "5.5",
-						KEDA: &KEDAScalingSpec{
-							PollingInterval:  ptr.To(int32(15)),
-							CooldownPeriod:   ptr.To(int32(120)),
-							IdleReplicaCount: ptr.To(int32(1)),
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								PollingInterval:       ptr.To(int32(15)),
+								CooldownPeriod:        ptr.To(int32(120)),
+								InitialCooldownPeriod: ptr.To(int32(60)),
+								IdleReplicaCount:      ptr.To(int32(1)),
+								Fallback: &kedav1alpha1.Fallback{
+									FailureThreshold: 3,
+									Replicas:         2,
+								},
+							},
 						},
 					},
 				},
@@ -584,7 +594,11 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithKEDA(t *testing.T) {
 	require.NotNil(t, dst.Spec.Scaling.WVA.KEDA)
 	assert.Equal(t, int32(15), *dst.Spec.Scaling.WVA.KEDA.PollingInterval)
 	assert.Equal(t, int32(120), *dst.Spec.Scaling.WVA.KEDA.CooldownPeriod)
+	assert.Equal(t, int32(60), *dst.Spec.Scaling.WVA.KEDA.InitialCooldownPeriod)
 	assert.Equal(t, int32(1), *dst.Spec.Scaling.WVA.KEDA.IdleReplicaCount)
+	require.NotNil(t, dst.Spec.Scaling.WVA.KEDA.Fallback)
+	assert.Equal(t, int32(3), dst.Spec.Scaling.WVA.KEDA.Fallback.FailureThreshold)
+	assert.Equal(t, int32(2), dst.Spec.Scaling.WVA.KEDA.Fallback.Replicas)
 
 	// Convert back to v1alpha1
 	restored := &LLMInferenceService{}
@@ -601,7 +615,11 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithKEDA(t *testing.T) {
 	require.NotNil(t, restored.Spec.Scaling.WVA.KEDA)
 	assert.Equal(t, int32(15), *restored.Spec.Scaling.WVA.KEDA.PollingInterval)
 	assert.Equal(t, int32(120), *restored.Spec.Scaling.WVA.KEDA.CooldownPeriod)
+	assert.Equal(t, int32(60), *restored.Spec.Scaling.WVA.KEDA.InitialCooldownPeriod)
 	assert.Equal(t, int32(1), *restored.Spec.Scaling.WVA.KEDA.IdleReplicaCount)
+	require.NotNil(t, restored.Spec.Scaling.WVA.KEDA.Fallback)
+	assert.Equal(t, int32(3), restored.Spec.Scaling.WVA.KEDA.Fallback.FailureThreshold)
+	assert.Equal(t, int32(2), restored.Spec.Scaling.WVA.KEDA.Fallback.Replicas)
 }
 
 func TestLLMInferenceServiceConversion_NilScalingSpec(t *testing.T) {
@@ -664,7 +682,9 @@ func TestLLMInferenceServiceConversion_ScalingOnPrefill(t *testing.T) {
 					MaxReplicas: ptr.To(int32(8)),
 					WVA: &WVASpec{
 						VariantCost: "10.0",
-						HPA:         &HPAScalingSpec{},
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
 					},
 				},
 			},
@@ -724,7 +744,9 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 					MaxReplicas: ptr.To(int32(10)),
 					WVA: &WVASpec{
 						VariantCost: "10.0",
-						HPA:         &HPAScalingSpec{},
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
 					},
 				},
 			},
@@ -734,10 +756,17 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 					MaxReplicas: ptr.To(int32(20)),
 					WVA: &WVASpec{
 						VariantCost: "5.0",
-						KEDA: &KEDAScalingSpec{
-							PollingInterval:  ptr.To(int32(10)),
-							CooldownPeriod:   ptr.To(int32(60)),
-							IdleReplicaCount: ptr.To(int32(2)),
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								PollingInterval:       ptr.To(int32(10)),
+								CooldownPeriod:        ptr.To(int32(60)),
+								InitialCooldownPeriod: ptr.To(int32(30)),
+								IdleReplicaCount:      ptr.To(int32(2)),
+								Fallback: &kedav1alpha1.Fallback{
+									FailureThreshold: 5,
+									Replicas:         3,
+								},
+							},
 						},
 					},
 				},
@@ -767,7 +796,11 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 	assert.Nil(t, dst.Spec.Prefill.Scaling.WVA.HPA)
 	require.NotNil(t, dst.Spec.Prefill.Scaling.WVA.KEDA)
 	assert.Equal(t, int32(10), *dst.Spec.Prefill.Scaling.WVA.KEDA.PollingInterval)
+	assert.Equal(t, int32(30), *dst.Spec.Prefill.Scaling.WVA.KEDA.InitialCooldownPeriod)
 	assert.Equal(t, int32(2), *dst.Spec.Prefill.Scaling.WVA.KEDA.IdleReplicaCount)
+	require.NotNil(t, dst.Spec.Prefill.Scaling.WVA.KEDA.Fallback)
+	assert.Equal(t, int32(5), dst.Spec.Prefill.Scaling.WVA.KEDA.Fallback.FailureThreshold)
+	assert.Equal(t, int32(3), dst.Spec.Prefill.Scaling.WVA.KEDA.Fallback.Replicas)
 
 	// Convert back to v1alpha1
 	restored := &LLMInferenceService{}
@@ -792,5 +825,9 @@ func TestLLMInferenceServiceConversion_DecodeAndPrefillWithDifferentScaling(t *t
 	require.NotNil(t, restored.Spec.Prefill.Scaling.WVA.KEDA)
 	assert.Equal(t, int32(10), *restored.Spec.Prefill.Scaling.WVA.KEDA.PollingInterval)
 	assert.Equal(t, int32(60), *restored.Spec.Prefill.Scaling.WVA.KEDA.CooldownPeriod)
+	assert.Equal(t, int32(30), *restored.Spec.Prefill.Scaling.WVA.KEDA.InitialCooldownPeriod)
 	assert.Equal(t, int32(2), *restored.Spec.Prefill.Scaling.WVA.KEDA.IdleReplicaCount)
+	require.NotNil(t, restored.Spec.Prefill.Scaling.WVA.KEDA.Fallback)
+	assert.Equal(t, int32(5), restored.Spec.Prefill.Scaling.WVA.KEDA.Fallback.FailureThreshold)
+	assert.Equal(t, int32(3), restored.Spec.Prefill.Scaling.WVA.KEDA.Fallback.Replicas)
 }

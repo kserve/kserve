@@ -199,10 +199,12 @@ func convertScalingSpecToV1Alpha2(src *ScalingSpec) *v1alpha2.ScalingSpec {
 		}
 		if src.WVA.KEDA != nil {
 			dst.WVA.KEDA = &v1alpha2.KEDAScalingSpec{
-				PollingInterval:  src.WVA.KEDA.PollingInterval,
-				CooldownPeriod:   src.WVA.KEDA.CooldownPeriod,
-				IdleReplicaCount: src.WVA.KEDA.IdleReplicaCount,
-				Advanced:         src.WVA.KEDA.Advanced,
+				PollingInterval:       src.WVA.KEDA.PollingInterval,
+				CooldownPeriod:        src.WVA.KEDA.CooldownPeriod,
+				InitialCooldownPeriod: src.WVA.KEDA.InitialCooldownPeriod,
+				IdleReplicaCount:      src.WVA.KEDA.IdleReplicaCount,
+				Fallback:              src.WVA.KEDA.Fallback,
+				Advanced:              src.WVA.KEDA.Advanced,
 			}
 		}
 	}
@@ -231,10 +233,12 @@ func convertScalingSpecFromV1Alpha2(src *v1alpha2.ScalingSpec) *ScalingSpec {
 		}
 		if src.WVA.KEDA != nil {
 			dst.WVA.KEDA = &KEDAScalingSpec{
-				PollingInterval:  src.WVA.KEDA.PollingInterval,
-				CooldownPeriod:   src.WVA.KEDA.CooldownPeriod,
-				IdleReplicaCount: src.WVA.KEDA.IdleReplicaCount,
-				Advanced:         src.WVA.KEDA.Advanced,
+				PollingInterval:       src.WVA.KEDA.PollingInterval,
+				CooldownPeriod:        src.WVA.KEDA.CooldownPeriod,
+				InitialCooldownPeriod: src.WVA.KEDA.InitialCooldownPeriod,
+				IdleReplicaCount:      src.WVA.KEDA.IdleReplicaCount,
+				Fallback:              src.WVA.KEDA.Fallback,
+				Advanced:              src.WVA.KEDA.Advanced,
 			}
 		}
 	}

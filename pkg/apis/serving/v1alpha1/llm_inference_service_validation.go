@@ -434,6 +434,25 @@ func (l *LLMInferenceServiceValidator) validateWorkloadScaling(basePath *field.P
 		}
 	}
 
+	// Validate KEDA advanced fields that are controller-owned and must not be set by users
+	if scaling.WVA.KEDA != nil && scaling.WVA.KEDA.Advanced != nil {
+		kedaPath := wvaPath.Child("keda")
+		sm := scaling.WVA.KEDA.Advanced.ScalingModifiers
+		if sm.Formula != "" || sm.Target != "" || sm.ActivationTarget != "" || string(sm.MetricType) != "" {
+			allErrs = append(allErrs, field.Forbidden(
+				kedaPath.Child("advanced", "scalingModifiers"),
+				"scalingModifiers must not be set; WVA controls the scaling metric formula and logic",
+			))
+		}
+		if scaling.WVA.KEDA.Advanced.HorizontalPodAutoscalerConfig != nil &&
+			scaling.WVA.KEDA.Advanced.HorizontalPodAutoscalerConfig.Name != "" {
+			allErrs = append(allErrs, field.Forbidden(
+				kedaPath.Child("advanced", "horizontalPodAutoscalerConfig", "name"),
+				"horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name",
+			))
+		}
+	}
+
 	// Validate KEDA idleReplicaCount requires minReplicas and must be less than it
 	if scaling.WVA.KEDA != nil && scaling.WVA.KEDA.IdleReplicaCount != nil {
 		if scaling.MinReplicas == nil {

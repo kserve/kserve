@@ -344,15 +344,52 @@ spec:
                                 format: int32
                                 minimum: 0
                                 type: integer
+                              fallback:
+                                properties:
+                                  behavior:
+                                    default: static
+                                    enum:
+                                    - static
+                                    - currentReplicas
+                                    - currentReplicasIfHigher
+                                    - currentReplicasIfLower
+                                    type: string
+                                  failureThreshold:
+                                    format: int32
+                                    type: integer
+                                  replicas:
+                                    format: int32
+                                    type: integer
+                                required:
+                                - failureThreshold
+                                - replicas
+                                type: object
                               idleReplicaCount:
                                 format: int32
                                 minimum: 1
+                                type: integer
+                              initialCooldownPeriod:
+                                format: int32
+                                minimum: 0
                                 type: integer
                               pollingInterval:
                                 format: int32
                                 minimum: 1
                                 type: integer
                             type: object
+                            x-kubernetes-validations:
+                            - message: scalingModifiers must not be set; WVA controls
+                                the scaling metric formula and logic
+                              rule: '!has(self.advanced) || (size(self.advanced.scalingModifiers.formula)
+                                == 0 && size(self.advanced.scalingModifiers.target)
+                                == 0 && size(self.advanced.scalingModifiers.activationTarget)
+                                == 0 && size(self.advanced.scalingModifiers.metricType)
+                                == 0)'
+                            - message: horizontalPodAutoscalerConfig.name must not
+                                be set; the controller manages the HPA name
+                              rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                                || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                                == 0'
                           variantCost:
                             default: "10.0"
                             pattern: ^\d+(\.\d+)?$
@@ -13553,15 +13590,52 @@ spec:
                             format: int32
                             minimum: 0
                             type: integer
+                          fallback:
+                            properties:
+                              behavior:
+                                default: static
+                                enum:
+                                - static
+                                - currentReplicas
+                                - currentReplicasIfHigher
+                                - currentReplicasIfLower
+                                type: string
+                              failureThreshold:
+                                format: int32
+                                type: integer
+                              replicas:
+                                format: int32
+                                type: integer
+                            required:
+                            - failureThreshold
+                            - replicas
+                            type: object
                           idleReplicaCount:
                             format: int32
                             minimum: 1
+                            type: integer
+                          initialCooldownPeriod:
+                            format: int32
+                            minimum: 0
                             type: integer
                           pollingInterval:
                             format: int32
                             minimum: 1
                             type: integer
                         type: object
+                        x-kubernetes-validations:
+                        - message: scalingModifiers must not be set; WVA controls
+                            the scaling metric formula and logic
+                          rule: '!has(self.advanced) || (size(self.advanced.scalingModifiers.formula)
+                            == 0 && size(self.advanced.scalingModifiers.target) ==
+                            0 && size(self.advanced.scalingModifiers.activationTarget)
+                            == 0 && size(self.advanced.scalingModifiers.metricType)
+                            == 0)'
+                        - message: horizontalPodAutoscalerConfig.name must not be
+                            set; the controller manages the HPA name
+                          rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                            == 0'
                       variantCost:
                         default: "10.0"
                         pattern: ^\d+(\.\d+)?$
