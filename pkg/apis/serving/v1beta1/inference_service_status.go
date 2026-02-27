@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -128,6 +129,8 @@ const (
 	RoutesReady apis.ConditionType = "RoutesReady"
 	// LatestDeploymentReady is set when underlying configurations for all components have reported readiness.
 	LatestDeploymentReady apis.ConditionType = "LatestDeploymentReady"
+	// DeploymentProgressing is set when deployment is in progress
+	DeploymentProgressing apis.ConditionType = "DeploymentProgressing"
 	// Stopped is set when the inference service has been stopped and all related objects are deleted
 	Stopped apis.ConditionType = "Stopped"
 )
@@ -379,27 +382,50 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 					Message: progressingCondition.Message,
 				}
 			}
-		} else {
+		} else if progressingCondition.IsTrue() {
 			// If progressing condition is True, and the reason is set to NewReplicaSetAvailable, override component as ready.
 			// This is because progressing condition doesn't get set to false when deployment is complete.
 			// See https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#complete-deployment
-			if progressingCondition.IsTrue() {
-				if progressingCondition.Reason == "NewReplicaSetAvailable" {
-					componentReadyCondition = &apis.Condition{
-						Type:    readyCondition,
-						Status:  corev1.ConditionTrue,
-						Reason:  progressingCondition.Reason,
-						Message: progressingCondition.Message,
-					}
-				} else {
-					componentReadyCondition = &apis.Condition{
-						Type:    readyCondition,
-						Status:  corev1.ConditionUnknown,
-						Reason:  progressingCondition.Reason,
-						Message: progressingCondition.Message,
-					}
+			if progressingCondition.Reason == "NewReplicaSetAvailable" {
+				componentReadyCondition = &apis.Condition{
+					Type:    readyCondition,
+					Status:  corev1.ConditionTrue,
+					Reason:  progressingCondition.Reason,
+					Message: progressingCondition.Message,
 				}
+			} else {
+				// Deployment is actively progressing - set as Unknown but also set DeploymentProgressing
+				componentReadyCondition = &apis.Condition{
+					Type:    readyCondition,
+					Status:  corev1.ConditionUnknown,
+					Reason:  "DeploymentProgressing",
+					Message: fmt.Sprintf("Deployment is progressing: %s", progressingCondition.Message),
+				}
+				// Set the DeploymentProgressing condition
+				ss.SetCondition(DeploymentProgressing, &apis.Condition{
+					Type:    DeploymentProgressing,
+					Status:  corev1.ConditionTrue,
+					Reason:  progressingCondition.Reason,
+					Message: progressingCondition.Message,
+				})
 			}
+		}
+	} else {
+		// No progressing condition available - deployment might be just starting
+		if availableCondition == nil || availableCondition.Status != corev1.ConditionTrue {
+			componentReadyCondition = &apis.Condition{
+				Type:    readyCondition,
+				Status:  corev1.ConditionUnknown,
+				Reason:  "DeploymentStarting",
+				Message: "Deployment is starting, waiting for conditions",
+			}
+			// Set progressing condition when no deployment conditions are available
+			ss.SetCondition(DeploymentProgressing, &apis.Condition{
+				Type:    DeploymentProgressing,
+				Status:  corev1.ConditionTrue,
+				Reason:  "DeploymentStarting",
+				Message: "Deployment is starting",
+			})
 		}
 	}
 
@@ -424,6 +450,8 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 	}
 	if componentReadyCondition != nil && componentReadyCondition.Status == corev1.ConditionTrue {
 		statusSpec.URL = url
+		// Clear the DeploymentProgressing condition since deployment is ready
+		ss.ClearCondition(DeploymentProgressing)
 	}
 
 	ss.SetCondition(readyCondition, componentReadyCondition)
