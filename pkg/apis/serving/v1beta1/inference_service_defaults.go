@@ -154,7 +154,7 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 			localModelCacheDeployment = &v1alpha1.LocalModelCacheDeployment{}
 			if err := c.Get(ctx, client.ObjectKey{Name: deploymentName}, localModelCacheDeployment); err != nil {
 				mutatorLogger.Error(err, "LocalModelCacheDeployment not found, label value may be invalid", "name", deploymentName, "isvc", isvc.Name)
-				localModelCacheDeployment = nil
+				return err
 			}
 		}
 	}
@@ -545,10 +545,14 @@ func (isvc *InferenceService) setLocalModelCacheFromDeployment(localModel *v1alp
 
 	isvcNodeGroup, isvcNodeGroupExists := isvc.Annotations[constants.NodeGroupAnnotationKey]
 	var pvcName string
-	if isvcNodeGroupExists && slices.Contains(cache.Spec.NodeGroups, isvcNodeGroup) {
+	switch {
+	case isvcNodeGroupExists && slices.Contains(cache.Spec.NodeGroups, isvcNodeGroup):
 		pvcName = cache.Name + "-" + isvcNodeGroup
-	} else {
+	case len(cache.Spec.NodeGroups) > 0:
 		pvcName = cache.Name + "-" + cache.Spec.NodeGroups[0]
+	default:
+		deleteLocalModelMetadata(isvc)
+		return
 	}
 
 	isvc.Labels[constants.LocalModelLabel] = cache.Name

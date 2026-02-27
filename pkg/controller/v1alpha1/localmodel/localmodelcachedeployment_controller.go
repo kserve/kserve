@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -57,9 +58,14 @@ func (r *LocalModelCacheDeploymentReconciler) Reconcile(ctx context.Context, req
 	}
 
 	// Calculate revision name from spec hash
-	lmcName := fmt.Sprintf("%s-%s", localModelDeployment.Name, computeSpecHash(localModelDeployment.Spec))
+	specHash, err := computeSpecHash(localModelDeployment.Spec)
+	if err != nil {
+		log.Error(err, "Failed to compute spec hash")
+		return ctrl.Result{}, err
+	}
+	lmcName := fmt.Sprintf("%s-%s", localModelDeployment.Name, specHash)
 	existingLmc := &v1alpha1.LocalModelCache{}
-	err := r.Get(ctx, client.ObjectKey{Name: lmcName}, existingLmc)
+	err = r.Get(ctx, client.ObjectKey{Name: lmcName}, existingLmc)
 
 	if errors.IsNotFound(err) {
 		// Create new LocalModelCache
@@ -94,15 +100,9 @@ func (r *LocalModelCacheDeploymentReconciler) Reconcile(ctx context.Context, req
 	localModelDeployment.Status.CurrentRevision = lmcName
 	localModelDeployment.Status.ObservedGeneration = localModelDeployment.Generation
 
-	// Update revision list
-	if err := r.updateRevisionList(ctx, localModelDeployment); err != nil {
-		log.Error(err, "Failed to update revision list")
-		return ctrl.Result{}, err
-	}
-
-	// Clean up old revisions
-	if err := r.cleanupOldRevisions(ctx, localModelDeployment); err != nil {
-		log.Error(err, "Failed to cleanup old revisions")
+	// Update revision list and clean up old revisions
+	if err := r.updateAndCleanupRevisions(ctx, localModelDeployment); err != nil {
+		log.Error(err, "Failed to update/cleanup revisions")
 		return ctrl.Result{}, err
 	}
 
@@ -114,40 +114,8 @@ func (r *LocalModelCacheDeploymentReconciler) Reconcile(ctx context.Context, req
 	return ctrl.Result{}, nil
 }
 
-func (r *LocalModelCacheDeploymentReconciler) updateRevisionList(ctx context.Context, localModelDeployment *v1alpha1.LocalModelCacheDeployment) error {
+func (r *LocalModelCacheDeploymentReconciler) updateAndCleanupRevisions(ctx context.Context, deployment *v1alpha1.LocalModelCacheDeployment) error {
 	// List all LocalModelCaches owned by this LocalModelCacheDeployment
-	lmcList := &v1alpha1.LocalModelCacheList{}
-	if err := r.List(ctx, lmcList, client.MatchingLabels{
-		constants.LocalModelCacheDeploymentLabel: localModelDeployment.Name,
-	}); err != nil {
-		return err
-	}
-
-	revisions := []v1alpha1.LocalModelCacheDeploymentRevision{}
-	for _, lmc := range lmcList.Items {
-		var revNum int32
-		if revLabel, ok := lmc.Labels[constants.LocalModelCacheRevisionLabel]; ok {
-			if _, err := fmt.Sscanf(revLabel, "%d", &revNum); err != nil {
-				r.Log.Error(err, "Failed to parse revision label", "name", lmc.Name, "label", revLabel)
-				continue
-			}
-		}
-		rev := v1alpha1.LocalModelCacheDeploymentRevision{
-			Name:     lmc.Name,
-			Revision: revNum,
-		}
-		revisions = append(revisions, rev)
-	}
-	localModelDeployment.Status.Revisions = revisions
-	return nil
-}
-
-func (r *LocalModelCacheDeploymentReconciler) cleanupOldRevisions(ctx context.Context, deployment *v1alpha1.LocalModelCacheDeployment) error {
-	limit := int32(10)
-	if deployment.Spec.RevisionHistoryLimit != nil {
-		limit = *deployment.Spec.RevisionHistoryLimit
-	}
-
 	lmcList := &v1alpha1.LocalModelCacheList{}
 	if err := r.List(ctx, lmcList, client.MatchingLabels{
 		constants.LocalModelCacheDeploymentLabel: deployment.Name,
@@ -155,24 +123,39 @@ func (r *LocalModelCacheDeploymentReconciler) cleanupOldRevisions(ctx context.Co
 		return err
 	}
 
-	// +1 for the current revision
-	if int32(len(lmcList.Items)) <= limit+1 {
+	// Build revision list for status
+	revisions := []v1alpha1.LocalModelCacheDeploymentRevision{}
+	for _, lmc := range lmcList.Items {
+		var revNum int32
+		if revLabel, ok := lmc.Labels[constants.LocalModelCacheRevisionLabel]; ok {
+			if _, err := fmt.Sscanf(revLabel, "%d", &revNum); err != nil {
+				return fmt.Errorf("failed to parse revision label for %s: %w", lmc.Name, err)
+			}
+		}
+		revisions = append(revisions, v1alpha1.LocalModelCacheDeploymentRevision{
+			Name:     lmc.Name,
+			Revision: revNum,
+		})
+	}
+	deployment.Status.Revisions = revisions
+
+	// Clean up old revisions
+	limit := 10
+	if deployment.Spec.RevisionHistoryLimit != nil {
+		limit = int(*deployment.Spec.RevisionHistoryLimit)
+	}
+
+	items := lmcList.Items
+	if len(items) <= limit+1 {
 		return nil
 	}
 
-	// Sort by creation timestamp (oldest first)
-	items := lmcList.Items
-	for i := 0; i < len(items); i++ {
-		for j := i + 1; j < len(items); j++ {
-			if items[j].CreationTimestamp.Before(&items[i].CreationTimestamp) {
-				items[i], items[j] = items[j], items[i]
-			}
-		}
-	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].CreationTimestamp.Before(&items[j].CreationTimestamp)
+	})
 
-	// Delete oldest revisions, skip current
-	toDelete := int32(len(items)) - (limit + 1)
-	for i := int32(0); i < toDelete; i++ {
+	toDelete := len(items) - (limit + 1)
+	for i := 0; i < toDelete; i++ {
 		if items[i].Name == deployment.Status.CurrentRevision {
 			continue
 		}
@@ -184,7 +167,7 @@ func (r *LocalModelCacheDeploymentReconciler) cleanupOldRevisions(ctx context.Co
 	return nil
 }
 
-func computeSpecHash(spec v1alpha1.LocalModelCacheDeploymentSpec) string {
+func computeSpecHash(spec v1alpha1.LocalModelCacheDeploymentSpec) (string, error) {
 	// Exclude RevisionHistoryLimit from hash — changing it should not create a new revision
 	hashSpec := struct {
 		SourceModelUri string
@@ -195,9 +178,12 @@ func computeSpecHash(spec v1alpha1.LocalModelCacheDeploymentSpec) string {
 		ModelSize:      spec.ModelSize.String(),
 		NodeGroups:     spec.NodeGroups,
 	}
-	data, _ := json.Marshal(hashSpec)
+	data, err := json.Marshal(hashSpec)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal spec for hashing: %w", err)
+	}
 	hash := sha256.Sum256(data)
-	return fmt.Sprintf("%x", hash[:4])
+	return fmt.Sprintf("%x", hash[:4]), nil
 }
 
 func (r *LocalModelCacheDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {

@@ -1768,7 +1768,7 @@ func TestDefaultInferenceServiceNormalizesLegacyDeploymentMode(t *testing.T) {
 			},
 		},
 	}
-	isvcRaw.DefaultInferenceService(nil, deployConfig, nil, nil)
+	isvcRaw.DefaultInferenceService(nil, deployConfig, nil, nil, nil)
 	g.Expect(isvcRaw.Annotations[constants.DeploymentMode]).To(gomega.Equal(string(constants.Standard)))
 
 	// Test Serverless -> Knative normalization
@@ -1790,6 +1790,6 @@ func TestDefaultInferenceServiceNormalizesLegacyDeploymentMode(t *testing.T) {
 			},
 		},
 	}
-	isvcServerless.DefaultInferenceService(nil, deployConfig, nil, nil)
+	isvcServerless.DefaultInferenceService(nil, deployConfig, nil, nil, nil)
 	g.Expect(isvcServerless.Annotations[constants.DeploymentMode]).To(gomega.Equal(string(constants.Knative)))
 }
