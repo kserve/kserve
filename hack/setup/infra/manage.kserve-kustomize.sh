@@ -329,7 +329,7 @@ install() {
         for i in "${!TARGET_CRD_DIRS[@]}"; do
             crd_dir="${TARGET_CRD_DIRS[$i]}"
             log_info "  - Installing CRDs from ${crd_dir}..."
-            kustomize build "${crd_dir}" | kubectl apply --server-side --force-conflicts -f -
+            kubectl kustomize "${crd_dir}" | kubectl apply --server-side --force-conflicts -f -
 
             # Collect CRDs to verify
             crds="${TARGET_CRDS_TO_VERIFY[$i]}"
@@ -346,7 +346,7 @@ install() {
 
             # Install overlay
             log_info "  - Installing resources from ${overlay_dir}..."
-            kustomize build "${overlay_dir}" | kubectl apply --server-side -f -
+            kubectl kustomize "${overlay_dir}" | kubectl apply --server-side -f -
 
             # Wait for corresponding deployment
             if [ ${#TARGET_DEPLOYMENT_NAMES[@]} -gt $i ] && [ -n "${TARGET_DEPLOYMENT_NAMES[$i]}" ]; then

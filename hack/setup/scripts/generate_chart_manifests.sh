@@ -1,3 +1,5 @@
+set -x
+
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
 source "${SCRIPT_DIR}/../common.sh"
@@ -21,10 +23,10 @@ comment_crd(){
     if [ ! -f "${kustomization_folder}/kustomization.yaml.bak" ]; then
         cp "${kustomization_folder}/kustomization.yaml" "${kustomization_folder}/kustomization.yaml.bak"
     fi
-    sed -i 's| *- \.\./crd$|# - ../crd|' "${kustomization_folder}/kustomization.yaml"
-    sed -i 's| *- \.\./crd/full/localmodel$|# - ../crd/full/localmodel|' "${kustomization_folder}/kustomization.yaml"
-    sed -i 's| *- \.\./crd/full/llmisvc$|# - ../crd/full/llmisvc|' "${kustomization_folder}/kustomization.yaml"
-    sed -i 's| *- path: cainjection_conversion_webhook\.yaml$|# - path: cainjection_conversion_webhook.yaml|' "${kustomization_folder}/kustomization.yaml"
+    sed -i '' 's| *- \.\./crd$|# - ../crd|' "${kustomization_folder}/kustomization.yaml"
+    sed -i '' 's| *- \.\./crd/full/localmodel$|# - ../crd/full/localmodel|' "${kustomization_folder}/kustomization.yaml"
+    sed -i '' 's| *- \.\./crd/full/llmisvc$|# - ../crd/full/llmisvc|' "${kustomization_folder}/kustomization.yaml"
+    sed -i '' 's| *- path: cainjection_conversion_webhook\.yaml$|# - path: cainjection_conversion_webhook.yaml|' "${kustomization_folder}/kustomization.yaml"
     MODIFIED_FOLDERS+=("${kustomization_folder}")
 }
 
