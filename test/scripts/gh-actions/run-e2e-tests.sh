@@ -21,6 +21,13 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+# Load KServe image environment variables (already exported in kserve-images.sh)
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+source "${PROJECT_ROOT}/kserve-images.sh"
+
+# Tests expect GITHUB_SHA (replaced by TAG)
+export GITHUB_SHA="${TAG:-latest}"
+
 echo "Starting E2E functional tests ..."
 MARKER="${1}"
 PARALLELISM="${2:-1}"
@@ -32,7 +39,7 @@ source python/kserve/.venv/bin/activate
 pushd test/e2e >/dev/null
   if [[ $MARKER == "raw" && $NETWORK_LAYER == "istio-ingress" ]]; then
     echo "Skipping explainer tests for raw deployment with ingress"
-    pytest -m "$MARKER" --ignore=qpext --log-cli-level=INFO -n $PARALLELISM --dist worksteal --network-layer $NETWORK_LAYER --ignore=explainer/ -vv --tb=long -s
+    pytest -m "$MARKER" --ignore=qpext --log-cli-level=INFO -n $PARALLELISM --dist worksteal --network-layer $NETWORK_LAYER --ignore=explainer/ -vv --tb=long -s    
   else
     pytest -m "$MARKER" --ignore=qpext --log-cli-level=INFO -n $PARALLELISM --dist worksteal --network-layer $NETWORK_LAYER -vv --tb=long -s
   fi

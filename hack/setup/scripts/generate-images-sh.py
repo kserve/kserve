@@ -23,12 +23,12 @@ with open(OUTPUT, "w") as f:
             f.write(f"{line}\n")
             continue
 
-        # Convert KEY ?= value or KEY = value to KEY="${KEY:-value}"
+        # Convert KEY ?= value or KEY = value to export KEY="${KEY:-value}"
         match = re.match(r'^([A-Z_][A-Z0-9_]*)\s*\??=\s*(.+)$', line)
         if match:
             var_name, var_value = match.groups()
             var_names.append(var_name)
-            f.write(f'{var_name}="${{{var_name}:-{var_value}}}"\n')
+            f.write(f'export {var_name}="${{{var_name}:-{var_value}}}"\n')
 
     # Add CI mode section
     f.write("\n# CI mode: export all variables to GITHUB_ENV\n")

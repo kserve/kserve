@@ -1,0 +1,161 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inferenceservice-config
+data:
+  agent: |-
+    {
+        "image" : "{{ .Values.kserve.agent.image }}:{{ .Values.kserve.agent.tag | default .Values.kserve.version }}",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }
+  batcher: |-
+    {
+        "image" : "{{ .Values.kserve.agent.image }}:{{ .Values.kserve.agent.tag | default .Values.kserve.version }}",
+        "memoryRequest": "1Gi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "1",
+        "cpuLimit": "1",
+        "maxBatchSize": "32",
+        "maxLatency": "5000"
+    }
+  router: |-
+    {
+        "image" : "{{ .Values.kserve.router.image }}:{{ .Values.kserve.router.tag | default .Values.kserve.version }}",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "imagePullPolicy": "{{ .Values.kserve.router.imagePullPolicy }}",
+        "imagePullSecrets": {{ .Values.kserve.router.imagePullSecrets }}
+    }
+  credentials: |-
+    {
+       "storageSpecSecretName": "{{ .Values.kserve.storage.storageSpecSecretName }}",
+       "storageSecretNameAnnotation": "{{ .Values.kserve.storage.storageSecretNameAnnotation }}",
+       "gcs": {
+           "gcsCredentialFileName": "gcloud-application-credentials.json"
+       },
+       "s3": {
+           "s3AccessKeyIDName": "{{ .Values.kserve.storage.s3.accessKeyIdName }}",
+           "s3SecretAccessKeyName": "{{ .Values.kserve.storage.s3.secretAccessKeyName }}",
+           "s3Endpoint": "{{ .Values.kserve.storage.s3.endpoint }}",
+           "s3UseHttps": "{{ .Values.kserve.storage.s3.useHttps }}",
+           "s3Region": "{{ .Values.kserve.storage.s3.region }}",
+           "s3VerifySSL": "{{ .Values.kserve.storage.s3.verifySSL }}",
+           "s3UseVirtualBucket": "{{ .Values.kserve.storage.s3.useVirtualBucket }}",
+           "s3UseAnonymousCredential": "{{ .Values.kserve.storage.s3.useAnonymousCredential }}",
+           "s3CABundleConfigMap": "{{ .Values.kserve.storage.s3.CABundleConfigMap }}",
+           "s3CABundle": "{{ .Values.kserve.storage.s3.CABundle }}"
+       }
+    }
+  deploy: |-
+    {
+      "defaultDeploymentMode": "{{ .Values.kserve.controller.deploymentMode }}"
+    }
+  service: |-
+    {
+      "serviceClusterIPNone": {{ .Values.kserve.service.serviceClusterIPNone }}
+    }
+  explainers: |-
+    {
+        "art": {
+            "image" : "{{ .Values.kserve.servingruntime.art.image }}",
+            "defaultImageVersion": "{{ .Values.kserve.servingruntime.art.defaultVersion | default .Values.kserve.version }}"
+        }
+    }
+  ingress: |-
+    {
+        "enableGatewayApi": {{ .Values.kserve.controller.gateway.ingressGateway.enableGatewayApi }},
+        "kserveIngressGateway" : "{{ .Values.kserve.controller.gateway.ingressGateway.kserveGateway }}",
+        "ingressGateway" : "{{ .Values.kserve.controller.gateway.ingressGateway.gateway }}",
+        "knativeLocalGatewayService" : "{{ .Values.kserve.controller.gateway.localGateway.knativeGatewayService }}",
+        "localGateway" : "{{ .Values.kserve.controller.gateway.localGateway.gateway }}",
+        "localGatewayService" : "{{ .Values.kserve.controller.gateway.localGateway.gatewayService }}",
+        "ingressClassName" : "{{ .Values.kserve.controller.gateway.ingressGateway.className }}",
+        "ingressDomain"  : "{{ .Values.kserve.controller.gateway.domain }}",
+        "additionalIngressDomains": [
+            {{- range $index, $flag := .Values.kserve.controller.gateway.additionalIngressDomains }}
+              {{ $flag | quote }} {{ if ne $index (sub (len $.Values.kserve.controller.gateway.additionalIngressDomains) 1)}}, {{ end }}
+            {{- end}}
+        ],
+        "domainTemplate": "{{ .Values.kserve.controller.gateway.domainTemplate }}",
+        "pathTemplate": "{{ .Values.kserve.controller.gateway.pathTemplate }}",
+        "urlScheme": "{{ .Values.kserve.controller.gateway.urlScheme }}",
+        "disableIstioVirtualHost": {{ .Values.kserve.controller.gateway.disableIstioVirtualHost }},
+        "disableIngressCreation": {{ .Values.kserve.controller.gateway.disableIngressCreation }}
+    }
+  logger: |-
+    {
+        "image" : "{{ .Values.kserve.agent.image }}:{{ .Values.kserve.agent.tag | default .Values.kserve.version }}",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "defaultUrl": "http://default-broker"
+    }
+  storageInitializer: |-
+    {
+        "image" : "{{ .Values.kserve.storage.image }}:{{ .Values.kserve.storage.tag | default .Values.kserve.version }}",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "caBundleConfigMapName": "{{ .Values.kserve.storage.caBundleConfigMapName }}",
+        "caBundleVolumeMountPath": "{{ .Values.kserve.storage.caBundleVolumeMountPath }}",
+        "enableModelcar": {{ .Values.kserve.storage.enableModelcar }},
+        "uidModelcar": {{ .Values.kserve.storage.uidModelcar }},
+        "cpuModelcar": "{{ .Values.kserve.storage.cpuModelcar }}",
+        "memoryModelcar": "{{ .Values.kserve.storage.memoryModelcar }}"
+    }
+  metricsAggregator: |-
+    {
+      "enableMetricAggregation": "{{ .Values.kserve.metricsaggregator.enableMetricAggregation }}",
+      "enablePrometheusScraping" : "{{ .Values.kserve.metricsaggregator.enablePrometheusScraping }}"
+    }
+  localModel: |-
+    {
+      "enabled": {{ .Values.kserve.localmodel.enabled }},
+      "jobNamespace": "{{ .Values.kserve.localmodel.jobNamespace }}",
+      "jobTTLSecondsAfterFinished": {{ .Values.kserve.localmodel.jobTTLSecondsAfterFinished }},
+      "defaultJobImage": "{{ .Values.kserve.localmodel.defaultJobImage }}:{{ .Values.kserve.localmodel.defaultJobTag | default .Values.kserve.version }}",
+      "fsGroup": {{ .Values.kserve.localmodel.securityContext.fsGroup }},
+      "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }},
+      "disableVolumeManagement": {{ .Values.kserve.localmodel.disableVolumeManagement }}
+    }
+  security: |-
+    {
+      "autoMountServiceAccountToken": {{ .Values.kserve.security.autoMountServiceAccountToken }}
+    }
+
+  inferenceService: |-
+    {
+      "resource": {
+        "cpuLimit": "{{ .Values.kserve.inferenceservice.resources.limits.cpu }}",
+        "cpuRequest": "{{ .Values.kserve.inferenceservice.resources.requests.cpu }}",
+        "memoryLimit": "{{ .Values.kserve.inferenceservice.resources.limits.memory }}",
+        "memoryRequest": "{{ .Values.kserve.inferenceservice.resources.requests.memory }}"
+      }
+    }
+
+  opentelemetryCollector: |-
+    {
+      "scrapeInterval": "{{ .Values.kserve.opentelemetryCollector.scrapeInterval }}",
+      "metricReceiverEndpoint": "{{ .Values.kserve.opentelemetryCollector.metricReceiverEndpoint }}",
+      "metricScalerEndpoint": "{{ .Values.kserve.opentelemetryCollector.metricScalerEndpoint }}",
+      "resource": {
+          "cpuLimit": "{{ .Values.kserve.opentelemetryCollector.resource.cpuLimit }}",
+          "memoryLimit": "{{ .Values.kserve.opentelemetryCollector.resource.memoryLimit }}",
+          "cpuRequest": "{{ .Values.kserve.opentelemetryCollector.resource.cpuRequest }}",
+          "memoryRequest": "{{ .Values.kserve.opentelemetryCollector.resource.memoryRequest }}"
+      }
+    }
+
+  autoscaler: |-
+    {
+      "scaleUpStabilizationWindowSeconds": "{{ .Values.kserve.autoscaler.scaleUpStabilizationWindowSeconds }}",
+      "scaleDownStabilizationWindowSeconds": "{{ .Values.kserve.autoscaler.scaleDownStabilizationWindowSeconds }}"
+    }

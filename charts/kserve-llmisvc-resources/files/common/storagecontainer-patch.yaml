@@ -1,0 +1,15 @@
+apiVersion: "serving.kserve.io/v1alpha1"
+kind: ClusterStorageContainer
+metadata:
+  name: default
+spec:
+  container:
+    image: "{{ .Values.kserve.storage.image }}:{{ .Values.kserve.storage.tag | default .Values.kserve.version }}"
+    resources:
+      {{- with .Values.kserve.storage.resources }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+    securityContext:
+      {{- with .Values.kserve.storage.containerSecurityContext}}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}

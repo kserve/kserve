@@ -6,6 +6,7 @@ spec:
   container:
     name: storage-initializer
     image: default-storage-initilizer:replace
+    imagePullPolicy: IfNotPresent
     resources:
       requests:
         memory: 100Mi

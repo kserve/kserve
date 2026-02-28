@@ -13,4 +13,8 @@ COMPONENTS:
   - name: kserve-kustomize
     env:
       DEPLOYMENT_MODE: Standard
+      ENABLE_LLMISVC: false
+      ENABLE_KSERVE: true
       INSTALL_RUNTIMES: true
+      INSTALL_LLMISVC_CONFIGS: false
+      

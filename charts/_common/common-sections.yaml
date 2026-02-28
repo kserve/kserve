@@ -1,0 +1,108 @@
+kserve:
+  version: v0.16.0
+  createSharedResources: true
+  inferenceServiceConfig:
+    enabled: ''
+  certManager:
+    enabled: ''
+  storagecontainer:
+    enabled: ''
+  agent:
+    image: kserve/agent
+    tag: ''
+  router:
+    image: kserve/router
+    tag: ''
+    imagePullPolicy: IfNotPresent
+    imagePullSecrets: []
+  service:
+    serviceClusterIPNone: false
+  storage:
+    image: kserve/storage-initializer
+    tag: ''
+    resources:
+      requests:
+        memory: 100Mi
+        cpu: 100m
+      limits:
+        memory: 1Gi
+        cpu: '1'
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      privileged: false
+      runAsNonRoot: true
+      capabilities:
+        drop:
+        - ALL
+    enableModelcar: true
+    uidModelcar: 1010
+    cpuModelcar: 10m
+    memoryModelcar: 15Mi
+    caBundleConfigMapName: ''
+    caBundleVolumeMountPath: /etc/ssl/custom-certs
+    storageSpecSecretName: storage-config
+    storageSecretNameAnnotation: serving.kserve.io/secretName
+    s3:
+      accessKeyIdName: AWS_ACCESS_KEY_ID
+      secretAccessKeyName: AWS_SECRET_ACCESS_KEY
+      endpoint: ''
+      useHttps: ''
+      region: ''
+      verifySSL: ''
+      useVirtualBucket: ''
+      useAnonymousCredential: ''
+      CABundleConfigMap: ''
+      CABundle: ''
+  metricsaggregator:
+    enableMetricAggregation: 'false'
+    enablePrometheusScraping: 'false'
+  servingruntime:
+    art:
+      image: kserve/art-explainer
+      defaultVersion: ''
+  localmodel:
+    enabled: false
+    controller:
+      image: kserve/kserve-localmodel-controller
+      tag: ''
+    jobNamespace: kserve-localmodel-jobs
+    jobTTLSecondsAfterFinished: 3600
+    defaultJobImage: kserve/storage-initializer
+    defaultJobTag: ''
+    securityContext:
+      fsGroup: 1000
+    disableVolumeManagement: false
+    agent:
+      nodeSelector: {}
+      affinity: {}
+      tolerations: []
+      hostPath: /mnt/models
+      image: kserve/kserve-localmodelnode-agent
+      tag: ''
+      reconcilationFrequencyInSecs: 60
+      securityContext:
+        runAsUser: 1000
+        runAsNonRoot: true
+  security:
+    autoMountServiceAccountToken: true
+  inferenceservice:
+    resources:
+      limits:
+        cpu: '1'
+        memory: 2Gi
+      requests:
+        cpu: '1'
+        memory: 2Gi
+  opentelemetryCollector:
+    scrapeInterval: 5s
+    metricReceiverEndpoint: keda-otel-scaler.keda.svc:4317
+    metricScalerEndpoint: keda-otel-scaler.keda.svc:4318
+    resource:
+      cpuLimit: '1'
+      memoryLimit: 2Gi
+      cpuRequest: 200m
+      memoryRequest: 512Mi
+  autoscaler:
+    scaleUpStabilizationWindowSeconds: '0'
+    scaleDownStabilizationWindowSeconds: '300'
+
