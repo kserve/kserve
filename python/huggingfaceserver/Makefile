@@ -11,10 +11,11 @@ install_dependencies:
 # 1. First run install_cpu_dependencies to install huggingfaceserver dependencies
 # 2. Then run setup_vllm.sh LAST to build vLLM from source with torch CPU
 #
-# The key issue: kserve[llm] depends on vllm==0.11.2 which requires torchvision==0.24.0,
-# but torch==2.8.0+cpu requires torchvision==0.23.0+cpu. To avoid this conflict:
-# - We temporarily replace kserve[llm] with kserve (no vllm dependency)
-# - setup_vllm.sh must run LAST to ensure torch 2.8.0+cpu is not overwritten
+# kserve[llm] pulls vllm from PyPI as a pre-built GPU wheel, which brings in GPU
+# torch. The CPU build instead needs vllm built from source with torch+cpu. These
+# two installation paths are incompatible, so we temporarily strip the [llm] extra
+# to prevent PyPI vllm (and GPU torch) from being installed. setup_vllm.sh then
+# handles the entire vllm + torch CPU installation from source.
 install_cpu_dependencies:
 	@echo "Replacing kserve[llm] with kserve to avoid vllm dependency conflict..."
 	sed -i 's/kserve\[llm\]/kserve/' pyproject.toml

@@ -1,0 +1,21 @@
+apiVersion: v2
+name: kserve-localmodel-resources
+description: KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Deployments
+type: application
+version: v0.16.0
+appVersion: v0.16.0
+keywords:
+  - kserve
+  - localmodel
+  - local-storage
+  - machine-learning
+  - model-serving
+home: https://kserve.github.io/website/
+sources:
+  - https://github.com/kserve/kserve
+maintainers:
+  - name: KServe Team
+    url: https://github.com/kserve/kserve
+icon: https://raw.githubusercontent.com/kserve/website/main/docs/images/logo.png
+annotations:
+  category: AI/Machine Learning

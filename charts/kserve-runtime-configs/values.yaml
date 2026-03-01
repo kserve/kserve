@@ -1,0 +1,200 @@
+kserve:
+  version: v0.16.0
+  llmisvcConfigs:
+    enabled: false
+  servingruntime:
+    enabled: false
+    modelNamePlaceholder: "{{.Name}}"
+    tensorflow:
+      disabled: false
+      image: tensorflow/serving
+      tag: 2.6.2
+      imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        runAsUser: 1000 # User is not defined in the Dockerfile, so we need to set it here to run as non-root
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+    mlserver:
+      disabled: false
+      image: docker.io/seldonio/mlserver
+      tag: 1.5.0
+      modelClassPlaceholder: "{{.Labels.modelClass}}"
+      imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+    sklearnserver:
+      disabled: false
+      image: kserve/sklearnserver
+      tag: ""
+      imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+    xgbserver:
+      disabled: false
+      image: kserve/xgbserver
+      tag: ""
+      imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+    huggingfaceserver:
+      disabled: false
+      image: kserve/huggingfaceserver
+      tag: ""
+      imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+      lmcacheUseExperimental: "True"
+      devShm:
+        enabled: false
+        sizeLimit: ""
+      hostIPC:
+        enabled: false
+    huggingfaceserver_multinode:
+      disabled: false
+      imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+      shm:
+        enabled: true
+        sizeLimit: "3Gi"
+    tritonserver:
+      disabled: false
+      image: nvcr.io/nvidia/tritonserver
+      tag: 23.05-py3
+      imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        runAsUser: 1000 # https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/customization_guide/deploy.html#run-as-a-non-root-user
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+    pmmlserver:
+      disabled: false
+      image: kserve/pmmlserver
+      tag: ""
+      imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+    predictiveserver:
+      disabled: false
+      image: kserve/predictiveserver
+      tag: ""
+      imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+    paddleserver:
+      disabled: false
+      image: kserve/paddleserver
+      tag: ""
+      imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+    lgbserver:
+      disabled: false
+      image: kserve/lgbserver
+      tag: ""
+      imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+    torchserve:
+      disabled: false
+      image: pytorch/torchserve-kfs
+      tag: 0.9.0
+      serviceEnvelopePlaceholder: "{{.Labels.serviceEnvelope}}"
+      imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        runAsUser: 1000 # User ID is not defined in the Dockerfile, so we need to set it here to run as non-root
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+    art:
+      image: kserve/art-explainer
+      defaultVersion: ""
+      imagePullSecrets: []
+  security:
+    autoMountServiceAccountToken: true
+  inferenceservice:
+    resources:
+      limits:
+        cpu: "1"
+        memory: "2Gi"
+      requests:
+        cpu: "1"
+        memory: "2Gi"
+  opentelemetryCollector:
+    scrapeInterval: "5s"
+    metricReceiverEndpoint: "keda-otel-scaler.keda.svc:4317"
+    metricScalerEndpoint: "keda-otel-scaler.keda.svc:4318"
+    resource:
+      cpuLimit: "1"
+      memoryLimit: "2Gi"
+      cpuRequest: "200m"
+      memoryRequest: "512Mi"
+  autoscaler:
+    scaleUpStabilizationWindowSeconds: "0"
+    scaleDownStabilizationWindowSeconds: "300"

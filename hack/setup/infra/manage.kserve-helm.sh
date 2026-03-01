@@ -15,17 +15,31 @@
 # limitations under the License.
 
 # Install KServe using Helm
-# Usage: manage.kserve-helm.sh [--reinstall|--uninstall]
+# Usage: manage.kserve-helm.sh [--reinstall|--uninstall|--force-upgrade]
 #   or:  REINSTALL=true manage.kserve-helm.sh
 #   or:  UNINSTALL=true manage.kserve-helm.sh
+#   or:  FORCE_UPGRADE=true manage.kserve-helm.sh
 #
 # Environment variables:
 #   USE_LOCAL_CHARTS      - Use local charts instead of OCI registry (default: false)
 #   SET_KSERVE_VERSION    - KServe version to install (default: from kserve-deps.env)
-#   KSERVE_CRD_EXTRA_ARGS - Additional helm install arguments for KServe CRDs
-#   KSERVE_EXTRA_ARGS     - Additional helm install arguments for KServe resources
 #
-#   LLMISVC - Enable LLM Inference Service Controller (default: false)
+#   ENABLE_KSERVE         - Enable KServe controller (default: true)
+#   ENABLE_LLMISVC        - Enable LLM Inference Service Controller (default: false)
+#   ENABLE_LOCALMODEL     - Enable LocalModel Controller (default: false)
+#
+#   INSTALL_RUNTIMES      - Install ClusterServingRuntimes (default: based on ENABLE_KSERVE)
+#   INSTALL_LLMISVC_CONFIGS - Install LLMInferenceServiceConfigs (default: based on ENABLE_LLMISVC)
+#
+#   SHARED_EXTRA_ARGS     - Additional helm upgrade -i arguments applied to ALL charts
+#   KSERVE_EXTRA_ARGS     - Additional helm upgrade -i arguments for KServe resources
+#   LLMISVC_EXTRA_ARGS    - Additional helm upgrade -i arguments for LLMIsvc resources
+#   LOCALMODEL_EXTRA_ARGS - Additional helm upgrade -i arguments for LocalModel resources
+#
+#   Legacy (for backward compatibility):
+#   LLMISVC               - Same as ENABLE_LLMISVC (deprecated, use ENABLE_LLMISVC)
+#   LOCALMODEL            - Same as ENABLE_LOCALMODEL (deprecated, use ENABLE_LOCALMODEL)
+#
 #   DEPLOYMENT_MODE - Default deployment mode
 #                     Supported values:
 #                       - Serverless (legacy, converted to Knative)
@@ -38,21 +52,41 @@
 #                           if it is not false, enableGatewayApi will be set true
 #
 # Examples:
-#   # Install from OCI registry (uses version from kserve-deps.env)
+#   # Install KServe only (default)
 #   ./manage.kserve-helm.sh
+#
+#   # Install LLMISVC only
+#   ENABLE_KSERVE=false ENABLE_LLMISVC=true ./manage.kserve-helm.sh
+#
+#   # Install both KServe and LLMISVC
+#   ENABLE_KSERVE=true ENABLE_LLMISVC=true ./manage.kserve-helm.sh
+#
+#   # Install all three (KServe, LLMISVC, LocalModel)
+#   ENABLE_KSERVE=true ENABLE_LLMISVC=true ENABLE_LOCALMODEL=true ./manage.kserve-helm.sh
 #
 #   # Install specific version from OCI registry
 #   SET_KSERVE_VERSION=v0.15.0 ./manage.kserve-helm.sh
 #
-#   # Install from local charts (development)
+#   # Install from local charts for development
 #   USE_LOCAL_CHARTS=true ./manage.kserve-helm.sh
 #
-#   # Custom resource limits
+#   # Use Standard deployment mode
+#   DEPLOYMENT_MODE=Standard ./manage.kserve-helm.sh
+#
+#   # Apply shared arguments to all charts
+#   SHARED_EXTRA_ARGS="--timeout 10m" ./manage.kserve-helm.sh
+#
+#   # Custom resource limits for KServe only
 #   KSERVE_EXTRA_ARGS="--set kserve.controller.resources.limits.cpu=500m" ./manage.kserve-helm.sh
 #
 #   # Custom controller image for local development
 #   USE_LOCAL_CHARTS=true KSERVE_EXTRA_ARGS="--set kserve.controller.tag=local-test --set kserve.controller.imagePullPolicy=Never" ./manage.kserve-helm.sh
-
+#
+#   # Install without ClusterServingRuntimes
+#   INSTALL_RUNTIMES=false ./manage.kserve-helm.sh
+#
+#   # Reinstall everything (based on ENABLE_* flags)
+#   ./manage.kserve-helm.sh --reinstall
 
 # INIT
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
@@ -61,205 +95,229 @@ source "${SCRIPT_DIR}/../common.sh"
 
 REINSTALL="${REINSTALL:-false}"
 UNINSTALL="${UNINSTALL:-false}"
+FORCE_UPGRADE="${FORCE_UPGRADE:-false}"
 
 if [[ "$*" == *"--uninstall"* ]]; then
     UNINSTALL=true
 elif [[ "$*" == *"--reinstall"* ]]; then
     REINSTALL=true
+elif [[ "$*" == *"--force-upgrade"* ]]; then
+    FORCE_UPGRADE=true
 fi
 # INIT END
 
 check_cli_exist helm kubectl
 
+
 # VARIABLES
 # KSERVE_NAMESPACE is defined in global-vars.env
-KSERVE_CRD_RELEASE_NAME="kserve-crd"
-KSERVE_RELEASE_NAME="kserve"
-CRD_DIR_NAME="kserve-crd"
-CORE_DIR_NAME="kserve-resources"
-TARGET_DEPLOYMENT_NAMES=(
-    "kserve-controller-manager"
-)
-# DEPLOYMENT_MODE, GATEWAY_NETWORK_LAYER, LLMISVC, EMBED_MANIFESTS are defined in global-vars.env
+INSTALL_MODE="helm"
 USE_LOCAL_CHARTS="${USE_LOCAL_CHARTS:-false}"
 CHARTS_DIR="${REPO_ROOT}/charts"
 SET_KSERVE_VERSION="${SET_KSERVE_VERSION:-}"
+SHARED_EXTRA_ARGS="${SHARED_EXTRA_ARGS:-}"
+
+ENABLE_KSERVE="${ENABLE_KSERVE:-true}"
+ENABLE_LLMISVC="${ENABLE_LLMISVC:-${LLMISVC:-false}}"
+ENABLE_LOCALMODEL="${ENABLE_LOCALMODEL:-${LOCALMODEL:-false}}"
+
+# Arrays for managing multiple charts
+CRD_CHARTS=()
+RESOURCE_CHARTS=()
+RESOURCE_EXTRA_ARGS_LIST=()
+TARGET_DEPLOYMENT_NAMES=()
+
+# DEPLOYMENT_MODE, GATEWAY_NETWORK_LAYER, EMBED_MANIFESTS are defined in global-vars.env
+INSTALL_RUNTIMES="${INSTALL_RUNTIMES:-${ENABLE_KSERVE:-false}}"
+INSTALL_LLMISVC_CONFIGS="${INSTALL_LLMISVC_CONFIGS:-${ENABLE_LLMISVC:-false}}"
+RUNTIME_CONFIG_CHART_NAME="kserve-runtime-configs"
 # VARIABLES END
 
 # INCLUDE_IN_GENERATED_SCRIPT_START
-# Set Helm release names and target pod labels based on LLMISVC
-if [ "${LLMISVC}" = "true" ]; then
-    log_info "LLMISVC is enabled"
-    CRD_DIR_NAME="kserve-llmisvc-crd"
-    CORE_DIR_NAME="kserve-llmisvc-resources"
-    KSERVE_CRD_RELEASE_NAME="kserve-llmisvc-crd"
-    KSERVE_RELEASE_NAME="kserve-llmisvc-resources"
-    TARGET_DEPLOYMENT_NAMES=("kserve-llmisvc-controller-manager")
-fi
+determine_shared_resources_config "${INSTALL_MODE}" "${ENABLE_KSERVE}" "${ENABLE_LLMISVC}"
 
 if [ "${SET_KSERVE_VERSION}" != "" ]; then
     log_info "Setting KServe version to ${SET_KSERVE_VERSION}"
     KSERVE_VERSION="${SET_KSERVE_VERSION}"
 fi
+
+# Build chart arrays based on ENABLE_* flags
+if is_positive "${ENABLE_KSERVE}"; then
+    log_info "KServe is enabled"
+    CRD_CHARTS+=("kserve-crd")
+    RESOURCE_CHARTS+=("kserve-resources")
+    RESOURCE_EXTRA_ARGS_LIST+=("${KSERVE_EXTRA_ARGS:-}")
+    TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager")
+fi
+
+if is_positive "${ENABLE_LLMISVC}"; then
+    log_info "LLMIsvc is enabled"
+    CRD_CHARTS+=("kserve-llmisvc-crd")
+    RESOURCE_CHARTS+=("kserve-llmisvc-resources")
+    RESOURCE_EXTRA_ARGS_LIST+=("${LLMISVC_EXTRA_ARGS:-}")
+    TARGET_DEPLOYMENT_NAMES+=("llmisvc-controller-manager")
+fi
+
+if is_positive "${ENABLE_LOCALMODEL}"; then
+    log_info "LocalModel is enabled"
+    CRD_CHARTS+=("kserve-localmodel-crd")
+    RESOURCE_CHARTS+=("kserve-localmodel-resources")
+    RESOURCE_EXTRA_ARGS_LIST+=("${LOCALMODEL_EXTRA_ARGS:-}")
+    TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
+fi
 # INCLUDE_IN_GENERATED_SCRIPT_END
 
 uninstall() {
     log_info "Uninstalling KServe..."
-
-    # EMBED_MANIFESTS: use embedded manifests
-    if [ "$EMBED_MANIFESTS" = "true" ]; then
-        if type uninstall_kserve_manifest &>/dev/null; then
-            uninstall_kserve_manifest
-        else
-            log_error "EMBED_MANIFESTS enabled but uninstall_kserve_manifest function not found"
-            log_error "This script should be called from a generated installation script"
-            exit 1
-        fi
-    else
-        # Development/Helm mode
-        helm uninstall "${KSERVE_RELEASE_NAME}" -n "${KSERVE_NAMESPACE}" 2>/dev/null || true
-        helm uninstall "${KSERVE_CRD_RELEASE_NAME}" -n "${KSERVE_NAMESPACE}" --namespace "${KSERVE_NAMESPACE}" 2>/dev/null || true
+    if helm list -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -q "${RUNTIME_CONFIG_CHART_NAME}"; then
+        helm uninstall "${RUNTIME_CONFIG_CHART_NAME}" -n "${KSERVE_NAMESPACE}"
+        log_success "Successfully uninstalled Runtimes/LLMISVC configs"
     fi
 
-    kubectl delete all --all -n "${KSERVE_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
-    kubectl delete namespace "${KSERVE_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
-    log_success "KServe uninstalled"
+    local all_charts=("${RESOURCE_CHARTS[@]}" "${CRD_CHARTS[@]}")
+    if [ ${#all_charts[@]} -gt 0 ]; then
+        log_info "Uninstalling charts: ${all_charts[*]}"
+    else
+        log_info "No charts to uninstall"
+        return 0
+    fi
+
+    for ((i=${#RESOURCE_CHARTS[@]}-1; i>=0; i--)); do
+        local chart="${RESOURCE_CHARTS[$i]}"
+        log_info "Uninstalling ${chart}..."
+        helm uninstall "${chart}" -n "${KSERVE_NAMESPACE}" 2>/dev/null || true
+    done
+
+    # Then uninstall CRD charts (reverse order)
+    for ((i=${#CRD_CHARTS[@]}-1; i>=0; i--)); do
+        local chart="${CRD_CHARTS[$i]}"
+        log_info "Uninstalling ${chart}..."
+        helm uninstall "${chart}" -n "${KSERVE_NAMESPACE}" 2>/dev/null || true
+    done
+
+    log_success "KServe charts uninstalled"
 }
 
 install() {
-    if helm list -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -q "${KSERVE_RELEASE_NAME}"; then
-        if [ "$REINSTALL" = false ]; then
-            log_info "KServe is already installed. Use --reinstall to reinstall."
-            return 0
-        else
-            log_info "Reinstalling KServe..."
-            uninstall
+    build_helm_config_args() {
+        local -a config_args=()
+
+        # Update deployment mode if needed
+        if [ "${DEPLOYMENT_MODE}" = "Standard" ] || [ "${DEPLOYMENT_MODE}" = "RawDeployment" ]; then
+            log_info "Adding deployment mode configuration: ${DEPLOYMENT_MODE}"
+            config_args+=(--set "kserve.controller.deploymentMode=${DEPLOYMENT_MODE}")
         fi
-    fi
-    
-    # EMBED_MANIFESTS: use embedded manifests from generated script
-    if [ "$EMBED_MANIFESTS" = "true" ]; then
-        log_info "Installing KServe using embedded manifests ..."
 
-        # Call manifest functions (these should be available in generated script)
-        if type install_kserve_manifest &>/dev/null; then
-            install_kserve_manifest
-        else
-            log_error "EMBED_MANIFESTS enabled but install_kserve_manifest function not found"
-            log_error "This script should be called from a generated installation script"
-            exit 1
+        # Enable Gateway API for KServe(ISVC) if needed
+        if [ "${GATEWAY_NETWORK_LAYER}" != "false" ] && ! is_positive "${ENABLE_LLMISVC}"; then
+            log_info "Adding Gateway API configuration: enableGatewayApi=true, ingressClassName=${GATEWAY_NETWORK_LAYER}"
+            config_args+=(--set "kserve.controller.gateway.ingressGateway.enableGatewayApi=true")
+            config_args+=(--set "kserve.controller.gateway.ingressGateway.className=${GATEWAY_NETWORK_LAYER}")
         fi
-    elif [ "${USE_LOCAL_CHARTS}" = true ]; then
-        # Install KServe using local charts (for development)
-        log_info "Installing KServe using local charts..."
-        log_info "📍 Using local charts from ${CHARTS_DIR}/"
-        
-        # Update default version in values.yaml
-        log_info "Updating default version in values.yaml to ${KSERVE_VERSION}"
-        sed -i -e "s/*defaultVersion*/${KSERVE_VERSION}/g" ${CHARTS_DIR}/${CORE_DIR_NAME}/values.yaml
-            
-        # Install KServe CRDs from local chart
-        log_info "Installing KServe CRDs..."
-        helm upgrade --install "${KSERVE_CRD_RELEASE_NAME}" "${CHARTS_DIR}/${CRD_DIR_NAME}" \
-            --namespace "${KSERVE_NAMESPACE}" \
-            --create-namespace \
-            --wait \
-            ${KSERVE_CRD_EXTRA_ARGS:-}
 
-        # Install KServe resources from local chart
-        log_info "Installing KServe resources..."
-        helm upgrade --install "${KSERVE_RELEASE_NAME}" "${CHARTS_DIR}/${CORE_DIR_NAME}" \
-            --namespace "${KSERVE_NAMESPACE}" \
-            --create-namespace \
-            --wait \
-            ${KSERVE_EXTRA_ARGS:-}
-
-        log_success "Successfully installed KServe using local charts"
-    else
-        # Install KServe from OCI registry
-        log_info "Installing KServe ${KSERVE_VERSION} from OCI registry..."
-
-        # Install KServe CRDs
-        log_info "Installing KServe CRDs..."
-        helm upgrade --install "${KSERVE_CRD_RELEASE_NAME}" \
-            oci://ghcr.io/kserve/charts/${CRD_DIR_NAME} \
-            --version "${KSERVE_VERSION}" \
-            --namespace "${KSERVE_NAMESPACE}" \
-            --create-namespace \
-            --wait \
-            ${KSERVE_CRD_EXTRA_ARGS:-}
-
-        # Install KServe resources
-        log_info "Installing KServe resources..."
-        if ! helm upgrade --install "${KSERVE_RELEASE_NAME}" \
-            oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
-            --version "${KSERVE_VERSION}" \
-            --namespace "${KSERVE_NAMESPACE}" \
-            --create-namespace \
-            --wait \
-            ${KSERVE_EXTRA_ARGS:-}; then
-
-            # If installation fails, try using helm upgrade after kserve controller is Ready
-            log_info "Install failed, attempting upgrade instead..."
-        
-            for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
-                    wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "120s"
+        if is_positive "${ENABLE_LOCALMODEL}"; then
+            config_args+=(--set "kserve.localModel.enabled=true")
+            config_args+=(--set "kserve.localModel.defaultJobImage=kserve/storage-initializer")
+            config_args+=(--set "kserve.localModel.defaultJobImageTag=${KSERVE_VERSION}")
+        fi
+        # Add custom configurations if provided
+        if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
+            log_info "Adding custom configurations: ${KSERVE_CUSTOM_ISVC_CONFIGS}"
+            IFS='|' read -ra custom_configs <<< "${KSERVE_CUSTOM_ISVC_CONFIGS}"
+            for config in "${custom_configs[@]}"; do
+                config_args+=(--set "${config}")
             done
-            if ! helm upgrade "${KSERVE_RELEASE_NAME}" \
-                oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
-                --version "${KSERVE_VERSION}" \
-                --namespace "${KSERVE_NAMESPACE}" \
-                --wait \
-                ${KSERVE_EXTRA_ARGS:-}; then
+        fi
 
-                log_error "Failed to install/upgrade KServe ${KSERVE_VERSION}"
-                exit 1
+        # Only print if array has elements
+        if [ ${#config_args[@]} -gt 0 ]; then
+            printf '%s\n' "${config_args[@]}"
+        fi
+    }
+
+    if [ ${#RESOURCE_CHARTS[@]} -eq 0 ] && [ ${#CRD_CHARTS[@]} -eq 0 ]; then
+        log_error "No charts selected for installation. Please enable at least one component (ENABLE_KSERVE, ENABLE_LLMISVC, or ENABLE_LOCALMODEL)."
+        exit 1
+    fi
+
+    if [ ${#RESOURCE_CHARTS[@]} -gt 0 ]; then
+        local main_chart="${RESOURCE_CHARTS[0]}"
+        # Use exact match for helm release name to avoid partial matches
+        if helm list -n "${KSERVE_NAMESPACE}" -q 2>/dev/null | grep -x "${main_chart}" &>/dev/null; then
+            if ! is_positive "$REINSTALL"; then
+                if is_positive "$FORCE_UPGRADE"; then
+                    log_info "Force upgrading KServe..."
+                else
+                    log_info "KServe is already installed. Use --reinstall to reinstall or --force-upgrade to upgrade."
+                    return 0
+                fi
+            else
+                log_info "Reinstalling KServe..."
+                uninstall
             fi
         fi
-
-        log_success "Successfully installed KServe ${KSERVE_VERSION}"
     fi
 
-    # Build list of config updates
-    local config_updates=()
-
-    # Update deployment mode if needed
-    if [ "${DEPLOYMENT_MODE}" = "Standard" ] || [ "${DEPLOYMENT_MODE}" = "RawDeployment" ]; then
-        log_info "Adding deployment mode update: ${DEPLOYMENT_MODE}"
-        config_updates+=("deploy.defaultDeploymentMode=\"${DEPLOYMENT_MODE}\"")
-    fi
-
-    # Enable Gateway API for KServe(ISVC) if needed
-    if [ "${GATEWAY_NETWORK_LAYER}" != "false" ] && [ "${LLMISVC}" != "true" ]; then
-        log_info "Adding Gateway API updates: enableGatewayApi=true, ingressClassName=${GATEWAY_NETWORK_LAYER}"
-        config_updates+=("ingress.enableGatewayApi=true")
-        config_updates+=("ingress.ingressClassName=\"${GATEWAY_NETWORK_LAYER}\"")
-    fi
-
-    # Add custom configurations if provided
-    if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
-        log_info "Adding custom configurations: ${KSERVE_CUSTOM_ISVC_CONFIGS}"
-        IFS='|' read -ra custom_configs <<< "${KSERVE_CUSTOM_ISVC_CONFIGS}"
-        config_updates+=("${custom_configs[@]}")
-    fi
-
-    # Apply all config updates at once if there are any
-    if [ ${#config_updates[@]} -gt 0 ]; then
-        log_info "Applying ${#config_updates[@]} configuration update(s):"
-        for update in "${config_updates[@]}"; do
-            log_info "  - ${update}"
-        done
-        update_isvc_config "${config_updates[@]}"
-        if [ $(is_positive ${LLMISVC}) = "1" ]; then
-            kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
-        fi
+    # Determine chart repository
+    local CHART_REPO="oci://ghcr.io/kserve/charts"
+    if is_positive "${USE_LOCAL_CHARTS}"; then
+        CHART_REPO="${CHARTS_DIR}"
+        log_info "Installing KServe using local charts..."
+        log_info "📍 Using local charts from ${CHARTS_DIR}/"
     else
-        if [ $(is_positive ${LLMISVC}) = "0" ]; then
-            log_info "No configuration updates needed for LLMISVC (GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
-        else
-            log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
-        fi
+        log_info "Installing KServe ${KSERVE_VERSION} from OCI registry..."
     fi
+
+    # Build chart version flag (only for remote charts, skip for 'latest')
+    local VERSION_FLAG=""
+    if ! is_positive "${USE_LOCAL_CHARTS}"; then
+        VERSION_FLAG="--version ${KSERVE_VERSION}"       
+    fi
+
+    # Install CRD charts
+    for chart in "${CRD_CHARTS[@]}"; do
+        log_info "Installing ${chart}..."
+        helm upgrade -i "${chart}" "${CHART_REPO}/${chart}" \
+            --namespace "${KSERVE_NAMESPACE}" \
+            --create-namespace \
+            --wait \
+            ${VERSION_FLAG} \
+            ${SHARED_EXTRA_ARGS}
+    done
+
+    # Build configuration arguments for KServe/LLMIsvc
+    readarray -t helm_config_args < <(build_helm_config_args)
+
+    # Install resource charts
+    for i in "${!RESOURCE_CHARTS[@]}"; do
+        local chart="${RESOURCE_CHARTS[$i]}"
+        local extra_args="${RESOURCE_EXTRA_ARGS_LIST[$i]}"
+
+        # Apply config args only to kserve-resources chart (InferenceService configs)
+        local -a extra_helm_args=()
+        if [[ "${chart}" == "kserve-resources" ]]; then
+            extra_helm_args=("${helm_config_args[@]}")
+        fi
+
+        log_info "Installing ${chart}..."
+        for attempt in 1 2; do
+            if helm upgrade -i "${chart}" "${CHART_REPO}/${chart}" \
+                --namespace "${KSERVE_NAMESPACE}" \
+                --create-namespace \
+                --wait \
+                ${VERSION_FLAG} \
+                --set kserve.version="${KSERVE_VERSION}" \
+                ${SHARED_EXTRA_ARGS} \
+                ${extra_args} \
+                "${extra_helm_args[@]}"; then
+                break
+            elif [ $attempt -eq 2 ]; then
+                log_error "Failed to install/upgrade ${chart} ${KSERVE_VERSION} after 2 attempts"
+                exit 1
+            fi
+            sleep 5
+        done
+    done
 
     log_success "Successfully installed KServe"
 
@@ -270,9 +328,23 @@ install() {
     done
 
     log_success "KServe is ready!"
+
+    # Install Runtimes and LLMISVC configs if needed
+    if is_positive "${INSTALL_RUNTIMES}" || is_positive "${INSTALL_LLMISVC_CONFIGS}"; then
+        log_info "Installing Runtimes(${INSTALL_RUNTIMES}) and LLMISVC configs(${INSTALL_LLMISVC_CONFIGS})..."
+        helm upgrade -i ${RUNTIME_CONFIG_CHART_NAME} \
+            ${CHART_REPO}/${RUNTIME_CONFIG_CHART_NAME} \
+            --namespace "${KSERVE_NAMESPACE}" \
+            --create-namespace \
+            --wait \
+            --set kserve.version="${KSERVE_VERSION}" \
+            --set kserve.servingruntime.enabled=${INSTALL_RUNTIMES} \
+            --set kserve.llmisvcConfigs.enabled=${INSTALL_LLMISVC_CONFIGS}
+        log_success "Successfully installed Runtimes/LLMISVC configs"
+    fi
 }
 
-if [ "$UNINSTALL" = true ]; then
+if is_positive "$UNINSTALL"; then
     uninstall
     exit 0
 fi
