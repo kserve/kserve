@@ -17,6 +17,10 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.16.0
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | kserve.agent.image | string | `"kserve/agent"` |  |
+| kserve.agent.resources.limits.cpu | string | `"1"` |  |
+| kserve.agent.resources.limits.memory | string | `"1Gi"` |  |
+| kserve.agent.resources.requests.cpu | string | `"100m"` |  |
+| kserve.agent.resources.requests.memory | string | `"100Mi"` |  |
 | kserve.agent.tag | string | `"v0.16.0"` |  |
 | kserve.autoscaler.scaleDownStabilizationWindowSeconds | string | `"300"` |  |
 | kserve.autoscaler.scaleUpStabilizationWindowSeconds | string | `"0"` |  |

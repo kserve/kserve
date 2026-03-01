@@ -586,6 +586,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 												"--rest_api_timeout_in_ms=60000",
 											},
+											Env: []corev1.EnvVar{
+												{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+											},
 											Resources: defaultResource,
 										},
 									},
@@ -1961,7 +1964,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 												constants.ArgumentHttpPort,
 												constants.InferenceServiceDefaultHttpPort,
 											},
-											Name:      constants.InferenceServiceContainerName,
+											Name: constants.InferenceServiceContainerName,
+											Env: []corev1.EnvVar{
+												{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+											},
 											Resources: defaultResource,
 										},
 									},
@@ -2281,11 +2287,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 													"--model_base_path=" + constants.DefaultModelLocalMountPath,
 													"--rest_api_timeout_in_ms=60000",
 												},
+												Env: []corev1.EnvVar{
+													{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+												},
 												Resources: defaultResource,
 											},
 											{
-												Name:      constants.TransformerContainerName,
-												Image:     "transformer:v1",
+												Name:  constants.TransformerContainerName,
+												Image: "transformer:v1",
+												Env: []corev1.EnvVar{
+													{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+												},
 												Resources: defaultResource,
 												Ports: []corev1.ContainerPort{
 													{
@@ -2587,12 +2599,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 													"--model_base_path=" + constants.DefaultModelLocalMountPath,
 													"--rest_api_timeout_in_ms=60000",
 												},
+												Env: []corev1.EnvVar{
+													{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+												},
 												Resources: defaultResource,
 											},
 											{
-												Name:      constants.TransformerContainerName,
-												Image:     "transformer:v1",
-												Args:      []string{"--model_name=" + serviceName},
+												Name:  constants.TransformerContainerName,
+												Image: "transformer:v1",
+												Args:  []string{"--model_name=" + serviceName},
+												Env: []corev1.EnvVar{
+													{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+												},
 												Resources: defaultResource,
 												Ports: []corev1.ContainerPort{
 													{
@@ -2910,6 +2928,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 													"--model_base_path=" + constants.DefaultModelLocalMountPath,
 													"--rest_api_timeout_in_ms=60000",
 												},
+												Env: []corev1.EnvVar{
+													{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+												},
 												Resources: defaultResource,
 											},
 											{
@@ -2918,7 +2939,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 												Command: []string{
 													"transformer",
 												},
-												Args:      []string{"--model_name=" + serviceName, "--http-port", strconv.Itoa(int(httpPort))},
+												Args: []string{"--model_name=" + serviceName, "--http-port", strconv.Itoa(int(httpPort))},
+												Env: []corev1.EnvVar{
+													{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+												},
 												Resources: defaultResource,
 												Ports: []corev1.ContainerPort{
 													{
@@ -3186,11 +3210,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 													"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
 													"--model_base_path=" + constants.DefaultModelLocalMountPath,
 												},
+												Env: []corev1.EnvVar{
+													{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+												},
 												Resources: defaultResource,
 											},
 											{
-												Name:      constants.TransformerContainerName,
-												Image:     "transformer:v1",
+												Name:  constants.TransformerContainerName,
+												Image: "transformer:v1",
+												Env: []corev1.EnvVar{
+													{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+												},
 												Resources: defaultResource,
 												Ports: []corev1.ContainerPort{
 													{
@@ -3761,6 +3791,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 												"--rest_api_port=8080",
 												"--model_base_path=/mnt/models",
 												"--rest_api_timeout_in_ms=60000",
+											},
+											Env: []corev1.EnvVar{
+												{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 											},
 											Resources: defaultResource,
 										},

@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	igwapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -381,4 +382,88 @@ func TestLLMInferenceServiceConversion_PreservesPoolRef(t *testing.T) {
 	assert.Nil(t, restored.Spec.Router.Scheduler.Pool.Spec, "Pool.Spec must remain nil after round-trip")
 	require.NotNil(t, restored.Spec.Router.Scheduler.Pool.Ref)
 	assert.Equal(t, "external-pool", restored.Spec.Router.Scheduler.Pool.Ref.Name)
+}
+
+func TestLLMInferenceServiceConversion_PreservesSchedulerConfig(t *testing.T) {
+	modelName := "test-model"
+	eppConfig := `{"scheduling":"least-load"}`
+
+	tests := []struct {
+		name   string
+		config *SchedulerConfigSpec
+	}{
+		{
+			name: "inline config",
+			config: &SchedulerConfigSpec{
+				Inline: &runtime.RawExtension{Raw: []byte(eppConfig)},
+			},
+		},
+		{
+			name: "config ref",
+			config: &SchedulerConfigSpec{
+				Ref: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: "my-scheduler-config"},
+					Key:                  "epp",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := &LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm-isvc-scheduler-config",
+					Namespace: "default",
+				},
+				Spec: LLMInferenceServiceSpec{
+					Model: LLMModelSpec{
+						URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+						Name: &modelName,
+					},
+					Router: &RouterSpec{
+						Scheduler: &SchedulerSpec{
+							Config: tt.config,
+						},
+					},
+				},
+			}
+
+			// Convert to v1alpha2 (hub)
+			dst := &v1alpha2.LLMInferenceService{}
+			err := src.ConvertTo(dst)
+			require.NoError(t, err)
+
+			require.NotNil(t, dst.Spec.Router)
+			require.NotNil(t, dst.Spec.Router.Scheduler)
+			require.NotNil(t, dst.Spec.Router.Scheduler.Config,
+				"Scheduler.Config must not be lost during conversion to v1alpha2")
+
+			if tt.config.Inline != nil {
+				assert.Equal(t, tt.config.Inline.Raw, dst.Spec.Router.Scheduler.Config.Inline.Raw)
+			}
+			if tt.config.Ref != nil {
+				assert.Equal(t, tt.config.Ref.Name, dst.Spec.Router.Scheduler.Config.Ref.Name)
+				assert.Equal(t, tt.config.Ref.Key, dst.Spec.Router.Scheduler.Config.Ref.Key)
+			}
+
+			// Convert back to v1alpha1
+			restored := &LLMInferenceService{}
+			err = restored.ConvertFrom(dst)
+			require.NoError(t, err)
+
+			require.NotNil(t, restored.Spec.Router)
+			require.NotNil(t, restored.Spec.Router.Scheduler)
+			require.NotNil(t, restored.Spec.Router.Scheduler.Config,
+				"Scheduler.Config must not be lost during round-trip")
+
+			if tt.config.Inline != nil {
+				assert.Equal(t, tt.config.Inline.Raw, restored.Spec.Router.Scheduler.Config.Inline.Raw)
+			}
+			if tt.config.Ref != nil {
+				assert.Equal(t, tt.config.Ref.Name, restored.Spec.Router.Scheduler.Config.Ref.Name)
+				assert.Equal(t, tt.config.Ref.Key, restored.Spec.Router.Scheduler.Config.Ref.Key)
+			}
+		})
+	}
 }

@@ -132,10 +132,12 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	// Here we allow switch between knative and vanilla deployment
 	if e.deploymentMode == constants.Standard {
 		if err := e.reconcileExplainerRawDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.ExplainerComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
 	} else {
 		if err := e.reconcileExplainerKnativeDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.ExplainerComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
 	}
