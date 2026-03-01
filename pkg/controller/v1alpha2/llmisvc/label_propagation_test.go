@@ -246,3 +246,107 @@ func TestPropagateDeploymentMetadata(t *testing.T) {
 		})
 	}
 }
+
+func TestPropagateSchedulerMetadata(t *testing.T) {
+	tests := []struct {
+		name                   string
+		schedulerLabels        map[string]string
+		schedulerAnnotations   map[string]string
+		expectedPodLabels      map[string]string
+		expectedPodAnnotations map[string]string
+	}{
+		{
+			name: "should propagate scheduler labels and annotations to pod template",
+			schedulerLabels: map[string]string{
+				"custom.label/key":  "value",
+				"another.label/key": "another-value",
+			},
+			schedulerAnnotations: map[string]string{
+				"custom.annotation/key":  "value",
+				"another.annotation/key": "another-value",
+			},
+			expectedPodLabels: map[string]string{
+				"custom.label/key":  "value",
+				"another.label/key": "another-value",
+			},
+			expectedPodAnnotations: map[string]string{
+				"custom.annotation/key":  "value",
+				"another.annotation/key": "another-value",
+			},
+		},
+		{
+			name: "should handle nil scheduler labels and annotations",
+		},
+		{
+			name: "should propagate only labels when no annotations are specified",
+			schedulerLabels: map[string]string{
+				"custom.label/key": "value",
+			},
+			expectedPodLabels: map[string]string{
+				"custom.label/key": "value",
+			},
+		},
+		{
+			name: "should propagate only annotations when no labels are specified",
+			schedulerAnnotations: map[string]string{
+				"custom.annotation/key": "value",
+			},
+			expectedPodAnnotations: map[string]string{
+				"custom.annotation/key": "value",
+			},
+		},
+		{
+			name: "should propagate arbitrary scheduler labels and annotations without filtering",
+			schedulerLabels: map[string]string{
+				"kueue.x-k8s.io/queue-name": "my-queue",
+				"any.domain/label":          "any-value",
+				"no-domain-label":           "simple-value",
+			},
+			schedulerAnnotations: map[string]string{
+				"prometheus.io/scrape": "true",
+				"any.domain/ann":       "any-value",
+				"no-domain-ann":        "simple-value",
+			},
+			expectedPodLabels: map[string]string{
+				"kueue.x-k8s.io/queue-name": "my-queue",
+				"any.domain/label":          "any-value",
+				"no-domain-label":           "simple-value",
+			},
+			expectedPodAnnotations: map[string]string{
+				"prometheus.io/scrape": "true",
+				"any.domain/ann":       "any-value",
+				"no-domain-ann":        "simple-value",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &LLMISVCReconciler{}
+
+			llmSvc := &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Router: &v1alpha2.RouterSpec{
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Labels:      tt.schedulerLabels,
+							Annotations: tt.schedulerAnnotations,
+						},
+					},
+				},
+			}
+
+			deployment := &appsv1.Deployment{}
+			r.propagateSchedulerMetadata(llmSvc, deployment)
+
+			for k, v := range tt.expectedPodLabels {
+				assert.Equal(t, v, deployment.Spec.Template.Labels[k], "Template Label %s mismatch", k)
+			}
+			for k, v := range tt.expectedPodAnnotations {
+				assert.Equal(t, v, deployment.Spec.Template.Annotations[k], "Template Annotation %s mismatch", k)
+			}
+
+			assert.Empty(t, deployment.Labels, "Scheduler labels should not be set on the Deployment itself")
+			assert.Empty(t, deployment.Annotations, "Scheduler annotations should not be set on the Deployment itself")
+		})
+	}
+}
