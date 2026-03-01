@@ -825,7 +825,7 @@ jobs:
       - name: Check Metrics Server Logs
         run: |
           kubectl logs -n kube-system deploy/metrics-server
-      
+
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
         with:
@@ -905,6 +905,18 @@ jobs:
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6" ${{ matrix.network-layer }}
 
+      - name: Patch inferenceservice config for ingress path based routing
+        if: matrix.network-layer == 'istio-ingress'
+        run: |
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-ingress-path-template.yaml
+          kubectl describe configmaps -n kserve inferenceservice-config
+
+      - name: Run E2E tests with ingress path based routing
+        if: matrix.network-layer == 'istio-ingress'
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6" ${{ matrix.network-layer }}
+
       - name: Patch inferenceservice config for cluster ip none
         run: |
           kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-enable-cluster-ip.yaml
@@ -960,7 +972,7 @@ jobs:
       - name: Check Metrics Server Logs
         run: |
           kubectl logs -n kube-system deploy/metrics-server
-      
+
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
         with:
