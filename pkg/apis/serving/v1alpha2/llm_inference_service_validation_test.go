@@ -168,8 +168,6 @@ func newBaseLLMInferenceServiceV1Alpha2() *LLMInferenceService {
 }
 
 func TestValidateWorkloadScaling(t *testing.T) {
-	validator := &LLMInferenceServiceValidator{}
-
 	tests := []struct {
 		name           string
 		workload       *WorkloadSpec
@@ -643,7 +641,7 @@ func TestValidateWorkloadScaling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := validator.validateWorkloadScaling(field.NewPath("spec"), tt.workload)
+			errs := ValidateWorkloadScaling(field.NewPath("spec"), tt.workload)
 			assert.Len(t, errs, tt.wantErrCount, "expected %d errors, got %d: %v", tt.wantErrCount, len(errs), errs)
 			for _, wantStr := range tt.wantErrStrings {
 				found := false

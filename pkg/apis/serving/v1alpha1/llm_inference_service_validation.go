@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"regexp"
 
 	"k8s.io/utils/ptr"
 
@@ -31,11 +30,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/utils"
 )
-
-// variantCostPattern is compiled once at package init to avoid recompilation on every webhook call.
-var variantCostPattern = regexp.MustCompile(`^\d+(\.\d+)?$`)
 
 // +kubebuilder:webhook:path=/validate-serving-kserve-io-v1alpha1-llminferenceservice,mutating=false,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha1,name=llminferenceservice.kserve-webhook-server.v1alpha1.validator,admissionReviewVersions=v1
 
@@ -357,123 +354,10 @@ func (l *LLMInferenceServiceValidator) validateScaling(llmSvc *LLMInferenceServi
 }
 
 func (l *LLMInferenceServiceValidator) validateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field.ErrorList {
-	var allErrs field.ErrorList
-
-	scaling := workload.Scaling
-	if scaling == nil {
-		return allErrs
-	}
-
-	scalingPath := basePath.Child("scaling")
-
-	// Replicas and scaling are mutually exclusive
-	if workload.Replicas != nil {
-		allErrs = append(allErrs, field.Invalid(
-			scalingPath,
-			scaling,
-			"scaling and replicas are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments",
-		))
-	}
-
-	// MaxReplicas is required when scaling is configured
-	if scaling.MaxReplicas == nil {
-		allErrs = append(allErrs, field.Required(
-			scalingPath.Child("maxReplicas"),
-			"maxReplicas is required when scaling is configured",
-		))
-	}
-
-	// Validate replica bounds
-	if scaling.MinReplicas != nil && scaling.MaxReplicas != nil {
-		if *scaling.MinReplicas > *scaling.MaxReplicas {
-			allErrs = append(allErrs, field.Invalid(
-				scalingPath.Child("minReplicas"),
-				*scaling.MinReplicas,
-				fmt.Sprintf("minReplicas (%d) cannot exceed maxReplicas (%d)", *scaling.MinReplicas, *scaling.MaxReplicas),
-			))
-		}
-	}
-
-	// WVA is required when scaling is configured — it provides the scaling mechanism
-	if scaling.WVA == nil {
-		allErrs = append(allErrs, field.Required(
-			scalingPath.Child("wva"),
-			"wva is required when scaling is configured; it provides the autoscaling mechanism",
-		))
-		return allErrs
-	}
-
-	// Validate WVA configuration
-	wvaPath := scalingPath.Child("wva")
-
-	// HPA and KEDA are mutually exclusive
-	if scaling.WVA.HPA != nil && scaling.WVA.KEDA != nil {
-		allErrs = append(allErrs, field.Invalid(
-			wvaPath,
-			scaling.WVA,
-			"hpa and keda are mutually exclusive; choose one actuator backend",
-		))
-	}
-
-	// Must specify at least one actuator
-	if scaling.WVA.HPA == nil && scaling.WVA.KEDA == nil {
-		allErrs = append(allErrs, field.Required(
-			wvaPath,
-			"either hpa or keda must be specified as the actuator backend",
-		))
-	}
-
-	// Validate variantCost format (must be a non-negative numeric string, e.g., "10", "10.0", "0.5")
-	if scaling.WVA.VariantCost != "" {
-		if !variantCostPattern.MatchString(scaling.WVA.VariantCost) {
-			allErrs = append(allErrs, field.Invalid(
-				wvaPath.Child("variantCost"),
-				scaling.WVA.VariantCost,
-				"variantCost must be a non-negative numeric string (e.g., \"10\", \"10.0\", \"0.5\")",
-			))
-		}
-	}
-
-	// Validate KEDA advanced fields that are controller-owned and must not be set by users
-	if scaling.WVA.KEDA != nil && scaling.WVA.KEDA.Advanced != nil {
-		kedaPath := wvaPath.Child("keda")
-		sm := scaling.WVA.KEDA.Advanced.ScalingModifiers
-		if sm.Formula != "" || sm.Target != "" || sm.ActivationTarget != "" || string(sm.MetricType) != "" {
-			allErrs = append(allErrs, field.Forbidden(
-				kedaPath.Child("advanced", "scalingModifiers"),
-				"scalingModifiers must not be set; WVA controls the scaling metric formula and logic",
-			))
-		}
-		if scaling.WVA.KEDA.Advanced.HorizontalPodAutoscalerConfig != nil &&
-			scaling.WVA.KEDA.Advanced.HorizontalPodAutoscalerConfig.Name != "" {
-			allErrs = append(allErrs, field.Forbidden(
-				kedaPath.Child("advanced", "horizontalPodAutoscalerConfig", "name"),
-				"horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name",
-			))
-		}
-	}
-
-	// Validate KEDA idleReplicaCount requires minReplicas and must be less than it
-	if scaling.WVA.KEDA != nil && scaling.WVA.KEDA.IdleReplicaCount != nil {
-		if scaling.MinReplicas == nil {
-			allErrs = append(allErrs, field.Required(
-				scalingPath.Child("minReplicas"),
-				fmt.Sprintf("minReplicas is required when idleReplicaCount is set; "+
-					"idleReplicaCount (%d) must be less than minReplicas",
-					*scaling.WVA.KEDA.IdleReplicaCount),
-			))
-		} else if *scaling.WVA.KEDA.IdleReplicaCount >= *scaling.MinReplicas {
-			allErrs = append(allErrs, field.Invalid(
-				wvaPath.Child("keda").Child("idleReplicaCount"),
-				*scaling.WVA.KEDA.IdleReplicaCount,
-				fmt.Sprintf("idleReplicaCount (%d) must be less than minReplicas (%d); "+
-					"idleReplicaCount defines the replica floor when no triggers are active",
-					*scaling.WVA.KEDA.IdleReplicaCount, *scaling.MinReplicas),
-			))
-		}
-	}
-
-	return allErrs
+	// Convert to the hub (v1alpha2) type and delegate to its exported validator so
+	// the scaling rules live in exactly one place.
+	w := convertWorkloadSpecToV1Alpha2(workload)
+	return v1alpha2.ValidateWorkloadScaling(basePath, &w)
 }
 
 // immutable returns a *Error indicating "unsupported mutation".

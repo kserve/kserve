@@ -397,17 +397,19 @@ func (l *LLMInferenceServiceValidator) validateScaling(llmSvc *LLMInferenceServi
 	var allErrs field.ErrorList
 
 	// Validate scaling on the main (decode) workload
-	allErrs = append(allErrs, l.validateWorkloadScaling(field.NewPath("spec"), &llmSvc.Spec.WorkloadSpec)...)
+	allErrs = append(allErrs, ValidateWorkloadScaling(field.NewPath("spec"), &llmSvc.Spec.WorkloadSpec)...)
 
 	// Validate scaling on the prefill workload, if present
 	if llmSvc.Spec.Prefill != nil {
-		allErrs = append(allErrs, l.validateWorkloadScaling(field.NewPath("spec").Child("prefill"), llmSvc.Spec.Prefill)...)
+		allErrs = append(allErrs, ValidateWorkloadScaling(field.NewPath("spec").Child("prefill"), llmSvc.Spec.Prefill)...)
 	}
 
 	return allErrs
 }
 
-func (l *LLMInferenceServiceValidator) validateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field.ErrorList {
+// ValidateWorkloadScaling validates the scaling configuration of a single workload
+// (decode or prefill). It is exported so that v1alpha1 can reuse it via conversion.
+func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field.ErrorList {
 	var allErrs field.ErrorList
 
 	scaling := workload.Scaling
