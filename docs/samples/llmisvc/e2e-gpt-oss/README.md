@@ -219,7 +219,35 @@ The Gateway and Route from step 8 still apply; they reference the same `Inferenc
 
 ---
 
-## 10. ServiceMonitor for Prometheus
+## 10. Alternative configuration: Prefill/Decode Disaggregation
+
+For **prefill/decode disaggregation** (Prefill vLLM + Decode vLLM + EPP), use the alternative inference service that enables
+Prefill and Decode to be performed on separate GPUs. See [llm-d guide](https://llm-d.ai/docs/guide/Installation/pd-disaggregation)
+for an in depth description.
+
+> No special config is required, as it uses the base configs `kserve-config-llm-prefill-template` and `kserve-config-llm-decode-template`
+> from the `kserve` namespace.
+
+### 10.1 Switch Inference to prefill/decode disaggregation
+
+> Requires 3 Nvidia GPUs. Reduce replica count or change to MIG partitions (see customization notes below) to run on less hardware.
+
+Either:
+
+- **Replace** the default inference service by applying the prefill-decode variant (same name `gpt-oss-20b`):
+
+  ```bash
+  kubectl apply -f inference_pd_disaggregation.yaml -n kserve-lab
+  ```
+
+- Or in [kustomization.yaml](./kustomization.yaml), comment out `inference_default.yaml` and uncomment `inference_pd_disaggregation.yaml`, then run `kubectl apply -k . -n kserve-lab`.
+
+The Gateway and Route from step 8 still apply; they reference the same `InferencePool` name.
+
+---
+
+
+## 11. ServiceMonitor for Prometheus
 
 To scrape vLLM and EPP metrics, apply the ServiceMonitor in the same namespace (or adjust `namespaceSelector` to your Prometheus setup):
 
@@ -231,11 +259,11 @@ Set `namespaceSelector.matchNames` in [service_monitor.yaml](./service_monitor.y
 
 ---
 
-## 11. Grafana dashboards and example screenshots
+## 12. Grafana dashboards and example screenshots
 
 KServe EPP metrics and llm-d observability are documented in the [grafana/](./grafana/) folder. Use these dashboards to monitor routing, prefix caching, and P/D disaggregation.
 
-### 11.1 Dashboard files and links
+### 12.1 Dashboard files and links
 
 | Dashboard | File | Description |
 |-----------|------|-------------|
@@ -260,7 +288,8 @@ Import in Grafana: **Dashboards** → **New** → **Import** → upload the JSON
 8. `kubectl apply -f inference_default.yaml -n kserve-lab`
 9. `kubectl apply -f gateway.yaml -n kserve-lab`
 10. `kubectl apply -f ai-gateway-route.yaml -n kserve-lab`
-11. (Optional) Prefix caching: `llmisvc_config_prefix_cache.yaml` then `inference_prefix_cache.yaml`
+11. (Alternative) Prefix caching: `llmisvc_config_prefix_cache.yaml` then `inference_prefix_cache.yaml`
+12. (Alternative) Prefill Decode Disaggregation: `inference_pd_disaggregation.yaml`
 12. (Optional) `service_monitor.yaml` for Prometheus
 13. (Optional) Import Grafana dashboards
 
