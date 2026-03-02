@@ -155,6 +155,51 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 			expected: []string{"--config-text", "updated-inline-config"},
 		},
 		{
+			name: "template already has --config-text - returns nil to avoid duplication",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Router: &v1alpha2.RouterSpec{
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Template: &corev1.PodSpec{
+								Containers: []corev1.Container{
+									{
+										Name: "main",
+										Args: []string{"--config-text", "template-config", "--poolName", "test"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			curr:     &appsv1.Deployment{},
+			expected: nil,
+		},
+		{
+			name: "inline config overrides template config args",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Router: &v1alpha2.RouterSpec{
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Config: &v1alpha2.SchedulerConfigSpec{
+								Inline: &runtime.RawExtension{Raw: []byte("inline-override")},
+							},
+							Template: &corev1.PodSpec{
+								Containers: []corev1.Container{
+									{
+										Name: "main",
+										Args: []string{"--config-text", "template-config"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			curr:     &appsv1.Deployment{},
+			expected: []string{"--config-text", "inline-override"},
+		},
+		{
 			name:   "config flag as last arg without value - generates fresh config",
 			llmSvc: defaultSvc,
 			curr: &appsv1.Deployment{

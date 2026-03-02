@@ -368,13 +368,12 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		},
 	}
 
-	// Fetch the current deployment to preserve scheduler config across upgrades.
-	curr := &appsv1.Deployment{}
-	if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
-		return nil, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
-	}
-
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
+		curr := &appsv1.Deployment{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+		}
+
 		d.Spec.Replicas = llmSvc.Spec.Router.Scheduler.Replicas
 		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
 		for i := range d.Spec.Template.Spec.Containers {
@@ -475,16 +474,21 @@ schedulingProfiles:
 	}
 }
 
+// schedulerConfigFlags lists both kebab-case and camelCase variants because
+// Go's flag package accepts either form.
+var schedulerConfigFlags = map[string]struct{}{
+	"--config-text": {}, "-config-text": {}, "--configText": {}, "-configText": {},
+	"--config-file": {}, "-config-file": {}, "--configFile": {}, "-configFile": {},
+}
+
 // preserveSchedulerConfig returns the config args for the scheduler container.
-// If the desired spec has an explicit inline config (e.g. from a resolved
-// ConfigMap ref), that value is used so that config updates are applied.
-// Otherwise, if a current deployment exists and already has a config arg
-// (--config-text or --config-file), it preserves that value to avoid
-// unnecessary restarts during operator upgrades. If neither condition is met,
-// it generates a fresh config from the LLMInferenceService spec.
+//
+// Priority:
+//  1. Explicit inline config (including resolved ConfigMap refs) - always wins.
+//  2. Config flag already present in the template args - kept as-is (return nil).
+//  3. Config flag found in the current deployment - preserved across upgrades.
+//  4. No config anywhere - a fresh default is generated.
 func preserveSchedulerConfig(llmSvc *v1alpha2.LLMInferenceService, curr *appsv1.Deployment) []string {
-	// When an explicit inline config is provided (including resolved ConfigMap
-	// refs), always use it so that config changes are picked up.
 	if llmSvc.Spec.Router != nil &&
 		llmSvc.Spec.Router.Scheduler != nil &&
 		llmSvc.Spec.Router.Scheduler.Config != nil &&
@@ -492,21 +496,35 @@ func preserveSchedulerConfig(llmSvc *v1alpha2.LLMInferenceService, curr *appsv1.
 		return []string{"--config-text", string(llmSvc.Spec.Router.Scheduler.Config.Inline.Raw)}
 	}
 
-	configFlags := []string{"--config-text", "-config-text", "--config-file", "-config-file"}
-
-	for _, container := range curr.Spec.Template.Spec.Containers {
-		if container.Name != "main" {
-			continue
-		}
-		for i, arg := range container.Args {
-			if slices.Contains(configFlags, arg) && i+1 < len(container.Args) {
-				return []string{arg, container.Args[i+1]}
-			}
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
+		if configFlagFromContainers(llmSvc.Spec.Router.Scheduler.Template.Containers) != nil {
+			return nil
 		}
 	}
 
-	// No existing config found, generate a fresh one
+	if pair := configFlagFromContainers(curr.Spec.Template.Spec.Containers); pair != nil {
+		return pair
+	}
+
 	return []string{"--config-text", schedulerConfigText(llmSvc)}
+}
+
+// configFlagFromContainers scans the "main" container for a config flag and
+// returns {flag, value} if found, nil otherwise.
+func configFlagFromContainers(containers []corev1.Container) []string {
+	for i := range containers {
+		c := &containers[i]
+		if c.Name != "main" {
+			continue
+		}
+		for j := 0; j+1 < len(c.Args); j++ {
+			if _, ok := schedulerConfigFlags[c.Args[j]]; ok {
+				return []string{c.Args[j], c.Args[j+1]}
+			}
+		}
+		break // done with main
+	}
+	return nil
 }
 
 func (r *LLMISVCReconciler) expectedSchedulerServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, bool, error) {
