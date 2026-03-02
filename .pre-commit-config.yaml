@@ -11,10 +11,8 @@ repos:
     hooks:
       - id: black
         args: [--config, python/pyproject.toml]
-        exclude: ^docs/kfp/template/
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.2.3
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.13
     hooks:
-      - id: flake8
-        args: [--config, .flake8, .]
-        exclude: ^docs/kfp/template/
+      - id: ruff
+        args: [--config, ruff.toml]

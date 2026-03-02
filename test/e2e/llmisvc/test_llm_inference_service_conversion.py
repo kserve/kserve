@@ -219,7 +219,7 @@ class TestLLMInferenceServiceConversion:
                         "image": "quay.io/pierdipi/vllm-cpu:latest",
                         "resources": {
                             "limits": {"cpu": "2", "memory": "7Gi"},
-                            "requests": {"cpu": ".5", "memory": "4Gi"},
+                            "requests": {"cpu": "200m", "memory": "2Gi"},
                         },
                     }]
                 },
@@ -288,7 +288,7 @@ class TestLLMInferenceServiceConversion:
                         "image": "quay.io/pierdipi/vllm-cpu:latest",
                         "resources": {
                             "limits": {"cpu": "2", "memory": "7Gi"},
-                            "requests": {"cpu": ".5", "memory": "4Gi"},
+                            "requests": {"cpu": "200m", "memory": "2Gi"},
                         },
                     }]
                 },
@@ -366,7 +366,7 @@ class TestLLMInferenceServiceConversion:
                         "image": "quay.io/pierdipi/vllm-cpu:latest",
                         "resources": {
                             "limits": {"cpu": "2", "memory": "7Gi"},
-                            "requests": {"cpu": ".5", "memory": "4Gi"},
+                            "requests": {"cpu": "200m", "memory": "2Gi"},
                         },
                     }]
                 },
@@ -479,7 +479,7 @@ class TestLLMInferenceServiceConversion:
                         "image": "quay.io/pierdipi/vllm-cpu:latest",
                         "resources": {
                             "limits": {"cpu": "2", "memory": "7Gi"},
-                            "requests": {"cpu": ".5", "memory": "4Gi"},
+                            "requests": {"cpu": "200m", "memory": "2Gi"},
                         },
                     }]
                 },
@@ -601,7 +601,7 @@ class TestLLMInferenceServiceConversion:
                         "image": "quay.io/pierdipi/vllm-cpu:latest",
                         "resources": {
                             "limits": {"cpu": "2", "memory": "7Gi"},
-                            "requests": {"cpu": ".5", "memory": "4Gi"},
+                            "requests": {"cpu": "200m", "memory": "2Gi"},
                         },
                     }]
                 },

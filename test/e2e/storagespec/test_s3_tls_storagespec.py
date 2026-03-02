@@ -46,9 +46,9 @@ def create_storage_config_json(
 ) -> dict[str, Any]:
     config: dict[str, Any] = {
         "type": "s3",
-        "access_key_id": "minio",
-        "secret_access_key": "minio123",
-        "endpoint_url": f"https://{service_name}.kserve.svc:9000",
+        "access_key_id": "s3admin",
+        "secret_access_key": "s3admin123",
+        "endpoint_url": f"https://{service_name}.kserve.svc:8333",
         "bucket": "mlpipeline",
         "region": "us-south",
         "anonymous": "False",
@@ -178,10 +178,10 @@ def odh_trusted_ca_bundle_configmap(kserve_client):
 @contextmanager
 def managed_ca_bundle_key(kserve_client: KServeClient, data_key: str):
     """Add a CA bundle key to the odh-trusted-ca-bundle configmap, remove on cleanup."""
-    minio_tls_custom_certs = kserve_client.core_api.read_namespaced_secret(
-        "minio-tls-custom", KSERVE_NAMESPACE
+    seaweedfs_tls_custom_certs = kserve_client.core_api.read_namespaced_secret(
+        "seaweedfs-tls-custom", KSERVE_NAMESPACE
     ).data
-    cert_data = b64decode(minio_tls_custom_certs["root.crt"]).decode()
+    cert_data = b64decode(seaweedfs_tls_custom_certs["root.crt"]).decode()
     # Patch to ADD the key (preserves other keys)
     kserve_client.core_api.patch_namespaced_config_map(
         ODH_TRUSTED_CA_BUNDLE_CONFIGMAP_NAME,
@@ -202,19 +202,19 @@ def managed_ca_bundle_key(kserve_client: KServeClient, data_key: str):
 @pytest.mark.kserve_on_openshift
 def test_s3_tls_global_custom_cert_storagespec_kserve(kserve_client, odh_trusted_ca_bundle_configmap):
     # Validate that the model is successfully loaded when the global custom cert is valid
-    pass_storage_config = create_storage_config_json("minio-tls-custom-service", "odh-kserve-custom-ca-bundle")
+    pass_storage_config = create_storage_config_json("seaweedfs-tls-custom-service", "odh-kserve-custom-ca-bundle")
     pass_service_name = "isvc-sklearn-s3-tls-global-pass"
-    pass_isvc = create_isvc_resource(pass_service_name, "localTLSMinIOGlobal")
+    pass_isvc = create_isvc_resource(pass_service_name, "localTLSS3Global")
     with managed_ca_bundle_key(kserve_client, "ca-bundle.crt"):
-        with managed_storage_config_key(kserve_client, "localTLSMinIOGlobal", pass_storage_config):
+        with managed_storage_config_key(kserve_client, "localTLSS3Global", pass_storage_config):
             with managed_isvc(kserve_client, pass_isvc):
                 check_model_status(kserve_client, pass_service_name, KSERVE_TEST_NAMESPACE, "UpToDate")
 
     # Validate that the model fails to load when the cabundle_configmap is not referenced in the storage config
-    fail_storage_config = create_storage_config_json("minio-tls-custom-service", None)
+    fail_storage_config = create_storage_config_json("seaweedfs-tls-custom-service", None)
     fail_service_name = "isvc-sklearn-s3-tls-global-fail"
-    fail_isvc = create_isvc_resource(fail_service_name, "localTLSMinIOGlobal")
-    with managed_storage_config_key(kserve_client, "localTLSMinIOGlobal", fail_storage_config):
+    fail_isvc = create_isvc_resource(fail_service_name, "localTLSS3Global")
+    with managed_storage_config_key(kserve_client, "localTLSS3Global", fail_storage_config):
         with managed_isvc(kserve_client, fail_isvc):
             check_model_status(kserve_client, fail_service_name, KSERVE_TEST_NAMESPACE, "BlockedByFailedLoad", ssl_error)
 
@@ -222,19 +222,19 @@ def test_s3_tls_global_custom_cert_storagespec_kserve(kserve_client, odh_trusted
 @pytest.mark.kserve_on_openshift
 def test_s3_tls_custom_cert_storagespec_kserve(kserve_client, odh_trusted_ca_bundle_configmap):
     # Validate that the model is successfully loaded when the custom cert is valid
-    pass_storage_config = create_storage_config_json("minio-tls-custom-service", "odh-kserve-custom-ca-bundle")
+    pass_storage_config = create_storage_config_json("seaweedfs-tls-custom-service", "odh-kserve-custom-ca-bundle")
     pass_service_name = "isvc-sklearn-s3-tls-custom-pass"
-    pass_isvc = create_isvc_resource(pass_service_name, "localTLSMinIOCustom")
+    pass_isvc = create_isvc_resource(pass_service_name, "localTLSS3Custom")
     with managed_ca_bundle_key(kserve_client, "odh-ca-bundle.crt"):
-        with managed_storage_config_key(kserve_client, "localTLSMinIOCustom", pass_storage_config):
+        with managed_storage_config_key(kserve_client, "localTLSS3Custom", pass_storage_config):
             with managed_isvc(kserve_client, pass_isvc):
                 check_model_status(kserve_client, pass_service_name, KSERVE_TEST_NAMESPACE, "UpToDate")
 
     # Validate that the model fails to load when the cabundle_configmap is not referenced in the storage config
-    fail_storage_config = create_storage_config_json("minio-tls-custom-service", None)
+    fail_storage_config = create_storage_config_json("seaweedfs-tls-custom-service", None)
     fail_service_name = "isvc-sklearn-s3-tls-custom-fail"
-    fail_isvc = create_isvc_resource(fail_service_name, "localTLSMinIOCustom")
-    with managed_storage_config_key(kserve_client, "localTLSMinIOCustom", fail_storage_config):
+    fail_isvc = create_isvc_resource(fail_service_name, "localTLSS3Custom")
+    with managed_storage_config_key(kserve_client, "localTLSS3Custom", fail_storage_config):
         with managed_isvc(kserve_client, fail_isvc):
             check_model_status(kserve_client, fail_service_name, KSERVE_TEST_NAMESPACE, "BlockedByFailedLoad", ssl_error)
 
@@ -242,18 +242,18 @@ def test_s3_tls_custom_cert_storagespec_kserve(kserve_client, odh_trusted_ca_bun
 @pytest.mark.kserve_on_openshift
 def test_s3_tls_serving_cert_storagespec_kserve(kserve_client):
     # Validate that the model is successfully loaded when the serving cert is valid
-    pass_storage_config = create_storage_config_json("minio-tls-serving-service", "odh-kserve-custom-ca-bundle")
+    pass_storage_config = create_storage_config_json("seaweedfs-tls-serving-service", "odh-kserve-custom-ca-bundle")
     pass_service_name = "isvc-sklearn-s3-tls-serving-pass"
-    pass_isvc = create_isvc_resource(pass_service_name, storage_key="localTLSMinIOServing")
-    with managed_storage_config_key(kserve_client, "localTLSMinIOServing", pass_storage_config):
+    pass_isvc = create_isvc_resource(pass_service_name, storage_key="localTLSS3Serving")
+    with managed_storage_config_key(kserve_client, "localTLSS3Serving", pass_storage_config):
         with managed_isvc(kserve_client, pass_isvc):
             check_model_status(kserve_client, pass_service_name, KSERVE_TEST_NAMESPACE, "UpToDate")
 
     # Validate that the model fails to load when the serving cert is not referenced in the storage config
-    fail_storage_config = create_storage_config_json("minio-tls-serving-service", None)
+    fail_storage_config = create_storage_config_json("seaweedfs-tls-serving-service", None)
     fail_service_name = "isvc-sklearn-s3-tls-serving-fail"
-    fail_isvc = create_isvc_resource(fail_service_name, storage_key="localTLSMinIOServing")
-    with managed_storage_config_key(kserve_client, "localTLSMinIOServing", fail_storage_config):
+    fail_isvc = create_isvc_resource(fail_service_name, storage_key="localTLSS3Serving")
+    with managed_storage_config_key(kserve_client, "localTLSS3Serving", fail_storage_config):
         with managed_isvc(kserve_client, fail_isvc):
             check_model_status(kserve_client, fail_service_name, KSERVE_TEST_NAMESPACE, "BlockedByFailedLoad", ssl_error)
 
