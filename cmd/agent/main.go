@@ -229,8 +229,8 @@ func main() {
 		if err := logger.Sync(); err != nil {
 			logger.Errorf("Error syncing logger: %v", err)
 		}
-		os.Stdout.Sync()
-		os.Stderr.Sync()
+		_ = os.Stdout.Sync()
+		_ = os.Stderr.Sync()
 		os.Exit(1)
 	case <-ctx.Done():
 		logger.Info("Received TERM signal, attempting to gracefully shutdown servers.")

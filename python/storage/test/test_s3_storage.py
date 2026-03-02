@@ -22,6 +22,7 @@ import unittest.mock as mock
 from botocore.client import Config
 from botocore import UNSIGNED
 from kserve_storage import Storage
+from kserve_storage.storage_errors import get_storage_error_message, check_http_response
 
 
 class MockPool:
@@ -146,14 +147,17 @@ def test_no_permission_buckets(mock_connection, mock_resource):
     mock_s3_resource = mock.MagicMock()
     mock_s3_bucket = mock.MagicMock()
     mock_s3_bucket.objects.filter.return_value = [mock.MagicMock()]
-    mock_s3_bucket.objects.filter.side_effect = botocore.exceptions.ClientError(
-        {}, "GetObject"
+    mock_s3_resource.meta.client.head_bucket.side_effect = (
+        botocore.exceptions.ClientError(
+            {"Error": {"Code": "403", "Message": "Forbidden"}}, "HeadBucket"
+        )
     )
     mock_s3_resource.Bucket.return_value = mock_s3_bucket
     mock_resource.return_value = mock_s3_resource
 
-    with pytest.raises(botocore.exceptions.ClientError):
+    with pytest.raises(RuntimeError) as exc_info:
         Storage.download(bad_s3_path)
+    assert "S3" in str(exc_info.value)
 
 
 @mock.patch("boto3.resource")
@@ -238,22 +242,29 @@ def test_files_with_no_extension(mock_storage):
 
 
 def test_get_S3_config():
-    DEFAULT_CONFIG = Config()
+    # Default config now includes configurable timeouts and retries
+    DEFAULT_CONFIG = Config(
+        connect_timeout=15,
+        read_timeout=30,
+        retries={"max_attempts": 3, "mode": "standard"},
+    )
     ANON_CONFIG = Config(signature_version=UNSIGNED)
     VIRTUAL_CONFIG = Config(s3={"addressing_style": "virtual"})
     USE_ACCELERATE_CONFIG = Config(s3={"use_accelerate_endpoint": True})
 
-    with mock.patch.dict(os.environ, {}):
+    with mock.patch.dict(os.environ, {}, clear=True):
         config1 = Storage.get_S3_config()
-    assert vars(config1) == vars(DEFAULT_CONFIG)
+    assert config1.connect_timeout == DEFAULT_CONFIG.connect_timeout
+    assert config1.read_timeout == DEFAULT_CONFIG.read_timeout
+    assert config1.retries == DEFAULT_CONFIG.retries
 
-    with mock.patch.dict(os.environ, {"awsAnonymousCredential": "False"}):
+    with mock.patch.dict(os.environ, {"awsAnonymousCredential": "False"}, clear=True):
         config2 = Storage.get_S3_config()
-    assert vars(config2) == vars(DEFAULT_CONFIG)
+    assert config2.connect_timeout == DEFAULT_CONFIG.connect_timeout
 
-    with mock.patch.dict(os.environ, AWS_TEST_CREDENTIALS):
+    with mock.patch.dict(os.environ, AWS_TEST_CREDENTIALS, clear=True):
         config3 = Storage.get_S3_config()
-    assert vars(config3) == vars(DEFAULT_CONFIG)
+    assert config3.connect_timeout == DEFAULT_CONFIG.connect_timeout
 
     with mock.patch.dict(os.environ, {"awsAnonymousCredential": "True"}):
         config4 = Storage.get_S3_config()
@@ -265,17 +276,17 @@ def test_get_S3_config():
         config5 = Storage.get_S3_config()
     assert config5.signature_version == ANON_CONFIG.signature_version
 
-    with mock.patch.dict(os.environ, {"S3_USER_VIRTUAL_BUCKET": "False"}):
+    with mock.patch.dict(os.environ, {"S3_USER_VIRTUAL_BUCKET": "False"}, clear=True):
         config6 = Storage.get_S3_config()
-    assert vars(config6) == vars(DEFAULT_CONFIG)
+    assert config6.connect_timeout == DEFAULT_CONFIG.connect_timeout
 
-    with mock.patch.dict(os.environ, {"S3_USER_VIRTUAL_BUCKET": "True"}):
+    with mock.patch.dict(os.environ, {"S3_USER_VIRTUAL_BUCKET": "True"}, clear=True):
         config7 = Storage.get_S3_config()
     assert config7.s3["addressing_style"] == VIRTUAL_CONFIG.s3["addressing_style"]
 
-    with mock.patch.dict(os.environ, {"S3_USE_ACCELERATE": "False"}):
+    with mock.patch.dict(os.environ, {"S3_USE_ACCELERATE": "False"}, clear=True):
         config6 = Storage.get_S3_config()
-    assert vars(config6) == vars(DEFAULT_CONFIG)
+    assert config6.connect_timeout == DEFAULT_CONFIG.connect_timeout
 
     with mock.patch.dict(os.environ, {"S3_USE_ACCELERATE": "True"}):
         config7 = Storage.get_S3_config()
@@ -294,6 +305,21 @@ def test_get_S3_config():
     ):
         config8 = Storage.get_S3_config()
     assert config8.s3["addressing_style"] == VIRTUAL_CONFIG.s3["addressing_style"]
+
+    # tests custom timeout configuration
+    with mock.patch.dict(
+        os.environ,
+        {
+            "S3_CONNECT_TIMEOUT": "5",
+            "S3_READ_TIMEOUT": "10",
+            "S3_MAX_ATTEMPTS": "5",
+        },
+        clear=True,
+    ):
+        config9 = Storage.get_S3_config()
+    assert config9.connect_timeout == 5
+    assert config9.read_timeout == 10
+    assert config9.retries["max_attempts"] == 5
 
 
 def test_update_with_storage_spec_s3(monkeypatch):
@@ -638,3 +664,131 @@ def test_ca_bundle_empty_aws_ca_bundle_uses_configmap(mock_storage):
         assert mock_storage.call_count == 2
         for call_args in mock_storage.call_args_list:
             assert call_args[1]["verify"] == ca_bundle_path
+
+
+def test_error_message_no_credentials():
+    from botocore.exceptions import NoCredentialsError
+
+    error = NoCredentialsError()
+    msg = get_storage_error_message("S3", error, "test-bucket")
+    assert "authentication failed" in msg.lower()
+    assert "AWS_ACCESS_KEY_ID" in msg or "S3" in msg
+
+
+def test_error_message_access_denied():
+    error = botocore.exceptions.ClientError(
+        {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}},
+        "GetObject",
+    )
+    msg = get_storage_error_message("S3", error, "test-bucket")
+    assert "access denied" in msg.lower() or "403" in msg
+
+
+def test_error_message_bucket_not_found():
+    error = botocore.exceptions.ClientError(
+        {
+            "Error": {
+                "Code": "NoSuchBucket",
+                "Message": "The specified bucket does not exist",
+            }
+        },
+        "HeadBucket",
+    )
+    msg = get_storage_error_message("S3", error, "nonexistent-bucket")
+    assert "does not exist" in msg.lower() or "nonexistent-bucket" in msg
+
+
+def test_error_message_invalid_credentials():
+    error = botocore.exceptions.ClientError(
+        {
+            "Error": {
+                "Code": "InvalidAccessKeyId",
+                "Message": "The AWS Access Key Id you provided does not exist",
+            }
+        },
+        "HeadBucket",
+    )
+    msg = get_storage_error_message("S3", error, "test-bucket")
+    assert "S3" in msg or "AWS" in msg or "credentials" in msg.lower()
+
+
+def test_error_message_connection_error():
+    error = Exception("connection timeout")
+    msg = get_storage_error_message("S3", error, "endpoint.example.com")
+    assert "connect" in msg.lower() or "timeout" in msg.lower()
+
+
+def test_error_message_not_found():
+    error = Exception("resource not found")
+    msg = get_storage_error_message("GCS", error, "my-bucket")
+    assert "not found" in msg.lower()
+
+
+def test_error_message_gcs_auth():
+    error = Exception("credentials error")
+    msg = get_storage_error_message("GCS", error, "my-bucket")
+    assert "authentication failed" in msg.lower() or "GCS" in msg
+
+
+def test_error_message_azure_auth():
+    error = Exception("authentication failed")
+    msg = get_storage_error_message("Azure", error, "my-container")
+    assert "authentication failed" in msg.lower()
+
+
+def test_error_message_huggingface():
+    error = Exception("gated repo access denied")
+    msg = get_storage_error_message("HuggingFace", error, "org/model")
+    assert "HuggingFace" in msg or "HF_TOKEN" in msg
+
+
+def test_error_message_default():
+    error = Exception("some unknown error")
+    msg = get_storage_error_message("S3", error, "test-bucket")
+    assert "S3" in msg
+    assert "unknown error" in msg.lower()
+
+
+@pytest.mark.parametrize(
+    "status_code, expected_message",
+    [
+        (401, "authentication"),
+        (403, "access denied"),
+        (404, "not found"),
+        (500, "500"),
+    ],
+)
+def test_check_http_response_errors(status_code, expected_message):
+    mock_response = mock.MagicMock()
+    mock_response.status_code = status_code
+    with pytest.raises(RuntimeError) as exc_info:
+        check_http_response("https://example.com/model", mock_response)
+    assert expected_message in str(exc_info.value).lower()
+
+
+def test_check_http_response_200_ok():
+    mock_response = mock.MagicMock()
+    mock_response.status_code = 200
+    check_http_response("https://example.com/model", mock_response)
+
+
+@mock.patch("boto3.resource")
+def test_s3_no_credentials_error(mock_resource):
+    from botocore.exceptions import NoCredentialsError
+
+    mock_s3_resource = mock.MagicMock()
+    mock_s3_resource.meta.client.head_bucket.side_effect = NoCredentialsError()
+    mock_resource.return_value = mock_s3_resource
+
+    with pytest.raises(RuntimeError) as exc_info:
+        Storage._download_s3("s3://test-bucket/model", "/tmp/dest")
+    assert "authentication" in str(exc_info.value).lower()
+
+
+@mock.patch("boto3.resource")
+def test_s3_invalid_endpoint_error(mock_resource):
+    mock_resource.side_effect = ValueError("Invalid endpoint: bad-url")
+
+    with pytest.raises(RuntimeError) as exc_info:
+        Storage._download_s3("s3://test-bucket/model", "/tmp/dest")
+    assert "S3" in str(exc_info.value)

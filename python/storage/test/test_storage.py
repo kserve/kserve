@@ -197,7 +197,7 @@ http_uri_path_testparams = [
         MockHttpResponse(status_code=200, content_type="text/html"),
         RuntimeError,
     ),
-    ("https://foo.bar/test/", MockHttpResponse(200), ValueError),
+    ("https://foo.bar/test/", MockHttpResponse(200), RuntimeError),
     (
         "https://foo.bar/download?path=/20210530/model.zip",
         MockHttpResponse(200, FILE_ZIP_RAW, "application/zip"),
@@ -385,32 +385,31 @@ def test_git_repo_download_git_protocol_error(mock_clone):
     with pytest.raises(RuntimeError) as exc_info:
         Storage.download(uri, out_dir=out_dir)
 
-    assert f"git clone {uri} failed:" in str(exc_info.value)
-    assert "Authentication failed" in str(exc_info.value)
+    # Unified error handling produces user-friendly messages
+    assert "Git" in str(exc_info.value)
+    assert "authentication" in str(exc_info.value).lower()
 
 
 git_error_test_params = [
-    Exception("Repository not found"),
-    Exception("Authentication failed"),
-    Exception("Network error"),
+    (Exception("Repository not found"), "not found"),
+    (Exception("Authentication failed"), "authentication"),
+    (Exception("Network error"), "git"),
 ]
 
 
-@pytest.mark.parametrize("exception", git_error_test_params)
+@pytest.mark.parametrize("exception,expected_message", git_error_test_params)
 @mock.patch("dulwich.porcelain.clone")
-def test_git_repo_download_errors(mock_clone, exception):
+def test_git_repo_download_errors(mock_clone, exception, expected_message):
     uri = "https://github.com/user/nonexistent.git"
     out_dir = "/tmp/test_model"
 
-    # Setup dulwich to raise the specified error
     mock_clone.side_effect = exception
 
     with pytest.raises(RuntimeError) as exc_info:
         Storage.download(uri, out_dir=out_dir)
 
-    # Verify error message contains expected content
-    assert f"git clone {uri} failed:" in str(exc_info.value)
-    assert str(exception) in str(exc_info.value)
+    # Unified error handling produces user-friendly messages
+    assert expected_message in str(exc_info.value).lower()
 
 
 @mock.patch("dulwich.porcelain.clone")

@@ -26,6 +26,47 @@ spec:
                 - path:
                     type: PathPrefix
                     value: |-
+                      /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/completions
+              filters:
+                - type: URLRewrite
+                  urlRewrite:
+                    path:
+                      type: ReplacePrefixMatch
+                      replacePrefixMatch: /v1/completions
+              timeouts:
+                backendRequest: 0s
+                request: 0s
+            - backendRefs:
+                - group: inference.networking.k8s.io
+                  kind: InferencePool
+                  name: |-
+                    {{ ChildName .ObjectMeta.Name `-inference-pool` }}
+                  port: 8000
+                  weight: 1
+              matches:
+                - path:
+                    type: PathPrefix
+                    value: |-
+                      /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/chat/completions
+              filters:
+                - type: URLRewrite
+                  urlRewrite:
+                    path:
+                      type: ReplacePrefixMatch
+                      replacePrefixMatch: /v1/chat/completions
+              timeouts:
+                backendRequest: 0s
+                request: 0s
+            - backendRefs:
+                - kind: Service
+                  name: |-
+                    {{ ChildName .ObjectMeta.Name `-kserve-workload-svc` }}
+                  port: 8000
+                  weight: 1
+              matches:
+                - path:
+                    type: PathPrefix
+                    value: |-
                       /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}
               filters:
                 - type: URLRewrite

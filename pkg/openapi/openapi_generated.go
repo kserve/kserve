@@ -5003,7 +5003,7 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 					},
 					"serviceAccount": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",
+							Description: "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName.\n\nDeprecated: Use serviceAccountName instead.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -8924,7 +8924,7 @@ func schema_pkg_apis_serving_v1beta1_PodSpec(ref common.ReferenceCallback) commo
 					},
 					"serviceAccount": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",
+							Description: "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName.\n\nDeprecated: Use serviceAccountName instead.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -9822,7 +9822,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 					},
 					"serviceAccount": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",
+							Description: "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName.\n\nDeprecated: Use serviceAccountName instead.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -11637,7 +11637,7 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 					},
 					"serviceAccount": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",
+							Description: "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName.\n\nDeprecated: Use serviceAccountName instead.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -12574,7 +12574,7 @@ func schema_pkg_apis_serving_v1beta1_WorkerSpec(ref common.ReferenceCallback) co
 					},
 					"serviceAccount": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",
+							Description: "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName.\n\nDeprecated: Use serviceAccountName instead.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
