@@ -7,7 +7,7 @@ spec:
   template:
     containers:
       # This image avoids Error 803 (unsupported CUDA driver combination); see https://github.com/llm-d/llm-d/issues/706
-      - image: ghcr.io/llm-d/llm-d-cuda-dev:sha-4f5cdd5
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.4
         imagePullPolicy: IfNotPresent
         name: main
         ports:
