@@ -35,6 +35,7 @@ type Config struct {
 	SystemNamespace         string `json:"systemNamespace,omitempty"`
 	IngressGatewayName      string `json:"ingressGatewayName,omitempty"`
 	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
+	UrlScheme               string `json:"urlScheme,omitempty"`
 
 	// Storage and credential configs are excluded from JSON serialization
 	// as they contain sensitive information
@@ -59,6 +60,7 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		SystemNamespace:         constants.KServeNamespace,
 		IngressGatewayNamespace: igwNs,
 		IngressGatewayName:      igwName,
+		UrlScheme:               ingressConfig.UrlScheme,
 		StorageConfig:           storageConfig,
 		CredentialConfig:        credentialConfig,
 	}
