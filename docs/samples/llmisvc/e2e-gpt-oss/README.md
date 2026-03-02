@@ -2,6 +2,12 @@
 
 This guide walks through deploying **RedHatAI/gpt-oss-20b** on Kubernetes using [KServe](https://kserve.github.io/website/). Steps are ordered from cluster setup through inference, AI gateway routing, optional prefix caching, and monitoring.
 
+There are 3 alternate deployments detailed here:
+
+1. default - a deployment of intelligent inference scheduling with vLLM and the llm-d scheduler
+1. precise prefix cache aware routing - an advanced configuration that takes advantage of vLLM KV-Events
+1. prefill-decode disaggregation - an advanced configuration that seperate vLLM pods for the prefill and the decode stages of inference.
+
 ---
 
 ## Prerequisites
@@ -64,16 +70,21 @@ kubectl get pvc -n kserve-lab
 
 ## 3. Hugging Face token secret
 
-The model download job and (for prefix caching) the inference scheduler need a Hugging Face token. Create an opaque secret with the key `HF_TOKEN` (value must be base64-encoded):
+The model download job and (for prefix caching) the inference scheduler needs a [Hugging Face token](https://huggingface.co/docs/hub/en/security-tokens). We store this as an opaque secret with the key `HF_TOKEN`.
+
+Set this as an environment variable:
+```bash
+export YOUR_HF_TOKEN=<your token from huggingface>
+```
 
 ```bash
 # Encode your Hugging Face token (replace YOUR_HF_TOKEN with your actual token)
 kubectl create secret generic hf-token \
-  --from-literal=HF_TOKEN="YOUR_HF_TOKEN" \
+  --from-literal=HF_TOKEN="$YOUR_HF_TOKEN" \
   -n kserve-lab
 ```
 
-Or apply [hf-token-secret.yaml](./hf-token-secret.yaml) after replacing the placeholder: set `data.HF_TOKEN` to the base64 of your token (`echo -n "YOUR_HF_TOKEN" | base64`).
+Or apply [hf-token-secret.yaml](./hf-token-secret.yaml) after replacing the placeholder: set `data.HF_TOKEN` to the base64 of your token (`echo -n "$YOUR_HF_TOKEN" | base64`).
 
 ---
 
@@ -115,7 +126,7 @@ LLMInferenceServiceConfig defines the **pod and router template** (containers, v
 
 ### 6.1 Default config (intelligent inference scheduling)
 
-Apply the default config (no prefix caching):
+Apply the default config:
 
 ```bash
 kubectl apply -f llmisvc_config_default.yaml -n kserve-lab
@@ -187,11 +198,11 @@ Clients should send the header `x-ai-eg-model: RedHatAI/gpt-oss-20b` when callin
 
 ---
 
-## 9. Additional configuration: Prefix caching
+## 9. Alternate configuration: Precise Prefix Cache Aware Routing
 
-For **prefix caching** (vLLM + EPP prefix indexer), use the dedicated config and inference service that enable KV cache events and the precise-prefix-cache-scorer.
+For **precise prefix cache aware routing** (vLLM + EPP prefix indexer), use the dedicated config and inference service that enable KV cache events and the precise-prefix-cache-scorer. See [llm-d guide](https://llm-d.ai/docs/guide/Installation/precise-prefix-cache-aware) for an in-depth description.
 
-### 9.1 LLMInferenceServiceConfig with prefix caching
+### 9.1 LLMInferenceServiceConfig with precise prefix cache aware routing
 
 ```bash
 kubectl apply -f llmisvc_config_prefix_cache.yaml -n kserve-lab
@@ -203,7 +214,7 @@ This creates `llmisvc-prefix-caching`. It adds:
 - Router scheduler with `precise-prefix-cache-scorer`, `queue-scorer`, `kv-cache-utilization-scorer`, and tokenizers (HF) for the indexer
 - Scheduler needs `hf-token` secret for tokenizer download (already created above)
 
-### 9.2 Switch Inference Service to prefix caching
+### 9.2 Switch Inference Service to precise prefix cache aware routing
 
 Either:
 
@@ -251,11 +262,12 @@ The Gateway and Route from step 8 still apply; they reference the same `Inferenc
 
 To scrape vLLM and EPP metrics, apply the ServiceMonitor in the same namespace (or adjust `namespaceSelector` to your Prometheus setup):
 
+1. Set `namespaceSelector.matchNames` in [service_monitor.yaml](./service_monitor.yaml) to your namespace (e.g. `[kserve-lab]`) so Prometheus discovers the targets.
+2. Set `metadata.labels.release` to match the installation release name of the Prometheus stack installed on your system.
+
 ```bash
 kubectl apply -f service_monitor.yaml -n kserve-lab
 ```
-
-Set `namespaceSelector.matchNames` in [service_monitor.yaml](./service_monitor.yaml) to your namespace (e.g. `[kserve-lab]`) so Prometheus discovers the targets.
 
 ---
 
@@ -279,19 +291,17 @@ Import in Grafana: **Dashboards** → **New** → **Import** → upload the JSON
 ## Apply order (summary)
 
 1. `kubectl create namespace kserve-lab`
-2. Create secret `hf-token` (and optionally apply `service_account.yaml`, `model-pvc.yaml`)
-3. `kubectl apply -f model-pvc.yaml -n kserve-lab`
-4. `kubectl apply -f hf-token-secret.yaml -n kserve-lab` (or create secret as in step 3)
-5. `kubectl apply -f service_account.yaml -n kserve-lab`
-6. `kubectl apply -f model_weights_job.yaml -n kserve-lab` → wait for completion
-7. `kubectl apply -f llmisvc_config_default.yaml -n kserve-lab`
-8. `kubectl apply -f inference_default.yaml -n kserve-lab`
-9. `kubectl apply -f gateway.yaml -n kserve-lab`
-10. `kubectl apply -f ai-gateway-route.yaml -n kserve-lab`
-11. (Alternative) Prefix caching: `llmisvc_config_prefix_cache.yaml` then `inference_prefix_cache.yaml`
-12. (Alternative) Prefill Decode Disaggregation: `inference_pd_disaggregation.yaml`
-12. (Optional) `service_monitor.yaml` for Prometheus
-13. (Optional) Import Grafana dashboards
+1. `kubectl apply -f model-pvc.yaml -n kserve-lab`
+1. `kubectl create secret generic hf-token --from-literal=HF_TOKEN="$YOUR_HF_TOKEN" -n kserve-lab`
+1. `kubectl apply -f service_account.yaml -n kserve-lab`
+1. `kubectl apply -f model_weights_job.yaml -n kserve-lab` → wait for completion
+1. `kubectl apply -f llmisvc_config_default.yaml -n kserve-lab`
+1. `kubectl apply -f inference_default.yaml -n kserve-lab`
+1. `kubectl apply -f gateway.yaml -n kserve-lab` and `kubectl apply -f ai-gateway-route.yaml -n kserve-lab`
+1. (Alternative) Prefix caching: `llmisvc_config_prefix_cache.yaml` then `inference_prefix_cache.yaml`
+1. (Alternative) Prefill Decode Disaggregation: `inference_pd_disaggregation.yaml`
+1. (Optional) `service_monitor.yaml` for Prometheus
+1. (Optional) Import Grafana dashboards
 
 Or use Kustomize from this directory (after fixing the HF token in the secret and choosing default vs prefix-cache inference):
 
