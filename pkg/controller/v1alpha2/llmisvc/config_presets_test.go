@@ -99,7 +99,7 @@ func TestPresetFiles(t *testing.T) {
 										"--port=8000",
 										"--vllm-port=8001",
 										"--connector=nixlv2",
-										"--secure-proxy=true",
+										"--secure-proxy=false",
 									},
 									Env: []corev1.EnvVar{
 										{

@@ -15,7 +15,7 @@
 # This is a helper script to run E2E tests on the openshift-ci operator.
 # This script assumes to be run inside a container/machine that has
 # python pre-installed and the `oc` command available. Additional tooling,
-# like kustomize and the mc client are installed by the script if not available.
+# like kustomize are installed by the script if not available.
 # The oc CLI is assumed to be configured with the credentials of the
 # target cluster. The target cluster is assumed to be a clean cluster.
 set -o errexit
@@ -61,13 +61,6 @@ echo "SUCCESS_200_ISVC_IMAGE=$SUCCESS_200_ISVC_IMAGE"
 # Install Kustomize using the centralized install script
 $PROJECT_ROOT/hack/setup/cli/install-kustomize.sh
 export PATH="${PROJECT_ROOT}/bin:${PATH}"
-
-# If minio CLI is not installed, install it
-if ! command -v mc &>/dev/null; then
-  echo "Installing Minio CLI"
-  curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o $HOME/.local/bin/mc
-  chmod +x $HOME/.local/bin/mc
-fi
 
 echo "Installing KServe Python SDK ..."
 pushd $PROJECT_ROOT >/dev/null
@@ -121,7 +114,7 @@ if [[ "$INSTALL_ODH_OPERATOR" == "false" ]]; then
   kustomize build $PROJECT_ROOT/config/crd/full/llmisvc | oc apply --server-side=true --force-conflicts -f -
   wait_for_crd llminferenceserviceconfigs.serving.kserve.io 90s
 
-  echo "⏳ Installing KServe with Minio"
+  echo "⏳ Installing KServe with SeaweedFS"
   kustomize build $PROJECT_ROOT/config/overlays/odh-test |
     sed "s|kserve/storage-initializer:latest|${STORAGE_INITIALIZER_IMAGE}|" |
     sed "s|kserve/agent:latest|${KSERVE_AGENT_IMAGE}|" |
@@ -219,58 +212,37 @@ export CA_CERT_PATH="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 # The run-e2e-tests script expects the CA cert to be in /tmp/ca.crt
 oc exec deploy/kserve-controller-manager -n ${KSERVE_NAMESPACE} -- cat $CA_CERT_PATH > /tmp/ca.crt
 
-echo "Add testing models to minio storage ..." # Reference: config/overlays/test/minio/minio-init-job.yaml
+echo "Add testing models to SeaweedFS S3 storage ..."
 
-# Wait for minio deployment to be ready
-echo "Waiting for minio deployment to be ready..."
-oc rollout status deployment/minio -n ${KSERVE_NAMESPACE} --timeout=300s
+# Wait for SeaweedFS deployment to be ready
+echo "Waiting for SeaweedFS deployment to be ready..."
+oc rollout status deployment/seaweedfs -n ${KSERVE_NAMESPACE} --timeout=300s
 
-# Expose minio service and get route
-oc expose service minio-service -n ${KSERVE_NAMESPACE}
-MINIO_ROUTE=$(oc get routes -n ${KSERVE_NAMESPACE} minio-service -o jsonpath="{.spec.host}")
+# The s3-init job is already created by the kustomize build above.
+# It may have failed if SeaweedFS wasn't ready yet, so check and re-create if needed.
+if oc wait --for=condition=complete job/s3-init -n ${KSERVE_NAMESPACE} --timeout=60s 2>/dev/null; then
+  echo "S3 init job already completed successfully"
+else
+  echo "S3 init job not completed, re-creating..."
+  oc delete job s3-init -n ${KSERVE_NAMESPACE} --wait=true --ignore-not-found
+  sed "s/s3-service.kserve/s3-service.${KSERVE_NAMESPACE}/" \
+    "$PROJECT_ROOT/config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml" | \
+    oc apply -n ${KSERVE_NAMESPACE} -f -
 
-# Wait for minio endpoint to be accessible
-echo "Waiting for minio endpoint to be accessible..."
-timeout=60
-counter=0
-while [ $counter -lt $timeout ]; do
-  if curl -f -s "http://$MINIO_ROUTE/minio/health/live" >/dev/null 2>&1; then
-    echo "Minio is ready!"
-    break
+  echo "Waiting for S3 init job to complete..."
+  if ! oc wait --for=condition=complete job/s3-init -n ${KSERVE_NAMESPACE} --timeout=300s; then
+    echo "S3 init job failed. Pod status and logs:"
+    oc get pods -l job-name=s3-init -n ${KSERVE_NAMESPACE}
+    oc logs -l job-name=s3-init -n ${KSERVE_NAMESPACE} --tail=50 || true
+    exit 1
   fi
-  echo "Waiting for minio to be ready... ($counter/$timeout)"
-  sleep 2
-  counter=$((counter + 2))
-done
-
-if [ $counter -ge $timeout ]; then
-  echo "Timeout waiting for minio to be ready"
-  exit 1
 fi
 
-mc alias set storage http://$MINIO_ROUTE minio minio123
-
-if ! mc ls storage/example-models >/dev/null 2>&1; then
-  mc mb storage/example-models
-else
-  echo "Bucket 'example-models' already exists."
-fi
-
-if [[ $(mc ls storage/example-models/sklearn/model.joblib |wc -l) == "1" ]]; then
-  echo "Test model exists"
-else
-  echo "Copy test model"
-  curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o /tmp/sklearn-model.joblib
-  mc cp /tmp/sklearn-model.joblib storage/example-models/sklearn/model.joblib
-fi
-
-oc delete route -n ${KSERVE_NAMESPACE} minio-service
-
-# Configure minio TLS if needed
+# Configure S3 TLS if needed
 if [[ "$1" =~ "kserve_on_openshift" ]]; then
-  echo "Configuring minio TLS"
-  "$PROJECT_ROOT/test/scripts/openshift-ci/tls/setup-minio-tls.sh" custom
-  "$PROJECT_ROOT/test/scripts/openshift-ci/tls/setup-minio-tls.sh" serving
+  echo "Configuring SeaweedFS S3 TLS"
+  "$PROJECT_ROOT/test/scripts/openshift-ci/tls/setup-s3-tls.sh" custom
+  "$PROJECT_ROOT/test/scripts/openshift-ci/tls/setup-s3-tls.sh" serving
 fi
 
 # Allow all traffic to the KServe namespace. Without this networkpolicy, webhook will return 500

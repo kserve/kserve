@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seaweedfs-tls-custom
+  labels:
+    app: seaweedfs-tls-custom
+spec:
+  selector:
+    matchLabels:
+      app: seaweedfs-tls-custom
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: seaweedfs-tls-custom
+    spec:
+      containers:
+      - args:
+        - mini
+        - -dir=/data
+        - -s3
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: seaweedfs-tls-custom-artifact
+              key: accesskey
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: seaweedfs-tls-custom-artifact
+              key: secretkey
+        image: docker.io/chrislusf/seaweedfs:4.07@sha256:10fa7df90911dd83439f4d3d792a1c5c6c630121cb2094ba209f42d4b0ca975d
+        imagePullPolicy: Always
+        name: seaweedfs-tls-custom
+        ports:
+        - containerPort: 8333
+          name: s3
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /data
+          name: data
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      volumes:
+      - name: data
+        emptyDir: {}

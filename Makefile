@@ -68,8 +68,8 @@ sync-img-env:
 go-lint: golangci-lint
 	@$(GOLANGCI_LINT) run --fix
 
-py-lint: $(FLAKE8_LINT)
-	$(FLAKE8_LINT) --config=.flake8 .
+py-lint: $(RUFF)
+	$(RUFF) check --config ruff.toml 
 
 validate-infra-scripts:
 	@python3 hack/setup/scripts/validate-install-scripts.py
@@ -82,6 +82,7 @@ generate-quick-install-scripts: validate-infra-scripts $(PYTHON_VENV)
 manifests: controller-gen yq
 	@$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full	
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths={./pkg/controller/v1alpha1/inferencegraph,./pkg/controller/v1alpha1/trainedmodel,./pkg/controller/v1beta1/...} output:rbac:artifacts:config=config/rbac
+	@$(CONTROLLER_GEN) rbac:roleName=kserve-llmisvc-manager-role paths=./pkg/controller/v1alpha2/llmisvc output:rbac:artifacts:config=config/rbac/llmisvc
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodelnode-agent-role paths=./pkg/controller/v1alpha1/localmodelnode output:rbac:artifacts:config=config/rbac/localmodelnode
 	
@@ -97,6 +98,9 @@ manifests: controller-gen yq
 	# Copy the cluster role to the helm chart
 	cp config/rbac/auth_proxy_role.yaml charts/kserve-resources/templates/clusterrole.yaml
 	cat config/rbac/role.yaml >> charts/kserve-resources/templates/clusterrole.yaml
+	# Copy the llmisvc cluster role to the helm chart
+	cat config/rbac/llmisvc/role.yaml > charts/kserve-llmisvc-resources/templates/clusterrole.yaml
+	cat config/rbac/llmisvc/leader_election_role.yaml > charts/kserve-llmisvc-resources/templates/leader_election_role.yaml	
 	# Copy the local model role with Helm chart while keeping the Helm template condition
 	echo '{{- if .Values.kserve.localmodel.enabled }}' > charts/kserve-resources/templates/localmodel/role.yaml
 	cat config/rbac/localmodel/role.yaml >> charts/kserve-resources/templates/localmodel/role.yaml
@@ -146,8 +150,7 @@ manifests: controller-gen yq
 
 	# DO NOT COPY to helm chart. It needs to be created before the Envoy Gateway or you will need to restart the Envoy Gateway controller.
 	# The llmisvc helm chart needs to be installed after the Envoy Gateway as well, so it needs to be created before the llmisvc helm chart.
-	kubectl kustomize https://github.com/kubernetes-sigs/gateway-api-inference-extension//config/crd?ref=$(GIE_VERSION) > config/llmisvc/gateway-inference-extension.yaml
-	cp config/llmisvc/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
+	kubectl kustomize https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > test/crds/gateway-inference-extension.yaml
 
 	#remove the required property on framework as name field needs to be optional
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
@@ -176,11 +179,6 @@ manifests: controller-gen yq
 	kubectl kustomize config/crd/full/llmisvc >> test/crds/serving.kserve.io_all_crds.yaml
 	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
 	kubectl kustomize config/crd/full/localmodel >> test/crds/serving.kserve.io_all_crds.yaml
-	# Generate llmisvc rbac
-	@$(CONTROLLER_GEN) rbac:roleName=llmisvc-manager-role paths={./pkg/controller/v1alpha2/llmisvc} output:rbac:artifacts:config=config/rbac/llmisvc
-	# Copy the cluster role to the helm chart
-	cat config/rbac/llmisvc/role.yaml > charts/kserve-llmisvc-resources/templates/clusterrole.yaml
-	cat config/rbac/llmisvc/leader_election_role.yaml > charts/kserve-llmisvc-resources/templates/leader_election_role.yaml
 	
 	# Copy the minimal crd to the helm chart
 	cp config/crd/minimal/*.yaml charts/kserve-crd-minimal/templates/
@@ -325,7 +323,7 @@ deploy-dev: manifests
 	
 	@echo "Deploy KServe,LocalModel and LLMInferenceService"
 	hack/setup/infra/manage.cert-manager-helm.sh
-	KSERVE_OVERYLAY_DIR=development hack/setup/infra/manage.kserve-kustomize.sh
+	KSERVE_OVERLAY_DIR=development hack/setup/infra/manage.kserve-kustomize.sh
 	
 	@echo "Create ClusterServingRuntimes as part of default deployment"
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
