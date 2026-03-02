@@ -623,7 +623,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 // like /mnt/models/1/, /mnt/models/2/, etc.
 func (mi *StorageInitializerInjector) InjectOVMSAutoVersioning(pod *corev1.Pod) error {
 	// Check if OVMS auto-versioning annotation is present
-	versionString, ok := pod.ObjectMeta.Annotations[constants.OVMSAutoVersioningAnnotationKey]
+	versionString, ok := pod.Annotations[constants.OVMSAutoVersioningAnnotationKey]
 	if !ok {
 		return nil
 	}

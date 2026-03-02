@@ -163,12 +163,12 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// examine DeletionTimestamp to determine if object is under deletion
-	if graph.ObjectMeta.DeletionTimestamp.IsZero() {
+	if graph.DeletionTimestamp.IsZero() {
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then lets add the finalizer.
-		if !utils.Includes(graph.ObjectMeta.Finalizers, constants.InferenceGraphFinalizerName) {
-			graph.ObjectMeta.Finalizers = append(graph.ObjectMeta.Finalizers, constants.InferenceGraphFinalizerName)
-			patchYaml := "metadata:\n  finalizers: [" + strings.Join(graph.ObjectMeta.Finalizers, ",") + "]"
+		if !utils.Includes(graph.Finalizers, constants.InferenceGraphFinalizerName) {
+			graph.Finalizers = append(graph.Finalizers, constants.InferenceGraphFinalizerName)
+			patchYaml := "metadata:\n  finalizers: [" + strings.Join(graph.Finalizers, ",") + "]"
 			patchJson, _ := yaml.YAMLToJSON([]byte(patchYaml))
 			if err = r.Patch(ctx, graph, client.RawPatch(types.MergePatchType, patchJson)); err != nil {
 				return reconcile.Result{}, err
@@ -176,7 +176,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	} else {
 		// The object is being deleted
-		if utils.Includes(graph.ObjectMeta.Finalizers, constants.InferenceGraphFinalizerName) {
+		if utils.Includes(graph.Finalizers, constants.InferenceGraphFinalizerName) {
 			// our finalizer is present, so lets cleanup resources
 			if err = r.onDeleteCleanup(ctx, graph); err != nil {
 				// if fail to delete the external dependency here, return with error
@@ -185,8 +185,8 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 
 			// remove our finalizer from the list and update it.
-			graph.ObjectMeta.Finalizers = utils.RemoveString(graph.ObjectMeta.Finalizers, constants.InferenceGraphFinalizerName)
-			patchYaml := "metadata:\n  finalizers: [" + strings.Join(graph.ObjectMeta.Finalizers, ",") + "]"
+			graph.Finalizers = utils.RemoveString(graph.Finalizers, constants.InferenceGraphFinalizerName)
+			patchYaml := "metadata:\n  finalizers: [" + strings.Join(graph.Finalizers, ",") + "]"
 			patchJson, _ := yaml.YAMLToJSON([]byte(patchYaml))
 			if err = r.Patch(ctx, graph, client.RawPatch(types.MergePatchType, patchJson)); err != nil {
 				return reconcile.Result{}, err

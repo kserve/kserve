@@ -154,7 +154,7 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 	}
 
 	// In ODH, the readiness probe is using HTTPS
-	podSpec.Containers[0].ReadinessProbe.ProbeHandler.HTTPGet.Scheme = corev1.URISchemeHTTPS
+	podSpec.Containers[0].ReadinessProbe.HTTPGet.Scheme = corev1.URISchemeHTTPS
 
 	return podSpec
 }
@@ -222,7 +222,7 @@ func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, cl
 	}
 	// set Service Controller
 	for _, svc := range reconciler.Service.GetServiceList() {
-		svc.ObjectMeta.Annotations[constants.OpenshiftServingCertAnnotation] = graph.Name + constants.ServingCertSecretSuffix
+		svc.Annotations[constants.OpenshiftServingCertAnnotation] = graph.Name + constants.ServingCertSecretSuffix
 	}
 	if err := reconciler.Service.SetControllerReferences(graph, scheme); err != nil {
 		return nil, reconciler.URL, errors.Wrapf(err, "fails to set service owner reference for inference graph")

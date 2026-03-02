@@ -472,7 +472,7 @@ func (r *InferenceServiceReconciler) servingRuntimeFunc(ctx context.Context, obj
 	return requests
 }
 
-//func (r *InferenceServiceReconciler) clusterServingRuntimeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+// func (r *InferenceServiceReconciler) clusterServingRuntimeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
 //	clusterServingRuntimeObj, ok := obj.(*v1alpha1.ClusterServingRuntime)
 //
 //	if !ok || clusterServingRuntimeObj == nil {

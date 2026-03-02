@@ -63,7 +63,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 	}
 
 	expectedReadinessProbe := constants.GetRouterReadinessProbe()
-	expectedReadinessProbe.ProbeHandler.HTTPGet.Scheme = corev1.URISchemeHTTPS
+	expectedReadinessProbe.HTTPGet.Scheme = corev1.URISchemeHTTPS
 
 	testIGSpecs := map[string]*InferenceGraph{
 		"basic": {

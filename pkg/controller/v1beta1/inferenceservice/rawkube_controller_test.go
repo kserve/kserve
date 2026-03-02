@@ -8415,7 +8415,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Disabled: ptr.To(false),
 				},
 			}
-			k8sClient.Create(context.TODO(), servingRuntime)
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			serviceName := "raw-auth"
 			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
@@ -8719,8 +8719,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 
 			// Compare the actual ConfigMap with expected (excluding UID which is generated)
-			Expect(actualCM.ObjectMeta.Name).To(Equal(expectedCM.ObjectMeta.Name))
-			Expect(actualCM.ObjectMeta.Namespace).To(Equal(expectedCM.ObjectMeta.Namespace))
+			Expect(actualCM.ObjectMeta.Name).To(Equal(expectedCM.Name))
+			Expect(actualCM.ObjectMeta.Namespace).To(Equal(expectedCM.Namespace))
 			Expect(actualCM.Data).To(Equal(expectedCM.Data))
 			Expect(actualCM.Immutable).To(Equal(expectedCM.Immutable))
 			Expect(actualCM.UID).NotTo(BeEmpty())
@@ -8881,7 +8881,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Disabled: ptr.To(false),
 				},
 			}
-			k8sClient.Create(context.TODO(), servingRuntime)
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 
 			serviceName := "raw-auth-recreate"
@@ -9948,7 +9948,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			},
 		}
 
-		k8sClient.Create(context.TODO(), servingRuntime)
+		Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
 		defer k8sClient.Delete(context.TODO(), servingRuntime)
 		serviceName := "modelcar-raw-deployment"
 		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: constants.KServeNamespace}}
@@ -10024,10 +10024,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 		Expect(k8sClient.Get(ctx, serviceKey, inferenceService)).Should(Succeed())
 		updateForInferenceService := inferenceService.DeepCopy()
-		updateForInferenceService.Spec.Predictor.PodSpec.ImagePullSecrets = []corev1.LocalObjectReference{
+		updateForInferenceService.Spec.Predictor.ImagePullSecrets = []corev1.LocalObjectReference{
 			{Name: "new-image-pull-secret"},
 		}
-		expectedImagePullSecrets := updateForInferenceService.Spec.Predictor.PodSpec.ImagePullSecrets
+		expectedImagePullSecrets := updateForInferenceService.Spec.Predictor.ImagePullSecrets
 		Eventually(func() error {
 			return k8sClient.Update(ctx, updateForInferenceService)
 		}, timeout, interval).Should(Succeed())

@@ -191,10 +191,10 @@ func createDefaultSvc(resourceType constants.ResourceType, componentMeta metav1.
 		},
 	}
 
-	if service.ObjectMeta.Annotations == nil {
-		service.ObjectMeta.Annotations = make(map[string]string)
+	if service.Annotations == nil {
+		service.Annotations = make(map[string]string)
 	}
-	service.ObjectMeta.Annotations[constants.OpenshiftServingCertAnnotation] = componentMeta.Name + constants.ServingCertSecretSuffix
+	service.Annotations[constants.OpenshiftServingCertAnnotation] = componentMeta.Name + constants.ServingCertSecretSuffix
 
 	if resourceType == constants.InferenceGraphResource {
 		servicePorts[0].Port = int32(443)

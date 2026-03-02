@@ -545,7 +545,7 @@ func GetRouteURLIfExists(ctx context.Context, cli client.Client, metadata metav1
 		}
 	}
 
-	if !(foundRoute && routeReady) {
+	if !foundRoute || !routeReady {
 		return nil, fmt.Errorf("route %s/%s not found or not ready", metadata.Namespace, metadata.Name)
 	}
 
