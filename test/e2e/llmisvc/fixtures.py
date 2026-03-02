@@ -44,13 +44,13 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
-                        "requests": {"cpu": "200m", "memory": "2Gi"},
+                        "requests": {"cpu": ".5", "memory": "4Gi"},
                     },
                     "livenessProbe": {
-                        "initialDelaySeconds": 180,
+                        "initialDelaySeconds": 120,
                         "periodSeconds": 30,
                         "timeoutSeconds": 30,
-                        "failureThreshold": 8,
+                        "failureThreshold": 5,
                     },
                     "readinessProbe": {
                         "httpGet": {"path": "/health", "port": 8000},
@@ -76,14 +76,14 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
-                        "requests": {"cpu": "200m", "memory": "2Gi"},
+                        "requests": {"cpu": ".5", "memory": "4Gi"},
                     },
                     "livenessProbe": {
                         "httpGet": {"path": "/health", "port": 8000},
-                        "initialDelaySeconds": 180,
+                        "initialDelaySeconds": 120,
                         "periodSeconds": 30,
                         "timeoutSeconds": 30,
-                        "failureThreshold": 8,
+                        "failureThreshold": 5,
                     },
                     "readinessProbe": {
                         "httpGet": {"path": "/health", "port": 8000},
@@ -108,14 +108,14 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
                         "resources": {
                             "limits": {"cpu": "2", "memory": "7Gi"},
-                            "requests": {"cpu": "200m", "memory": "2Gi"},
+                            "requests": {"cpu": ".5", "memory": "4Gi"},
                         },
                         "livenessProbe": {
                             "httpGet": {"path": "/health", "port": 8000},
-                            "initialDelaySeconds": 180,
+                            "initialDelaySeconds": 120,
                             "periodSeconds": 30,
                             "timeoutSeconds": 30,
-                            "failureThreshold": 8,
+                            "failureThreshold": 5,
                         },
                         "readinessProbe": {
                             "httpGet": {"path": "/health", "port": 8000},
@@ -320,7 +320,7 @@ LLMINFERENCESERVICE_CONFIGS = {
     # This preset simulates DP+EP that can run on CPU, the idea is to test the LWS-based deployment
     # but without the resources requirements for DP+EP (GPUs and ROCe/IB)
     "workload-simulated-dp-ep-cpu": {
-        "replicas": 1,
+        "replicas": 2,
         "parallelism": {
             "data": 2,
             "dataLocal": 1,
@@ -347,14 +347,14 @@ LLMINFERENCESERVICE_CONFIGS = {
                     ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
-                        "requests": {"cpu": "200m", "memory": "2Gi"},
+                        "requests": {"cpu": ".5", "memory": "4Gi"},
                     },
                     "livenessProbe": {
                         "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
-                        "initialDelaySeconds": 180,
+                        "initialDelaySeconds": 120,
                         "periodSeconds": 30,
                         "timeoutSeconds": 30,
-                        "failureThreshold": 8,
+                        "failureThreshold": 5,
                     },
                     "readinessProbe": {
                         "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
@@ -389,14 +389,14 @@ LLMINFERENCESERVICE_CONFIGS = {
                     ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
-                        "requests": {"cpu": "200m", "memory": "2Gi"},
+                        "requests": {"cpu": ".5", "memory": "4Gi"},
                     },
                     "livenessProbe": {
                         "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
-                        "initialDelaySeconds": 180,
+                        "initialDelaySeconds": 120,
                         "periodSeconds": 30,
                         "timeoutSeconds": 30,
-                        "failureThreshold": 8,
+                        "failureThreshold": 5,
                     },
                     "readinessProbe": {
                         "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
@@ -621,7 +621,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},
-                        "requests": {"cpu": "200m", "memory": "2Gi"},
+                        "requests": {"cpu": "1", "memory": "2Gi"},
                     },
                 }
             ]
@@ -703,7 +703,7 @@ def test_case(request):
     finally:
         if os.getenv("SKIP_RESOURCE_DELETION", "False").lower() in ("true", "1", "t"):
             logger.info("Skipping resource deletion after test execution.")
-            return  # noqa: B012
+            return
 
         # Execute after test hooks
         for func in tc.after_test:

@@ -6,7 +6,7 @@ namespace: kserve
 resources:
 - ../../crd/external
 - ../odh
-- ../test/s3-local-backend
+- ../test/minio
 
 patches:
 - path: configmap/inferenceservice.yaml

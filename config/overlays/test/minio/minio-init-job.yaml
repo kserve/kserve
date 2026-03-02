@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-init
+spec:
+  template:
+    spec:
+      containers:
+      - name: minio-init
+        image: minio/mc:RELEASE.2020-11-25T23-04-07Z
+        command:
+        - /bin/sh
+        - -c
+        - |
+          mc config host add storage http://minio-service.kserve:9000 minio minio123
+          mc mb storage/example-models
+          curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o sklearn-model.joblib
+          mc cp sklearn-model.joblib storage/example-models/sklearn/model.joblib
+      restartPolicy: Never
+  backoffLimit: 3

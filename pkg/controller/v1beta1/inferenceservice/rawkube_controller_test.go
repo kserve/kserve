@@ -347,7 +347,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-default.example.com",
-				"raw-foo-predictor-default.example.com", "8080")
+				"raw-foo-predictor-default.example.com", "")
 
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -781,7 +781,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-customized-default.example.com",
-				"raw-foo-customized-predictor-default.example.com", "8080")
+				"raw-foo-customized-predictor-default.example.com", "")
 
 			// Check that the ISVC was updated
 			actualIsvc := &v1beta1.InferenceService{}
@@ -1224,7 +1224,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-2-default.example.com",
-				"raw-foo-2-predictor-default.example.com", "8080")
+				"raw-foo-2-predictor-default.example.com", "")
 
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -3841,7 +3841,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-no-ingress-class-default.example.com",
-				"raw-foo-no-ingress-class-predictor-default.example.com", "8080")
+				"raw-foo-no-ingress-class-predictor-default.example.com", "")
 
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -4205,7 +4205,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "model.default.example.com",
-				"model-predictor.default.example.com", "8080")
+				"model-predictor.default.example.com", "")
 
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -4889,7 +4889,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-trans-default.example.com",
-				"raw-foo-trans-predictor-default.example.com", "8080")
+				"raw-foo-trans-predictor-default.example.com", "")
 			expectedIsvcStatus.Conditions = append(expectedIsvcStatus.Conditions, apis.Condition{
 				Type:     v1beta1.TransformerReady,
 				Status:   "True",
@@ -5627,7 +5627,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-exp-default.example.com",
-				"raw-foo-exp-predictor-default.example.com", "8080")
+				"raw-foo-exp-predictor-default.example.com", "")
 			expectedIsvcStatus.Conditions = append([]apis.Condition{
 				{
 					Type:     v1beta1.ExplainerReady,
@@ -6116,7 +6116,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-path-default.example.com",
-				"raw-foo-path-predictor-default.example.com", "8080")
+				"raw-foo-path-predictor-default.example.com", "")
 
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -6852,7 +6852,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// verify if InferenceService status is updated
 			// TODO update
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-trans-path-default.example.com",
-				"raw-foo-trans-path-predictor-default.example.com", "8080")
+				"raw-foo-trans-path-predictor-default.example.com", "")
 			expectedIsvcStatus.Conditions = append(expectedIsvcStatus.Conditions, apis.Condition{
 				Type:     v1beta1.TransformerReady,
 				Status:   "True",
@@ -7682,7 +7682,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-exp-path-default.example.com",
-				"raw-foo-exp-path-predictor-default.example.com", "8080")
+				"raw-foo-exp-path-predictor-default.example.com", "")
 			expectedIsvcStatus.Conditions = append([]apis.Condition{
 				{
 					Type:     v1beta1.ExplainerReady,
@@ -8284,7 +8284,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualIngress.Spec).To(Equal(expectedIngress.Spec))
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-foo-predictor.default.svc.cluster.local",
-				"raw-foo-predictor-default.example.com", "8080")
+				"raw-foo-predictor-default.example.com", "")
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
@@ -9906,198 +9906,62 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 		})
 	})
-
-	It("Should only have the ImagePullSecrets that are specified in the InferenceService", func() {
-		By("Updating an InferenceService with a new ImagePullSecret and checking the deployment")
-		configMap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      constants.InferenceServiceConfigMapName,
-				Namespace: constants.KServeNamespace,
-			},
-			Data: configs,
+	Context("When creating an inference service with modelcar and raw deployment", func() {
+		configs := map[string]string{
+			"ingress": `{
+				"enableGatewayApi": true,
+				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
+				"ingressGateway": "knative-serving/knative-ingress-gateway",
+				"localGateway": "knative-serving/knative-local-gateway",
+				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
+				"additionalIngressDomains": ["additional.example.com"]
+			}`,
+			"storageInitializer": `{
+				"image" : "kserve/storage-initializer:latest",
+				"memoryRequest": "100Mi",
+				"memoryLimit": "1Gi",
+				"cpuRequest": "100m",
+				"cpuLimit": "1",
+				"CaBundleConfigMapName": "",
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"enableDirectPvcVolumeMount": false,
+				"cpuModelcar": "10m", 
+				"memoryModelcar": "15Mi"
+			}`,
 		}
-		Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-		defer k8sClient.Delete(context.TODO(), configMap)
 
-		servingRuntime := &v1alpha1.ServingRuntime{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "vllm-runtime",
-				Namespace: constants.KServeNamespace,
-			},
-			Spec: v1alpha1.ServingRuntimeSpec{
-				SupportedModelFormats: []v1alpha1.SupportedModelFormat{
-					{
-						AutoSelect: ptr.To(true),
-						Name:       "vLLM",
-					},
+		It("Should only have the ImagePullSecrets that are specified in the InferenceService", func() {
+			By("Updating an InferenceService with a new ImagePullSecret and checking the deployment")
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
 				},
-				ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:    constants.InferenceServiceContainerName,
-							Image:   "kserve/vllm:latest",
-							Command: []string{"bash", "-c"},
-							Args: []string{
-								"python2 -m vllm --model_name=${MODEL_NAME} --model_dir=${MODEL} --tensor-parallel-size=${TENSOR_PARALLEL_SIZE} --pipeline-parallel-size=${PIPELINE_PARALLEL_SIZE}",
-							},
-							Resources: defaultResource,
-						},
-					},
-				},
-				Disabled: ptr.To(false),
-			},
-		}
-
-		k8sClient.Create(context.TODO(), servingRuntime)
-		defer k8sClient.Delete(context.TODO(), servingRuntime)
-		serviceName := "modelcar-raw-deployment"
-		expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: constants.KServeNamespace}}
-		serviceKey := expectedRequest.NamespacedName
-		storageUri := "oci://test/mnist/export"
-		ctx := context.Background()
-		isvc := &v1beta1.InferenceService{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      serviceKey.Name,
-				Namespace: serviceKey.Namespace,
-				Annotations: map[string]string{
-					"serving.kserve.io/deploymentMode":              "Standard",
-					"serving.kserve.io/autoscalerClass":             "hpa",
-					"serving.kserve.io/metrics":                     "cpu",
-					"serving.kserve.io/targetUtilizationPercentage": "75",
-				},
-			},
-			Spec: v1beta1.InferenceServiceSpec{
-				Predictor: v1beta1.PredictorSpec{
-					ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-						MinReplicas: ptr.To(int32(1)),
-						MaxReplicas: 2,
-					},
-					PodSpec: v1beta1.PodSpec{
-						ImagePullSecrets: []corev1.LocalObjectReference{
-							{Name: "isvc-image-pull-secret"},
-						},
-					},
-					Model: &v1beta1.ModelSpec{
-						ModelFormat: v1beta1.ModelFormat{
-							Name: "vLLM",
-						},
-						PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
-							StorageURI:     &storageUri,
-							RuntimeVersion: ptr.To("0.14.0"),
-							Container: corev1.Container{
-								Name: constants.InferenceServiceContainerName,
-								Resources: corev1.ResourceRequirements{
-									Limits: corev1.ResourceList{
-										constants.NvidiaGPUResourceType: resource.MustParse("1"),
-									},
-									Requests: corev1.ResourceList{
-										constants.NvidiaGPUResourceType: resource.MustParse("1"),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-
-		isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
-		Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-		defer k8sClient.Delete(ctx, isvc)
-
-		inferenceService := &v1beta1.InferenceService{}
-
-		Eventually(func() bool {
-			return k8sClient.Get(ctx, serviceKey, inferenceService) == nil
-		}, timeout, interval).Should(BeTrue())
-
-		actualDeployment := &appsv1.Deployment{}
-		predictorDeploymentKey := types.NamespacedName{
-			Name:      constants.PredictorServiceName(serviceKey.Name),
-			Namespace: serviceKey.Namespace,
-		}
-		Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout, interval).
-			Should(Succeed())
-
-		Expect(actualDeployment.Spec.Template.Spec.ImagePullSecrets).To(HaveLen(1))
-		Expect(actualDeployment.Spec.Template.Spec.ImagePullSecrets[0].Name).To(Equal("isvc-image-pull-secret"))
-
-		Expect(k8sClient.Get(ctx, serviceKey, inferenceService)).Should(Succeed())
-		updateForInferenceService := inferenceService.DeepCopy()
-		updateForInferenceService.Spec.Predictor.PodSpec.ImagePullSecrets = []corev1.LocalObjectReference{
-			{Name: "new-image-pull-secret"},
-		}
-		expectedImagePullSecrets := updateForInferenceService.Spec.Predictor.PodSpec.ImagePullSecrets
-		Eventually(func() error {
-			return k8sClient.Update(ctx, updateForInferenceService)
-		}, timeout, interval).Should(Succeed())
-
-		updatedDeployment := &appsv1.Deployment{}
-		Eventually(func() (bool, error) {
-			if err := k8sClient.Get(ctx, predictorDeploymentKey, updatedDeployment); err != nil {
-				return false, err
+				Data: configs,
 			}
-			if len(updatedDeployment.Spec.Template.Spec.ImagePullSecrets) != 1 {
-				return false, nil
-			}
-			return reflect.DeepEqual(updatedDeployment.Spec.Template.Spec.ImagePullSecrets, expectedImagePullSecrets), nil
-		}, timeout, interval).Should(BeTrue())
-	})
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
 
-	Context("When creating inference service with headless service (ServiceClusterIPNone)", func() {
-		It("Should include port 8080 in status.address.url", func() {
-			By("By creating a new InferenceService with headless service enabled")
-			ctx := context.Background()
-
-			// Create configmap with serviceClusterIPNone enabled
-			configs := map[string]string{
-				"ingress": `{
-					"ingressGateway": "knative-serving/knative-ingress-gateway",
-					"localGateway": "knative-serving/knative-local-gateway",
-					"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
-				}`,
-				"storageInitializer": `{
-					"image": "kserve/storage-initializer:latest",
-					"memoryRequest": "100Mi",
-					"memoryLimit": "1Gi",
-					"cpuRequest": "100m",
-					"cpuLimit": "1",
-					"caBundleConfigMapName": "",
-					"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-					"cpuModelcar": "10m",
-					"memoryModelcar": "15Mi"
-				}`,
-				"service": `{"serviceClusterIPNone": true}`,
-			}
-			configMap := createInferenceServiceConfigMap(configs)
-			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(ctx, configMap)
-
-			// Create ServingRuntime
 			servingRuntime := &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "tf-serving-raw",
-					Namespace: "default",
+					Name:      "vllm-runtime",
+					Namespace: constants.KServeNamespace,
 				},
 				Spec: v1alpha1.ServingRuntimeSpec{
 					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
 						{
-							Name:       "tensorflow",
-							Version:    ptr.To("1"),
 							AutoSelect: ptr.To(true),
+							Name:       "vLLM",
 						},
 					},
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 						Containers: []corev1.Container{
 							{
-								Name:    "kserve-container",
-								Image:   "tensorflow/serving:1.14.0",
-								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Name:    constants.InferenceServiceContainerName,
+								Image:   "kserve/vllm:latest",
+								Command: []string{"bash", "-c"},
 								Args: []string{
-									"--port=9000",
-									"--rest_api_port=8080",
-									"--model_base_path=/mnt/models",
-									"--rest_api_timeout_in_ms=60000",
+									"python2 -m vllm --model_name=${MODEL_NAME} --model_dir=${MODEL} --tensor-parallel-size=${TENSOR_PARALLEL_SIZE} --pipeline-parallel-size=${PIPELINE_PARALLEL_SIZE}",
 								},
 								Resources: defaultResource,
 							},
@@ -10106,109 +9970,101 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Disabled: ptr.To(false),
 				},
 			}
-			k8sClient.Create(ctx, servingRuntime)
-			defer k8sClient.Delete(ctx, servingRuntime)
 
-			serviceName := "raw-headless-port"
-			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			k8sClient.Create(context.TODO(), servingRuntime)
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			serviceName := "modelcar-raw-deployment"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: constants.KServeNamespace}}
 			serviceKey := expectedRequest.NamespacedName
-			storageUri := "s3://test/mnist/export"
-
+			storageUri := "oci://test/mnist/export"
+			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						constants.DeploymentMode: string(constants.Standard),
+						"serving.kserve.io/deploymentMode":              "Standard",
+						"serving.kserve.io/autoscalerClass":             "hpa",
+						"serving.kserve.io/metrics":                     "cpu",
+						"serving.kserve.io/targetUtilizationPercentage": "75",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 							MinReplicas: ptr.To(int32(1)),
-							MaxReplicas: 3,
+							MaxReplicas: 2,
 						},
-						Tensorflow: &v1beta1.TFServingSpec{
+						PodSpec: v1beta1.PodSpec{
+							ImagePullSecrets: []corev1.LocalObjectReference{
+								{Name: "isvc-image-pull-secret"},
+							},
+						},
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "vLLM",
+							},
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI:     &storageUri,
-								RuntimeVersion: ptr.To("1.14.0"),
+								RuntimeVersion: ptr.To("0.14.0"),
 								Container: corev1.Container{
-									Name:      constants.InferenceServiceContainerName,
-									Resources: defaultResource,
+									Name: constants.InferenceServiceContainerName,
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											constants.NvidiaGPUResourceType: resource.MustParse("1"),
+										},
+										Requests: corev1.ResourceList{
+											constants.NvidiaGPUResourceType: resource.MustParse("1"),
+										},
+									},
 								},
 							},
 						},
 					},
 				},
 			}
+
 			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
 			inferenceService := &v1beta1.InferenceService{}
+
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				return err == nil
+				return k8sClient.Get(ctx, serviceKey, inferenceService) == nil
 			}, timeout, interval).Should(BeTrue())
 
-			// Wait for deployment to be created
 			actualDeployment := &appsv1.Deployment{}
 			predictorDeploymentKey := types.NamespacedName{
 				Name:      constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace,
 			}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout, interval).
+				Should(Succeed())
+
+			Expect(actualDeployment.Spec.Template.Spec.ImagePullSecrets).To(HaveLen(1))
+			Expect(actualDeployment.Spec.Template.Spec.ImagePullSecrets[0].Name).To(Equal("isvc-image-pull-secret"))
+
+			Expect(k8sClient.Get(ctx, serviceKey, inferenceService)).Should(Succeed())
+			updateForInferenceService := inferenceService.DeepCopy()
+			updateForInferenceService.Spec.Predictor.PodSpec.ImagePullSecrets = []corev1.LocalObjectReference{
+				{Name: "new-image-pull-secret"},
+			}
+			expectedImagePullSecrets := updateForInferenceService.Spec.Predictor.PodSpec.ImagePullSecrets
 			Eventually(func() error {
-				return k8sClient.Get(ctx, predictorDeploymentKey, actualDeployment)
+				return k8sClient.Update(ctx, updateForInferenceService)
 			}, timeout, interval).Should(Succeed())
 
-			// Wait for service to be created and verify it's headless
-			actualService := &corev1.Service{}
-			predictorServiceKey := types.NamespacedName{
-				Name:      constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace,
-			}
-			Eventually(func() error {
-				return k8sClient.Get(ctx, predictorServiceKey, actualService)
-			}, timeout, interval).Should(Succeed())
-
-			// Verify service is headless (ClusterIP: None)
-			Expect(actualService.Spec.ClusterIP).To(Equal(corev1.ClusterIPNone),
-				"Service should be headless (ClusterIP: None) when serviceClusterIPNone is enabled")
-
-			// Update deployment status to trigger status reconciliation
-			updatedDeployment := actualDeployment.DeepCopy()
-			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
-				{
-					Type:   appsv1.DeploymentAvailable,
-					Status: corev1.ConditionTrue,
-				},
-			}
-			Expect(k8sClient.Status().Update(ctx, updatedDeployment)).NotTo(HaveOccurred())
-
-			// Verify status.address.url includes port 8080
-			expectedIsvcStatus := getExpectedIsvcStatus(serviceKey, "http", "raw-headless-port-predictor.default.svc.cluster.local",
-				"raw-headless-port-predictor-default.example.com", "8080")
-			Eventually(func() string {
-				isvc := &v1beta1.InferenceService{}
-				if err := k8sClient.Get(ctx, serviceKey, isvc); err != nil {
-					return err.Error()
+			updatedDeployment := &appsv1.Deployment{}
+			Eventually(func() (bool, error) {
+				if err := k8sClient.Get(ctx, predictorDeploymentKey, updatedDeployment); err != nil {
+					return false, err
 				}
-				return cmp.Diff(expectedIsvcStatus, isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
-			}, timeout, interval).Should(BeEmpty())
-
-			// Double-check the address URL contains :8080
-			Eventually(func() bool {
-				isvc := &v1beta1.InferenceService{}
-				if err := k8sClient.Get(ctx, serviceKey, isvc); err != nil {
-					return false
+				if len(updatedDeployment.Spec.Template.Spec.ImagePullSecrets) != 1 {
+					return false, nil
 				}
-				if isvc.Status.Address == nil || isvc.Status.Address.URL == nil {
-					return false
-				}
-				expectedHost := serviceKey.Name + "-predictor." + serviceKey.Namespace + ".svc.cluster.local:8080"
-				return isvc.Status.Address.URL.Host == expectedHost
-			}, timeout, interval).Should(BeTrue(),
-				"status.address.url should include :8080 for headless service")
+				return reflect.DeepEqual(updatedDeployment.Spec.Template.Spec.ImagePullSecrets, expectedImagePullSecrets), nil
+			}, timeout, interval).Should(BeTrue())
 		})
 	})
 })

@@ -140,17 +140,22 @@ func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infe
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	isvc.Status.Address, err = createAddress(ctx, r.client, isvc, r.ingressConfig)
-	if err != nil {
-		return ctrl.Result{}, err
+
+	internalHost := getRawServiceHost(isvc)
+	url := &apis.URL{
+		Host:   internalHost,
+		Scheme: "http",
+		Path:   "",
 	}
 
 	if authEnabled {
-		// When auth is enabled, the OAuth proxy port takes precedence over any
-		// port set by createAddress (e.g. :8080 for headless services).
-		host := getRawServiceHost(isvc)
-		isvc.Status.Address.URL.Host = host + ":" + strconv.Itoa(constants.OauthProxyPort)
-		isvc.Status.Address.URL.Scheme = "https"
+		internalHost += ":" + strconv.Itoa(constants.OauthProxyPort)
+		url.Host = internalHost
+		url.Scheme = "https"
+	}
+
+	isvc.Status.Address = &duckv1.Addressable{
+		URL: url,
 	}
 
 	isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
@@ -195,34 +200,6 @@ func createRawURLODH(ctx context.Context, client client.Client, isvc *v1beta1.In
 		}
 	}
 	return url, nil
-}
-
-func createAddress(ctx context.Context, cl client.Client, isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig) (*duckv1.Addressable, error) {
-	host := getRawServiceHost(isvc)
-	// Determine the entry point service name.
-	// If a transformer exists, it becomes the entry point; otherwise, the predictor is.
-	entryPointSvcName := constants.PredictorServiceName(isvc.Name)
-	if isvc.Spec.Transformer != nil {
-		entryPointSvcName = constants.TransformerServiceName(isvc.Name)
-	}
-	// Check if the entry point service is headless
-	entryPointSvc := &corev1.Service{}
-	if err := cl.Get(ctx, types.NamespacedName{
-		Namespace: isvc.Namespace,
-		Name:      entryPointSvcName,
-	}, entryPointSvc); err != nil {
-		return nil, fmt.Errorf("failed to get entry point service %s: %w", entryPointSvcName, err)
-	}
-	if entryPointSvc.Spec.ClusterIP == corev1.ClusterIPNone {
-		host = host + ":" + constants.InferenceServiceDefaultHttpPort
-	}
-	return &duckv1.Addressable{
-		URL: &apis.URL{
-			Host:   host,
-			Scheme: ingressConfig.UrlScheme,
-			Path:   "",
-		},
-	}, nil
 }
 
 func generateRule(ingressHost string, componentName string, path string, port int32) netv1.IngressRule { //nolint:unparam

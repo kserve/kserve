@@ -16,6 +16,7 @@ spec:
             - vllm
             - serve
             - /mnt/models
+          args:
             - --served-model-name
             - "{{`{{ .Spec.Model.Name }}`}}"
             - --port

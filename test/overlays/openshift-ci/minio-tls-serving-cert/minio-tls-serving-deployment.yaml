@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio-tls-serving
+  labels:
+    app: minio-tls-serving
+spec:
+  selector:
+    matchLabels:
+      app: minio-tls-serving
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: minio-tls-serving
+    spec:
+      containers:
+      - args:
+        - server
+        - /data
+        env:
+        - name: MINIO_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-tls-serving-artifact
+              key: accesskey
+        - name: MINIO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-tls-serving-artifact
+              key: secretkey
+        image: quay.io/minio/minio:RELEASE.2025-05-24T17-08-30Z
+        name: minio-tls-serving
+        ports:
+        - containerPort: 9000
+        volumeMounts:
+        - mountPath: .minio/certs
+          name: minio-tls-serving
+        - mountPath: /data
+          name: data
+          subPath: minio
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      volumes:
+      - name: minio-tls-serving
+        projected:
+          defaultMode: 420
+          sources:
+          - secret:
+              items:
+              - key: tls.crt
+                path: public.crt
+              - key: tls.key
+                path: private.key
+              - key: tls.crt
+                path: CAs/root.crt
+              name: minio-tls-serving
+      - name: data
+        emptyDir: {}

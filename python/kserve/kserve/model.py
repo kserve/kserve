@@ -48,7 +48,6 @@ class BaseKServeModel(ABC):
     This class implements the expectations of model repository and model server.
     """
 
-    @abstractmethod
     def __init__(self, name: str):
         """
         Adds the required attributes

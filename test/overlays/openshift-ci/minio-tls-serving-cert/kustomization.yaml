@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- minio-tls-serving-deployment.yaml
+- minio-tls-serving-service.yaml
+- minio-tls-serving-artifact-secret.yaml

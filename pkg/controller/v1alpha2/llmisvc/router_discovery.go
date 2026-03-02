@@ -34,8 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
-
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 // resolvedGateway contains a Gateway and its associated GatewayClass
@@ -334,27 +332,15 @@ func nonReadyHTTPRouteTopLevelCondition(route *gwapiv1.HTTPRoute) (*metav1.Condi
 
 	for _, parent := range route.Status.RouteStatus.Parents {
 		// Look for the "Accepted" condition which indicates Gateway acceptance
-		acceptedCond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionAccepted))
-		if acceptedCond == nil {
+		cond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionAccepted))
+		if cond == nil {
 			// Missing condition indicates the route is not ready
 			return nil, true
 		}
 		// Check if condition is stale (based on older generation)
-		staleCondition := acceptedCond.ObservedGeneration > 0 && acceptedCond.ObservedGeneration < route.Generation
-		if acceptedCond.Status != metav1.ConditionTrue || staleCondition {
-			return acceptedCond, false
-		}
-
-		resolvedRefCond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionResolvedRefs))
-		if resolvedRefCond == nil {
-			// Missing condition indicates the route is not ready
-			return nil, true
-		}
-
-		// Check if condition is stale (based on older generation)
-		staleCondition = resolvedRefCond.ObservedGeneration > 0 && resolvedRefCond.ObservedGeneration < route.Generation
-		if resolvedRefCond.Status != metav1.ConditionTrue || staleCondition {
-			return resolvedRefCond, false
+		staleCondition := cond.ObservedGeneration > 0 && cond.ObservedGeneration < route.Generation
+		if cond.Status != metav1.ConditionTrue || staleCondition {
+			return cond, false
 		}
 	}
 
@@ -407,60 +393,4 @@ func nonReadyInferencePoolTopLevelCondition(pool *igwapi.InferencePool) (*metav1
 	}
 
 	return nil, false
-}
-
-// IsInferencePoolV1Alpha2Supported checks if an HTTPRoute has been accepted by the Gateway, and it's using v1alpha2
-// InferencePool.
-func IsInferencePoolV1Alpha2Supported(route *gwapiv1.HTTPRoute) metav1.ConditionStatus {
-	if isHTTPRouteUsingInferencePool(route, constants.InferencePoolV1Alpha2APIGroupName) {
-		return isBackendSupported(route)
-	}
-	return metav1.ConditionUnknown
-}
-
-// IsInferencePoolV1Supported checks if an HTTPRoute has been accepted by the Gateway, and it's using v1 InferencePool.
-func IsInferencePoolV1Supported(route *gwapiv1.HTTPRoute) metav1.ConditionStatus {
-	if isHTTPRouteUsingInferencePool(route, constants.InferencePoolV1APIGroupName) {
-		return isBackendSupported(route)
-	}
-	return metav1.ConditionUnknown
-}
-
-// isBackendSupported only returns false if we're absolutely sure the backend is unsupported
-func isBackendSupported(route *gwapiv1.HTTPRoute) metav1.ConditionStatus {
-	if route == nil {
-		return metav1.ConditionUnknown
-	}
-
-	// Check the first parent's status (TODO: filter to our specific gateway)
-	if len(route.Status.Parents) > 0 {
-		parent := route.Status.Parents[0]
-		cond := meta.FindStatusCondition(parent.Conditions, string(gwapiv1.RouteConditionResolvedRefs))
-		if cond == nil {
-			return metav1.ConditionUnknown
-		}
-		if cond.Status == metav1.ConditionFalse && cond.Reason == string(gwapiv1.RouteReasonInvalidKind) {
-			return metav1.ConditionFalse
-		}
-		return metav1.ConditionTrue
-	}
-
-	return metav1.ConditionUnknown
-}
-
-func isHTTPRouteUsingInferencePool(route *gwapiv1.HTTPRoute, group string) bool {
-	if route == nil {
-		return false
-	}
-
-	for _, r := range route.Spec.Rules {
-		for _, b := range r.BackendRefs {
-			if b.Group != nil && string(*b.Group) == group &&
-				b.Kind != nil && *b.Kind == "InferencePool" {
-				return true
-			}
-		}
-	}
-
-	return false
 }

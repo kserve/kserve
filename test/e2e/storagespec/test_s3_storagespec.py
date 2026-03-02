@@ -38,7 +38,7 @@ async def test_sklearn_s3_storagespec_kserve(rest_v1_client):
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
             storage=V1beta1StorageSpec(
-                key="localS3",
+                key="localMinIO",
                 path="sklearn",
                 parameters={"bucket": "example-models"},
             ),

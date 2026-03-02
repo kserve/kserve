@@ -340,8 +340,7 @@ def test_update_with_storage_spec_s3(monkeypatch):
     assert os.getenv("awsAnonymousCredential") == storage_config["anonymous"]
 
     # revert changes
-    os.environ.clear()
-    os.environ.update(previous_env)
+    os.environ = previous_env
 
 
 @mock.patch("boto3.resource")

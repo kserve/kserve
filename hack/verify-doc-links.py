@@ -223,9 +223,7 @@ def set_retry_time(url, status):
         )
 
 
-def request_url(url, method="HEAD", timeout=5, headers=None) -> int:
-    if headers is None:
-        headers = {}
+def request_url(url, method="HEAD", timeout=5, headers={}) -> int:
     wait_before_retry(url)
     try:
         req = Request(url, method=method, headers=headers)
@@ -294,9 +292,7 @@ def verify_doc_links() -> [(str, int, str, str)]:
 
     # 4. filter for the invalid URLs (status 404: "Not Found") to be reported
     file_line_text_url_404 = [
-        (f, line_num, t, u, s)
-        for (f, line_num, t, u, s) in file_line_text_url_status
-        if s == 404
+        (f, l, t, u, s) for (f, l, t, u, s) in file_line_text_url_status if s == 404
     ]
 
     # 5. print some stats for confidence
@@ -312,7 +308,7 @@ def verify_doc_links() -> [(str, int, str, str)]:
     # 6. report invalid links, exit with error for CI/CD
     if file_line_text_url_404:
 
-        for file, line, _text, url, status in sorted(file_line_text_url_404):
+        for file, line, text, url, status in sorted(file_line_text_url_404):
             print(
                 "{}:{}: {} -> {}".format(
                     relpath(file, project_root_dir),

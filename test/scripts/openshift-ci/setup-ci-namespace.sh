@@ -62,13 +62,9 @@ spec:
 EOF
 fi
 
-# Apply S3 artifact secret
-echo "Applying S3 artifact secret"
-oc apply -f "$PROJECT_ROOT/config/overlays/test/s3-local-backend/mlpipeline-s3-artifact-secret.yaml" -n "$NAMESPACE"
-
-# Apply storage-config secret (used by TLS and storagespec tests)
-echo "Applying storage-config secret"
-oc apply -f "$PROJECT_ROOT/config/overlays/test/s3-local-backend/storage-config-secret.yaml" -n "$NAMESPACE"
+# Apply minio user secret
+echo "Applying minio user secret"
+oc apply -f "$PROJECT_ROOT/config/overlays/test/minio/minio-user-secret.yaml" -n "$NAMESPACE"
 
 # Build and apply ServingRuntimes
 echo "Installing ServingRuntimes"
