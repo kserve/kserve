@@ -25,6 +25,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
 	pkglogging "knative.dev/pkg/logging"
@@ -375,21 +376,33 @@ func TestLoggerCloudEventTimestamps(t *testing.T) {
 	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
 	predictorResponse := []byte(`{"instances":[[4,5,6]]}`)
 
-	responseChan := make(chan string)
+	type ceTimestamps struct {
+		ceTime       time.Time
+		recordedTime time.Time
+	}
+	reqTimestampChan := make(chan ceTimestamps, 1)
+	resTimestampChan := make(chan ceTimestamps, 1)
+
 	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		b, err := io.ReadAll(req.Body)
+		_, err := io.ReadAll(req.Body)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
-		responseChan <- string(b)
 		_, err = rw.Write([]byte(`ok`))
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 
-		// Verify CE time (occurrence/request arrival) and recordedtime (CE creation) are present
-		g.Expect(req.Header.Get("Ce-Time")).ToNot(gomega.BeEmpty())
-		g.Expect(req.Header.Get("Ce-Time")).To(gomega.MatchRegexp(
-			`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}`))
-		g.Expect(req.Header.Get("Ce-Recordedtime")).ToNot(gomega.BeEmpty())
-		g.Expect(req.Header.Get("Ce-Recordedtime")).To(gomega.MatchRegexp(
-			`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}`))
+		ceTime, err := time.Parse(time.RFC3339Nano, req.Header.Get("Ce-Time"))
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		recordedTime, err := time.Parse(time.RFC3339Nano, req.Header.Get("Ce-Recordedtime"))
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+
+		// recordedtime (CE creation) should be >= time (occurrence)
+		g.Expect(recordedTime.After(ceTime) || recordedTime.Equal(ceTime)).To(gomega.BeTrue())
+
+		ts := ceTimestamps{ceTime: ceTime, recordedTime: recordedTime}
+		if req.Header.Get("Ce-Type") == CEInferenceRequest {
+			reqTimestampChan <- ts
+		} else {
+			resTimestampChan <- ts
+		}
 	}))
 	defer logSvc.Close()
 
@@ -421,8 +434,10 @@ func TestLoggerCloudEventTimestamps(t *testing.T) {
 
 	oh.ServeHTTP(w, r)
 
-	// get logRequest
-	<-responseChan
-	// get logResponse
-	<-responseChan
+	reqTimestamps := <-reqTimestampChan
+	resTimestamps := <-resTimestampChan
+
+	// Response occurrence time should be >= request occurrence time
+	g.Expect(resTimestamps.ceTime.After(reqTimestamps.ceTime) ||
+		resTimestamps.ceTime.Equal(reqTimestamps.ceTime)).To(gomega.BeTrue())
 }

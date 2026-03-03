@@ -122,7 +122,7 @@ func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 	event := cloudevents.NewEvent(cloudevents.VersionV1)
 	event.SetID(logReq.Id)
 	event.SetType(logReq.ReqType)
-	event.SetTime(logReq.RequestTime)
+	event.SetTime(logReq.OccurrenceTime)
 	event.SetExtension(RecordedTimeAttr, time.Now())
 
 	event.SetExtension(InferenceServiceAttr, logReq.InferenceService)
