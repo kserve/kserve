@@ -718,7 +718,7 @@ jobs:
       - name: Patch qpext image
         run: |
           kubectl patch knativeserving knative-serving -n knative-serving --type=merge \
-            --patch '{"spec":{"config":{"deployment":{"queue-sidecar-image":"kserve/qpext:${{ env.TAG }}"},"observability":{"request-protocol":"prometheus"}}}}'
+            --patch '{"spec":{"config":{"deployment":{"queue-sidecar-image":"kserve/qpext:${{ env.TAG }}"},"observability":{"request-metrics-protocol":"prometheus"}}}}'
           kubectl wait --for=condition=Ready -n knative-serving knativeserving knative-serving --timeout=120s
           kubectl get configmap config-deployment -n knative-serving -o jsonpath='{.data.queue-sidecar-image}'
           echo
