@@ -17,7 +17,11 @@ spec:
             - "-c"
             - |-
               # In some versions, ZMQ bind doesn't resolve the address through DNS
-              DP_ADDRESS=$(getent hosts ${LWS_LEADER_ADDRESS} | cut -d' ' -f1)
+              DP_ADDRESS=$(getent hosts "${LWS_LEADER_ADDRESS}" | cut -d' ' -f1)
+              if [ -z "${DP_ADDRESS}" ]; then
+                echo "ERROR: Failed to resolve LWS_LEADER_ADDRESS='${LWS_LEADER_ADDRESS}'" >&2
+                exit 1
+              fi
               echo "DP_ADDRESS=${DP_ADDRESS}"
 
               if [ "$KSERVE_INFER_ROCE" = "true" ]; then
@@ -244,7 +248,11 @@ spec:
             - "-c"
             - |-
               # In some versions, ZMQ bind doesn't resolve the address through DNS
-              DP_ADDRESS=$(getent hosts ${LWS_LEADER_ADDRESS} | cut -d' ' -f1)
+              DP_ADDRESS=$(getent hosts "${LWS_LEADER_ADDRESS}" | cut -d' ' -f1)
+              if [ -z "${DP_ADDRESS}" ]; then
+                echo "ERROR: Failed to resolve LWS_LEADER_ADDRESS='${LWS_LEADER_ADDRESS}'" >&2
+                exit 1
+              fi
               echo "DP_ADDRESS=${DP_ADDRESS}"
 
               if [ "$KSERVE_INFER_ROCE" = "true" ]; then
