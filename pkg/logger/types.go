@@ -36,5 +36,5 @@ type LogRequest struct {
 	Annotations      map[string]string   `json:"annotations,omitempty"`
 	CertName         string              `json:"certName,omitempty"`
 	TlsSkipVerify    bool                `json:"tlsSkipVerify,omitempty"`
-	RequestTime      time.Time           `json:"requestTime"`
+	OccurrenceTime   time.Time           `json:"occurrenceTime"`
 }
