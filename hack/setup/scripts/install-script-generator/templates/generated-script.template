@@ -80,17 +80,21 @@ fi
 
 export PATH="${BIN_DIR}:${PATH}"
 
-UNINSTALL="${UNINSTALL:-false}"
 REINSTALL="${REINSTALL:-false}"
+UNINSTALL="${UNINSTALL:-false}"
+FORCE_UPGRADE="${FORCE_UPGRADE:-false}"
 
 if [[ "$*" == *"--uninstall"* ]]; then
     UNINSTALL=true
 elif [[ "$*" == *"--reinstall"* ]]; then
     REINSTALL=true
+elif [[ "$*" == *"--force-upgrade"* ]]; then
+    FORCE_UPGRADE=true
 fi
 
 export REINSTALL
 export UNINSTALL
+export FORCE_UPGRADE
 
 # RELEASE mode (from definition file)
 RELEASE="{{RELEASE}}"

@@ -23,7 +23,7 @@ images:
 
 - name: kserve-sklearnserver
   newName: kserve/sklearnserver
-  newTag: latest
+  newTag: v0.16.0
 
 - name: mlserver
   newName: docker.io/seldonio/mlserver
@@ -31,7 +31,7 @@ images:
 
 - name: kserve-xgbserver
   newName: kserve/xgbserver
-  newTag: latest
+  newTag: v0.16.0
 
 - name: kserve-tritonserver
   newName: nvcr.io/nvidia/tritonserver
@@ -39,19 +39,19 @@ images:
 
 - name: kserve-pmmlserver
   newName: kserve/pmmlserver
-  newTag: latest
+  newTag: v0.16.0
 
 - name: kserve-paddleserver
   newName: kserve/paddleserver
-  newTag: latest
+  newTag: v0.16.0
 
 - name: kserve-lgbserver
   newName: kserve/lgbserver
-  newTag: latest
+  newTag: v0.16.0
 
 - name: kserve-predictiveserver
   newName: kserve/predictiveserver
-  newTag: latest
+  newTag: v0.16.0
   
 - name: kserve-torchserve
   newName: pytorch/torchserve-kfs
@@ -59,8 +59,8 @@ images:
 
 - name: huggingfaceserver
   newName: kserve/huggingfaceserver
-  newTag: latest
+  newTag: v0.16.0
 
 - name: huggingfaceserver-gpu
   newName: kserve/huggingfaceserver
-  newTag: latest-gpu
+  newTag: v0.16.0-gpu
