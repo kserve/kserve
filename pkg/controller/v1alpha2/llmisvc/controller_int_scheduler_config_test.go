@@ -910,6 +910,46 @@ schedulingProfiles:
 		})
 	})
 
+	Context("Certificate hash annotation", func() {
+		It("should set cert-hash annotation on the scheduler pod template", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-scheduler-cert-hash"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify the scheduler deployment has the cert-hash annotation
+			Eventually(func(g Gomega, ctx context.Context) error {
+				schedulerDeployment := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, schedulerDeployment)).To(Succeed())
+
+				g.Expect(schedulerDeployment.Spec.Template.Annotations).To(
+					HaveKey("certificates.kserve.io/cert-hash"),
+					"Scheduler pod template should have cert-hash annotation to trigger restart on cert renewal",
+				)
+				// SHA-256 hex-encoded hash is 64 characters
+				g.Expect(schedulerDeployment.Spec.Template.Annotations["certificates.kserve.io/cert-hash"]).To(HaveLen(64))
+
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
 	Context("Scheduler RBAC", func() {
 		It("should create scheduler role with leases permission for leader election", func(ctx SpecContext) {
 			// given

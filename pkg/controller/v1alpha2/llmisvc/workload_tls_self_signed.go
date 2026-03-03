@@ -20,8 +20,10 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"maps"
@@ -34,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/network"
@@ -53,10 +56,15 @@ const (
 
 	// Annotation to track certificate expiration
 	certificatesExpirationAnnotation = "certificates.kserve.io/expiration"
+
+	// Annotation set on pod templates (e.g. the scheduler deployment) with a hash of
+	// the certificate data. When the certificate is renewed the hash changes, which
+	// triggers a pod rollout so the new certificate is picked up.
+	certificateHashAnnotation = "certificates.kserve.io/cert-hash"
 )
 
 // reconcileSelfSignedCertsSecret reconciles the secret containing self-signed certs used by the server to serve TLS.
-// These self signed certs are used for cluster internal communication encryption by the workload and the scheduler.
+// These self-signed certs are used for cluster internal communication encryption by the workload and the scheduler.
 // The certificates are automatically renewed before expiration to ensure continuous secure communication.
 func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	log.FromContext(ctx).Info("Reconciling self-signed certificates secret")
@@ -188,6 +196,24 @@ func (r *LLMISVCReconciler) getExistingSelfSignedCertificate(ctx context.Context
 	return curr
 }
 
+// getSelfSignedCertHash returns the SHA-256 hash of the current self-signed certificate data.
+// It returns an empty string when the secret does not exist yet.
+func (r *LLMISVCReconciler) getSelfSignedCertHash(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) string {
+	secret := r.getExistingSelfSignedCertificate(ctx, llmSvc)
+	if secret == nil {
+		return ""
+	}
+	return certDataHash(secret)
+}
+
+// certDataHash computes a SHA-256 hash over the certificate data in a TLS secret.
+func certDataHash(secret *corev1.Secret) string {
+	h := sha256.New()
+	h.Write(secret.Data["tls.crt"])
+	h.Write(secret.Data["tls.key"])
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 func isCertificateExpired(curr *corev1.Secret) bool {
 	expires, ok := curr.Annotations[certificatesExpirationAnnotation]
 	if ok {
@@ -276,12 +302,27 @@ func (r *LLMISVCReconciler) collectDNSNames(ctx context.Context, llmSvc *v1alpha
 
 func (r *LLMISVCReconciler) collectIPAddresses(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) ([]string, error) {
 	pods := &corev1.PodList{}
+
+	// Exclude scheduler pods from IP collection. Scheduler pods connect via
+	// Service DNS (already covered by collectDNSNames), so their pod IPs are
+	// not needed in the certificate SANs. Not doing it would result in reconciliation
+	// storm: schedulers pod IP added to certs results in cert-hash changes that
+	// will restart scheduler with new pod (and IP), goto 1.
+	excludeScheduler, errReq := labels.NewRequirement(
+		constants.KubernetesComponentLabelKey,
+		selection.NotIn,
+		[]string{constants.LLMComponentRouterScheduler},
+	)
+	if errReq != nil {
+		return nil, errReq
+	}
+
 	listOptions := &client.ListOptions{
 		Namespace: llmSvc.Namespace,
 		LabelSelector: labels.SelectorFromSet(map[string]string{
 			constants.KubernetesAppNameLabelKey: llmSvc.Name,
 			constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-		}),
+		}).Add(*excludeScheduler),
 	}
 
 	if err := r.List(ctx, pods, listOptions); err != nil {

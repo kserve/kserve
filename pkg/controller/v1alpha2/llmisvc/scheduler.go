@@ -368,6 +368,15 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		},
 	}
 
+	// Set a hash of the current certificate data on the pod template so that
+	// when certificates are renewed the pod template changes and the scheduler
+	// is restarted to pick up the new certificate.
+	if h := r.getSelfSignedCertHash(ctx, llmSvc); h != "" {
+		d.Spec.Template.Annotations = map[string]string{
+			certificateHashAnnotation: h,
+		}
+	}
+
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
 		curr := &appsv1.Deployment{}
 		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
