@@ -24,7 +24,7 @@ Single platform that unifies Generative and Predictive AI inference on Kubernete
 
 **Generative AI**
   * 🧮 **Optimized Backends**: Support for vLLM and llm-d for optimized performance for serving LLMs
-  * 📌 **Standardization**: OpenAI-compatible inference protocol for seamless integration with large language models
+  * 📌 **Standardization**: OpenAI-compatible inference protocol for seamless integration with LLMs
   * 🚅 **GPU Acceleration**: High-performance serving with GPU support and optimized memory management for large models
   * 💾 **Model Caching**: Intelligent model caching to reduce loading times and improve response latency for frequently used models
   * 🗂️ **KV Cache Offloading**: Advanced memory management with KV cache offloading to CPU/disk for handling longer sequences efficiently
