@@ -46,6 +46,7 @@ venv/
 config/overlays/development/configmap/inferenceservice_patch.yaml
 config/overlays/development/*_patch.yaml
 config/overlays/dev-image-config/inferenceservice_patch.yaml
+config/overlays/temp/
 
 .ko.yaml
 
@@ -76,3 +77,4 @@ istio-*
 
 # Claude code
 .claude/
+

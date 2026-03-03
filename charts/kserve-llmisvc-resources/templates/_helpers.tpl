@@ -49,7 +49,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 Create the deployment name
 */}}
 {{- define "llm-isvc-resources.deploymentName" -}}
-kserve-llmisvc-controller-manager
+llmisvc-controller-manager
 {{- end }}
 
 {{/*
@@ -86,3 +86,4 @@ imagePullSecrets:
 {{- end }}
 {{- end }}
 {{- end }}
+

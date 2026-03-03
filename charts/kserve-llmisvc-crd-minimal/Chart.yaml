@@ -1,7 +1,9 @@
-apiVersion: v1
+apiVersion: v2
 name: kserve-llmisvc-crd-minimal
 version: v0.16.0
-description: Helm chart for deploying LLMInferenceService minimal crds 
+appVersion: v0.16.0
+description: Helm chart for deploying LLMInferenceService minimal crds
+type: application 
 keywords:
   - kserve
   - llm

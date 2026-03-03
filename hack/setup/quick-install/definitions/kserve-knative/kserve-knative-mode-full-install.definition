@@ -11,3 +11,8 @@ INCLUDE_DEFINITIONS:
     
 COMPONENTS:
   - name: kserve-helm
+    env:
+      ENABLE_LLMISVC: false
+      ENABLE_KSERVE: true
+      INSTALL_RUNTIMES: true
+      INSTALL_LLMISVC_CONFIGS: false
