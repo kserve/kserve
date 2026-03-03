@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -36,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
@@ -247,6 +247,12 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 
 	r.propagateDeploymentMetadata(llmSvc, d)
 
+	// Propagate prefill-specific labels and annotations
+	if llmSvc.Spec.Prefill != nil {
+		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &d.Spec.Template.Labels)
+		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &d.Spec.Template.Annotations)
+	}
+
 	log.FromContext(ctx).V(2).Info("Expected prefill deployment", "deployment", d)
 
 	return d, nil
@@ -254,16 +260,28 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 
 func (r *LLMISVCReconciler) propagateDeploymentMetadata(llmSvc *v1alpha2.LLMInferenceService, expected *appsv1.Deployment) {
 	// Define the prefixes to approve for annotations and labels
-	approvedAnnotationPrefixes := []string{"k8s.v1.cni.cncf.io", constants.KueueAPIGroupName}
-	approvedLabelPrefixes := []string{constants.KueueAPIGroupName}
+	approvedAnnotationPrefixes := []string{
+		"k8s.v1.cni.cncf.io",
+		constants.KueueAPIGroupName,
+		"prometheus.io",
+	}
+	approvedLabelPrefixes := []string{
+		constants.KueueAPIGroupName,
+	}
 
-	// Propagate approved annotations to the Deployment and its Pod template
+	// Propagate approved annotations from top-level metadata to the Deployment and its Pod template
 	utils.PropagatePrefixedMap(llmSvc.GetAnnotations(), &expected.Annotations, approvedAnnotationPrefixes...)
 	utils.PropagatePrefixedMap(llmSvc.GetAnnotations(), &expected.Spec.Template.Annotations, approvedAnnotationPrefixes...)
 
-	// Propagate approved labels to the Deployment and its Pod template
+	// Propagate approved labels from top-level metadata to the Deployment and its Pod template
 	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &expected.Labels, approvedLabelPrefixes...)
 	utils.PropagatePrefixedMap(llmSvc.GetLabels(), &expected.Spec.Template.Labels, approvedLabelPrefixes...)
+
+	// Propagate all labels from WorkloadSpec.Labels to Pod template
+	utils.PropagateMap(llmSvc.Spec.Labels, &expected.Spec.Template.Labels)
+
+	// Propagate all annotations from WorkloadSpec.Annotations to Pod template
+	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Spec.Template.Annotations)
 }
 
 func (r *LLMISVCReconciler) propagateDeploymentStatus(ctx context.Context, expected *appsv1.Deployment, ready func(), notReady func(reason, messageFormat string, messageA ...interface{})) error {
