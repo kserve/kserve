@@ -213,17 +213,17 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			// Check that the kueue label/annotation was propagated
 			Expect(expectedDeployment.Labels).To(HaveKeyWithValue(LocalQueueNameLabelKey, localQueueName))
 			Expect(expectedDeployment.Annotations).To(gomega.HaveKeyWithValue(PreemptionReclaimAnnotationKey, preemptPriority))
-			// Check that the test label/annotation was not propagated as it is not in the approved prefixes for propagation
-			Expect(expectedDeployment.Labels).ToNot(HaveKeyWithValue(testValue, testValue))
-			Expect(expectedDeployment.Annotations).ToNot(HaveKeyWithValue(testValue, testValue))
+			// Check that the arbitrary test label/annotation was NOT propagated (only approved prefixes are allowed)
+			Expect(expectedDeployment.Labels).NotTo(HaveKeyWithValue(testValue, testValue))
+			Expect(expectedDeployment.Annotations).NotTo(HaveKeyWithValue(testValue, testValue))
 
 			By("checking the Deployment's pod template metadata")
 			// Check that the kueue label/annotation was propagated
 			Expect(expectedDeployment.Spec.Template.Labels).To(HaveKeyWithValue(LocalQueueNameLabelKey, localQueueName))
 			Expect(expectedDeployment.Spec.Template.Annotations).To(gomega.HaveKeyWithValue(PreemptionReclaimAnnotationKey, preemptPriority))
-			// Check that the test label/annotation was not propagated as it is not in the approved prefixes for propagation
-			Expect(expectedDeployment.Spec.Template.Labels).ToNot(HaveKeyWithValue(testValue, testValue))
-			Expect(expectedDeployment.Spec.Template.Annotations).ToNot(HaveKeyWithValue(testValue, testValue))
+			// Check that the arbitrary test label/annotation was NOT propagated to the template either
+			Expect(expectedDeployment.Spec.Template.Labels).NotTo(HaveKeyWithValue(testValue, testValue))
+			Expect(expectedDeployment.Spec.Template.Annotations).NotTo(HaveKeyWithValue(testValue, testValue))
 		})
 
 		It("should preserve externally set replicas when owner does not specify replicas", func(ctx SpecContext) {

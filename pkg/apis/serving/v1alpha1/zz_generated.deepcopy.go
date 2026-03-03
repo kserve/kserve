@@ -1351,6 +1351,20 @@ func (in *SchedulerSpec) DeepCopyInto(out *SchedulerSpec) {
 		*out = new(InferencePoolSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Labels != nil {
+		in, out := &in.Labels, &out.Labels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.Annotations != nil {
+		in, out := &in.Annotations, &out.Annotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.Template != nil {
 		in, out := &in.Template, &out.Template
 		*out = new(v1.PodSpec)
@@ -1889,6 +1903,20 @@ func (in *WorkloadSpec) DeepCopyInto(out *WorkloadSpec) {
 		in, out := &in.Parallelism, &out.Parallelism
 		*out = new(ParallelismSpec)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.Labels != nil {
+		in, out := &in.Labels, &out.Labels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.Annotations != nil {
+		in, out := &in.Annotations, &out.Annotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
 	}
 	if in.Template != nil {
 		in, out := &in.Template, &out.Template
