@@ -50,9 +50,11 @@ popd
 
 if [[ $ENABLE_LLMISVC == "false" ]]; then
   if [[ $INSTALL_METHOD == "helm" ]]; then
-    export KSERVE_EXTRA_ARGS="--set kserve.controller.imagePullPolicy=IfNotPresent" 
-    export LOCALMODEL_EXTRA_ARGS="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent" 
+    export KSERVE_EXTRA_ARGS="--set kserve.controller.imagePullPolicy=IfNotPresent"
+    export LOCALMODEL_EXTRA_ARGS="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent"
+    export LLMISVC_EXTRA_ARGS="--set kserve.llmisvc.controller.imagePullPolicy=IfNotPresent"
     export ENABLE_LOCALMODEL=true
+    export ENABLE_LLMISVC=true
     export SET_KSERVE_VERSION=${TAG}
     export USE_LOCAL_CHARTS=true
     export INSTALL_RUNTIMES=true

@@ -8,6 +8,7 @@ resources:
 components:
 - ../../components/kserve
 - ../../components/localmodel
+- ../../components/llmisvc
 
 patches:
 - path: configmap/inferenceservice.yaml
