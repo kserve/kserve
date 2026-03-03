@@ -59,7 +59,7 @@ tidy:
 
 .PHONY: sync-deps
 sync-deps:
-	@@python3 hack/setup/scripts/generate-versions-from-gomod.py
+	@@python3 hack/setup/scripts/generate-versions-from-gomod.py --no-cache
 
 .PHONY: sync-img-env
 sync-img-env:

@@ -135,6 +135,21 @@ log_warning() {
     echo -e "${YELLOW}[WARNING]${RESET} $*" >&2
 }
 
+is_positive() {
+  input_val=$1
+  if [[ z$input_val == z ]]; then
+    input_val="no"
+  fi
+
+  if [[ $input_val == '0' || $input_val == "true" || $input_val == 'True' || $input_val == 'yes' || $input_val == 'Yes' || $input_val == 'y' || $input_val == 'Y' ]]; then
+    echo 0
+  elif [[ $input_val == '1' || $input_val == 'false' || $input_val == 'False' || $input_val == 'no' || $input_val == 'No' || $input_val == 'n' || $input_val == 'N' ]]; then
+    echo 1
+  else    
+    echo 2
+  fi
+}
+
 
 # ============================================================================
 # Infrastructure Installation Helper Functions
@@ -443,18 +458,17 @@ set_env_with_priority() {
     local current_value
     eval "current_value=\${${var_name}}"
 
-    # If current value differs from default/component/global, it must be runtime - keep it
-    if [ -n "$current_value" ] && [ "$current_value" != "$default_value" ] &&
-       [ "$current_value" != "$component_value" ] && [ "$current_value" != "$global_value" ]; then
+    # If current value exists and differs from default, it's a runtime value - keep it
+    if [ -n "$current_value" ] && [ -n "$default_value" ] && [ "$current_value" != "$default_value" ]; then
         # This is a runtime value, keep it
         return
     fi
 
     # Apply priority: component env > global env > default
     if [ -n "$component_value" ]; then
-        export "$var_name=$component_value"
+        eval "export $var_name=\"$component_value\""
     elif [ -n "$global_value" ]; then
-        export "$var_name=$global_value"
+        eval "export $var_name=\"$global_value\""
     fi
     # If both are empty, variable keeps its default value
 }
@@ -540,6 +554,7 @@ DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-Knative}"
 GATEWAY_NETWORK_LAYER="${GATEWAY_NETWORK_LAYER:-false}"
 LLMISVC="${LLMISVC:-false}"
 EMBED_MANIFESTS="${EMBED_MANIFESTS:-false}"
+EMBED_TEMPLATES="${EMBED_TEMPLATES:-false}"
 KSERVE_CUSTOM_ISVC_CONFIGS="${KSERVE_CUSTOM_ISVC_CONFIGS:-}"
 
 #================================================
@@ -551,6 +566,33 @@ TEMPLATE_DIR="${REPO_ROOT}/hack/setup/infra/external-lb/templates"
 GATEWAYCLASS_NAME="${GATEWAYCLASS_NAME:-envoy}"
 CONTROLLER_NAME="${CONTROLLER_NAME:-gateway.envoyproxy.io/gatewayclass-controller}"
 GATEWAY_NAME="kserve-ingress-gateway"
+
+#================================================
+# Template Functions (EMBED_TEMPLATES MODE)
+#================================================
+
+# ============================================================================
+# Template Functions: external-lb
+# ============================================================================
+
+get_metallb_config() {
+    cat <<'METALLB_CONFIG_EOF'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+    - name: default
+      protocol: layer2
+      addresses:
+      - {{START}}-{{END}}
+METALLB_CONFIG_EOF
+}
+
+
 
 #================================================
 # Component Functions
@@ -757,8 +799,14 @@ install_external_lb() {
 
             log_info "Configuring MetalLB IP range: ${START}-${END}"
 
-            sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" \
-                "${TEMPLATE_DIR}/metallb-config.yaml.tmpl" | kubectl apply -f -
+            if [ "$EMBED_TEMPLATES" = "true" ]; then
+                get_metallb_config | \
+                    sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" | \
+                    kubectl apply -f -
+            else
+                sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" \
+                    "${TEMPLATE_DIR}/metallb-config.yaml.tmpl" | kubectl apply -f -
+            fi
 
             kubectl rollout restart deployment controller -n metallb-system
             kubectl rollout status deployment controller -n metallb-system --timeout=60s
@@ -1089,7 +1137,7 @@ main() {
     echo "Install KServe LLM InferenceService dependencies only"
     echo "=========================================="
 
-
+    export EMBED_TEMPLATES="true"
 
     install_helm
     install_yq

@@ -142,6 +142,11 @@ var (
 	InferencePoolMigratedAnnotationKey          = KServeAPIGroupName + "/inferencepool-migrated"
 )
 
+// ServingRuntime Server Type Annotations
+var (
+	ServerTypeAnnotationKey = KServeAPIGroupName + "/server-type"
+)
+
 // InferenceService Internal Annotations
 var (
 	InferenceServiceInternalAnnotationsPrefix        = "internal." + KServeAPIGroupName
@@ -320,6 +325,7 @@ const (
 	KServeContainerPrometheusMetricsPathEnvVarKey     = "KSERVE_CONTAINER_PROMETHEUS_METRICS_PATH"
 	ModelInitModeEnvVarKey                            = "MODEL_INIT_MODE"
 	QueueProxyAggregatePrometheusMetricsPortEnvVarKey = "AGGREGATE_PROMETHEUS_METRICS_PORT"
+	InferenceServiceNameEnvVarKey                     = "INFERENCE_SERVICE_NAME"
 )
 
 type InferenceServiceComponent string
@@ -551,7 +557,7 @@ const (
 	DefaultNSKnativeServing = "knative-serving"
 )
 
-// built-in runtime servers
+// built-in runtime servers names
 const (
 	SKLearnServer     = "kserve-sklearnserver"
 	MLServer          = "kserve-mlserver"
@@ -565,9 +571,49 @@ const (
 	HuggingFaceServer = "kserve-huggingfaceserver"
 )
 
+// Server type annotation values
+const (
+	ServerTypeMLServer          = "mlserver"
+	ServerTypeTritonServer      = "tritonserver"
+	ServerTypeTorchServe        = "torchserve"
+	ServerTypeOVMS              = "ovms"
+	ServerTypePredictiveServer  = "predictiveserver"
+	ServerTypeHuggingFaceServer = "huggingfaceserver"
+	ServerTypePMMLServer        = "pmmlserver"
+	ServerTypeLightGBMServer    = "lightgbmserver"
+	ServerTypePaddleServer      = "paddleserver"
+	ServerTypeTensorflowServing = "tensorflow-serving"
+	ServerTypePyTorchServer     = "pytorchserver"
+	ServerTypeSKLearnServer     = "sklearnserver"
+	ServerTypeXGBoostServer     = "xgbserver"
+)
+
+// GetServerTypeFromRuntimeName converts runtime name to server type for backward compatibility.
+// This enables fallback from annotation-based to name-based runtime detection.
+func GetServerTypeFromRuntimeName(runtimeName string) string {
+	switch runtimeName {
+	case MLServer:
+		return ServerTypeMLServer
+	case TorchServe:
+		return ServerTypeTorchServe
+	case TritonServer:
+		return ServerTypeTritonServer
+	default:
+		return ""
+	}
+}
+
 const (
 	ModelClassLabel = "modelClass"
 	ServiceEnvelope = "serviceEnvelope"
+)
+
+// MLServer environment variables
+const (
+	MLServerLoadModelsStartupEnv   = "MLSERVER_LOAD_MODELS_AT_STARTUP"
+	MLServerModelImplementationEnv = "MLSERVER_MODEL_IMPLEMENTATION"
+	MLServerModelNameEnv           = "MLSERVER_MODEL_NAME"
+	MLServerModelURIEnv            = "MLSERVER_MODEL_URI"
 )
 
 // allowed model class implementation in mlserver

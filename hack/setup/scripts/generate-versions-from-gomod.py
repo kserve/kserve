@@ -5,6 +5,7 @@
 import os
 import re
 import subprocess
+import sys
 import json
 import urllib.request
 from urllib.request import Request
@@ -67,6 +68,11 @@ def extract_all_versions_from_gomod(go_mod_path, packages):
 
 def get_helm_versions(repo, chart):
     cache_file = f"/tmp/{repo.replace('/', '_')}__{chart.replace('/', '_')}.json"
+
+    # Delete cache file if --no-cache flag is provided
+    if "--no-cache" in sys.argv and os.path.exists(cache_file):
+        os.remove(cache_file)
+
     if os.path.exists(cache_file):
         with open(cache_file, "r") as f:
             return json.load(f)

@@ -586,6 +586,13 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         },
     },
+    "scheduler-with-replicas": {
+        "router": {
+            "scheduler": {
+                "replicas": 2,
+            },
+        },
+    },
     "router-with-gateway-ref": {
         "router": {
             "gateway": {

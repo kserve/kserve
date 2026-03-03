@@ -1723,6 +1723,13 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimePodSpec(ref common.Reference
 							Format:      "",
 						},
 					},
+					"schedulerName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"containers"},
 			},
@@ -1920,6 +1927,13 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref common.ReferenceCal
 						SchemaProps: spec.SchemaProps{
 							Description: "Use the host's ipc namespace. Optional: Default to false.",
 							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"schedulerName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",
+							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
@@ -6867,6 +6881,27 @@ func schema_pkg_apis_serving_v1beta1_LoggerSpec(ref common.ReferenceCallback) co
 						SchemaProps: spec.SchemaProps{
 							Description: "Specifies the storage location for the inference logger cloud events.",
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerStorageSpec"),
+						},
+					},
+					"marshallerUrl": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URL of the log marshaller service that transforms log records before storage. Defaults to the embedded JSON marshaller at http://localhost:9083/marshal.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"batchSize": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Number of log records per batch for blob storage. Defaults to 1 (immediate).",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"batchInterval": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Max duration to wait before flushing a partial batch (e.g. \"5s\", \"100ms\"). Only used when BatchSize > 1. Defaults to \"0\" (no time-based flushing).",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
