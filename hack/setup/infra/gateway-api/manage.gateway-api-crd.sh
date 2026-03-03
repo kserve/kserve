@@ -36,7 +36,7 @@ fi
 
 uninstall() {
     log_info "Uninstalling Gateway API CRDs..."
-    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml" --ignore-not-found=true 2>/dev/null || true
+    kubectl delete -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/experimental-install.yaml" --ignore-not-found=true 2>/dev/null || true
     log_success "Gateway API CRDs uninstalled"
 }
 
@@ -51,14 +51,15 @@ install() {
         fi
     fi
 
-    log_info "Installing Gateway API CRDs ${GATEWAY_API_VERSION}..."
-    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml"
+    log_info "Installing Gateway API CRDs ${GATEWAY_API_VERSION} (experimental)..."
+    kubectl apply -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/experimental-install.yaml"
 
     log_success "Successfully installed Gateway API CRDs ${GATEWAY_API_VERSION}"
 
     wait_for_crds "60s" \
         "gateways.gateway.networking.k8s.io" \
-        "gatewayclasses.gateway.networking.k8s.io"
+        "gatewayclasses.gateway.networking.k8s.io" \
+        "listenersets.gateway.networking.k8s.io"
 
     log_success "Gateway API CRDs are ready!"
 }

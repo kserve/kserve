@@ -69,6 +69,20 @@ install() {
     
     log_success "Successfully Updated Envoy Gateway ${ENVOY_GATEWAY_VERSION} for Envoy AI Gateway"
 
+    # Patch ClusterRole to add listenersets permission (required for Gateway API v1.5.0+)
+    log_info "Patching Envoy Gateway ClusterRole for listenersets support..."
+    kubectl patch clusterrole eg-gateway-helm-envoy-gateway-role --type='json' -p='[
+      {
+        "op": "add",
+        "path": "/rules/-",
+        "value": {
+          "apiGroups": ["gateway.networking.k8s.io"],
+          "resources": ["listenersets", "listenersets/status"],
+          "verbs": ["get", "list", "watch", "update", "patch"]
+        }
+      }
+    ]' 2>/dev/null || log_info "ClusterRole patch skipped (may already have listenersets permission)"
+
     log_info "Installing Envoy AI Gateway CRDs ${ENVOY_AI_GATEWAY_VERSION}..."
     helm upgrade -i aieg-crd oci://docker.io/envoyproxy/ai-gateway-crds-helm \
         --version "${ENVOY_AI_GATEWAY_VERSION}" \

@@ -124,6 +124,20 @@ helm upgrade -i eg oci://docker.io/envoyproxy/gateway-helm \
 echo "😀 Successfully installed Envoy Gateway"
 kubectl wait --timeout=2m -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available
 
+# Patch ClusterRole to add listenersets permission (required for Gateway API v1.5.0+)
+echo "Patching Envoy Gateway ClusterRole for listenersets support..."
+kubectl patch clusterrole eg-gateway-helm-envoy-gateway-role --type='json' -p='[
+  {
+    "op": "add",
+    "path": "/rules/-",
+    "value": {
+      "apiGroups": ["gateway.networking.k8s.io"],
+      "resources": ["listenersets", "listenersets/status"],
+      "verbs": ["get", "list", "watch", "update", "patch"]
+    }
+  }
+]' 2>/dev/null || echo "ClusterRole patch skipped (may already have listenersets permission)"
+
 # Cleanup temp files
 rm -rf "${ENVOY_GW_VALUES_DIR}"
 
