@@ -28,13 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
-	ctrl "sigs.k8s.io/controller-runtime"
-	crconfig "sigs.k8s.io/controller-runtime/pkg/config"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -145,19 +139,12 @@ var _ = Describe("CachedModel controller", func() {
 	)
 
 	Context("When creating a local model", func() {
-		var (
-			configMap               *corev1.ConfigMap
-			clusterStorageContainer *v1alpha1.ClusterStorageContainer
-		)
+		var clusterStorageContainer *v1alpha1.ClusterStorageContainer
 		BeforeEach(func() {
 			ctx, cancel := context.WithCancel(context.Background())
-			configMap, clusterStorageContainer = genericSetup(ctx, configs, clusterStorageContainerSpec)
-			initializeManager(ctx, cfg)
+			clusterStorageContainer = genericSetup(ctx, configs, clusterStorageContainerSpec)
 			DeferCleanup(func() {
 				_ = k8sClient.Delete(ctx, clusterStorageContainer)
-				_ = k8sClient.Delete(ctx, configMap)
-
-				By("canceling the context")
 				cancel()
 			})
 		})
@@ -469,10 +456,7 @@ var _ = Describe("CachedModel controller", func() {
 	})
 
 	Context("When DisableVolumeManagement is set to true", func() {
-		var (
-			configMap               *corev1.ConfigMap
-			clusterStorageContainer *v1alpha1.ClusterStorageContainer
-		)
+		var clusterStorageContainer *v1alpha1.ClusterStorageContainer
 
 		BeforeEach(func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -483,13 +467,9 @@ var _ = Describe("CachedModel controller", func() {
 					"disableVolumeManagement": true
 				}`,
 			}
-			configMap, clusterStorageContainer = genericSetup(ctx, configs, clusterStorageContainerSpec)
-			initializeManager(ctx, cfg)
+			clusterStorageContainer = genericSetup(ctx, configs, clusterStorageContainerSpec)
 			DeferCleanup(func() {
 				_ = k8sClient.Delete(ctx, clusterStorageContainer)
-				_ = k8sClient.Delete(ctx, configMap)
-
-				By("canceling the context")
 				cancel()
 			})
 		})
@@ -541,7 +521,6 @@ var _ = Describe("CachedModel controller", func() {
 
 	Context("When creating multiple localModels", func() {
 		var (
-			configMap               *corev1.ConfigMap
 			clusterStorageContainer *v1alpha1.ClusterStorageContainer
 
 			configs = map[string]string{
@@ -553,14 +532,9 @@ var _ = Describe("CachedModel controller", func() {
 		)
 		BeforeEach(func() {
 			ctx, cancel := context.WithCancel(context.TODO())
-			configMap, clusterStorageContainer = genericSetup(ctx, configs, clusterStorageContainerSpec)
-
-			initializeManager(ctx, cfg)
+			clusterStorageContainer = genericSetup(ctx, configs, clusterStorageContainerSpec)
 			DeferCleanup(func() {
 				_ = k8sClient.Delete(ctx, clusterStorageContainer)
-				_ = k8sClient.Delete(ctx, configMap)
-
-				By("canceling the context")
 				cancel()
 			})
 		})
@@ -752,19 +726,12 @@ var _ = Describe("LocalModelNamespaceCache controller", func() {
 	)
 
 	Context("When creating a namespace-scoped local model", func() {
-		var (
-			configMap               *corev1.ConfigMap
-			clusterStorageContainer *v1alpha1.ClusterStorageContainer
-		)
+		var clusterStorageContainer *v1alpha1.ClusterStorageContainer
 		BeforeEach(func() {
 			ctx, cancel := context.WithCancel(context.Background())
-			configMap, clusterStorageContainer = genericSetup(ctx, configs, clusterStorageContainerSpec)
-			initializeManager(ctx, cfg)
+			clusterStorageContainer = genericSetup(ctx, configs, clusterStorageContainerSpec)
 			DeferCleanup(func() {
 				_ = k8sClient.Delete(ctx, clusterStorageContainer)
-				_ = k8sClient.Delete(ctx, configMap)
-
-				By("canceling the context")
 				cancel()
 			})
 		})
@@ -1382,17 +1349,14 @@ func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cache
 	return pvc
 }
 
-func genericSetup(ctx context.Context, configs map[string]string, clusterStorageContainerSpec v1alpha1.StorageContainerSpec) (*corev1.ConfigMap,
-	*v1alpha1.ClusterStorageContainer,
-) {
-	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.InferenceServiceConfigMapName,
-			Namespace: constants.KServeNamespace,
-		},
-		Data: configs,
-	}
-	Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+func genericSetup(ctx context.Context, configs map[string]string, clusterStorageContainerSpec v1alpha1.StorageContainerSpec) *v1alpha1.ClusterStorageContainer {
+	// Update the existing configmap with test-specific data
+	configMap := &corev1.ConfigMap{}
+	Eventually(func() error {
+		return k8sClient.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
+	}, time.Second*10, time.Millisecond*250).Should(Succeed())
+	configMap.Data = configs
+	Expect(k8sClient.Update(ctx, configMap)).NotTo(HaveOccurred())
 
 	clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1402,52 +1366,5 @@ func genericSetup(ctx context.Context, configs map[string]string, clusterStorage
 	}
 	Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
 
-	return configMap, clusterStorageContainer
-}
-
-func initializeManager(ctx context.Context, cfg *rest.Config) {
-	clientset, err := kubernetes.NewForConfig(cfg)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(clientset).ToNot(BeNil())
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-		Metrics: metricsserver.Options{
-			BindAddress: "0",
-		},
-		Controller: crconfig.Controller{
-			SkipNameValidation: ptr.To(true),
-		},
-	})
-	Expect(err).ToNot(HaveOccurred())
-
-	k8sClient = k8sManager.GetClient()
-	Expect(k8sClient).ToNot(BeNil())
-	//nolint: contextcheck
-	err = (&LocalModelReconciler{
-		Client:    k8sClient,
-		Clientset: clientset,
-		Scheme:    scheme.Scheme,
-		Log:       ctrl.Log.WithName("v1alpha1LocalModelController"),
-	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
-
-	// Setup LocalModelNamespaceCache reconciler
-	//nolint: contextcheck
-	err = (&LocalModelNamespaceCacheReconciler{
-		Client:    k8sClient,
-		Clientset: clientset,
-		Scheme:    scheme.Scheme,
-		Log:       ctrl.Log.WithName("v1alpha1LocalModelNamespaceCacheController"),
-	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
-
-	go func() {
-		err = k8sManager.Start(ctx)
-		Expect(err).ToNot(HaveOccurred())
-	}()
-	// Wait for cache to start
-	// Ping the ConfigMap to ensure the cache is started
-	Eventually(func() bool {
-		return k8sClient.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, &corev1.ConfigMap{}) == nil
-	}).Should(BeTrue())
+	return clusterStorageContainer
 }

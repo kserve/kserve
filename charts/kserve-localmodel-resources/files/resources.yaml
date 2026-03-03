@@ -74,6 +74,7 @@ rules:
   - serving.kserve.io
   resources:
   - localmodelcaches
+  - localmodelnamespacecaches
   - localmodelnodes
   verbs:
   - create
@@ -87,6 +88,7 @@ rules:
   - serving.kserve.io
   resources:
   - localmodelcaches/status
+  - localmodelnamespacecaches/status
   verbs:
   - get
   - patch
@@ -117,6 +119,8 @@ rules:
   - ""
   resources:
   - nodes
+  - secrets
+  - serviceaccounts
   verbs:
   - get
   - list
