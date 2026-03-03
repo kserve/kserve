@@ -35,9 +35,9 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	localmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel"
+	kservescheme "github.com/kserve/kserve/pkg/scheme"
 	localmodelwebhook "github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
 	localmodelnamespacecachewebhook "github.com/kserve/kserve/pkg/webhook/admission/localmodelnamespacecache"
-	kservescheme "github.com/kserve/kserve/pkg/scheme"
 )
 
 var setupLog = ctrl.Log.WithName("setup")
