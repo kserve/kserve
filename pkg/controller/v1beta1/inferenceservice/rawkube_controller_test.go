@@ -8546,6 +8546,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
 									},
+									Env: []corev1.EnvVar{
+										{
+											Name:  constants.InferenceServiceNameEnvVarKey,
+											Value: serviceName,
+										},
+									},
 									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:      "proxy-tls",

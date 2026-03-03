@@ -337,12 +337,12 @@ func GetServingRuntime(ctx context.Context, cl client.Client, name string, names
 	}
 
 	// ODH does not support ClusterServingRuntimes
-	//clusterRuntime := &v1alpha1.ClusterServingRuntime{}
-	//err = cl.Get(ctx, client.ObjectKey{Name: name}, clusterRuntime)
-	//if err == nil {
+	// clusterRuntime := &v1alpha1.ClusterServingRuntime{}
+	// err = cl.Get(ctx, client.ObjectKey{Name: name}, clusterRuntime)
+	// if err == nil {
 	//	return &clusterRuntime.Spec, clusterRuntime.Annotations, nil, true
-	//} else if !apierrors.IsNotFound(err) {
-	//	return nil, nil, err, false
+	// } else if !apierrors.IsNotFound(err) {
+	//	return nil, err, false
 	//}
 	return nil, nil, goerrors.New("No ServingRuntimes with the name: " + name), false
 }
