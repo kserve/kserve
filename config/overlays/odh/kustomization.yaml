@@ -149,7 +149,6 @@ replacements:
       name: llmisvc-controller-manager
     fieldPaths:
     - spec.template.spec.containers.[name=manager].image
-
 - source:
     kind: ConfigMap
     name: kserve-parameters
@@ -160,7 +159,6 @@ replacements:
       name: kserve-config-llm-template-nvidia-cuda
     fieldPaths:
     - spec.template.containers.[name=main].image
-
 - source:
     kind: ConfigMap
     name: kserve-parameters
@@ -171,7 +169,6 @@ replacements:
       name: kserve-config-llm-template-amd-rocm
     fieldPaths:
     - spec.template.containers.[name=main].image
-
 - source:
     kind: ConfigMap
     name: kserve-parameters
@@ -192,7 +189,6 @@ replacements:
       name: kserve-config-llm-template-ibm-spyre-ppc64le
     fieldPaths:
     - spec.template.containers.[name=main].image
-
 # Set runAsNonRoot: true for all LLMInferenceServiceConfig templates.
 # NOTE: When adding a new LLMInferenceServiceConfig template, add its container paths here.
 - source:
@@ -235,6 +231,49 @@ replacements:
     fieldPaths:
     - spec.prefill.template.containers.[name=main].securityContext.runAsNonRoot
     - spec.prefill.worker.containers.[name=main].securityContext.runAsNonRoot
+# Replace inferenceservice-config images with ODH images
+- source:
+    kind: ConfigMap
+    name: kserve-parameters
+    fieldPath: data.kserve-storage-initializer
+  targets:
+  - select:
+      kind: ConfigMap
+      name: inferenceservice-config
+    fieldPaths:
+    - data.storageInitializer.image
+- source:
+    kind: ConfigMap
+    name: kserve-parameters
+    fieldPath: data.kserve-agent
+  targets:
+  - select:
+      kind: ConfigMap
+      name: inferenceservice-config
+    fieldPaths:
+    - data.agent.image
+    - data.logger.image
+    - data.batcher.image
+- source:
+    kind: ConfigMap
+    name: kserve-parameters
+    fieldPath: data.kserve-router
+  targets:
+  - select:
+      kind: ConfigMap
+      name: inferenceservice-config
+    fieldPaths:
+    - data.router.image
+- source:
+    kind: ConfigMap
+    name: kserve-parameters
+    fieldPath: data.kube-rbac-proxy
+  targets:
+  - select:
+      kind: ConfigMap
+      name: inferenceservice-config
+    fieldPaths:
+    - data.oauthProxy.image
 
 configMapGenerator:
 - envs:
@@ -243,35 +282,3 @@ configMapGenerator:
 
 generatorOptions:
   disableNameSuffixHash: true
-
-vars:
-- fieldref:
-    fieldpath: data.kserve-storage-initializer
-  name: kserve-storage-initializer
-  objref:
-    apiVersion: v1
-    kind: ConfigMap
-    name: kserve-parameters
-- fieldref:
-    fieldpath: data.kserve-agent
-  name: kserve-agent
-  objref:
-    apiVersion: v1
-    kind: ConfigMap
-    name: kserve-parameters
-- fieldref:
-    fieldpath: data.kserve-router
-  name: kserve-router
-  objref:
-    apiVersion: v1
-    kind: ConfigMap
-    name: kserve-parameters
-- fieldref:
-    fieldpath: data.kube-rbac-proxy
-  name: kube-rbac-proxy
-  objref:
-    apiVersion: v1
-    kind: ConfigMap
-    name: kserve-parameters
-configurations:
-  - params.yaml

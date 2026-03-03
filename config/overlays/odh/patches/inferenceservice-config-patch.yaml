@@ -7,7 +7,7 @@ data:
   explainers: "{}"
   oauthProxy: |- 
     {
-      "image" : "$(kube-rbac-proxy)",
+      "image" : "REPLACE_IMAGE",
       "memoryRequest": "64Mi",
       "memoryLimit": "128Mi",
       "cpuRequest": "100m",
@@ -15,7 +15,7 @@ data:
     }
   storageInitializer: |-
     {
-        "image" : "$(kserve-storage-initializer)",
+        "image" : "REPLACE_IMAGE",
         "memoryRequest": "100Mi",
         "memoryLimit": "24Gi",
         "cpuRequest": "100m",
@@ -43,7 +43,7 @@ data:
     }
   logger: |-
     {
-        "image" : "$(kserve-agent)",
+        "image" : "REPLACE_IMAGE",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -52,7 +52,7 @@ data:
     }
   batcher: |-
     {
-        "image" : "$(kserve-agent)",
+        "image" : "REPLACE_IMAGE",
         "memoryRequest": "1Gi",
         "memoryLimit": "1Gi",
         "cpuRequest": "1",
@@ -60,7 +60,7 @@ data:
     }
   agent: |-
     {
-        "image" : "$(kserve-agent)",
+        "image" : "REPLACE_IMAGE",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
@@ -68,7 +68,7 @@ data:
     }
   router: |-
     {
-        "image" : "$(kserve-router)",
+        "image" : "REPLACE_IMAGE",
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
