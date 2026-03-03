@@ -369,7 +369,7 @@ func TestLoggerWithS3Store(t *testing.T) {
 	g.Expect(res.Annotations["test-annotation"]).To(gomega.Equal("test-value"))
 }
 
-func TestLoggerRequestTimestamp(t *testing.T) {
+func TestLoggerCloudEventTimestamps(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
@@ -383,9 +383,12 @@ func TestLoggerRequestTimestamp(t *testing.T) {
 		_, err = rw.Write([]byte(`ok`))
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 
-		// Verify requesttimestamp is present and uses the same RFC3339 format as ce-time
-		g.Expect(req.Header.Get("Ce-Requesttimestamp")).ToNot(gomega.BeEmpty())
-		g.Expect(req.Header.Get("Ce-Requesttimestamp")).To(gomega.MatchRegexp(
+		// Verify CE time (occurrence/request arrival) and recordedtime (CE creation) are present
+		g.Expect(req.Header.Get("Ce-Time")).ToNot(gomega.BeEmpty())
+		g.Expect(req.Header.Get("Ce-Time")).To(gomega.MatchRegexp(
+			`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}`))
+		g.Expect(req.Header.Get("Ce-Recordedtime")).ToNot(gomega.BeEmpty())
+		g.Expect(req.Header.Get("Ce-Recordedtime")).To(gomega.MatchRegexp(
 			`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}`))
 	}))
 	defer logSvc.Close()
