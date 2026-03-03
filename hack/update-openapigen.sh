@@ -49,6 +49,21 @@ KNOWN_VIOLATION_EXCEPTIONS=hack/violation_exceptions.list
 CURRENT_VIOLATION_EXCEPTIONS=hack/current_violation_exceptions.list
 OPENAPI_SPEC_FILE=pkg/openapi/openapi_generated.go
 
+# Auto-discover serving API versions that have +k8s:openapi-gen=true markers.
+SERVING_APIS=()
+for dir in pkg/apis/serving/v*/; do
+    if grep -rq '+k8s:openapi-gen=true' "$dir" 2>/dev/null; then
+        SERVING_APIS+=("./${dir%/}")
+    fi
+done
+
+if [[ ${#SERVING_APIS[@]} -eq 0 ]]; then
+    echo "ERROR: No serving API versions with +k8s:openapi-gen=true found under pkg/apis/serving/" >&2
+    exit 1
+fi
+
+echo "Discovered serving API packages: ${SERVING_APIS[*]}"
+
 # Generating OpenAPI specification
 go run k8s.io/kube-openapi/cmd/openapi-gen \
     --output-pkg github.com/kserve/kserve/pkg/openapi --output-dir "./pkg/openapi" \
@@ -57,8 +72,7 @@ go run k8s.io/kube-openapi/cmd/openapi-gen \
     -r $CURRENT_VIOLATION_EXCEPTIONS \
     "knative.dev/pkg/apis" \
     "knative.dev/pkg/apis/duck/v1" \
-    "./pkg/apis/serving/v1beta1" \
-    "./pkg/apis/serving/v1alpha1"
+    "${SERVING_APIS[@]}"
 
 # Hack, the name is required in openAPI specification even if set "+optional" for v1.Container in PredictorExtensionSpec.
 sed -i'.bak' -e 's/Required: \[\]string{\"name\"},//g' $OPENAPI_SPEC_FILE && rm -rf $OPENAPI_SPEC_FILE.bak
