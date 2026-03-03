@@ -264,7 +264,6 @@ func main() {
 		{Group: v1alpha2.SchemeGroupVersion.Group, Resource: "llminferenceservices"},
 		{Group: v1alpha2.SchemeGroupVersion.Group, Resource: "llminferenceserviceconfigs"},
 	} {
-		gr := gr
 		eg.Go(func() error {
 			if err := migrator.Migrate(ctx, gr); err != nil {
 				return fmt.Errorf("failed to migrate %q: %w", gr, err)
