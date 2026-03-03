@@ -2929,7 +2929,7 @@
           "$ref": "#/definitions/v1.PodSecurityContext"
         },
         "serviceAccount": {
-          "description": "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",
+          "description": "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName.\n\nDeprecated: Use serviceAccountName instead.",
           "type": "string"
         },
         "serviceAccountName": {
@@ -5040,7 +5040,7 @@
           "$ref": "#/definitions/v1.PodSecurityContext"
         },
         "serviceAccount": {
-          "description": "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",
+          "description": "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName.\n\nDeprecated: Use serviceAccountName instead.",
           "type": "string"
         },
         "serviceAccountName": {
@@ -5579,7 +5579,7 @@
           "$ref": "#/definitions/v1.PodSecurityContext"
         },
         "serviceAccount": {
-          "description": "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",
+          "description": "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName.\n\nDeprecated: Use serviceAccountName instead.",
           "type": "string"
         },
         "serviceAccountName": {
@@ -6620,7 +6620,7 @@
           "$ref": "#/definitions/v1.PodSecurityContext"
         },
         "serviceAccount": {
-          "description": "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",
+          "description": "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName.\n\nDeprecated: Use serviceAccountName instead.",
           "type": "string"
         },
         "serviceAccountName": {
@@ -7084,7 +7084,7 @@
           "$ref": "#/definitions/v1.PodSecurityContext"
         },
         "serviceAccount": {
-          "description": "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",
+          "description": "DeprecatedServiceAccount is a deprecated alias for ServiceAccountName.\n\nDeprecated: Use serviceAccountName instead.",
           "type": "string"
         },
         "serviceAccountName": {

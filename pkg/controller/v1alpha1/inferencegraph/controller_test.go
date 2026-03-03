@@ -1193,9 +1193,9 @@ var _ = Describe("Inference Graph controller test", func() {
 					Host: "openshift-route-example.com",
 				},
 			}
-			k8sClient.Status().Update(ctx, &osRoute)
+			Expect(k8sClient.Status().Update(ctx, &osRoute)).Should(Succeed())
 			Eventually(func() string {
-				k8sClient.Get(ctx, serviceKey, inferenceGraphSubmitted)
+				Expect(k8sClient.Get(ctx, serviceKey, inferenceGraphSubmitted)).Should(Succeed())
 				return inferenceGraphSubmitted.Status.URL.Host
 			}, timeout, interval).Should(Equal(osRoute.Status.Ingress[0].Host))
 			Expect(inferenceGraphSubmitted.Status.URL.Scheme).To(Equal("https"))

@@ -618,7 +618,7 @@ func authMiddleware(next http.Handler) http.Handler {
 
 		clientset, clientsetErr := kubernetes.NewForConfig(k8sConfig)
 		if clientsetErr != nil {
-			log.Error(k8sConfigErr, "failed to create Kubernetes client to connect to API")
+			log.Error(clientsetErr, "failed to create Kubernetes client to connect to API")
 			return
 		}
 
