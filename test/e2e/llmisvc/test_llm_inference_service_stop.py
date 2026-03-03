@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import os
 import pytest
-from kserve import KServeClient, V1alpha1LLMInferenceService, constants
+from kserve import KServeClient, V1alpha2LLMInferenceService, constants
 from kubernetes import client
 
 from .fixtures import (
@@ -155,7 +155,7 @@ def test_llm_stop_feature(test_case: TestCase):
 
 
 @log_execution
-def stop_llmisvc(kserve_client: KServeClient, llm_isvc: V1alpha1LLMInferenceService):
+def stop_llmisvc(kserve_client: KServeClient, llm_isvc: V1alpha2LLMInferenceService):
     """Add the stop annotation to the LLMInferenceService."""
     try:
         # Get the current service
@@ -193,7 +193,7 @@ def stop_llmisvc(kserve_client: KServeClient, llm_isvc: V1alpha1LLMInferenceServ
 
 
 @log_execution
-def restart_llmisvc(kserve_client: KServeClient, llm_isvc: V1alpha1LLMInferenceService):
+def restart_llmisvc(kserve_client: KServeClient, llm_isvc: V1alpha2LLMInferenceService):
     """Remove the stop annotation from the LLMInferenceService."""
     try:
         # Get the current service
@@ -235,7 +235,7 @@ def restart_llmisvc(kserve_client: KServeClient, llm_isvc: V1alpha1LLMInferenceS
 @log_execution
 def wait_for_llm_isvc_stopped(
     kserve_client: KServeClient,
-    given: V1alpha1LLMInferenceService,
+    given: V1alpha2LLMInferenceService,
     timeout_seconds: int = 120,
 ) -> bool:
     """Wait for the LLMInferenceService to be marked as stopped."""
@@ -309,7 +309,7 @@ def wait_for_llm_isvc_stopped(
 @log_execution
 def verify_workload_resources_deleted(
     kserve_client: KServeClient,
-    llm_isvc: V1alpha1LLMInferenceService,
+    llm_isvc: V1alpha2LLMInferenceService,
     timeout_seconds: int = 120,
 ) -> bool:
     """Verify that workload resources (deployments) are deleted when service is stopped."""
