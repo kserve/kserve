@@ -69,6 +69,11 @@ from .models.v1alpha1_trained_model import V1alpha1TrainedModel
 from .models.v1alpha1_trained_model_list import V1alpha1TrainedModelList
 from .models.v1alpha1_trained_model_spec import V1alpha1TrainedModelSpec
 
+from .models.v1alpha2_llm_inference_service import V1alpha2LLMInferenceService
+from .models.v1alpha2_llm_inference_service_config import V1alpha2LLMInferenceServiceConfig
+from .models.v1alpha2_llm_inference_service_config_list import V1alpha2LLMInferenceServiceConfigList
+from .models.v1alpha2_llm_inference_service_list import V1alpha2LLMInferenceServiceList
+
 # import v1beta1 models into sdk package
 from .models.knative_addressable import KnativeAddressable
 from .models.knative_condition import KnativeCondition

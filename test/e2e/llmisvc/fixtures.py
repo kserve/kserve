@@ -19,7 +19,7 @@ from ..common.gw_api import (
     create_or_update_gateway,
     create_or_update_route,
 )
-from kserve import KServeClient, constants, V1alpha1LLMInferenceService
+from kserve import KServeClient, constants, V1alpha2LLMInferenceService
 from kubernetes import client, config
 from typing import List, Optional
 
@@ -685,7 +685,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {
                 "config": {
                     "inline": {
-                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
+                        "apiVersion": "inference.networking.x-k8s.io/v1alpha2",
                         "kind": "EndpointPickerConfig",
                         "plugins": [
                             {"type": "single-profile-handler"},
@@ -814,7 +814,7 @@ def test_case(request):
             original_spec = LLMINFERENCESERVICE_CONFIGS[base_ref]
 
             unique_config_body = {
-                "apiVersion": "serving.kserve.io/v1alpha1",
+                "apiVersion": "serving.kserve.io/v1alpha2",
                 "kind": "LLMInferenceServiceConfig",
                 "metadata": {
                     "name": unique_config_name,
@@ -828,8 +828,8 @@ def test_case(request):
             )
             created_configs.append(unique_config_name)
 
-        tc.llm_service = V1alpha1LLMInferenceService(
-            api_version="serving.kserve.io/v1alpha1",
+        tc.llm_service = V1alpha2LLMInferenceService(
+            api_version="serving.kserve.io/v1alpha2",
             kind="LLMInferenceService",
             metadata=client.V1ObjectMeta(
                 name=tc.service_name, namespace=KSERVE_TEST_NAMESPACE
@@ -989,7 +989,7 @@ def inject_k8s_proxy():
 
 
 # Scheduler config YAML used for ConfigMap ref tests
-SCHEDULER_CONFIG_YAML = """apiVersion: inference.networking.x-k8s.io/v1alpha1
+SCHEDULER_CONFIG_YAML = """apiVersion: inference.networking.x-k8s.io/v1alpha2
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler

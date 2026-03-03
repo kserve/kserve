@@ -154,7 +154,7 @@ async def predict_ig(
     client: InferenceRESTClient,
     ig_name,
     input_path,
-    version=constants.KSERVE_V1ALPHA1_VERSION,
+    version=constants.KSERVE_V1ALPHA2_VERSION,
     network_layer: str = "istio",
 ) -> Union[InferResponse, Dict]:
     kserve_client = KServeClient(

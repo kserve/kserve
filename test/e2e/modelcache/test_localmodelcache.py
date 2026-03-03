@@ -154,13 +154,13 @@ async def test_vllm_modelcache():
     # Test the model is cached on the correct nodes
     worker_node_1_cache = k8s_client.get_cluster_custom_object(
         constants.KSERVE_GROUP,
-        constants.KSERVE_V1ALPHA1_VERSION,
+        constants.KSERVE_V1ALPHA2_VERSION,
         constants.KSERVE_PLURAL_LOCALMODELNODE,
         "minikube-m02",
     )
     worker_node_2_cache = k8s_client.get_cluster_custom_object(
         constants.KSERVE_GROUP,
-        constants.KSERVE_V1ALPHA1_VERSION,
+        constants.KSERVE_V1ALPHA2_VERSION,
         constants.KSERVE_PLURAL_LOCALMODELNODE,
         "minikube-m03",
     )
@@ -177,7 +177,7 @@ async def test_vllm_modelcache():
     with pytest.raises(ApiException):
         k8s_client.get_cluster_custom_object(
             constants.KSERVE_GROUP,
-            constants.KSERVE_V1ALPHA1_VERSION,
+            constants.KSERVE_V1ALPHA2_VERSION,
             constants.KSERVE_PLURAL_LOCALMODELNODE,
             "minikube",
         )
