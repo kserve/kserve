@@ -117,7 +117,7 @@ func (r *LLMISVCReconciler) validateGatewayReferences(ctx context.Context, llmSv
 	logger := log.FromContext(ctx).WithName("validateGatewayReferences")
 
 	// If no router or gateway configuration, skip validation
-	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Gateway == nil || !llmSvc.Spec.Router.Gateway.HasRefs() {
+	if llmSvc.Spec.Router == nil || !llmSvc.Spec.Router.Gateway.HasRefs() {
 		return nil
 	}
 
