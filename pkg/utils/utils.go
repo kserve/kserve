@@ -114,6 +114,20 @@ func PropagatePrefixedMap(source map[string]string, dest *map[string]string, pre
 	}
 }
 
+// PropagateMap copies all key-value pairs from source to dest.
+// Initializes dest if nil. No-op if source is empty.
+func PropagateMap(source map[string]string, dest *map[string]string) {
+	if len(source) == 0 {
+		return
+	}
+	if *dest == nil {
+		*dest = make(map[string]string, len(source))
+	}
+	for k, v := range source {
+		(*dest)[k] = v
+	}
+}
+
 // MergeEnvs Merge a slice of EnvVars (`O`) into another slice of EnvVars (`B`), which does the following:
 // 1. If an EnvVar is present in B but not in O, value remains unchanged in the result
 // 2. If an EnvVar is present in `O` but not in `B`, appends to the result

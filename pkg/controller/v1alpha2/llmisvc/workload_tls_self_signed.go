@@ -20,8 +20,10 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"maps"
@@ -34,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/network"
@@ -50,15 +53,12 @@ const (
 	// Certificate validity period and renewal settings
 	certificateDuration                      = time.Hour * 24 * 365 * 10 // 10 years
 	certificateExpirationRenewBufferDuration = certificateDuration / 5
-
-	// Annotation to track certificate expiration
-	certificatesExpirationAnnotation = "certificates.kserve.io/expiration"
 )
 
 // reconcileSelfSignedCertsSecret reconciles the secret containing self-signed certs used by the server to serve TLS.
-// These self signed certs are used for cluster internal communication encryption by the workload and the scheduler.
+// These self-signed certs are used for cluster internal communication encryption by the workload and the scheduler.
 // The certificates are automatically renewed before expiration to ensure continuous secure communication.
-func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, schedulerConfig *SchedulerConfig) error {
 	log.FromContext(ctx).Info("Reconciling self-signed certificates secret")
 
 	ips, err := r.collectIPAddresses(ctx, llmSvc)
@@ -72,13 +72,13 @@ func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, 
 	var certFunc createCertFunc = func() ([]byte, []byte, error) {
 		return createSelfSignedTLSCertificate(dnsNames, ips)
 	}
-	if curr := r.getExistingSelfSignedCertificate(ctx, llmSvc); curr != nil && !ShouldRecreateCertificate(curr, dnsNames, ips) {
+	if curr := r.getExistingSelfSignedCertificate(ctx, llmSvc); curr != nil && !ShouldRecreateCertificate(curr, dnsNames, ips, schedulerConfig.ExpirationAnnotations) {
 		certFunc = func() ([]byte, []byte, error) {
 			return curr.Data["tls.key"], curr.Data["tls.crt"], nil
 		}
 	}
 
-	expected, err := r.expectedSelfSignedCertsSecret(llmSvc, certFunc)
+	expected, err := r.expectedSelfSignedCertsSecret(llmSvc, certFunc, schedulerConfig)
 	if err != nil {
 		return fmt.Errorf("failed to get expected self-signed certificate secret: %w", err)
 	}
@@ -87,7 +87,7 @@ func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, 
 		return Delete(ctx, r, llmSvc, expected)
 	}
 
-	if err := Reconcile(ctx, r, llmSvc, &corev1.Secret{}, expected, SemanticCertificateSecretIsEqual); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &corev1.Secret{}, expected, NewSemanticCertificateSecretIsEqual(schedulerConfig.ExpirationAnnotations)); err != nil {
 		return fmt.Errorf("failed to reconcile self-signed TLS certificate: %w", err)
 	}
 	return nil
@@ -95,7 +95,7 @@ func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, 
 
 type createCertFunc func() ([]byte, []byte, error)
 
-func (r *LLMISVCReconciler) expectedSelfSignedCertsSecret(llmSvc *v1alpha2.LLMInferenceService, certFunc createCertFunc) (*corev1.Secret, error) {
+func (r *LLMISVCReconciler) expectedSelfSignedCertsSecret(llmSvc *v1alpha2.LLMInferenceService, certFunc createCertFunc, schedulerConfig *SchedulerConfig) (*corev1.Secret, error) {
 	keyBytes, certBytes, err := certFunc()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create self-signed TLS certificate: %w", err)
@@ -111,7 +111,7 @@ func (r *LLMISVCReconciler) expectedSelfSignedCertsSecret(llmSvc *v1alpha2.LLMIn
 				constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 			},
 			Annotations: map[string]string{
-				certificatesExpirationAnnotation: time.Now().
+				schedulerConfig.ExpirationAnnotations[0]: time.Now().
 					Add(certificateDuration - certificateExpirationRenewBufferDuration).
 					Format(time.RFC3339),
 			},
@@ -188,17 +188,39 @@ func (r *LLMISVCReconciler) getExistingSelfSignedCertificate(ctx context.Context
 	return curr
 }
 
-func isCertificateExpired(curr *corev1.Secret) bool {
-	expires, ok := curr.Annotations[certificatesExpirationAnnotation]
-	if ok {
-		t, err := time.Parse(time.RFC3339, expires)
-		return err == nil && time.Now().UTC().After(t.UTC())
+// getSelfSignedCertHash returns the SHA-256 hash of the current self-signed certificate data.
+// It returns an empty string when the secret does not exist yet.
+func (r *LLMISVCReconciler) getSelfSignedCertHash(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) string {
+	secret := r.getExistingSelfSignedCertificate(ctx, llmSvc)
+	if secret == nil {
+		return ""
+	}
+	return certDataHash(secret)
+}
+
+// certDataHash computes a SHA-256 hash over the certificate data in a TLS secret.
+func certDataHash(secret *corev1.Secret) string {
+	h := sha256.New()
+	h.Write(secret.Data["tls.crt"])
+	h.Write(secret.Data["tls.key"])
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+// isCertificateExpired checks all configured expiration annotation keys (first match wins).
+// Returns false when no annotation is found (the x509 NotAfter fallback is handled by
+// ShouldRecreateCertificate).
+func isCertificateExpired(curr *corev1.Secret, expirationAnnotations []string) bool {
+	for _, key := range expirationAnnotations {
+		if expires, ok := curr.Annotations[key]; ok {
+			t, err := time.Parse(time.RFC3339, expires)
+			return err == nil && time.Now().UTC().After(t.UTC())
+		}
 	}
 	return false
 }
 
-func ShouldRecreateCertificate(curr *corev1.Secret, expectedDNSNames []string, expectedIPs []string) bool {
-	if curr == nil || isCertificateExpired(curr) || len(curr.Data["tls.key"]) == 0 || len(curr.Data["tls.crt"]) == 0 {
+func ShouldRecreateCertificate(curr *corev1.Secret, expectedDNSNames []string, expectedIPs []string, expirationAnnotations []string) bool {
+	if curr == nil || isCertificateExpired(curr, expirationAnnotations) || len(curr.Data["tls.key"]) == 0 || len(curr.Data["tls.crt"]) == 0 {
 		return true
 	}
 
@@ -276,12 +298,27 @@ func (r *LLMISVCReconciler) collectDNSNames(ctx context.Context, llmSvc *v1alpha
 
 func (r *LLMISVCReconciler) collectIPAddresses(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) ([]string, error) {
 	pods := &corev1.PodList{}
+
+	// Exclude scheduler pods from IP collection. Scheduler pods connect via
+	// Service DNS (already covered by collectDNSNames), so their pod IPs are
+	// not needed in the certificate SANs. Not doing it would result in reconciliation
+	// storm: schedulers pod IP added to certs results in cert-hash changes that
+	// will restart scheduler with new pod (and IP), goto 1.
+	excludeScheduler, errReq := labels.NewRequirement(
+		constants.KubernetesComponentLabelKey,
+		selection.NotIn,
+		[]string{constants.LLMComponentRouterScheduler},
+	)
+	if errReq != nil {
+		return nil, errReq
+	}
+
 	listOptions := &client.ListOptions{
 		Namespace: llmSvc.Namespace,
 		LabelSelector: labels.SelectorFromSet(map[string]string{
 			constants.KubernetesAppNameLabelKey: llmSvc.Name,
 			constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
-		}),
+		}).Add(*excludeScheduler),
 	}
 
 	if err := r.List(ctx, pods, listOptions); err != nil {
@@ -312,19 +349,33 @@ func (r *LLMISVCReconciler) collectIPAddresses(ctx context.Context, llmSvc *v1al
 	return ips.List(), nil
 }
 
-// SemanticCertificateSecretIsEqual is a semantic comparison for secrets that is specifically meant to compare TLS
-// certificates secrets handling expiration and renewal.
-func SemanticCertificateSecretIsEqual(expected *corev1.Secret, curr *corev1.Secret) bool {
-	if isCertificateExpired(curr) {
-		return false
+// NewSemanticCertificateSecretIsEqual returns a SemanticEqual[*corev1.Secret] closure that
+// excludes all configured expiration annotation keys from the comparison. This prevents a
+// hot reconcile loop when the expected secret always carries a fresh timestamp.
+func NewSemanticCertificateSecretIsEqual(expirationAnnotations []string) SemanticEqual[*corev1.Secret] {
+	return func(expected *corev1.Secret, curr *corev1.Secret) bool {
+		if isCertificateExpired(curr, expirationAnnotations) {
+			return false
+		}
+
+		expectedAnnotations := maps.Clone(expected.Annotations)
+		for _, key := range expirationAnnotations {
+			delete(expectedAnnotations, key)
+		}
+
+		// DeepDerivative checks expectedAnnotations ⊆ curr.Annotations. This means
+		// extra keys on curr (e.g. a legacy expiration key from a previous version)
+		// are tolerated and do NOT trigger a spurious update.
+		return equality.Semantic.DeepDerivative(expected.Immutable, curr.Immutable) &&
+			equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
+			equality.Semantic.DeepDerivative(expectedAnnotations, curr.Annotations) &&
+			equality.Semantic.DeepDerivative(expected.Type, curr.Type) &&
+			equality.Semantic.DeepDerivative(expected.Data, curr.Data)
 	}
+}
 
-	expectedAnnotations := maps.Clone(expected.Annotations)
-	delete(expectedAnnotations, certificatesExpirationAnnotation)
-
-	return equality.Semantic.DeepDerivative(expected.Immutable, curr.Immutable) &&
-		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
-		equality.Semantic.DeepDerivative(expectedAnnotations, curr.Annotations) &&
-		equality.Semantic.DeepDerivative(expected.Type, curr.Type) &&
-		equality.Semantic.DeepDerivative(expected.Data, curr.Data)
+// SemanticCertificateSecretIsEqual is a convenience wrapper that uses the default expiration
+// annotation keys. Useful in tests and contexts where no custom config is available.
+func SemanticCertificateSecretIsEqual(expected *corev1.Secret, curr *corev1.Secret) bool {
+	return NewSemanticCertificateSecretIsEqual(DefaultExpirationAnnotations)(expected, curr)
 }

@@ -21,15 +21,16 @@ from fastapi import Request
 from vllm import AsyncEngineArgs
 from vllm.entrypoints.logger import RequestLogger
 from vllm.engine.protocol import EngineClient
-from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
-from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
-from vllm.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
-from vllm.entrypoints.openai.serving_score import ServingScores
-from vllm.entrypoints.openai.tool_parsers import ToolParserManager
-from vllm.entrypoints.openai.serving_models import BaseModelPath, OpenAIServingModels
+from vllm.entrypoints.openai.completion.serving import OpenAIServingCompletion
+from vllm.entrypoints.openai.chat_completion.serving import OpenAIServingChat
+from vllm.entrypoints.pooling.embed.serving import OpenAIServingEmbedding
+from vllm.entrypoints.pooling.score.serving import ServingScores
+from vllm.tool_parsers import ToolParserManager
+from vllm.entrypoints.openai.models.protocol import BaseModelPath
+from vllm.entrypoints.openai.models.serving import OpenAIServingModels
 from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
-from vllm.entrypoints.utils import process_chat_template
-from vllm.entrypoints.openai.protocol import ErrorResponse as engineError
+from vllm.entrypoints.chat_utils import load_chat_template
+from vllm.entrypoints.openai.engine.protocol import ErrorResponse as engineError
 from vllm.reasoning import ReasoningParserManager
 
 from kserve.protocol.rest.openai.errors import create_error_response
@@ -129,9 +130,7 @@ class VLLMModel(
             # Get supported tasks from engine
             supported_tasks = await self.engine_client.get_supported_tasks()
 
-            resolved_chat_template = await process_chat_template(
-                self.args.chat_template, self.engine_client, self.model_config
-            )
+            resolved_chat_template = load_chat_template(self.args.chat_template)
 
             self.openai_serving_models = OpenAIServingModels(
                 engine_client=self.engine_client,
