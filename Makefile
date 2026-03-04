@@ -570,3 +570,5 @@ apidocs:
 check-doc-links:
 	@python3 hack/verify-doc-links.py && echo "$@: OK"
 
+# Optional local/downstream overrides (ignored if absent)
+-include Makefile.overrides.mk
