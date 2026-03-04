@@ -178,3 +178,12 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelcaches
+  - localmodelnamespacecaches
+  verbs:
+  - get
+  - list
+  - watch

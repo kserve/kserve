@@ -4135,28 +4135,28 @@ func TestLocalModelPVC(t *testing.T) {
 			localModelLabel:          "bar",
 			localModelSourceUriLabel: "s3://foo",
 			pvcName:                  "model-h100",
-			expectedSubPath:          "models/bar/",
+			expectedSubPath:          "models/" + v1alpha1.GetStorageKey("s3://foo") + "/",
 		},
 		"extra / at the end": {
 			storageUri:               "s3://foo/",
 			localModelLabel:          "bar",
 			localModelSourceUriLabel: "s3://foo",
 			pvcName:                  "model-h100",
-			expectedSubPath:          "models/bar/",
+			expectedSubPath:          "models/" + v1alpha1.GetStorageKey("s3://foo") + "/",
 		},
 		"subfolder": {
 			storageUri:               "s3://foo/model1",
 			localModelLabel:          "bar",
 			localModelSourceUriLabel: "s3://foo",
 			pvcName:                  "model-h100",
-			expectedSubPath:          "models/bar/model1",
+			expectedSubPath:          "models/" + v1alpha1.GetStorageKey("s3://foo") + "/model1",
 		},
 		"subfolder2": {
 			storageUri:               "s3://foo/model1",
 			localModelLabel:          "bar",
 			localModelSourceUriLabel: "s3://foo/",
 			pvcName:                  "model-h100",
-			expectedSubPath:          "models/bar/model1",
+			expectedSubPath:          "models/" + v1alpha1.GetStorageKey("s3://foo/") + "/model1",
 		},
 	}
 

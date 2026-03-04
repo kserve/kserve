@@ -102,6 +102,14 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+      - name: Upload llmisvc controller image
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
   predictor-runtime-build:
     runs-on: ubuntu-latest
     steps:
@@ -1323,6 +1331,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ env.HUGGINGFACE_IMG }}-${{ env.TAG }}
+          path: /tmp-images
+
+      - name: Download sklearn server image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
           path: /tmp-images
 
       - name: Load runtime docker images

@@ -37,11 +37,22 @@ spec:
                   type: string
                 minItems: 1
                 type: array
+              serviceAccountName:
+                type: string
               sourceModelUri:
                 type: string
                 x-kubernetes-validations:
                 - message: StorageUri is immutable
                   rule: self == oldSelf
+              storage:
+                properties:
+                  key:
+                    type: string
+                  parameters:
+                    additionalProperties:
+                      type: string
+                    type: object
+                type: object
             required:
             - modelSize
             - nodeGroups
@@ -59,6 +70,15 @@ spec:
                     type: integer
                 type: object
               inferenceServices:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                  type: object
+                type: array
+              llmInferenceServices:
                 items:
                   properties:
                     name:

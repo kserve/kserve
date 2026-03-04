@@ -41,6 +41,7 @@ rules:
   - serving.kserve.io
   resources:
   - inferenceservices
+  - llminferenceservices
   - localmodelnodegroups
   verbs:
   - get
@@ -50,6 +51,7 @@ rules:
   - serving.kserve.io
   resources:
   - localmodelcaches
+  - localmodelnamespacecaches
   - localmodelnodes
   verbs:
   - create
@@ -63,6 +65,7 @@ rules:
   - serving.kserve.io
   resources:
   - localmodelcaches/status
+  - localmodelnamespacecaches/status
   verbs:
   - get
   - patch

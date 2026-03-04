@@ -203,6 +203,15 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelcaches
+  - localmodelnamespacecaches
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -372,6 +381,37 @@ spec:
     kind: Issuer
     name: selfsigned-issuer
   secretName: llmisvc-webhook-server-cert
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kserve/llmisvc-serving-cert
+  creationTimestamp: null
+  name: llminferenceservice.serving.kserve.io
+webhooks:
+- admissionReviewVersions:
+  - v1
+  - v1beta1
+  clientConfig:
+    service:
+      name: llmisvc-webhook-server-service
+      namespace: kserve
+      path: /mutate-serving-kserve-io-v1alpha2-llminferenceservice
+  failurePolicy: Fail
+  matchPolicy: Exact
+  name: llminferenceservice.kserve-webhook-server.defaulter
+  rules:
+  - apiGroups:
+    - serving.kserve.io
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - llminferenceservices
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration

@@ -35,9 +35,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	localmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel"
-	localmodelwebhook "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel/webhook"
+	localmodelwebhook "github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
+	localmodelnamespacecachewebhook "github.com/kserve/kserve/pkg/webhook/admission/localmodelnamespacecache"
 )
 
 var setupLog = ctrl.Log.WithName("setup")
@@ -131,6 +133,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	setupLog.Info("Setting up KServe v1alpha2 scheme")
+	if err := v1alpha2.AddToScheme(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add KServe v1alpha2 to scheme")
+		os.Exit(1)
+	}
+
 	setupLog.Info("Setting up core scheme")
 	if err := corev1.AddToScheme(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add Core APIs to scheme")
@@ -151,6 +159,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Setup LocalModelNamespaceCache controller
+	setupLog.Info("Setting up v1alpha1 LocalModelNamespaceCache controller")
+	if err = (&localmodelcontroller.LocalModelNamespaceCacheReconciler{
+		Client:    mgr.GetClient(),
+		Clientset: clientSet,
+		Log:       ctrl.Log.WithName("v1alpha1Controllers").WithName("LocalModelNamespaceCache"),
+		Scheme:    mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "LocalModelNamespaceCache")
+		os.Exit(1)
+	}
+
 	// Setup webhook
 	setupLog.Info("setting up webhook server")
 	if err = ctrl.NewWebhookManagedBy(mgr).
@@ -158,6 +178,14 @@ func main() {
 		WithValidator(&localmodelwebhook.LocalModelCacheValidator{Client: mgr.GetClient()}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "LocalModelCache")
+		os.Exit(1)
+	}
+
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha1.LocalModelNamespaceCache{}).
+		WithValidator(&localmodelnamespacecachewebhook.LocalModelNamespaceCacheValidator{Client: mgr.GetClient()}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "LocalModelNamespaceCache")
 		os.Exit(1)
 	}
 
