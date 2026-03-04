@@ -341,9 +341,9 @@ LLMINFERENCESERVICE_CONFIGS = {
                         # SSL disabled to match HTTP-only Gateway setup
                         # "--enable-ssl-refresh",
                         # "--ssl-certfile",
-                        # "/etc/ssl/certs/tls.crt",
+                        # "/var/run/kserve/tls/tls.crt",
                         # "--ssl-keyfile",
-                        # "/etc/ssl/certs/tls.key",
+                        # "/var/run/kserve/tls/tls.key",
                     ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
@@ -383,9 +383,9 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "8000",
                         "--enable-ssl-refresh",
                         "--ssl-certfile",
-                        "/etc/ssl/certs/tls.crt",
+                        "/var/run/kserve/tls/tls.crt",
                         "--ssl-keyfile",
-                        "/etc/ssl/certs/tls.key",
+                        "/var/run/kserve/tls/tls.key",
                     ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
@@ -622,9 +622,9 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "--mode",
                         "random",
                         # "--ssl-certfile",
-                        # "/etc/ssl/certs/tls.crt",
+                        # "/var/run/kserve/tls/tls.crt",
                         # "--ssl-keyfile",
-                        # "/etc/ssl/certs/tls.key",
+                        # "/var/run/kserve/tls/tls.key",
                     ],
                     "resources": {
                         "limits": {"cpu": "1", "memory": "2Gi"},

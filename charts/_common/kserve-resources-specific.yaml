@@ -1,0 +1,75 @@
+kserve:
+  controller:
+    deploymentMode: Knative
+    rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.18.0
+    rbacProxy:
+      resources:
+        limits:
+          cpu: 100m
+          memory: 300Mi
+        requests:
+          cpu: 100m
+          memory: 300Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+    labels: {}
+    podLabels: {}
+    annotations: {}
+    podAnnotations: {}
+    serviceAnnotations: {}
+    webhookServiceAnnotations: {}
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      privileged: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+    metricsBindAddress: 127.0.0.1
+    metricsBindPort: '8080'
+    gateway:
+      domain: example.com
+      additionalIngressDomains: []
+      domainTemplate: '{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}'
+      pathTemplate: ''
+      urlScheme: http
+      disableIstioVirtualHost: false
+      disableIngressCreation: false
+      localGateway:
+        gateway: knative-serving/knative-local-gateway
+        gatewayService: knative-local-gateway.istio-system.svc.cluster.local
+        knativeGatewayService: ''
+      ingressGateway:
+        enableGatewayApi: false
+        kserveGateway: kserve/kserve-ingress-gateway
+        createGateway: false
+        gateway: knative-serving/knative-ingress-gateway
+        className: istio
+    nodeSelector: {}
+    tolerations: []
+    topologySpreadConstraints: []
+    affinity: {}
+    image: kserve/kserve-controller
+    tag: ''
+    imagePullSecrets: []
+    resources:
+      limits:
+        cpu: 100m
+        memory: 300Mi
+      requests:
+        cpu: 100m
+        memory: 300Mi
+    knativeAddressableResolver:
+      enabled: false
+

@@ -1,0 +1,54 @@
+{{- if .Values.kserve.servingruntime.enabled }}
+{{- /* 1. Load base resources file */ -}}
+{{- $baseContent := .Files.Get "files/runtimes/resources.yaml" -}}
+
+{{- /* 2. Load and render patch file (this processes {{ .Values... }} templates) */ -}}
+{{- $patchRendered := tpl (.Files.Get "files/runtimes/clusterservingruntimes-patch.yaml") . -}}
+
+{{- /* 3. Parse base resources into a map by name */ -}}
+{{- $baseMap := dict -}}
+{{- range $obj := splitList "---" $baseContent -}}
+  {{- $trimmed := trim $obj -}}
+  {{- if $trimmed -}}
+    {{- $parsed := fromYaml $trimmed -}}
+    {{- if and $parsed $parsed.metadata $parsed.metadata.name -}}
+      {{- $name := $parsed.metadata.name -}}
+      {{- $_ := set $baseMap $name $parsed -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* 4. Parse rendered patch resources */ -}}
+{{- $patchMap := dict -}}
+{{- range $obj := splitList "---" $patchRendered -}}
+  {{- $trimmed := trim $obj -}}
+  {{- if $trimmed -}}
+    {{- $parsed := fromYaml $trimmed -}}
+    {{- if and $parsed $parsed.metadata $parsed.metadata.name -}}
+      {{- $name := $parsed.metadata.name -}}
+      {{- $_ := set $patchMap $name $parsed -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* 5. Merge patch into base using deep merge */ -}}
+{{- range $name, $patch := $patchMap -}}
+  {{- if hasKey $baseMap $name -}}
+    {{- $base := get $baseMap $name -}}
+    {{- $merged := include "kserve-common.deepMerge" (list $base $patch) | fromYaml -}}
+    {{- $_ := set $baseMap $name $merged -}}
+  {{- else -}}
+    {{- /* New resource from patch */ -}}
+    {{- $_ := set $baseMap $name $patch -}}
+  {{- end -}}
+{{- end -}}
+
+{{- /* 6. Output all merged resources */ -}}
+{{- range $name := keys $baseMap | sortAlpha }}
+{{- $resource := index $baseMap $name }}
+---
+{{ toYaml $resource }}
+{{ end -}}
+{{- end }}
+
+

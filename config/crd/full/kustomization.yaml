@@ -7,5 +7,5 @@ resources:
   - serving.kserve.io_clusterservingruntimes.yaml
   - serving.kserve.io_servingruntimes.yaml
   - serving.kserve.io_inferencegraphs.yaml
-  - serving.kserve.io_clusterstoragecontainers.yaml
+  - ./clusterstoragecontainer
 

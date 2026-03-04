@@ -58,7 +58,7 @@ FILE_NAME: test-install
 COMPONENTS:
   - name: kserve-helm
     env:
-      LLMISVC: "true"
+      ENABLE_LLMISVC: "true"
       NAMESPACE: "custom-ns"
 """
     definition_file = tmp_path / "test.definition"
@@ -68,7 +68,7 @@ COMPONENTS:
 
     assert len(result["components"]) == 1
     assert result["components"][0]["name"] == "kserve-helm"
-    assert result["components"][0]["env"]["LLMISVC"] == "true"
+    assert result["components"][0]["env"]["ENABLE_LLMISVC"] == "true"
     assert result["components"][0]["env"]["NAMESPACE"] == "custom-ns"
 
 
