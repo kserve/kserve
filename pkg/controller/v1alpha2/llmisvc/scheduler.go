@@ -368,15 +368,6 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		},
 	}
 
-	// Set a hash of the current certificate data on the pod template so that
-	// when certificates are renewed the pod template changes and the scheduler
-	// is restarted to pick up the new certificate.
-	if h := r.getSelfSignedCertHash(ctx, llmSvc); h != "" {
-		d.Spec.Template.Annotations = map[string]string{
-			certificateHashAnnotation: h,
-		}
-	}
-
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
 		curr := &appsv1.Deployment{}
 		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
@@ -385,22 +376,41 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 
 		d.Spec.Replicas = llmSvc.Spec.Router.Scheduler.Replicas
 		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
-		for i := range d.Spec.Template.Spec.Containers {
-			if d.Spec.Template.Spec.Containers[i].Name != "main" {
-				continue
-			}
+
+		mainIdx := slices.IndexFunc(d.Spec.Template.Spec.Containers, func(c corev1.Container) bool {
+			return c.Name == "main"
+		})
+		if mainIdx < 0 {
+			log.FromContext(ctx).Info("Scheduler template does not have a container named \"main\", skipping arg injection")
+		}
+
+		if mainIdx >= 0 {
+			mainContainer := &d.Spec.Template.Spec.Containers[mainIdx]
 
 			if d.Spec.Replicas != nil && *d.Spec.Replicas > 1 &&
-				!slices.Contains(d.Spec.Template.Spec.Containers[i].Args, "--ha-enable-leader-election") &&
-				!slices.Contains(d.Spec.Template.Spec.Containers[i].Args, "-ha-enable-leader-election") {
-				d.Spec.Template.Spec.Containers[i].Args = append(d.Spec.Template.Spec.Containers[i].Args,
+				!slices.Contains(mainContainer.Args, "--ha-enable-leader-election") &&
+				!slices.Contains(mainContainer.Args, "-ha-enable-leader-election") {
+				mainContainer.Args = append(mainContainer.Args,
 					"--ha-enable-leader-election",
 				)
 			}
 
-			d.Spec.Template.Spec.Containers[i].Args = append(d.Spec.Template.Spec.Containers[i].Args,
+			mainContainer.Args = append(mainContainer.Args,
 				preserveSchedulerConfig(llmSvc, curr)...,
 			)
+
+			// Set a hash of the current certificate data on the pod template so that
+			// when certificates are renewed the pod template changes and the scheduler
+			// is restarted to pick up the new certificate.
+			// Skip if the main container supports and use automatic cert reload.
+			if !slices.Contains(mainContainer.Args, "--enable-cert-reload") {
+				if h := r.getSelfSignedCertHash(ctx, llmSvc); h != "" {
+					if d.Spec.Template.Annotations == nil {
+						d.Spec.Template.Annotations = map[string]string{}
+					}
+					d.Spec.Template.Annotations[certificateHashAnnotation] = h
+				}
+			}
 		}
 	}
 
