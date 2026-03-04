@@ -90,9 +90,9 @@ type Config struct {
 
 	// Storage and credential configs are excluded from JSON serialization
 	// as they contain sensitive information
-	StorageConfig     *types.StorageInitializerConfig `json:"-"`
-	CredentialConfig  *credentials.CredentialConfig   `json:"-"`
-	SchedulerConfig   *SchedulerConfig                `json:"-"`
+	StorageConfig    *types.StorageInitializerConfig `json:"-"`
+	CredentialConfig *credentials.CredentialConfig   `json:"-"`
+	SchedulerConfig  *SchedulerConfig                `json:"-"`
 }
 
 // NewConfig creates an instance of llm-specific config based on predefined values
@@ -114,8 +114,8 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		IngressGatewayName:      igwName,
 		UrlScheme:               ingressConfig.UrlScheme,
 		StorageConfig:           storageConfig,
-		CredentialConfig:  credentialConfig,
-		SchedulerConfig:   schedulerConfig,
+		CredentialConfig:        credentialConfig,
+		SchedulerConfig:         schedulerConfig,
 	}
 }
 

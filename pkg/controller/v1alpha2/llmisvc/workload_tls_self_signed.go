@@ -53,7 +53,6 @@ const (
 	// Certificate validity period and renewal settings
 	certificateDuration                      = time.Hour * 24 * 365 * 10 // 10 years
 	certificateExpirationRenewBufferDuration = certificateDuration / 5
-
 )
 
 // reconcileSelfSignedCertsSecret reconciles the secret containing self-signed certs used by the server to serve TLS.

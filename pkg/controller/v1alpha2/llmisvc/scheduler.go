@@ -368,6 +368,7 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		},
 	}
 
+	mainIdx := -1
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
 		curr := &appsv1.Deployment{}
 		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
@@ -377,7 +378,7 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		d.Spec.Replicas = llmSvc.Spec.Router.Scheduler.Replicas
 		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
 
-		mainIdx := slices.IndexFunc(d.Spec.Template.Spec.Containers, func(c corev1.Container) bool {
+		mainIdx = slices.IndexFunc(d.Spec.Template.Spec.Containers, func(c corev1.Container) bool {
 			return c.Name == "main"
 		})
 		if mainIdx < 0 {
@@ -398,23 +399,23 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 			mainContainer.Args = append(mainContainer.Args,
 				preserveSchedulerConfig(llmSvc, curr)...,
 			)
-
-			// Set a hash of the current certificate data on the pod template so that
-			// when certificates are renewed the pod template changes and the scheduler
-			// is restarted to pick up the new certificate.
-			// Skip if the main container supports and use automatic cert reload.
-			if !slices.Contains(mainContainer.Args, "--enable-cert-reload") {
-				if h := r.getSelfSignedCertHash(ctx, llmSvc); h != "" {
-					if d.Spec.Template.Annotations == nil {
-						d.Spec.Template.Annotations = map[string]string{}
-					}
-					d.Spec.Template.Annotations[schedulerConfig.RestartAnnotation] = h
-				}
-			}
 		}
 	}
 
 	r.propagateSchedulerMetadata(llmSvc, d)
+
+	// Set a hash of the current certificate data on the pod template so that
+	// when certificates are renewed the pod template changes and the scheduler
+	// is restarted to pick up the new certificate.
+	// Skip if the main container supports automatic cert reload.
+	if mainIdx >= 0 && !slices.Contains(d.Spec.Template.Spec.Containers[mainIdx].Args, "--enable-cert-reload") {
+		if h := r.getSelfSignedCertHash(ctx, llmSvc); h != "" {
+			if d.Spec.Template.Annotations == nil {
+				d.Spec.Template.Annotations = map[string]string{}
+			}
+			d.Spec.Template.Annotations[schedulerConfig.RestartAnnotation] = h
+		}
+	}
 
 	log.FromContext(ctx).V(2).Info("Expected router scheduler deployment", "deployment", d)
 
