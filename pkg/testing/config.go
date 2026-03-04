@@ -90,15 +90,10 @@ func (e *Config) WithWebhooks(setupFunc ...SetupFunc) *Config {
 	return e
 }
 
-// Start wires controller-runtime manager with controllers which are subject of the tests
-// and starts Kubernetes EnvTest to verify their behavior.
-func (e *Config) Start(ctx context.Context) *Client {
-	opts := zap.Options{
-		Development: true,
-		TimeEncoder: zapcore.TimeEncoderOfLayout(time.RFC3339),
-	}
-	logf.SetLogger(zap.New(zap.WriteTo(ginkgo.GinkgoWriter), zap.UseFlagOptions(&opts)))
-
+// BuildEnvironment constructs the envtest.Environment from the configured options
+// without starting it. This is useful for TestMain-based suites that manage the
+// environment lifecycle directly (without Ginkgo).
+func (e *Config) BuildEnvironment() *envtest.Environment {
 	envTest := &envtest.Environment{
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			ErrorIfPathMissing: true,
@@ -110,6 +105,20 @@ func (e *Config) Start(ctx context.Context) *Client {
 	for _, opt := range e.envTestOptions {
 		opt(envTest)
 	}
+
+	return envTest
+}
+
+// Start wires controller-runtime manager with controllers which are subject of the tests
+// and starts Kubernetes EnvTest to verify their behavior.
+func (e *Config) Start(ctx context.Context) *Client {
+	opts := zap.Options{
+		Development: true,
+		TimeEncoder: zapcore.TimeEncoderOfLayout(time.RFC3339),
+	}
+	logf.SetLogger(zap.New(zap.WriteTo(ginkgo.GinkgoWriter), zap.UseFlagOptions(&opts)))
+
+	envTest := e.BuildEnvironment()
 
 	cfg, errStart := envTest.Start()
 	gomega.Expect(errStart).NotTo(gomega.HaveOccurred())
