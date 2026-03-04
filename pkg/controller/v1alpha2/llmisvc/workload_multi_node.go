@@ -125,7 +125,7 @@ func (r *LLMISVCReconciler) propagateLeaderWorkerSetStatus(ctx context.Context, 
 		}
 	}
 	logger.Info("LeaderWorkerSet processed")
-	notReady(string(lwsapi.LeaderWorkerSetProgressing), "")
+	notReady(string(lwsapi.LeaderWorkerSetProgressing), "LWS is progressing")
 	return nil
 }
 

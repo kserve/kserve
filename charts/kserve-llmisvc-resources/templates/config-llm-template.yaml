@@ -47,7 +47,6 @@ spec:
             path: /health
             port: 8000
             scheme: HTTP
-          initialDelaySeconds: 120
           periodSeconds: 10
           timeoutSeconds: 10
           failureThreshold: 3
@@ -56,10 +55,16 @@ spec:
             path: /health
             port: 8000
             scheme: HTTP
-          initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 60
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          failureThreshold: 60
+          periodSeconds: 10
         volumeMounts:
           - mountPath: /home
             name: home

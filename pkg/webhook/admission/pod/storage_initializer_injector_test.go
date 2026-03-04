@@ -1333,6 +1333,109 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 				gomega.HaveOccurred(),
 			},
 		},
+		{
+			name: "Empty Modelcar Fields Should Not Cause Validation Error",
+			configMap: &corev1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					v1beta1.StorageInitializerConfigMapKeyName: `{
+						"Image":                   "gcr.io/kserve/storage-initializer:latest",
+						"CpuRequest":              "100m",
+						"CpuLimit":                "1",
+						"MemoryRequest":           "200Mi",
+						"MemoryLimit":             "1Gi",
+						"CpuModelcar":             "",
+						"MemoryModelcar":          "",
+						"CaBundleConfigMapName":   "",
+						"CaBundleVolumeMountPath": "/etc/ssl/custom-certs"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&kserveTypes.StorageInitializerConfig{
+					Image:                   "gcr.io/kserve/storage-initializer:latest",
+					CpuRequest:              "100m",
+					CpuLimit:                "1",
+					MemoryRequest:           "200Mi",
+					MemoryLimit:             "1Gi",
+					CpuModelcar:             "",
+					MemoryModelcar:          "",
+					CaBundleConfigMapName:   "",
+					CaBundleVolumeMountPath: "/etc/ssl/custom-certs",
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Missing Modelcar Fields Should Not Cause Validation Error",
+			configMap: &corev1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					v1beta1.StorageInitializerConfigMapKeyName: `{
+						"Image":                   "gcr.io/kserve/storage-initializer:latest",
+						"CpuRequest":              "100m",
+						"CpuLimit":                "1",
+						"MemoryRequest":           "200Mi",
+						"MemoryLimit":             "1Gi",
+						"CaBundleConfigMapName":   "",
+						"CaBundleVolumeMountPath": "/etc/ssl/custom-certs"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&kserveTypes.StorageInitializerConfig{
+					Image:                   "gcr.io/kserve/storage-initializer:latest",
+					CpuRequest:              "100m",
+					CpuLimit:                "1",
+					MemoryRequest:           "200Mi",
+					MemoryLimit:             "1Gi",
+					CpuModelcar:             "",
+					MemoryModelcar:          "",
+					CaBundleConfigMapName:   "",
+					CaBundleVolumeMountPath: "/etc/ssl/custom-certs",
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Invalid Non-Empty Modelcar Fields Should Cause Validation Error",
+			configMap: &corev1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					v1beta1.StorageInitializerConfigMapKeyName: `{
+						"Image":                   "gcr.io/kserve/storage-initializer:latest",
+						"CpuRequest":              "100m",
+						"CpuLimit":                "1",
+						"MemoryRequest":           "200Mi",
+						"MemoryLimit":             "1Gi",
+						"CpuModelcar":             "invalid",
+						"MemoryModelcar":          "50Mi",
+						"CaBundleConfigMapName":   "",
+						"CaBundleVolumeMountPath": "/etc/ssl/custom-certs"
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&kserveTypes.StorageInitializerConfig{
+					Image:                   "gcr.io/kserve/storage-initializer:latest",
+					CpuRequest:              "100m",
+					CpuLimit:                "1",
+					MemoryRequest:           "200Mi",
+					MemoryLimit:             "1Gi",
+					CpuModelcar:             "invalid",
+					MemoryModelcar:          "50Mi",
+					CaBundleConfigMapName:   "",
+					CaBundleVolumeMountPath: "/etc/ssl/custom-certs",
+				}),
+				gomega.HaveOccurred(),
+			},
+		},
 	}
 
 	for _, tc := range cases {

@@ -64,7 +64,11 @@ var (
 	sourceUri           = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
 	logMode             = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
 	logStorePath        = flag.String("log-store-path", "", "The path to the log output")
-	logStoreFormat      = flag.String("log-store-format", "json", "Format for log output, 'json' or 'yaml'")
+	logStoreFormat      = flag.String("log-store-format", "", "Deprecated: format is now determined by the marshaller service")
+	logMarshallerUrl    = flag.String("log-marshaller-url", "http://localhost:9083/marshal", "URL of the log marshaller service")
+	logMarshallerPort   = flag.Int("log-marshaller-port", 9083, "Port for the embedded log marshaller HTTP server")
+	logBatchSize        = flag.Int("log-batch-size", 1, "Number of log records per batch for blob storage")
+	logBatchInterval    = flag.Duration("log-batch-interval", 0, "Max time to wait before flushing a partial batch")
 	inferenceService    = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
 	namespace           = flag.String("namespace", "", "The namespace to add as header to log events")
 	endpoint            = flag.String("endpoint", "", "The endpoint name to add as header to log events")
@@ -155,7 +159,8 @@ func main() {
 	var loggerArgs *loggerArgs
 	if *logUrl != "" {
 		logger.Info("Starting logger")
-		loggerArgs = startLogger(*workers, logStorePath, logStoreFormat, logger)
+		loggerArgs = startLogger(*workers, logStorePath, *logMarshallerUrl, *logMarshallerPort,
+			*logBatchSize, *logBatchInterval, logger)
 	}
 
 	var batcherArgs *batcherArgs
@@ -266,7 +271,9 @@ func startBatcher(logger *zap.SugaredLogger) *batcherArgs {
 	}
 }
 
-func startLogger(workers int, logStorePath *string, logStoreFormat *string, log *zap.SugaredLogger) *loggerArgs {
+func startLogger(workers int, logStorePath *string, marshallerUrl string, marshallerPort int,
+	batchSize int, batchInterval time.Duration, log *zap.SugaredLogger,
+) *loggerArgs {
 	loggingMode := v1beta1.LoggerType(*logMode)
 	switch loggingMode {
 	case v1beta1.LogAll, v1beta1.LogRequest, v1beta1.LogResponse:
@@ -291,6 +298,10 @@ func startLogger(workers int, logStorePath *string, logStoreFormat *string, log 
 		os.Exit(-1)
 	}
 
+	if *logStoreFormat != "" {
+		log.Warnf("--log-store-format is deprecated and will be removed in a future release; format is now determined by the marshaller service (ignoring value %q)", *logStoreFormat)
+	}
+
 	annotationKVPair := map[string]string{}
 	for _, annotations := range *metadataAnnotations {
 		k, v, found := strings.Cut(annotations, "=")
@@ -302,11 +313,41 @@ func startLogger(workers int, logStorePath *string, logStoreFormat *string, log 
 		}
 	}
 
+	// Select BatchStrategy based on flags.
+	var batchStrategy kfslogger.BatchStrategy
+	switch {
+	case batchSize > 1 && batchInterval > 0:
+		batchStrategy = kfslogger.NewTimedBatch(batchSize, batchInterval)
+	case batchSize > 1:
+		batchStrategy = kfslogger.NewSizeBatch(batchSize)
+	default:
+		batchStrategy = &kfslogger.ImmediateBatch{}
+	}
+
 	var store kfslogger.Store
 	if kfslogger.GetStorageStrategy(*logUrl) != kfslogger.HttpStorage {
-		if logStoreFormat != nil && *logStoreFormat != "" && logStorePath != nil && *logStorePath != "" {
-			log.Infow("Logger storage is enabled", "path", logStorePath, "logStoreFormat", logStoreFormat)
-			store, err = kfslogger.NewStoreForScheme(logUrlParsed.Scheme, *logStorePath, *logStoreFormat, log)
+		if logStorePath != nil && *logStorePath != "" {
+			// Start the embedded JSON marshaller HTTP server only when blob storage is needed.
+			marshallerHandler := kfslogger.NewJSONMarshallerHandler()
+			marshallerAddr := fmt.Sprintf(":%d", marshallerPort)
+			marshallerServer := &http.Server{
+				Addr:              marshallerAddr,
+				Handler:           marshallerHandler,
+				ReadHeaderTimeout: 30 * time.Second,
+			}
+			go func() {
+				log.Infof("Starting embedded log marshaller server on %s", marshallerAddr)
+				if err := marshallerServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+					log.Errorf("Log marshaller server failed: %v", err)
+				}
+			}()
+
+			// Create HTTPMarshaller client pointing to the configured URL.
+			httpClient := &http.Client{Timeout: 30 * time.Second}
+			marshaller := kfslogger.NewHTTPMarshaller(marshallerUrl, httpClient)
+
+			log.Infow("Logger storage is enabled", "path", *logStorePath, "marshallerUrl", marshallerUrl)
+			store, err = kfslogger.NewStoreForScheme(logUrlParsed.Scheme, *logStorePath, marshaller, log)
 			if err != nil {
 				log.Errorw("Error creating logger store", zap.Error(err))
 				os.Exit(-1)
@@ -315,7 +356,7 @@ func startLogger(workers int, logStorePath *string, logStoreFormat *string, log 
 	}
 
 	log.Info("Starting the log dispatcher")
-	kfslogger.StartDispatcher(workers, store, log)
+	kfslogger.StartDispatcher(workers, store, batchStrategy, log)
 	return &loggerArgs{
 		loggerType:       loggingMode,
 		logUrl:           logUrlParsed,

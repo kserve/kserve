@@ -81,3 +81,6 @@ test/scripts/openshift-ci/run*.log
 
 # Generated Custom Certs
 test/scripts/openshift-ci/tls/certs
+
+# Claude code
+.claude/

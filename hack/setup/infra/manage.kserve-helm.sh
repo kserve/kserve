@@ -250,11 +250,11 @@ install() {
             log_info "  - ${update}"
         done
         update_isvc_config "${config_updates[@]}"
-        if [ "${LLMISVC}" != "true" ]; then
+        if [ $(is_positive ${LLMISVC}) = "1" ]; then
             kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
         fi
     else
-        if [ "${LLMISVC}" = "true" ]; then
+        if [ $(is_positive ${LLMISVC}) = "0" ]; then
             log_info "No configuration updates needed for LLMISVC (GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
         else
             log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"

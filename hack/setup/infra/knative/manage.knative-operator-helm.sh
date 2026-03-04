@@ -66,7 +66,14 @@ fi
 
 uninstall() {
     log_info "Uninstalling Knative Serving..."
-    kubectl delete -f "${TEMPLATE_DIR}/knative-serving-${NETWORK_LAYER}.yaml" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
+
+    if [ "$EMBED_TEMPLATES" = "true" ]; then
+        get_knative_serving_${NETWORK_LAYER} | \
+            kubectl delete -f - --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
+    else
+        kubectl delete -f "${TEMPLATE_DIR}/knative-serving-${NETWORK_LAYER}.yaml" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
+    fi
+
     kubectl delete all --all -n "${SERVING_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
     kubectl delete namespace "${SERVING_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
 
@@ -127,19 +134,30 @@ install() {
 
     log_info "Deploying Knative Serving ${KNATIVE_SERVING_VERSION} with ${NETWORK_LAYER} network layer..."
 
-    TEMPLATE_FILE="${TEMPLATE_DIR}/knative-serving-${NETWORK_LAYER}.yaml"
-
-    if [[ ! -f "${TEMPLATE_FILE}" ]]; then
-        log_error "Template file not found: ${TEMPLATE_FILE}"
-        exit 1
-    fi
-
-    if [[ "${KNATIVE_SERVING_VERSION}" != "1.15.2" ]]; then
-        log_info "Customizing template with version=${KNATIVE_SERVING_VERSION}"
-        sed -e "s/version: \".*\"/version: \"${KNATIVE_SERVING_VERSION}\"/" \
-            "${TEMPLATE_FILE}" | kubectl apply -f -
+    if [ "$EMBED_TEMPLATES" = "true" ]; then
+        if [[ "${KNATIVE_SERVING_VERSION}" != "1.15.2" ]]; then
+            log_info "Customizing template with version=${KNATIVE_SERVING_VERSION}"
+            get_knative_serving_${NETWORK_LAYER} | \
+                sed -e "s/version: \".*\"/version: \"${KNATIVE_SERVING_VERSION}\"/" | \
+                kubectl apply --server-side -f -
+        else
+            get_knative_serving_${NETWORK_LAYER} | kubectl apply --server-side -f -
+        fi
     else
-        kubectl apply -f "${TEMPLATE_FILE}"
+        TEMPLATE_FILE="${TEMPLATE_DIR}/knative-serving-${NETWORK_LAYER}.yaml"
+
+        if [[ ! -f "${TEMPLATE_FILE}" ]]; then
+            log_error "Template file not found: ${TEMPLATE_FILE}"
+            exit 1
+        fi
+
+        if [[ "${KNATIVE_SERVING_VERSION}" != "1.15.2" ]]; then
+            log_info "Customizing template with version=${KNATIVE_SERVING_VERSION}"
+            sed -e "s/version: \".*\"/version: \"${KNATIVE_SERVING_VERSION}\"/" \
+                "${TEMPLATE_FILE}" | kubectl apply -f -
+        else
+            kubectl apply -f "${TEMPLATE_FILE}"
+        fi
     fi
 
     log_success "Knative Serving CR applied"
