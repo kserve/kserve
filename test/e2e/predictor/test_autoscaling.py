@@ -78,7 +78,7 @@ async def test_sklearn_kserve_concurrency(rest_v1_client):
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-continu
+
     # Knative Serving v1.21+ no longer propagates autoscaling annotations to pods.
     # Check the Knative Service revision template annotations instead.
     ksvc = kserve_client.api_instance.get_namespaced_custom_object(
