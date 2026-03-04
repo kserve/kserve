@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap" //nolint:depguard // zap.Options type needed for option parsing assertions
 )
 
 func TestGetOptions(t *testing.T) {

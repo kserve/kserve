@@ -28,10 +28,9 @@ import (
 
 	"github.com/onsi/gomega"
 	pkglogging "knative.dev/pkg/logging"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 )
 
 func TestLogger(t *testing.T) {
@@ -68,7 +67,7 @@ func TestLogger(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
-	logf.SetLogger(zap.New())
+	pkgtest.SetupTestLogger()
 	logSvcUrl, err := url.Parse(logSvc.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	sourceUri, err := url.Parse("http://localhost:9081/")
@@ -140,7 +139,7 @@ func TestLoggerWithMetadata(t *testing.T) {
 	r.Header.Add("Fizz", "buzz")
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
-	logf.SetLogger(zap.New())
+	pkgtest.SetupTestLogger()
 	logSvcUrl, err := url.Parse(logSvc.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	sourceUri, err := url.Parse("http://localhost:9081/")
@@ -212,7 +211,7 @@ func TestLoggerWithAnnotation(t *testing.T) {
 	r.Header.Add("Fizz", "buzz")
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
-	logf.SetLogger(zap.New())
+	pkgtest.SetupTestLogger()
 	logSvcUrl, err := url.Parse(logSvc.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	sourceUri, err := url.Parse("http://localhost:9081/")
@@ -257,7 +256,7 @@ func TestBadResponse(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
-	logf.SetLogger(zap.New())
+	pkgtest.SetupTestLogger()
 	logSvcUrl, err := url.Parse("http://loggersvc")
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 	sourceUri, err := url.Parse("http://localhost:9081/")
@@ -309,7 +308,7 @@ func TestLoggerWithS3Store(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
-	logf.SetLogger(zap.New())
+	pkgtest.SetupTestLogger()
 
 	r.Header.Add("Foo", "bar")
 
