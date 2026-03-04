@@ -164,7 +164,7 @@ if skip_serverless "$1"; then
 
   # Patch DSC only in manual mode (operator mode uses yaml files directly)
   if [[ "$INSTALL_ODH_OPERATOR" == "false" ]]; then
-    oc patch DataScienceCluster test-dsc --type='json' -p='[{"op": "replace", "path": "/spec/components/kserve/defaultDeploymentMode", "value": "RawDeployment"}]'
+    oc patch datascienceclusters.datasciencecluster.opendatahub.io/test-dsc --type='json' -p='[{"op": "replace", "path": "/spec/components/kserve/defaultDeploymentMode", "value": "RawDeployment"}]'
   fi
 else
   export OPENSHIFT_INGRESS_DOMAIN=$(oc get ingresses.config cluster -o jsonpath='{.spec.domain}')
