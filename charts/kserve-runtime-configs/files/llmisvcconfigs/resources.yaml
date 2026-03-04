@@ -68,7 +68,7 @@ spec:
         name: dshm
       - mountPath: /models
         name: model-cache
-      - mountPath: /etc/ssl/certs
+      - mountPath: /var/run/kserve/tls
         name: tls-certs
         readOnly: true
     initContainers:
@@ -118,7 +118,7 @@ spec:
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
       volumeMounts:
-      - mountPath: /etc/ssl/certs
+      - mountPath: /var/run/kserve/tls
         name: tls-certs
         readOnly: true
     terminationGracePeriodSeconds: 30
@@ -285,9 +285,9 @@ spec:
           # BackendTLSPolicy is not implemented yet so disable SSL for now
           # --enable-ssl-refresh \
           # --ssl-certfile \
-          # /etc/ssl/certs/tls.crt \
+          # /var/run/kserve/tls/tls.crt \
           # --ssl-keyfile \
-          # /etc/ssl/certs/tls.key"
+          # /var/run/kserve/tls/tls.key"
       - --
       env:
       - name: HOME
@@ -347,7 +347,7 @@ spec:
         name: dshm
       - mountPath: /models
         name: model-cache
-      - mountPath: /etc/ssl/certs
+      - mountPath: /var/run/kserve/tls
         name: tls-certs
         readOnly: true
     initContainers:
@@ -398,7 +398,7 @@ spec:
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
       volumeMounts:
-      - mountPath: /etc/ssl/certs
+      - mountPath: /var/run/kserve/tls
         name: tls-certs
         readOnly: true
     terminationGracePeriodSeconds: 30
@@ -558,9 +558,9 @@ spec:
           # BackendTLSPolicy is not implemented yet so disable SSL for now
           # --enable-ssl-refresh \
           # --ssl-certfile \
-          # /etc/ssl/certs/tls.crt \
+          # /var/run/kserve/tls/tls.crt \
           # --ssl-keyfile \
-          # /etc/ssl/certs/tls.key"
+          # /var/run/kserve/tls/tls.key"
       - --
       env:
       - name: HOME
@@ -599,7 +599,7 @@ spec:
         name: dshm
       - mountPath: /models
         name: model-cache
-      - mountPath: /etc/ssl/certs
+      - mountPath: /var/run/kserve/tls
         name: tls-certs
         readOnly: true
     terminationGracePeriodSeconds: 30
@@ -687,7 +687,7 @@ spec:
           name: dshm
         - mountPath: /models
           name: model-cache
-        - mountPath: /etc/ssl/certs
+        - mountPath: /var/run/kserve/tls
           name: tls-certs
           readOnly: true
       terminationGracePeriodSeconds: 30
@@ -855,9 +855,9 @@ spec:
             # BackendTLSPolicy is not implemented yet so disable SSL for now
             # --enable-ssl-refresh \
             # --ssl-certfile \
-            # /etc/ssl/certs/tls.crt \
+            # /var/run/kserve/tls/tls.crt \
             # --ssl-keyfile \
-            # /etc/ssl/certs/tls.key"
+            # /var/run/kserve/tls/tls.key"
         - --
         env:
         - name: HOME
@@ -917,7 +917,7 @@ spec:
           name: dshm
         - mountPath: /models
           name: model-cache
-        - mountPath: /etc/ssl/certs
+        - mountPath: /var/run/kserve/tls
           name: tls-certs
           readOnly: true
       terminationGracePeriodSeconds: 30
@@ -1077,9 +1077,9 @@ spec:
             # BackendTLSPolicy is not implemented yet so disable SSL for now
             # --enable-ssl-refresh \
             # --ssl-certfile \
-            # /etc/ssl/certs/tls.crt \
+            # /var/run/kserve/tls/tls.crt \
             # --ssl-keyfile \
-            # /etc/ssl/certs/tls.key"
+            # /var/run/kserve/tls/tls.key"
         - --
         env:
         - name: HOME
@@ -1116,7 +1116,7 @@ spec:
           name: dshm
         - mountPath: /models
           name: model-cache
-        - mountPath: /etc/ssl/certs
+        - mountPath: /var/run/kserve/tls
           name: tls-certs
           readOnly: true
       terminationGracePeriodSeconds: 30
@@ -1294,7 +1294,7 @@ spec:
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: FallbackToLogsOnError
           volumeMounts:
-          - mountPath: /etc/ssl/certs
+          - mountPath: /var/run/kserve/tls
             name: tls-certs
             readOnly: true
         dnsPolicy: ClusterFirst
@@ -1376,7 +1376,7 @@ spec:
         name: dshm
       - mountPath: /models
         name: model-cache
-      - mountPath: /etc/ssl/certs
+      - mountPath: /var/run/kserve/tls
         name: tls-certs
         readOnly: true
     terminationGracePeriodSeconds: 30
@@ -1543,9 +1543,9 @@ spec:
           # BackendTLSPolicy is not implemented yet so disable SSL for now
           # --enable-ssl-refresh \
           # --ssl-certfile \
-          # /etc/ssl/certs/tls.crt \
+          # /var/run/kserve/tls/tls.crt \
           # --ssl-keyfile \
-          # /etc/ssl/certs/tls.key"
+          # /var/run/kserve/tls/tls.key"
       - --
       env:
       - name: HOME
@@ -1605,7 +1605,7 @@ spec:
         name: dshm
       - mountPath: /models
         name: model-cache
-      - mountPath: /etc/ssl/certs
+      - mountPath: /var/run/kserve/tls
         name: tls-certs
         readOnly: true
     terminationGracePeriodSeconds: 30
@@ -1765,9 +1765,9 @@ spec:
           # BackendTLSPolicy is not implemented yet so disable SSL for now
           # --enable-ssl-refresh \
           # --ssl-certfile \
-          # /etc/ssl/certs/tls.crt \
+          # /var/run/kserve/tls/tls.crt \
           # --ssl-keyfile \
-          # /etc/ssl/certs/tls.key
+          # /var/run/kserve/tls/tls.key
       - --
       env:
       - name: HOME
@@ -1804,7 +1804,7 @@ spec:
         name: dshm
       - mountPath: /models
         name: model-cache
-      - mountPath: /etc/ssl/certs
+      - mountPath: /var/run/kserve/tls
         name: tls-certs
         readOnly: true
     terminationGracePeriodSeconds: 30
