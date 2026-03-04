@@ -206,11 +206,11 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	// We are only writing to status, so we can safely use the original object.
 	llmSvc.Spec = baseCfg.Spec
 
-	if err := r.reconcileWorkload(ctx, llmSvc, config, config.SchedulerConfig); err != nil {
+	if err := r.reconcileWorkload(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile workload: %w", err)
 	}
 
-	if err := r.reconcileRouter(ctx, llmSvc, config.SchedulerConfig); err != nil {
+	if err := r.reconcileRouter(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile networking: %w", err)
 	}
 

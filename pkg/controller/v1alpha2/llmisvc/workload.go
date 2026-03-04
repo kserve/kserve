@@ -50,7 +50,7 @@ var sidecarSSRFProtectionRules = []rbacv1.PolicyRule{
 
 // reconcileWorkload manages the Deployments and Services for the LLM.
 // It handles standard, multi-node, and disaggregated (prefill/decode) deployment patterns.
-func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, schedulerConfig *SchedulerConfig) error {
+func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
 	logger := log.FromContext(ctx).WithName("reconcileWorkload")
 	ctx = log.IntoContext(ctx, logger)
 
@@ -64,7 +64,7 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	}
 
 	// Set up TLS certificates for secure communication
-	if err := r.reconcileSelfSignedCertsSecret(ctx, llmSvc, schedulerConfig); err != nil {
+	if err := r.reconcileSelfSignedCertsSecret(ctx, llmSvc, config.SchedulerConfig); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileCertsError", err.Error())
 		return fmt.Errorf("failed to reconcile self-signed certificates secret: %w", err)
 	}
