@@ -17,7 +17,7 @@
 """Definition file parsing and normalization utilities."""
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from . import file_reader
 
@@ -212,7 +212,7 @@ def parse_release(config: dict[str, Any]) -> bool:
 
 
 def parse_definition_recursive(
-    definition_file: Path, visited: Optional[set[Path]] = None
+    definition_file: Path, visited: set[Path] | None = None
 ) -> dict[str, Any]:
     """Parse definition with INCLUDE_DEFINITIONS support.
 
