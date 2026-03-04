@@ -476,10 +476,10 @@ func (p *Predictor) reconcileWorker(sRuntime v1alpha1.ServingRuntimeSpec, isvc *
 	var err error
 
 	// If no ServingRuntime was passed, we still want to support WorkerSpec provided directly on the InferenceService.
-	// Seeting empty WorkerSpec here allows us to avoid having nil dereference errors in the code below when we try to
-	// access WorkerSpec fields (like annotations, lables, pipelineParallelSize, tensorParallelSize) in reconcileWorker
-	// and multinodeProcess functions. The code will use the values from ISVC's WorkerSpec if ServingRuntime one is
-	// empty
+	// Setting an empty WorkerSpec here avoids nil dereference errors in the code below when we try to
+	// access WorkerSpec fields (like annotations, labels, pipelineParallelSize, tensorParallelSize) in reconcileWorker
+	// and multiNodeProcess functions. The code will use the values from the ISVC's WorkerSpec if the ServingRuntime one
+	// is empty
 	if sRuntime.WorkerSpec == nil {
 		sRuntime.WorkerSpec = &v1alpha1.WorkerSpec{}
 	}
@@ -524,6 +524,21 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 	var workerContainer *corev1.Container
 	var mergedWorkerPodSpec *corev1.PodSpec
 	var err error
+
+	if sRuntime.WorkerSpec == nil {
+		errMsg := "you cannot set WorkerSpec in the InferenceService if the ServingRuntime does not have a WorkerSpec"
+		isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, v1beta1.InvalidWorkerSpecNotSet, errMsg, corev1.ConditionFalse)
+		return nil, errors.New(errMsg)
+	}
+	// Check if workerSpec in ServingRuntime does not have worker containers information, it should return errors
+	if len(sRuntime.WorkerSpec.Containers) == 0 {
+		errMsg := "No workerSpec container configuration found in selected serving runtime"
+		isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+			Reason:  v1beta1.InvalidPredictorSpec,
+			Message: errMsg,
+		})
+		return nil, errors.New(errMsg)
+	}
 
 	// Initialize PipelineParallelSize and TensorParallelSize if not set
 	if sRuntime.WorkerSpec.PipelineParallelSize == nil {
