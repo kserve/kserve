@@ -35,6 +35,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 )
 
@@ -939,11 +940,11 @@ schedulingProfiles:
 				}, schedulerDeployment)).To(Succeed())
 
 				g.Expect(schedulerDeployment.Spec.Template.Annotations).To(
-					HaveKey("certificates.kserve.io/cert-hash"),
+					HaveKey(llmisvc.DefaultRestartAnnotation),
 					"Scheduler pod template should have cert-hash annotation to trigger restart on cert renewal",
 				)
 				// SHA-256 hex-encoded hash is 64 characters
-				g.Expect(schedulerDeployment.Spec.Template.Annotations["certificates.kserve.io/cert-hash"]).To(HaveLen(64))
+				g.Expect(schedulerDeployment.Spec.Template.Annotations[llmisvc.DefaultRestartAnnotation]).To(HaveLen(64))
 
 				return nil
 			}).WithContext(ctx).Should(Succeed())

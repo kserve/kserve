@@ -46,13 +46,13 @@ import (
 
 // reconcileScheduler manages the scheduler component and its related resources
 // The scheduler handles load balancing for inference pods
-func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+func (r *LLMISVCReconciler) reconcileScheduler(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, schedulerConfig *SchedulerConfig) error {
 	log.FromContext(ctx).Info("Reconciling Scheduler")
 
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
 		return err
 	}
-	if err := r.reconcileSchedulerDeployment(ctx, llmSvc); err != nil {
+	if err := r.reconcileSchedulerDeployment(ctx, llmSvc, schedulerConfig); err != nil {
 		return err
 	}
 	if err := r.reconcileSchedulerService(ctx, llmSvc); err != nil {
@@ -146,8 +146,8 @@ func (r *LLMISVCReconciler) reconcileSchedulerServiceAccount(ctx context.Context
 	return r.reconcileSchedulerRoleBinding(ctx, llmSvc, serviceAccount)
 }
 
-func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	scheduler, err := r.expectedSchedulerDeployment(ctx, llmSvc)
+func (r *LLMISVCReconciler) reconcileSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, schedulerConfig *SchedulerConfig) error {
+	scheduler, err := r.expectedSchedulerDeployment(ctx, llmSvc, schedulerConfig)
 	if err != nil {
 		return fmt.Errorf("failed to build expected scheduler deployment: %w", err)
 	}
@@ -336,7 +336,7 @@ func (r *LLMISVCReconciler) expectedSchedulerInferencePoolV1Alpha2(ctx context.C
 	return ip
 }
 
-func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*appsv1.Deployment, error) {
+func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, schedulerConfig *SchedulerConfig) (*appsv1.Deployment, error) {
 	labels := SchedulerLabels(llmSvc)
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -408,7 +408,7 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 					if d.Spec.Template.Annotations == nil {
 						d.Spec.Template.Annotations = map[string]string{}
 					}
-					d.Spec.Template.Annotations[certificateHashAnnotation] = h
+					d.Spec.Template.Annotations[schedulerConfig.RestartAnnotation] = h
 				}
 			}
 		}

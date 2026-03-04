@@ -51,7 +51,7 @@ const AnnotationInferencePoolMigrated = "serving.kserve.io/inference-pool-migrat
 
 // reconcileRouter handles the networking and routing components for the LLM service
 // This includes schedulers, HTTP routes, and various validation checks
-func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, schedulerConfig *SchedulerConfig) error {
 	logger := log.FromContext(ctx).WithName("reconcileRouter").
 		WithValues("InferencePoolV1Alpha2Available", r.InferencePoolV1Alpha2Available,
 			"InferencePoolV1Available", r.InferencePoolV1Available)
@@ -68,7 +68,7 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	}
 
 	// Reconcile the scheduler component that manages inference pools
-	if err := r.reconcileScheduler(ctx, llmSvc); err != nil {
+	if err := r.reconcileScheduler(ctx, llmSvc, schedulerConfig); err != nil {
 		llmSvc.MarkSchedulerWorkloadNotReady("SchedulerReconcileError", "Failed to reconcile scheduler: %v", err.Error())
 		return fmt.Errorf("failed to reconcile scheduler: %w", err)
 	}

@@ -18,9 +18,11 @@ package llmisvc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -28,6 +30,55 @@ import (
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/types"
 )
+
+const (
+	// schedulerConfigMapKey is the key in the inferenceservice-config ConfigMap
+	// that holds scheduler-specific configuration (annotation keys, etc.).
+	schedulerConfigMapKey = "scheduler"
+)
+
+// DefaultExpirationAnnotations is the default list of annotation keys
+// checked for certificate secret expiration. The first entry is the write key.
+var DefaultExpirationAnnotations = []string{"certificates.kserve.io/expiration"}
+
+// DefaultRestartAnnotation is the default annotation key set on scheduler pod
+// templates with a certificate hash to trigger restarts on renewal.
+const DefaultRestartAnnotation = "certificates.kserve.io/cert-hash"
+
+// SchedulerConfig holds configurable settings for the scheduler component,
+// including annotation keys used for the self-signed TLS certificate lifecycle.
+// Defaults match upstream conventions; midstream builds can override them via the
+// "scheduler" key in the inferenceservice-config ConfigMap.
+type SchedulerConfig struct {
+	// ExpirationAnnotations is the list of annotation keys checked when determining
+	// whether a certificate secret has expired. The first entry is the write key
+	// (set on newly created secrets); all entries are read keys.
+	ExpirationAnnotations []string `json:"expirationAnnotations,omitempty"`
+	// RestartAnnotation is the annotation key set on pod templates (e.g. the scheduler
+	// deployment) with a hash of the certificate data. Changing the value triggers a
+	// pod rollout so the new certificate is picked up.
+	RestartAnnotation string `json:"restartAnnotation,omitempty"`
+}
+
+// NewSchedulerConfig parses the "scheduler" key from the inferenceservice-config
+// ConfigMap, applying defaults for any missing fields.
+func NewSchedulerConfig(isvcConfigMap *corev1.ConfigMap) (*SchedulerConfig, error) {
+	cfg := &SchedulerConfig{}
+	if raw, ok := isvcConfigMap.Data[schedulerConfigMapKey]; ok {
+		if err := json.Unmarshal([]byte(raw), cfg); err != nil {
+			return nil, fmt.Errorf("unable to parse scheduler config json: %w", err)
+		}
+	}
+
+	if len(cfg.ExpirationAnnotations) == 0 {
+		cfg.ExpirationAnnotations = DefaultExpirationAnnotations
+	}
+	if cfg.RestartAnnotation == "" {
+		cfg.RestartAnnotation = DefaultRestartAnnotation
+	}
+
+	return cfg, nil
+}
 
 // Config holds configuration needed for LLM inference services
 // It aggregates ingress, storage, and credential settings from the KServe configmap
@@ -39,13 +90,14 @@ type Config struct {
 
 	// Storage and credential configs are excluded from JSON serialization
 	// as they contain sensitive information
-	StorageConfig    *types.StorageInitializerConfig `json:"-"`
-	CredentialConfig *credentials.CredentialConfig   `json:"-"`
+	StorageConfig     *types.StorageInitializerConfig `json:"-"`
+	CredentialConfig  *credentials.CredentialConfig   `json:"-"`
+	SchedulerConfig   *SchedulerConfig                `json:"-"`
 }
 
 // NewConfig creates an instance of llm-specific config based on predefined values
 // in IngressConfig struct
-func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig) *Config {
+func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, schedulerConfig *SchedulerConfig) *Config {
 	igwNs := constants.KServeNamespace
 	igwName := ingressConfig.KserveIngressGateway
 	// Parse gateway name to extract namespace and name components
@@ -62,7 +114,8 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		IngressGatewayName:      igwName,
 		UrlScheme:               ingressConfig.UrlScheme,
 		StorageConfig:           storageConfig,
-		CredentialConfig:        credentialConfig,
+		CredentialConfig:  credentialConfig,
+		SchedulerConfig:   schedulerConfig,
 	}
 }
 
@@ -90,5 +143,10 @@ func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, e
 		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to CredentialConfig: %w", errConvert)
 	}
 
-	return NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig), nil
+	schedulerConfig, errConvert := NewSchedulerConfig(isvcConfigMap)
+	if errConvert != nil {
+		return nil, fmt.Errorf("failed to parse scheduler config: %w", errConvert)
+	}
+
+	return NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig), nil
 }
