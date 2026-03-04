@@ -685,7 +685,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {
                 "config": {
                     "inline": {
-                        "apiVersion": "inference.networking.x-k8s.io/v1alpha2",
+                        "apiVersion": "inference.networking.x-k8s.io/v1alpha1",
                         "kind": "EndpointPickerConfig",
                         "plugins": [
                             {"type": "single-profile-handler"},
@@ -989,7 +989,7 @@ def inject_k8s_proxy():
 
 
 # Scheduler config YAML used for ConfigMap ref tests
-SCHEDULER_CONFIG_YAML = """apiVersion: inference.networking.x-k8s.io/v1alpha2
+SCHEDULER_CONFIG_YAML = """apiVersion: inference.networking.x-k8s.io/v1alpha1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
