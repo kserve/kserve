@@ -7,6 +7,7 @@ resources:
 # - ../../crd/full/localmodel
 - user-cluster-roles.yaml
 - network-policies.yaml
+- llm-svc-scc.yaml
 
 components:
 - ../../components/kserve
@@ -42,6 +43,17 @@ patches:
     kind: Service
     name: llmisvc-webhook-server-service
   path: openshift-serving-cert-llmisvc-patch.yaml
+- target:
+    kind: ClusterRole
+    name: kserve-llmisvc-manager-role
+  patch: |
+    - op: add
+      path: /rules/-
+      value:
+        apiGroups: ["security.openshift.io"]
+        resources: ["securitycontextconstraints"]
+        resourceNames: ["openshift-ai-llminferenceservice-scc"]
+        verbs: ["use"]
 
 replacements:
 - source:

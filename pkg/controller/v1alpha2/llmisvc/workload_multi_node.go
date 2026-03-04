@@ -46,6 +46,9 @@ func (r *LLMISVCReconciler) reconcileMultiNodeWorkload(ctx context.Context, llmS
 	if err := r.reconcileMultiNodePrefillServiceAccount(ctx, llmSvc); err != nil {
 		return fmt.Errorf("failed to reconcile multi-node service account: %w", err)
 	}
+	if err := r.reconcileMultiNodeOCPRoleBinding(ctx, llmSvc); err != nil {
+		return fmt.Errorf("failed to reconcile multi-node role binding: %w", err)
+	}
 	if err := r.reconcileMultiNodeMainWorkload(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile multi-node main workload: %w", err)
 	}
