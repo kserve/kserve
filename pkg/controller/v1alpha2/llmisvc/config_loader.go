@@ -46,17 +46,34 @@ var DefaultExpirationAnnotations = []string{"certificates.kserve.io/expiration"}
 const DefaultRestartAnnotation = "certificates.kserve.io/cert-hash"
 
 // SchedulerConfig holds configurable settings for the scheduler component,
-// including annotation keys used for the self-signed TLS certificate lifecycle.
-// Defaults match upstream conventions; midstream builds can override them via the
-// "scheduler" key in the inferenceservice-config ConfigMap.
+// parsed from the "scheduler" key in the inferenceservice-config ConfigMap.
+//
+// Certificate annotation keys control the self-signed TLS certificate lifecycle:
+//
+//   - ExpirationAnnotations: first entry is the write key (set on new secrets),
+//     all entries are read keys (checked for expiration, first match wins).
+//   - RestartAnnotation: key on scheduler pod template carrying a cert hash
+//     to trigger rollout on renewal. Skipped when the scheduler has --enable-cert-reload.
+//
+// Defaults (upstream - no ConfigMap override needed, can default to values shown below):
+//
+//	{"expirationAnnotations": ["certificates.kserve.io/expiration"], "restartAnnotation": "certificates.kserve.io/cert-hash"}
+//
+// Override example (reads both old and new keys during upgrade):
+//
+//	{"expirationAnnotations": ["certificates.kserve.io/expiration-v2", "certificates.kserve.io/expiration"], "restartAnnotation": "certificates.kserve.io/cert-hash"}
+//
+// During a rolling upgrade, existing secrets carrying the old annotation key are
+// recognized via the read list; no unnecessary cert regeneration or secret updates.
+// A one-time scheduler restart on upgrade is expected (Recreate strategy).
 type SchedulerConfig struct {
-	// ExpirationAnnotations is the list of annotation keys checked when determining
-	// whether a certificate secret has expired. The first entry is the write key
-	// (set on newly created secrets); all entries are read keys.
+	// ExpirationAnnotations is the ordered list of annotation keys checked when
+	// determining whether a certificate secret has expired. The first entry is the
+	// write key (set on newly created secrets); all entries are read keys.
 	ExpirationAnnotations []string `json:"expirationAnnotations,omitempty"`
-	// RestartAnnotation is the annotation key set on pod templates (e.g. the scheduler
-	// deployment) with a hash of the certificate data. Changing the value triggers a
-	// pod rollout so the new certificate is picked up.
+	// RestartAnnotation is the annotation key set on scheduler pod templates; by default with
+	// a hash of the certificate data. Changing the value triggers a pod rollout so
+	// the new certificate is picked up.
 	RestartAnnotation string `json:"restartAnnotation,omitempty"`
 }
 
