@@ -451,9 +451,19 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		}
 	}
 
+	r.propagateSchedulerMetadata(llmSvc, d)
+
 	log.FromContext(ctx).V(2).Info("Expected router scheduler deployment", "deployment", d)
 
 	return d, nil
+}
+
+func (r *LLMISVCReconciler) propagateSchedulerMetadata(llmSvc *v1alpha2.LLMInferenceService, expected *appsv1.Deployment) {
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
+		return
+	}
+	utils.PropagateMap(llmSvc.Spec.Router.Scheduler.Labels, &expected.Spec.Template.Labels)
+	utils.PropagateMap(llmSvc.Spec.Router.Scheduler.Annotations, &expected.Spec.Template.Annotations)
 }
 
 func schedulerConfigText(llmSvc *v1alpha2.LLMInferenceService) string {

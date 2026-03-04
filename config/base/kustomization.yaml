@@ -5,3 +5,4 @@ resources:
 - namespace.yaml
 - ../configmap
 - ../certmanager
+- ../storagecontainers

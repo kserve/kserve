@@ -7,7 +7,6 @@ resources:
 
 components:
 - ../../components/kserve
-- ../../components/llmisvc
 - ../../components/localmodel
 
 patches:

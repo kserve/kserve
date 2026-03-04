@@ -77,7 +77,7 @@ spec:
               # - "https"
               # - --model-server-metrics-https-insecure-skip-verify
               # - --cert-path
-              # - "/etc/ssl/certs"
+              # - "/var/run/kserve/tls"
             resources:
               requests:
                 cpu: 256m
@@ -94,7 +94,7 @@ spec:
               seccompProfile:
                 type: RuntimeDefault
             volumeMounts:
-              - mountPath: /etc/ssl/certs
+              - mountPath: /var/run/kserve/tls
                 name: tls-certs
                 readOnly: true
               - mountPath: /tmp/tokenizer

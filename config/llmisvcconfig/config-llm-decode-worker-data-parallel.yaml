@@ -47,14 +47,14 @@ spec:
           - "--connector=nixlv2"
           - "--secure-proxy=false"
           # BackendTLSPolicy is not implemented yet so disable SSL for now
-          # - "--cert-path=/etc/ssl/certs"
+          # - "--cert-path=/var/run/kserve/tls"
           # - "--decoder-use-tls=true"
           # - "--decoder-tls-insecure-skip-verify=true"
           # - "--prefiller-use-tls=true"
           # - "--prefiller-tls-insecure-skip-verify=true"
           # - "--enable-ssrf-protection=true"
         volumeMounts:
-          - mountPath: /etc/ssl/certs
+          - mountPath: /var/run/kserve/tls
             name: tls-certs
             readOnly: true
         env:
@@ -211,9 +211,9 @@ spec:
               # BackendTLSPolicy is not implemented yet so disable SSL for now
               # --enable-ssl-refresh \
               # --ssl-certfile \
-              # /etc/ssl/certs/tls.crt \
+              # /var/run/kserve/tls/tls.crt \
               # --ssl-keyfile \
-              # /etc/ssl/certs/tls.key"
+              # /var/run/kserve/tls/tls.key"
           # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve
           - "--"
 
@@ -269,7 +269,7 @@ spec:
             name: dshm
           - mountPath: /models
             name: model-cache
-          - mountPath: /etc/ssl/certs
+          - mountPath: /var/run/kserve/tls
             name: tls-certs
             readOnly: true
     terminationGracePeriodSeconds: 30
@@ -435,9 +435,9 @@ spec:
               # BackendTLSPolicy is not implemented yet so disable SSL for now
               # --enable-ssl-refresh \
               # --ssl-certfile \
-              # /etc/ssl/certs/tls.crt \
+              # /var/run/kserve/tls/tls.crt \
               # --ssl-keyfile \
-              # /etc/ssl/certs/tls.key"
+              # /var/run/kserve/tls/tls.key"
           # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve
           - "--"
 
@@ -472,7 +472,7 @@ spec:
             name: dshm
           - mountPath: /models
             name: model-cache
-          - mountPath: /etc/ssl/certs
+          - mountPath: /var/run/kserve/tls
             name: tls-certs
             readOnly: true
     terminationGracePeriodSeconds: 30
