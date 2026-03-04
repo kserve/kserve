@@ -22,7 +22,12 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
+	"os/signal"
+	"regexp"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -49,6 +54,7 @@ type Config struct {
 	ctrlSetupFuncs     []SetupFunc
 	webhooksSetupFuncs []SetupFunc
 	envTestOptions     []Option
+	mgrOptions         []ManagerOption
 }
 
 // Client acts as a facade for setting up k8s envtest. It allows to wire controllers under tests through
@@ -90,9 +96,18 @@ func (e *Config) WithWebhooks(setupFunc ...SetupFunc) *Config {
 	return e
 }
 
+// WithManagerOptions allows customizing the controller-runtime manager options (e.g., cache configuration).
+func (e *Config) WithManagerOptions(opts ...ManagerOption) *Config {
+	e.mgrOptions = append(e.mgrOptions, opts...)
+
+	return e
+}
+
 // Start wires controller-runtime manager with controllers which are subject of the tests
 // and starts Kubernetes EnvTest to verify their behavior.
 func (e *Config) Start(ctx context.Context) *Client {
+	ctx, cancel := context.WithCancel(ctx)
+
 	opts := zap.Options{
 		Development: true,
 		TimeEncoder: zapcore.TimeEncoderOfLayout(time.RFC3339),
@@ -103,6 +118,10 @@ func (e *Config) Start(ctx context.Context) *Client {
 		CRDInstallOptions: envtest.CRDInstallOptions{
 			ErrorIfPathMissing: true,
 			CleanUpAfterUse:    true,
+			// The controller-runtime default is 10s, which is too short under
+			// cross-suite parallel load in this repository.
+			MaxTime:      2 * time.Minute,
+			PollInterval: 250 * time.Millisecond,
 		},
 		UseExistingCluster: proto.Bool(false), // TODO(testenv): make it configurable
 	}
@@ -111,7 +130,56 @@ func (e *Config) Start(ctx context.Context) *Client {
 		opt(envTest)
 	}
 
+	// Take exclusive ownership of SIGINT/SIGTERM so that envtest child
+	// processes (etcd, kube-apiserver) are force-killed before the test
+	// process exits. signal.Reset deregisters Ginkgo's handler — this is
+	// intentional: if Ginkgo receives a second interrupt it may os.Exit()
+	// before our cleanup goroutine finishes, leaving orphaned processes.
+	//
+	// The watcher must be registered before envTest.Start() so interrupts arriving
+	// mid-startup (e.g. etcd already up, kube-apiserver not yet) are handled.
+	sigCh := make(chan os.Signal, 1)
+	stopSignalWatcher := make(chan struct{})
+	signal.Reset(os.Interrupt, syscall.SIGTERM)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		select {
+		case <-stopSignalWatcher:
+			return
+		case sig := <-sigCh:
+			cancel()
+			stopControlPlane(&envTest.ControlPlane)
+			// Re-raise with default behavior so test process exits with the right status.
+			signal.Reset(sig)
+			p, _ := os.FindProcess(os.Getpid())
+			_ = p.Signal(sig)
+		}
+	}()
+
+	cleanupOnce := &sync.Once{}
+	cleanup := func(assertStopSuccess bool) {
+		cleanupOnce.Do(func() {
+			// Stop receiving process signals and release this setup context.
+			signal.Stop(sigCh)
+			close(stopSignalWatcher)
+			cancel()
+			if assertStopSuccess {
+				gomega.Expect(envTest.Stop()).To(gomega.Succeed())
+				return
+			}
+			// Start() can fail after partially launching the control plane.
+			// Best-effort force cleanup avoids orphaned etcd/apiserver.
+			stopControlPlane(&envTest.ControlPlane)
+		})
+	}
+	ginkgo.DeferCleanup(func() {
+		cleanup(true)
+	})
+
 	cfg, errStart := envTest.Start()
+	if errStart != nil {
+		cleanup(false)
+	}
 	gomega.Expect(errStart).NotTo(gomega.HaveOccurred())
 	gomega.Expect(cfg).NotTo(gomega.BeNil())
 
@@ -125,6 +193,10 @@ func (e *Config) Start(ctx context.Context) *Client {
 			BindAddress: "0",
 		},
 		LeaderElection: false,
+	}
+
+	for _, opt := range e.mgrOptions {
+		opt(&mgrOptions)
 	}
 
 	if len(e.webhooksSetupFuncs) > 0 {
@@ -173,6 +245,37 @@ func (e *Config) Start(ctx context.Context) *Client {
 		Cleaner:     CreateCleaner(cli, cfg, 10*time.Second, 250*time.Millisecond),
 		Environment: envTest,
 	}
+}
+
+// stopControlPlane performs best-effort cleanup of the envtest control plane.
+// It first attempts to kill processes by command-line pattern as a defense against
+// interrupts arriving mid-startup, when controller-runtime's internal process
+// handles may not yet be populated (processState is unexported).
+// ControlPlane.Stop() is called afterwards to clean up temporary directories.
+func stopControlPlane(controlPlane *envtest.ControlPlane) {
+	if controlPlane.APIServer != nil {
+		forceKillByPattern(controlPlane.APIServer.Path, controlPlane.APIServer.CertDir)
+	}
+	if controlPlane.Etcd != nil {
+		forceKillByPattern(controlPlane.Etcd.Path, controlPlane.Etcd.DataDir)
+	}
+
+	_ = controlPlane.Stop()
+}
+
+// forceKillByPattern kills processes matching the given binary path and unique argument.
+// This is a Linux-specific fallback for envtest cleanup when process handles are unavailable.
+func forceKillByPattern(binaryPath, uniqueArg string) {
+	if binaryPath == "" {
+		return
+	}
+
+	pattern := regexp.QuoteMeta(binaryPath)
+	if uniqueArg != "" {
+		pattern = pattern + ".*" + regexp.QuoteMeta(uniqueArg)
+	}
+
+	_ = exec.Command("pkill", "-9", "-f", pattern).Run() //nolint:gosec // test infrastructure only.
 }
 
 type Option func(target *envtest.Environment)

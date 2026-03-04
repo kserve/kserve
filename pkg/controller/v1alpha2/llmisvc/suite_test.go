@@ -40,6 +40,9 @@ func TestLLMInferenceServiceController(t *testing.T) {
 
 var envTest *pkgtest.Client
 
-var _ = SynchronizedBeforeSuite(func() {
-	envTest = fixture.SetupTestEnv()
-}, func() {})
+// BeforeSuite (not SynchronizedBeforeSuite) is intentional: each Ginkgo
+// parallel process gets its own envtest instance for full isolation.
+// This matches the pattern used by all controller suites in this project.
+var _ = BeforeSuite(func(ctx SpecContext) {
+	envTest = fixture.SetupTestEnv(ctx)
+})
