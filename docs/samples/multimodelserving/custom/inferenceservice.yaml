@@ -1,0 +1,16 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "custom-model-mms"
+spec:
+  predictor:
+    containers:
+      - name: kserve-container
+        image: ${CUSTOM_MODEL_SERVER_IMAGE}
+        resources:
+          limits:
+            cpu: "1"
+            memory: 2Gi
+          requests:
+            cpu: "1"
+            memory: 2Gi
