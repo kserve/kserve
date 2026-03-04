@@ -94,7 +94,7 @@ func TestPresetFiles(t *testing.T) {
 							InitContainers: []corev1.Container{
 								{
 									Name:  "llm-d-routing-sidecar",
-									Image: "ghcr.io/llm-d/llm-d-routing-sidecar:v0.4.0",
+									Image: "ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0-rc.1",
 									Args: []string{
 										"--port=8000",
 										"--vllm-port=8001",
@@ -170,7 +170,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:    "main",
-									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.4.0",
+									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.5",
 									Command: []string{"/bin/bash", "-c"},
 									Ports: []corev1.ContainerPort{
 										{
@@ -303,7 +303,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:    "main",
-									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.4.0",
+									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.5",
 									Command: []string{"/bin/bash", "-c"},
 									Ports: []corev1.ContainerPort{
 										{
@@ -416,7 +416,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:    "main",
-									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.4.0",
+									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.5",
 									Command: []string{"vllm", "serve", "/mnt/models"},
 									Ports: []corev1.ContainerPort{
 										{
