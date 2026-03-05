@@ -18,7 +18,8 @@ limitations under the License.
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clusterstoragecontainers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodes/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get
+// list;watch required by the informer; server-side narrowing is possible via fieldSelector/cache.ByObject, but RBAC authorizes at verb level.
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=get;watch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
@@ -47,15 +48,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
+	controllerutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/credentials"
 	pkgtypes "github.com/kserve/kserve/pkg/types"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 type ensureModelRootFolderResult struct {
@@ -102,7 +105,7 @@ func (c *LocalModelNodeReconciler) getNodeGroupFromNode(ctx context.Context, nod
 		return nil, err
 	}
 	for _, nodeGroup := range nodeGroups.Items {
-		matches, err := utils.CheckNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
+		matches, err := controllerutils.CheckNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
 		if err != nil {
 			return nil, err
 		}
@@ -533,15 +536,14 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	c.Log.Info("Agent reconciling LocalModelNode", "name", req.Name, "node", nodeName)
 
 	// 1. Load config
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, c.Clientset)
+	isvcConfigMap, err := utils.GetInferenceServiceConfigMap(ctx, c.Client)
 	if err != nil {
-		c.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		c.Log.Error(err, "Failed to get inferenceservice-config ConfigMap")
 		return reconcile.Result{}, err
 	}
-	c.IsvcConfigMap = isvcConfigMap
 	localModelConfig, err := v1beta1.NewLocalModelConfig(isvcConfigMap)
 	if err != nil {
-		c.Log.Error(err, "Failed to get local model config")
+		c.Log.Error(err, "Failed to parse local model config")
 		return reconcile.Result{}, err
 	}
 	jobNamespace = localModelConfig.JobNamespace
@@ -612,5 +614,27 @@ func (c *LocalModelNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Keep AnnotationChangedPredicate because we use it to trigger reconciliation in the test
 		For(&v1alpha1.LocalModelNode{}, builder.WithPredicates(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}))).
 		Owns(&batchv1.Job{}).
+		// Re-reconcile all LocalModelNodes when inferenceservice-config changes
+		Watches(&corev1.ConfigMap{},
+			handler.EnqueueRequestsFromMapFunc(c.localModelNodeConfigMapFunc),
+			builder.WithPredicates(utils.InferenceServiceConfigPredicate(constants.InferenceServiceConfigMapName, constants.KServeNamespace))).
 		Complete(c)
+}
+
+func (c *LocalModelNodeReconciler) localModelNodeConfigMapFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	var nodeList v1alpha1.LocalModelNodeList
+	if err := c.Client.List(ctx, &nodeList); err != nil {
+		c.Log.Error(err, "unable to list LocalModelNodes for ConfigMap change")
+		return nil
+	}
+	requests := make([]reconcile.Request, 0, len(nodeList.Items))
+	for _, node := range nodeList.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: node.Namespace,
+				Name:      node.Name,
+			},
+		})
+	}
+	return requests
 }

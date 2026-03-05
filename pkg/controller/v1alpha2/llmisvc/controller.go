@@ -158,8 +158,15 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
+	// Fetch ConfigMap for cabundle reconciliation
+	configMap, err := utils.GetInferenceServiceConfigMap(ctx, r.Client)
+	if err != nil {
+		logger.Error(err, "Failed to get inferenceservice-config ConfigMap")
+		return reconcile.Result{}, err
+	}
+
 	// Reconcile cabundleConfigMap
-	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset)
+	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset, configMap)
 	if err := caBundleConfigMapReconciler.Reconcile(ctx, original.Namespace); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -191,11 +198,9 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	logger := log.FromContext(ctx).WithName("reconcile")
 	ctx = log.IntoContext(ctx, logger)
 
-	// Load global configuration from KServe configmap
-	// TODO(ctrl): add watch on CfgMap with predicate and cache tuning to trigger reconcile when it changes
-	config, configErr := LoadConfig(ctx, r.Clientset)
+	config, configErr := LoadConfigFromClient(ctx, r.Client)
 	if configErr != nil {
-		return fmt.Errorf("failed to load ingress config: %w", configErr)
+		return fmt.Errorf("failed to load config: %w", configErr)
 	}
 
 	baseCfg, err := r.reconcileBaseRefs(ctx, llmSvc, config)
@@ -317,7 +322,7 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 
 		listNamespace := corev1.NamespaceAll
 
-		cfg, err := LoadConfig(ctx, r.Clientset)
+		cfg, err := LoadConfigFromClient(ctx, r.Client)
 		if err != nil {
 			logger.Error(err, "Failed to load config")
 			return reqs
@@ -387,7 +392,7 @@ func (r *LLMISVCReconciler) enqueueOnHttpRouteChange(logger logr.Logger) handler
 
 		listNamespace := corev1.NamespaceAll
 
-		cfg, err := LoadConfig(ctx, r.Clientset)
+		cfg, err := LoadConfigFromClient(ctx, r.Client)
 		if err != nil {
 			logger.Error(err, "Failed to load config")
 			return reqs
@@ -499,9 +504,29 @@ func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler
 		sub := object.(*corev1.ConfigMap)
 		reqs := make([]reconcile.Request, 0)
 
+		// Handle inferenceservice-config ConfigMap changes
+		// When this ConfigMap changes, all LLMInferenceServices need to re-reconcile
+		if sub.Name == constants.InferenceServiceConfigMapName && sub.Namespace == constants.KServeNamespace {
+			llmSvcList := &v1alpha2.LLMInferenceServiceList{}
+			if err := r.Client.List(ctx, llmSvcList); err != nil {
+				logger.Error(err, "Failed to list LLMInferenceService for inferenceservice-config change")
+				return reqs
+			}
+
+			for _, llmSvc := range llmSvcList.Items {
+				reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+					Namespace: llmSvc.Namespace,
+					Name:      llmSvc.Name,
+				}})
+			}
+
+			return reqs
+		}
+
+		// Handle scheduler-config ConfigMap changes
 		listNamespace := sub.GetNamespace()
 
-		cfg, err := LoadConfig(ctx, r.Clientset)
+		cfg, err := LoadConfigFromClient(ctx, r.Client)
 		if err != nil {
 			logger.Error(err, "Failed to load config")
 			return reqs

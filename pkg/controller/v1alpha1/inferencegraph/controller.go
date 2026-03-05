@@ -42,8 +42,10 @@ import (
 	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -146,9 +148,9 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	forceStopRuntime := utils.GetForceStopRuntime(graph)
 
-	configMap, err := r.Clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(ctx, constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+	configMap, err := utils.GetInferenceServiceConfigMap(ctx, r.Client)
 	if err != nil {
-		r.Log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
+		r.Log.Error(err, "Failed to get inferenceservice-config ConfigMap")
 		return reconcile.Result{}, err
 	}
 	routerConfig, err := getRouterConfigs(configMap)
@@ -182,21 +184,17 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
+	deployConfig, err := v1beta1.NewDeployConfig(configMap)
 	if err != nil {
-		r.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
-		return reconcile.Result{}, err
-	}
-	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
+		r.Log.Error(err, "unable to parse DeployConfig")
+		return reconcile.Result{}, errors.Wrapf(err, "fails to parse DeployConfig")
 	}
 
 	deploymentMode := isvcutils.GetDeploymentMode(graph.Status.DeploymentMode, graph.Annotations, deployConfig)
 	r.Log.Info("Inference graph deployment ", "deployment mode ", deploymentMode)
 	if deploymentMode == constants.Standard {
 		// Create inference graph resources such as deployment, service, hpa in raw deployment mode
-		deployment, url, err := handleInferenceGraphRawDeployment(ctx, r.Client, r.Clientset, r.Scheme, graph, routerConfig)
+		deployment, url, err := handleInferenceGraphRawDeployment(ctx, r.Client, r.Clientset, r.Scheme, graph, routerConfig, configMap)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile inference graph raw deployment")
 		}
@@ -361,6 +359,30 @@ func inferenceGraphReadiness(status v1alpha1.InferenceGraphStatus) bool {
 		status.GetCondition(apis.ConditionReady).Status == corev1.ConditionTrue
 }
 
+func (r *InferenceGraphReconciler) inferenceGraphConfigMapFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	cm, ok := obj.(*corev1.ConfigMap)
+	if !ok || cm == nil {
+		return nil
+	}
+
+	var graphList v1alpha1.InferenceGraphList
+	if err := r.Client.List(ctx, &graphList); err != nil {
+		r.Log.Error(err, "unable to list InferenceGraphs for ConfigMap change", "configMap", cm.Name)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(graphList.Items))
+	for _, graph := range graphList.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: graph.Namespace,
+				Name:      graph.Name,
+			},
+		})
+	}
+	return requests
+}
+
 func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1.DeployConfig) error {
 	r.ClientConfig = mgr.GetConfig()
 
@@ -378,6 +400,11 @@ func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConf
 	} else {
 		r.Log.Info("The InferenceGraph controller won't watch serving.knative.dev/v1/Service resources because the CRD is not available.")
 	}
+
+	// Watch ConfigMap changes to re-reconcile InferenceGraphs when config changes
+	ctrlBuilder = ctrlBuilder.Watches(&corev1.ConfigMap{},
+		handler.EnqueueRequestsFromMapFunc(r.inferenceGraphConfigMapFunc),
+		builder.WithPredicates(utils.InferenceServiceConfigPredicate(constants.InferenceServiceConfigMapName, constants.KServeNamespace)))
 
 	return ctrlBuilder.Complete(r)
 }

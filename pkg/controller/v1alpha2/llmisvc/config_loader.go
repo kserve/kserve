@@ -24,11 +24,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/types"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 const (
@@ -206,4 +208,36 @@ func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, e
 	}
 
 	return config, nil
+}
+
+// LoadConfigFromClient loads configuration from the controller-runtime client cache.
+// When called from a controller's Reconcile method, this reads from the manager's
+// shared informer cache (no direct API call).
+func LoadConfigFromClient(ctx context.Context, reader client.Reader) (*Config, error) {
+	configMap, err := utils.GetInferenceServiceConfigMap(ctx, reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get inferenceservice-config ConfigMap: %w", err)
+	}
+
+	ingressConfig, err := v1beta1.NewIngressConfig(configMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse IngressConfig: %w", err)
+	}
+
+	storageInitializerConfig, err := v1beta1.GetStorageInitializerConfigs(configMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse StorageInitializerConfig: %w", err)
+	}
+
+	credentialConfig, err := credentials.GetCredentialConfig(configMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse CredentialConfig: %w", err)
+	}
+
+	schedulerConfig, err := NewSchedulerConfig(configMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SchedulerConfig: %w", err)
+	}
+
+	return NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig), nil
 }
