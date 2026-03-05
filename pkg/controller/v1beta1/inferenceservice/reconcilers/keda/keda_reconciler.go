@@ -24,7 +24,6 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,12 +52,10 @@ func NewKedaReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	configMap *corev1.ConfigMap,
+	autoscalerConfig *v1beta1.AutoscalerConfig,
+	otelCollectorConfig *v1beta1.OtelCollectorConfig,
 ) (*KedaReconciler, error) {
-	scaledObject, err := createKedaScaledObject(componentMeta, componentExt, configMap)
-	if err != nil {
-		return nil, err
-	}
+	scaledObject := createKedaScaledObject(componentMeta, componentExt, autoscalerConfig, otelCollectorConfig)
 	return &KedaReconciler{
 		client:       client,
 		scheme:       scheme,
@@ -78,8 +75,8 @@ func getOriginalStringMQ(mq *v1beta1.MetricQuantity, defaultValue string) string
 	return defaultValue
 }
 
-func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec, configMap *corev1.ConfigMap,
-) ([]kedav1alpha1.ScaleTriggers, error) {
+func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec, otelCollectorConfig *v1beta1.OtelCollectorConfig,
+) []kedav1alpha1.ScaleTriggers {
 	var triggers []kedav1alpha1.ScaleTriggers
 
 	// metric configuration from componentExtension.AutoScaling if it is set
@@ -144,11 +141,10 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 				}
 				triggers = append(triggers, trigger)
 			case v1beta1.PodMetricSourceType:
-				otelConfig, err := v1beta1.NewOtelCollectorConfig(configMap)
-				if err != nil {
-					return nil, err
+				MetricScalerEndpoint := ""
+				if otelCollectorConfig != nil {
+					MetricScalerEndpoint = otelCollectorConfig.MetricScalerEndpoint
 				}
-				MetricScalerEndpoint := otelConfig.MetricScalerEndpoint
 				if metric.PodMetric.Metric.ServerAddress != "" {
 					MetricScalerEndpoint = metric.PodMetric.Metric.ServerAddress
 				}
@@ -181,13 +177,14 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 			}
 		}
 	}
-	return triggers, nil
+	return triggers
 }
 
 func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
-	configMap *corev1.ConfigMap,
-) (*kedav1alpha1.ScaledObject, error) {
+	autoscalerConfig *v1beta1.AutoscalerConfig,
+	otelCollectorConfig *v1beta1.OtelCollectorConfig,
+) *kedav1alpha1.ScaledObject {
 	annotations := componentMeta.GetAnnotations()
 
 	var MinReplicas *int32
@@ -208,21 +205,17 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 		}
 	}
 
-	// Fallback to configmap if not set in componentExtension
-	if scaleDownStabilizationWindowSeconds == nil || scaleUpStabilizationWindowSeconds == nil {
-		if autoscalerConfig, err := v1beta1.NewAutoscalerConfig(configMap); err == nil {
-			if scaleDownStabilizationWindowSeconds == nil && autoscalerConfig.ScaleDownStabilizationWindowSeconds != "" {
-				if val, err := strconv.ParseInt(autoscalerConfig.ScaleDownStabilizationWindowSeconds, 10, 32); err == nil {
-					scaleDownStabilizationWindowSeconds = ptr.To(int32(val))
-				}
+	// Fallback to autoscaler config from cache if not set in componentExtension
+	if (scaleDownStabilizationWindowSeconds == nil || scaleUpStabilizationWindowSeconds == nil) && autoscalerConfig != nil {
+		if scaleDownStabilizationWindowSeconds == nil && autoscalerConfig.ScaleDownStabilizationWindowSeconds != "" {
+			if val, err := strconv.ParseInt(autoscalerConfig.ScaleDownStabilizationWindowSeconds, 10, 32); err == nil {
+				scaleDownStabilizationWindowSeconds = ptr.To(int32(val))
 			}
-			if scaleUpStabilizationWindowSeconds == nil && autoscalerConfig.ScaleUpStabilizationWindowSeconds != "" {
-				if val, err := strconv.ParseInt(autoscalerConfig.ScaleUpStabilizationWindowSeconds, 10, 32); err == nil {
-					scaleUpStabilizationWindowSeconds = ptr.To(int32(val))
-				}
+		}
+		if scaleUpStabilizationWindowSeconds == nil && autoscalerConfig.ScaleUpStabilizationWindowSeconds != "" {
+			if val, err := strconv.ParseInt(autoscalerConfig.ScaleUpStabilizationWindowSeconds, 10, 32); err == nil {
+				scaleUpStabilizationWindowSeconds = ptr.To(int32(val))
 			}
-		} else {
-			return nil, err
 		}
 	}
 
@@ -233,10 +226,7 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	if MaxReplicas < *MinReplicas {
 		MaxReplicas = *MinReplicas
 	}
-	triggers, err := getKedaMetrics(componentMeta, componentExtension, configMap)
-	if err != nil {
-		return nil, err
-	}
+	triggers := getKedaMetrics(componentMeta, componentExtension, otelCollectorConfig)
 
 	scaledobject := &kedav1alpha1.ScaledObject{
 		ObjectMeta: metav1.ObjectMeta{
@@ -274,7 +264,7 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 		}
 	}
 
-	return scaledobject, nil
+	return scaledobject
 }
 
 func semanticScaledObjectEquals(desired, existing *kedav1alpha1.ScaledObject) bool {

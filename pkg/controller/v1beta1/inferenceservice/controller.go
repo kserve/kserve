@@ -129,14 +129,29 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, err
 	}
 
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
+	// Fetch ConfigMap once per reconciliation and parse needed configs
+	configMap, err := utils.GetInferenceServiceConfigMap(ctx, r.Client)
 	if err != nil {
-		r.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
-		return reconcile.Result{}, err
+		r.Log.Error(err, "unable to get inferenceservice-config ConfigMap")
+		return reconcile.Result{}, errors.Wrapf(err, "fails to get inferenceservice-config ConfigMap")
 	}
-	isvcConfig, err := v1beta1.NewInferenceServicesConfig(isvcConfigMap)
+
+	isvcConfig, err := v1beta1.NewInferenceServicesConfig(configMap)
 	if err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "fails to create InferenceServicesConfig")
+		r.Log.Error(err, "unable to parse InferenceServicesConfig")
+		return reconcile.Result{}, errors.Wrapf(err, "fails to parse InferenceServicesConfig")
+	}
+
+	deployConfig, err := v1beta1.NewDeployConfig(configMap)
+	if err != nil {
+		r.Log.Error(err, "unable to parse DeployConfig")
+		return reconcile.Result{}, errors.Wrapf(err, "fails to parse DeployConfig")
+	}
+
+	ingressConfig, err := v1beta1.NewIngressConfig(configMap)
+	if err != nil {
+		r.Log.Error(err, "unable to parse IngressConfig")
+		return reconcile.Result{}, errors.Wrapf(err, "fails to parse IngressConfig")
 	}
 
 	// get annotations from isvc
@@ -144,11 +159,6 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
 	})
 	forceStopRuntime := utils.GetForceStopRuntime(isvc)
-
-	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
-	}
 
 	deploymentMode := isvcutils.GetDeploymentMode(isvc.Status.DeploymentMode, annotations, deployConfig)
 	r.Log.Info("Inference service deployment mode ", "deployment mode ", deploymentMode)
@@ -259,7 +269,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name, "namespace", isvc.Namespace)
 
 	// Reconcile cabundleConfigMap
-	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset)
+	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset, configMap)
 	if err := caBundleConfigMapReconciler.Reconcile(ctx, isvc.Namespace); err != nil {
 		if updateErr := r.updateStatus(ctx, isvc, deploymentMode); updateErr != nil {
 			r.Log.Error(updateErr, "Error updating status after cabundle configmap reconcile failure")
@@ -269,13 +279,13 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	componentReconcilers := []components.Component{}
 	if deploymentMode != constants.ModelMeshDeployment {
-		componentReconcilers = append(componentReconcilers, components.NewPredictor(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
+		componentReconcilers = append(componentReconcilers, components.NewPredictor(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode, configMap))
 	}
 	if isvc.Spec.Transformer != nil {
-		componentReconcilers = append(componentReconcilers, components.NewTransformer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
+		componentReconcilers = append(componentReconcilers, components.NewTransformer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode, configMap))
 	}
 	if isvc.Spec.Explainer != nil {
-		componentReconcilers = append(componentReconcilers, components.NewExplainer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
+		componentReconcilers = append(componentReconcilers, components.NewExplainer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode, configMap))
 	}
 	for _, reconciler := range componentReconcilers {
 		result, err := reconciler.Reconcile(ctx, isvc)
@@ -339,12 +349,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.LatestDeploymentReady)
 		}
 	}
-	// Reconcile ingress
-	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "fails to create IngressConfig")
-	}
-
+	// Reconcile ingress (ingressConfig already fetched from cache at the beginning)
 	// Reconcile ingress using factory
 	factory := reconcilers.NewReconcilerFactory()
 
@@ -556,6 +561,38 @@ func (r *InferenceServiceReconciler) podInitContainersFunc(ctx context.Context, 
 	return nil
 }
 
+func (r *InferenceServiceReconciler) inferenceServiceConfigMapFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	cm, ok := obj.(*corev1.ConfigMap)
+	if !ok || cm == nil {
+		return nil
+	}
+
+	var isvcList v1beta1.InferenceServiceList
+	// List all InferenceServices across all namespaces
+	if err := r.Client.List(ctx, &isvcList); err != nil {
+		r.Log.Error(err, "unable to list InferenceServices for ConfigMap change", "configMap", cm.Name)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(isvcList.Items))
+	for _, isvc := range isvcList.Items {
+		annotations := isvc.GetAnnotations()
+		if annotations != nil {
+			if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" && isvc.Status.IsReady() {
+				r.Log.Info("Auto-update is disabled for InferenceService", "InferenceService", isvc.Name)
+				continue
+			}
+		}
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: isvc.Namespace,
+				Name:      isvc.Name,
+			},
+		})
+	}
+	return requests
+}
+
 // servingRuntimesPredicate returns a predicate that filters ServingRuntime updates
 // to only include those where the Spec has changed.
 func servingRuntimesPredicate() predicate.Funcs {
@@ -711,6 +748,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	return ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate())).
 		Watches(&v1alpha1.ClusterServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.clusterServingRuntimeFunc), builder.WithPredicates(clusterServingRuntimesPredicate())).
 		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.podInitContainersFunc), builder.WithPredicates(podInitContainersPredicate())).
+		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(r.inferenceServiceConfigMapFunc), builder.WithPredicates(utils.InferenceServiceConfigPredicate(constants.InferenceServiceConfigMapName, constants.KServeNamespace))).
 		Complete(r)
 }
 

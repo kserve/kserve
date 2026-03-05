@@ -53,11 +53,13 @@ type Transformer struct {
 	scheme                 *runtime.Scheme
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
 	deploymentMode         constants.DeploymentModeType
+	configMap              *corev1.ConfigMap
 	Log                    logr.Logger
 }
 
 func NewTransformer(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType,
+	configMap *corev1.ConfigMap,
 ) Component {
 	return &Transformer{
 		client:                 client,
@@ -65,6 +67,7 @@ func NewTransformer(client client.Client, clientset kubernetes.Interface, scheme
 		scheme:                 scheme,
 		inferenceServiceConfig: inferenceServiceConfig,
 		deploymentMode:         deploymentMode,
+		configMap:              configMap,
 		Log:                    ctrl.Log.WithName("TransformerReconciler"),
 	}
 }
@@ -196,18 +199,13 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 }
 
 func (p *Transformer) reconcileTransformerRawDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta *metav1.ObjectMeta, podSpec *corev1.PodSpec) error {
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, p.clientset)
+	storageInitializerConfig, err := v1beta1.GetStorageInitializerConfigs(p.configMap)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get InferenceService ConfigMap")
-	}
-
-	storageInitializerConfig, err := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get StorageInitializer config")
+		return errors.Wrapf(err, "failed to parse StorageInitializer config")
 	}
 
 	modelStorageSpec := isvc.Spec.Predictor.GetImplementation().GetStorageSpec()
-	credentialBuilder := credentials.NewCredentialBuilder(p.client, p.clientset, isvcConfigMap)
+	credentialBuilder := credentials.NewCredentialBuilder(p.client, p.clientset, p.configMap)
 
 	var storageContainerSpec *v1alpha1.StorageContainerSpec
 	if len(isvc.Spec.Transformer.StorageUris) > 0 {
@@ -223,7 +221,7 @@ func (p *Transformer) reconcileTransformerRawDeployment(ctx context.Context, isv
 	}
 
 	r, err := raw.NewRawKubeReconciler(ctx, p.client, p.clientset, p.scheme, *objectMeta, metav1.ObjectMeta{},
-		&isvc.Spec.Transformer.ComponentExtensionSpec, podSpec, nil, &isvc.Spec.Transformer.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec)
+		&isvc.Spec.Transformer.ComponentExtensionSpec, podSpec, nil, &isvc.Spec.Transformer.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec, p.configMap)
 	if err != nil {
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for transformer")
 	}
@@ -252,18 +250,13 @@ func (p *Transformer) reconcileTransformerRawDeployment(ctx context.Context, isv
 }
 
 func (p *Transformer) reconcileTransformerKnativeDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta *metav1.ObjectMeta, podSpec *corev1.PodSpec) error {
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, p.clientset)
+	storageInitializerConfig, err := v1beta1.GetStorageInitializerConfigs(p.configMap)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get InferenceService ConfigMap")
-	}
-
-	storageInitializerConfig, err := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
-	if err != nil {
-		return errors.Wrapf(err, "failed to get StorageInitializer config")
+		return errors.Wrapf(err, "failed to parse StorageInitializer config")
 	}
 
 	modelStorageSpec := isvc.Spec.Predictor.GetImplementation().GetStorageSpec()
-	credentialBuilder := credentials.NewCredentialBuilder(p.client, p.clientset, isvcConfigMap)
+	credentialBuilder := credentials.NewCredentialBuilder(p.client, p.clientset, p.configMap)
 
 	var storageContainerSpec *v1alpha1.StorageContainerSpec
 	if len(isvc.Spec.Transformer.StorageUris) > 0 {
