@@ -145,21 +145,22 @@ if ! is_positive "$EMBED_MANIFESTS" && [ -z "${KSERVE_OVERLAY_DIR}" ] && ([ -n "
     VERSION="${SET_KSERVE_VERSION:-latest}"
     REGISTRY="${SET_KSERVE_REGISTRY:-kserve}"
 
-    find "${TEMP_OVERLAY_DIR}" -type f -name "*.yaml" -exec sed -i \
+    find "${TEMP_OVERLAY_DIR}" -type f -name "*.yaml" -exec sed -i'.bak' \
         -e "s/latest/${VERSION}/g" \
         -e "s|kserve/|${REGISTRY}/|g" {} \;
+    find "${TEMP_OVERLAY_DIR}" -type f -name "*.yaml.bak" -delete
 
     # Uncomment components/patches based on ENABLE_* flags
     if is_positive "${ENABLE_KSERVE}"; then
-        sed -i 's/#ENABLE_KSERVE //' "${TEMP_OVERLAY_DIR}/kustomization.yaml"
+        sed -i'.bak' 's/#ENABLE_KSERVE //' "${TEMP_OVERLAY_DIR}/kustomization.yaml" && rm -f "${TEMP_OVERLAY_DIR}/kustomization.yaml.bak"
     fi
 
     if is_positive "${ENABLE_LLMISVC}"; then
-        sed -i 's/#ENABLE_LLMISVC //' "${TEMP_OVERLAY_DIR}/kustomization.yaml"
+        sed -i'.bak' 's/#ENABLE_LLMISVC //' "${TEMP_OVERLAY_DIR}/kustomization.yaml" && rm -f "${TEMP_OVERLAY_DIR}/kustomization.yaml.bak"
     fi
 
     if is_positive "${ENABLE_LOCALMODEL}"; then
-        sed -i 's/#ENABLE_LOCALMODEL //' "${TEMP_OVERLAY_DIR}/kustomization.yaml"
+        sed -i'.bak' 's/#ENABLE_LOCALMODEL //' "${TEMP_OVERLAY_DIR}/kustomization.yaml" && rm -f "${TEMP_OVERLAY_DIR}/kustomization.yaml.bak"
     fi
 
     # Use temporary overlay
@@ -176,8 +177,8 @@ if [ -n "${KSERVE_OVERLAY_DIR}" ]; then
         # Update test overlay image tags if version is set
         if [ -n "${SET_KSERVE_VERSION}" ]; then
             log_info "Updating test overlay image tags to ${SET_KSERVE_VERSION}..."
-            sed -i -e "s/latest/${SET_KSERVE_VERSION}/g" config/overlays/test/configmap/inferenceservice.yaml
-            sed -i -e "s/latest/${SET_KSERVE_VERSION}/g" config/overlays/test/clusterresources/kustomization.yaml
+            sed -i'.bak' -e "s/latest/${SET_KSERVE_VERSION}/g" config/overlays/test/configmap/inferenceservice.yaml && rm -f config/overlays/test/configmap/inferenceservice.yaml.bak
+            sed -i'.bak' -e "s/latest/${SET_KSERVE_VERSION}/g" config/overlays/test/clusterresources/kustomization.yaml && rm -f config/overlays/test/clusterresources/kustomization.yaml.bak
         fi
 
         TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full")
