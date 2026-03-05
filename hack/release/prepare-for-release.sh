@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
 # Helper script to bump the KServe version
 # Usage:
-#   ./hack/prepare-for-release.sh <prior_version> <new_version>
+#   ./hack/release/prepare-for-release.sh <prior_version> <new_version>
 
 set -eo pipefail
 
+# Detect OS and set sed in-place flag
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  SED_INPLACE=(-i '')
+else
+  SED_INPLACE=(-i)
+fi
+
 # make sure the directory is the root of the repository
-if [ $0 != "hack/prepare-for-release.sh" ]; then
+if [ $0 != "hack/release/prepare-for-release.sh" ]; then
   echo -e "\033[31mError: run the script from the repository's root directory\033[0m"
   exit 1
 fi
@@ -84,32 +91,36 @@ echo "Normalized versions for the charts badge: prior: $pversion - new: $nversio
 echo -e "\033[32mUpdating charts...\033[0m"
 for readmeFile in `find charts -name README.md`; do
   echo -e "\033[32mUpdating ${readmeFile}...\033[0m"
-  sed -i '' "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" ${readmeFile}
-  sed -i '' "s/Version-v${pversion}/Version-v${nversion}/g" ${readmeFile}
-  # sanity check, when doing final release update to the next rc version it might skip the double dash
-  sed -i '' "s/Version-v${NEW_VERSION}/Version-v${nversion}/g" ${readmeFile}
+  # Update badge version first (before general version replacement)
+  sed "${SED_INPLACE[@]}" \
+    -e "s/Version-v${pversion}/Version-v${nversion}/g" \
+    -e "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" \
+    ${readmeFile}
 done
 
 for yaml in `find charts \( -name "Chart.yaml" -o -name "values.yaml" \)`; do
-  # do not interact over empty files
-  if [ ! -s "yaml" ]; then
+  # skip empty files
+  if [ -s "${yaml}" ]; then
      echo -e "\033[32mUpdating ${yaml}...\033[0m"
-     sed -i '' "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" ${yaml}
+     sed "${SED_INPLACE[@]}" "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" ${yaml}
   fi
 done
 
-# Update hack/generate-install.sh
-echo -e "\033[32mUpdating hack/generate-install.sh...\033[0m"
-sed -i '' "/\"v${PRIOR_VERSION}\"/a \\
-    \"v${NEW_VERSION}\"" hack/generate-install.sh
+# Add new version to RELEASES array(if not already present)
+echo -e "\033[32mUpdating hack/release/generate-install.sh...\033[0m"
+if grep -q "\"v${NEW_VERSION}\"" hack/release/generate-install.sh; then
+  echo -e "\033[33mVersion v${NEW_VERSION} already exists in hack/release/generate-install.sh, skipping...\033[0m"
+else
+  sed "${SED_INPLACE[@]}" "/\"v${PRIOR_VERSION}\"/a \\
+    \"v${NEW_VERSION}\"" hack/release/generate-install.sh
+fi
 
-# Update hack/quick_install.sh
-echo -e "\033[32mUpdating hack/quick_install.sh...\033[0m"
-sed -i '' "s/KSERVE_VERSION=v${PRIOR_VERSION}/KSERVE_VERSION=v${NEW_VERSION}/g" hack/quick_install.sh
+# Update kserve-deps.env
+echo -e "\033[32mUpdating kserve-deps.env...\033[0m"
+sed "${SED_INPLACE[@]}" "s/KSERVE_VERSION=v${PRIOR_VERSION}/KSERVE_VERSION=v${NEW_VERSION}/g" kserve-deps.env
 
-
-# update python/kserve version
-echo -e "\033[32mUpdating python/kserve version...\033[0m"
+# update python/kserve and docs versions
+echo -e "\033[32mUpdating python/kserve and docs versions...\033[0m"
 ## if rcX release, it has no dash, e.g. 0.14.0rc1
 new_no_dash_version=$(echo ${NEW_VERSION} | sed 's/-//g')
 prior_no_dash_version=$(echo ${PRIOR_VERSION} | sed 's/-//g')
@@ -120,26 +131,47 @@ echo -e "\033[32mNo dash version updated to ${new_no_dash_version} and prior: ${
 
 echo "${new_no_dash_version}" > python/VERSION
 
-for file in $(find python \( -name 'pyproject.toml' -o -name 'uv.lock' \)); do
+for file in $(find python docs \( -name 'pyproject.toml' -o -name 'uv.lock' \)); do
   echo -e "\033[32mUpdating ${file}\033[0m"
   if [[ ${file} == *"uv.lock" ]]; then
     # make sure the previous line is name = "kserve"
     # there is a chance that the version being update be the same than other dependencies
-    sed -i '' "/name = \"kserve\"/{N;s|${prior_no_dash_version}|${new_no_dash_version}|;}" "${file}"
+    sed "${SED_INPLACE[@]}" "/name = \"kserve\"/{N;s|${prior_no_dash_version}|${new_no_dash_version}|;}" "${file}"
   else
-    sed -i '' "s|${prior_no_dash_version}|${new_no_dash_version}|g" "${file}"
+    # Only update kserve/kserve-storage versions, not external package versions
+    sed "${SED_INPLACE[@]}" \
+      -e "s|version = \"${prior_no_dash_version}\"|version = \"${new_no_dash_version}\"|" \
+      -e "s|kserve-storage==${prior_no_dash_version}|kserve-storage==${new_no_dash_version}|g" \
+      "${file}"
   fi
 done
 
-# update docs version
-for file in $(find docs \( -name 'pyproject.toml' -o -name 'uv.lock' \)); do
-  echo -e "\033[32mUpdating ${file}\033[0m"
-  if [[ ${file} == *"uv.lock" ]]; then
-    # make sure the previous line is name = "kserve"
-    # there is a chance that the version being update be the same than other dependencies
-    sed -i '' "/name = \"kserve\"/{N;s|${prior_no_dash_version}|${new_no_dash_version}|;}" "${file}"
-  else
-    sed -i '' "s|${prior_no_dash_version}|${new_no_dash_version}|g" "${file}"
-  fi
-done
+# Update Python dependency lock files
+echo -e "\033[32mUpdating Python dependency lock files (uv-lock)...\033[0m"
+make uv-lock
+if [ $? -ne 0 ]; then
+  echo -e "\033[31mError: Failed to update uv.lock files\033[0m"
+  exit 1
+fi
 
+# Run precommit checks
+echo -e "\033[32mRunning precommit checks (lint, format, vet)...\033[0m"
+make precommit
+if [ $? -ne 0 ]; then
+  echo -e "\033[31mError: Precommit checks failed. Please fix the issues and re-run.\033[0m"
+  exit 1
+fi
+
+# Generate install manifests
+echo -e "\033[32mGenerating install manifests...\033[0m"
+./hack/release/generate-install.sh "v${NEW_VERSION}"
+if [ $? -ne 0 ]; then
+  echo -e "\033[31mError: Failed to generate install manifests\033[0m"
+  exit 1
+fi
+
+echo -e "\033[32m✓ All release preparation steps completed successfully!\033[0m"
+echo -e "\033[33mNext steps:\033[0m"
+echo -e "  1. Review the changes: git status"
+echo -e "  2. Commit the changes"
+echo -e "  3. Push and create a PR"
