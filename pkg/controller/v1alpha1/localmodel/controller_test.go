@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -780,8 +779,10 @@ func initializeManager(ctx context.Context, cfg *rest.Config) {
 	clientset, err := kubernetes.NewForConfig(cfg)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(clientset).ToNot(BeNil())
+	Expect(testScheme).ToNot(BeNil())
+
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
+		Scheme: testScheme,
 		Metrics: metricsserver.Options{
 			BindAddress: "0",
 		},
@@ -797,7 +798,7 @@ func initializeManager(ctx context.Context, cfg *rest.Config) {
 	err = (&LocalModelReconciler{
 		Client:    k8sClient,
 		Clientset: clientset,
-		Scheme:    scheme.Scheme,
+		Scheme:    testScheme,
 		Log:       ctrl.Log.WithName("v1alpha1LocalModelController"),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
