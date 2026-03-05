@@ -702,7 +702,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 			ctrlBuilder = ctrlBuilder.Owns(&gwapiv1.HTTPRoute{})
 		} else {
 			r.Log.Info("The InferenceService controller won't watch gateway.networking.k8s.io/v1/HTTPRoute resources because the CRD is not available.")
-			panic("Gateway API CRD not available")
+			return fmt.Errorf("gateway API mode requires gateway.networking.k8s.io/v1 %q CRD", constants.HTTPRouteKind)
 		}
 	} else {
 		ctrlBuilder = ctrlBuilder.Owns(&netv1.Ingress{})
