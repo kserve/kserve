@@ -100,3 +100,7 @@ index-strategy = "unsafe-best-match"
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+# UV workspace source for local dependency resolution
+[tool.uv.sources]
+kserve-storage = { path = "../storage", editable = true }
