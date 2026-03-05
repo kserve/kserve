@@ -14,7 +14,7 @@ spec:
     env:
     - name: LMCACHE_USE_EXPERIMENTAL
       value: "True"
-    image: kserve/huggingfaceserver:v0.16.0
+    image: kserve/huggingfaceserver:latest
     name: kserve-container
     resources:
       limits:
@@ -85,7 +85,7 @@ spec:
       value: /tmp
     - name: HF_HUB_CACHE
       value: /tmp
-    image: kserve/huggingfaceserver:v0.16.0-gpu
+    image: kserve/huggingfaceserver:latest-gpu
     livenessProbe:
       exec:
         command:
@@ -169,7 +169,7 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
-      image: kserve/huggingfaceserver:v0.16.0-gpu
+      image: kserve/huggingfaceserver:latest-gpu
       livenessProbe:
         exec:
           command:
@@ -231,7 +231,7 @@ spec:
     - --model_dir=/mnt/models
     - --http_port=8080
     - --nthread=1
-    image: kserve/lgbserver:v0.16.0
+    image: kserve/lgbserver:latest
     name: kserve-container
     resources:
       limits:
@@ -253,7 +253,7 @@ spec:
   supportedModelFormats:
   - autoSelect: true
     name: lightgbm
-    priority: 2
+    priority: 1
     version: "4"
 ---
 apiVersion: serving.kserve.io/v1alpha1
@@ -295,27 +295,27 @@ spec:
   supportedModelFormats:
   - autoSelect: true
     name: sklearn
-    priority: 3
+    priority: 2
     version: "0"
   - autoSelect: true
     name: sklearn
-    priority: 3
+    priority: 2
     version: "1"
   - autoSelect: true
     name: xgboost
-    priority: 3
+    priority: 2
     version: "1"
   - autoSelect: true
     name: xgboost
-    priority: 3
+    priority: 2
     version: "2"
   - autoSelect: true
     name: lightgbm
-    priority: 3
+    priority: 2
     version: "3"
   - autoSelect: true
     name: lightgbm
-    priority: 3
+    priority: 2
     version: "4"
   - autoSelect: true
     name: mlflow
@@ -341,7 +341,7 @@ spec:
     - --model_name={{.Name}}
     - --model_dir=/mnt/models
     - --http_port=8080
-    image: kserve/paddleserver:v0.16.0
+    image: kserve/paddleserver:latest
     name: kserve-container
     resources:
       limits:
@@ -381,7 +381,7 @@ spec:
     - --model_name={{.Name}}
     - --model_dir=/mnt/models
     - --http_port=8080
-    image: kserve/pmmlserver:v0.16.0
+    image: kserve/pmmlserver:latest
     name: kserve-container
     resources:
       limits:
@@ -427,7 +427,7 @@ spec:
     - --http_port=8080
     - --framework={{.Annotations.modelFormat}}
     - --nthread=1
-    image: kserve/predictiveserver:v0.16.0
+    image: kserve/predictiveserver:latest
     name: kserve-container
     resources:
       limits:
@@ -449,15 +449,15 @@ spec:
   supportedModelFormats:
   - autoSelect: true
     name: sklearn
-    priority: 1
+    priority: 3
     version: "1"
   - autoSelect: true
     name: xgboost
-    priority: 1
+    priority: 3
     version: "2"
   - autoSelect: true
     name: lightgbm
-    priority: 1
+    priority: 3
     version: "4"
 ---
 apiVersion: serving.kserve.io/v1alpha1
@@ -475,7 +475,7 @@ spec:
     - --model_name={{.Name}}
     - --model_dir=/mnt/models
     - --http_port=8080
-    image: kserve/sklearnserver:v0.16.0
+    image: kserve/sklearnserver:latest
     name: kserve-container
     resources:
       limits:
@@ -497,7 +497,7 @@ spec:
   supportedModelFormats:
   - autoSelect: true
     name: sklearn
-    priority: 2
+    priority: 1
     version: "1"
 ---
 apiVersion: serving.kserve.io/v1alpha1
@@ -673,7 +673,7 @@ spec:
     - --model_dir=/mnt/models
     - --http_port=8080
     - --nthread=1
-    image: kserve/xgbserver:v0.16.0
+    image: kserve/xgbserver:latest
     name: kserve-container
     resources:
       limits:
@@ -695,5 +695,5 @@ spec:
   supportedModelFormats:
   - autoSelect: true
     name: xgboost
-    priority: 2
+    priority: 1
     version: "2"
