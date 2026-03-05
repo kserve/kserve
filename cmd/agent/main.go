@@ -32,6 +32,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
+	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/zap"
 	"knative.dev/networking/pkg/http/header"
 	proxy "knative.dev/networking/pkg/http/proxy"
@@ -439,7 +440,7 @@ func buildServer(port string, userPort int, loggerArgs *loggerArgs, batcherArgs 
 		// Add Activator probe header to the drainer so it can handle probes directly from activator
 		HealthCheckUAPrefixes: []string{header.ActivatorUserAgent},
 		Inner:                 composedHandler,
-		HealthCheck:           health.ProbeHandler(probeContainer, false),
+		HealthCheck:           health.ProbeHandler(noop.NewTracerProvider().Tracer(""), probeContainer),
 	}
 	composedHandler = drainer
 	return pkgnet.NewServer(":"+port, composedHandler), drainer.Drain
