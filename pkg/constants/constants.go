@@ -66,8 +66,6 @@ var (
 const (
 	RouterHeadersPropagateEnvVar = "PROPAGATE_HEADERS"
 	InferenceGraphLabel          = "serving.kserve.io/inferencegraph"
-	InferenceGraphAuthCRBName    = "kserve-inferencegraph-auth-verifiers"
-	InferenceGraphFinalizerName  = "inferencegraph.finalizers"
 	RouterReadinessEndpoint      = "/readyz"
 	RouterPort                   = 8080
 	RouterTimeoutsServerRead     = 60
@@ -129,7 +127,6 @@ var (
 	PrometheusPortAnnotationKey                 = "prometheus.io/port"
 	PrometheusPathAnnotationKey                 = "prometheus.io/path"
 	StorageReadonlyAnnotationKey                = "storage.kserve.io/readonly"
-	OVMSAutoVersioningAnnotationKey             = "storage.kserve.io/ovms-auto-versioning"
 	DefaultPrometheusPath                       = "/metrics"
 	QueueProxyAggregatePrometheusMetricsPort    = "9088"
 	DefaultPodPrometheusPort                    = "9091"
@@ -175,17 +172,13 @@ var (
 
 // kserve networking constants
 const (
-	NetworkVisibility              = "networking.kserve.io/visibility"
-	ClusterLocalVisibility         = "cluster-local"
-	ClusterLocalDomain             = "svc.cluster.local"
-	IsvcNameHeader                 = "KServe-Isvc-Name"
-	IsvcNamespaceHeader            = "KServe-Isvc-Namespace"
-	ODHKserveRawAuth               = "security.opendatahub.io/enable-auth"
-	ODHRouteEnabled                = "exposed"
-	ServingCertSecretSuffix        = "-serving-cert"
-	OpenshiftServingCertAnnotation = "service.beta.openshift.io/serving-cert-secret-name"
-	HostHeader                     = "Host"
-	GatewayName                    = "kserve-ingress-gateway"
+	NetworkVisibility      = "networking.kserve.io/visibility"
+	ClusterLocalVisibility = "cluster-local"
+	ClusterLocalDomain     = "svc.cluster.local"
+	IsvcNameHeader         = "KServe-Isvc-Name"
+	IsvcNamespaceHeader    = "KServe-Isvc-Namespace"
+	HostHeader             = "Host"
+	GatewayName            = "kserve-ingress-gateway"
 )
 
 // StorageSpec Constants
@@ -461,9 +454,8 @@ const (
 	WorkerContainerName     = "worker-container"
 	QueueProxyContainerName = "queue-proxy"
 
-	ModelcarContainerName       = "modelcar"
-	ModelcarInitContainerName   = "modelcar-init"
-	OVMSVersioningContainerName = "ovms-auto-versioning"
+	ModelcarContainerName     = "modelcar"
+	ModelcarInitContainerName = "modelcar-init"
 )
 
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
@@ -493,19 +485,14 @@ const (
 )
 
 var (
-	// ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative
-	// revisions, which prevents the reconciliation loop to be triggered if the annotations is
-	// configured here are used.
 	ServiceAnnotationDisallowedList = []string{
 		autoscaling.MinScaleAnnotationKey,
 		autoscaling.MaxScaleAnnotationKey,
 		StorageInitializerSourceUriInternalAnnotationKey,
 		"kubectl.kubernetes.io/last-applied-configuration",
-		"security.opendatahub.io/enable-auth",
 		ModelFormatAnnotationKey,
 	}
-	// RevisionTemplateLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative
-	// revisions, which prevents the reconciliation loop to be triggered if the labels is configured here are used.
+
 	RevisionTemplateLabelDisallowedList = []string{
 		VisibilityLabel,
 	}
@@ -645,21 +632,6 @@ const (
 	SupportedModelMLFlow      = "mlflow"
 )
 
-// opendatahub rawDeployment Auth
-const (
-	OauthProxyPort                  = 8443
-	OauthProxyProbePort             = 8643
-	OauthProxyResourceMemoryLimit   = "128Mi"
-	OauthProxyResourceCPULimit      = "200m"
-	OauthProxyResourceMemoryRequest = "64Mi"
-	OauthProxyResourceCPURequest    = "100m"
-	OauthProxySARCMName             = "kube-rbac-proxy-sar-config"
-	// Used for test purposes
-	OauthProxyImage       = "quay.io/opendatahub/odh-kube-auth-proxy@sha256:dcb09fbabd8811f0956ef612a0c9ddd5236804b9bd6548a0647d2b531c9d01b3"
-	DefaultServiceAccount = "default"
-	KubeRbacContainerName = "kube-rbac-proxy"
-)
-
 type ProtocolVersion int
 
 const (
@@ -714,18 +686,6 @@ const (
 var (
 	MultiNodeRoleLabelKey = "multinode/role"
 	MultiNodeHead         = "head"
-)
-
-// OpenShift constants
-const (
-	OpenShiftServiceCaConfigMapName = "openshift-service-ca.crt"
-)
-
-type ResourceType string
-
-const (
-	InferenceServiceResource ResourceType = "InferenceService"
-	InferenceGraphResource   ResourceType = "InferenceGraph"
 )
 
 // GetRawServiceLabel generate native service label
