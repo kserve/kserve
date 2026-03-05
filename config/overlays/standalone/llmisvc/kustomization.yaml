@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: kserve
 
 resources:
+- ../../../crd/full/clusterstoragecontainer
 - ../../../base
 
 components:
