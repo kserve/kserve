@@ -276,6 +276,10 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.EnqueueOnLLMInferenceServicePods),
 			builder.WithPredicates(PodStatusPredicate()))
 
+	if err := extendControllerSetup(mgr, b); err != nil {
+		return fmt.Errorf("failed to extend controller setup: %w", err)
+	}
+
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), gwapiv1.GroupVersion.String(), "HTTPRoute"); ok && err == nil {
 		b = b.Owns(&gwapiv1.HTTPRoute{}, builder.WithPredicates(childResourcesPredicate)).
 			Watches(&gwapiv1.HTTPRoute{}, r.enqueueOnHttpRouteChange(logger))

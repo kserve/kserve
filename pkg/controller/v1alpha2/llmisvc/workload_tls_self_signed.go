@@ -23,6 +23,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"maps"
 	"math/big"
@@ -67,12 +68,10 @@ func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, 
 
 	// Generating a new certificate is quite slow and expensive as it generates a new certificate, check if the current
 	// self-signed certificate (if any) is expired before creating a new one.
-	var certFunc createCertFunc = func() ([]byte, []byte, error) {
-		return createSelfSignedTLSCertificate(dnsNames, ips)
-	}
+	certFunc := r.createWorkloadCertificate(ctx, dnsNames, ips)
 	if curr := r.getExistingSelfSignedCertificate(ctx, llmSvc); curr != nil && !ShouldRecreateCertificate(curr, dnsNames, ips, schedulerConfig.ExpirationAnnotations) {
-		certFunc = func() ([]byte, []byte, error) {
-			return curr.Data["tls.key"], curr.Data["tls.crt"], nil
+		certFunc = func() (*certBundle, error) {
+			return &certBundle{Key: curr.Data["tls.key"], Cert: curr.Data["tls.crt"], CACert: curr.Data["ca.crt"]}, nil
 		}
 	}
 
@@ -91,12 +90,42 @@ func (r *LLMISVCReconciler) reconcileSelfSignedCertsSecret(ctx context.Context, 
 	return nil
 }
 
-type createCertFunc func() ([]byte, []byte, error)
+// certBundle holds TLS certificate material.
+// CACert holds the CA certificate. For self-signed certs it equals Cert (the cert is its own CA).
+// Distro hooks may supply a separate CA cert.
+type certBundle struct {
+	Key    []byte
+	Cert   []byte
+	CACert []byte
+}
+
+func (b *certBundle) Validate() error {
+	if len(b.Key) == 0 {
+		return errors.New("certificate bundle is missing private key")
+	}
+	if len(b.Cert) == 0 {
+		return errors.New("certificate bundle is missing certificate")
+	}
+	return nil
+}
+
+type createCertFunc func() (*certBundle, error)
 
 func (r *LLMISVCReconciler) expectedSelfSignedCertsSecret(llmSvc *v1alpha2.LLMInferenceService, certFunc createCertFunc, schedulerConfig *SchedulerConfig) (*corev1.Secret, error) {
-	keyBytes, certBytes, err := certFunc()
+	bundle, err := certFunc()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create self-signed TLS certificate: %w", err)
+	}
+	if err := bundle.Validate(); err != nil {
+		return nil, err
+	}
+
+	secretData := map[string][]byte{
+		"tls.key": bundle.Key,
+		"tls.crt": bundle.Cert,
+	}
+	if len(bundle.CACert) > 0 {
+		secretData["ca.crt"] = bundle.CACert
 	}
 
 	expected := &corev1.Secret{
@@ -117,10 +146,7 @@ func (r *LLMISVCReconciler) expectedSelfSignedCertsSecret(llmSvc *v1alpha2.LLMIn
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
 			},
 		},
-		Data: map[string][]byte{
-			"tls.crt": certBytes,
-			"tls.key": keyBytes,
-		},
+		Data: secretData,
 		Type: corev1.SecretTypeTLS,
 	}
 	return expected, nil

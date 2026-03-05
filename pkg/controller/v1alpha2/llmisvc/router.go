@@ -99,6 +99,12 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 		return fmt.Errorf("failed to reconcile HTTP routes: %w", err)
 	}
 
+	// Reconcile platform-specific networking resources
+	if err := r.reconcileRouterPlatformNetworking(ctx, llmSvc); err != nil {
+		llmSvc.MarkHTTPRoutesNotReady("PlatformNetworkingReconcileError", "Failed to reconcile platform networking: %v", err.Error())
+		return fmt.Errorf("failed to reconcile router platform networking: %w", err)
+	}
+
 	// Evaluate the subconditions to determine overall router health
 	if err := r.EvaluateInferencePoolConditions(ctx, llmSvc); err != nil {
 		return fmt.Errorf("failed to evaluate Inference Pool conditions: %w", err)
