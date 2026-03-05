@@ -2192,19 +2192,20 @@ spec:
         - ALL
       privileged: false
       runAsNonRoot: true
+  multiModel: false
   protocolVersions:
   - v1
   - v2
   supportedModelFormats:
-  - autoSelect: true
+  - autoSelect: false
     name: sklearn
     priority: 3
     version: "1"
-  - autoSelect: true
+  - autoSelect: false
     name: xgboost
     priority: 3
     version: "2"
-  - autoSelect: true
+  - autoSelect: false
     name: lightgbm
     priority: 3
     version: "4"

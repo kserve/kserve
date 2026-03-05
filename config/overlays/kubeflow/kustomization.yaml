@@ -4,7 +4,7 @@ kind: Kustomization
 # Adds namespace to all resources.
 namespace: kubeflow
 
-resources: 
+resources:
 - ../../base
 - cluster-role.yaml
 
@@ -27,4 +27,5 @@ configurations:
 - params.yaml
 
 patches:
+- path: patches/namespace.yaml
 - path: patches/statefulset.yaml
