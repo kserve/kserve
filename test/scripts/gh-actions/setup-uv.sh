@@ -25,6 +25,12 @@ source "${SCRIPT_DIR}/../../../hack/setup/common.sh"
 
 ${REPO_ROOT}/hack/setup/cli/install-uv.sh
 
+# Add to GITHUB_PATH for GitHub Actions (allows uv to be found in subsequent steps)
+if [ -n "${GITHUB_PATH:-}" ]; then
+    echo "${BIN_DIR}" >> $GITHUB_PATH
+    log_info "Added ${BIN_DIR} to GITHUB_PATH for subsequent steps"
+fi
+
 echo "Creating virtual environment..."
 uv venv
 source .venv/bin/activate

@@ -1,0 +1,85 @@
+name: Prepare Release (Branch & Tag)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v0.17.0-rc0, v0.17.0-rc1, v0.17.0)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry-run mode (validate only, no changes)'
+        required: false
+        type: boolean
+        default: true
+
+# Prevent concurrent releases
+concurrency:
+  group: release-workflow
+  cancel-in-progress: false
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          # Install yq for OWNERS file parsing
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Check OWNERS permissions
+        run: |
+          echo "Checking permissions for user: ${{ github.actor }}"
+
+          # Extract allowed users from OWNERS file
+          ALLOWED_USERS=$(yq eval '.project-leads[], .approvers[], .reviewers[]' OWNERS)
+
+          # Check if current user is in the allowed list
+          if ! echo "$ALLOWED_USERS" | grep -q "^${{ github.actor }}$"; then
+            echo ""
+            echo "❌ Permission denied!"
+            echo "   Only users listed in OWNERS (reviewer+) can run this workflow."
+            echo "   Current user: ${{ github.actor }}"
+            echo ""
+            echo "Allowed users:"
+            echo "$ALLOWED_USERS"
+            exit 1
+          fi
+
+          echo "✅ Permission granted for ${{ github.actor }}"
+
+      - name: Check if release already exists
+        if: ${{ inputs.dry_run == false }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ inputs.version }}"
+          
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo ""
+            echo "❌ Release $VERSION already exists!"
+            echo ""
+            gh release view "$VERSION" --json url,createdAt -q '"URL: " + .url + "\nCreated: " + .createdAt'
+            exit 1
+          fi
+          
+          echo "✅ Release $VERSION does not exist yet"
+
+      - name: Create Branch and Tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            ./hack/release/create-release.sh "${{ inputs.version }}" --dry-run --github-actions
+          else
+            ./hack/release/create-release.sh "${{ inputs.version }}" --github-actions
+          fi

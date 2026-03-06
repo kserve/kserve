@@ -1,6 +1,6 @@
 # kserve-runtime-configs
 
-![Version: v0.16.0](https://img.shields.io/badge/Version-v0.16.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.16.0](https://img.shields.io/badge/AppVersion-v0.16.0-informational?style=flat-square)
+![Version: v0.17.0-rc0](https://img.shields.io/badge/Version-v0.17.0--rc0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.17.0-rc0](https://img.shields.io/badge/AppVersion-v0.17.0--rc0-informational?style=flat-square)
 
 KServe Runtime Configurations - ClusterServingRuntimes and LLM Inference Configs
 
@@ -156,5 +156,5 @@ KServe Runtime Configurations - ClusterServingRuntimes and LLM Inference Configs
 | kserve.servingruntime.xgbserver.securityContext.privileged | bool | `false` |  |
 | kserve.servingruntime.xgbserver.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.servingruntime.xgbserver.tag | string | `""` |  |
-| kserve.version | string | `"v0.16.0"` |  |
+| kserve.version | string | `"v0.17.0-rc0"` |  |
 
