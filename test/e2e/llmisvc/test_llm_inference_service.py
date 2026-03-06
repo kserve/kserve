@@ -283,7 +283,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 max_tokens=2000,
             ),
             marks=[
-                pytest.mark.gpu,
+                pytest.mark.cluster_gpu,
                 pytest.mark.cluster_nvidia,
                 pytest.mark.cluster_nvidia_roce,
             ],

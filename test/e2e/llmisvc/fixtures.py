@@ -814,7 +814,7 @@ def test_case(request):
             original_spec = LLMINFERENCESERVICE_CONFIGS[base_ref]
 
             unique_config_body = {
-                "apiVersion": "serving.kserve.io/v1alpha2",
+                "apiVersion": _llmisvc_api_version(),
                 "kind": "LLMInferenceServiceConfig",
                 "metadata": {
                     "name": unique_config_name,
@@ -829,7 +829,7 @@ def test_case(request):
             created_configs.append(unique_config_name)
 
         tc.llm_service = V1alpha2LLMInferenceService(
-            api_version="serving.kserve.io/v1alpha2",
+            api_version=_llmisvc_api_version(),
             kind="LLMInferenceService",
             metadata=client.V1ObjectMeta(
                 name=tc.service_name, namespace=KSERVE_TEST_NAMESPACE
@@ -1062,3 +1062,15 @@ def delete_scheduler_configmap():
     except client.rest.ApiException as e:
         if e.status != 404:  # Ignore not found
             raise
+
+# LLMInferenceService API version for e2e tests (env: LLMISVC_API_VERSION=v1alpha1|v1alpha2)
+_LLMISVC_API_VERSION_ENV = "LLMISVC_API_VERSION"
+
+
+def _llmisvc_api_version() -> str:
+    """Return LLMInferenceService api_version (e.g. serving.kserve.io/v1alpha2) from env or default."""
+    raw = os.environ.get(_LLMISVC_API_VERSION_ENV, "v1alpha1").strip().lower()
+    if raw == "v1alpha2":
+        return constants.KSERVE_V1ALPHA2
+    return constants.KSERVE_V1ALPHA1
+
