@@ -42,7 +42,7 @@ jobs:
 
           # Bump Versions
           make bump-version
-          ./hack/generate-install.sh $RELEASE_TAG
+          ./hack/release/generate-install.sh $RELEASE_TAG
           make uv-lock
 
           # Update Release Branch and Push Tag
