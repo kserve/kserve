@@ -1,16 +1,28 @@
 # kserve-llmisvc-resources
 
+![Version: v0.17.0-rc0](https://img.shields.io/badge/Version-v0.17.0--rc0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.17.0-rc0](https://img.shields.io/badge/AppVersion-v0.17.0--rc0-informational?style=flat-square)
+
 Helm chart for deploying KServe LLMInferenceService resources
 
-![Version: v0.17.0-rc0](https://img.shields.io/badge/Version-v0.17.0--rc0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.17.0-rc0](https://img.shields.io/badge/AppVersion-v0.17.0--rc0-informational?style=flat-square)
+**Homepage:** <https://kserve.github.io/website/>
 
 ## Installing the Chart
 
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-llmisvc oci://ghcr.io/kserve/charts/kserve-llmisvc-resources --version v0.17.0-rc0
+$ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmisvc-resources --version v0.17.0-rc0
 ```
+
+## Maintainers
+
+| Name | Email | Url |
+| ---- | ------ | --- |
+| KServe Team |  | <https://github.com/kserve/kserve> |
+
+## Source Code
+
+* <https://github.com/kserve/kserve>
 
 ## Values
 
