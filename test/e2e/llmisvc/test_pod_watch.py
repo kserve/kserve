@@ -31,7 +31,7 @@ from contextlib import contextmanager
 import pytest
 from kubernetes import client
 
-from kserve import KServeClient, V1alpha2LLMInferenceService, constants
+from kserve import KServeClient, V1alpha1LLMInferenceService, constants
 
 from .fixtures import (
     KSERVE_TEST_NAMESPACE,
@@ -133,7 +133,7 @@ def dump_debug_info(
 
 
 @contextmanager
-def managed_llmisvc(kserve_client: KServeClient, llmisvc: V1alpha2LLMInferenceService):
+def managed_llmisvc(kserve_client: KServeClient, llmisvc: V1alpha1LLMInferenceService):
     """
     Context manager that handles LLMInferenceService lifecycle: creation, error dumping, and cleanup.
 
@@ -266,7 +266,7 @@ def create_llmisvc_config(
 ):
     """Create an LLMInferenceServiceConfig."""
     config = {
-        "apiVersion": "serving.kserve.io/v1alpha2",
+        "apiVersion": "serving.kserve.io/v1alpha1",
         "kind": "LLMInferenceServiceConfig",
         "metadata": {
             "name": name,
@@ -277,7 +277,7 @@ def create_llmisvc_config(
     try:
         kserve_client.api_instance.delete_namespaced_custom_object(
             constants.KSERVE_GROUP,
-            constants.KSERVE_V1ALPHA2_VERSION,
+            constants.KSERVE_V1ALPHA1_VERSION,
             namespace,
             KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
             name,
@@ -287,7 +287,7 @@ def create_llmisvc_config(
 
     return kserve_client.api_instance.create_namespaced_custom_object(
         constants.KSERVE_GROUP,
-        constants.KSERVE_V1ALPHA2_VERSION,
+        constants.KSERVE_V1ALPHA1_VERSION,
         namespace,
         KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
         config,
@@ -299,7 +299,7 @@ def delete_llmisvc_config(kserve_client: KServeClient, name: str, namespace: str
     try:
         kserve_client.api_instance.delete_namespaced_custom_object(
             constants.KSERVE_GROUP,
-            constants.KSERVE_V1ALPHA2_VERSION,
+            constants.KSERVE_V1ALPHA1_VERSION,
             namespace,
             KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
             name,
@@ -384,8 +384,8 @@ async def test_event_storm_prevention_init_container_isolation():
         )
 
         # Create primary LLMISVC with valid config
-        primary_llmisvc = V1alpha2LLMInferenceService(
-            api_version="serving.kserve.io/v1alpha2",
+        primary_llmisvc = V1alpha1LLMInferenceService(
+            api_version="serving.kserve.io/v1alpha1",
             kind="LLMInferenceService",
             metadata=client.V1ObjectMeta(
                 name=primary_name, namespace=KSERVE_TEST_NAMESPACE
@@ -432,8 +432,8 @@ async def test_event_storm_prevention_init_container_isolation():
             )
 
             # Step 3: Create secondary LLMISVC with invalid S3 credentials
-            secondary_llmisvc = V1alpha2LLMInferenceService(
-                api_version="serving.kserve.io/v1alpha2",
+            secondary_llmisvc = V1alpha1LLMInferenceService(
+                api_version="serving.kserve.io/v1alpha1",
                 kind="LLMInferenceService",
                 metadata=client.V1ObjectMeta(
                     name=secondary_name, namespace=KSERVE_TEST_NAMESPACE
@@ -580,8 +580,8 @@ async def test_quick_reconciliation_on_init_container_failure():
         )
 
         # Create LLMISVC with invalid S3 credentials
-        llmisvc = V1alpha2LLMInferenceService(
-            api_version="serving.kserve.io/v1alpha2",
+        llmisvc = V1alpha1LLMInferenceService(
+            api_version="serving.kserve.io/v1alpha1",
             kind="LLMInferenceService",
             metadata=client.V1ObjectMeta(
                 name=llmisvc_name, namespace=KSERVE_TEST_NAMESPACE
