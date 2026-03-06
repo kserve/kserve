@@ -11,7 +11,7 @@
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmisvc-resources --version {{ template "chart.version" . }}
+$ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime-configs --set kserve.servingruntime.enabled=true --set kserve.llmisvcConfigs.enabled=true --version {{ template "chart.version" . }}
 ```
 
 {{ template "chart.maintainersSection" . }}
