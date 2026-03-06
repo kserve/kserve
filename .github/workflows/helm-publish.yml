@@ -2,7 +2,7 @@ name: helm-publish
 
 on:
   release:
-    types: [prereleased, released] 
+    types: [published]
 
   workflow_dispatch:
 
