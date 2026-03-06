@@ -717,8 +717,11 @@ jobs:
           kubectl describe pods -n kserve
       - name: Patch qpext image
         run: |
-          kubectl patch configmaps -n knative-serving config-deployment --patch '{"data": {"queue-sidecar-image": "kserve/qpext:${{ env.TAG }}"}}'
-          kubectl describe configmaps -n knative-serving config-deployment
+          kubectl patch knativeserving knative-serving -n knative-serving --type=merge \
+            --patch '{"spec":{"config":{"deployment":{"queue-sidecar-image":"kserve/qpext:${{ env.TAG }}"},"observability":{"request-metrics-protocol":"prometheus"}}}}'
+          kubectl wait --for=condition=Ready -n knative-serving knativeserving knative-serving --timeout=120s
+          kubectl get configmap config-deployment -n knative-serving -o jsonpath='{.data.queue-sidecar-image}'
+          echo
       - name: Run queue proxy extension E2E tests
         timeout-minutes: 30
         run: |

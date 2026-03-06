@@ -33,8 +33,6 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 )
 
-const certificatesExpirationAnnotation = "certificates.kserve.io/expiration"
-
 func generateTestCert(t *testing.T, dnsNames []string, ips []net.IP, notAfter time.Time) ([]byte, []byte) {
 	t.Helper()
 
@@ -91,7 +89,7 @@ func TestShouldRecreateCertificate(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						certificatesExpirationAnnotation: time.Now().Add(-time.Hour).Format(time.RFC3339),
+						llmisvc.DefaultExpirationAnnotations[0]: time.Now().Add(-time.Hour).Format(time.RFC3339),
 					},
 				},
 				Data: map[string][]byte{
@@ -106,7 +104,7 @@ func TestShouldRecreateCertificate(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						certificatesExpirationAnnotation: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+						llmisvc.DefaultExpirationAnnotations[0]: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
 					},
 				},
 				Data: map[string][]byte{
@@ -120,7 +118,7 @@ func TestShouldRecreateCertificate(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						certificatesExpirationAnnotation: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+						llmisvc.DefaultExpirationAnnotations[0]: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
 					},
 				},
 				Data: map[string][]byte{
@@ -134,7 +132,7 @@ func TestShouldRecreateCertificate(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						certificatesExpirationAnnotation: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+						llmisvc.DefaultExpirationAnnotations[0]: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
 					},
 				},
 				Data: map[string][]byte{
@@ -149,7 +147,7 @@ func TestShouldRecreateCertificate(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						certificatesExpirationAnnotation: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+						llmisvc.DefaultExpirationAnnotations[0]: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
 					},
 				},
 				Data: map[string][]byte{
@@ -164,7 +162,7 @@ func TestShouldRecreateCertificate(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						certificatesExpirationAnnotation: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+						llmisvc.DefaultExpirationAnnotations[0]: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
 					},
 				},
 				Data: map[string][]byte{
@@ -181,7 +179,7 @@ func TestShouldRecreateCertificate(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						certificatesExpirationAnnotation: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+						llmisvc.DefaultExpirationAnnotations[0]: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
 					},
 				},
 				Data: map[string][]byte{
@@ -198,7 +196,7 @@ func TestShouldRecreateCertificate(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						certificatesExpirationAnnotation: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+						llmisvc.DefaultExpirationAnnotations[0]: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
 					},
 				},
 				Data: map[string][]byte{
@@ -215,7 +213,7 @@ func TestShouldRecreateCertificate(t *testing.T) {
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						certificatesExpirationAnnotation: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+						llmisvc.DefaultExpirationAnnotations[0]: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
 					},
 				},
 				Data: map[string][]byte{
@@ -226,6 +224,41 @@ func TestShouldRecreateCertificate(t *testing.T) {
 			expectedDNSNames: []string{"localhost"},
 			expectedIPs:      []string{"127.0.0.1"},
 			want:             false,
+		},
+		{
+			name: "cross-version upgrade: old annotation key still valid",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						// Secret was created by old version using the default key
+						"certificates.kserve.io/expiration": time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+					},
+				},
+				Data: map[string][]byte{
+					"tls.key": validKey,
+					"tls.crt": validCert,
+				},
+			},
+			expectedDNSNames: []string{"localhost"},
+			expectedIPs:      []string{"127.0.0.1"},
+			want:             false,
+		},
+		{
+			name: "cross-version upgrade: old annotation key expired",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"certificates.kserve.io/expiration": time.Now().Add(-time.Hour).Format(time.RFC3339),
+					},
+				},
+				Data: map[string][]byte{
+					"tls.key": validKey,
+					"tls.crt": validCert,
+				},
+			},
+			expectedDNSNames: []string{"localhost"},
+			expectedIPs:      []string{"127.0.0.1"},
+			want:             true,
 		},
 		{
 			name: "x509 expired cert",
@@ -239,7 +272,7 @@ func TestShouldRecreateCertificate(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							// annotation says not expired yet
-							certificatesExpirationAnnotation: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+							llmisvc.DefaultExpirationAnnotations[0]: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
 						},
 					},
 					Data: map[string][]byte{
@@ -254,9 +287,13 @@ func TestShouldRecreateCertificate(t *testing.T) {
 		},
 	}
 
+	// Use multi-key annotations to simulate cross-version upgrade scenarios.
+	// The first key is the "new" write key, the second is the "old" read key.
+	multiKeyAnnotations := []string{"certificates.kserve.io/expiration-v2", "certificates.kserve.io/expiration"}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := llmisvc.ShouldRecreateCertificate(tt.secret, tt.expectedDNSNames, tt.expectedIPs)
+			got := llmisvc.ShouldRecreateCertificate(tt.secret, tt.expectedDNSNames, tt.expectedIPs, multiKeyAnnotations)
 			if got != tt.want {
 				t.Errorf("ShouldRecreateCertificate() = %v, want %v", got, tt.want)
 			}
@@ -295,7 +332,7 @@ func TestSemanticCertificateSecretIsEqual(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"app": "test"},
 					Annotations: map[string]string{
-						certificatesExpirationAnnotation: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+						llmisvc.DefaultExpirationAnnotations[0]: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
 					},
 				},
 				Data: map[string][]byte{"tls.key": freshKey, "tls.crt": freshCert},
@@ -316,7 +353,7 @@ func TestSemanticCertificateSecretIsEqual(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"app": "test"},
 					Annotations: map[string]string{
-						certificatesExpirationAnnotation: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+						llmisvc.DefaultExpirationAnnotations[0]: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
 					},
 				},
 				Data: map[string][]byte{"tls.key": oldKey, "tls.crt": oldCert},
@@ -334,7 +371,7 @@ func TestSemanticCertificateSecretIsEqual(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"app": "test"},
 					Annotations: map[string]string{
-						certificatesExpirationAnnotation: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+						llmisvc.DefaultExpirationAnnotations[0]: time.Now().Add(24 * time.Hour).Format(time.RFC3339),
 					},
 				},
 				Data: map[string][]byte{"tls.key": freshKey, "tls.crt": freshCert},
@@ -344,7 +381,7 @@ func TestSemanticCertificateSecretIsEqual(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"app": "test"},
 					Annotations: map[string]string{
-						certificatesExpirationAnnotation: time.Now().Add(-time.Hour).Format(time.RFC3339),
+						llmisvc.DefaultExpirationAnnotations[0]: time.Now().Add(-time.Hour).Format(time.RFC3339),
 					},
 				},
 				Data: map[string][]byte{"tls.key": oldKey, "tls.crt": oldCert},
@@ -359,6 +396,88 @@ func TestSemanticCertificateSecretIsEqual(t *testing.T) {
 			got := llmisvc.SemanticCertificateSecretIsEqual(tt.expected, tt.curr)
 			if got != tt.want {
 				t.Errorf("SemanticCertificateSecretIsEqual() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewSemanticCertificateSecretIsEqual_MultiKey(t *testing.T) {
+	key, cert := generateTestCert(t,
+		[]string{"localhost"},
+		[]net.IP{net.ParseIP("127.0.0.1")},
+		time.Now().Add(24*time.Hour),
+	)
+
+	// Simulate cross-version upgrade: new code writes "-v2", reads both.
+	multiKeyAnnotations := []string{"certificates.kserve.io/expiration-v2", "certificates.kserve.io/expiration"}
+	isEqual := llmisvc.NewSemanticCertificateSecretIsEqual(multiKeyAnnotations)
+
+	tests := []struct {
+		name     string
+		expected *corev1.Secret
+		curr     *corev1.Secret
+		want     bool
+	}{
+		{
+			// Upgrade scenario: curr was written by old code (expiration key),
+			// expected is built by new code (expiration-v2 key). Same cert data.
+			// Must be equal to avoid spurious secret update and scheduler restart.
+			name: "cross-version upgrade: different annotation key, same data - must be equal",
+			expected: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "test"},
+					Annotations: map[string]string{
+						"certificates.kserve.io/expiration-v2": time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+					},
+				},
+				Data: map[string][]byte{"tls.key": key, "tls.crt": cert},
+				Type: corev1.SecretTypeTLS,
+			},
+			curr: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "test"},
+					Annotations: map[string]string{
+						"certificates.kserve.io/expiration": time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+					},
+				},
+				Data: map[string][]byte{"tls.key": key, "tls.crt": cert},
+				Type: corev1.SecretTypeTLS,
+			},
+			want: true,
+		},
+		{
+			// Upgrade scenario: curr has old annotation that says expired.
+			// Must detect expiration and return not-equal to trigger renewal.
+			name: "cross-version upgrade: old annotation expired - must not be equal",
+			expected: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "test"},
+					Annotations: map[string]string{
+						"certificates.kserve.io/expiration-v2": time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+					},
+				},
+				Data: map[string][]byte{"tls.key": key, "tls.crt": cert},
+				Type: corev1.SecretTypeTLS,
+			},
+			curr: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "test"},
+					Annotations: map[string]string{
+						"certificates.kserve.io/expiration": time.Now().Add(-time.Hour).Format(time.RFC3339),
+					},
+				},
+				Data: map[string][]byte{"tls.key": key, "tls.crt": cert},
+				Type: corev1.SecretTypeTLS,
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isEqual(tt.expected, tt.curr)
+			if got != tt.want {
+				t.Errorf("NewSemanticCertificateSecretIsEqual() = %v, want %v", got, tt.want)
 			}
 		})
 	}

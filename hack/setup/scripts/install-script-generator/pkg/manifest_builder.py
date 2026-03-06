@@ -24,6 +24,23 @@ from typing import Any
 YAML_SEPARATOR = '---\n'
 
 
+def to_bool_string(value: Any) -> str:
+    """Convert boolean or string value to normalized boolean string.
+
+    Args:
+        value: Value to convert (can be bool, str, or other types)
+
+    Returns:
+        "true" or "false" string
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return "true" if value.lower() in ["true", "1", "yes"] else "false"
+    # For other types (int, None, etc.), convert to string and check
+    return "true" if str(value).lower() in ["true", "1", "yes"] else "false"
+
+
 def run_kustomize_build(kustomize_dir: Path) -> str:
     """Run kustomize build on a directory.
 
@@ -96,21 +113,22 @@ def get_llmisvc_value(config: dict[str, Any], components: list[dict[str, Any]]) 
     Returns:
         ENABLE_LLMISVC value ("true" or "false")
     """
-    llmisvc = "false"
-
-    # Check kserve-helm or kserve-kustomize component env first
+    # Check kserve-helm or kserve-kustomize component env first (priority order)
     for comp in components:
         comp_name = comp.get("name", "")
         if comp_name in ["kserve-helm", "kserve-kustomize"]:
-            llmisvc = comp.get("env", {}).get("ENABLE_LLMISVC", llmisvc)
-            if llmisvc == "true":
-                break
+            comp_env = comp.get("env", {})
+            if "ENABLE_LLMISVC" in comp_env:
+                # Found in component env - use it and stop (first match wins)
+                return to_bool_string(comp_env["ENABLE_LLMISVC"])
 
-    # If not found in component, check GLOBAL_ENV
-    if llmisvc == "false":
-        llmisvc = config.get("global_env", {}).get("ENABLE_LLMISVC", "false")
+    # If not found in any component, check GLOBAL_ENV
+    global_env = config.get("global_env", {})
+    if "ENABLE_LLMISVC" in global_env:
+        return to_bool_string(global_env["ENABLE_LLMISVC"])
 
-    return llmisvc
+    # Default
+    return "false"
 
 
 def select_kserve_directories(repo_root: Path, llmisvc: str) -> tuple[list[Path], list[Path]]:
@@ -124,15 +142,14 @@ def select_kserve_directories(repo_root: Path, llmisvc: str) -> tuple[list[Path]
         Tuple of (crd_dirs, config_dirs)
     """
     if llmisvc == "true":
-        crd_dirs = [repo_root / "config/crd/full/llmisvc"]
+        crd_dirs = [
+            repo_root / "config/crd/full/clusterstoragecontainer",
+            repo_root / "config/crd/full/llmisvc",
+        ]
         config_dirs = [repo_root / "config/overlays/standalone/llmisvc"]
     else:
-        crd_dirs = [
-            repo_root / "config/crd/full",
-            repo_root / "config/crd/full/llmisvc",
-            repo_root / "config/crd/full/localmodel",
-        ]
-        config_dirs = [repo_root / "config/overlays/all"]
+        crd_dirs = [repo_root / "config/crd/full"]
+        config_dirs = [repo_root / "config/overlays/standalone/kserve"]
 
     return crd_dirs, config_dirs
 

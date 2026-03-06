@@ -37,7 +37,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func SetupTestEnv() *pkgtest.Client {
+func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 	duration, err := time.ParseDuration(constants.GetEnvOrDefault("ENVTEST_DEFAULT_TIMEOUT", "30s"))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.SetDefaultEventuallyTimeout(duration)
@@ -46,8 +46,6 @@ func SetupTestEnv() *pkgtest.Client {
 
 	ginkgo.By("Setting up the test environment")
 	systemNs := constants.KServeNamespace
-
-	ctx, cancel := context.WithCancel(context.Background())
 
 	llmCtrlFunc := func(cfg *rest.Config, mgr ctrl.Manager) error {
 		eventBroadcaster := record.NewBroadcaster()
@@ -119,14 +117,10 @@ func SetupTestEnv() *pkgtest.Client {
 	envTest := pkgtest.NewEnvTest(webhookManifests).
 		WithWebhooks(webhooks).
 		WithControllers(llmCtrlFunc).
-		Start(ctx)
+		// The suite manager/webhook must outlive BeforeSuite node context.
+		Start(context.Background()) //nolint:contextcheck // intentional: manager context must not be tied to BeforeSuite
 
-	ginkgo.DeferCleanup(func() {
-		cancel()
-		gomega.Expect(envTest.Stop()).To(gomega.Succeed())
-	})
-
-	RequiredResources(context.Background(), envTest.Client, systemNs)
+	RequiredResources(ctx, envTest.Client, systemNs)
 
 	return envTest
 }
