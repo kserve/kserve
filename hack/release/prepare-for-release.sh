@@ -118,6 +118,7 @@ fi
 # Update kserve-deps.env
 echo -e "\033[32mUpdating kserve-deps.env...\033[0m"
 sed "${SED_INPLACE[@]}" "s/KSERVE_VERSION=v${PRIOR_VERSION}/KSERVE_VERSION=v${NEW_VERSION}/g" kserve-deps.env
+sed "${SED_INPLACE[@]}" "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" charts/_common/common-sections.yaml
 
 # update python/kserve and docs versions
 echo -e "\033[32mUpdating python/kserve and docs versions...\033[0m"
