@@ -6,6 +6,14 @@ KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Depl
 
 **Homepage:** <https://kserve.github.io/website/>
 
+## Installing the Chart
+
+To install the chart, run the following:
+
+```console
+$ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-localmodel-resources --version v0.17.0-rc0
+```
+
 ## Maintainers
 
 | Name | Email | Url |
@@ -38,4 +46,3 @@ KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Depl
 | kserve.localmodelnode.controller.tag | string | `""` |  |
 | kserve.localmodelnode.controller.tolerations | list | `[]` |  |
 | kserve.version | string | `"v0.17.0-rc0"` |  |
-
