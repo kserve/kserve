@@ -161,7 +161,6 @@ var _ = Describe("CachedModel controller", func() {
 		})
 
 		It("Should create pv, pvc, localmodelnode, and update status from localmodelnode", func() {
-			defer GinkgoRecover()
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 			configMap := &corev1.ConfigMap{}
@@ -316,7 +315,6 @@ var _ = Describe("CachedModel controller", func() {
 		})
 
 		It("Should create pvs and pvcs for inference services", func() {
-			defer GinkgoRecover()
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
@@ -493,7 +491,6 @@ var _ = Describe("CachedModel controller", func() {
 		})
 
 		It("Should NOT create/delete pvs and pvcs if localmodel config value DisableVolumeManagement is true", func() {
-			defer GinkgoRecover()
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 			testNamespace := "test-namespace"
@@ -565,7 +562,6 @@ var _ = Describe("CachedModel controller", func() {
 
 		// With two nodes and two local models, each node should have both local models
 		It("Should create localModelNode correctly", func() {
-			defer GinkgoRecover()
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
@@ -804,6 +800,7 @@ func initializeManager(ctx context.Context, cfg *rest.Config) {
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
+		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred())
 	}()
