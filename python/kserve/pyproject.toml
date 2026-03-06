@@ -86,6 +86,8 @@ test = [
     "jinja2<4.0.0,>=3.1.4",
     "grpcio-testing<2.0.0,>=1.73.0",
     "httpx-retries>=0.4.5,<1.0.0",
+    "boto3>=1.35.0,<2.0.0",
+    "pyarrow>=18.0.0,<20.0.0",
 ]
 dev = [
     "black[colorama]~=24.3.0",
