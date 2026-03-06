@@ -379,7 +379,7 @@ wheels = [
 
 [[package]]
 name = "custom-transformer"
-version = "0.16.0"
+version = "0.17.0rc0"
 source = { virtual = "." }
 dependencies = [
     { name = "kserve" },
@@ -740,7 +740,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.16.0"
+version = "0.17.0rc0"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "aiohttp" },
