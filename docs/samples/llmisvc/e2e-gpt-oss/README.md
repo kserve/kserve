@@ -236,10 +236,15 @@ For **prefill/decode disaggregation** (Prefill vLLM + Decode vLLM + EPP), use th
 Prefill and Decode to be performed on separate GPUs. See [llm-d guide](https://llm-d.ai/docs/guide/Installation/pd-disaggregation)
 for an in depth description.
 
-> No special config is required, as it uses the base configs `kserve-config-llm-prefill-template` and `kserve-config-llm-decode-template`
-> from the `kserve` namespace.
+### 10.1 LLMInferenceServiceConfig with prefill/decode disaggregation
 
-### 10.1 Switch Inference to prefill/decode disaggregation
+This creates `llmisvc-config-pd-disagg`. It adds:
+
+- Decode container with vLLM args: `--kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}'"`
+- Prefill container with 2 replicas and same vLLM args 
+- Scheduler needs `hf-token` secret for tokenizer download (already created above)
+
+### 10.2 Switch Inference to prefill/decode disaggregation
 
 > Requires 3 Nvidia GPUs. Reduce replica count or change to MIG partitions (see customization notes below) to run on less hardware.
 
