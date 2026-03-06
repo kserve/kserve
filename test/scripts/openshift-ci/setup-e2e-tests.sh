@@ -110,21 +110,26 @@ oc new-project ${KSERVE_NAMESPACE} || true
 # Install KServe components based on method
 if [[ "$INSTALL_ODH_OPERATOR" == "false" ]]; then
   # Manual installation: Install KServe directly with PR images
-  echo "⏳ Installing LLMISvc CRDs"
-  kustomize build $PROJECT_ROOT/config/crd/full/llmisvc | oc apply --server-side=true --force-conflicts -f -
-  wait_for_crd llminferenceserviceconfigs.serving.kserve.io 90s
-
   echo "⏳ Installing KServe with SeaweedFS"
-  kustomize build $PROJECT_ROOT/config/overlays/odh-test |
+  ODH_MANIFESTS=$(kustomize build "$PROJECT_ROOT/config/overlays/odh-test" |
     sed "s|kserve/storage-initializer:latest|${STORAGE_INITIALIZER_IMAGE}|" |
     sed "s|kserve/agent:latest|${KSERVE_AGENT_IMAGE}|" |
     sed "s|kserve/router:latest|${KSERVE_ROUTER_IMAGE}|" |
     sed "s|kserve/kserve-controller:latest|${KSERVE_CONTROLLER_IMAGE}|" |
-    sed "s|kserve/llmisvc-controller:latest|${LLMISVC_CONTROLLER_IMAGE}|" |
+    sed "s|kserve/llmisvc-controller:latest|${LLMISVC_CONTROLLER_IMAGE}|")
+
+  # Apply CRDs first and wait for them to be established before applying the rest
+  echo "$ODH_MANIFESTS" | awk '/^apiVersion: apiextensions\.k8s\.io/{found=1} found{print} /^---/{if(found) found=0}' |
     oc apply --server-side=true --force-conflicts -f -
 
-  echo "⏳ Waiting for LLMISvc CRD to be ready"
+  echo "⏳ Waiting for CRDs to be established"
+  wait_for_crd inferenceservices.serving.kserve.io 90s
   wait_for_crd llminferenceserviceconfigs.serving.kserve.io 90s
+  wait_for_crd clusterstoragecontainers.serving.kserve.io 90s
+  wait_for_crd datascienceclusters.datasciencecluster.opendatahub.io 90s
+
+  # Apply all resources now that CRDs are established
+  echo "$ODH_MANIFESTS" | oc apply --server-side=true --force-conflicts -f -
 
   # Install DSC/DSCI for manual installation
   echo "Installing DSC/DSCI resources..."

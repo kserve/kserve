@@ -24,6 +24,7 @@ rules:
       - serving.kserve.io
     resources:
       - inferenceservices
+      - llminferenceservices
       - servingruntimes
     verbs:
       - create
@@ -51,6 +52,9 @@ rules:
       - inferenceservices
       - inferenceservices/status
       - inferenceservices/finalizers
+      - llminferenceservices
+      - llminferenceservices/status
+      - llminferenceservices/finalizers
     verbs:
       - get
       - list
