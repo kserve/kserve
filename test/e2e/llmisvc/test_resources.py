@@ -84,6 +84,66 @@ ROUTER_ROUTES = [
                         {
                             "path": {
                                 "type": "PathPrefix",
+                                "value": "/kserve-ci-e2e-test/router-with-refs-test/v1/completions",
+                            },
+                        },
+                    ],
+                    "filters": [
+                        {
+                            "type": "URLRewrite",
+                            "urlRewrite": {
+                                "path": {
+                                    "replacePrefixMatch": "/v1/completions",
+                                    "type": "ReplacePrefixMatch",
+                                },
+                            },
+                        },
+                    ],
+                    "backendRefs": [
+                        {
+                            "group": "inference.networking.k8s.io",
+                            "kind": "InferencePool",
+                            "name": "router-with-refs-test-inference-pool",
+                            "namespace": KSERVE_TEST_NAMESPACE,
+                            "port": 8000,
+                        }
+                    ],
+                },
+                {
+                    "matches": [
+                        {
+                            "path": {
+                                "type": "PathPrefix",
+                                "value": "/kserve-ci-e2e-test/router-with-refs-test/v1/chat/completions",
+                            },
+                        },
+                    ],
+                    "filters": [
+                        {
+                            "type": "URLRewrite",
+                            "urlRewrite": {
+                                "path": {
+                                    "replacePrefixMatch": "/v1/chat/completions",
+                                    "type": "ReplacePrefixMatch",
+                                },
+                            },
+                        },
+                    ],
+                    "backendRefs": [
+                        {
+                            "group": "inference.networking.k8s.io",
+                            "kind": "InferencePool",
+                            "name": "router-with-refs-test-inference-pool",
+                            "namespace": KSERVE_TEST_NAMESPACE,
+                            "port": 8000,
+                        }
+                    ],
+                },
+                {
+                    "matches": [
+                        {
+                            "path": {
+                                "type": "PathPrefix",
                                 "value": "/kserve-ci-e2e-test/router-with-refs-test",
                             },
                         },
@@ -101,9 +161,9 @@ ROUTER_ROUTES = [
                     ],
                     "backendRefs": [
                         {
-                            "group": "inference.networking.k8s.io",
-                            "kind": "InferencePool",
-                            "name": "router-with-refs-test-inference-pool",
+                            "group": "",
+                            "kind": "Service",
+                            "name": "router-with-refs-test-kserve-workload-svc",
                             "namespace": KSERVE_TEST_NAMESPACE,
                             "port": 8000,
                         }
@@ -149,9 +209,9 @@ ROUTER_ROUTES = [
                     ],
                     "backendRefs": [
                         {
-                            "group": "inference.networking.k8s.io",
-                            "kind": "InferencePool",
-                            "name": "router-with-refs-test-inference-pool",
+                            "group": "",
+                            "kind": "Service",
+                            "name": "router-with-refs-test-kserve-workload-svc",
                             "namespace": KSERVE_TEST_NAMESPACE,
                             "port": 8000,
                         }
@@ -180,6 +240,66 @@ ROUTER_ROUTES = [
                         {
                             "path": {
                                 "type": "PathPrefix",
+                                "value": "/kserve-ci-e2e-test/router-with-refs-pd-test/v1/completions",
+                            },
+                        },
+                    ],
+                    "filters": [
+                        {
+                            "type": "URLRewrite",
+                            "urlRewrite": {
+                                "path": {
+                                    "replacePrefixMatch": "/v1/completions",
+                                    "type": "ReplacePrefixMatch",
+                                },
+                            },
+                        },
+                    ],
+                    "backendRefs": [
+                        {
+                            "group": "inference.networking.k8s.io",
+                            "kind": "InferencePool",
+                            "name": "router-with-refs-pd-test-inference-pool",
+                            "namespace": KSERVE_TEST_NAMESPACE,
+                            "port": 8000,
+                        }
+                    ],
+                },
+                {
+                    "matches": [
+                        {
+                            "path": {
+                                "type": "PathPrefix",
+                                "value": "/kserve-ci-e2e-test/router-with-refs-pd-test/v1/chat/completions",
+                            },
+                        },
+                    ],
+                    "filters": [
+                        {
+                            "type": "URLRewrite",
+                            "urlRewrite": {
+                                "path": {
+                                    "replacePrefixMatch": "/v1/chat/completions",
+                                    "type": "ReplacePrefixMatch",
+                                },
+                            },
+                        },
+                    ],
+                    "backendRefs": [
+                        {
+                            "group": "inference.networking.k8s.io",
+                            "kind": "InferencePool",
+                            "name": "router-with-refs-pd-test-inference-pool",
+                            "namespace": KSERVE_TEST_NAMESPACE,
+                            "port": 8000,
+                        }
+                    ],
+                },
+                {
+                    "matches": [
+                        {
+                            "path": {
+                                "type": "PathPrefix",
                                 "value": "/kserve-ci-e2e-test/router-with-refs-pd-test",
                             },
                         },
@@ -197,9 +317,9 @@ ROUTER_ROUTES = [
                     ],
                     "backendRefs": [
                         {
-                            "group": "inference.networking.k8s.io",
-                            "kind": "InferencePool",
-                            "name": "router-with-refs-pd-test-inference-pool",
+                            "group": "",
+                            "kind": "Service",
+                            "name": "router-with-refs-pd-test-kserve-workload-svc",
                             "namespace": KSERVE_TEST_NAMESPACE,
                             "port": 8000,
                         }
@@ -245,9 +365,9 @@ ROUTER_ROUTES = [
                     ],
                     "backendRefs": [
                         {
-                            "group": "inference.networking.k8s.io",
-                            "kind": "InferencePool",
-                            "name": "router-with-refs-pd-test-inference-pool",
+                            "group": "",
+                            "kind": "Service",
+                            "name": "router-with-refs-pd-test-kserve-workload-svc",
                             "namespace": KSERVE_TEST_NAMESPACE,
                             "port": 8000,
                         }
