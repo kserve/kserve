@@ -4,7 +4,7 @@ metadata:
   name: default
 spec:
   container:
-    image: kserve/storage-initializer:v0.16.0
+    image: kserve/storage-initializer:latest
     imagePullPolicy: IfNotPresent
     name: storage-initializer
     resources:

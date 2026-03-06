@@ -1,6 +1,6 @@
 # kserve-localmodel-resources
 
-![Version: v0.16.0](https://img.shields.io/badge/Version-v0.16.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.16.0](https://img.shields.io/badge/AppVersion-v0.16.0-informational?style=flat-square)
+![Version: v0.17.0-rc0](https://img.shields.io/badge/Version-v0.17.0--rc0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.17.0-rc0](https://img.shields.io/badge/AppVersion-v0.17.0--rc0-informational?style=flat-square)
 
 KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Deployments
 
@@ -37,5 +37,5 @@ KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Depl
 | kserve.localmodelnode.controller.resources.requests.memory | string | `"200Mi"` |  |
 | kserve.localmodelnode.controller.tag | string | `""` |  |
 | kserve.localmodelnode.controller.tolerations | list | `[]` |  |
-| kserve.version | string | `"v0.16.0"` |  |
+| kserve.version | string | `"v0.17.0-rc0"` |  |
 

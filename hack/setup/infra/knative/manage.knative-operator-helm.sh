@@ -135,7 +135,7 @@ install() {
     log_info "Deploying Knative Serving ${KNATIVE_SERVING_VERSION} with ${NETWORK_LAYER} network layer..."
 
     if [ "$EMBED_TEMPLATES" = "true" ]; then
-        if [[ "${KNATIVE_SERVING_VERSION}" != "1.15.2" ]]; then
+        if [[ "${KNATIVE_SERVING_VERSION}" != "1.21.1" ]]; then
             log_info "Customizing template with version=${KNATIVE_SERVING_VERSION}"
             get_knative_serving_${NETWORK_LAYER} | \
                 sed -e "s/version: \".*\"/version: \"${KNATIVE_SERVING_VERSION}\"/" | \
@@ -151,7 +151,7 @@ install() {
             exit 1
         fi
 
-        if [[ "${KNATIVE_SERVING_VERSION}" != "1.15.2" ]]; then
+        if [[ "${KNATIVE_SERVING_VERSION}" != "1.21.1" ]]; then
             log_info "Customizing template with version=${KNATIVE_SERVING_VERSION}"
             sed -e "s/version: \".*\"/version: \"${KNATIVE_SERVING_VERSION}\"/" \
                 "${TEMPLATE_FILE}" | kubectl apply -f -
