@@ -1,5 +1,5 @@
 apiVersion: v2
-name: kserve
+name: kserve-resources
 version: v0.17.0-rc0
 appVersion: v0.17.0-rc0
 description: Helm chart for deploying kserve resources
