@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package main provides a tool to test the config merge logic.
+// Package main provides a tool to test the config merge logic, wrapping MergeSpecs function.
 // It reads a list of config files (LLMInferenceServiceConfig or LLMInferenceService)
 // and merges them together to inspect the final spec.
 package main
