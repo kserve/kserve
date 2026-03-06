@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
 - ../../base
 - ../../crd/full/llmisvc
+- ../../llmisvcconfig
 # - ../../crd/full/localmodel
 - user-cluster-roles.yaml
 - network-policies.yaml
@@ -66,6 +67,72 @@ replacements:
       name: kserve-controller-manager
     fieldPaths:
     - spec.template.spec.containers.[name=manager].image
+# Replace base LLMInferenceServiceConfig images with Red Hat CUDA image
+- source:
+    kind: ConfigMap
+    name: kserve-parameters
+    fieldPath: data.kserve-llm-d
+  targets:
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-template
+    fieldPaths:
+    - spec.template.containers.[name=main].image
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-worker-data-parallel
+    fieldPaths:
+    - spec.template.containers.[name=main].image
+    - spec.worker.containers.[name=main].image
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-decode-template
+    fieldPaths:
+    - spec.template.containers.[name=main].image
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-decode-worker-data-parallel
+    fieldPaths:
+    - spec.template.containers.[name=main].image
+    - spec.worker.containers.[name=main].image
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-prefill-template
+    fieldPaths:
+    - spec.prefill.template.containers.[name=main].image
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-prefill-worker-data-parallel
+    fieldPaths:
+    - spec.prefill.template.containers.[name=main].image
+    - spec.prefill.worker.containers.[name=main].image
+# Replace scheduler image with ODH image
+- source:
+    kind: ConfigMap
+    name: kserve-parameters
+    fieldPath: data.kserve-llm-d-inference-scheduler
+  targets:
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-scheduler
+    fieldPaths:
+    - spec.router.scheduler.template.containers.[name=main].image
+# Replace routing sidecar init container images with ODH image
+- source:
+    kind: ConfigMap
+    name: kserve-parameters
+    fieldPath: data.kserve-llm-d-routing-sidecar
+  targets:
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-decode-template
+    fieldPaths:
+    - spec.template.initContainers.[name=llm-d-routing-sidecar].image
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-decode-worker-data-parallel
+    fieldPaths:
+    - spec.template.initContainers.[name=llm-d-routing-sidecar].image
 
 configMapGenerator:
 - envs:
@@ -104,6 +171,5 @@ vars:
     apiVersion: v1
     kind: ConfigMap
     name: kserve-parameters
-
 configurations:
   - params.yaml
