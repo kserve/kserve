@@ -45,6 +45,42 @@ spec:
           periodSeconds: 10
   router:
     scheduler:
+      config:
+        inline:
+          apiVersion: inference.networking.x-k8s.io/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+            - type: single-profile-handler
+            - type: precise-prefix-cache-scorer
+              parameters:
+                tokenProcessorConfig:
+                  blockSize: 64
+                  hashSeed: "42"
+                kvEventsConfig:
+                  zmqEndpoint: "tcp://*:5557"
+                  topicFilter: "kv@"
+                  discoverPods: false
+                indexerConfig:
+                  kvBlockIndexConfig:
+                    enableMetrics: true
+                    metricsLoggingInterval: 60000000000
+                  tokenizersPoolConfig:
+                    modelName: "{{ .Spec.Model.Name }}"
+                    hf:
+                      tokenizersCacheDir: "/mnt/tokenizers"
+            - type: queue-scorer
+            - type: kv-cache-utilization-scorer
+            - type: max-score-picker
+          schedulingProfiles:
+            - name: default
+              plugins:
+                - pluginRef: queue-scorer
+                  weight: 2
+                - pluginRef: kv-cache-utilization-scorer
+                  weight: 2
+                - pluginRef: precise-prefix-cache-scorer
+                  weight: 3
+                - pluginRef: max-score-picker
       pool:
         spec:
           endpointPickerRef:
@@ -92,42 +128,6 @@ spec:
               - --secure-serving
               - --cert-path
               - /etc/ssl/certs
-              - --config-text
-              - |
-                apiVersion: inference.networking.x-k8s.io/v1alpha1
-                kind: EndpointPickerConfig
-                plugins:
-                  - type: single-profile-handler
-                  - type: precise-prefix-cache-scorer
-                    parameters:
-                      tokenProcessorConfig:
-                        blockSize: 64
-                        hashSeed: "42"
-                      kvEventsConfig:
-                        zmqEndpoint: "tcp://*:5557"
-                        topicFilter: "kv@"
-                        discoverPods: false
-                      indexerConfig:
-                        kvBlockIndexConfig:
-                          enableMetrics: true
-                          metricsLoggingInterval: 60000000000
-                        tokenizersPoolConfig:
-                          modelName: "{{ .Spec.Model.Name }}"
-                          hf:
-                            tokenizersCacheDir: "/mnt/tokenizers"
-                  - type: queue-scorer
-                  - type: kv-cache-utilization-scorer
-                  - type: max-score-picker
-                schedulingProfiles:
-                  - name: default
-                    plugins:
-                      - pluginRef: queue-scorer
-                        weight: 2
-                      - pluginRef: kv-cache-utilization-scorer
-                        weight: 2
-                      - pluginRef: precise-prefix-cache-scorer
-                        weight: 3
-                      - pluginRef: max-score-picker
             volumeMounts:
               - mountPath: /etc/ssl/certs
                 name: tls-certs
