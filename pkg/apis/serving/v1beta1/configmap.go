@@ -203,6 +203,9 @@ func NewOtelCollectorConfig(isvcConfigMap *corev1.ConfigMap) (*OtelCollectorConf
 
 func NewAutoscalerConfig(isvcConfigMap *corev1.ConfigMap) (*AutoscalerConfig, error) {
 	autoscalerConfig := &AutoscalerConfig{}
+	if isvcConfigMap == nil {
+		return autoscalerConfig, nil
+	}
 	if autoscaler, ok := isvcConfigMap.Data[AutoscalerConfigName]; ok {
 		err := json.Unmarshal([]byte(autoscaler), autoscalerConfig)
 		if err != nil {
