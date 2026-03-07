@@ -111,6 +111,28 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		},
 	}
 	Expect(k8sClient.Create(ctx, configAutoscaler)).Should(Succeed())
+
+	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Knative"}
+	ingressConfig := &v1beta1.IngressConfig{
+		IngressGateway:          constants.KnativeIngressGateway,
+		LocalGateway:            constants.KnativeLocalGateway,
+		LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
+		DisableIstioVirtualHost: false,
+	}
+	err = (&InferenceServiceReconciler{
+		Client:    k8sClient,
+		Clientset: clientset,
+		Scheme:    k8sClient.Scheme(),
+		Log:       ctrl.Log.WithName("V1beta1InferenceServiceController"),
+		Recorder:  k8sManager.GetEventRecorderFor("V1beta1InferenceServiceController"),
+	}).SetupWithManager(k8sManager, deployConfig, ingressConfig)
+	Expect(err).ToNot(HaveOccurred())
+
+	go func() {
+		defer GinkgoRecover()
+		err = k8sManager.Start(ctx)
+		Expect(err).ToNot(HaveOccurred())
+	}()
 })
 
 // getBaseTestConfigs returns the common test configuration shared by all deployment modes

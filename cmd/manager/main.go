@@ -148,26 +148,29 @@ func main() {
 		os.Exit(1)
 	}
 
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(context.Background(), clientSet)
+	// Load initial configs via API reader (bypasses informer cache, which isn't started yet)
+	setupLog.Info("Loading initial ConfigMap")
+	configMap, err := utils.GetInferenceServiceConfigMap(context.Background(), mgr.GetAPIReader())
 	if err != nil {
-		setupLog.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		setupLog.Error(err, "unable to get inferenceservice-config ConfigMap")
 		os.Exit(1)
 	}
-	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
+
+	deployConfig, err := v1beta1.NewDeployConfig(configMap)
 	if err != nil {
-		setupLog.Error(err, "unable to get deploy config.")
+		setupLog.Error(err, "unable to parse deploy config")
 		os.Exit(1)
 	}
-	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
+	ingressConfig, err := v1beta1.NewIngressConfig(configMap)
 	if err != nil {
-		setupLog.Error(err, "unable to get ingress config.")
+		setupLog.Error(err, "unable to parse ingress config")
 		os.Exit(1)
 	}
 
 	// Update Global GPU Resource Type List when custom GPU resource types are provided
-	_, err = v1beta1.NewMultiNodeConfig(isvcConfigMap)
+	_, err = v1beta1.NewMultiNodeConfig(configMap)
 	if err != nil {
-		setupLog.Error(err, "unable to get multiNode config.")
+		setupLog.Error(err, "unable to parse multiNode config")
 		os.Exit(1)
 	}
 
@@ -180,8 +183,7 @@ func main() {
 		Clientset: clientSet,
 		Log:       ctrl.Log.WithName("v1beta1Controllers").WithName("InferenceService"),
 		Scheme:    mgr.GetScheme(),
-		Recorder: eventBroadcaster.NewRecorder(
-			mgr.GetScheme(), corev1.EventSource{Component: "v1beta1Controllers"}),
+		Recorder:  eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "v1beta1Controllers"}),
 	}).SetupWithManager(mgr, deployConfig, ingressConfig); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1beta1Controller", "InferenceService")
 		os.Exit(1)
