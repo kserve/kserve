@@ -6,6 +6,14 @@ KServe Runtime Configurations - ClusterServingRuntimes and LLM Inference Configs
 
 **Homepage:** <https://kserve.github.io/website/>
 
+## Installing the Chart
+
+To install the chart, run the following:
+
+```console
+$ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime-configs --set kserve.servingruntime.enabled=true --set kserve.llmisvcConfigs.enabled=true --version v0.17.0-rc0
+```
+
 ## Maintainers
 
 | Name | Email | Url |
@@ -157,4 +165,3 @@ KServe Runtime Configurations - ClusterServingRuntimes and LLM Inference Configs
 | kserve.servingruntime.xgbserver.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.servingruntime.xgbserver.tag | string | `""` |  |
 | kserve.version | string | `"v0.17.0-rc0"` |  |
-
