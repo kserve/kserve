@@ -2600,7 +2600,14 @@ spec:
     - command:
       - /bin/bash
       - -c
-      - |2-
+      - |-
+        # In some versions, ZMQ bind doesn't resolve the address through DNS
+        DP_ADDRESS=$(getent hosts "${LWS_LEADER_ADDRESS}" | cut -d' ' -f1)
+        if [ -z "${DP_ADDRESS}" ]; then
+          echo "ERROR: Failed to resolve LWS_LEADER_ADDRESS='${LWS_LEADER_ADDRESS}'" >&2
+          exit 1
+        fi
+        echo "DP_ADDRESS=${DP_ADDRESS}"
 
         if [ "$KSERVE_INFER_ROCE" = "true" ]; then
           echo "Trying to infer RoCE configs ... "
@@ -2730,7 +2737,7 @@ spec:
           {{- if .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --data-parallel-size {{ or .Spec.Parallelism.Data 1 }} \
           --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \
-          --data-parallel-address $(LWS_LEADER_ADDRESS) \
+          --data-parallel-address ${DP_ADDRESS} \
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
           ${VLLM_ADDITIONAL_ARGS} \
@@ -2861,7 +2868,7 @@ spec:
       name: home
     - emptyDir:
         medium: Memory
-        sizeLimit: 1Gi
+        sizeLimit: 8Gi
       name: dshm
     - emptyDir: {}
       name: model-cache
@@ -2873,7 +2880,14 @@ spec:
     - command:
       - /bin/bash
       - -c
-      - |2-
+      - |-
+        # In some versions, ZMQ bind doesn't resolve the address through DNS
+        DP_ADDRESS=$(getent hosts "${LWS_LEADER_ADDRESS}" | cut -d' ' -f1)
+        if [ -z "${DP_ADDRESS}" ]; then
+          echo "ERROR: Failed to resolve LWS_LEADER_ADDRESS='${LWS_LEADER_ADDRESS}'" >&2
+          exit 1
+        fi
+        echo "DP_ADDRESS=${DP_ADDRESS}"
 
         if [ "$KSERVE_INFER_ROCE" = "true" ]; then
           echo "Trying to infer RoCE configs ... "
@@ -3002,7 +3016,7 @@ spec:
           {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --data-parallel-size {{ or .Spec.Parallelism.Data 1 }} \
           --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \
-          --data-parallel-address $(LWS_LEADER_ADDRESS) \
+          --data-parallel-address ${DP_ADDRESS} \
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
           ${VLLM_ADDITIONAL_ARGS} \
@@ -3062,7 +3076,7 @@ spec:
       name: home
     - emptyDir:
         medium: Memory
-        sizeLimit: 1Gi
+        sizeLimit: 8Gi
       name: dshm
     - emptyDir: {}
       name: model-cache
@@ -3170,7 +3184,14 @@ spec:
       - command:
         - /bin/bash
         - -c
-        - |2-
+        - |-
+          # In some versions, ZMQ bind doesn't resolve the address through DNS
+          DP_ADDRESS=$(getent hosts "${LWS_LEADER_ADDRESS}" | cut -d' ' -f1)
+          if [ -z "${DP_ADDRESS}" ]; then
+            echo "ERROR: Failed to resolve LWS_LEADER_ADDRESS='${LWS_LEADER_ADDRESS}'" >&2
+            exit 1
+          fi
+          echo "DP_ADDRESS=${DP_ADDRESS}"
 
           if [ "$KSERVE_INFER_ROCE" = "true" ]; then
             echo "Trying to infer RoCE configs ... "
@@ -3300,7 +3321,7 @@ spec:
             {{- if .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
             --data-parallel-size {{ or .Spec.Prefill.Parallelism.Data 1 }} \
             --data-parallel-size-local {{ or .Spec.Prefill.Parallelism.DataLocal 1 }} \
-            --data-parallel-address $(LWS_LEADER_ADDRESS) \
+            --data-parallel-address ${DP_ADDRESS} \
             --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
             --data-parallel-start-rank $START_RANK \
             ${VLLM_ADDITIONAL_ARGS} \
@@ -3380,7 +3401,7 @@ spec:
         name: home
       - emptyDir:
           medium: Memory
-          sizeLimit: 1Gi
+          sizeLimit: 8Gi
         name: dshm
       - emptyDir: {}
         name: model-cache
@@ -3392,7 +3413,14 @@ spec:
       - command:
         - /bin/bash
         - -c
-        - |2-
+        - |-
+          # In some versions, ZMQ bind doesn't resolve the address through DNS
+          DP_ADDRESS=$(getent hosts "${LWS_LEADER_ADDRESS}" | cut -d' ' -f1)
+          if [ -z "${DP_ADDRESS}" ]; then
+            echo "ERROR: Failed to resolve LWS_LEADER_ADDRESS='${LWS_LEADER_ADDRESS}'" >&2
+            exit 1
+          fi
+          echo "DP_ADDRESS=${DP_ADDRESS}"
 
           if [ "$KSERVE_INFER_ROCE" = "true" ]; then
             echo "Trying to infer RoCE configs ... "
@@ -3521,7 +3549,7 @@ spec:
             {{- if .Spec.Prefill.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
             --data-parallel-size {{ or .Spec.Prefill.Parallelism.Data 1 }} \
             --data-parallel-size-local {{ or .Spec.Prefill.Parallelism.DataLocal 1 }} \
-            --data-parallel-address $(LWS_LEADER_ADDRESS) \
+            --data-parallel-address ${DP_ADDRESS} \
             --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
             --data-parallel-start-rank $START_RANK \
             ${VLLM_ADDITIONAL_ARGS} \
@@ -3579,7 +3607,7 @@ spec:
         name: home
       - emptyDir:
           medium: Memory
-          sizeLimit: 1Gi
+          sizeLimit: 8Gi
         name: dshm
       - emptyDir: {}
         name: model-cache
@@ -3858,7 +3886,14 @@ spec:
     - command:
       - /bin/bash
       - -c
-      - |2-
+      - |-
+        # In some versions, ZMQ bind doesn't resolve the address through DNS
+        DP_ADDRESS=$(getent hosts "${LWS_LEADER_ADDRESS}" | cut -d' ' -f1)
+        if [ -z "${DP_ADDRESS}" ]; then
+          echo "ERROR: Failed to resolve LWS_LEADER_ADDRESS='${LWS_LEADER_ADDRESS}'" >&2
+          exit 1
+        fi
+        echo "DP_ADDRESS=${DP_ADDRESS}"
 
         if [ "$KSERVE_INFER_ROCE" = "true" ]; then
           echo "Trying to infer RoCE configs ... "
@@ -3988,7 +4023,7 @@ spec:
           {{- if .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --data-parallel-size {{ or .Spec.Parallelism.Data 1 }} \
           --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \
-          --data-parallel-address $(LWS_LEADER_ADDRESS) \
+          --data-parallel-address ${DP_ADDRESS} \
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
           ${VLLM_ADDITIONAL_ARGS} \
@@ -4068,7 +4103,7 @@ spec:
       name: home
     - emptyDir:
         medium: Memory
-        sizeLimit: 1Gi
+        sizeLimit: 8Gi
       name: dshm
     - emptyDir: {}
       name: model-cache
@@ -4080,7 +4115,14 @@ spec:
     - command:
       - /bin/bash
       - -c
-      - |2-
+      - |-
+        # In some versions, ZMQ bind doesn't resolve the address through DNS
+        DP_ADDRESS=$(getent hosts "${LWS_LEADER_ADDRESS}" | cut -d' ' -f1)
+        if [ -z "${DP_ADDRESS}" ]; then
+          echo "ERROR: Failed to resolve LWS_LEADER_ADDRESS='${LWS_LEADER_ADDRESS}'" >&2
+          exit 1
+        fi
+        echo "DP_ADDRESS=${DP_ADDRESS}"
 
         if [ "$KSERVE_INFER_ROCE" = "true" ]; then
           echo "Trying to infer RoCE configs ... "
@@ -4209,7 +4251,7 @@ spec:
           {{- if .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --data-parallel-size {{ or .Spec.Parallelism.Data 1 }} \
           --data-parallel-size-local {{ or .Spec.Parallelism.DataLocal 1 }} \
-          --data-parallel-address $(LWS_LEADER_ADDRESS) \
+          --data-parallel-address ${DP_ADDRESS} \
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
           ${VLLM_ADDITIONAL_ARGS} \
@@ -4267,7 +4309,7 @@ spec:
       name: home
     - emptyDir:
         medium: Memory
-        sizeLimit: 1Gi
+        sizeLimit: 8Gi
       name: dshm
     - emptyDir: {}
       name: model-cache
