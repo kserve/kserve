@@ -103,25 +103,17 @@ def idTokenFromRefreshToken(client_id, client_secret, refresh_token, audience):
     return str(json.loads(res.text)["id_token"])
 
 
-def makeRequest(url, input_file, user_account, id_token):
+def makeRequest(url, input_file, user_account, id_token, verify=True):
+    headers = {"Authorization": "Bearer {}".format(id_token)}
     if input_file:
         with open(input_file) as f:
             data = f.read()
-        resp = requests.post(
-            url,
-            verify=False,
-            data=data,
-            headers={
-                "Authorization": "Bearer {}".format(id_token),
-                "x-goog-authenticated-user-email": "accounts.google.com:{}".format(
-                    user_account
-                ),
-            },
+        headers["x-goog-authenticated-user-email"] = "accounts.google.com:{}".format(
+            user_account
         )
+        resp = requests.post(url, verify=verify, data=data, headers=headers)
     else:
-        resp = requests.get(
-            url, verify=False, headers={"Authorization": "Bearer {}".format(id_token)}
-        )
+        resp = requests.get(url, verify=verify, headers=headers)
     if resp.status_code == 403:
         raise Exception(
             "Service account {} does not have permission to "
@@ -135,6 +127,18 @@ def makeRequest(url, input_file, user_account, id_token):
         )
     else:
         print(resp.text)
+
+
+def _tls_verify(ca_cert, insecure):
+    if insecure:
+        logging.warning(
+            "TLS certificate verification is disabled. "
+            "This is insecure and should not be used in production."
+        )
+        return False
+    if ca_cert:
+        return ca_cert
+    return True
 
 
 def main():
@@ -154,12 +158,23 @@ def main():
         help="The user email address " + "which can access the namespace",
     )
     parser.add_argument("--input", help="The input file.")
+    parser.add_argument(
+        "--ca-cert",
+        help="Path to a CA certificate bundle for TLS verification "
+        "(e.g. a self-signed CA). If omitted, the system trust store is used.",
+    )
+    parser.add_argument(
+        "--insecure",
+        action="store_true",
+        help="Disable TLS certificate verification (not recommended).",
+    )
     args = parser.parse_args()
 
+    verify = _tls_verify(args.ca_cert, args.insecure)
     id_token = getToken(
         args.iap_client_id, args.desktop_client_id, args.desktop_client_secret
     )
-    makeRequest(args.url, args.input, args.user_account, id_token)
+    makeRequest(args.url, args.input, args.user_account, id_token, verify=verify)
 
 
 if __name__ == "__main__":
