@@ -32,6 +32,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
+	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/zap"
 	"knative.dev/networking/pkg/http/header"
 	proxy "knative.dev/networking/pkg/http/proxy"
@@ -64,7 +65,7 @@ var (
 	sourceUri           = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
 	logMode             = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
 	logStorePath        = flag.String("log-store-path", "", "The path to the log output")
-	logStoreFormat      = flag.String("log-store-format", "", "Deprecated: format is now determined by the marshaller service")
+	logStoreFormat      = flag.String("log-store-format", "json", "Output format for the log marshaller (json, csv, parquet)")
 	logMarshallerUrl    = flag.String("log-marshaller-url", "http://localhost:9083/marshal", "URL of the log marshaller service")
 	logMarshallerPort   = flag.Int("log-marshaller-port", 9083, "Port for the embedded log marshaller HTTP server")
 	logBatchSize        = flag.Int("log-batch-size", 1, "Number of log records per batch for blob storage")
@@ -298,10 +299,6 @@ func startLogger(workers int, logStorePath *string, marshallerUrl string, marsha
 		os.Exit(-1)
 	}
 
-	if *logStoreFormat != "" {
-		log.Warnf("--log-store-format is deprecated and will be removed in a future release; format is now determined by the marshaller service (ignoring value %q)", *logStoreFormat)
-	}
-
 	annotationKVPair := map[string]string{}
 	for _, annotations := range *metadataAnnotations {
 		k, v, found := strings.Cut(annotations, "=")
@@ -327,8 +324,16 @@ func startLogger(workers int, logStorePath *string, marshallerUrl string, marsha
 	var store kfslogger.Store
 	if kfslogger.GetStorageStrategy(*logUrl) != kfslogger.HttpStorage {
 		if logStorePath != nil && *logStorePath != "" {
-			// Start the embedded JSON marshaller HTTP server only when blob storage is needed.
-			marshallerHandler := kfslogger.NewJSONMarshallerHandler()
+			// Start the embedded marshaller HTTP server only when blob storage is needed.
+			var marshallerHandler http.Handler
+			switch *logStoreFormat {
+			case "csv":
+				marshallerHandler = kfslogger.NewCSVMarshallerHandler()
+			case "parquet":
+				marshallerHandler = kfslogger.NewParquetMarshallerHandler()
+			default:
+				marshallerHandler = kfslogger.NewJSONMarshallerHandler()
+			}
 			marshallerAddr := fmt.Sprintf(":%d", marshallerPort)
 			marshallerServer := &http.Server{
 				Addr:              marshallerAddr,
@@ -439,7 +444,7 @@ func buildServer(port string, userPort int, loggerArgs *loggerArgs, batcherArgs 
 		// Add Activator probe header to the drainer so it can handle probes directly from activator
 		HealthCheckUAPrefixes: []string{header.ActivatorUserAgent},
 		Inner:                 composedHandler,
-		HealthCheck:           health.ProbeHandler(probeContainer, false),
+		HealthCheck:           health.ProbeHandler(noop.NewTracerProvider().Tracer(""), probeContainer),
 	}
 	composedHandler = drainer
 	return pkgnet.NewServer(":"+port, composedHandler), drainer.Drain

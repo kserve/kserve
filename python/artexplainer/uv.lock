@@ -165,7 +165,7 @@ wheels = [
 
 [[package]]
 name = "artserver"
-version = "0.16.0"
+version = "0.17.0rc0"
 source = { virtual = "." }
 dependencies = [
     { name = "adversarial-robustness-toolbox", extra = ["keras"] },
@@ -841,7 +841,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.16.0"
+version = "0.17.0rc0"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "aiohttp" },
@@ -862,6 +862,7 @@ dependencies = [
     { name = "psutil" },
     { name = "pydantic" },
     { name = "python-dateutil" },
+    { name = "python-multipart" },
     { name = "pyyaml" },
     { name = "six" },
     { name = "starlette" },
@@ -883,7 +884,7 @@ requires-dist = [
     { name = "grpcio-tools", specifier = ">=1.73.0,<2.0.0" },
     { name = "h11", specifier = ">=0.16.0" },
     { name = "httpx", specifier = ">=0.27.2,<1.0.0" },
-    { name = "kserve-storage", marker = "extra == 'storage'", specifier = "==0.16.0" },
+    { name = "kserve-storage", marker = "extra == 'storage'", editable = "../storage" },
     { name = "kubernetes", specifier = ">=23.3.0" },
     { name = "numpy", specifier = ">=1.26.0,<3.0.0" },
     { name = "orjson", specifier = ">=3.10.15,<4.0.0" },
@@ -893,6 +894,7 @@ requires-dist = [
     { name = "psutil", specifier = ">=5.9.6,<6.0.0" },
     { name = "pydantic", specifier = ">=2.5.0,<3.0.0" },
     { name = "python-dateutil", specifier = ">=2.8.0,<3.0.0" },
+    { name = "python-multipart", specifier = ">=0.0.22" },
     { name = "pyyaml", specifier = ">=6.0.0,<7.0.0" },
     { name = "ray", extras = ["serve"], marker = "extra == 'ray'", specifier = ">=2.43.0" },
     { name = "six", specifier = ">=1.16.0,<2.0.0" },
@@ -909,11 +911,13 @@ provides-extras = ["storage", "logging", "ray", "llm"]
 dev = [{ name = "black", extras = ["colorama"], specifier = "~=24.3.0" }]
 test = [
     { name = "avro", specifier = ">=1.11.0,<2.0.0" },
+    { name = "boto3", specifier = ">=1.35.0,<2.0.0" },
     { name = "grpcio-testing", specifier = ">=1.73.0,<2.0.0" },
     { name = "httpx-retries", specifier = ">=0.4.5,<1.0.0" },
     { name = "jinja2", specifier = ">=3.1.4,<4.0.0" },
     { name = "mypy", specifier = ">=0.991,<1.0" },
     { name = "portforward", specifier = ">=0.6.2,<1.0.0" },
+    { name = "pyarrow", specifier = ">=18.0.0,<20.0.0" },
     { name = "pytest", specifier = ">=7.4.4,<8.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.23.4,<1.0.0" },
     { name = "pytest-cov", specifier = ">=5.0.0,<6.0.0" },
@@ -1639,6 +1643,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/88/2c/7bb1416c5620485aa793f2de31d3df393d3686aa8a8506d11e10e13c5baf/python_dotenv-1.1.0.tar.gz", hash = "sha256:41f90bc6f5f177fb41f53e87666db362025010eb28f60a01c9143bfa33a2b2d5", size = 39920, upload-time = "2025-03-25T10:14:56.835Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1e/18/98a99ad95133c6a6e2005fe89faedf294a748bd5dc803008059409ac9b1e/python_dotenv-1.1.0-py3-none-any.whl", hash = "sha256:d7c01d9e2293916c18baf562d95698754b0dbbb5e74d457c45d4f6561fb9d55d", size = 20256, upload-time = "2025-03-25T10:14:55.034Z" },
+]
+
+[[package]]
+name = "python-multipart"
+version = "0.0.22"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/01/979e98d542a70714b0cb2b6728ed0b7c46792b695e3eaec3e20711271ca3/python_multipart-0.0.22.tar.gz", hash = "sha256:7340bef99a7e0032613f56dc36027b959fd3b30a787ed62d310e951f7c3a3a58", size = 37612, upload-time = "2026-01-25T10:15:56.219Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1b/d0/397f9626e711ff749a95d96b7af99b9c566a9bb5129b8e4c10fc4d100304/python_multipart-0.0.22-py3-none-any.whl", hash = "sha256:2b2cd894c83d21bf49d702499531c7bafd057d730c201782048f7945d82de155", size = 24579, upload-time = "2026-01-25T10:15:54.811Z" },
 ]
 
 [[package]]
