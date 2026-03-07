@@ -1,0 +1,561 @@
+/*
+Copyright 2025 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package llmisvc
+
+import (
+	"testing"
+
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+)
+
+// newTestLLMISVC creates a minimal LLMInferenceService for testing.
+func newTestLLMISVC(name, namespace string) *v1alpha2.LLMInferenceService {
+	return &v1alpha2.LLMInferenceService{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "serving.kserve.io/v1alpha2",
+			Kind:       "LLMInferenceService",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			UID:       "test-uid-1234",
+		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Model: v1alpha2.LLMModelSpec{
+				URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-3.1-8B"},
+				Name: ptr.To("meta-llama/Llama-3.1-8B"),
+			},
+		},
+	}
+}
+
+func TestExpectedHPA(t *testing.T) {
+	tests := []struct {
+		name           string
+		llmSvc         *v1alpha2.LLMInferenceService
+		scaling        *v1alpha2.ScalingSpec
+		deploymentName string
+		vaName         string
+		hpaName        string
+		validate       func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler)
+	}{
+		{
+			name:           "default minReplicas when nil",
+			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: ptr.To(int32(5)), WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			hpaName:        "test-svc-kserve-hpa",
+			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
+				require.NotNil(t, hpa.Spec.MinReplicas)
+				assert.Equal(t, int32(1), *hpa.Spec.MinReplicas, "default minReplicas should be 1")
+			},
+		},
+		{
+			name:   "explicit minReplicas",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				MinReplicas: ptr.To(int32(3)),
+				MaxReplicas: ptr.To(int32(10)),
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}},
+			},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			hpaName:        "test-svc-kserve-hpa",
+			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
+				require.NotNil(t, hpa.Spec.MinReplicas)
+				assert.Equal(t, int32(3), *hpa.Spec.MinReplicas)
+				assert.Equal(t, int32(10), hpa.Spec.MaxReplicas)
+			},
+		},
+		{
+			name:           "scaleTargetRef points to correct deployment",
+			llmSvc:         newTestLLMISVC("my-model", "prod"),
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: ptr.To(int32(5)), WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			deploymentName: "my-model-kserve",
+			vaName:         "my-model-kserve-va",
+			hpaName:        "my-model-kserve-hpa",
+			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
+				assert.Equal(t, "apps/v1", hpa.Spec.ScaleTargetRef.APIVersion)
+				assert.Equal(t, "Deployment", hpa.Spec.ScaleTargetRef.Kind)
+				assert.Equal(t, "my-model-kserve", hpa.Spec.ScaleTargetRef.Name)
+			},
+		},
+		{
+			name:           "metric selector uses variant_name from VA",
+			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: ptr.To(int32(5)), WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			hpaName:        "test-svc-kserve-hpa",
+			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
+				require.Len(t, hpa.Spec.Metrics, 1)
+				metric := hpa.Spec.Metrics[0]
+				assert.Equal(t, autoscalingv2.ExternalMetricSourceType, metric.Type)
+				require.NotNil(t, metric.External)
+				assert.Equal(t, "wva_desired_replicas", metric.External.Metric.Name)
+				require.NotNil(t, metric.External.Metric.Selector)
+				assert.Equal(t, "test-svc-kserve-va", metric.External.Metric.Selector.MatchLabels["variant_name"])
+				assert.Equal(t, autoscalingv2.AverageValueMetricType, metric.External.Target.Type)
+				assert.Equal(t, resource.NewQuantity(1, resource.DecimalSI), metric.External.Target.AverageValue)
+			},
+		},
+		{
+			name:   "custom HPA behavior is forwarded",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA: &v1alpha2.WVASpec{
+					ActuatorSpec: v1alpha2.ActuatorSpec{
+						HPA: &v1alpha2.HPAScalingSpec{
+							Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+								ScaleDown: &autoscalingv2.HPAScalingRules{
+									StabilizationWindowSeconds: ptr.To(int32(120)),
+								},
+							},
+						},
+					},
+				},
+			},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			hpaName:        "test-svc-kserve-hpa",
+			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
+				require.NotNil(t, hpa.Spec.Behavior)
+				require.NotNil(t, hpa.Spec.Behavior.ScaleDown)
+				assert.Equal(t, int32(120), *hpa.Spec.Behavior.ScaleDown.StabilizationWindowSeconds)
+			},
+		},
+		{
+			name:           "nil behavior when not specified",
+			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: ptr.To(int32(5)), WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			hpaName:        "test-svc-kserve-hpa",
+			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
+				assert.Nil(t, hpa.Spec.Behavior)
+			},
+		},
+		{
+			name:           "owner reference is set",
+			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: ptr.To(int32(5)), WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			hpaName:        "test-svc-kserve-hpa",
+			validate: func(t *testing.T, hpa *autoscalingv2.HorizontalPodAutoscaler) {
+				require.Len(t, hpa.OwnerReferences, 1)
+				assert.Equal(t, "test-svc", hpa.OwnerReferences[0].Name)
+				assert.Equal(t, "LLMInferenceService", hpa.OwnerReferences[0].Kind)
+				assert.True(t, *hpa.OwnerReferences[0].Controller)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hpa := expectedHPA(tt.llmSvc, tt.scaling, tt.deploymentName, tt.vaName, tt.hpaName)
+			assert.Equal(t, tt.hpaName, hpa.Name)
+			assert.Equal(t, tt.llmSvc.Namespace, hpa.Namespace)
+			tt.validate(t, hpa)
+		})
+	}
+}
+
+func TestExpectedScaledObject(t *testing.T) {
+	tests := []struct {
+		name           string
+		llmSvc         *v1alpha2.LLMInferenceService
+		scaling        *v1alpha2.ScalingSpec
+		config         *Config
+		deploymentName string
+		vaName         string
+		soName         string
+		validate       func(t *testing.T, so *kedav1alpha1.ScaledObject)
+	}{
+		{
+			name:   "default minReplicas when nil",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
+			},
+			config:         &Config{AutoscalingConfig: &AutoscalingConfig{PrometheusURL: "http://prom:9090"}},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			soName:         "test-svc-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				require.NotNil(t, so.Spec.MinReplicaCount)
+				assert.Equal(t, int32(1), *so.Spec.MinReplicaCount)
+			},
+		},
+		{
+			name:   "explicit minReplicas and maxReplicas",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				MinReplicas: ptr.To(int32(2)),
+				MaxReplicas: ptr.To(int32(8)),
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
+			},
+			config:         &Config{AutoscalingConfig: &AutoscalingConfig{PrometheusURL: "http://prom:9090"}},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			soName:         "test-svc-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				assert.Equal(t, int32(2), *so.Spec.MinReplicaCount)
+				require.NotNil(t, so.Spec.MaxReplicaCount)
+				assert.Equal(t, int32(8), *so.Spec.MaxReplicaCount)
+			},
+		},
+		{
+			name:   "scaleTargetRef points to correct deployment",
+			llmSvc: newTestLLMISVC("my-model", "prod"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
+			},
+			config:         &Config{AutoscalingConfig: &AutoscalingConfig{PrometheusURL: "http://prom:9090"}},
+			deploymentName: "my-model-kserve-prefill",
+			vaName:         "my-model-kserve-prefill-va",
+			soName:         "my-model-kserve-prefill-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				require.NotNil(t, so.Spec.ScaleTargetRef)
+				assert.Equal(t, "apps/v1", so.Spec.ScaleTargetRef.APIVersion)
+				assert.Equal(t, "Deployment", so.Spec.ScaleTargetRef.Kind)
+				assert.Equal(t, "my-model-kserve-prefill", so.Spec.ScaleTargetRef.Name)
+			},
+		},
+		{
+			name:   "prometheus trigger has correct metadata",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
+			},
+			config:         &Config{AutoscalingConfig: &AutoscalingConfig{PrometheusURL: "https://prom.monitoring:9090", PrometheusTLSInsecureSkipVerify: true}},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			soName:         "test-svc-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				require.Len(t, so.Spec.Triggers, 1)
+				trigger := so.Spec.Triggers[0]
+				assert.Equal(t, "prometheus", trigger.Type)
+				assert.Equal(t, "wva-desired-replicas", trigger.Name)
+				assert.Equal(t, "https://prom.monitoring:9090", trigger.Metadata["serverAddress"])
+				assert.Equal(t, `wva_desired_replicas{variant_name="test-svc-kserve-va",exported_namespace="test-ns"}`, trigger.Metadata["query"])
+				assert.Equal(t, "1", trigger.Metadata["threshold"])
+				assert.Equal(t, "true", trigger.Metadata["unsafeSsl"])
+			},
+		},
+		{
+			name:   "unsafeSsl is false when TLS verification enabled",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
+			},
+			config:         &Config{AutoscalingConfig: &AutoscalingConfig{PrometheusURL: "http://prom:9090", PrometheusTLSInsecureSkipVerify: false}},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			soName:         "test-svc-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				assert.Equal(t, "false", so.Spec.Triggers[0].Metadata["unsafeSsl"])
+			},
+		},
+		{
+			name:   "optional KEDA fields forwarded",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{
+					PollingInterval: ptr.To(int32(15)),
+					CooldownPeriod:  ptr.To(int32(60)),
+				}}},
+			},
+			config:         &Config{AutoscalingConfig: &AutoscalingConfig{PrometheusURL: "http://prom:9090"}},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			soName:         "test-svc-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				require.NotNil(t, so.Spec.PollingInterval)
+				assert.Equal(t, int32(15), *so.Spec.PollingInterval)
+				require.NotNil(t, so.Spec.CooldownPeriod)
+				assert.Equal(t, int32(60), *so.Spec.CooldownPeriod)
+			},
+		},
+		{
+			name:   "owner reference is set",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
+			},
+			config:         &Config{AutoscalingConfig: &AutoscalingConfig{PrometheusURL: "http://prom:9090"}},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			soName:         "test-svc-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				require.Len(t, so.OwnerReferences, 1)
+				assert.Equal(t, "test-svc", so.OwnerReferences[0].Name)
+				assert.Equal(t, "LLMInferenceService", so.OwnerReferences[0].Kind)
+				assert.True(t, *so.OwnerReferences[0].Controller)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			so := expectedScaledObject(tt.llmSvc, tt.scaling, tt.config, tt.deploymentName, tt.vaName, tt.soName)
+			assert.Equal(t, tt.soName, so.Name)
+			assert.Equal(t, tt.llmSvc.Namespace, so.Namespace)
+			tt.validate(t, so)
+		})
+	}
+}
+
+func TestExpectedVA(t *testing.T) {
+	tests := []struct {
+		name           string
+		llmSvc         *v1alpha2.LLMInferenceService
+		scaling        *v1alpha2.ScalingSpec
+		deploymentName string
+		vaName         string
+		validate       func(t *testing.T, va *wvav1alpha1.VariantAutoscaling)
+	}{
+		{
+			name:   "scaleTargetRef points to deployment",
+			llmSvc: newTestLLMISVC("my-model", "prod"),
+			scaling: &v1alpha2.ScalingSpec{
+				WVA: &v1alpha2.WVASpec{VariantCost: "10.0"},
+			},
+			deploymentName: "my-model-kserve",
+			vaName:         "my-model-kserve-va",
+			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
+				assert.Equal(t, autoscalingv1.CrossVersionObjectReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					Name:       "my-model-kserve",
+				}, va.Spec.ScaleTargetRef)
+			},
+		},
+		{
+			name:   "modelID from model.name when set",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				WVA: &v1alpha2.WVASpec{VariantCost: "5.0"},
+			},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
+				assert.Equal(t, "meta-llama/Llama-3.1-8B", va.Spec.ModelID)
+			},
+		},
+		{
+			name: "modelID falls back to URI when name is nil",
+			llmSvc: func() *v1alpha2.LLMInferenceService {
+				svc := newTestLLMISVC("test-svc", "test-ns")
+				svc.Spec.Model.Name = nil
+				return svc
+			}(),
+			scaling: &v1alpha2.ScalingSpec{
+				WVA: &v1alpha2.WVASpec{VariantCost: "10.0"},
+			},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
+				expectedURI := apis.URL{Scheme: "hf", Host: "meta-llama/Llama-3.1-8B"}
+				assert.Equal(t, expectedURI.String(), va.Spec.ModelID, "should match URI.String() output")
+			},
+		},
+		{
+			name:   "variantCost forwarded correctly",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				WVA: &v1alpha2.WVASpec{VariantCost: "42.5"},
+			},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
+				assert.Equal(t, "42.5", va.Spec.VariantCost)
+			},
+		},
+		{
+			name:   "owner reference is set",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				WVA: &v1alpha2.WVASpec{VariantCost: "10.0"},
+			},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
+				require.Len(t, va.OwnerReferences, 1)
+				assert.Equal(t, "test-svc", va.OwnerReferences[0].Name)
+				assert.Equal(t, "LLMInferenceService", va.OwnerReferences[0].Kind)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			va := expectedVA(tt.llmSvc, tt.scaling, tt.deploymentName, tt.vaName, nil)
+			assert.Equal(t, tt.vaName, va.Name)
+			assert.Equal(t, tt.llmSvc.Namespace, va.Namespace)
+			tt.validate(t, va)
+		})
+	}
+}
+
+func TestSemanticHPAIsEqual(t *testing.T) {
+	base := func() *autoscalingv2.HorizontalPodAutoscaler {
+		return &autoscalingv2.HorizontalPodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "test"}},
+			Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+				MaxReplicas: 5,
+				MinReplicas: ptr.To(int32(1)),
+			},
+		}
+	}
+
+	t.Run("equal specs returns true", func(t *testing.T) {
+		assert.True(t, semanticHPAIsEqual(base(), base()))
+	})
+
+	t.Run("different maxReplicas returns false", func(t *testing.T) {
+		modified := base()
+		modified.Spec.MaxReplicas = 10
+		assert.False(t, semanticHPAIsEqual(base(), modified))
+	})
+
+	t.Run("different labels returns false", func(t *testing.T) {
+		modified := base()
+		modified.Labels = map[string]string{"app": "other"}
+		assert.False(t, semanticHPAIsEqual(base(), modified))
+	})
+}
+
+func TestSemanticScaledObjectIsEqual(t *testing.T) {
+	base := func() *kedav1alpha1.ScaledObject {
+		return &kedav1alpha1.ScaledObject{
+			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "test"}},
+			Spec: kedav1alpha1.ScaledObjectSpec{
+				MaxReplicaCount: ptr.To(int32(5)),
+				Triggers: []kedav1alpha1.ScaleTriggers{
+					{Type: "prometheus", Metadata: map[string]string{"query": "up"}},
+				},
+			},
+		}
+	}
+
+	t.Run("equal specs returns true", func(t *testing.T) {
+		assert.True(t, semanticScaledObjectIsEqual(base(), base()))
+	})
+
+	t.Run("different trigger returns false", func(t *testing.T) {
+		modified := base()
+		modified.Spec.Triggers[0].Metadata["query"] = "down"
+		assert.False(t, semanticScaledObjectIsEqual(base(), modified))
+	})
+
+	t.Run("different labels returns false", func(t *testing.T) {
+		modified := base()
+		modified.Labels = map[string]string{"app": "other"}
+		assert.False(t, semanticScaledObjectIsEqual(base(), modified))
+	})
+}
+
+func TestSemanticVAIsEqual(t *testing.T) {
+	base := func() *wvav1alpha1.VariantAutoscaling {
+		return &wvav1alpha1.VariantAutoscaling{
+			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "test"}},
+			Spec: wvav1alpha1.VariantAutoscalingSpec{
+				ModelID:     "meta-llama/Llama-3.1-8B",
+				VariantCost: "10.0",
+			},
+		}
+	}
+
+	t.Run("equal specs returns true", func(t *testing.T) {
+		assert.True(t, semanticVAIsEqual(base(), base()))
+	})
+
+	t.Run("different modelID returns false", func(t *testing.T) {
+		modified := base()
+		modified.Spec.ModelID = "other-model"
+		assert.False(t, semanticVAIsEqual(base(), modified))
+	})
+
+	t.Run("different labels returns false", func(t *testing.T) {
+		modified := base()
+		modified.Labels = map[string]string{"app": "other"}
+		assert.False(t, semanticVAIsEqual(base(), modified))
+	})
+}
+
+func TestNamingHelpers(t *testing.T) {
+	svc := newTestLLMISVC("sim-llama", "llm-d-dev")
+
+	t.Run("main deployment name (standard)", func(t *testing.T) {
+		assert.Equal(t, "sim-llama-kserve", mainDeploymentName(svc))
+	})
+
+	t.Run("main deployment name (multi-node)", func(t *testing.T) {
+		mnSvc := newTestLLMISVC("sim-llama", "llm-d-dev")
+		mnSvc.Spec.Worker = &corev1.PodSpec{}
+		assert.Equal(t, "sim-llama-kserve-mn", mainDeploymentName(mnSvc))
+	})
+
+	t.Run("prefill deployment name", func(t *testing.T) {
+		assert.Equal(t, "sim-llama-kserve-prefill", prefillDeploymentName(svc))
+	})
+
+	t.Run("main HPA name", func(t *testing.T) {
+		assert.Equal(t, "sim-llama-kserve-hpa", mainHPAName(svc))
+	})
+
+	t.Run("prefill HPA name", func(t *testing.T) {
+		assert.Equal(t, "sim-llama-kserve-prefill-hpa", prefillHPAName(svc))
+	})
+
+	t.Run("main VA name", func(t *testing.T) {
+		assert.Equal(t, "sim-llama-kserve-va", mainVAName(svc))
+	})
+
+	t.Run("prefill VA name", func(t *testing.T) {
+		assert.Equal(t, "sim-llama-kserve-prefill-va", prefillVAName(svc))
+	})
+
+	t.Run("main ScaledObject name", func(t *testing.T) {
+		assert.Equal(t, "sim-llama-kserve-keda", mainScaledObjectName(svc))
+	})
+
+	t.Run("prefill ScaledObject name", func(t *testing.T) {
+		assert.Equal(t, "sim-llama-kserve-prefill-keda", prefillScaledObjectName(svc))
+	})
+}

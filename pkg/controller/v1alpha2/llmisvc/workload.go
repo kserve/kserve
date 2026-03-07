@@ -97,6 +97,11 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		return fmt.Errorf("failed to reconcile workload service: %w", err)
 	}
 
+	// Reconcile autoscaling resources (VariantAutoscaling + HPA or KEDA ScaledObject) when scaling is configured
+	if err := r.reconcileScaling(ctx, llmSvc, config); err != nil {
+		return fmt.Errorf("failed to reconcile scaling: %w", err)
+	}
+
 	return nil
 }
 
