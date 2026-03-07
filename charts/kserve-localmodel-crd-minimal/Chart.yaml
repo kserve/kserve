@@ -1,7 +1,7 @@
 apiVersion: v2
 name: kserve-localmodel-crd-minimal
-version: v0.16.0
-appVersion: v0.16.0
+version: v0.17.0-rc0
+appVersion: v0.17.0-rc0
 description: Helm chart for deploying LocalModel CRDs (minimal version)
 type: application
 keywords:
