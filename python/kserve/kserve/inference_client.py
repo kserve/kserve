@@ -110,7 +110,6 @@ class InferenceGRPCClient:
         timeout: Optional[float] = 60,
         retries: Optional[int] = 3,
     ):
-
         # requires appending the port to the predictor host for gRPC to work
         if ":" not in url:
             port = 443 if use_ssl else 80
@@ -218,17 +217,13 @@ class InferenceGRPCClient:
         else:
             raise InvalidInput("Invalid input format")
         if self._verbose:
-            logger.info(
-                "metadata: {}\n infer_request: {}".format(metadata, infer_request)
-            )
+            logger.info("metadata: {}\n infer_request: {}".format(metadata, infer_request))
 
         try:
             response = await self._client_stub.ModelInfer(
                 request=infer_request,
                 metadata=metadata,
-                timeout=(
-                    self._timeout if isinstance(timeout, _UseClientDefault) else timeout
-                ),
+                timeout=(self._timeout if isinstance(timeout, _UseClientDefault) else timeout),
             )
             response = InferResponse.from_grpc(response)
             if self._verbose:
@@ -255,9 +250,7 @@ class InferenceGRPCClient:
         try:
             response: ServerReadyResponse = await self._client_stub.ServerReady(
                 ServerReadyRequest(),
-                timeout=(
-                    self._timeout if isinstance(timeout, _UseClientDefault) else timeout
-                ),
+                timeout=(self._timeout if isinstance(timeout, _UseClientDefault) else timeout),
                 metadata=headers,
             )
             if self._verbose:
@@ -284,9 +277,7 @@ class InferenceGRPCClient:
         try:
             response: ServerLiveResponse = await self._client_stub.ServerLive(
                 ServerLiveRequest(),
-                timeout=(
-                    self._timeout if isinstance(timeout, _UseClientDefault) else timeout
-                ),
+                timeout=(self._timeout if isinstance(timeout, _UseClientDefault) else timeout),
                 metadata=headers,
             )
             if self._verbose:
@@ -315,9 +306,7 @@ class InferenceGRPCClient:
         try:
             response: ModelReadyResponse = await self._client_stub.ModelReady(
                 ModelReadyRequest(name=model_name),
-                timeout=(
-                    self._timeout if isinstance(timeout, _UseClientDefault) else timeout
-                ),
+                timeout=(self._timeout if isinstance(timeout, _UseClientDefault) else timeout),
                 metadata=headers,
             )
             if self._verbose:
@@ -367,9 +356,7 @@ class RESTConfig:
         verbose: bool = False,
     ):
         self.transport = transport
-        self.protocol = (
-            protocol.value if isinstance(protocol, PredictorProtocol) else protocol
-        )
+        self.protocol = protocol.value if isinstance(protocol, PredictorProtocol) else protocol
         self.retries = retries
         self.http2 = http2
         self.timeout = timeout
@@ -404,9 +391,7 @@ class InferenceRESTClient:
             verify=self._config.verify,
         )
 
-    def _construct_url(
-        self, base_url: Union[str, httpx.URL], relative_url: str
-    ) -> httpx.URL:
+    def _construct_url(self, base_url: Union[str, httpx.URL], relative_url: str) -> httpx.URL:
         """
         Merge a relative url argument together with any 'base_url' to create the URL used for the outgoing request.
         :param base_url: The base url as str or httpx.URL object to use when constructing request url.
@@ -417,33 +402,22 @@ class InferenceRESTClient:
         if isinstance(base_url, str):
             base_url = httpx.URL(base_url)
         if base_url.scheme not in ("http", "https"):
-            raise httpx.InvalidURL(
-                "Base url should have 'http://' or 'https://' protocol"
-            )
+            raise httpx.InvalidURL("Base url should have 'http://' or 'https://' protocol")
         if base_url.is_relative_url:
             raise httpx.InvalidURL("Base url should not be a relative url")
         if not base_url.raw_path.endswith(b"/") and not relative_url.startswith("/"):
             relative_url = "/" + relative_url
         return base_url.join(base_url.path + relative_url)
 
-    def _construct_http_status_error(
-        self, response: httpx.Response
-    ) -> httpx.HTTPStatusError:
-        message = (
-            "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
-        )
+    def _construct_http_status_error(self, response: httpx.Response) -> httpx.HTTPStatusError:
+        message = "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
         error_message = ""
-        if (
-            "content-type" in response.headers
-            and response.headers["content-type"] == "application/json"
-        ):
+        if "content-type" in response.headers and response.headers["content-type"] == "application/json":
             error_message = response.json()
             if "error" in error_message:
                 error_message = error_message["error"]
         message = message.format(response, error_message=error_message)
-        return httpx.HTTPStatusError(
-            message, request=response.request, response=response
-        )
+        return httpx.HTTPStatusError(message, request=response.request, response=response)
 
     async def infer(
         self,
@@ -478,13 +452,9 @@ class InferenceRESTClient:
         elif model_name is None:
             raise ValueError("model_name should not be 'None'")
         elif is_v1(self._config.protocol):
-            url = self._construct_url(
-                base_url, f"{self._config.protocol}/models/{model_name}:predict"
-            )
+            url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}:predict")
         elif is_v2(self._config.protocol):
-            url = self._construct_url(
-                base_url, f"{self._config.protocol}/models/{model_name}/infer"
-            )
+            url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}/infer")
         else:
             raise UnsupportedProtocol(self._config.protocol)
         if self._config.verbose:
@@ -498,13 +468,9 @@ class InferenceRESTClient:
                 headers["content-type"] = "application/octet-stream"
         if isinstance(data, dict):
             data = orjson.dumps(data)
-        response = await self._client.post(
-            url, content=data, headers=headers, timeout=timeout
-        )
+        response = await self._client.post(url, content=data, headers=headers, timeout=timeout)
         if self._config.verbose:
-            logger.info(
-                "response code: %s, content: %s", response.status_code, response.text
-            )
+            logger.info("response code: %s, content: %s", response.status_code, response.text)
         if not response.is_success:
             raise self._construct_http_status_error(response)
         if response_headers is not None:
@@ -513,9 +479,7 @@ class InferenceRESTClient:
         if is_graph_endpoint:
             output = orjson.loads(response.content)
         elif is_v2(self._config.protocol):
-            json_length = response.headers.get(
-                INFERENCE_CONTENT_LENGTH_HEADER, len(response.content)
-            )
+            json_length = response.headers.get(INFERENCE_CONTENT_LENGTH_HEADER, len(response.content))
             output = InferResponse.from_bytes(response.content, int(json_length))
         # Should be v1 protocol result, return it as dict
         else:
@@ -544,22 +508,16 @@ class InferenceRESTClient:
         :raises UnsupportedProtocol if the specified protocol version is not supported.
         """
         if is_v1(self._config.protocol):
-            url = self._construct_url(
-                base_url, f"{self._config.protocol}/models/{model_name}:explain"
-            )
+            url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}:explain")
         else:
             raise UnsupportedProtocol(self._config.protocol)
         if self._config.verbose:
             logger.info("url: %s", url)
             logger.info("request data: %s", data)
         data = orjson.dumps(data)
-        response = await self._client.post(
-            url, content=data, headers=headers, timeout=timeout
-        )
+        response = await self._client.post(url, content=data, headers=headers, timeout=timeout)
         if self._config.verbose:
-            logger.info(
-                "response code: %s, content: %s", response.status_code, response.text
-            )
+            logger.info("response code: %s, content: %s", response.status_code, response.text)
         if not response.is_success:
             raise self._construct_http_status_error(response)
         return orjson.loads(response.content)
@@ -589,9 +547,7 @@ class InferenceRESTClient:
             logger.info("url: %s, protocol_version: %s", url, self._config.protocol)
         response = await self._client.get(url, headers=headers, timeout=timeout)
         if self._config.verbose:
-            logger.info(
-                "response code: %s, content: %s", response.status_code, response.text
-            )
+            logger.info("response code: %s, content: %s", response.status_code, response.text)
         if not response.is_success:
             raise self._construct_http_status_error(response)
         return response.json().get("ready")
@@ -623,9 +579,7 @@ class InferenceRESTClient:
             logger.info("url: %s, protocol_version: %s", url, self._config.protocol)
         response = await self._client.get(url, headers=headers, timeout=timeout)
         if self._config.verbose:
-            logger.info(
-                "response code: %s, content: %s", response.status_code, response.text
-            )
+            logger.info("response code: %s, content: %s", response.status_code, response.text)
         if not response.is_success:
             raise self._construct_http_status_error(response)
         if is_v1(self._config.protocol):
@@ -656,22 +610,16 @@ class InferenceRESTClient:
         :raises UnsupportedProtocol if the specified protocol version is not supported.
         """
         if is_v1(self._config.protocol):
-            url = self._construct_url(
-                base_url, f"{self._config.protocol}/models/{model_name}"
-            )
+            url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}")
         elif is_v2(self._config.protocol):
-            url = self._construct_url(
-                base_url, f"{self._config.protocol}/models/{model_name}/ready"
-            )
+            url = self._construct_url(base_url, f"{self._config.protocol}/models/{model_name}/ready")
         else:
             raise UnsupportedProtocol(protocol_version=self._config.protocol)
         if self._config.verbose:
             logger.info("url: %s, protocol_version: %s", url, self._config.protocol)
         response = await self._client.get(url, headers=headers, timeout=timeout)
         if self._config.verbose:
-            logger.info(
-                "response code: %s, content: %s", response.status_code, response.text
-            )
+            logger.info("response code: %s, content: %s", response.status_code, response.text)
 
         if is_v1(self._config.protocol):
             # According to V1 protocol, the response should be a json object with ready: true/false

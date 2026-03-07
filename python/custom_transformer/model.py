@@ -50,9 +50,7 @@ def image_transform(model_name, data):
         ]
     )
     if model_name == "mnist" or model_name == "cifar10":
-        preprocess = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-        )
+        preprocess = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
     byte_array = base64.b64decode(data)
     image = Image.open(io.BytesIO(byte_array))
     tensor = preprocess(image).numpy()
@@ -68,18 +66,12 @@ class ImageTransformer(Model):
         self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
     ) -> Union[Dict, InferRequest]:
         if isinstance(payload, InferRequest):
-            input_tensors = [
-                image_transform(self.name, instance)
-                for instance in payload.inputs[0].data
-            ]
+            input_tensors = [image_transform(self.name, instance) for instance in payload.inputs[0].data]
         else:
             headers["request-type"] = "v1"
             # Input follows the Tensorflow V1 HTTP API for binary values
             # https://www.tensorflow.org/tfx/serving/api_rest#encoding_binary_values
-            input_tensors = [
-                image_transform(self.name, instance["image"]["b64"])
-                for instance in payload["instances"]
-            ]
+            input_tensors = [image_transform(self.name, instance["image"]["b64"]) for instance in payload["instances"]]
         input_tensors = numpy.asarray(input_tensors)
         infer_inputs = [
             InferInput(
@@ -106,10 +98,7 @@ class ImageTransformer(Model):
         response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
         if "request-type" in headers and headers["request-type"] == "v1":
-            if (
-                self.predictor_config.predictor_protocol
-                == PredictorProtocol.REST_V1.value
-            ):
+            if self.predictor_config.predictor_protocol == PredictorProtocol.REST_V1.value:
                 return infer_response
             else:
                 # if predictor protocol is v2 but transformer uses v1

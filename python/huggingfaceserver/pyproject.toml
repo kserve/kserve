@@ -29,5 +29,5 @@ test = [
     "openai<2.0.0,>=1.59.9",
 ]
 dev = [
-    "black[colorama]~=24.3.0",
+    "ruff~=0.14.0",
 ]

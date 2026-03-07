@@ -51,17 +51,13 @@ class TestModelRepositoryExtension:
         assert result == [{"name": self.MODEL_NAME, "reason": "", "state": "Ready"}]
 
     async def test_load(self):
-        model_repo_ext = ModelRepositoryExtension(
-            model_registry=DummyModelRepository(test_load_success=True)
-        )
+        model_repo_ext = ModelRepositoryExtension(model_registry=DummyModelRepository(test_load_success=True))
         await model_repo_ext.load(self.MODEL_NAME)
         model = model_repo_ext._model_registry.get_model(self.MODEL_NAME)
         assert model.name == self.MODEL_NAME
 
     async def test_load_fail(self):
-        model_repo_ext = ModelRepositoryExtension(
-            model_registry=DummyModelRepository(test_load_success=False)
-        )
+        model_repo_ext = ModelRepositoryExtension(model_registry=DummyModelRepository(test_load_success=False))
         with pytest.raises(ModelNotReady) as e:
             await model_repo_ext.load(self.MODEL_NAME)
         assert e.value.model_name == self.MODEL_NAME
@@ -69,9 +65,7 @@ class TestModelRepositoryExtension:
 
     async def test_load_fail_with_exception(self):
         model_repo_ext = ModelRepositoryExtension(
-            model_registry=DummyModelRepository(
-                test_load_success=False, fail_with_exception=True
-            )
+            model_registry=DummyModelRepository(test_load_success=False, fail_with_exception=True)
         )
         with pytest.raises(ModelNotReady) as e:
             await model_repo_ext.load(self.MODEL_NAME)

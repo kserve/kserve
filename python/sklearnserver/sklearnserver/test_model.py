@@ -43,17 +43,13 @@ def create_v2_request(request, model_name=None):
             infer_input = InferInput(
                 name=key,
                 shape=[len(val)],
-                datatype=(
-                    "INT32" if len(val) > 0 and isinstance(val[0], int) else "BYTES"
-                ),
+                datatype=("INT32" if len(val) > 0 and isinstance(val[0], int) else "BYTES"),
                 data=val,
             )
 
             infer_inputs.append(infer_input)
 
-    infer_request = InferRequest(
-        model_name=model_name, infer_inputs=infer_inputs, parameters=parameters
-    )
+    infer_request = InferRequest(model_name=model_name, infer_inputs=infer_inputs, parameters=parameters)
     return infer_request
 
 
@@ -87,9 +83,7 @@ def test_model_joblib():
     assert response["predictions"] == [0]
 
     # test v2 infer call
-    infer_input = InferInput(
-        name="input-0", shape=[1, 4], datatype="FP32", data=request
-    )
+    infer_input = InferInput(name="input-0", shape=[1, 4], datatype="FP32", data=request)
     infer_request = InferRequest(model_name="model", infer_inputs=[infer_input])
     infer_response = model.predict(infer_request)
     infer_dict, _ = infer_response.to_rest()

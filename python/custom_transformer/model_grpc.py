@@ -50,12 +50,8 @@ class ImageTransformer(Model):
         super().__init__(name)
         self.ready = True
 
-    def preprocess(
-        self, request: InferRequest, headers: Dict[str, str] = None
-    ) -> InferRequest:
-        input_tensors = [
-            image_transform(instance) for instance in request.inputs[0].data
-        ]
+    def preprocess(self, request: InferRequest, headers: Dict[str, str] = None) -> InferRequest:
+        input_tensors = [image_transform(instance) for instance in request.inputs[0].data]
         input_tensors = np.asarray(input_tensors)
         infer_inputs = [
             InferInput(

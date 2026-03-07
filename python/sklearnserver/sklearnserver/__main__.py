@@ -22,9 +22,7 @@ from kserve.errors import ModelMissingError
 from kserve.logging import logger
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
-parser.add_argument(
-    "--model_dir", required=True, help="A local path to the model binary"
-)
+parser.add_argument("--model_dir", required=True, help="A local path to the model binary")
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
@@ -44,6 +42,4 @@ if __name__ == "__main__":
         # Case 2: In the event that the model repository is empty, it's possible that this is a scenario for
         # multi-model serving. In such a case, models are loaded dynamically using the TrainedModel.
         # Therefore, we start the server without any preloaded models
-        kserve.ModelServer(
-            registered_models=SKLearnModelRepository(args.model_dir)
-        ).start([])
+        kserve.ModelServer(registered_models=SKLearnModelRepository(args.model_dir)).start([])

@@ -90,7 +90,7 @@ test = [
     "pyarrow>=18.0.0,<20.0.0",
 ]
 dev = [
-    "black[colorama]~=24.3.0",
+    "ruff~=0.14.0",
 ]
 
 [tool.uv]

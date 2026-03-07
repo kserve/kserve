@@ -99,9 +99,7 @@ def is_structured_cloudevent(body: Dict) -> bool:
     )
 
 
-def create_response_cloudevent(
-    model_name: str, response: Dict, req_attributes: Dict, binary_event=False
-) -> tuple:
+def create_response_cloudevent(model_name: str, response: Dict, req_attributes: Dict, binary_event=False) -> tuple:
     ce_attributes = {}
 
     if os.getenv("CE_MERGE", "false").lower() == "true":
@@ -117,9 +115,7 @@ def create_response_cloudevent(
         del ce_attributes["time"]
 
     ce_attributes["type"] = os.getenv("CE_TYPE", "io.kserve.inference.response")
-    ce_attributes["source"] = os.getenv(
-        "CE_SOURCE", f"io.kserve.inference.{model_name}"
-    )
+    ce_attributes["source"] = os.getenv("CE_SOURCE", f"io.kserve.inference.{model_name}")
 
     event = CloudEvent(ce_attributes, response)
 
@@ -154,9 +150,7 @@ def get_predict_input(
         if len(instances) == 0:
             return np.array(instances)
         if isinstance(instances[0], Dict) or (
-            isinstance(instances[0], List)
-            and len(instances[0]) != 0
-            and isinstance(instances[0][0], Dict)
+            isinstance(instances[0], List) and len(instances[0]) != 0 and isinstance(instances[0][0], Dict)
         ):
             dfs = []
             for instance in instances:
@@ -182,11 +176,7 @@ def get_predict_input(
             return payload.as_dataframe()
         else:
             input = payload.inputs[0]
-            if (
-                input.datatype == "BYTES"
-                and len(input.data) > 0
-                and isinstance(input.data[0], str)
-            ):
+            if input.datatype == "BYTES" and len(input.data) > 0 and isinstance(input.data[0], str):
                 return input.data
             return input.as_numpy()
 
@@ -214,13 +204,9 @@ def get_predict_response(
                     shape=list(result[col].shape),
                     datatype=from_np_dtype(result[col].dtype),
                 )
-                infer_output.set_data_from_numpy(
-                    result[col].to_numpy(), binary_data=payload.use_binary_outputs
-                )
+                infer_output.set_data_from_numpy(result[col].to_numpy(), binary_data=payload.use_binary_outputs)
                 infer_outputs.append(infer_output)
-        elif (
-            isinstance(result, list) and len(result) > 0 and isinstance(result[0], str)
-        ):
+        elif isinstance(result, list) and len(result) > 0 and isinstance(result[0], str):
             infer_output = InferOutput(
                 name="output-0",
                 shape=[len(result)],
@@ -239,9 +225,7 @@ def get_predict_response(
                 shape=list(result.shape),
                 datatype=from_np_dtype(result.dtype),
             )
-            infer_output.set_data_from_numpy(
-                result, binary_data=payload.use_binary_outputs
-            )
+            infer_output.set_data_from_numpy(result, binary_data=payload.use_binary_outputs)
             infer_outputs.append(infer_output)
         return InferResponse(
             model_name=model_name,
@@ -275,13 +259,11 @@ def strtobool(val: str) -> bool:
 
 def is_v2(protocol: Union[str, PredictorProtocol]) -> bool:
     return protocol == PredictorProtocol.REST_V2 or (
-        isinstance(protocol, str)
-        and protocol.lower() == PredictorProtocol.REST_V2.value.lower()
+        isinstance(protocol, str) and protocol.lower() == PredictorProtocol.REST_V2.value.lower()
     )
 
 
 def is_v1(protocol: Union[str, PredictorProtocol]) -> bool:
     return protocol == PredictorProtocol.REST_V1 or (
-        isinstance(protocol, str)
-        and protocol.lower() == PredictorProtocol.REST_V1.value.lower()
+        isinstance(protocol, str) and protocol.lower() == PredictorProtocol.REST_V1.value.lower()
     )

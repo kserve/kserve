@@ -43,9 +43,7 @@ def test_model_v2():
     server = PmmlModel("model", model_dir)
     server.load()
 
-    infer_input = InferInput(
-        name="input-0", shape=[1, 4], datatype="FP32", data=[[5.1, 3.5, 1.4, 0.2]]
-    )
+    infer_input = InferInput(name="input-0", shape=[1, 4], datatype="FP32", data=[[5.1, 3.5, 1.4, 0.2]])
     request = InferRequest(model_name="model", infer_inputs=[infer_input])
     response = server.predict(request)
     expect_result = [

@@ -61,8 +61,7 @@ class PredictiveServerModel(Model):
 
         if self.framework not in self.SUPPORTED_FRAMEWORKS:
             raise ValueError(
-                f"Unsupported framework: {framework}. "
-                f"Supported frameworks: {', '.join(self.SUPPORTED_FRAMEWORKS)}"
+                f"Unsupported framework: {framework}. Supported frameworks: {', '.join(self.SUPPORTED_FRAMEWORKS)}"
             )
 
         # Initialize the appropriate framework model
@@ -85,9 +84,7 @@ class PredictiveServerModel(Model):
         self.ready = self._model.load()
         return self.ready
 
-    def predict(
-        self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
-    ) -> Union[Dict, InferResponse]:
+    def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         """
         Perform inference using the loaded model.
 

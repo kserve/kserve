@@ -118,18 +118,11 @@ class CompletionStreamer:
         text = await self.generate_queue.get()
         if text is None:
             raise StopAsyncIteration()
-        if (
-            self.stop_sequence_stopping_criteria
-            and self.stop_sequence_stopping_criteria.triggered
-        ):
+        if self.stop_sequence_stopping_criteria and self.stop_sequence_stopping_criteria.triggered:
             finish_reason = "stop"
         else:
             finish_reason = "length"
-        choices = [
-            CompletionChunkChoice(
-                finish_reason=finish_reason, index=self.index, text=text, logprobs=None
-            )
-        ]
+        choices = [CompletionChunkChoice(finish_reason=finish_reason, index=self.index, text=text, logprobs=None)]
         return CompletionChunk(
             id=self.id,
             created=int(time.time()),
@@ -140,9 +133,7 @@ class CompletionStreamer:
         )
 
 
-class HuggingfaceGenerativeModel(
-    OpenAIChatAdapterModel
-):  # pylint:disable=c-extension-no-member
+class HuggingfaceGenerativeModel(OpenAIChatAdapterModel):  # pylint:disable=c-extension-no-member
     model_config: PretrainedConfig
     model_id_or_path: Union[pathlib.Path, str]
     task: MLTask
@@ -198,9 +189,7 @@ class HuggingfaceGenerativeModel(
         else:
             self.task = infer_task_from_model_architecture(self.model_config)
         if not is_generative_task(self.task):
-            raise OpenAIError(
-                f"Generative model does not support encoder-only task: {self.task.name}"
-            )
+            raise OpenAIError(f"Generative model does not support encoder-only task: {self.task.name}")
 
     def load(self) -> bool:
         model_id_or_path = self.model_id_or_path
@@ -212,9 +201,7 @@ class HuggingfaceGenerativeModel(
         # For pre-check we initialize the model class without weights to check the `_no_split_modules`
         # device_map = "auto" for models that support this else set to either cuda/cpu
         with init_empty_weights():
-            self._model = model_cls.from_config(
-                self.model_config, trust_remote_code=self.trust_remote_code
-            )
+            self._model = model_cls.from_config(self.model_config, trust_remote_code=self.trust_remote_code)
 
         device_map = self._device
 
@@ -265,9 +252,7 @@ class HuggingfaceGenerativeModel(
             # When adding new tokens to the vocabulary, we should make sure to also resize the token embedding
             # matrix of the model so that its embedding matrix matches the tokenizer.
             self._model.resize_token_embeddings(len(self._tokenizer))
-        logger.info(
-            f"Successfully loaded huggingface model from path {model_id_or_path}"
-        )
+        logger.info(f"Successfully loaded huggingface model from path {model_id_or_path}")
         Thread(target=self._process_requests).start()
         self.ready = True
         return self.ready
@@ -312,9 +297,7 @@ class HuggingfaceGenerativeModel(
                 skip_prompt=not echo,
                 skip_special_tokens=True,
             )
-            thread = Thread(
-                target=self._model.generate, kwargs={**kwargs, "streamer": streamer}
-            )
+            thread = Thread(target=self._model.generate, kwargs={**kwargs, "streamer": streamer})
             thread.start()
             # Consume the tokens one by one and add them to the queue
             for output in streamer:
@@ -324,20 +307,15 @@ class HuggingfaceGenerativeModel(
             queue_put(None)
         else:
             # Encoder-decoder models do not include the input tokens in the output
-            output_start = (
-                0 if echo or self.is_encoder_decoder else kwargs["input_ids"].shape[-1]
-            )
+            output_start = 0 if echo or self.is_encoder_decoder else kwargs["input_ids"].shape[-1]
             outputs = self._model.generate(**kwargs)
             stats: LLMStats = context[LLM_STATS_KEY]
             stats.num_generation_tokens = (
                 outputs.shape[-1] * outputs.shape[0]
                 if self.is_encoder_decoder
-                else outputs[:, kwargs["input_ids"].shape[-1] :].shape[-1]
-                * outputs.shape[0]
+                else outputs[:, kwargs["input_ids"].shape[-1] :].shape[-1] * outputs.shape[0]
             )
-            outputs = self._tokenizer.batch_decode(
-                outputs[:, output_start:], skip_special_tokens=True
-            )
+            outputs = self._tokenizer.batch_decode(outputs[:, output_start:], skip_special_tokens=True)
             queue_put(outputs)
 
     @torch.no_grad()
@@ -398,9 +376,7 @@ class HuggingfaceGenerativeModel(
             kwargs["repetition_penalty"] = request.presence_penalty
         if request.logit_bias is not None:
             # transformers accepts a dict of token tuple to bias (i.e. Dict[Tuple, float])
-            kwargs["sequence_bias"] = {
-                tuple(token): bias for token, bias in request.logit_bias.items()
-            }
+            kwargs["sequence_bias"] = {tuple(token): bias for token, bias in request.logit_bias.items()}
         return GenerationConfig(**kwargs)
 
     def _parse_chat_message_content_parts(
@@ -460,16 +436,9 @@ class HuggingfaceGenerativeModel(
         # so, for messages that have tool_calls, parse the string (which we get
         # from openAI format) to dict
         for message in messages:
-            if (
-                message["role"] == "assistant"
-                and "tool_calls" in message
-                and isinstance(message["tool_calls"], list)
-            ):
-
+            if message["role"] == "assistant" and "tool_calls" in message and isinstance(message["tool_calls"], list):
                 for item in message["tool_calls"]:
-                    item["function"]["arguments"] = json.loads(
-                        item["function"]["arguments"]
-                    )
+                    item["function"]["arguments"] = json.loads(item["function"]["arguments"])
 
     def parse_chat_messages_futures(
         self,
@@ -512,18 +481,12 @@ class HuggingfaceGenerativeModel(
     def apply_chat_template(
         self,
         request: ChatCompletionRequest,
-    ) -> (
-        ChatPrompt
-    ):  # TODO: Does not supprot multi-modal, also does not solve mistral tokenizer issue.
+    ) -> ChatPrompt:  # TODO: Does not supprot multi-modal, also does not solve mistral tokenizer issue.
         """
         Given a list of chat completion messages, convert them to a prompt.
         """
         conversation = self.parse_chat_messages_futures(request.messages)
-        tool_dicts = (
-            None
-            if request.tools is None
-            else [tool.model_dump() for tool in request.tools]
-        )
+        tool_dicts = None if request.tools is None else [tool.model_dump() for tool in request.tools]
         prompt = self.apply_hf_chat_template(
             self._tokenizer,
             conversation=conversation,
@@ -549,19 +512,11 @@ class HuggingfaceGenerativeModel(
         stats = LLMStats()
         context = {LLM_STATS_KEY: stats}
         prompt = request.prompt
-        prompts = (
-            prompt
-            if isinstance(prompt, list) and not isinstance(prompt[0], int)
-            else [prompt]
-        )
+        prompts = prompt if isinstance(prompt, list) and not isinstance(prompt[0], int) else [prompt]
         if isinstance(prompts[0][0], int):
-            inputs = {
-                "input_ids": torch.tensor(prompts, dtype=torch.int64).to(self._device)
-            }
+            inputs = {"input_ids": torch.tensor(prompts, dtype=torch.int64).to(self._device)}
         else:
-            inputs = self._tokenizer(
-                prompts, padding=True, return_tensors=TensorType.PYTORCH
-            ).to(self._device)
+            inputs = self._tokenizer(prompts, padding=True, return_tensors=TensorType.PYTORCH).to(self._device)
         num_input_tokens_per_prompt = inputs["input_ids"].shape[-1]
         num_input_tokens = num_input_tokens_per_prompt * inputs["input_ids"].shape[0]
         stats.num_prompt_tokens = num_input_tokens
@@ -583,16 +538,14 @@ class HuggingfaceGenerativeModel(
         if request.stop is not None:
             stop = request.stop if isinstance(request.stop, list) else [request.stop]
             stop_sequences = [
-                self._tokenizer.encode(
-                    seq, return_tensors=TensorType.PYTORCH, add_special_tokens=False
-                )[0].to(self._device)
+                self._tokenizer.encode(seq, return_tensors=TensorType.PYTORCH, add_special_tokens=False)[0].to(
+                    self._device
+                )
                 for seq in stop
             ]
             stop_sequence_stopping_criteria = StopSequenceStoppingCriteria(
                 # Encoder-decoder models do not include input tokens in output
-                input_length=(
-                    0 if self.is_encoder_decoder else inputs["input_ids"].shape[-1]
-                ),
+                input_length=(0 if self.is_encoder_decoder else inputs["input_ids"].shape[-1]),
                 stop_sequences=stop_sequences,
             )
             stopping_criteria = StoppingCriteriaList([stop_sequence_stopping_criteria])
@@ -623,17 +576,12 @@ class HuggingfaceGenerativeModel(
 
         else:
             outputs = await response_queue.get()
-            if (
-                stop_sequence_stopping_criteria is not None
-                and stop_sequence_stopping_criteria.triggered
-            ):
+            if stop_sequence_stopping_criteria is not None and stop_sequence_stopping_criteria.triggered:
                 finish_reason = "stop"
             else:
                 finish_reason = "length"
             choices = [
-                CompletionChoice(
-                    finish_reason=finish_reason, index=i, text=o, logprobs=None
-                )
+                CompletionChoice(finish_reason=finish_reason, index=i, text=o, logprobs=None)
                 for i, o in enumerate(outputs)
             ]
             return Completion(
@@ -650,9 +598,7 @@ class HuggingfaceGenerativeModel(
                 ),
             )
 
-    def _log_request(
-        self, request: CompletionRequest, raw_request: Optional[Request] = None
-    ) -> None:
+    def _log_request(self, request: CompletionRequest, raw_request: Optional[Request] = None) -> None:
         is_prompt_token = isinstance(request.prompt, list) and (
             isinstance(request.prompt[0], int)
             or isinstance(request.prompt[0], list)

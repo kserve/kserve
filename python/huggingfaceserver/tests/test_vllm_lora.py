@@ -42,8 +42,7 @@ def lora_server(qwen2_lora_files):
         "--enforce-eager",
         "--enable-lora",
         "--lora-modules",
-        '{"name": "%s", "path": "%s", "base_model_name": "%s"}'
-        % (LORA_NAME, qwen2_lora_files, MODEL),
+        '{"name": "%s", "path": "%s", "base_model_name": "%s"}' % (LORA_NAME, qwen2_lora_files, MODEL),
     ]
 
     with RemoteOpenAIServer(MODEL, MODEL_NAME, args) as remote_server:
@@ -59,7 +58,6 @@ async def client(lora_server):
 @pytest.mark.vllm_cpu
 @pytest.mark.asyncio
 async def test_lora_chat(client: openai.AsyncOpenAI):
-
     chat_completion = await client.chat.completions.create(
         model=LORA_NAME,
         messages=[

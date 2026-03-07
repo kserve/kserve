@@ -29,7 +29,6 @@ from ..utils import utils
 
 
 class KServeClient(object):
-
     def __init__(
         self,
         config_file=None,
@@ -122,9 +121,7 @@ class KServeClient(object):
                 % storage_type
             )
 
-    def create(
-        self, inferenceservice, namespace=None, watch=False, timeout_seconds=600
-    ):  # pylint:disable=inconsistent-return-statements
+    def create(self, inferenceservice, namespace=None, watch=False, timeout_seconds=600):  # pylint:disable=inconsistent-return-statements
         """
         Create the inference service
         :param inferenceservice: inference service object
@@ -186,9 +183,7 @@ class KServeClient(object):
 
         if name:
             if watch:
-                isvc_watch(
-                    name=name, namespace=namespace, timeout_seconds=timeout_seconds
-                )
+                isvc_watch(name=name, namespace=namespace, timeout_seconds=timeout_seconds)
             else:
                 try:
                     return self.api_instance.get_namespaced_custom_object(
@@ -222,9 +217,7 @@ class KServeClient(object):
                         % e
                     )
 
-    def patch(
-        self, name, inferenceservice, namespace=None, watch=False, timeout_seconds=600
-    ):  # pylint:disable=too-many-arguments,inconsistent-return-statements
+    def patch(self, name, inferenceservice, namespace=None, watch=False, timeout_seconds=600):  # pylint:disable=too-many-arguments,inconsistent-return-statements
         """
         Patch existing inference service
         :param name: existing inference service name
@@ -266,9 +259,7 @@ class KServeClient(object):
         else:
             return outputs
 
-    def replace(
-        self, name, inferenceservice, namespace=None, watch=False, timeout_seconds=600
-    ):  # pylint:disable=too-many-arguments,inconsistent-return-statements
+    def replace(self, name, inferenceservice, namespace=None, watch=False, timeout_seconds=600):  # pylint:disable=too-many-arguments,inconsistent-return-statements
         """
         Replace the existing inference service
         :param name: existing inference service name
@@ -415,15 +406,11 @@ class KServeClient(object):
             if expected_generation is None:
                 raise RuntimeError(
                     "Timeout to start the InferenceService {}. \
-                               The InferenceService is as following: {}".format(
-                        name, current_isvc
-                    )
+                               The InferenceService is as following: {}".format(name, current_isvc)
                 )
             raise RuntimeError(
                 "Timeout to start the InferenceService {} for expected generation {}. \
-                               The InferenceService is as following: {}".format(
-                    name, expected_generation, current_isvc
-                )
+                               The InferenceService is as following: {}".format(name, expected_generation, current_isvc)
             )
 
     def create_trained_model(self, trainedmodel, namespace):
@@ -450,9 +437,7 @@ class KServeClient(object):
                 % e
             )
 
-    def delete_trained_model(
-        self, name, namespace=None, version=constants.KSERVE_V1ALPHA1_VERSION
-    ):
+    def delete_trained_model(self, name, namespace=None, version=constants.KSERVE_V1ALPHA1_VERSION):
         """
         Delete the trained model
         :param name: trained model name
@@ -516,9 +501,7 @@ class KServeClient(object):
             # Check model health API
             url = f"http://{cluster_ip}/{protocol_version}/models/{model_name}"
             if protocol_version.lower() == "v2":
-                url = (
-                    f"http://{cluster_ip}/{protocol_version}/models/{model_name}/ready"
-                )
+                url = f"http://{cluster_ip}/{protocol_version}/models/{model_name}/ready"
             response = requests.get(url, headers=headers).status_code
             if response == 200:
                 return
@@ -528,9 +511,7 @@ class KServeClient(object):
                             model ({model_name}) before the timeout."
         )
 
-    def create_inference_graph(
-        self, inferencegraph: V1alpha1InferenceGraph, namespace: str = None
-    ) -> object:
+    def create_inference_graph(self, inferencegraph: V1alpha1InferenceGraph, namespace: str = None) -> object:
         """
         create a inference graph
 
@@ -669,19 +650,13 @@ class KServeClient(object):
             if self.is_ig_ready(name, namespace, version):
                 return
 
-        current_ig = self.get_inference_graph(
-            name, namespace=namespace, version=version
-        )
+        current_ig = self.get_inference_graph(name, namespace=namespace, version=version)
         raise RuntimeError(
             "Timeout to start the InferenceGraph {}. \
-                            The InferenceGraph is as following: {}".format(
-                name, current_ig
-            )
+                            The InferenceGraph is as following: {}".format(name, current_ig)
         )
 
-    def create_local_model_node_group(
-        self, localmodelnodegroup: V1alpha1LocalModelNodeGroup
-    ):
+    def create_local_model_node_group(self, localmodelnodegroup: V1alpha1LocalModelNodeGroup):
         """
         Create a local model node group
 
@@ -698,14 +673,10 @@ class KServeClient(object):
                 localmodelnodegroup,
             )
         except client.rest.ApiException as e:
-            raise RuntimeError(
-                f"Exception when calling CustomObjectsApi->create_cluster_custom_object:{e}%s\n"
-            ) from e
+            raise RuntimeError(f"Exception when calling CustomObjectsApi->create_cluster_custom_object:{e}%s\n") from e
         return output
 
-    def get_local_model_node_group(
-        self, name: str, version: str = constants.KSERVE_V1ALPHA1_VERSION
-    ) -> object:
+    def get_local_model_node_group(self, name: str, version: str = constants.KSERVE_V1ALPHA1_VERSION) -> object:
         """
         Get the local model node group
 
@@ -721,13 +692,9 @@ class KServeClient(object):
                 name,
             )
         except client.rest.ApiException as e:
-            raise RuntimeError(
-                f"Exception when calling CustomObjectsApi->get_cluster_custom_object:{e}%s\n"
-            ) from e
+            raise RuntimeError(f"Exception when calling CustomObjectsApi->get_cluster_custom_object:{e}%s\n") from e
 
-    def delete_local_model_node_group(
-        self, name: str, version: str = constants.KSERVE_V1ALPHA1_VERSION
-    ):
+    def delete_local_model_node_group(self, name: str, version: str = constants.KSERVE_V1ALPHA1_VERSION):
         """
         Delete the local model node group
 
@@ -742,13 +709,9 @@ class KServeClient(object):
                 name,
             )
         except client.rest.ApiException as e:
-            raise RuntimeError(
-                f"Exception when calling CustomObjectsApi->delete_cluster_custom_object:{e}%s\n"
-            ) from e
+            raise RuntimeError(f"Exception when calling CustomObjectsApi->delete_cluster_custom_object:{e}%s\n") from e
 
-    def create_local_model_cache(
-        self, localmodelcache: V1alpha1LocalModelCache
-    ) -> object:
+    def create_local_model_cache(self, localmodelcache: V1alpha1LocalModelCache) -> object:
         """
         Create a local model cache
 
@@ -765,14 +728,10 @@ class KServeClient(object):
                 localmodelcache,
             )
         except client.rest.ApiException as e:
-            raise RuntimeError(
-                f"Exception when calling CustomObjectsApi->create_cluster_custom_object:{e}%s\n"
-            ) from e
+            raise RuntimeError(f"Exception when calling CustomObjectsApi->create_cluster_custom_object:{e}%s\n") from e
         return output
 
-    def get_local_model_cache(
-        self, name: str, version: str = constants.KSERVE_V1ALPHA1_VERSION
-    ) -> object:
+    def get_local_model_cache(self, name: str, version: str = constants.KSERVE_V1ALPHA1_VERSION) -> object:
         """
         Get the local model cache
 
@@ -788,13 +747,9 @@ class KServeClient(object):
                 name,
             )
         except client.rest.ApiException as e:
-            raise RuntimeError(
-                f"Exception when calling CustomObjectsApi->get_cluster_custom_object:{e}%s\n"
-            ) from e
+            raise RuntimeError(f"Exception when calling CustomObjectsApi->get_cluster_custom_object:{e}%s\n") from e
 
-    def delete_local_model_cache(
-        self, name: str, version: str = constants.KSERVE_V1ALPHA1_VERSION
-    ):
+    def delete_local_model_cache(self, name: str, version: str = constants.KSERVE_V1ALPHA1_VERSION):
         """
         Delete the local model cache
 
@@ -809,9 +764,7 @@ class KServeClient(object):
                 name,
             )
         except client.rest.ApiException as e:
-            raise RuntimeError(
-                f"Exception when calling CustomObjectsApi->delete_cluster_custom_object:{e}%s\n"
-            ) from e
+            raise RuntimeError(f"Exception when calling CustomObjectsApi->delete_cluster_custom_object:{e}%s\n") from e
 
     def is_local_model_cache_ready(
         self,

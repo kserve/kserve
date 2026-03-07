@@ -114,9 +114,7 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
         self.ready = True
         return self.ready
 
-    async def _forecast_timesfm(
-        self, request: ForecastRequest
-    ) -> Union[ForecastResponse, ErrorResponse]:
+    async def _forecast_timesfm(self, request: ForecastRequest) -> Union[ForecastResponse, ErrorResponse]:
         TIMESFM_FREQUENCY_MAP = {
             Frequency.SECOND: 0,
             Frequency.SECOND_SHORT: 0,
@@ -149,11 +147,7 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
         model_quantiles = {q: i for i, q in enumerate(self.model_config.quantiles)}
         for q in request.options.quantiles:
             if q not in model_quantiles:
-                return ErrorResponse(
-                    error=Error(
-                        type="invalid_quantile", message=f"Invalid quantile: {q}"
-                    )
-                )
+                return ErrorResponse(error=Error(type="invalid_quantile", message=f"Invalid quantile: {q}"))
             # the first quantile is the mean, so we need to add 1 to the index
             quantiles_idx.append(model_quantiles[q] + 1)
 
@@ -161,9 +155,7 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
         frequency_input_tensor = []
         for input in request.inputs:
             if input.type == TimeSeriesType.UNIVARIATE:
-                forecast_input_tensor.append(
-                    torch.tensor(input.series, dtype=self.dtype).to(self._device)
-                )
+                forecast_input_tensor.append(torch.tensor(input.series, dtype=self.dtype).to(self._device))
                 try:
                     freq = Frequency(input.frequency)
                 except ValueError:
@@ -182,13 +174,9 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
                     )
                 )
 
-        frequency_input_tensor = torch.tensor(
-            frequency_input_tensor, dtype=torch.long
-        ).to(self._device)
+        frequency_input_tensor = torch.tensor(frequency_input_tensor, dtype=torch.long).to(self._device)
         try:
-            model_output = self._model(
-                forecast_input_tensor, frequency_input_tensor, return_dict=True
-            )
+            model_output = self._model(forecast_input_tensor, frequency_input_tensor, return_dict=True)
             full_predictions = model_output.full_predictions.cpu().detach().numpy()
         except Exception as e:
             logger.error(f"Error in model prediction: {e}")
@@ -199,9 +187,7 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
         completion_tokens = 0
         for i in range(len(request.inputs)):
             # trim mean prediction to the horizon
-            trimmed_point_forecast = full_predictions[
-                i, : request.options.horizon, 0
-            ].tolist()
+            trimmed_point_forecast = full_predictions[i, : request.options.horizon, 0].tolist()
             # format and trim quantiles
             trimmed_quantile_forecast = {}
             for j, q in enumerate(request.options.quantiles):
@@ -210,16 +196,12 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
                 ].tolist()
 
             # advance the start timestamp by the length of the input series
-            input_start_timestamp = datetime.strptime(
-                request.inputs[i].start_timestamp, "%Y-%m-%dT%H:%M:%SZ"
-            )
+            input_start_timestamp = datetime.strptime(request.inputs[i].start_timestamp, "%Y-%m-%dT%H:%M:%SZ")
             input_frequency = request.inputs[i].frequency
-            output_start_timestamp = input_start_timestamp + FREQUENCY_MAP[
-                input_frequency
-            ](len(request.inputs[i].series))
-            output_start_timestamp = output_start_timestamp.strftime(
-                "%Y-%m-%dT%H:%M:%SZ"
+            output_start_timestamp = input_start_timestamp + FREQUENCY_MAP[input_frequency](
+                len(request.inputs[i].series)
             )
+            output_start_timestamp = output_start_timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")
 
             ts_output = TimeSeriesForecast(
                 type=TimeSeriesType.UNIVARIATE,
@@ -269,7 +251,6 @@ class HuggingFaceTimeSeriesModel(TimeSeriesModel):
         request: ForecastRequest,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[ForecastResponse, ErrorResponse]:
-
         if "timesfm" in request.model.lower():
             return await self._forecast_timesfm(request)
 

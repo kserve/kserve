@@ -67,9 +67,7 @@ class PredictiveServerModelRepository(ModelRepository):
         Returns:
             True if model loaded successfully
         """
-        model = PredictiveServerModel(
-            name, os.path.join(self.models_dir, name), self.framework, self.nthread
-        )
+        model = PredictiveServerModel(name, os.path.join(self.models_dir, name), self.framework, self.nthread)
         if model.load():
             self.update(model)
         return model.ready

@@ -52,9 +52,7 @@ from kserve.protocol.rest.openai.types import (
 from .utils import build_async_engine_client_from_engine_args, build_vllm_engine_args
 
 
-class VLLMModel(
-    OpenAIEncoderModel, OpenAIGenerativeModel
-):  # pylint:disable=c-extension-no-member
+class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-extension-no-member
     engine_client: EngineClient
     vllm_engine_args: AsyncEngineArgs = None
     args: Namespace = None
@@ -87,10 +85,7 @@ class VLLMModel(
             ToolParserManager.import_tool_parser(self.args.tool_parser_plugin)
 
         valid_tool_parsers = ToolParserManager.list_registered()
-        if (
-            self.args.enable_auto_tool_choice
-            and self.args.tool_call_parser not in valid_tool_parsers
-        ):
+        if self.args.enable_auto_tool_choice and self.args.tool_call_parser not in valid_tool_parsers:
             raise KeyError(
                 f"invalid tool call parser: {self.args.tool_call_parser} "
                 f"(chose from {{ {','.join(valid_tool_parsers)} }})"
@@ -101,8 +96,7 @@ class VLLMModel(
             reasoning_parser := self.args.structured_outputs_config.reasoning_parser
         ) and reasoning_parser not in valid_reasoning_parsers:
             raise KeyError(
-                f"invalid reasoning parser: {reasoning_parser} "
-                f"(chose from {{ {','.join(valid_reasoning_parsers)} }})"
+                f"invalid reasoning parser: {reasoning_parser} (chose from {{ {','.join(valid_reasoning_parsers)} }})"
             )
 
         if torch.cuda.is_available():
@@ -120,8 +114,7 @@ class VLLMModel(
                 served_model_names = [self.model_name]
 
             self.base_model_paths = [
-                BaseModelPath(name=name, model_path=self.args.model)
-                for name in served_model_names
+                BaseModelPath(name=name, model_path=self.args.model) for name in served_model_names
             ]
 
             self.log_stats = not self.args.disable_log_stats
@@ -233,9 +226,7 @@ class VLLMModel(
                 message="The model does not support Completions API",
                 status_code=HTTPStatus.BAD_REQUEST,
             )
-        response = await self.openai_serving_completion.create_completion(
-            request, raw_request
-        )
+        response = await self.openai_serving_completion.create_completion(request, raw_request)
 
         if isinstance(response, engineError):
             return create_error_response(
@@ -258,9 +249,7 @@ class VLLMModel(
                 message="The model does not support Chat Completions API",
                 status_code=HTTPStatus.BAD_REQUEST,
             )
-        response = await self.openai_serving_chat.create_chat_completion(
-            request, raw_request
-        )
+        response = await self.openai_serving_chat.create_chat_completion(request, raw_request)
 
         if isinstance(response, engineError):
             return create_error_response(
@@ -283,9 +272,7 @@ class VLLMModel(
                 message="The model does not support Embeddings API",
                 status_code=HTTPStatus.BAD_REQUEST,
             )
-        response = await self.openai_serving_embedding.create_embedding(
-            request, raw_request
-        )
+        response = await self.openai_serving_embedding.create_embedding(request, raw_request)
 
         if isinstance(response, engineError):
             return create_error_response(

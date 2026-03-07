@@ -36,9 +36,7 @@ from kserve.api.creds_utils import (
 @mock.patch("kubernetes.client.CoreV1Api.list_namespaced_service_account")
 def test_check_sa_exists(mock_client):
     # Mock kubernetes client to return 2 accounts
-    accounts = V1ServiceAccountList(
-        items=[V1ServiceAccount(metadata=V1ObjectMeta(name=n)) for n in ["a", "b"]]
-    )
+    accounts = V1ServiceAccountList(items=[V1ServiceAccount(metadata=V1ObjectMeta(name=n)) for n in ["a", "b"]])
     mock_client.return_value = accounts
 
     # then a, b should exist, c should not
@@ -94,9 +92,7 @@ def test_create_secret(mock_create_secret):
 @mock.patch("kserve.api.creds_utils.create_service_account")
 @mock.patch("kserve.api.creds_utils.patch_service_account")
 @mock.patch("kserve.api.creds_utils.check_sa_exists")
-def test_set_service_account(
-    mock_check_sa_exists, mock_patch_service_account, mock_create_service_account
-):
+def test_set_service_account(mock_check_sa_exists, mock_patch_service_account, mock_create_service_account):
     namespace = "test"
     service_account = V1ServiceAccount()
     secret_name = "test-secret"
@@ -139,9 +135,7 @@ def test_get_creds_name_from_config_map(mock_read_config_map):
 @mock.patch("kserve.api.creds_utils.set_service_account")
 @mock.patch("kserve.api.creds_utils.create_secret")
 @mock.patch("kserve.api.creds_utils.get_creds_name_from_config_map")
-def test_set_gcs_credentials(
-    mock_get_creds_name, mock_create_secret, mock_set_service_account
-):
+def test_set_gcs_credentials(mock_get_creds_name, mock_create_secret, mock_set_service_account):
     namespace = "test"
     service_account = V1ServiceAccount()
     temp_cred_file = tempfile.NamedTemporaryFile(suffix=".json")
@@ -163,9 +157,7 @@ def test_set_gcs_credentials(
 @mock.patch("kserve.api.creds_utils.set_service_account")
 @mock.patch("kserve.api.creds_utils.create_secret")
 @mock.patch("kserve.api.creds_utils.get_creds_name_from_config_map")
-def test_set_s3_credentials(
-    mock_get_creds_name, mock_create_secret, mock_set_service_account
-):
+def test_set_s3_credentials(mock_get_creds_name, mock_create_secret, mock_set_service_account):
     namespace = "test"
     endpoint = "https://s3.aws.com"
     region = "ap-south-1"
@@ -204,9 +196,7 @@ def test_set_s3_credentials(
             s3_verify_ssl=verfify_ssl,
             s3_cabundle=cabundle,
         )
-    mock_create_secret.assert_called_with(
-        namespace=namespace, annotations=annotations, data=data
-    )
+    mock_create_secret.assert_called_with(namespace=namespace, annotations=annotations, data=data)
     mock_get_creds_name.asset_called()
     mock_set_service_account.assert_called()
 

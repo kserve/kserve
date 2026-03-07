@@ -28,9 +28,7 @@ class TimeSeriesEndpoints:
     def __init__(self, dataplane: TimeSeriesDataPlane):
         self.dataplane = dataplane
 
-    async def forecast(
-        self, request_body: ForecastRequest, raw_request: Request, response: Response
-    ):
+    async def forecast(self, request_body: ForecastRequest, raw_request: Request, response: Response):
         logger.debug(f"Time Series Forecast request: {request_body}")
         request_headers = raw_request.headers
         forecast_response = await self.dataplane.forecast(

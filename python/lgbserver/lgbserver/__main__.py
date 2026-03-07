@@ -24,12 +24,8 @@ from kserve.logging import logger
 
 DEFAULT_NTHREAD = 1
 
-parser = argparse.ArgumentParser(
-    parents=[kserve.model_server.parser]
-)  # pylint:disable=c-extension-no-member
-parser.add_argument(
-    "--model_dir", required=True, help="A local path to the model directory"
-)
+parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])  # pylint:disable=c-extension-no-member
+parser.add_argument("--model_dir", required=True, help="A local path to the model directory")
 parser.add_argument(
     "--nthread",
     default=DEFAULT_NTHREAD,
@@ -48,8 +44,7 @@ if __name__ == "__main__":
         kserve.ModelServer(workers=1).start([model])
     except ModelMissingError:
         logger.error(
-            f"failed to load model {args.model_name} from dir {args.model_dir},"
-            f"trying to load from model repository."
+            f"failed to load model {args.model_name} from dir {args.model_dir},trying to load from model repository."
         )
         # Case 1: Model will be loaded from model repository automatically, if present
         # Case 2: In the event that the model repository is empty, it's possible that this is a scenario for

@@ -32,7 +32,6 @@ from ...logging import logger
 
 
 class LoggingInterceptor(ServerInterceptor):
-
     async def intercept_service(
         self,
         continuation: Callable[[HandlerCallDetails], Awaitable[RpcMethodHandler]],
@@ -43,7 +42,6 @@ class LoggingInterceptor(ServerInterceptor):
 
 
 class ExceptionToStatusInterceptor(AsyncExceptionToStatusInterceptor):
-
     async def handle_exception(
         self,
         ex: Exception,
@@ -76,19 +74,13 @@ class ExceptionToStatusInterceptor(AsyncExceptionToStatusInterceptor):
             )
             await context.abort(StatusCode.UNIMPLEMENTED, ex.reason)
         elif isinstance(ex, ModelNotFound):
-            logger.error(
-                "Model not found: %s, grpc_method: %s", ex, method_name, exc_info=True
-            )
+            logger.error("Model not found: %s, grpc_method: %s", ex, method_name, exc_info=True)
             await context.abort(StatusCode.NOT_FOUND, ex.reason)
         elif isinstance(ex, ModelNotReady):
-            logger.error(
-                "Model not ready: %s, grpc_method: %s", ex, method_name, exc_info=True
-            )
+            logger.error("Model not ready: %s, grpc_method: %s", ex, method_name, exc_info=True)
             await context.abort(StatusCode.UNAVAILABLE, ex.reason)
         elif isinstance(ex, GrpcException):
-            await super().handle_exception(
-                ex, request_or_iterator, context, method_name
-            )
+            await super().handle_exception(ex, request_or_iterator, context, method_name)
         else:
             logger.error(
                 "Internal server error: %s, grpc_method: %s",

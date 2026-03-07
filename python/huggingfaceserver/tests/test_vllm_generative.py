@@ -206,9 +206,7 @@ async def test_too_many_chat_logprobs(client: openai.AsyncOpenAI, model_name: st
     "model_name, prompt_logprobs",
     [(MODEL_NAME, 1), (MODEL_NAME, 0), (MODEL_NAME, -1), (MODEL_NAME, None)],
 )
-async def test_prompt_logprobs_chat(
-    client: openai.AsyncOpenAI, model_name: str, prompt_logprobs: Optional[int]
-):
+async def test_prompt_logprobs_chat(client: openai.AsyncOpenAI, model_name: str, prompt_logprobs: Optional[int]):
     params: Dict = {
         "messages": [
             {"role": "system", "content": "You are a helpful assistant."},
@@ -242,9 +240,7 @@ async def test_prompt_logprobs_chat(
     "model_name",
     [MODEL_NAME],
 )
-async def test_more_than_one_prompt_logprobs_chat(
-    client: openai.AsyncOpenAI, model_name: str
-):
+async def test_more_than_one_prompt_logprobs_chat(client: openai.AsyncOpenAI, model_name: str):
     params: Dict = {
         "messages": [
             {"role": "system", "content": "You are a helpful assistant."},
@@ -292,9 +288,7 @@ async def test_single_chat_session(client: openai.AsyncOpenAI, model_name: str):
 
     choice = chat_completion.choices[0]
     assert choice.finish_reason == "length"
-    assert chat_completion.usage == openai.types.CompletionUsage(
-        completion_tokens=5, prompt_tokens=25, total_tokens=30
-    )
+    assert chat_completion.usage == openai.types.CompletionUsage(completion_tokens=5, prompt_tokens=25, total_tokens=30)
 
     message = choice.message
     assert message.content is not None and len(message.content) >= 5
@@ -363,9 +357,7 @@ async def test_chat_streaming(client: openai.AsyncOpenAI, model_name: str):
     "model_name",
     [MODEL_NAME],
 )
-async def test_chat_completion_stream_options(
-    client: openai.AsyncOpenAI, model_name: str
-):
+async def test_chat_completion_stream_options(client: openai.AsyncOpenAI, model_name: str):
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "What is the capital of France?"},
@@ -450,14 +442,9 @@ async def test_chat_completion_stream_options(
         assert (
             last_completion_tokens == 0
             or chunk.usage.completion_tokens > last_completion_tokens
-            or (
-                not chunk.choices
-                and chunk.usage.completion_tokens == last_completion_tokens
-            )
+            or (not chunk.choices and chunk.usage.completion_tokens == last_completion_tokens)
         )
-        assert chunk.usage.total_tokens == (
-            chunk.usage.prompt_tokens + chunk.usage.completion_tokens
-        )
+        assert chunk.usage.total_tokens == (chunk.usage.prompt_tokens + chunk.usage.completion_tokens)
         last_completion_tokens = chunk.usage.completion_tokens
 
     assert last_completion_tokens == 10
@@ -506,8 +493,7 @@ async def test_guided_json_chat(client: openai.AsyncOpenAI, sample_json_schema):
         {"role": "system", "content": "you are a helpful assistant"},
         {
             "role": "user",
-            "content": f"Give an example JSON for an employee profile that "
-            f"fits this schema: {sample_json_schema}",
+            "content": f"Give an example JSON for an employee profile that fits this schema: {sample_json_schema}",
         },
     ]
     chat_completion = await client.chat.completions.create(
@@ -524,9 +510,7 @@ async def test_guided_json_chat(client: openai.AsyncOpenAI, sample_json_schema):
     jsonschema.validate(instance=json1, schema=sample_json_schema)
 
     messages.append({"role": "assistant", "content": message.content})
-    messages.append(
-        {"role": "user", "content": "Give me another one with a different name and age"}
-    )
+    messages.append({"role": "user", "content": "Give me another one with a different name and age"})
     chat_completion = await client.chat.completions.create(
         model=MODEL_NAME,
         messages=messages,
@@ -599,9 +583,7 @@ async def test_guided_decoding_type_error_chat(client: openai.AsyncOpenAI):
 
 
 @pytest.mark.asyncio
-async def test_guided_choice_chat_logprobs(
-    client: openai.AsyncOpenAI, sample_guided_choice
-):
+async def test_guided_choice_chat_logprobs(client: openai.AsyncOpenAI, sample_guided_choice):
     messages = [
         {"role": "system", "content": "you are a helpful assistant"},
         {
@@ -635,8 +617,7 @@ async def test_named_tool_use(client: openai.AsyncOpenAI, sample_json_schema):
         {"role": "system", "content": "you are a helpful assistant"},
         {
             "role": "user",
-            "content": f"Give an example JSON for an employee profile that "
-            f"fits this schema: {sample_json_schema}",
+            "content": f"Give an example JSON for an employee profile that fits this schema: {sample_json_schema}",
         },
     ]
 
@@ -665,9 +646,7 @@ async def test_named_tool_use(client: openai.AsyncOpenAI, sample_json_schema):
     jsonschema.validate(instance=json1, schema=sample_json_schema)
 
     messages.append({"role": "assistant", "content": json_string})
-    messages.append(
-        {"role": "user", "content": "Give me another one with a different name and age"}
-    )
+    messages.append({"role": "user", "content": "Give me another one with a different name and age"})
 
     # streaming
 
@@ -709,15 +688,12 @@ async def test_named_tool_use(client: openai.AsyncOpenAI, sample_json_schema):
 
 
 @pytest.mark.asyncio
-async def test_inconsistent_tool_choice_and_tools(
-    client: openai.AsyncOpenAI, sample_json_schema
-):
+async def test_inconsistent_tool_choice_and_tools(client: openai.AsyncOpenAI, sample_json_schema):
     messages = [
         {"role": "system", "content": "you are a helpful assistant"},
         {
             "role": "user",
-            "content": f"Give an example JSON for an employee profile that "
-            f"fits this schema: {sample_json_schema}",
+            "content": f"Give an example JSON for an employee profile that fits this schema: {sample_json_schema}",
         },
     ]
 
@@ -779,10 +755,7 @@ async def test_response_format_json_object(client: openai.AsyncOpenAI):
             messages=[
                 {
                     "role": "user",
-                    "content": (
-                        "what is 1+1? please respond with a JSON object, "
-                        'the format is {"result": 2}'
-                    ),
+                    "content": ('what is 1+1? please respond with a JSON object, the format is {"result": 2}'),
                 }
             ],
             response_format={"type": "json_object"},
@@ -928,10 +901,7 @@ async def test_long_seed(client: openai.AsyncOpenAI):
                 seed=seed,
             )
 
-        assert (
-            "greater_than_equal" in exc_info.value.message
-            or "less_than_equal" in exc_info.value.message
-        )
+        assert "greater_than_equal" in exc_info.value.message or "less_than_equal" in exc_info.value.message
 
 
 # --------------------------- COMPLETIONS TESTS ---------------------------
@@ -940,9 +910,7 @@ async def test_long_seed(client: openai.AsyncOpenAI):
     "model_name,num_virtual_tokens",
     [(MODEL_NAME, 0)],
 )
-async def test_single_completion(
-    client: openai.AsyncOpenAI, model_name: str, num_virtual_tokens: int
-):
+async def test_single_completion(client: openai.AsyncOpenAI, model_name: str, num_virtual_tokens: int):
     completion = await client.completions.create(
         model=model_name, prompt="Hello, my name is", max_tokens=5, temperature=0.0
     )
@@ -1035,12 +1003,8 @@ async def test_some_logprobs(client: openai.AsyncOpenAI, model_name: str):
     "model_name",
     [MODEL_NAME],
 )
-async def test_too_many_completion_logprobs(
-    client: openai.AsyncOpenAI, model_name: str
-):
-    with pytest.raises(
-        (openai.BadRequestError, openai.APIError)
-    ):  # test using token IDs
+async def test_too_many_completion_logprobs(client: openai.AsyncOpenAI, model_name: str):
+    with pytest.raises((openai.BadRequestError, openai.APIError)):  # test using token IDs
         stream = await client.completions.create(
             model=model_name,
             prompt=[0, 0, 0, 0, 0],
@@ -1069,9 +1033,7 @@ async def test_too_many_completion_logprobs(
     "model_name, prompt_logprobs",
     [(MODEL_NAME, -1), (MODEL_NAME, 0), (MODEL_NAME, 1), (MODEL_NAME, None)],
 )
-async def test_prompt_logprobs_completion(
-    client: openai.AsyncOpenAI, model_name: str, prompt_logprobs: Optional[int]
-):
+async def test_prompt_logprobs_completion(client: openai.AsyncOpenAI, model_name: str, prompt_logprobs: Optional[int]):
     params: Dict = {
         "prompt": ["A robot may not injure another robot", "My name is"],
         "model": model_name,
@@ -1141,9 +1103,7 @@ async def test_parallel_streaming(client: openai.AsyncOpenAI, model_name: str):
     n = 3
     max_tokens = 5
 
-    stream = await client.completions.create(
-        model=model_name, prompt=prompt, max_tokens=max_tokens, n=n, stream=True
-    )
+    stream = await client.completions.create(model=model_name, prompt=prompt, max_tokens=max_tokens, n=n, stream=True)
     chunks: List[List[str]] = [[] for i in range(n)]
     finish_reason_count = 0
     async for chunk in stream:
@@ -1243,9 +1203,7 @@ async def test_completion_stream_options(client: openai.AsyncOpenAI, model_name:
         assert chunk.usage is not None
         assert chunk.usage.prompt_tokens > 0
         assert chunk.usage.completion_tokens > 0
-        assert chunk.usage.total_tokens == (
-            chunk.usage.prompt_tokens + chunk.usage.completion_tokens
-        )
+        assert chunk.usage.total_tokens == (chunk.usage.prompt_tokens + chunk.usage.completion_tokens)
         if chunk.choices[0].finish_reason is not None:
             final_chunk = await stream.__anext__()
             assert final_chunk.usage is not None
@@ -1337,15 +1295,9 @@ async def test_batch_completions(client: openai.AsyncOpenAI, model_name: str):
             ),
         )
         assert len(batch.choices) == 4
-        assert (
-            batch.choices[0].text != batch.choices[1].text
-        ), "beam search should be different"
-        assert (
-            batch.choices[0].text == batch.choices[2].text
-        ), "two copies of the same prompt should be the same"
-        assert (
-            batch.choices[1].text == batch.choices[3].text
-        ), "two copies of the same prompt should be the same"
+        assert batch.choices[0].text != batch.choices[1].text, "beam search should be different"
+        assert batch.choices[0].text == batch.choices[2].text, "two copies of the same prompt should be the same"
+        assert batch.choices[1].text == batch.choices[3].text, "two copies of the same prompt should be the same"
 
         # test streaming
         batch = await client.completions.create(
@@ -1380,20 +1332,9 @@ async def test_logits_bias(client: openai.AsyncOpenAI):
         seed=42,
     )
     assert len(completion.choices[0].text) >= 5
-    response_tokens = tokenizer(completion.choices[0].text, add_special_tokens=False)[
-        "input_ids"
-    ]
-    expected_tokens = tokenizer(
-        tokenizer.decode([token_id] * 5), add_special_tokens=False
-    )["input_ids"]
-    assert all(
-        [
-            response == expected
-            for response, expected in zip(
-                response_tokens, expected_tokens, strict=False
-            )
-        ]
-    )
+    response_tokens = tokenizer(completion.choices[0].text, add_special_tokens=False)["input_ids"]
+    expected_tokens = tokenizer(tokenizer.decode([token_id] * 5), add_special_tokens=False)["input_ids"]
+    assert all([response == expected for response, expected in zip(response_tokens, expected_tokens, strict=False)])
 
     # Test ban
     completion = await client.completions.create(
@@ -1402,9 +1343,7 @@ async def test_logits_bias(client: openai.AsyncOpenAI):
         max_tokens=max_tokens,
         temperature=0.0,
     )
-    response_tokens = tokenizer(completion.choices[0].text, add_special_tokens=False)[
-        "input_ids"
-    ]
+    response_tokens = tokenizer(completion.choices[0].text, add_special_tokens=False)["input_ids"]
     first_response = completion.choices[0].text
     completion = await client.completions.create(
         model=MODEL_NAME,
@@ -1436,9 +1375,7 @@ async def test_guided_regex_completion(client: openai.AsyncOpenAI, sample_regex)
 
 
 @pytest.mark.asyncio
-async def test_guided_choice_completion(
-    client: openai.AsyncOpenAI, sample_guided_choice
-):
+async def test_guided_choice_completion(client: openai.AsyncOpenAI, sample_guided_choice):
     completion = await client.completions.create(
         model=MODEL_NAME,
         prompt="The best language for type-safe systems programming is ",
@@ -1460,10 +1397,7 @@ async def test_guided_choice_completion(
 async def test_guided_grammar(client: openai.AsyncOpenAI, sample_sql_statements):
     completion = await client.completions.create(
         model=MODEL_NAME,
-        prompt=(
-            "Generate a sql state that select col_1 from "
-            "table_1 where it is equals to 1"
-        ),
+        prompt=("Generate a sql state that select col_1 from table_1 where it is equals to 1"),
         temperature=1.0,
         max_tokens=500,
         extra_body=dict(guided_grammar=sample_sql_statements),
@@ -1489,9 +1423,7 @@ async def test_guided_grammar(client: openai.AsyncOpenAI, sample_sql_statements)
     [MODEL_NAME],
 )
 @pytest.mark.parametrize("logprobs_arg", [1, 0])
-async def test_echo_logprob_completion(
-    client: openai.AsyncOpenAI, model_name: str, logprobs_arg: int
-):
+async def test_echo_logprob_completion(client: openai.AsyncOpenAI, model_name: str, logprobs_arg: int):
     tokenizer = get_tokenizer(tokenizer_name=MODEL)
     # test using text and token IDs
     for prompt in ("Hello, my name is", [0, 0, 0, 0, 0]):

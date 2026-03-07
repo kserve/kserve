@@ -44,9 +44,7 @@ class GRPCServer:
         self._kwargs = kwargs
 
     async def start(self, max_workers):
-        inference_servicer = InferenceServicer(
-            self._data_plane, self._model_repository_extension
-        )
+        inference_servicer = InferenceServicer(self._data_plane, self._model_repository_extension)
         self._server = aio.server(
             futures.ThreadPoolExecutor(max_workers=max_workers),
             interceptors=(LoggingInterceptor(), ExceptionToStatusInterceptor()),
@@ -61,9 +59,7 @@ class GRPCServer:
                 ),
             ],
         )
-        grpc_predict_v2_pb2_grpc.add_GRPCInferenceServiceServicer_to_server(
-            inference_servicer, self._server
-        )
+        grpc_predict_v2_pb2_grpc.add_GRPCInferenceServiceServicer_to_server(inference_servicer, self._server)
 
         listen_addr = f"[::]:{self._port}"
         self._server.add_insecure_port(listen_addr)
@@ -80,7 +76,6 @@ class GRPCServer:
 
 
 class GRPCProcess(multiprocessing.Process):
-
     def __init__(
         self,
         port: int,

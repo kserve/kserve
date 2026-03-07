@@ -49,12 +49,7 @@ def isvc_watch(name=None, namespace=None, timeout_seconds=600, generation=0):
             status = "Unknown"
             if isvc.get("status", ""):
                 url = isvc["status"].get("url", "")
-                traffic = (
-                    isvc["status"]
-                    .get("components", {})
-                    .get("predictor", {})
-                    .get("traffic", [])
-                )
+                traffic = isvc["status"].get("components", {}).get("predictor", {}).get("traffic", [])
                 traffic_percent = 100
                 if constants.OBSERVED_GENERATION in isvc["status"]:
                     observed_generation = isvc["status"][constants.OBSERVED_GENERATION]

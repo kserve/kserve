@@ -82,9 +82,7 @@ class ModelRepositoryExtension:
                 self._model_registry.load(model_name)
         except Exception:
             ex_type, ex_value, ex_traceback = sys.exc_info()
-            raise ModelNotReady(
-                model_name, f"Error type: {ex_type} error msg: {ex_value}"
-            )
+            raise ModelNotReady(model_name, f"Error type: {ex_type} error msg: {ex_value}")
         is_ready = await self._model_registry.is_model_ready(model_name)
         if not is_ready:
             raise ModelNotReady(model_name)

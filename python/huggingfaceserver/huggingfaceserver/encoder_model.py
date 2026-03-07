@@ -66,9 +66,7 @@ from kserve.protocol.rest.openai.types import (
 from kserve import context as kserve_context
 
 
-class HuggingfaceEncoderModel(
-    Model, OpenAIEncoderModel
-):  # pylint:disable=c-extension-no-member
+class HuggingfaceEncoderModel(Model, OpenAIEncoderModel):  # pylint:disable=c-extension-no-member
     task: MLTask
     model_config: PretrainedConfig
     model_id_or_path: Union[pathlib.Path, str]
@@ -135,16 +133,13 @@ class HuggingfaceEncoderModel(
                 inferred_task = None
             if inferred_task is not None and inferred_task != task:
                 logger.warning(
-                    f"Inferred task is '{inferred_task.name}' but"
-                    f" task is explicitly set to '{self.task.name}'"
+                    f"Inferred task is '{inferred_task.name}' but task is explicitly set to '{self.task.name}'"
                 )
         else:
             self.task = infer_task_from_model_architecture(self.model_config)
 
         if is_generative_task(self.task):
-            raise OpenAIError(
-                f"Encoder model does not support generative task: {self.task.name}"
-            )
+            raise OpenAIError(f"Encoder model does not support generative task: {self.task.name}")
 
     def load(self) -> bool:
         model_id_or_path = self.model_id_or_path
@@ -156,9 +151,7 @@ class HuggingfaceEncoderModel(
         # For pre-check we initialize the model class without weights to check the `_no_split_modules`
         # device_map = "auto" for models that support this else set to either cuda/cpu
         with init_empty_weights():
-            self._model = model_cls.from_config(
-                self.model_config, trust_remote_code=self.trust_remote_code
-            )
+            self._model = model_cls.from_config(self.model_config, trust_remote_code=self.trust_remote_code)
 
         device_map = self._device
 
@@ -204,9 +197,7 @@ class HuggingfaceEncoderModel(
                 # When adding new tokens to the vocabulary, we should make sure to also resize the token embedding
                 # matrix of the model so that its embedding matrix matches the tokenizer.
                 self._model.resize_token_embeddings(len(self._tokenizer))
-            logger.info(
-                f"Successfully loaded huggingface model from path {model_id_or_path}"
-            )
+            logger.info(f"Successfully loaded huggingface model from path {model_id_or_path}")
         self.ready = True
         return self.ready
 
@@ -247,9 +238,7 @@ class HuggingfaceEncoderModel(
                         data=input_tensor,
                     )
                     infer_inputs.append(infer_input)
-            infer_request = InferRequest(
-                infer_inputs=infer_inputs, model_name=self.name
-            )
+            infer_request = InferRequest(infer_inputs=infer_inputs, model_name=self.name)
             return infer_request
         else:
             inputs = self._tokenizer(
@@ -291,9 +280,7 @@ class HuggingfaceEncoderModel(
             except Exception as e:
                 raise OpenAIError from e
 
-    def postprocess(
-        self, outputs: Union[Tensor, InferResponse], context: Dict[str, Any]
-    ) -> Union[Dict, InferResponse]:
+    def postprocess(self, outputs: Union[Tensor, InferResponse], context: Dict[str, Any]) -> Union[Dict, InferResponse]:
         """
         Process model outputs based on the ML task.
 
@@ -304,9 +291,7 @@ class HuggingfaceEncoderModel(
         Returns:
             Processed inference results as Dict or InferResponse
         """
-        normalized_outputs, input_ids, request = self._normalize_inputs(
-            outputs, context
-        )
+        normalized_outputs, input_ids, request = self._normalize_inputs(outputs, context)
 
         if self.task == MLTask.sequence_classification:
             inferences = self._process_sequence_classification(normalized_outputs)
@@ -318,14 +303,10 @@ class HuggingfaceEncoderModel(
             inferences = self._process_token_classification(normalized_outputs)
             return get_predict_response(request, inferences, self.name)
         elif self.task == MLTask.text_embedding:
-            inferences = self._process_text_embedding(
-                normalized_outputs, context["attention_mask"]
-            )
+            inferences = self._process_text_embedding(normalized_outputs, context["attention_mask"])
             return get_predict_response(request, inferences, self.name)
         else:
-            raise OpenAIError(
-                f"Unsupported task {self.task}. Please check the supported `task` option."
-            )
+            raise OpenAIError(f"Unsupported task {self.task}. Please check the supported `task` option.")
 
     def _normalize_inputs(
         self, outputs: Union[Tensor, InferResponse], context: Dict[str, Any]
@@ -351,9 +332,7 @@ class HuggingfaceEncoderModel(
 
         return outputs, input_ids, request
 
-    def _process_sequence_classification(
-        self, outputs: Tensor
-    ) -> List[Union[int, Dict]]:
+    def _process_sequence_classification(self, outputs: Tensor) -> List[Union[int, Dict]]:
         """
         Process outputs for sequence classification task.
 
@@ -375,18 +354,14 @@ class HuggingfaceEncoderModel(
             elif self.return_probabilities:
                 probs = torch.softmax(out, dim=-1).squeeze()
                 probs = probs.cpu() if probs.is_cuda else probs
-                inferences.append(
-                    {j: float(f"{probs[j]:.4f}") for j in range(probs.size(0))}
-                )
+                inferences.append({j: float(f"{probs[j]:.4f}") for j in range(probs.size(0))})
             else:
                 predicted_idx = out.argmax().item()
                 inferences.append(predicted_idx)
 
         return inferences
 
-    def _process_fill_mask(
-        self, outputs: Tensor, input_ids: Union[Tensor, list]
-    ) -> List[Union[str, List]]:
+    def _process_fill_mask(self, outputs: Tensor, input_ids: Union[Tensor, list]) -> List[Union[str, List]]:
         """
         Process outputs for fill mask task.
 
@@ -430,9 +405,7 @@ class HuggingfaceEncoderModel(
 
         return inferences
 
-    def _process_mask_logits(
-        self, masked_output: Tensor
-    ) -> List[List[Dict[str, float]]]:
+    def _process_mask_logits(self, masked_output: Tensor) -> List[List[Dict[str, float]]]:
         """
         Process mask logits into token-logit dictionaries.
 
@@ -451,9 +424,7 @@ class HuggingfaceEncoderModel(
             decoded_logits.append(token_logits)
         return decoded_logits
 
-    def _process_mask_probabilities(
-        self, masked_output: Tensor
-    ) -> List[List[Dict[str, str]]]:
+    def _process_mask_probabilities(self, masked_output: Tensor) -> List[List[Dict[str, str]]]:
         """
         Process mask probabilities into token-probability dictionaries.
 
@@ -473,9 +444,7 @@ class HuggingfaceEncoderModel(
             decoded_probabilities.append(token_probs)
         return decoded_probabilities
 
-    def _process_token_classification(
-        self, outputs: Tensor
-    ) -> List[Union[List, List[Dict]]]:
+    def _process_token_classification(self, outputs: Tensor) -> List[Union[List, List[Dict]]]:
         """
         Process outputs for token classification task.
 
@@ -494,18 +463,14 @@ class HuggingfaceEncoderModel(
                 token_logits = []
                 output = output.cpu() if output.is_cuda else output
                 for values in output.squeeze(0):
-                    token_logits.append(
-                        {j: values[j].item() for j in range(values.size(0))}
-                    )
+                    token_logits.append({j: values[j].item() for j in range(values.size(0))})
                 inferences.append(token_logits)
             elif self.return_probabilities:
                 probs = torch.softmax(output, dim=-1)
                 probs = probs.cpu() if probs.is_cuda else probs
                 token_probs = []
                 for values in probs.squeeze(0):
-                    token_probs.append(
-                        {j: float(f"{values[j]:.4f}") for j in range(values.size(0))}
-                    )
+                    token_probs.append({j: float(f"{values[j]:.4f}") for j in range(values.size(0))})
                 inferences.append(token_probs)
             else:
                 predictions = torch.argmax(output, dim=2)
@@ -513,9 +478,7 @@ class HuggingfaceEncoderModel(
 
         return inferences
 
-    def _process_text_embedding(
-        self, outputs: Tensor, attention_mask: Tensor
-    ) -> List[List[float]]:
+    def _process_text_embedding(self, outputs: Tensor, attention_mask: Tensor) -> List[List[float]]:
         """
         Process outputs for text embedding task.
 
@@ -586,9 +549,7 @@ class HuggingfaceEncoderModel(
 
             # Call the inference to determine the embedding values
             context = {}
-            instances = (
-                request.input if isinstance(request.input, list) else [request.input]
-            )
+            instances = request.input if isinstance(request.input, list) else [request.input]
             inference_out, _ = await self({"instances": instances}, context)
             embedding_out = inference_out["predictions"]
 
@@ -634,6 +595,4 @@ class HuggingfaceEncoderModel(
         raw_request: Optional[Request] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], Rerank, ErrorResponse]:
-        raise OpenAIError(
-            "Rerank is not implemented for Encoder model with huggingface backend"
-        )
+        raise OpenAIError("Rerank is not implemented for Encoder model with huggingface backend")

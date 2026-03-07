@@ -73,9 +73,7 @@ class DataPlane:
         if self._inference_rest_client is None:
             predictor_config = self.predictor_config
             if predictor_config is None:
-                raise RuntimeError(
-                    "PredictorConfig is required to create REST client but is None."
-                )
+                raise RuntimeError("PredictorConfig is required to create REST client but is None.")
             self._inference_rest_client = InferenceClientFactory().get_rest_client(
                 RESTConfig(
                     protocol=predictor_config.predictor_protocol,
@@ -90,9 +88,7 @@ class DataPlane:
         if self._inference_grpc_client is None:
             predictor_config = self.predictor_config
             if predictor_config is None:
-                raise RuntimeError(
-                    "PredictorConfig is required to create GRPC client but is None."
-                )
+                raise RuntimeError("PredictorConfig is required to create GRPC client but is None.")
             self._inference_grpc_client = InferenceClientFactory().get_grpc_client(
                 url=predictor_config.predictor_host,
                 timeout=predictor_config.predictor_request_timeout_seconds,
@@ -126,9 +122,7 @@ class DataPlane:
         return model
 
     @staticmethod
-    def get_binary_cloudevent(
-        body: Union[str, bytes, None], headers: Dict[str, str]
-    ) -> CloudEvent:
+    def get_binary_cloudevent(body: Union[str, bytes, None], headers: Dict[str, str]) -> CloudEvent:
         """Helper function to parse CloudEvent body and headers.
 
         Args:
@@ -223,18 +217,12 @@ class DataPlane:
         model = self.get_model_from_registry(model_name)
 
         if not isinstance(model, InferenceModel):
-            raise ValueError(
-                f"Model of type {type(model).__name__} does not support inference"
-            )
+            raise ValueError(f"Model of type {type(model).__name__} does not support inference")
         input_types = (
-            await model.get_input_types()
-            if iscoroutinefunction(model.get_input_types)
-            else model.get_input_types()
+            await model.get_input_types() if iscoroutinefunction(model.get_input_types) else model.get_input_types()
         )
         output_types = (
-            await model.get_output_types()
-            if iscoroutinefunction(model.get_output_types)
-            else model.get_output_types()
+            await model.get_output_types() if iscoroutinefunction(model.get_output_types) else model.get_output_types()
         )
 
         return {
@@ -255,28 +243,16 @@ class DataPlane:
         # If predictor host is present, then it means this is a transformer,
         # We should also need to check the predictor server's health if predictor health check is enabled.
         if self.predictor_config and self.predictor_config.predictor_health_check:
-            if (
-                self.predictor_config.predictor_protocol
-                == PredictorProtocol.GRPC_V2.value
-            ):
+            if self.predictor_config.predictor_protocol == PredictorProtocol.GRPC_V2.value:
                 return await self.grpc_client.is_server_ready()
-            elif (
-                self.predictor_config.predictor_protocol
-                == PredictorProtocol.REST_V1.value
-            ):
+            elif self.predictor_config.predictor_protocol == PredictorProtocol.REST_V1.value:
                 # V1 Protocol does not have readiness endpoint. We will use server liveness endpoint instead.
-                return await self.rest_client.is_server_live(
-                    self.predictor_config.predictor_base_url
-                )
+                return await self.rest_client.is_server_live(self.predictor_config.predictor_base_url)
             else:
-                return await self.rest_client.is_server_ready(
-                    self.predictor_config.predictor_base_url
-                )
+                return await self.rest_client.is_server_ready(self.predictor_config.predictor_base_url)
         return True
 
-    async def model_ready(
-        self, model_name: str, disable_predictor_health_check: bool = False
-    ) -> bool:
+    async def model_ready(self, model_name: str, disable_predictor_health_check: bool = False) -> bool:
         """Check if a model is ready.
 
         Args:
@@ -300,14 +276,9 @@ class DataPlane:
             and self.predictor_config
             and self.predictor_config.predictor_health_check
         ):
-            if (
-                self.predictor_config.predictor_protocol
-                == PredictorProtocol.GRPC_V2.value
-            ):
+            if self.predictor_config.predictor_protocol == PredictorProtocol.GRPC_V2.value:
                 try:
-                    is_ready = await self.grpc_client.is_model_ready(
-                        model_name=model_name
-                    )
+                    is_ready = await self.grpc_client.is_model_ready(model_name=model_name)
                     return is_ready
                 except RpcError:
                     # Logged in the grpc client
@@ -341,18 +312,14 @@ class DataPlane:
         if isinstance(body, InferRequest):
             return body, attributes
         elif isinstance(body, InferenceRequest) or (
-            protocol_version.lower() == PredictorProtocol.REST_V2.value
-            and isinstance(body, bytes)
+            protocol_version.lower() == PredictorProtocol.REST_V2.value and isinstance(body, bytes)
         ):
             return self.decode_inference_request(body, headers, model_name), attributes
         if headers:
             if has_binary_headers(headers):
                 # returns CloudEvent
                 body = self.get_binary_cloudevent(body, headers)
-            elif (
-                "content-type" in headers
-                and headers["content-type"] not in JSON_HEADERS
-            ):
+            elif "content-type" in headers and headers["content-type"] not in JSON_HEADERS:
                 return body, attributes
         if type(body) is bytes:
             try:
@@ -379,9 +346,7 @@ class DataPlane:
                     body._attributes["content-type"] == "application/cloudevents+json"
                     or body._attributes["content-type"] == "application/json"
                 ):
-                    raise InvalidInput(
-                        f"Failed to decode or parse binary json cloudevent: {e}"
-                    )
+                    raise InvalidInput(f"Failed to decode or parse binary json cloudevent: {e}")
 
         elif isinstance(body, dict):
             if is_structured_cloudevent(body):
@@ -397,8 +362,7 @@ class DataPlane:
             json_length = headers.get(INFERENCE_CONTENT_LENGTH_HEADER, None)
             if json_length is None:
                 raise InvalidInput(
-                    f"received byte inputs, but the"
-                    f"'{INFERENCE_CONTENT_LENGTH_HEADER}' header is missing."
+                    f"received byte inputs, but the'{INFERENCE_CONTENT_LENGTH_HEADER}' header is missing."
                 )
             return InferRequest.from_bytes(body, int(json_length), model_name)
         else:
@@ -466,9 +430,7 @@ class DataPlane:
         response_headers = {}
         model = await self.get_model(model_name)
         if not isinstance(model, InferenceModel):
-            raise ValueError(
-                f"Model of type {type(model).__name__} does not support inference"
-            )
+            raise ValueError(f"Model of type {type(model).__name__} does not support inference")
         model = cast(InferenceModel, model)
         response, res_headers = await model(request, headers=headers)
         response_headers.update(res_headers)
@@ -497,11 +459,7 @@ class DataPlane:
         response_headers = headers if headers else {}
         model = await self.get_model(model_name)
         if not isinstance(model, InferenceModel):
-            raise ValueError(
-                f"Model of type {type(model).__name__} does not support inference"
-            )
-        response, res_headers = await model(
-            request, verb=InferenceVerb.EXPLAIN, headers=headers
-        )
+            raise ValueError(f"Model of type {type(model).__name__} does not support inference")
+        response, res_headers = await model(request, verb=InferenceVerb.EXPLAIN, headers=headers)
         response_headers.update(res_headers)
         return response, response_headers

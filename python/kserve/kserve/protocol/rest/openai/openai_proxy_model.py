@@ -52,9 +52,7 @@ def error_handler(f):
                 # Try to parse upstream error as an ErrorResponse object
                 response = ErrorResponse.model_validate_json(e.response.content)
             except ValidationError:
-                logger.warning(
-                    f"Failed to parse error response from upstream: {e.response.content}"
-                )
+                logger.warning(f"Failed to parse error response from upstream: {e.response.content}")
                 response = create_error_response(
                     f"Received invalid response from upstream: {e.response.text}",
                     status_code=HTTPStatus.BAD_GATEWAY,
@@ -134,16 +132,10 @@ class OpenAIProxyModel(OpenAIGenerativeModel):
         super().__init__(name)
         self.predictor_url = predictor_url
         self._http_client = (
-            http_client
-            if http_client is not None
-            else httpx.AsyncClient(timeout=httpx.Timeout(timeout=5.0, read=30.0))
+            http_client if http_client is not None else httpx.AsyncClient(timeout=httpx.Timeout(timeout=5.0, read=30.0))
         )
-        self._completions_endpoint = (
-            f"{self.predictor_url.rstrip('/')}{COMPLETIONS_ENDPOINT}"
-        )
-        self._chat_completions_endpoint = (
-            f"{self.predictor_url.rstrip('/')}{CHAT_COMPLETIONS_ENDPOINT}"
-        )
+        self._completions_endpoint = f"{self.predictor_url.rstrip('/')}{COMPLETIONS_ENDPOINT}"
+        self._chat_completions_endpoint = f"{self.predictor_url.rstrip('/')}{CHAT_COMPLETIONS_ENDPOINT}"
         if health_endpoint:
             self._health_endpoint = f"{self.predictor_url.rstrip('/')}{health_endpoint}"
         self.skip_upstream_validation = skip_upstream_validation
@@ -247,9 +239,7 @@ class OpenAIProxyModel(OpenAIGenerativeModel):
             chat_completion_chunk = ChatCompletionChunk.model_construct(**obj)
         else:
             chat_completion_chunk = ChatCompletionChunk.model_validate_json(data)
-        self.postprocess_chat_completion_chunk(
-            chat_completion_chunk, request, raw_request
-        )
+        self.postprocess_chat_completion_chunk(chat_completion_chunk, request, raw_request)
         return chat_completion_chunk
 
     def _build_request(
@@ -258,7 +248,6 @@ class OpenAIProxyModel(OpenAIGenerativeModel):
         request: CompletionRequest,
         raw_request: Optional[Request] = None,
     ) -> httpx.Request:
-
         if raw_request and "upstream_headers" in raw_request:
             headers = httpx.Headers(raw_request["upstream_headers"])
         else:
@@ -323,9 +312,7 @@ class OpenAIProxyModel(OpenAIGenerativeModel):
     ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
         self.preprocess_chat_completion_request(request, raw_request)
         if request.stream:
-            req = self._build_request(
-                self._chat_completions_endpoint, request, raw_request
-            )
+            req = self._build_request(self._chat_completions_endpoint, request, raw_request)
             r = await self._http_client.send(req, stream=True)
             r.raise_for_status()
             it = AsyncMappingIterator(

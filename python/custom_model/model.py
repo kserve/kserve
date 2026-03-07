@@ -55,9 +55,7 @@ class AlexNetModel(Model):
         # set to True when model is loaded successfully without exceptions.
         self.ready = True
 
-    def preprocess(
-        self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
-    ) -> torch.Tensor:
+    def preprocess(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> torch.Tensor:
         raw_img_data = None
         if isinstance(payload, Dict) and "instances" in payload:
             headers["request-type"] = "v1"
@@ -91,9 +89,7 @@ class AlexNetModel(Model):
                 transforms.Resize(256),
                 transforms.CenterCrop(224),
                 transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
         )
         input_tensor = preprocess(input_image)
@@ -112,19 +108,13 @@ class AlexNetModel(Model):
         values, top_5 = torch.topk(output, 5)
         result = values.flatten().tolist()
         response_id = generate_uuid()
-        infer_output = InferOutput(
-            name="output-0", shape=list(values.shape), datatype="FP32", data=result
-        )
-        infer_response = InferResponse(
-            model_name=self.name, infer_outputs=[infer_output], response_id=response_id
-        )
+        infer_output = InferOutput(name="output-0", shape=list(values.shape), datatype="FP32", data=result)
+        infer_response = InferResponse(model_name=self.name, infer_outputs=[infer_output], response_id=response_id)
         end = time.time()
 
         # Example for custom response headers
         if response_headers is not None:
-            response_headers.update(
-                {"prediction-time-latency": f"{round((end - start) * 1000, 9)}"}
-            )
+            response_headers.update({"prediction-time-latency": f"{round((end - start) * 1000, 9)}"})
 
         if "request-type" in headers and headers["request-type"] == "v1":
             return {"predictions": result}

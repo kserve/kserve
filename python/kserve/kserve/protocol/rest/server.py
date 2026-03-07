@@ -121,9 +121,7 @@ class RESTServer:
         except ImportError:
             logger.info("OpenAI endpoints not registered")
 
-        ts_registered = maybe_register_time_series_endpoints(
-            app, self.dataplane.model_registry
-        )
+        ts_registered = maybe_register_time_series_endpoints(app, self.dataplane.model_registry)
         if ts_registered:
             logger.info("Time series endpoints registered")
         else:
@@ -135,9 +133,7 @@ class RESTServer:
         app.add_exception_handler(ModelNotFound, model_not_found_handler)
         app.add_exception_handler(ModelNotReady, model_not_ready_handler)
         app.add_exception_handler(NotImplementedError, not_implemented_error_handler)
-        app.add_exception_handler(
-            UnsupportedProtocol, unsupported_protocol_error_handler
-        )
+        app.add_exception_handler(UnsupportedProtocol, unsupported_protocol_error_handler)
         app.add_exception_handler(ServerNotLive, server_not_live_handler)
         app.add_exception_handler(ServerNotReady, server_not_ready_handler)
         app.add_exception_handler(Exception, generic_exception_handler)

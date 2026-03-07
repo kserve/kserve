@@ -59,10 +59,6 @@ def from_np_dtype(np_dtype):
         return "FP32"
     elif np_dtype == np.float64:
         return "FP64"
-    elif (
-        np_dtype == np.object_
-        or np_dtype.type == np.bytes_
-        or np.issubdtype(np_dtype, np.datetime64)
-    ):
+    elif np_dtype == np.object_ or np_dtype.type == np.bytes_ or np.issubdtype(np_dtype, np.datetime64):
         return "BYTES"
     return None

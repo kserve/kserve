@@ -42,9 +42,7 @@ class Tokenizer(kserve.Model):
             "the Apollo-Soyuz Test Project a joint Earth orbit mission with "
             "the Soviet Union in 1975."
         )
-        self.tokenizer = tokenization.FullTokenizer(
-            vocab_file=args.vocab_file, do_lower_case=True
-        )
+        self.tokenizer = tokenization.FullTokenizer(vocab_file=args.vocab_file, do_lower_case=True)
         self.ready = True
 
     def preprocess(
@@ -89,7 +87,6 @@ class Tokenizer(kserve.Model):
     def postprocess(
         self, infer_response: Union[Dict, InferResponse], headers: Dict[str, str] = None
     ) -> Union[Dict, InferResponse]:
-
         end_logits = infer_response.outputs[0].data
         start_logits = infer_response.outputs[1].data
         n_best_size = 20

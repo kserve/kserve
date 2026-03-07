@@ -37,7 +37,6 @@ class RemoteOpenAIServer:
         env_dict: Optional[Dict[str, str]] = None,
         max_wait_seconds: Optional[float] = None,
     ) -> None:
-
         parser = FlexibleArgumentParser(description="huggingface server")
         parser = make_arg_parser(parser)
         args = parser.parse_args(["--model", model, *vllm_serve_args])
@@ -77,9 +76,7 @@ class RemoteOpenAIServer:
             stderr=sys.stderr,
         )
         max_wait_seconds = max_wait_seconds or 240
-        self._wait_for_server(
-            url=self.url_for("v2/health/ready"), timeout=max_wait_seconds
-        )
+        self._wait_for_server(url=self.url_for("v2/health/ready"), timeout=max_wait_seconds)
 
     def __enter__(self):
         return self

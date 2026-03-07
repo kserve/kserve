@@ -82,7 +82,7 @@ def get_call_args(call_args_list):
 
 
 def expected_call_args_list_single_obj(dest, path):
-    return [(f"{path}".strip("/"), f'{dest}/{path.rsplit("/", 1)[-1]}'.strip("/"))]
+    return [(f"{path}".strip("/"), f"{dest}/{path.rsplit('/', 1)[-1]}".strip("/"))]
 
 
 def expected_call_args_list(parent_key, dest, paths):
@@ -147,10 +147,8 @@ def test_no_permission_buckets(mock_connection, mock_resource):
     mock_s3_resource = mock.MagicMock()
     mock_s3_bucket = mock.MagicMock()
     mock_s3_bucket.objects.filter.return_value = [mock.MagicMock()]
-    mock_s3_resource.meta.client.head_bucket.side_effect = (
-        botocore.exceptions.ClientError(
-            {"Error": {"Code": "403", "Message": "Forbidden"}}, "HeadBucket"
-        )
+    mock_s3_resource.meta.client.head_bucket.side_effect = botocore.exceptions.ClientError(
+        {"Error": {"Code": "403", "Message": "Forbidden"}}, "HeadBucket"
     )
     mock_s3_resource.Bucket.return_value = mock_s3_bucket
     mock_resource.return_value = mock_s3_resource
@@ -222,7 +220,6 @@ def test_multikey(mock_storage):
 
 @mock.patch("boto3.resource")
 def test_files_with_no_extension(mock_storage):
-
     # given
     bucket_name = "foo"
     paths = ["churn-pickle", "churn-pickle-logs", "churn-pickle-report"]
@@ -290,10 +287,7 @@ def test_get_S3_config():
 
     with mock.patch.dict(os.environ, {"S3_USE_ACCELERATE": "True"}):
         config7 = Storage.get_S3_config()
-    assert (
-        config7.s3["use_accelerate_endpoint"]
-        == USE_ACCELERATE_CONFIG.s3["use_accelerate_endpoint"]
-    )
+    assert config7.s3["use_accelerate_endpoint"] == USE_ACCELERATE_CONFIG.s3["use_accelerate_endpoint"]
 
     # tests legacy endpoint url
     with mock.patch.dict(
@@ -382,10 +376,7 @@ def test_target_startswith_parent_folder_name(mock_storage):
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
-    assert (
-        arg_list[0]
-        == expected_call_args_list("test/artifacts/model", "dest_path", paths)[0]
-    )
+    assert arg_list[0] == expected_call_args_list("test/artifacts/model", "dest_path", paths)[0]
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix="test/artifacts/model")
 
 
@@ -407,14 +398,12 @@ def test_file_name_preservation(mock_storage):
     downloaded_source, downloaded_target = arg_list[0]
 
     # Check if the source S3 key matches the original object key
-    assert (
-        downloaded_source == object_paths[0]
-    ), f"Expected {object_paths[0]}, got {downloaded_source}"
+    assert downloaded_source == object_paths[0], f"Expected {object_paths[0]}, got {downloaded_source}"
 
     # Check if the target file path ends with the expected file name
-    assert downloaded_target.endswith(
-        expected_file_name
-    ), f"Expected file name to end with {expected_file_name}, got {downloaded_target}"
+    assert downloaded_target.endswith(expected_file_name), (
+        f"Expected file name to end with {expected_file_name}, got {downloaded_target}"
+    )
 
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix="model")
 
@@ -444,12 +433,8 @@ def test_ca_bundle_with_aws_ca_bundle_only(mock_storage):
     object_key = "model.pkl"
 
     # Create a temporary CA bundle file
-    with tempfile.NamedTemporaryFile(
-        mode="w", delete=False, suffix=".crt"
-    ) as temp_ca_file:
-        temp_ca_file.write(
-            "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----"
-        )
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".crt") as temp_ca_file:
+        temp_ca_file.write("-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----")
         ca_bundle_path = temp_ca_file.name
 
     try:
@@ -516,20 +501,14 @@ def test_ca_bundle_aws_ca_bundle_takes_precedence(mock_storage):
     object_key = "model.pkl"
 
     # Create temporary CA bundle files
-    with tempfile.NamedTemporaryFile(
-        mode="w", delete=False, suffix=".crt"
-    ) as aws_ca_file:
-        aws_ca_file.write(
-            "-----BEGIN CERTIFICATE-----\naws_ca\n-----END CERTIFICATE-----"
-        )
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".crt") as aws_ca_file:
+        aws_ca_file.write("-----BEGIN CERTIFICATE-----\naws_ca\n-----END CERTIFICATE-----")
         aws_ca_bundle_path = aws_ca_file.name
 
     with tempfile.TemporaryDirectory() as temp_dir:
         configmap_ca_bundle_path = os.path.join(temp_dir, "cabundle.crt")
         with open(configmap_ca_bundle_path, "w") as f:
-            f.write(
-                "-----BEGIN CERTIFICATE-----\nconfigmap_ca\n-----END CERTIFICATE-----"
-            )
+            f.write("-----BEGIN CERTIFICATE-----\nconfigmap_ca\n-----END CERTIFICATE-----")
 
         try:
             # Mock the boto3 resource and bucket
@@ -601,9 +580,7 @@ def test_ca_bundle_file_not_found_configmap(mock_storage):
         clear=True,
     ):
         expected_path = "/tmp/non_existent_dir/cabundle.crt"
-        with pytest.raises(
-            RuntimeError, match=f"Failed to find ca bundle file\\({expected_path}\\)"
-        ):
+        with pytest.raises(RuntimeError, match=f"Failed to find ca bundle file\\({expected_path}\\)"):
             Storage._download_s3(f"s3://{bucket_name}/{object_key}", "dest_path")
 
 

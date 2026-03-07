@@ -51,9 +51,7 @@ def test_bst_model():
     assert response["predictions"] == [0]
 
     # test v2 infer call
-    infer_input = InferInput(
-        name="input-0", shape=[1, 4], datatype="FP32", data=request
-    )
+    infer_input = InferInput(name="input-0", shape=[1, 4], datatype="FP32", data=request)
     infer_request = InferRequest(model_name="model", infer_inputs=[infer_input])
     infer_response = model.predict(infer_request)
     infer_dict, _ = infer_response.to_rest()
@@ -83,9 +81,7 @@ def test_json_model():
     assert response["predictions"] == [0]
 
     # test v2 infer call
-    infer_input = InferInput(
-        name="input-0", shape=[1, 4], datatype="FP32", data=request
-    )
+    infer_input = InferInput(name="input-0", shape=[1, 4], datatype="FP32", data=request)
     infer_request = InferRequest(model_name="model", infer_inputs=[infer_input])
     infer_response = model.predict(infer_request)
     infer_dict, _ = infer_response.to_rest()
@@ -115,9 +111,7 @@ def test_ubj_model():
     assert response["predictions"] == [0]
 
     # test v2 infer call
-    infer_input = InferInput(
-        name="input-0", shape=[1, 4], datatype="FP32", data=request
-    )
+    infer_input = InferInput(name="input-0", shape=[1, 4], datatype="FP32", data=request)
     infer_request = InferRequest(model_name="model", infer_inputs=[infer_input])
     infer_response = model.predict(infer_request)
     infer_dict, _ = infer_response.to_rest()

@@ -24,12 +24,8 @@ from kserve.logging import logger
 DEFAULT_LOCAL_MODEL_DIR = "/tmp/model"
 DEFAULT_NTHREAD = 1
 
-parser = argparse.ArgumentParser(
-    parents=[kserve.model_server.parser]
-)  # pylint:disable=c-extension-no-member
-parser.add_argument(
-    "--model_dir", required=True, help="A local path to the model directory"
-)
+parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])  # pylint:disable=c-extension-no-member
+parser.add_argument("--model_dir", required=True, help="A local path to the model directory")
 parser.add_argument(
     "--nthread",
     default=DEFAULT_NTHREAD,
@@ -54,6 +50,4 @@ if __name__ == "__main__":
         # Case 2: In the event that the model repository is empty, it's possible that this is a scenario for
         # multi-model serving. In such a case, models are loaded dynamically using the TrainedModel.
         # Therefore, we start the server without any preloaded models
-        kserve.ModelServer(
-            registered_models=XGBoostModelRepository(args.model_dir, args.nthread)
-        ).start([])
+        kserve.ModelServer(registered_models=XGBoostModelRepository(args.model_dir, args.nthread)).start([])

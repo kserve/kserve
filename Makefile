@@ -46,8 +46,8 @@ setup-envtest: envtest
 fmt:
 	go fmt ./pkg/... ./cmd/... && cd qpext && go fmt ./...
 
-py-fmt: $(BLACK_FMT)
-	$(BLACK_FMT) --config python/pyproject.toml ./python ./docs
+py-fmt: $(RUFF)
+	$(RUFF) format --config ruff.toml ./python ./docs
 
 # Run go vet against code
 vet:
@@ -69,7 +69,7 @@ go-lint: golangci-lint
 	@$(GOLANGCI_LINT) run --fix
 
 py-lint: $(RUFF)
-	$(RUFF) check --config ruff.toml 
+	$(RUFF) check --config ruff.toml
 
 validate-infra-scripts:
 	@python3 hack/setup/scripts/validate-install-scripts.py

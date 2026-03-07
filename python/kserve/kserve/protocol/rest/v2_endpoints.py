@@ -85,9 +85,7 @@ class V2Endpoints:
         models = list(self.dataplane.model_registry.get_models().keys())
         return ListModelsResponse.model_validate({"models": models})
 
-    async def model_metadata(
-        self, model_name: str, model_version: Optional[str] = None
-    ) -> ModelMetadataResponse:
+    async def model_metadata(self, model_name: str, model_version: Optional[str] = None) -> ModelMetadataResponse:
         """Model metadata handler. It provides information about a model.
 
         Args:
@@ -104,9 +102,7 @@ class V2Endpoints:
         metadata = await self.dataplane.model_metadata(model_name)
         return ModelMetadataResponse.model_validate(metadata)
 
-    async def model_ready(
-        self, model_name: str, model_version: Optional[str] = None
-    ) -> ModelReadyResponse:
+    async def model_ready(self, model_name: str, model_version: Optional[str] = None) -> ModelReadyResponse:
         """Check if a given model is ready.
 
         Args:
@@ -125,9 +121,7 @@ class V2Endpoints:
         if not model_ready:
             raise ModelNotReady(model_name)
 
-        return ModelReadyResponse.model_validate(
-            {"name": model_name, "ready": model_ready}
-        )
+        return ModelReadyResponse.model_validate({"name": model_name, "ready": model_ready})
 
     async def infer(
         self,
@@ -230,9 +224,7 @@ def register_v2_endpoints(
         dataplane (DataPlane): DataPlane object.
         model_repository_extension (Optional[ModelRepositoryExtension]): Model repository extension.
     """
-    v2_endpoints = V2Endpoints(
-        dataplane=dataplane, model_repository_extension=model_repository_extension
-    )
+    v2_endpoints = V2Endpoints(dataplane=dataplane, model_repository_extension=model_repository_extension)
     v2_router = APIRouter(prefix=V2_ROUTE_PREFIX, tags=["V2"])
     v2_router.add_api_route(
         r"",
@@ -296,10 +288,6 @@ def register_v2_endpoints(
         methods=["POST"],
         include_in_schema=False,
     )
-    v2_router.add_api_route(
-        r"/repository/models/{model_name}/load", v2_endpoints.load, methods=["POST"]
-    )
-    v2_router.add_api_route(
-        r"/repository/models/{model_name}/unload", v2_endpoints.unload, methods=["POST"]
-    )
+    v2_router.add_api_route(r"/repository/models/{model_name}/load", v2_endpoints.load, methods=["POST"])
+    v2_router.add_api_route(r"/repository/models/{model_name}/unload", v2_endpoints.unload, methods=["POST"])
     app.include_router(v2_router)

@@ -81,9 +81,7 @@ def _check_is_max_context(doc_spans, cur_span_index, position):
     return cur_span_index == best_span_index
 
 
-def convert_examples_to_features(
-    doc_tokens, question_text, tokenizer, max_seq_length, doc_stride, max_query_length
-):
+def convert_examples_to_features(doc_tokens, question_text, tokenizer, max_seq_length, doc_stride, max_query_length):
     """Loads a data file into a list of `InputBatch`s."""
 
     query_tokens = tokenizer.tokenize(question_text)
@@ -138,9 +136,7 @@ def convert_examples_to_features(
             split_token_index = doc_span.start + i
             token_to_orig_map[len(tokens)] = tok_to_orig_index[split_token_index]
 
-            is_max_context = _check_is_max_context(
-                doc_spans, doc_span_index, split_token_index
-            )
+            is_max_context = _check_is_max_context(doc_spans, doc_span_index, split_token_index)
             token_is_max_context[len(tokens)] = is_max_context
             tokens.append(all_doc_tokens[split_token_index])
             segment_ids.append(1)
@@ -299,9 +295,7 @@ def _compute_softmax(scores):
     return probs
 
 
-def get_predictions(
-    doc_tokens, features, start_logits, end_logits, n_best_size, max_answer_length
-):
+def get_predictions(doc_tokens, features, start_logits, end_logits, n_best_size, max_answer_length):
     _PrelimPrediction = collections.namedtuple(  # pylint: disable=invalid-name
         "PrelimPrediction",
         ["feature_index", "start_index", "end_index", "start_logit", "end_logit"],
@@ -371,9 +365,7 @@ def get_predictions(
             )
         )
 
-    prelim_predictions = sorted(
-        prelim_predictions, key=lambda x: (x.start_logit + x.end_logit), reverse=True
-    )
+    prelim_predictions = sorted(prelim_predictions, key=lambda x: (x.start_logit + x.end_logit), reverse=True)
 
     _NbestPrediction = collections.namedtuple(  # pylint: disable=invalid-name
         "NbestPrediction", ["text", "start_logit", "end_logit"]
@@ -410,20 +402,12 @@ def get_predictions(
             final_text = ""
             seen_predictions[final_text] = True
 
-        nbest.append(
-            _NbestPrediction(
-                text=final_text, start_logit=pred.start_logit, end_logit=pred.end_logit
-            )
-        )
+        nbest.append(_NbestPrediction(text=final_text, start_logit=pred.start_logit, end_logit=pred.end_logit))
 
     # if we didn't include the empty option in the n-best, include it
     if version_2_with_negative:
         if "" not in seen_predictions:
-            nbest.append(
-                _NbestPrediction(
-                    text="", start_logit=null_start_logit, end_logit=null_end_logit
-                )
-            )
+            nbest.append(_NbestPrediction(text="", start_logit=null_start_logit, end_logit=null_end_logit))
     # In very rare edge cases we could have no valid predictions. So we
     # just create a nonce prediction in this case to avoid failure.
     if not nbest:
@@ -457,11 +441,7 @@ def get_predictions(
         prediction = nbest_json[0]["text"]
     else:
         # predict "" iff the null score - the score of best non-null > threshold
-        score_diff = (
-            score_null
-            - best_non_null_entry.start_logit
-            - (best_non_null_entry.end_logit)
-        )
+        score_diff = score_null - best_non_null_entry.start_logit - (best_non_null_entry.end_logit)
         scores_diff_json = score_diff
         if score_diff > null_score_diff_threshold:
             prediction = ""

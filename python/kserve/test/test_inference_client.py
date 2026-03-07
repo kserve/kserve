@@ -29,7 +29,6 @@ from test.test_server import DummyModel
 
 @pytest.mark.asyncio
 class TestInferenceRESTClient:
-
     @pytest_asyncio.fixture(scope="class")
     async def app(self, server):
         model = DummyModel("TestModel")
@@ -44,16 +43,12 @@ class TestInferenceRESTClient:
 
     @pytest_asyncio.fixture(scope="class")
     async def rest_client(self, request, app):
-        config = RESTConfig(
-            transport=httpx.ASGITransport(app=app), verbose=True, protocol=request.param
-        )
+        config = RESTConfig(transport=httpx.ASGITransport(app=app), verbose=True, protocol=request.param)
         client = InferenceRESTClient(config=config)
         yield client
         await client.close()
 
-    @pytest.mark.parametrize(
-        "rest_client, protocol", [("v1", "v1"), ("v2", "v2")], indirect=["rest_client"]
-    )
+    @pytest.mark.parametrize("rest_client, protocol", [("v1", "v1"), ("v2", "v2")], indirect=["rest_client"])
     async def test_is_server_ready(self, rest_client, protocol):
         if protocol == "v2":
             assert (
@@ -113,7 +108,6 @@ class TestInferenceRESTClient:
                     timeout=1.3,
                 )
         else:
-
             # Ready model
             assert (
                 await rest_client.is_model_ready(
@@ -300,11 +294,7 @@ class TestInferenceRESTClient:
                 ),
             ],
             parameters={"test-param": "abc"},
-            request_outputs=[
-                RequestedOutput(
-                    name="output-0", parameters={"binary_data_output": True}
-                )
-            ],
+            request_outputs=[RequestedOutput(name="output-0", parameters={"binary_data_output": True})],
         )
         input_data.inputs[1].set_data_from_numpy(fp16_data, binary_data=True)
 
@@ -318,15 +308,11 @@ class TestInferenceRESTClient:
         assert res.outputs[0].data == [1, 2, 3, 4]
         assert res.id == request_id
 
-    @pytest.mark.parametrize(
-        "rest_client", ["v1", "v2", "v3"], indirect=["rest_client"]
-    )
+    @pytest.mark.parametrize("rest_client", ["v1", "v2", "v3"], indirect=["rest_client"])
     async def test_infer_graph_endpoint(self, rest_client, httpx_mock):
         request_id = "2ja0ls9j1309"
         model_name = "TestModel"
-        httpx_mock.add_response(
-            url="http://test-server-v1", json={"predictions": [1, 2]}
-        )
+        httpx_mock.add_response(url="http://test-server-v1", json={"predictions": [1, 2]})
         httpx_mock.add_response(
             url="http://test-server-v2",
             json={
@@ -493,9 +479,7 @@ class TestInferenceRESTClient:
             else:
                 # Unsupported protocol
                 input_data = {"instances": [1, 2]}
-                with pytest.raises(
-                    UnsupportedProtocol, match="Unsupported protocol v3"
-                ):
+                with pytest.raises(UnsupportedProtocol, match="Unsupported protocol v3"):
                     await rest_client.infer(
                         "http://test-server/serving/test/test-isvc",
                         model_name="TestModel",
@@ -504,9 +488,7 @@ class TestInferenceRESTClient:
                         timeout=2,
                     )
 
-    @pytest.mark.parametrize(
-        "rest_client, protocol", [("v1", "v1"), ("v2", "v2")], indirect=["rest_client"]
-    )
+    @pytest.mark.parametrize("rest_client, protocol", [("v1", "v1"), ("v2", "v2")], indirect=["rest_client"])
     async def test_explain(self, rest_client, protocol):
         if protocol == "v1":
             input_data = {"instances": [1, 2]}

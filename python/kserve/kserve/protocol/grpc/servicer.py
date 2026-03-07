@@ -24,7 +24,6 @@ from ...utils.utils import to_headers
 
 
 class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
-
     def __init__(
         self,
         data_plane: DataPlane,
@@ -57,28 +56,20 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
             extensions=metadata["extensions"],
         )
 
-    async def ServerLive(
-        self, request: pb.ServerLiveRequest, context
-    ) -> pb.ServerLiveResponse:
+    async def ServerLive(self, request: pb.ServerLiveRequest, context) -> pb.ServerLiveResponse:
         response = await self._data_plane.live()
         is_live = response["status"] == "alive"
         return pb.ServerLiveResponse(live=is_live)
 
-    async def ServerReady(
-        self, request: pb.ServerReadyRequest, context
-    ) -> pb.ServerReadyResponse:
+    async def ServerReady(self, request: pb.ServerReadyRequest, context) -> pb.ServerReadyResponse:
         is_ready = await self._data_plane.ready()
         return pb.ServerReadyResponse(ready=is_ready)
 
-    async def ModelReady(
-        self, request: pb.ModelReadyRequest, context
-    ) -> pb.ModelReadyResponse:
+    async def ModelReady(self, request: pb.ModelReadyRequest, context) -> pb.ModelReadyResponse:
         is_ready = await self._data_plane.model_ready(model_name=request.name)
         return pb.ModelReadyResponse(ready=is_ready)
 
-    async def ModelMetadata(
-        self, request: pb.ModelMetadataRequest, context
-    ) -> pb.ModelMetadataResponse:
+    async def ModelMetadata(self, request: pb.ModelMetadataRequest, context) -> pb.ModelMetadataResponse:
         metadata = await self._data_plane.model_metadata(model_name=request.name)
         return pb.ModelMetadataResponse(
             name=metadata["name"],
@@ -90,26 +81,16 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
     async def RepositoryModelLoad(
         self, request: pb.RepositoryModelLoadRequest, context
     ) -> pb.RepositoryModelLoadResponse:
-        response = await self._mode_repository_extension.load(
-            model_name=request.model_name
-        )
-        return pb.RepositoryModelLoadResponse(
-            model_name=response["name"], isLoaded=response["load"]
-        )
+        response = await self._mode_repository_extension.load(model_name=request.model_name)
+        return pb.RepositoryModelLoadResponse(model_name=response["name"], isLoaded=response["load"])
 
     async def RepositoryModelUnload(
         self, request: pb.RepositoryModelUnloadRequest, context
     ) -> pb.RepositoryModelUnloadResponse:
-        response = await self._mode_repository_extension.unload(
-            model_name=request.model_name
-        )
-        return pb.RepositoryModelUnloadResponse(
-            model_name=response["name"], isUnloaded=response["unload"]
-        )
+        response = await self._mode_repository_extension.unload(model_name=request.model_name)
+        return pb.RepositoryModelUnloadResponse(model_name=response["name"], isUnloaded=response["unload"])
 
-    async def ModelInfer(
-        self, request: pb.ModelInferRequest, context: ServicerContext
-    ) -> pb.ModelInferResponse:
+    async def ModelInfer(self, request: pb.ModelInferRequest, context: ServicerContext) -> pb.ModelInferResponse:
         headers = to_headers(context)
         self.validate_grpc_request(request)
         infer_request = InferRequest.from_grpc(request)

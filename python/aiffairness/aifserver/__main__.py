@@ -30,9 +30,7 @@ parser.add_argument(
     help="The name that the model is served under.",
 )
 
-parser.add_argument(
-    "--predictor_host", help="The host for the predictor.", required=True
-)
+parser.add_argument("--predictor_host", help="The host for the predictor.", required=True)
 
 # Parameters for describing the model being used for aif360
 # ie. feature / label names,

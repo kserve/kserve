@@ -39,21 +39,11 @@ class DummyModel(Model):
     async def predict(self, request, headers=None):
         outputs = pd.DataFrame(
             {
-                "fp32_output": request.get_input_by_name("fp32_input")
-                .as_numpy()
-                .flatten(),
-                "int32_output": request.get_input_by_name("int32_input")
-                .as_numpy()
-                .flatten(),
-                "string_output": request.get_input_by_name("string_input")
-                .as_numpy()
-                .flatten(),
-                "uint8_output": request.get_input_by_name("uint8_input")
-                .as_numpy()
-                .flatten(),
-                "bool_input": request.get_input_by_name("bool_input")
-                .as_numpy()
-                .flatten(),
+                "fp32_output": request.get_input_by_name("fp32_input").as_numpy().flatten(),
+                "int32_output": request.get_input_by_name("int32_input").as_numpy().flatten(),
+                "string_output": request.get_input_by_name("string_input").as_numpy().flatten(),
+                "uint8_output": request.get_input_by_name("uint8_input").as_numpy().flatten(),
+                "bool_input": request.get_input_by_name("bool_input").as_numpy().flatten(),
             }
         )
         # Fixme: Gets only the 1st element of the input
@@ -78,13 +68,8 @@ class DummyFP16OutputModel(Model):
     async def predict(self, request, headers=None):
         outputs = pd.DataFrame(
             {
-                "fp16_output": request.get_input_by_name("fp32_input")
-                .as_numpy()
-                .astype(np.float16)
-                .flatten(),
-                "fp32_output": request.get_input_by_name("fp32_input")
-                .as_numpy()
-                .flatten(),
+                "fp16_output": request.get_input_by_name("fp32_input").as_numpy().astype(np.float16).flatten(),
+                "fp32_output": request.get_input_by_name("fp32_input").as_numpy().flatten(),
             }
         )
         # Fixme: Gets only the 1st element of the input
@@ -110,9 +95,7 @@ class DummyFP16InputModel(Model):
         outputs = pd.DataFrame(
             {
                 "int32_output": np.array([1, 2, 3, 4, 5, 6, 7, 8]),
-                "fp16_output": request.get_input_by_name("fp16_input")
-                .as_numpy()
-                .flatten(),
+                "fp16_output": request.get_input_by_name("fp16_input").as_numpy().flatten(),
             }
         )
         # Fixme: Gets only the 1st element of the input
@@ -138,9 +121,7 @@ def server():
     fp16_input_model.load()
     server.register_model(fp16_input_model)
     servicers = {
-        grpc_predict_v2_pb2.DESCRIPTOR.services_by_name[
-            "GRPCInferenceService"
-        ]: servicer.InferenceServicer(
+        grpc_predict_v2_pb2.DESCRIPTOR.services_by_name["GRPCInferenceService"]: servicer.InferenceServicer(
             server.dataplane, server.model_repository_extension
         )
     }
@@ -217,9 +198,7 @@ async def test_grpc_inputs(mock_to_headers, server):
 
     model_infer_method = server.invoke_unary_unary(
         method_descriptor=(
-            grpc_predict_v2_pb2.DESCRIPTOR.services_by_name[
-                "GRPCInferenceService"
-            ].methods_by_name["ModelInfer"]
+            grpc_predict_v2_pb2.DESCRIPTOR.services_by_name["GRPCInferenceService"].methods_by_name["ModelInfer"]
         ),
         invocation_metadata={},
         request=request,
@@ -308,9 +287,7 @@ async def test_grpc_raw_inputs(mock_to_headers, server):
         dtype=np.object_,
     )
     uint8_data = np.array([6, 2, 4, 1, 6, 3, 4, 1], dtype=np.uint8)
-    bool_data = np.array(
-        [True, False, True, False, True, False, True, False], dtype=np.bool_
-    )
+    bool_data = np.array([True, False, True, False, True, False, True, False], dtype=np.bool_)
     raw_input_contents = [
         fp32_data.tobytes(),
         int32_data.tobytes(),
@@ -353,9 +330,7 @@ async def test_grpc_raw_inputs(mock_to_headers, server):
 
     model_infer_method = server.invoke_unary_unary(
         method_descriptor=(
-            grpc_predict_v2_pb2.DESCRIPTOR.services_by_name[
-                "GRPCInferenceService"
-            ].methods_by_name["ModelInfer"]
+            grpc_predict_v2_pb2.DESCRIPTOR.services_by_name["GRPCInferenceService"].methods_by_name["ModelInfer"]
         ),
         invocation_metadata={},
         request=request,
@@ -444,9 +419,7 @@ async def test_grpc_fp16_output(mock_to_headers, server):
 
     model_infer_method = server.invoke_unary_unary(
         method_descriptor=(
-            grpc_predict_v2_pb2.DESCRIPTOR.services_by_name[
-                "GRPCInferenceService"
-            ].methods_by_name["ModelInfer"]
+            grpc_predict_v2_pb2.DESCRIPTOR.services_by_name["GRPCInferenceService"].methods_by_name["ModelInfer"]
         ),
         invocation_metadata={},
         request=request,
@@ -483,12 +456,8 @@ async def test_grpc_fp16_output(mock_to_headers, server):
         ],
     }
     infer_response = InferResponse.from_grpc(response)
-    assert np.array_equal(
-        infer_response.outputs[0].as_numpy(), np.array(fp32_data, dtype=np.float16)
-    )
-    assert np.array_equal(
-        infer_response.outputs[1].as_numpy(), np.array(fp32_data, dtype=np.float32)
-    )
+    assert np.array_equal(infer_response.outputs[0].as_numpy(), np.array(fp32_data, dtype=np.float16))
+    assert np.array_equal(infer_response.outputs[1].as_numpy(), np.array(fp32_data, dtype=np.float32))
 
 
 @pytest.mark.asyncio
@@ -513,9 +482,7 @@ async def test_grpc_fp16_input(mock_to_headers, server):
 
     model_infer_method = server.invoke_unary_unary(
         method_descriptor=(
-            grpc_predict_v2_pb2.DESCRIPTOR.services_by_name[
-                "GRPCInferenceService"
-            ].methods_by_name["ModelInfer"]
+            grpc_predict_v2_pb2.DESCRIPTOR.services_by_name["GRPCInferenceService"].methods_by_name["ModelInfer"]
         ),
         invocation_metadata={},
         request=request,
@@ -592,9 +559,7 @@ async def test_grpc_raw_inputs_with_missing_input_data(mock_to_headers, server):
 
     model_infer_method = server.invoke_unary_unary(
         method_descriptor=(
-            grpc_predict_v2_pb2.DESCRIPTOR.services_by_name[
-                "GRPCInferenceService"
-            ].methods_by_name["ModelInfer"]
+            grpc_predict_v2_pb2.DESCRIPTOR.services_by_name["GRPCInferenceService"].methods_by_name["ModelInfer"]
         ),
         invocation_metadata={},
         request=request,
@@ -624,9 +589,7 @@ async def test_grpc_raw_inputs_with_contents_specified(mock_to_headers, server):
             )
         ).item(),
         np.array([6, 2, 4, 1, 6, 3, 4, 1], dtype=np.uint8).tobytes(),
-        np.array(
-            [True, False, True, False, True, False, True, False], dtype=np.bool_
-        ).tobytes(),
+        np.array([True, False, True, False, True, False, True, False], dtype=np.bool_).tobytes(),
     ]
     request = grpc_predict_v2_pb2.ModelInferRequest(
         model_name="TestModel",
@@ -666,9 +629,7 @@ async def test_grpc_raw_inputs_with_contents_specified(mock_to_headers, server):
 
     model_infer_method = server.invoke_unary_unary(
         method_descriptor=(
-            grpc_predict_v2_pb2.DESCRIPTOR.services_by_name[
-                "GRPCInferenceService"
-            ].methods_by_name["ModelInfer"]
+            grpc_predict_v2_pb2.DESCRIPTOR.services_by_name["GRPCInferenceService"].methods_by_name["ModelInfer"]
         ),
         invocation_metadata={},
         request=request,

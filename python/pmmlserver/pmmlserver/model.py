@@ -48,27 +48,19 @@ class PmmlModel(Model):
             raise ModelMissingError(model_path)
         elif len(model_files) > 1:
             raise RuntimeError(
-                "More than one model file is detected, "
-                f"Only one is allowed within model_dir: {model_files}"
+                f"More than one model file is detected, Only one is allowed within model_dir: {model_files}"
             )
         self._backend = Py4JBackend()
         self.evaluator = make_evaluator(model_files[0], self._backend).verify()
-        self.input_fields = [
-            inputField.getName() for inputField in self.evaluator.getInputFields()
-        ]
+        self.input_fields = [inputField.getName() for inputField in self.evaluator.getInputFields()]
         self.ready = True
         return self.ready
 
-    def predict(
-        self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
-    ) -> Union[Dict, InferResponse]:
+    def predict(self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None) -> Union[Dict, InferResponse]:
         try:
             instances = get_predict_input(payload)
             results = [
-                self.evaluator.evaluate(
-                    dict(zip(self.input_fields, instance, strict=False))
-                )
-                for instance in instances
+                self.evaluator.evaluate(dict(zip(self.input_fields, instance, strict=False))) for instance in instances
             ]
             return get_predict_response(payload, pd.DataFrame(results), self.name)
         except Exception as e:

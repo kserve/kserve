@@ -66,10 +66,7 @@ def read_pyproject_config(pyproject_path: str) -> Dict[str, str]:
     try:
         with open(path, "rb") as f:
             toml_data = tomllib.load(f)
-        return {
-            k.replace("-", "_"): v
-            for k, v in toml_data.get("tool", {}).get("pip-licenses", {}).items()
-        }
+        return {k.replace("-", "_"): v for k, v in toml_data.get("tool", {}).get("pip-licenses", {}).items()}
     except Exception as e:
         logger.error(f"Error reading pyproject.toml at {pyproject_path}: {e}")
         return {}
@@ -101,12 +98,8 @@ def parse_arguments(toml_config: Dict[str, str]) -> argparse.Namespace:
         action="store_true",
         default=toml_config.get("with_notice_file", False),
     )
-    parser.add_argument(
-        "--with-urls", action="store_true", default=toml_config.get("with_urls", False)
-    )
-    parser.add_argument(
-        "--output-path", type=str, default=toml_config.get("output_path", ".")
-    )
+    parser.add_argument("--with-urls", action="store_true", default=toml_config.get("with_urls", False))
+    parser.add_argument("--output-path", type=str, default=toml_config.get("output_path", "."))
     parser.add_argument(
         "--ignore-packages",
         type=str,
@@ -115,9 +108,7 @@ def parse_arguments(toml_config: Dict[str, str]) -> argparse.Namespace:
         default=toml_config.get("ignore_packages", []),
         help="Space-separated list of packages to ignore for license check, but include license text.",
     )
-    parser.add_argument(
-        "--allow-only", type=str, default=toml_config.get("allow_only", None)
-    )
+    parser.add_argument("--allow-only", type=str, default=toml_config.get("allow_only", None))
     parser.add_argument(
         "--package-url",
         type=str,
@@ -149,22 +140,16 @@ def get_installed_packages() -> List[importlib.metadata.Distribution]:
     return [pkg for pkg in importlib.metadata.distributions()]
 
 
-def find_file_content(
-    pkg: importlib.metadata.Distribution, filenames: List[str]
-) -> Optional[str]:
+def find_file_content(pkg: importlib.metadata.Distribution, filenames: List[str]) -> Optional[str]:
     try:
         package_path = pkg.locate_file("")
         for root, _, files in os.walk(package_path):
             for name in files:
                 if name.upper() in filenames:
-                    with open(
-                        os.path.join(root, name), encoding="utf-8", errors="ignore"
-                    ) as f:
+                    with open(os.path.join(root, name), encoding="utf-8", errors="ignore") as f:
                         return f.read()
     except Exception as e:
-        logger.error(
-            f"Error reading local license/notice for {pkg.metadata.get('Name')}: {e}"
-        )
+        logger.error(f"Error reading local license/notice for {pkg.metadata.get('Name')}: {e}")
     return None
 
 
@@ -200,9 +185,7 @@ def fetch_license_name_from_text(content: str) -> Optional[str]:
     if len(content_lines) > 0:
         license_name = content_lines[0].strip()
         if license_name.isspace() or not license_name:
-            license_name = (
-                content_lines[1].strip() if len(content_lines) > 1 else "UNKNOWN"
-            )
+            license_name = content_lines[1].strip() if len(content_lines) > 1 else "UNKNOWN"
     return license_name
 
 
@@ -212,12 +195,8 @@ def check_license_allowlist(
     pkg_name: str,
     ignore_list: List[str],
 ) -> None:
-    if pkg_name not in ignore_list and (
-        allow_only is None or license_info not in allow_only
-    ):
-        raise ValueError(
-            f"License '{license_info}' is not in the allowed list found for package {pkg_name}"
-        )
+    if pkg_name not in ignore_list and (allow_only is None or license_info not in allow_only):
+        raise ValueError(f"License '{license_info}' is not in the allowed list found for package {pkg_name}")
 
 
 def format_plain_vertical(
@@ -246,42 +225,32 @@ def format_plain_vertical(
             lines.append(url)
 
         # Header for license and notice sections
-        header = f"{'='*120}\n{name.center(0)}   {version.center(35)}   {license_info.center(35)}"
+        header = f"{'=' * 120}\n{name.center(0)}   {version.center(35)}   {license_info.center(35)}"
         if not url:
             url = package_urls.get(name, "")
         if with_urls:
             header += f"   {url.center(35)}"
 
-        header += f"\n{'='*120}"
+        header += f"\n{'=' * 120}"
 
         # Check if license is in allowlist
         if license_info != "UNKNOWN" and pkg.metadata.get("Name", "").lower() not in (
             name.lower() for name in ignore_list
         ):
-            check_license_allowlist(
-                license_info, allow_only, pkg.metadata.get("Name"), ignore_list
-            )
+            check_license_allowlist(license_info, allow_only, pkg.metadata.get("Name"), ignore_list)
         else:
             content = find_file_content(pkg, ["LICENSE", "LICENCE", "COPYING"])
             if not content and license_info == "UNKNOWN" and url:
-                logger.info(
-                    f"Fetching license for package {pkg.metadata.get('Name')} from {url}"
-                )
-                content = fetch_remote_file_from_repo(
-                    url, ["LICENSE", "LICENCE", "COPYING"]
-                )
+                logger.info(f"Fetching license for package {pkg.metadata.get('Name')} from {url}")
+                content = fetch_remote_file_from_repo(url, ["LICENSE", "LICENCE", "COPYING"])
                 license_name = fetch_license_name_from_text(content)
-                check_license_allowlist(
-                    license_name, allow_only, pkg.metadata.get("Name"), ignore_list
-                )
+                check_license_allowlist(license_name, allow_only, pkg.metadata.get("Name"), ignore_list)
 
         # License file
         if with_license_file:
             content = find_file_content(pkg, ["LICENSE", "LICENCE", "COPYING"])
             if not content and license_info == "UNKNOWN" and url:
-                content = fetch_remote_file_from_repo(
-                    url, ["LICENSE", "LICENCE", "COPYING"]
-                )
+                content = fetch_remote_file_from_repo(url, ["LICENSE", "LICENCE", "COPYING"])
             if content:
                 license_output.append(f"{header}\n{content}")
 
@@ -310,9 +279,7 @@ def handle_package_urls(args):
     for package_url in package_urls:
         # Split each package entry using the format pkg_name:url
         if ":" not in package_url:
-            raise ValueError(
-                f"Invalid format for {package_url}. Expected 'pkg_name:url'"
-            )
+            raise ValueError(f"Invalid format for {package_url}. Expected 'pkg_name:url'")
 
         pkg_name, pkg_url = package_url.split(":", 1)
         pkg_name = pkg_name.strip()
@@ -332,12 +299,8 @@ def main():
     logger.info(toml_config)
     args = parse_arguments(toml_config)
 
-    ignore_list = (
-        [pkg.strip() for pkg in args.ignore_packages] if args.ignore_packages else []
-    )
-    allow_only = (
-        [lic.strip() for lic in args.allow_only.split(";")] if args.allow_only else None
-    )
+    ignore_list = [pkg.strip() for pkg in args.ignore_packages] if args.ignore_packages else []
+    allow_only = [lic.strip() for lic in args.allow_only.split(";")] if args.allow_only else None
 
     package_urls = handle_package_urls(args)
     packages = get_installed_packages()

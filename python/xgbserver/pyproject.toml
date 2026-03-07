@@ -23,5 +23,5 @@ test = [
     "pytest-asyncio<1.0.0,>=0.23.4",
 ]
 dev = [
-    "black[colorama]~=24.3.0",
+    "ruff~=0.14.0",
 ]

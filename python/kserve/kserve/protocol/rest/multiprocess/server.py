@@ -160,9 +160,7 @@ class RESTServerMultiProcess:
             logger.info("Started child process [%s]", p.pid)
 
     async def start(self) -> None:
-        logger.info(
-            "Starting uvicorn with %s workers", self._rest_server.config.workers
-        )
+        logger.info("Starting uvicorn with %s workers", self._rest_server.config.workers)
         sockets = [self._rest_server.config.bind_socket()]
         logger.info("Started parent process [%s]", os.getpid())
         self.init_processes(sockets)
@@ -200,9 +198,7 @@ class RESTServerMultiProcess:
 
         async def force_terminate(process) -> None:
             try:
-                await process.wait_for_termination(
-                    self._rest_server.config.timeout_graceful_shutdown
-                )
+                await process.wait_for_termination(self._rest_server.config.timeout_graceful_shutdown)
                 logger.info("Terminated child process [%s]", process.pid)
             except asyncio.TimeoutError:
                 logger.warning(
