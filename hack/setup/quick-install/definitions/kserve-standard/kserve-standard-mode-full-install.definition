@@ -8,13 +8,14 @@ TOOLS:
   
 INCLUDE_DEFINITIONS:
   - ./kserve-standard-mode-dependency-install.definition
+  - ../llmisvc/llmisvc-dependency-install.definition
     
 COMPONENTS:
   - name: kserve-helm
     env:
       DEPLOYMENT_MODE: Standard
-      ENABLE_LLMISVC: false
+      ENABLE_LLMISVC: true
       ENABLE_KSERVE: true
       INSTALL_RUNTIMES: true
-      INSTALL_LLMISVC_CONFIGS: false
+      INSTALL_LLMISVC_CONFIGS: true
 
