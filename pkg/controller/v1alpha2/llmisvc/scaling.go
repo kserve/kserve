@@ -1,0 +1,493 @@
+/*
+Copyright 2025 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package llmisvc
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
+
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
+	"knative.dev/pkg/kmeta"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
+)
+
+const (
+	wvaDesiredReplicasMetricName = "wva_desired_replicas"
+	variantNameLabelKey          = "variant_name"
+	acceleratorNameLabelKey      = "inference.optimization/acceleratorName"
+)
+
+// reconcileScaling manages the autoscaling resources (VariantAutoscaling + HPA or KEDA ScaledObject)
+// for the LLM workload. When scaling is configured, it creates a VariantAutoscaling CR for WVA to
+// compute desired replicas and an actuator (HPA or KEDA ScaledObject) to enforce them.
+// When scaling is removed (or the workload is stopped), it cleans up any existing autoscaling resources.
+func (r *LLMISVCReconciler) reconcileScaling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
+	logger := log.FromContext(ctx).WithName("reconcileScaling")
+	ctx = log.IntoContext(ctx, logger)
+
+	if err := r.reconcileMainWorkloadScaling(ctx, llmSvc, config); err != nil {
+		return fmt.Errorf("failed to reconcile main workload scaling: %w", err)
+	}
+
+	if err := r.reconcilePrefillWorkloadScaling(ctx, llmSvc, config); err != nil {
+		return fmt.Errorf("failed to reconcile prefill workload scaling: %w", err)
+	}
+
+	return nil
+}
+
+// reconcileMainWorkloadScaling handles scaling for the main (decode) workload.
+func (r *LLMISVCReconciler) reconcileMainWorkloadScaling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
+	deploymentName := mainDeploymentName(llmSvc)
+	vaName := mainVAName(llmSvc)
+	scaling := llmSvc.Spec.Scaling
+
+	if err := r.reconcileVA(ctx, llmSvc, scaling, deploymentName, vaName, llmSvc.Spec.Template); err != nil {
+		return fmt.Errorf("failed to reconcile main VA: %w", err)
+	}
+
+	if err := r.reconcileActuator(ctx, llmSvc, scaling, config, deploymentName, vaName, mainHPAName(llmSvc), mainScaledObjectName(llmSvc)); err != nil {
+		return fmt.Errorf("failed to reconcile main actuator: %w", err)
+	}
+
+	return nil
+}
+
+// reconcilePrefillWorkloadScaling handles scaling for the prefill workload in disaggregated deployments.
+func (r *LLMISVCReconciler) reconcilePrefillWorkloadScaling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
+	var scaling *v1alpha2.ScalingSpec
+	if llmSvc.Spec.Prefill != nil {
+		scaling = llmSvc.Spec.Prefill.Scaling
+	}
+
+	vaName := prefillVAName(llmSvc)
+
+	if scaling == nil {
+		if err := r.deleteVAIfExists(ctx, llmSvc, vaName); err != nil {
+			return err
+		}
+		if err := r.deleteHPAIfExists(ctx, llmSvc, prefillHPAName(llmSvc)); err != nil {
+			return err
+		}
+		return r.deleteScaledObjectIfExists(ctx, llmSvc, prefillScaledObjectName(llmSvc))
+	}
+
+	deploymentName := prefillDeploymentName(llmSvc)
+
+	var prefillPodSpec *corev1.PodSpec
+	if llmSvc.Spec.Prefill != nil {
+		prefillPodSpec = llmSvc.Spec.Prefill.Template
+	}
+
+	if err := r.reconcileVA(ctx, llmSvc, scaling, deploymentName, vaName, prefillPodSpec); err != nil {
+		return fmt.Errorf("failed to reconcile prefill VA: %w", err)
+	}
+
+	if err := r.reconcileActuator(ctx, llmSvc, scaling, config, deploymentName, vaName, prefillHPAName(llmSvc), prefillScaledObjectName(llmSvc)); err != nil {
+		return fmt.Errorf("failed to reconcile prefill actuator: %w", err)
+	}
+
+	return nil
+}
+
+// reconcileHPA creates or updates an HPA for the workload.
+func (r *LLMISVCReconciler) reconcileHPA(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, deploymentName, vaName, hpaName string) error {
+	expected := expectedHPA(llmSvc, scaling, deploymentName, vaName, hpaName)
+	return Reconcile(ctx, r, llmSvc, &autoscalingv2.HorizontalPodAutoscaler{}, expected, semanticHPAIsEqual)
+}
+
+// deleteHPAIfExists deletes the HPA if it exists, used during cleanup.
+func (r *LLMISVCReconciler) deleteHPAIfExists(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, hpaName string) error {
+	hpa := &autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hpaName,
+			Namespace: llmSvc.GetNamespace(),
+		},
+	}
+	return Delete(ctx, r, llmSvc, hpa)
+}
+
+// expectedHPA constructs the desired HPA resource from the LLMISVC scaling spec.
+// vaName is used as the metric selector label because WVA emits wva_desired_replicas keyed by VA name.
+func expectedHPA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, deploymentName, vaName, hpaName string) *autoscalingv2.HorizontalPodAutoscaler {
+	labels := scalingLabels(llmSvc)
+
+	minReplicas := ptr.To(int32(1))
+	if scaling.MinReplicas != nil {
+		minReplicas = scaling.MinReplicas
+	}
+
+	hpa := &autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hpaName,
+			Namespace: llmSvc.GetNamespace(),
+			Labels:    labels,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
+		},
+		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       deploymentName,
+			},
+			MinReplicas: minReplicas,
+			MaxReplicas: *scaling.MaxReplicas,
+			Metrics: []autoscalingv2.MetricSpec{
+				{
+					Type: autoscalingv2.ExternalMetricSourceType,
+					External: &autoscalingv2.ExternalMetricSource{
+						Metric: autoscalingv2.MetricIdentifier{
+							Name: wvaDesiredReplicasMetricName,
+							Selector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									variantNameLabelKey: vaName,
+								},
+							},
+						},
+						Target: autoscalingv2.MetricTarget{
+							Type:         autoscalingv2.AverageValueMetricType,
+							AverageValue: resource.NewQuantity(1, resource.DecimalSI),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if scaling.WVA != nil && scaling.WVA.HPA != nil && scaling.WVA.HPA.Behavior != nil {
+		hpa.Spec.Behavior = scaling.WVA.HPA.Behavior
+	}
+
+	return hpa
+}
+
+// reconcileActuator reconciles the appropriate actuator (HPA or KEDA ScaledObject) based on
+// the scaling spec, and deletes the other to enforce mutual exclusivity.
+func (r *LLMISVCReconciler) reconcileActuator(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, config *Config, deploymentName, vaName, hpaName, scaledObjectName string) error {
+	isStopped := utils.GetForceStopRuntime(llmSvc)
+
+	if scaling == nil || scaling.WVA == nil || isStopped {
+		if err := r.deleteHPAIfExists(ctx, llmSvc, hpaName); err != nil {
+			return err
+		}
+		return r.deleteScaledObjectIfExists(ctx, llmSvc, scaledObjectName)
+	}
+
+	if scaling.WVA.KEDA != nil {
+		if err := r.deleteHPAIfExists(ctx, llmSvc, hpaName); err != nil {
+			return err
+		}
+		return r.reconcileScaledObject(ctx, llmSvc, scaling, config, deploymentName, vaName, scaledObjectName)
+	}
+
+	if scaling.WVA.HPA != nil {
+		if err := r.deleteScaledObjectIfExists(ctx, llmSvc, scaledObjectName); err != nil {
+			return err
+		}
+		return r.reconcileHPA(ctx, llmSvc, scaling, deploymentName, vaName, hpaName)
+	}
+
+	return nil
+}
+
+// --- KEDA ScaledObject reconciliation ---
+
+// reconcileScaledObject creates, updates, or deletes a KEDA ScaledObject based on the scaling configuration.
+func (r *LLMISVCReconciler) reconcileScaledObject(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, config *Config, deploymentName, vaName, scaledObjectName string) error {
+	if !r.ScaledObjectAvailable {
+		log.FromContext(ctx).Info("KEDA ScaledObject CRD not available, skipping ScaledObject reconciliation")
+		r.Event(llmSvc, corev1.EventTypeWarning, "ScaledObjectCRDNotFound",
+			"KEDA ScaledObject CRD not available; KEDA reconciliation skipped. Install KEDA and restart the controller.")
+		return nil
+	}
+
+	if config.AutoscalingConfig == nil || config.AutoscalingConfig.PrometheusURL == "" {
+		return errors.New("autoscaling.prometheusURL is required in inferenceservice-config when using KEDA")
+	}
+
+	expected := expectedScaledObject(llmSvc, scaling, config, deploymentName, vaName, scaledObjectName)
+	return Reconcile(ctx, r, llmSvc, &kedav1alpha1.ScaledObject{}, expected, semanticScaledObjectIsEqual)
+}
+
+// deleteScaledObjectIfExists deletes the ScaledObject if it exists, used during cleanup.
+func (r *LLMISVCReconciler) deleteScaledObjectIfExists(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaledObjectName string) error {
+	so := &kedav1alpha1.ScaledObject{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      scaledObjectName,
+			Namespace: llmSvc.GetNamespace(),
+		},
+	}
+	return Delete(ctx, r, llmSvc, so)
+}
+
+// expectedScaledObject constructs the desired KEDA ScaledObject from the LLMISVC scaling spec.
+// The Prometheus server address and TLS settings come from the controller config (inferenceservice-config ConfigMap).
+func expectedScaledObject(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, config *Config, deploymentName, vaName, scaledObjectName string) *kedav1alpha1.ScaledObject {
+	labels := scalingLabels(llmSvc)
+	keda := scaling.WVA.KEDA
+
+	minReplicas := ptr.To(int32(1))
+	if scaling.MinReplicas != nil {
+		minReplicas = scaling.MinReplicas
+	}
+
+	query := fmt.Sprintf(`wva_desired_replicas{variant_name="%s",exported_namespace="%s"}`, vaName, llmSvc.GetNamespace())
+
+	so := &kedav1alpha1.ScaledObject{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      scaledObjectName,
+			Namespace: llmSvc.GetNamespace(),
+			Labels:    labels,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
+		},
+		Spec: kedav1alpha1.ScaledObjectSpec{
+			ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       deploymentName,
+			},
+			MinReplicaCount:       minReplicas,
+			MaxReplicaCount:       scaling.MaxReplicas,
+			PollingInterval:       keda.PollingInterval,
+			CooldownPeriod:        keda.CooldownPeriod,
+			IdleReplicaCount:      keda.IdleReplicaCount,
+			Fallback:              keda.Fallback,
+			Advanced:              keda.Advanced,
+			InitialCooldownPeriod: keda.InitialCooldownPeriod,
+			Triggers: []kedav1alpha1.ScaleTriggers{
+				{
+					Type: "prometheus",
+					Name: "wva-desired-replicas",
+					Metadata: map[string]string{
+						"serverAddress": config.AutoscalingConfig.PrometheusURL,
+						"query":         query,
+						"threshold":     "1",
+						"unsafeSsl":     strconv.FormatBool(config.AutoscalingConfig.PrometheusTLSInsecureSkipVerify),
+					},
+				},
+			},
+		},
+	}
+
+	return so
+}
+
+// --- VariantAutoscaling (VA) reconciliation ---
+
+// reconcileVA creates, updates, or deletes a VariantAutoscaling CR based on the scaling configuration.
+// The VA tells the WVA controller to compute wva_desired_replicas for this deployment.
+// podSpec is the pod template for the specific workload so accelerator detection is accurate.
+func (r *LLMISVCReconciler) reconcileVA(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, deploymentName, vaName string, podSpec *corev1.PodSpec) error {
+	isStopped := utils.GetForceStopRuntime(llmSvc)
+
+	if scaling == nil || scaling.WVA == nil || isStopped {
+		return r.deleteVAIfExists(ctx, llmSvc, vaName)
+	}
+
+	if !r.VariantAutoscalingAvailable {
+		log.FromContext(ctx).Info("VariantAutoscaling CRD not available, skipping VA reconciliation")
+		r.Event(llmSvc, corev1.EventTypeWarning, "VariantAutoscalingCRDNotFound",
+			"VariantAutoscaling CRD not available; WVA reconciliation skipped. Install the WVA operator and restart the controller.")
+		return nil
+	}
+
+	expected := expectedVA(llmSvc, scaling, deploymentName, vaName, podSpec)
+	return Reconcile(ctx, r, llmSvc, &wvav1alpha1.VariantAutoscaling{}, expected, semanticVAIsEqual)
+}
+
+// deleteVAIfExists deletes the VA if it exists, used during cleanup.
+func (r *LLMISVCReconciler) deleteVAIfExists(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, vaName string) error {
+	va := &wvav1alpha1.VariantAutoscaling{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vaName,
+			Namespace: llmSvc.GetNamespace(),
+		},
+	}
+	return Delete(ctx, r, llmSvc, va)
+}
+
+// expectedVA constructs the desired VariantAutoscaling resource from the LLMISVC spec.
+// podSpec is the pod template for the specific workload (decode or prefill) so that
+// accelerator detection inspects the correct containers.
+func expectedVA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, deploymentName, vaName string, podSpec *corev1.PodSpec) *wvav1alpha1.VariantAutoscaling {
+	labels := scalingLabels(llmSvc)
+	labels[acceleratorNameLabelKey] = resolveAcceleratorName(llmSvc, podSpec)
+
+	modelID := llmSvc.Spec.Model.URI.String()
+	if llmSvc.Spec.Model.Name != nil {
+		modelID = *llmSvc.Spec.Model.Name
+	}
+
+	va := &wvav1alpha1.VariantAutoscaling{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vaName,
+			Namespace: llmSvc.GetNamespace(),
+			Labels:    labels,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
+		},
+		Spec: wvav1alpha1.VariantAutoscalingSpec{
+			ScaleTargetRef: autoscalingv1.CrossVersionObjectReference{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       deploymentName,
+			},
+			ModelID:     modelID,
+			VariantCost: scaling.WVA.VariantCost,
+		},
+	}
+
+	return va
+}
+
+// resolveAcceleratorName determines the accelerator name for the VA label.
+// Priority:
+//  1. User-specified label on the LLMISVC (inference.optimization/acceleratorName)
+//  2. Auto-detected from GPU resource requests on the pod spec
+//  3. Falls back to "cpu" when no GPUs are found
+func resolveAcceleratorName(llmSvc *v1alpha2.LLMInferenceService, podSpec *corev1.PodSpec) string {
+	if val, ok := llmSvc.Labels[acceleratorNameLabelKey]; ok && val != "" {
+		return val
+	}
+	return detectAcceleratorFromResources(podSpec)
+}
+
+// detectAcceleratorFromResources inspects extended resource requests/limits on the pod spec
+// to infer the accelerator vendor from the resource domain (e.g., "nvidia.com/gpu" → "nvidia").
+// This is a best-effort fallback; users needing precise GPU model names (e.g., "A100", "H100")
+// should set the inference.optimization/acceleratorName label on the LLMISVC directly.
+func detectAcceleratorFromResources(podSpec *corev1.PodSpec) string {
+	if podSpec != nil {
+		for i := range podSpec.Containers {
+			for resourceName := range podSpec.Containers[i].Resources.Requests {
+				if vendor := vendorFromExtendedResource(string(resourceName)); vendor != "" {
+					return vendor
+				}
+			}
+			for resourceName := range podSpec.Containers[i].Resources.Limits {
+				if vendor := vendorFromExtendedResource(string(resourceName)); vendor != "" {
+					return vendor
+				}
+			}
+		}
+	}
+	return "cpu"
+}
+
+// vendorFromExtendedResource extracts the vendor name from a Kubernetes extended resource.
+// Extended resources have a domain prefix (e.g., "nvidia.com/gpu" → "nvidia").
+// Standard resources like "cpu" and "memory" have no domain and are ignored.
+func vendorFromExtendedResource(resourceName string) string {
+	slashIdx := strings.Index(resourceName, "/")
+	if slashIdx <= 0 {
+		return ""
+	}
+	domain := resourceName[:slashIdx]
+	dotIdx := strings.Index(domain, ".")
+	if dotIdx <= 0 {
+		return ""
+	}
+	return domain[:dotIdx]
+}
+
+func semanticVAIsEqual(expected, curr *wvav1alpha1.VariantAutoscaling) bool {
+	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
+		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
+		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
+}
+
+// --- HPA comparison ---
+
+func semanticHPAIsEqual(expected, curr *autoscalingv2.HorizontalPodAutoscaler) bool {
+	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
+		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
+		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
+}
+
+// --- KEDA ScaledObject comparison ---
+
+func semanticScaledObjectIsEqual(expected, curr *kedav1alpha1.ScaledObject) bool {
+	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
+		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
+		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
+}
+
+func scalingLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
+	return map[string]string{
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+	}
+}
+
+// Naming helpers for deployment, VA, HPA, and KEDA ScaledObject names.
+// Deployment names must match the naming used in workload_single_node.go and workload_multi_node.go.
+
+func mainDeploymentName(llmSvc *v1alpha2.LLMInferenceService) string {
+	if llmSvc.Spec.Worker != nil {
+		return kmeta.ChildName(llmSvc.GetName(), "-kserve-mn")
+	}
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve")
+}
+
+func prefillDeploymentName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-prefill")
+}
+
+func mainHPAName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-hpa")
+}
+
+func prefillHPAName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-prefill-hpa")
+}
+
+func mainVAName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-va")
+}
+
+func prefillVAName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-prefill-va")
+}
+
+func mainScaledObjectName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-keda")
+}
+
+func prefillScaledObjectName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-prefill-keda")
+}
