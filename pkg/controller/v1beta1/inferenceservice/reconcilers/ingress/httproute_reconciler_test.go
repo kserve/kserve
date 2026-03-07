@@ -107,6 +107,22 @@ func TestCreateRawURL(t *testing.T) {
 			expectedURL:     "",
 			isErrorExpected: true,
 		},
+		"basic case with ingress path template": {
+			isvc: &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-isvc",
+					Namespace: "default",
+				},
+			},
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressDomain:       "example.com",
+				UrlScheme:           "http",
+				DomainTemplate:      "{{.IngressDomain}}",
+				IngressPathTemplate: "/namespaces/{{.Namespace}}/endpoints/{{.Name}}",
+			},
+			isErrorExpected: false,
+			expectedURL:     "http://example.com/namespaces/default/endpoints/test-isvc",
+		},
 	}
 
 	for name, tc := range testCases {

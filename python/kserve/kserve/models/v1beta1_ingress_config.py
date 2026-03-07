@@ -47,40 +47,60 @@ class V1beta1IngressConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'additional_ingress_domains': 'list[str]',
-        'disable_ingress_creation': 'bool',
-        'disable_istio_virtual_host': 'bool',
-        'domain_template': 'str',
-        'enable_gateway_api': 'bool',
-        'ingress_class_name': 'str',
-        'ingress_domain': 'str',
-        'ingress_gateway': 'str',
-        'knative_local_gateway_service': 'str',
-        'kserve_ingress_gateway': 'str',
-        'local_gateway': 'str',
-        'local_gateway_service': 'str',
-        'path_template': 'str',
-        'url_scheme': 'str'
+        "additional_ingress_domains": "list[str]",
+        "disable_ingress_creation": "bool",
+        "disable_istio_virtual_host": "bool",
+        "domain_template": "str",
+        "enable_gateway_api": "bool",
+        "ingress_class_name": "str",
+        "ingress_domain": "str",
+        "ingress_gateway": "str",
+        "ingress_path_template": "str",
+        "knative_local_gateway_service": "str",
+        "kserve_ingress_gateway": "str",
+        "local_gateway": "str",
+        "local_gateway_service": "str",
+        "path_template": "str",
+        "url_scheme": "str",
     }
 
     attribute_map = {
-        'additional_ingress_domains': 'additionalIngressDomains',
-        'disable_ingress_creation': 'disableIngressCreation',
-        'disable_istio_virtual_host': 'disableIstioVirtualHost',
-        'domain_template': 'domainTemplate',
-        'enable_gateway_api': 'enableGatewayApi',
-        'ingress_class_name': 'ingressClassName',
-        'ingress_domain': 'ingressDomain',
-        'ingress_gateway': 'ingressGateway',
-        'knative_local_gateway_service': 'knativeLocalGatewayService',
-        'kserve_ingress_gateway': 'kserveIngressGateway',
-        'local_gateway': 'localGateway',
-        'local_gateway_service': 'localGatewayService',
-        'path_template': 'pathTemplate',
-        'url_scheme': 'urlScheme'
+        "additional_ingress_domains": "additionalIngressDomains",
+        "disable_ingress_creation": "disableIngressCreation",
+        "disable_istio_virtual_host": "disableIstioVirtualHost",
+        "domain_template": "domainTemplate",
+        "enable_gateway_api": "enableGatewayApi",
+        "ingress_class_name": "ingressClassName",
+        "ingress_domain": "ingressDomain",
+        "ingress_gateway": "ingressGateway",
+        "ingress_path_template": "ingressPathTemplate",
+        "knative_local_gateway_service": "knativeLocalGatewayService",
+        "kserve_ingress_gateway": "kserveIngressGateway",
+        "local_gateway": "localGateway",
+        "local_gateway_service": "localGatewayService",
+        "path_template": "pathTemplate",
+        "url_scheme": "urlScheme",
     }
 
-    def __init__(self, additional_ingress_domains=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, enable_gateway_api=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, knative_local_gateway_service=None, kserve_ingress_gateway=None, local_gateway=None, local_gateway_service=None, path_template=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        additional_ingress_domains=None,
+        disable_ingress_creation=None,
+        disable_istio_virtual_host=None,
+        domain_template=None,
+        enable_gateway_api=None,
+        ingress_class_name=None,
+        ingress_domain=None,
+        ingress_gateway=None,
+        ingress_path_template=None,
+        knative_local_gateway_service=None,
+        kserve_ingress_gateway=None,
+        local_gateway=None,
+        local_gateway_service=None,
+        path_template=None,
+        url_scheme=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1IngressConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -94,6 +114,7 @@ class V1beta1IngressConfig(object):
         self._ingress_class_name = None
         self._ingress_domain = None
         self._ingress_gateway = None
+        self._ingress_path_template = None
         self._knative_local_gateway_service = None
         self._kserve_ingress_gateway = None
         self._local_gateway = None
@@ -118,6 +139,8 @@ class V1beta1IngressConfig(object):
             self.ingress_domain = ingress_domain
         if ingress_gateway is not None:
             self.ingress_gateway = ingress_gateway
+        if ingress_path_template is not None:
+            self.ingress_path_template = ingress_path_template
         if knative_local_gateway_service is not None:
             self.knative_local_gateway_service = knative_local_gateway_service
         if kserve_ingress_gateway is not None:
@@ -300,6 +323,27 @@ class V1beta1IngressConfig(object):
         self._ingress_gateway = ingress_gateway
 
     @property
+    def ingress_path_template(self):
+        """Gets the ingress_path_template of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The ingress_path_template of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._ingress_path_template
+
+    @ingress_path_template.setter
+    def ingress_path_template(self, ingress_path_template):
+        """Sets the ingress_path_template of this V1beta1IngressConfig.
+
+
+        :param ingress_path_template: The ingress_path_template of this V1beta1IngressConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._ingress_path_template = ingress_path_template
+
+    @property
     def knative_local_gateway_service(self):
         """Gets the knative_local_gateway_service of this V1beta1IngressConfig.  # noqa: E501
 
@@ -432,18 +476,22 @@ class V1beta1IngressConfig(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

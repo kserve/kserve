@@ -37620,16 +37620,21 @@ data:
     }} )\n       # IngressDomain ( {{ .IngressDomain }} )\n       # If domain template
     is empty the default template {{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}
     is used.\n       # NOTE: This configuration only applicable for raw deployment.\n
-    \      \"domainTemplate\": \"{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}\",\n
-    \n       # urlScheme specifies the url scheme to use for inference service and
-    inference graph.\n       # If urlScheme is empty then by default http is used.\n
-    \      \"urlScheme\": \"http\",\n \n       # disableIstioVirtualHost controls
-    whether to use istio as network layer.\n       # By default istio is used as the
-    network layer. When DisableIstioVirtualHost is true, KServe does not\n       #
-    create the top level virtual service thus Istio is no longer required for serverless
-    mode.\n       # By setting this field to true, user can use other networking layers
-    supported by knative.\n       # For more info https://github.com/kserve/kserve/pull/2380,
-    https://kserve.github.io/website/master/admin/serverless/kourier_networking/.\n
+    \      \"domainTemplate\": \"{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}\",\n\n
+    \      # ingressPathTemplate to expose all InferenceServices in a cluster behind
+    a single domain by combining the following variables:\n       # Name of the inference
+    service  ( {{ .Name}} )\n       # Namespace of the inference service ( {{ .Namespace
+    }} )\n       # If not set or empty: the root path is used\n       # NOTE: This
+    configuration only applicable for raw deployment.\n       \"ingressPathTemplate\":
+    \"/namespaces/{{ .Namespace }}/endpoints/{{ .Name }}\",\n\n       # urlScheme
+    specifies the url scheme to use for inference service and inference graph.\n       #
+    If urlScheme is empty then by default http is used.\n       \"urlScheme\": \"http\",\n
+    \n       # disableIstioVirtualHost controls whether to use istio as network layer.\n
+    \      # By default istio is used as the network layer. When DisableIstioVirtualHost
+    is true, KServe does not\n       # create the top level virtual service thus Istio
+    is no longer required for serverless mode.\n       # By setting this field to
+    true, user can use other networking layers supported by knative.\n       # For
+    more info https://github.com/kserve/kserve/pull/2380, https://kserve.github.io/website/master/admin/serverless/kourier_networking/.\n
     \      # NOTE: This configuration is only applicable to serverless deployment.\n
     \      \"disableIstioVirtualHost\": false,\n\n       # disableIngressCreation
     controls whether to disable ingress creation for raw deployment mode.\n       \"disableIngressCreation\":

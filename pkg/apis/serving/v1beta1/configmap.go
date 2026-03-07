@@ -52,9 +52,10 @@ const (
 )
 
 const (
-	DefaultDomainTemplate = "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
-	DefaultIngressDomain  = "example.com"
-	DefaultUrlScheme      = "http"
+	DefaultDomainTemplate      = "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
+	DefaultIngressPathTemplate = ""
+	DefaultIngressDomain       = "example.com"
+	DefaultUrlScheme           = "http"
 )
 
 // Error messages
@@ -121,6 +122,7 @@ type IngressConfig struct {
 	IngressClassName           *string   `json:"ingressClassName,omitempty"`
 	AdditionalIngressDomains   *[]string `json:"additionalIngressDomains,omitempty"`
 	DomainTemplate             string    `json:"domainTemplate,omitempty"`
+	IngressPathTemplate        string    `json:"ingressPathTemplate,omitempty"`
 	UrlScheme                  string    `json:"urlScheme,omitempty"`
 	DisableIstioVirtualHost    bool      `json:"disableIstioVirtualHost,omitempty"`
 	PathTemplate               string    `json:"pathTemplate,omitempty"`
