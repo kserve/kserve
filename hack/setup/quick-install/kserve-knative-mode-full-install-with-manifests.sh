@@ -2468,6 +2468,7 @@ spec:
       - '{{ .Spec.Model.Name }}'
       - --port
       - "8001"
+      - --disable-uvicorn-access-log
       env:
       - name: HOME
         value: /home
@@ -2733,6 +2734,7 @@ spec:
           --data-parallel-address $(LWS_LEADER_ADDRESS) \
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
+          --disable-uvicorn-access-log \
           ${VLLM_ADDITIONAL_ARGS} \
           $@ \
           --trust-remote-code"
@@ -3005,6 +3007,7 @@ spec:
           --data-parallel-address $(LWS_LEADER_ADDRESS) \
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
+          --disable-uvicorn-access-log \
           ${VLLM_ADDITIONAL_ARGS} \
           $@ \
           --trust-remote-code \
@@ -3087,6 +3090,7 @@ spec:
         - '{{ .Spec.Model.Name }}'
         - --port
         - "8000"
+        - --disable-uvicorn-access-log
         env:
         - name: HOME
           value: /home
@@ -3303,6 +3307,7 @@ spec:
             --data-parallel-address $(LWS_LEADER_ADDRESS) \
             --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
             --data-parallel-start-rank $START_RANK \
+            --disable-uvicorn-access-log \
             ${VLLM_ADDITIONAL_ARGS} \
             $@ \
             --trust-remote-code"
@@ -3524,6 +3529,7 @@ spec:
             --data-parallel-address $(LWS_LEADER_ADDRESS) \
             --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
             --data-parallel-start-rank $START_RANK \
+            --disable-uvicorn-access-log \
             ${VLLM_ADDITIONAL_ARGS} \
             $@ \
             --trust-remote-code \
@@ -3776,6 +3782,7 @@ spec:
       - '{{ .Spec.Model.Name }}'
       - --port
       - "8000"
+      - --disable-uvicorn-access-log
       env:
       - name: HOME
         value: /home
@@ -3991,6 +3998,7 @@ spec:
           --data-parallel-address $(LWS_LEADER_ADDRESS) \
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
+          --disable-uvicorn-access-log \
           ${VLLM_ADDITIONAL_ARGS} \
           $@ \
           --trust-remote-code"
@@ -4212,6 +4220,7 @@ spec:
           --data-parallel-address $(LWS_LEADER_ADDRESS) \
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
+          --disable-uvicorn-access-log \
           ${VLLM_ADDITIONAL_ARGS} \
           $@ \
           --trust-remote-code \
