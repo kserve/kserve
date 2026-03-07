@@ -468,9 +468,10 @@ func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targ
 	// of Kubernetes where sharing the filesystem via the process namespace only works
 	// when both containers are running as root
 	if storageConfig.UidModelcar != nil {
-		targetContainer.SecurityContext = &corev1.SecurityContext{
-			RunAsUser: storageConfig.UidModelcar,
+		if targetContainer.SecurityContext == nil {
+			targetContainer.SecurityContext = &corev1.SecurityContext{}
 		}
+		targetContainer.SecurityContext.RunAsUser = storageConfig.UidModelcar
 	}
 
 	// Create the modelcar that is used as a sidecar in Pod and add it to the end
