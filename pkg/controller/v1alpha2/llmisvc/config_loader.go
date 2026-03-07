@@ -97,13 +97,17 @@ func NewSchedulerConfig(isvcConfigMap *corev1.ConfigMap) (*SchedulerConfig, erro
 	return cfg, nil
 }
 
-// Config holds configuration needed for LLM inference services
-// It aggregates ingress, storage, and credential settings from the KServe configmap
+// Config holds configuration needed for LLM inference services.
+// It aggregates ingress, storage, credential, and autoscaling settings from the KServe configmap.
 type Config struct {
 	SystemNamespace         string `json:"systemNamespace,omitempty"`
 	IngressGatewayName      string `json:"ingressGatewayName,omitempty"`
 	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
 	UrlScheme               string `json:"urlScheme,omitempty"`
+
+	// AutoscalingConfig holds Prometheus and monitoring settings for autoscaling.
+	// nil when the "autoscaling" key is not present in inferenceservice-config.
+	AutoscalingConfig *AutoscalingConfig `json:"-"`
 
 	// Storage and credential configs are excluded from JSON serialization
 	// as they contain sensitive information
@@ -111,6 +115,17 @@ type Config struct {
 	CredentialConfig *credentials.CredentialConfig   `json:"-"`
 	SchedulerConfig  *SchedulerConfig                `json:"-"`
 }
+
+// AutoscalingConfig holds cluster-wide autoscaling settings loaded from the "autoscaling"
+// key in the inferenceservice-config ConfigMap. These are shared across all LLMISVC instances.
+type AutoscalingConfig struct {
+	// PrometheusURL is the URL of the Prometheus server (used by KEDA to query wva_desired_replicas).
+	PrometheusURL string `json:"prometheusURL"`
+	// PrometheusTLSInsecureSkipVerify disables TLS certificate verification for the Prometheus connection.
+	PrometheusTLSInsecureSkipVerify bool `json:"prometheusTLSInsecureSkipVerify"`
+}
+
+const autoscalingConfigName = "autoscaling"
 
 // NewConfig creates an instance of llm-specific config based on predefined values
 // in IngressConfig struct
@@ -165,5 +180,14 @@ func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, e
 		return nil, fmt.Errorf("failed to parse scheduler config: %w", errConvert)
 	}
 
-	return NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig), nil
+	config := NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig)
+
+	if autoscalingData, ok := isvcConfigMap.Data[autoscalingConfigName]; ok {
+		asCfg := &AutoscalingConfig{}
+		if err := json.Unmarshal([]byte(autoscalingData), asCfg); err == nil {
+			config.AutoscalingConfig = asCfg
+		}
+	}
+
+	return config, nil
 }
