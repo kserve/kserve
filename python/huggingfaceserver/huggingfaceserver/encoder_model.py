@@ -84,6 +84,7 @@ class HuggingfaceEncoderModel(
     _tokenizer: PreTrainedTokenizerBase
     _model: Optional[PreTrainedModel] = None
     _device: torch.device
+    use_id2label: bool
 
     def __init__(
         self,
@@ -103,6 +104,7 @@ class HuggingfaceEncoderModel(
         return_probabilities: bool = False,
         request_logger: Optional[RequestLogger] = None,
         return_raw_logits: bool = False,
+        use_id2label: bool = False,
     ):
         super().__init__(model_name)
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -118,6 +120,7 @@ class HuggingfaceEncoderModel(
         self.trust_remote_code = trust_remote_code
         self.return_probabilities = return_probabilities
         self.return_raw_logits = return_raw_logits
+        self.use_id2label = use_id2label
         self.request_logger = request_logger
 
         if model_config:
@@ -371,12 +374,20 @@ class HuggingfaceEncoderModel(
             if self.return_raw_logits:
                 logits = out.squeeze()
                 logits = logits.cpu() if logits.is_cuda else logits
-                inferences.append({j: logits[j].item() for j in range(logits.size(0))})
+                inferences.append(
+                    {
+                        self._get_label_or_index(j): logits[j].item()
+                        for j in range(logits.size(0))
+                    }
+                )
             elif self.return_probabilities:
                 probs = torch.softmax(out, dim=-1).squeeze()
                 probs = probs.cpu() if probs.is_cuda else probs
                 inferences.append(
-                    {j: float(f"{probs[j]:.4f}") for j in range(probs.size(0))}
+                    {
+                        self._get_label_or_index(j): float(f"{probs[j]:.4f}")
+                        for j in range(probs.size(0))
+                    }
                 )
             else:
                 predicted_idx = out.argmax().item()
@@ -537,6 +548,26 @@ class HuggingfaceEncoderModel(
             inferences.append(outputs[i].tolist())
 
         return inferences
+
+    def _get_label_or_index(self, index: int) -> Union[str, int]:
+        """
+        Helper method to get label from id2label mapping safely.
+        Handles int vs string key mismatches and missing keys.
+
+        Args:
+            index: The numeric index to look up in id2label mapping
+        Returns:
+            The corresponding label string if use_id2label is True and mapping exists, otherwise returns the original index
+        """
+        if not self.use_id2label:
+            return index
+
+        if hasattr(self.model_config, "id2label") and self.model_config.id2label:
+            return self.model_config.id2label.get(
+                index, self.model_config.id2label.get(str(index), index)
+            )
+
+        return index
 
     def _log_request(self, request_id: str, prompt: list[str]) -> None:
         if self.request_logger:
