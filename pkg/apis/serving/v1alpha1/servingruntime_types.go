@@ -118,6 +118,11 @@ type ServingRuntimePodSpec struct {
 	// +optional
 	SchedulerName string `json:"schedulerName,omitempty"`
 
+	// RuntimeClassName is the name of the RuntimeClass to use for this pod.
+	// More info: https://kubernetes.io/docs/concepts/containers/runtime-class/
+	// +optional
+	RuntimeClassName *string `json:"runtimeClassName,omitempty"`
+
 	// Possibly other things here
 }
 
