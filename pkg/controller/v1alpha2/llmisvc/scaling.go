@@ -176,8 +176,8 @@ func expectedHPA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.Scaling
 							},
 						},
 						Target: autoscalingv2.MetricTarget{
-							Type:         autoscalingv2.AverageValueMetricType,
-							AverageValue: resource.NewQuantity(1, resource.DecimalSI),
+							Type:  autoscalingv2.ValueMetricType,
+							Value: resource.NewQuantity(1, resource.DecimalSI),
 						},
 					},
 				},

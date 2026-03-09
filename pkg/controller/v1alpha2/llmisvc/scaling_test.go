@@ -122,8 +122,8 @@ func TestExpectedHPA(t *testing.T) {
 				assert.Equal(t, "wva_desired_replicas", metric.External.Metric.Name)
 				require.NotNil(t, metric.External.Metric.Selector)
 				assert.Equal(t, "test-svc-kserve-va", metric.External.Metric.Selector.MatchLabels["variant_name"])
-				assert.Equal(t, autoscalingv2.AverageValueMetricType, metric.External.Target.Type)
-				assert.Equal(t, resource.NewQuantity(1, resource.DecimalSI), metric.External.Target.AverageValue)
+				assert.Equal(t, autoscalingv2.ValueMetricType, metric.External.Target.Type)
+				assert.Equal(t, resource.NewQuantity(1, resource.DecimalSI), metric.External.Target.Value)
 			},
 		},
 		{
