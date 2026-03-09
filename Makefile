@@ -544,5 +544,5 @@ apidocs:
 check-doc-links:
 	@python3 hack/verify-doc-links.py && echo "$@: OK"
 
-uv-update-lockfiles:
-	bash -ec 'for value in $$(find . -name uv.lock -exec dirname {} \;); do (cd "$${value}" && echo "Updating $${value}/uv.lock" && uv update --lock); done'
+# Optional local/downstream overrides (ignored if absent)
+-include Makefile.overrides.mk
