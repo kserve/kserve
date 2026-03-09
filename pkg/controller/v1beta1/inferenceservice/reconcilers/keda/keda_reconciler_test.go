@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -1014,4 +1015,130 @@ func TestGetOriginalStringMQ(t *testing.T) {
 			assert.Equal(t, tt.expectedOut, result)
 		})
 	}
+}
+
+// newKServeOwnedHPA constructs a minimal HPA whose owner reference points to an InferenceService,
+// mimicking what the HPA reconciler creates for a KServe-managed ISVC.
+func newKServeOwnedHPA(name, namespace string) *autoscalingv2.HorizontalPodAutoscaler {
+	return &autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "serving.kserve.io/v1beta1",
+					Kind:       "InferenceService",
+					Name:       name,
+				},
+			},
+		},
+	}
+}
+
+// TestCleanupLegacyHPA verifies the three branches of cleanupLegacyHPA:
+//  1. No HPA exists        → no-op, no error
+//  2. HPA exists but not owned by an InferenceService → not deleted
+//  3. HPA exists and is owned by an InferenceService  → deleted
+func TestCleanupLegacyHPA(t *testing.T) {
+	_ = kedav1alpha1.AddToScheme(scheme.Scheme)
+
+	tests := []struct {
+		name          string
+		setupHPA      func(*fake.ClientBuilder) *fake.ClientBuilder
+		expectHPALeft bool
+	}{
+		{
+			name:          "no HPA exists - no-op",
+			setupHPA:      func(c *fake.ClientBuilder) *fake.ClientBuilder { return c },
+			expectHPALeft: false,
+		},
+		{
+			name: "HPA exists but not owned by KServe - not deleted",
+			setupHPA: func(c *fake.ClientBuilder) *fake.ClientBuilder {
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-component",
+						Namespace: "test-namespace",
+					},
+				}
+				return c.WithObjects(hpa)
+			},
+			expectHPALeft: true,
+		},
+		{
+			name: "HPA exists and is KServe-owned - deleted",
+			setupHPA: func(c *fake.ClientBuilder) *fake.ClientBuilder {
+				return c.WithObjects(newKServeOwnedHPA("test-component", "test-namespace"))
+			},
+			expectHPALeft: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cb := fake.NewClientBuilder().WithScheme(scheme.Scheme)
+			cb = tt.setupHPA(cb)
+			fakeClient := cb.Build()
+
+			r := &KedaReconciler{client: fakeClient, scheme: scheme.Scheme}
+			err := r.cleanupLegacyHPA(t.Context(), "test-component", "test-namespace")
+			require.NoError(t, err)
+
+			hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+			getErr := fakeClient.Get(t.Context(), types.NamespacedName{
+				Name:      "test-component",
+				Namespace: "test-namespace",
+			}, hpa)
+
+			if tt.expectHPALeft {
+				require.NoError(t, getErr, "HPA should still exist")
+			} else {
+				require.True(t, apierr.IsNotFound(getErr), "HPA should have been deleted (or never existed)")
+			}
+		})
+	}
+}
+
+// TestReconcile_MigrateFromHPAToKeda is an integration-style test for the HPA→KEDA migration
+// scenario: when autoscalerClass changes to "keda" while a KServe-owned HPA already exists,
+// Reconcile() should delete the HPA first and then create the ScaledObject without error.
+func TestReconcile_MigrateFromHPAToKeda(t *testing.T) {
+	_ = kedav1alpha1.AddToScheme(scheme.Scheme)
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(newKServeOwnedHPA("test-component", "test-namespace")).
+		Build()
+
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		MinReplicas: ptr.To(int32(1)),
+		MaxReplicas: 3,
+	}
+
+	r, err := NewKedaReconciler(fakeClient, scheme.Scheme, componentMeta, componentExt, &corev1.ConfigMap{})
+	require.NoError(t, err)
+
+	err = r.Reconcile(t.Context())
+	require.NoError(t, err)
+
+	// Legacy HPA must be gone.
+	hpa := &autoscalingv2.HorizontalPodAutoscaler{}
+	err = fakeClient.Get(t.Context(), types.NamespacedName{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}, hpa)
+	require.True(t, apierr.IsNotFound(err), "legacy HPA should have been deleted during migration")
+
+	// ScaledObject must be created.
+	scaledObject := &kedav1alpha1.ScaledObject{}
+	err = fakeClient.Get(t.Context(), types.NamespacedName{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}, scaledObject)
+	require.NoError(t, err)
+	assert.Equal(t, "test-component", scaledObject.Name)
 }
