@@ -1,0 +1,192 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    inference.networking.k8s.io/bundle-version: v1.3.1
+  creationTimestamp: null
+  name: inferenceobjectives.inference.networking.x-k8s.io
+spec:
+  group: inference.networking.x-k8s.io
+  names:
+    kind: InferenceObjective
+    listKind: InferenceObjectiveList
+    plural: inferenceobjectives
+    singular: inferenceobjective
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.poolRef.name
+      name: Inference Pool
+      type: string
+    - jsonPath: .spec.priority
+      name: Priority
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha2
+    schema:
+      openAPIV3Schema:
+        description: InferenceObjective is the Schema for the InferenceObjectives
+          API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              InferenceObjectiveSpec represents the desired state of a specific model use case. This resource is
+              managed by the "Inference Workload Owner" persona.
+
+              The Inference Workload Owner persona is someone that trains, verifies, and
+              leverages a large language model from a model frontend, drives the lifecycle
+              and rollout of new versions of those models, and defines the specific
+              performance and latency goals for the model. These workloads are
+              expected to operate within an InferencePool sharing compute capacity with other
+              InferenceObjectives, defined by the Inference Platform Admin.
+            properties:
+              poolRef:
+                description: PoolRef is a reference to the inference pool, the pool
+                  must exist in the same namespace.
+                properties:
+                  group:
+                    default: inference.networking.k8s.io
+                    description: Group is the group of the referent.
+                    maxLength: 253
+                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                  kind:
+                    default: InferencePool
+                    description: Kind is kind of the referent. For example "InferencePool".
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: Name is the name of the referent.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              priority:
+                description: |-
+                  Priority defines how important it is to serve the request compared to other requests in the same pool.
+                  Priority is an integer value that defines the priority of the request.
+                  The higher the value, the more critical the request is; negative values _are_ allowed.
+                  No default value is set for this field, allowing for future additions of new fields that may 'one of' with this field.
+                  However, implementations that consume this field (such as the Endpoint Picker) will treat an unset value as '0'.
+                  Priority is used in flow control, primarily in the event of resource scarcity(requests need to be queued).
+                  All requests will be queued, and flow control will _always_ allow requests of higher priority to be served first.
+                  Fairness is only enforced and tracked between requests of the same priority.
+
+                  Example: requests with Priority 10 will always be served before
+                  requests with Priority of 0 (the value used if Priority is unset or no InfereneceObjective is specified).
+                  Similarly requests with a Priority of -10 will always be served after requests with Priority of 0.
+                type: integer
+            required:
+            - poolRef
+            type: object
+          status:
+            description: InferenceObjectiveStatus defines the observed state of InferenceObjective
+            properties:
+              conditions:
+                default:
+                - lastTransitionTime: "1970-01-01T00:00:00Z"
+                  message: Waiting for controller
+                  reason: Pending
+                  status: Unknown
+                  type: Ready
+                description: |-
+                  Conditions track the state of the InferenceObjective.
+
+                  Known condition types are:
+
+                  * "Accepted"
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 8
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null

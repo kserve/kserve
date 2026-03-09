@@ -401,7 +401,8 @@ metadata:
   namespace: kserve
 spec:
   ports:
-  - port: 8443
+  - name: https
+    port: 8443
     protocol: TCP
     targetPort: https
   selector:
@@ -418,7 +419,8 @@ metadata:
   namespace: kserve
 spec:
   ports:
-  - port: 443
+  - name: https
+    port: 443
     targetPort: webhook-server
   selector:
     control-plane: kserve-controller-manager
@@ -512,6 +514,13 @@ spec:
         - containerPort: 8443
           name: https
           protocol: TCP
+        resources:
+          limits:
+            cpu: 20m
+            memory: 64Mi
+          requests:
+            cpu: 5m
+            memory: 20Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

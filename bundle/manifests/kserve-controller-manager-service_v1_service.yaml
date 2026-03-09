@@ -1,0 +1,26 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: kserve
+    app.kubernetes.io/name: kserve
+    control-plane: kserve-controller-manager
+    controller-tools.k8s.io: "1.0"
+  name: kserve-controller-manager-service
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: https
+  - name: webhook-server
+    port: 443
+    protocol: TCP
+    targetPort: webhook-server
+  selector:
+    control-plane: kserve-controller-manager
+    controller-tools.k8s.io: "1.0"
+status:
+  loadBalancer: {}

@@ -1,0 +1,11 @@
+# Override deployment mode from Serverless to RawDeployment for OLM bundle
+# since Knative is not required for standard/community deployments.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inferenceservice-config
+data:
+  deploy: |-
+    {
+        "defaultDeploymentMode": "RawDeployment"
+    }
