@@ -54,6 +54,7 @@ class V1alpha1ServingRuntimePodSpec(object):
         'image_pull_secrets': 'list[V1LocalObjectReference]',
         'labels': 'dict(str, str)',
         'node_selector': 'dict(str, str)',
+        'runtime_class_name': 'str',
         'scheduler_name': 'str',
         'tolerations': 'list[V1Toleration]',
         'volumes': 'list[V1Volume]'
@@ -67,12 +68,13 @@ class V1alpha1ServingRuntimePodSpec(object):
         'image_pull_secrets': 'imagePullSecrets',
         'labels': 'labels',
         'node_selector': 'nodeSelector',
+        'runtime_class_name': 'runtimeClassName',
         'scheduler_name': 'schedulerName',
         'tolerations': 'tolerations',
         'volumes': 'volumes'
     }
 
-    def __init__(self, affinity=None, annotations=None, containers=None, host_ipc=None, image_pull_secrets=None, labels=None, node_selector=None, scheduler_name=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, annotations=None, containers=None, host_ipc=None, image_pull_secrets=None, labels=None, node_selector=None, runtime_class_name=None, scheduler_name=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1ServingRuntimePodSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -85,6 +87,7 @@ class V1alpha1ServingRuntimePodSpec(object):
         self._image_pull_secrets = None
         self._labels = None
         self._node_selector = None
+        self._runtime_class_name = None
         self._scheduler_name = None
         self._tolerations = None
         self._volumes = None
@@ -103,6 +106,8 @@ class V1alpha1ServingRuntimePodSpec(object):
             self.labels = labels
         if node_selector is not None:
             self.node_selector = node_selector
+        if runtime_class_name is not None:
+            self.runtime_class_name = runtime_class_name
         if scheduler_name is not None:
             self.scheduler_name = scheduler_name
         if tolerations is not None:
@@ -270,6 +275,29 @@ class V1alpha1ServingRuntimePodSpec(object):
         """
 
         self._node_selector = node_selector
+
+    @property
+    def runtime_class_name(self):
+        """Gets the runtime_class_name of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+
+        RuntimeClassName is the name of the RuntimeClass to use for this pod. More info: https://kubernetes.io/docs/concepts/containers/runtime-class/  # noqa: E501
+
+        :return: The runtime_class_name of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._runtime_class_name
+
+    @runtime_class_name.setter
+    def runtime_class_name(self, runtime_class_name):
+        """Sets the runtime_class_name of this V1alpha1ServingRuntimePodSpec.
+
+        RuntimeClassName is the name of the RuntimeClass to use for this pod. More info: https://kubernetes.io/docs/concepts/containers/runtime-class/  # noqa: E501
+
+        :param runtime_class_name: The runtime_class_name of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._runtime_class_name = runtime_class_name
 
     @property
     def scheduler_name(self):
