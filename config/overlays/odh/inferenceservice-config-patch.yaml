@@ -17,14 +17,18 @@ data:
     {
         "image" : "$(kserve-storage-initializer)",
         "memoryRequest": "100Mi",
-        "memoryLimit": "1Gi",
+        "memoryLimit": "24Gi",
         "cpuRequest": "100m",
         "cpuLimit": "1",
         "enableDirectPvcVolumeMount": true,
+        "cpuModelcar": "10m",
+        "memoryModelcar": "15Mi",
         "enableModelcar": true
     }
   ingress: |-
     {
+        "enableGatewayApi": false,
+        "kserveIngressGateway": "openshift-ingress/openshift-ai-inference",
         "ingressGateway" : "knative-serving/knative-ingress-gateway",
         "knativeLocalGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
         "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
@@ -94,11 +98,35 @@ data:
         "kubectl.kubernetes.io/last-applied-configuration",
         "security.opendatahub.io/enable-auth",
         "networking.knative.dev/visibility",
-        "haproxy.router.openshift.io/timeout"
+        "haproxy.router.openshift.io/timeout",
+        "opendatahub.io/hardware-profile-name",
+        "opendatahub.io/hardware-profile-namespace"
       ]
      }
 
   security: |-
     {
       "autoMountServiceAccountToken": false
+    }
+
+  credentials: |-
+    {
+       "storageSpecSecretName": "storage-config",
+       "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
+       "gcs": {
+           "gcsCredentialFileName": "gcloud-application-credentials.json"
+       },
+       "s3": {
+           "s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
+           "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY",
+           "s3Endpoint": "",
+           "s3UseHttps": "",
+           "s3Region": "",
+           "s3VerifySSL": "",
+           "s3UseVirtualBucket": "",
+           "s3UseAccelerate": "",
+           "s3UseAnonymousCredential": "",
+           "s3CABundleConfigMap": "odh-kserve-custom-ca-bundle",
+           "s3CABundle": "/etc/ssl/custom-certs/cabundle.crt"
+       }
     }
