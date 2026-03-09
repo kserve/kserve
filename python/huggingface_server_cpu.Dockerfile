@@ -55,6 +55,9 @@ ARG TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
 ARG TORCH_VERSION=2.10.0
 
 # Install kserve using UV
+# Copy storage directory for editable install
+COPY storage storage
+
 COPY kserve kserve
 RUN cd kserve && \
     uv sync --active --no-cache && \

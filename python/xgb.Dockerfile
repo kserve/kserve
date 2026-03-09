@@ -18,6 +18,9 @@ ENV VIRTUAL_ENV=${VENV_PATH}
 RUN python3 -m venv ${VIRTUAL_ENV}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
+# Copy storage directory for editable install
+COPY storage storage
+
 # Copy and install dependencies for kserve using uv
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN cd kserve && uv sync --active --no-cache

@@ -13,27 +13,27 @@ spec:
     - name: sklearn
       version: "0"
       autoSelect: true
-      priority: 3
+      priority: 2
     - name: sklearn
       version: "1"
       autoSelect: true
-      priority: 3
+      priority: 2
     - name: xgboost
       version: "1"
       autoSelect: true
-      priority: 3
+      priority: 2
     - name: xgboost
       version: "2"
       autoSelect: true
-      priority: 3
+      priority: 2
     - name: lightgbm
       version: "3"
       autoSelect: true
-      priority: 3
+      priority: 2
     - name: lightgbm
       version: "4"
       autoSelect: true
-      priority: 3
+      priority: 2
     - name: mlflow
       version: "1"
       autoSelect: true

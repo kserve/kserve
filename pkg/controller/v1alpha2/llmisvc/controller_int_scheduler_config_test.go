@@ -35,6 +35,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 )
 
@@ -910,6 +911,178 @@ schedulingProfiles:
 		})
 	})
 
+	Context("Certificate hash annotation", func() {
+		It("should set cert-hash annotation on the scheduler pod template", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-scheduler-cert-hash"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify the scheduler deployment has the cert-hash annotation
+			Eventually(func(g Gomega, ctx context.Context) error {
+				schedulerDeployment := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, schedulerDeployment)).To(Succeed())
+
+				g.Expect(schedulerDeployment.Spec.Template.Annotations).To(
+					HaveKey(llmisvc.DefaultRestartAnnotation),
+					"Scheduler pod template should have cert-hash annotation to trigger restart on cert renewal",
+				)
+				g.Expect(schedulerDeployment.Spec.Template.Annotations[llmisvc.DefaultRestartAnnotation]).To(
+					MatchRegexp("^[0-9a-f]{64}$"), "cert-hash should be a SHA-256 hex string",
+				)
+
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should skip cert-hash annotation when scheduler supports --enable-cert-reload", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-cert-reload-skip"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			modelConfig := LLMInferenceServiceConfig("model-cert-reload",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigModelName("facebook/opt-125m"),
+				WithConfigModelURI("hf://facebook/opt-125m"),
+			)
+
+			routerConfig := LLMInferenceServiceConfig("router-cert-reload",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+			)
+			routerConfig.Spec.Router = &v1alpha2.RouterSpec{
+				Gateway: &v1alpha2.GatewaySpec{},
+				Route:   &v1alpha2.GatewayRoutesSpec{},
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "main",
+								Image: "ghcr.io/llm-d/llm-d-inference-scheduler:v0.3.0",
+								Args: []string{
+									"--enable-cert-reload",
+									"--poolName",
+									"test-pool",
+								},
+								Ports: []corev1.ContainerPort{
+									{Name: "grpc", ContainerPort: 9002, Protocol: corev1.ProtocolTCP},
+									{Name: "grpc-health", ContainerPort: 9003, Protocol: corev1.ProtocolTCP},
+									{Name: "metrics", ContainerPort: 9090, Protocol: corev1.ProtocolTCP},
+								},
+							},
+						},
+					},
+					Pool: &v1alpha2.InferencePoolSpec{},
+				},
+			}
+
+			Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithBaseRefs(
+					corev1.LocalObjectReference{Name: "model-cert-reload"},
+					corev1.LocalObjectReference{Name: "router-cert-reload"},
+				),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - the scheduler deployment must NOT have cert-hash annotation
+			schedulerDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-router-scheduler",
+					Namespace: testNs.Name,
+				}, schedulerDeployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(schedulerDeployment.Spec.Template.Annotations).NotTo(
+				HaveKey(llmisvc.DefaultRestartAnnotation),
+				"Scheduler with --enable-cert-reload should not have cert-hash annotation",
+			)
+		})
+	})
+
+	Context("Scheduler RBAC", func() {
+		It("should create scheduler role with leases permission for leader election", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-scheduler-rbac"
+			nsName := kmeta.ChildName(svcName, "-test")
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nsName,
+				},
+			}
+
+			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
+			defer func() {
+				envTest.DeleteAll(ctx, namespace)
+			}()
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](nsName),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
+			}()
+
+			// then - verify the scheduler role is created with leases permission
+			expectedRole := &rbacv1.Role{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-epp-role",
+					Namespace: nsName,
+				}, expectedRole)
+			}).WithContext(ctx).Should(Succeed())
+
+			// Verify leases permission exists
+			hasLeasesPermission := false
+			for _, rule := range expectedRole.Rules {
+				for _, apiGroup := range rule.APIGroups {
+					if apiGroup == "coordination.k8s.io" {
+						for _, resource := range rule.Resources {
+							if resource == "leases" {
+								hasLeasesPermission = true
+								// Verify all necessary verbs for leader election
+								Expect(rule.Verbs).To(ContainElements("get", "list", "watch", "create", "update", "patch", "delete"))
+							}
+						}
+					}
+				}
+			}
+			Expect(hasLeasesPermission).To(BeTrue(), "Expected scheduler role to have leases permission for leader election")
+		})
+	})
+
 	Context("UDS tokenizer config injection", func() {
 		It("should inject tokenizersPoolConfig when precise-prefix-cache-scorer has indexerConfig", func(ctx SpecContext) {
 			// given
@@ -1289,65 +1462,6 @@ schedulingProfiles:
 					corev1.LocalObjectReference{Name: "new-secret"}))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
-		})
-	})
-
-	Context("Scheduler RBAC", func() {
-		It("should create scheduler role with leases permission for leader election", func(ctx SpecContext) {
-			// given
-			svcName := "test-llm-scheduler-rbac"
-			nsName := kmeta.ChildName(svcName, "-test")
-			namespace := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nsName,
-				},
-			}
-
-			Expect(envTest.Client.Create(ctx, namespace)).To(Succeed())
-			Expect(envTest.Client.Create(ctx, IstioShadowService(svcName, nsName))).To(Succeed())
-			defer func() {
-				envTest.DeleteAll(ctx, namespace)
-			}()
-
-			llmSvc := LLMInferenceService(svcName,
-				InNamespace[*v1alpha2.LLMInferenceService](nsName),
-				WithModelURI("hf://facebook/opt-125m"),
-				WithManagedRoute(),
-				WithManagedGateway(),
-				WithManagedScheduler(),
-			)
-
-			// when
-			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
-			defer func() {
-				Expect(envTest.Delete(ctx, llmSvc)).To(Succeed())
-			}()
-
-			// then - verify the scheduler role is created with leases permission
-			expectedRole := &rbacv1.Role{}
-			Eventually(func(g Gomega, ctx context.Context) error {
-				return envTest.Get(ctx, types.NamespacedName{
-					Name:      svcName + "-epp-role",
-					Namespace: nsName,
-				}, expectedRole)
-			}).WithContext(ctx).Should(Succeed())
-
-			// Verify leases permission exists
-			hasLeasesPermission := false
-			for _, rule := range expectedRole.Rules {
-				for _, apiGroup := range rule.APIGroups {
-					if apiGroup == "coordination.k8s.io" {
-						for _, resource := range rule.Resources {
-							if resource == "leases" {
-								hasLeasesPermission = true
-								// Verify all necessary verbs for leader election
-								Expect(rule.Verbs).To(ContainElements("get", "list", "watch", "create", "update", "patch", "delete"))
-							}
-						}
-					}
-				}
-			}
-			Expect(hasLeasesPermission).To(BeTrue(), "Expected scheduler role to have leases permission for leader election")
 		})
 	})
 })

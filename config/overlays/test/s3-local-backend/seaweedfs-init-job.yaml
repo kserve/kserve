@@ -12,6 +12,7 @@ spec:
         - /bin/sh
         - -c
         - |
+          aws s3 mb s3://logger-output || true
           aws s3 mb s3://example-models || true
           curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o sklearn-model.joblib
           aws s3 cp sklearn-model.joblib s3://example-models/sklearn/model.joblib  --no-verify-ssl

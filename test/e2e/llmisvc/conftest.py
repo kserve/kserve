@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Fixture factory - not called explicitly, but must be imported for pytest to discover it.
+from .fixtures import test_case  # noqa: F401
+
 
 # This hook is used to ensure that the test names are unique and to ensure that
 # the test names are consistent with the cluster marks.
