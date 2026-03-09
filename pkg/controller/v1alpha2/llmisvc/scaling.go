@@ -29,6 +29,7 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -55,10 +56,20 @@ func (r *LLMISVCReconciler) reconcileScaling(ctx context.Context, llmSvc *v1alph
 	ctx = log.IntoContext(ctx, logger)
 
 	if err := r.reconcileMainWorkloadScaling(ctx, llmSvc, config); err != nil {
+		if meta.IsNoMatchError(err) {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "ScalingCRDNotFound",
+				"Scaling disabled: required CRD not found: %v", err)
+			return nil
+		}
 		return fmt.Errorf("failed to reconcile main workload scaling: %w", err)
 	}
 
 	if err := r.reconcilePrefillWorkloadScaling(ctx, llmSvc, config); err != nil {
+		if meta.IsNoMatchError(err) {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "ScalingCRDNotFound",
+				"Scaling disabled: required CRD not found: %v", err)
+			return nil
+		}
 		return fmt.Errorf("failed to reconcile prefill workload scaling: %w", err)
 	}
 
@@ -202,13 +213,6 @@ func (r *LLMISVCReconciler) reconcileKEDAScaledObject(ctx context.Context, llmSv
 		return r.deleteScaledObjectIfExists(ctx, llmSvc, scaledObjectName)
 	}
 
-	if !r.ScaledObjectAvailable {
-		log.FromContext(ctx).Info("KEDA ScaledObject CRD not available, skipping ScaledObject reconciliation")
-		r.Event(llmSvc, corev1.EventTypeWarning, "ScaledObjectCRDNotFound",
-			"KEDA ScaledObject CRD not available; KEDA reconciliation skipped. Install KEDA and restart the controller.")
-		return nil
-	}
-
 	if config.AutoscalingConfig == nil || config.AutoscalingConfig.PrometheusURL == "" {
 		return errors.New("autoscaling.prometheusURL is required in inferenceservice-config when using KEDA")
 	}
@@ -290,13 +294,6 @@ func (r *LLMISVCReconciler) reconcileVA(ctx context.Context, llmSvc *v1alpha2.LL
 
 	if scaling == nil || scaling.WVA == nil || isStopped {
 		return r.deleteVAIfExists(ctx, llmSvc, vaName)
-	}
-
-	if !r.VariantAutoscalingAvailable {
-		log.FromContext(ctx).Info("VariantAutoscaling CRD not available, skipping VA reconciliation")
-		r.Event(llmSvc, corev1.EventTypeWarning, "VariantAutoscalingCRDNotFound",
-			"VariantAutoscaling CRD not available; WVA reconciliation skipped. Install the WVA operator and restart the controller.")
-		return nil
 	}
 
 	expected := expectedVA(llmSvc, scaling, deploymentName, vaName, podSpec)
