@@ -25,7 +25,6 @@ import (
 	"github.com/stretchr/testify/require"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -523,12 +522,6 @@ func TestNamingHelpers(t *testing.T) {
 
 	t.Run("main deployment name (standard)", func(t *testing.T) {
 		assert.Equal(t, "sim-llama-kserve", mainDeploymentName(svc))
-	})
-
-	t.Run("main deployment name (multi-node)", func(t *testing.T) {
-		mnSvc := newTestLLMISVC("sim-llama", "llm-d-dev")
-		mnSvc.Spec.Worker = &corev1.PodSpec{}
-		assert.Equal(t, "sim-llama-kserve-mn", mainDeploymentName(mnSvc))
 	})
 
 	t.Run("prefill deployment name", func(t *testing.T) {
