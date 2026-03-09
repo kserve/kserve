@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ubuntu:22.04
+ARG BASE_IMAGE=ubuntu:24.04
 ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS base
@@ -8,16 +8,16 @@ ARG PYTHON=python3
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install --no-install-recommends --fix-missing -y \
-        g++-12 \
-        gcc-12 \
+        g++-14 \
+        gcc-14 \
         google-perftools \
         libgl1 \
-        libglib2.0-0 \
+        libglib2.0-0t64 \
         libjemalloc2 \
         libnuma1 \
         numactl \
-        python3.10-dev \
-        python3.10-venv \
+        python3.12-dev \
+        python3.12-venv \
         python3-pip \
         curl && \
     apt-get clean && \
@@ -25,7 +25,7 @@ RUN apt-get update && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 
-RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 --slave /usr/bin/g++ g++ /usr/bin/g++-12
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 10 --slave /usr/bin/g++ g++ /usr/bin/g++-14
 
 RUN ln -sf "$(which ${PYTHON})" /usr/bin/python
 
@@ -118,8 +118,6 @@ RUN df -hT
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
 COPY third_party/pip-licenses.py pip-licenses.py
-# TODO: Remove this when upgrading to python 3.11+
-RUN pip install --no-cache-dir tomli
 RUN mkdir -p third_party/library && python3 pip-licenses.py
 
 # Build the final image
@@ -132,7 +130,7 @@ ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-RUN useradd kserve -m -u 1000 -d /home/kserve
+RUN userdel -r ubuntu && useradd kserve -m -u 1000 -d /home/kserve
 
 COPY --from=builder --chown=kserve:kserve third_party third_party
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV

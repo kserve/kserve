@@ -5,7 +5,7 @@ ARG WORKSPACE_DIR=/kserve-workspace
 
 #################### BASE BUILD IMAGE ####################
 # prepare basic build environment
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04 AS base
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu24.04 AS base
 
 ARG WORKSPACE_DIR
 ARG CUDA_VERSION=12.9.1
@@ -14,13 +14,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -y \
     && apt-get install -y ccache software-properties-common git curl sudo gcc python-is-python3 \
-    && add-apt-repository ppa:deadsnakes/ppa \
-    && apt-get update -y \
     && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
     && update-alternatives --set python3 /usr/bin/python${PYTHON_VERSION} \
     && ln -sf /usr/bin/python${PYTHON_VERSION}-config /usr/bin/python3-config \
-    && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} \
+    && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - --break-system-packages \
     && python3 --version && python3 -m pip --version \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -112,7 +110,7 @@ RUN mkdir -p third_party/library && python3 pip-licenses.py
 #################### WHEEL BUILD IMAGE ####################
 
 #################### PROD IMAGE ####################
-FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu22.04 AS prod
+FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu24.04 AS prod
 
 ARG WORKSPACE_DIR
 ARG CUDA_VERSION=12.9.1
@@ -126,13 +124,11 @@ RUN apt-get update -y \
     && apt-get upgrade -y \
     && apt-get install -y software-properties-common curl \
     && apt-get install -y ffmpeg libsm6 libxext6 libgl1 gcc libibverbs-dev \
-    && add-apt-repository ppa:deadsnakes/ppa \
-    && apt-get update -y \
     && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
     && update-alternatives --set python3 /usr/bin/python${PYTHON_VERSION} \
     && ln -sf /usr/bin/python${PYTHON_VERSION}-config /usr/bin/python3-config \
-    && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} \
+    && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - --break-system-packages \
     && python3 --version && python3 -m pip --version \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -142,7 +138,7 @@ ENV VIRTUAL_ENV=${WORKSPACE_DIR}/${VENV_PATH}
 ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
 
 # Create non-root user
-RUN useradd kserve -m -u 1000 -d /home/kserve
+RUN userdel -r ubuntu && useradd kserve -m -u 1000 -d /home/kserve
 
 COPY --from=build --chown=kserve:kserve ${WORKSPACE_DIR}/third_party third_party
 COPY --from=build --chown=kserve:kserve ${WORKSPACE_DIR}/$VENV_PATH $VENV_PATH
