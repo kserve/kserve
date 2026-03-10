@@ -2,7 +2,8 @@ name: helm-publish
 
 on:
   release:
-    types: [prereleased, released]
+    types: [published]
+
   workflow_dispatch:
 
 env:
@@ -36,7 +37,12 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Package helm charts
-        run: for dir in ./*/; do helm package $dir; done
+        run: |
+          for dir in ./*/; do
+            # Skip directories starting with underscore (e.g., _common)
+            [[ $(basename "$dir") == _* ]] && continue
+            helm package "$dir"
+          done
         working-directory: ${{ env.HELM_CHARTS_PATH }}
 
       - name: Push Charts to GHCR

@@ -29,6 +29,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      install_methods: ${{ steps.set-matrix.outputs.install_methods }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            charts:
+              - 'charts/**'
+            non_charts:
+              - '**'
+              - '!charts/**'
+      - id: set-matrix
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo 'install_methods=["kustomize","helm"]' >> $GITHUB_OUTPUT
+          elif [[ "${{ steps.filter.outputs.charts }}" == "true" && \
+                  "${{ steps.filter.outputs.non_charts }}" == "true" ]]; then
+            echo 'install_methods=["kustomize","helm"]' >> $GITHUB_OUTPUT
+          elif [[ "${{ steps.filter.outputs.charts }}" == "true" ]]; then
+            echo 'install_methods=["helm"]' >> $GITHUB_OUTPUT
+          else
+            echo 'install_methods=["kustomize"]' >> $GITHUB_OUTPUT
+          fi
+
   kserve-image-build:
     runs-on: ubuntu-latest
     steps:
@@ -280,11 +308,11 @@ jobs:
 
   test-predictor:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, predictor-runtime-build]
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
       matrix:
-        install-method: ["kustomize", "helm"]
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -351,11 +379,11 @@ jobs:
   test-transformer-explainer-mms:
     runs-on: ubuntu-latest
     needs:
-      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     strategy:
       fail-fast: false
       matrix:
-        install-method: ["kustomize", "helm"]
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -451,11 +479,11 @@ jobs:
   test-graph:
     runs-on: ubuntu-latest
     needs:
-      [kserve-image-build, predictor-runtime-build, graph-tests-images-build]
+      [detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
     strategy:
       fail-fast: false
       matrix:
-        install-method: ["kustomize", "helm"]
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -540,11 +568,11 @@ jobs:
   test-path-based-routing:
     runs-on: ubuntu-latest
     needs:
-      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     strategy:
       fail-fast: false
       matrix:
-        install-method: ["kustomize", "helm"]
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -650,11 +678,11 @@ jobs:
 
   test-qpext:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, predictor-runtime-build]
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
       matrix:
-        install-method: ["kustomize", "helm"]
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -768,8 +796,8 @@ jobs:
         run: ./test/scripts/gh-actions/setup-uv.sh
 
       - name: Install Kserve from helm
-        run: |        
-          export INSTALL_METHOD="helm"          
+        run: |
+          export INSTALL_METHOD="helm"
           ./test/scripts/gh-actions/setup-kserve.sh
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
@@ -793,9 +821,9 @@ jobs:
       matrix:
         # Test with Ingress and Gateway API
         network-layer: ["istio-ingress", "envoy-gatewayapi", "istio-gatewayapi"]
-        install-method: ["kustomize", "helm"]
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     needs:
-      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -828,7 +856,7 @@ jobs:
       - name: Check Metrics Server Logs
         run: |
           kubectl logs -n kube-system deploy/metrics-server
-      
+
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
         with:
@@ -926,11 +954,11 @@ jobs:
   test-autoscaling:
     runs-on: ubuntu-latest
     needs:
-      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     strategy:
       fail-fast: false
       matrix:
-        install-method: ["kustomize", "helm"]
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -963,7 +991,7 @@ jobs:
       - name: Check Metrics Server Logs
         run: |
           kubectl logs -n kube-system deploy/metrics-server
-      
+
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
         with:
@@ -1020,11 +1048,11 @@ jobs:
   test-kourier:
     runs-on: ubuntu-latest
     needs:
-      [kserve-image-build, predictor-runtime-build, graph-tests-images-build]
+      [detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
     strategy:
       fail-fast: false
       matrix:
-        install-method: ["kustomize", "helm"]
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -1119,11 +1147,11 @@ jobs:
 
   test-llm:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, predictor-runtime-build]
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
       matrix:
-        install-method: ["kustomize", "helm"]
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -1187,11 +1215,11 @@ jobs:
 
   test-huggingface-server-vllm:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, predictor-runtime-build]
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
       matrix:
-        install-method: ["kustomize", "helm"]
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -1255,11 +1283,11 @@ jobs:
 
   test-modelcache:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, predictor-runtime-build]
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
       matrix:
-        install-method: ["kustomize", "helm"]
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
