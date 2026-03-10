@@ -327,6 +327,71 @@ func TestExpectedScaledObject(t *testing.T) {
 				assert.True(t, *so.OwnerReferences[0].Controller)
 			},
 		},
+		{
+			name:   "no auth fields when not configured",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
+			},
+			config:         &Config{AutoscalingConfig: &AutoscalingConfig{PrometheusURL: "http://prom:9090"}},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			soName:         "test-svc-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				trigger := so.Spec.Triggers[0]
+				assert.NotContains(t, trigger.Metadata, "authModes")
+				assert.Nil(t, trigger.AuthenticationRef)
+			},
+		},
+		{
+			name:   "TriggerAuthentication auth fields are wired into trigger",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
+			},
+			config: &Config{AutoscalingConfig: &AutoscalingConfig{
+				PrometheusURL:             "https://prom.monitoring:9090",
+				PrometheusAuthModes:       "bearer",
+				PrometheusTriggerAuthName: "prom-bearer-auth",
+				PrometheusTriggerAuthKind: "TriggerAuthentication",
+			}},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			soName:         "test-svc-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				trigger := so.Spec.Triggers[0]
+				assert.Equal(t, "bearer", trigger.Metadata["authModes"])
+				require.NotNil(t, trigger.AuthenticationRef)
+				assert.Equal(t, "prom-bearer-auth", trigger.AuthenticationRef.Name)
+				assert.Equal(t, "TriggerAuthentication", trigger.AuthenticationRef.Kind)
+			},
+		},
+		{
+			name:   "ClusterTriggerAuthentication auth fields are wired into trigger",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
+			},
+			config: &Config{AutoscalingConfig: &AutoscalingConfig{
+				PrometheusURL:             "https://prom.monitoring:9090",
+				PrometheusAuthModes:       "bearer",
+				PrometheusTriggerAuthName: "cluster-prom-auth",
+				PrometheusTriggerAuthKind: "ClusterTriggerAuthentication",
+			}},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			soName:         "test-svc-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				trigger := so.Spec.Triggers[0]
+				assert.Equal(t, "bearer", trigger.Metadata["authModes"])
+				require.NotNil(t, trigger.AuthenticationRef)
+				assert.Equal(t, "cluster-prom-auth", trigger.AuthenticationRef.Name)
+				assert.Equal(t, "ClusterTriggerAuthentication", trigger.AuthenticationRef.Kind)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -427,6 +492,74 @@ func TestExpectedVA(t *testing.T) {
 			assert.Equal(t, tt.vaName, va.Name)
 			assert.Equal(t, tt.llmSvc.Namespace, va.Namespace)
 			tt.validate(t, va)
+		})
+	}
+}
+
+func TestValidateAutoscalingConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     *AutoscalingConfig
+		wantErr string
+	}{
+		{
+			name:    "nil config returns error",
+			cfg:     nil,
+			wantErr: "autoscaling.prometheusURL is required",
+		},
+		{
+			name:    "missing prometheusURL returns error",
+			cfg:     &AutoscalingConfig{},
+			wantErr: "autoscaling.prometheusURL is required",
+		},
+		{
+			name: "no auth fields is valid",
+			cfg:  &AutoscalingConfig{PrometheusURL: "http://prom:9090"},
+		},
+		{
+			name: "both auth fields set is valid",
+			cfg: &AutoscalingConfig{
+				PrometheusURL:             "https://prom:9090",
+				PrometheusAuthModes:       "bearer",
+				PrometheusTriggerAuthName: "prom-auth",
+			},
+		},
+		{
+			name: "authModes set without triggerAuthName returns error",
+			cfg: &AutoscalingConfig{
+				PrometheusURL:       "https://prom:9090",
+				PrometheusAuthModes: "bearer",
+			},
+			wantErr: "autoscaling.prometheusAuthModes and autoscaling.prometheusTriggerAuthName must both be set or both be empty",
+		},
+		{
+			name: "triggerAuthName set without authModes returns error",
+			cfg: &AutoscalingConfig{
+				PrometheusURL:             "https://prom:9090",
+				PrometheusTriggerAuthName: "prom-auth",
+			},
+			wantErr: "autoscaling.prometheusAuthModes and autoscaling.prometheusTriggerAuthName must both be set or both be empty",
+		},
+		{
+			name: "ClusterTriggerAuthentication kind with both auth fields is valid",
+			cfg: &AutoscalingConfig{
+				PrometheusURL:             "https://prom:9090",
+				PrometheusAuthModes:       "bearer",
+				PrometheusTriggerAuthName: "cluster-prom-auth",
+				PrometheusTriggerAuthKind: "ClusterTriggerAuthentication",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateAutoscalingConfig(tt.cfg)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }

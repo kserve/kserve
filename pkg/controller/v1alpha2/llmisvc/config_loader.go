@@ -123,6 +123,22 @@ type AutoscalingConfig struct {
 	PrometheusURL string `json:"prometheusURL"`
 	// PrometheusTLSInsecureSkipVerify disables TLS certificate verification for the Prometheus connection.
 	PrometheusTLSInsecureSkipVerify bool `json:"prometheusTLSInsecureSkipVerify"`
+	// PrometheusAuthModes is the KEDA authModes value for the Prometheus trigger
+	// (e.g. "bearer", "basic", "tls"). Empty means no authentication.
+	// See: https://keda.sh/docs/latest/scalers/prometheus/#authentication-parameters
+	// +optional
+	PrometheusAuthModes string `json:"prometheusAuthModes,omitempty"`
+	// PrometheusTriggerAuthName is the name of a pre-existing TriggerAuthentication or
+	// ClusterTriggerAuthentication CR that KEDA should use when querying Prometheus.
+	// The CR must be created by the cluster admin before enabling KEDA autoscaling.
+	// +optional
+	PrometheusTriggerAuthName string `json:"prometheusTriggerAuthName,omitempty"`
+	// PrometheusTriggerAuthKind specifies the kind of the authentication CR referenced by
+	// PrometheusTriggerAuthName. Accepted values are "TriggerAuthentication" (namespaced)
+	// and "ClusterTriggerAuthentication" (cluster-scoped). Defaults to "TriggerAuthentication"
+	// when empty. ClusterTriggerAuthentication is recommended for multi-namespace deployments.
+	// +optional
+	PrometheusTriggerAuthKind string `json:"prometheusTriggerAuthKind,omitempty"`
 }
 
 const autoscalingConfigName = "autoscaling"

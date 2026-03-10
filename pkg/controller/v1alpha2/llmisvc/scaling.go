@@ -207,14 +207,28 @@ func (r *LLMISVCReconciler) reconcileActuator(ctx context.Context, llmSvc *v1alp
 	return r.reconcileHPA(ctx, llmSvc, scaling, isStopped, deploymentName, vaName, hpaName)
 }
 
+// validateAutoscalingConfig checks that the AutoscalingConfig is valid for use with KEDA.
+// It returns an error if the config is nil, if PrometheusURL is missing, or if the auth
+// fields are only partially configured (both prometheusAuthModes and prometheusTriggerAuthName
+// must be set together or both left empty).
+func validateAutoscalingConfig(cfg *AutoscalingConfig) error {
+	if cfg == nil || cfg.PrometheusURL == "" {
+		return errors.New("autoscaling.prometheusURL is required in inferenceservice-config when using KEDA")
+	}
+	if (cfg.PrometheusTriggerAuthName == "") != (cfg.PrometheusAuthModes == "") {
+		return errors.New("autoscaling.prometheusAuthModes and autoscaling.prometheusTriggerAuthName must both be set or both be empty")
+	}
+	return nil
+}
+
 // reconcileKEDAScaledObject creates or updates a KEDA ScaledObject, or deletes it when not needed.
 func (r *LLMISVCReconciler) reconcileKEDAScaledObject(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, isStopped bool, config *Config, deploymentName, vaName, scaledObjectName string) error {
 	if scaling == nil || scaling.WVA == nil || isStopped || scaling.WVA.KEDA == nil {
 		return r.deleteScaledObjectIfExists(ctx, llmSvc, scaledObjectName)
 	}
 
-	if config.AutoscalingConfig == nil || config.AutoscalingConfig.PrometheusURL == "" {
-		return errors.New("autoscaling.prometheusURL is required in inferenceservice-config when using KEDA")
+	if err := validateAutoscalingConfig(config.AutoscalingConfig); err != nil {
+		return err
 	}
 
 	expected := expectedScaledObject(llmSvc, scaling, config, deploymentName, vaName, scaledObjectName)
@@ -269,21 +283,42 @@ func expectedScaledObject(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha
 			Advanced:              keda.Advanced,
 			InitialCooldownPeriod: keda.InitialCooldownPeriod,
 			Triggers: []kedav1alpha1.ScaleTriggers{
-				{
-					Type: "prometheus",
-					Name: "wva-desired-replicas",
-					Metadata: map[string]string{
-						"serverAddress": config.AutoscalingConfig.PrometheusURL,
-						"query":         query,
-						"threshold":     "1",
-						"unsafeSsl":     strconv.FormatBool(config.AutoscalingConfig.PrometheusTLSInsecureSkipVerify),
-					},
-				},
+				prometheusTrigger(config.AutoscalingConfig, query),
 			},
 		},
 	}
 
 	return so
+}
+
+// prometheusTrigger builds the KEDA ScaleTriggers entry for the Prometheus scaler.
+// Authentication is optional: when PrometheusAuthModes and PrometheusTriggerAuthName are
+// set in the config, the trigger will carry authModes metadata and an AuthenticationRef
+// pointing to the pre-existing TriggerAuthentication or ClusterTriggerAuthentication CR.
+func prometheusTrigger(cfg *AutoscalingConfig, query string) kedav1alpha1.ScaleTriggers {
+	trigger := kedav1alpha1.ScaleTriggers{
+		Type: "prometheus",
+		Name: "wva-desired-replicas",
+		Metadata: map[string]string{
+			"serverAddress": cfg.PrometheusURL,
+			"query":         query,
+			"threshold":     "1",
+			"unsafeSsl":     strconv.FormatBool(cfg.PrometheusTLSInsecureSkipVerify),
+		},
+	}
+
+	if cfg.PrometheusAuthModes != "" {
+		trigger.Metadata["authModes"] = cfg.PrometheusAuthModes
+	}
+
+	if cfg.PrometheusTriggerAuthName != "" {
+		trigger.AuthenticationRef = &kedav1alpha1.AuthenticationRef{
+			Name: cfg.PrometheusTriggerAuthName,
+			Kind: cfg.PrometheusTriggerAuthKind,
+		}
+	}
+
+	return trigger
 }
 
 // reconcileVA creates, updates, or deletes a VariantAutoscaling CR based on the scaling configuration.
