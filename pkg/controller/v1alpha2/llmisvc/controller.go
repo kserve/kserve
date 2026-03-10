@@ -271,9 +271,6 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.EnqueueOnLLMInferenceServicePods),
 			builder.WithPredicates(PodStatusPredicate()))
 
-	if err := gwapiv1.Install(mgr.GetScheme()); err != nil {
-		return fmt.Errorf("failed to add GIE APIs to scheme: %w", err)
-	}
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), gwapiv1.GroupVersion.String(), "HTTPRoute"); ok && err == nil {
 		b = b.Owns(&gwapiv1.HTTPRoute{}, builder.WithPredicates(childResourcesPredicate)).
 			Watches(&gwapiv1.HTTPRoute{}, r.enqueueOnHttpRouteChange(logger))
@@ -282,19 +279,11 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		b = b.Watches(&gwapiv1.Gateway{}, r.enqueueOnGatewayChange(logger))
 	}
 
-	// Install GIE v1 API and check availability
-	if err := igwapi.Install(mgr.GetScheme()); err != nil {
-		return fmt.Errorf("failed to add GIE v1 APIs to scheme: %w", err)
-	}
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapi.GroupVersion.String(), "InferencePool"); ok && err == nil {
 		r.InferencePoolV1Available = true
 		b = b.Owns(&igwapi.InferencePool{}, builder.WithPredicates(childResourcesPredicate))
 	}
 
-	// Install GIE v1alpha2 API and check availability (for backwards compatibility during migration)
-	if err := igwapiv1alpha2.Install(mgr.GetScheme()); err != nil {
-		return fmt.Errorf("failed to add GIE v1alpha2 APIs to scheme: %w", err)
-	}
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapiv1alpha2.GroupVersion.String(), "InferencePool"); ok && err == nil {
 		r.InferencePoolV1Alpha2Available = true
 		b = b.Owns(&igwapiv1alpha2.InferencePool{}, builder.WithPredicates(childResourcesPredicate))
@@ -302,9 +291,6 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	logger.Info("InferencePool CRD availability", "v1", r.InferencePoolV1Available, "v1alpha2", r.InferencePoolV1Alpha2Available)
 
-	if err := lwsapi.AddToScheme(mgr.GetScheme()); err != nil {
-		return fmt.Errorf("failed to add LeaderWorkerSet APIs to scheme: %w", err)
-	}
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), lwsapi.GroupVersion.String(), "LeaderWorkerSet"); ok && err == nil {
 		b = b.Owns(&lwsapi.LeaderWorkerSet{}, builder.WithPredicates(childResourcesPredicate))
 	}

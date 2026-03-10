@@ -18,12 +18,10 @@ import pytest
 from ..common.gw_api import (
     create_or_update_gateway,
     create_or_update_route,
-    delete_gateway,
-    delete_route,
 )
 from kserve import KServeClient, constants, V1alpha1LLMInferenceService
 from kubernetes import client, config
-from typing import List
+from typing import List, Optional
 
 from .logging import logger
 
@@ -428,6 +426,74 @@ LLMINFERENCESERVICE_CONFIGS = {
                                     {
                                         "path": {
                                             "type": "PathPrefix",
+                                            "value": "/kserve-ci-e2e-test/custom-route-timeout-test/v1/completions",
+                                        },
+                                    },
+                                ],
+                                "filters": [
+                                    {
+                                        "type": "URLRewrite",
+                                        "urlRewrite": {
+                                            "path": {
+                                                "replacePrefixMatch": "/v1/completions",
+                                                "type": "ReplacePrefixMatch",
+                                            },
+                                        },
+                                    },
+                                ],
+                                "backendRefs": [
+                                    {
+                                        "group": "inference.networking.k8s.io",
+                                        "kind": "InferencePool",
+                                        "name": "custom-route-timeout-test-inference-pool",
+                                        "namespace": KSERVE_TEST_NAMESPACE,
+                                        "port": 8000,
+                                    }
+                                ],
+                            },
+                            {
+                                "timeouts": {
+                                    "request": "30s",
+                                    "backendRequest": "30s",
+                                },
+                                "matches": [
+                                    {
+                                        "path": {
+                                            "type": "PathPrefix",
+                                            "value": "/kserve-ci-e2e-test/custom-route-timeout-test/v1/chat/completions",
+                                        },
+                                    },
+                                ],
+                                "filters": [
+                                    {
+                                        "type": "URLRewrite",
+                                        "urlRewrite": {
+                                            "path": {
+                                                "replacePrefixMatch": "/v1/chat/completions",
+                                                "type": "ReplacePrefixMatch",
+                                            },
+                                        },
+                                    },
+                                ],
+                                "backendRefs": [
+                                    {
+                                        "group": "inference.networking.k8s.io",
+                                        "kind": "InferencePool",
+                                        "name": "custom-route-timeout-test-inference-pool",
+                                        "namespace": KSERVE_TEST_NAMESPACE,
+                                        "port": 8000,
+                                    }
+                                ],
+                            },
+                            {
+                                "timeouts": {
+                                    "request": "30s",
+                                    "backendRequest": "30s",
+                                },
+                                "matches": [
+                                    {
+                                        "path": {
+                                            "type": "PathPrefix",
                                             "value": "/kserve-ci-e2e-test/custom-route-timeout-test",
                                         },
                                     },
@@ -445,9 +511,9 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 ],
                                 "backendRefs": [
                                     {
-                                        "group": "inference.networking.k8s.io",
-                                        "kind": "InferencePool",
-                                        "name": "custom-route-timeout-test-inference-pool",
+                                        "group": "",
+                                        "kind": "Service",
+                                        "name": "custom-route-timeout-test-kserve-workload-svc",
                                         "namespace": KSERVE_TEST_NAMESPACE,
                                         "port": 8000,
                                     }
@@ -475,6 +541,74 @@ LLMINFERENCESERVICE_CONFIGS = {
                                     {
                                         "path": {
                                             "type": "PathPrefix",
+                                            "value": "/kserve-ci-e2e-test/custom-route-timeout-pd-test/v1/completions",
+                                        },
+                                    },
+                                ],
+                                "filters": [
+                                    {
+                                        "type": "URLRewrite",
+                                        "urlRewrite": {
+                                            "path": {
+                                                "replacePrefixMatch": "/v1/completions",
+                                                "type": "ReplacePrefixMatch",
+                                            },
+                                        },
+                                    },
+                                ],
+                                "backendRefs": [
+                                    {
+                                        "group": "inference.networking.k8s.io",
+                                        "kind": "InferencePool",
+                                        "name": "custom-route-timeout-pd-test-inference-pool",
+                                        "namespace": KSERVE_TEST_NAMESPACE,
+                                        "port": 8000,
+                                    }
+                                ],
+                            },
+                            {
+                                "timeouts": {
+                                    "request": "30s",
+                                    "backendRequest": "30s",
+                                },
+                                "matches": [
+                                    {
+                                        "path": {
+                                            "type": "PathPrefix",
+                                            "value": "/kserve-ci-e2e-test/custom-route-timeout-pd-test/v1/chat/completions",
+                                        },
+                                    },
+                                ],
+                                "filters": [
+                                    {
+                                        "type": "URLRewrite",
+                                        "urlRewrite": {
+                                            "path": {
+                                                "replacePrefixMatch": "/v1/chat/completions",
+                                                "type": "ReplacePrefixMatch",
+                                            },
+                                        },
+                                    },
+                                ],
+                                "backendRefs": [
+                                    {
+                                        "group": "inference.networking.k8s.io",
+                                        "kind": "InferencePool",
+                                        "name": "custom-route-timeout-pd-test-inference-pool",
+                                        "namespace": KSERVE_TEST_NAMESPACE,
+                                        "port": 8000,
+                                    }
+                                ],
+                            },
+                            {
+                                "timeouts": {
+                                    "request": "30s",
+                                    "backendRequest": "30s",
+                                },
+                                "matches": [
+                                    {
+                                        "path": {
+                                            "type": "PathPrefix",
                                             "value": "/kserve-ci-e2e-test/custom-route-timeout-pd-test",
                                         },
                                     },
@@ -492,9 +626,9 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 ],
                                 "backendRefs": [
                                     {
-                                        "group": "inference.networking.k8s.io",
-                                        "kind": "InferencePool",
-                                        "name": "custom-route-timeout-pd-test-inference-pool",
+                                        "group": "",
+                                        "kind": "Service",
+                                        "name": "custom-route-timeout-pd-test-kserve-workload-svc",
                                         "namespace": KSERVE_TEST_NAMESPACE,
                                         "port": 8000,
                                     }
@@ -712,33 +846,11 @@ def test_case(request):
             logger.info("Skipping resource deletion after test execution.")
             return  # noqa: B012
 
-        # Execute after test hooks
         for func in tc.after_test:
             try:
                 func()
             except Exception as after_test_error:
                 logger.warning(f"Failed to execute after test hook: {after_test_error}")
-
-        # Cleanup created configs
-        for config_name in created_configs:
-            try:
-                logger.info(
-                    f"Cleaning up unique LLMInferenceServiceConfig {config_name}"
-                )
-
-                if os.getenv("SKIP_RESOURCE_DELETION", "False").lower() in (
-                    "false",
-                    "0",
-                    "f",
-                ):
-                    _delete_llmisvc_config(
-                        kserve_client, config_name, KSERVE_TEST_NAMESPACE
-                    )
-                logger.info(f"✓ Deleted unique LLMInferenceServiceConfig {config_name}")
-            except Exception as e:
-                logger.warning(
-                    f"Failed to cleanup LLMInferenceServiceConfig {config_name}: {e}"
-                )
 
 
 def _get_model_name_from_configs(config_names):
@@ -747,10 +859,10 @@ def _get_model_name_from_configs(config_names):
         config = LLMINFERENCESERVICE_CONFIGS[config_name]
         if "model" in config and "name" in config["model"]:
             return config["model"]["name"]
-    return "default-model"
+    return "default/model"
 
 
-def generate_k8s_safe_suffix(base_name: str, extra_parts: List[str] = None) -> str:
+def generate_k8s_safe_suffix(base_name: str, extra_parts: Optional[List[str]] = None) -> str:
     """Generate a Kubernetes-safe name suffix with hash."""
     if extra_parts:
         full_name = f"{base_name}-{'-'.join(sorted(extra_parts))}"
@@ -782,64 +894,33 @@ def generate_test_id(test_case) -> str:
 
 
 def create_router_resources(gateways, routes=None, kserve_client=None):
+    """Create router resources (gateways and routes). These resources are shared and not deleted.
+
+    The create_or_update functions are idempotent, so multiple tests creating the same
+    resource will not cause errors.
+    """
     if not kserve_client:
         kserve_client = KServeClient(
             config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
         )
-
-    gateways_created = []
-    routes_created = []
-
-    try:
-        for gateway in gateways:
-            create_or_update_gateway(kserve_client, gateway)
-            gateways_created.append(gateway)
-        for route in routes or []:
-            create_or_update_route(kserve_client, route)
-            routes_created.append(route)
-    except Exception as e:
-        logger.warning(f"Failed to create LLMInferenceService router resources: {e}")
-        delete_router_resources(gateways_created, routes_created, kserve_client)
-        raise
-
-
-def delete_router_resources(gateways, routes=None, kserve_client=None):
-    if not kserve_client:
-        kserve_client = KServeClient(
-            config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
-        )
-
-    for route in routes or []:
-        try:
-            logger.info(
-                f"Cleaning up HttpRoute {route.get('metadata', {}).get('name')}"
-            )
-            delete_route(
-                kserve_client,
-                route.get("metadata", {}).get("name"),
-                route.get("metadata", {}).get("namespace", "default"),
-            )
-            logger.info(f"✓ Deleted HttpRoute {route.get('metadata', {}).get('name')}")
-        except Exception as e:
-            logger.warning(
-                f"Failed to cleanup HttpRoute {route.get('metadata', {}).get('name')}: {e}"
-            )
 
     for gateway in gateways:
+        gateway_name = gateway.get("metadata", {}).get("name", "unknown")
         try:
-            logger.info(
-                f"Cleaning up Gateway {gateway.get('metadata', {}).get('name')}"
-            )
-            delete_gateway(
-                kserve_client,
-                gateway.get("metadata", {}).get("name"),
-                gateway.get("metadata", {}).get("namespace", "default"),
-            )
-            logger.info(f"✓ Deleted Gateway {gateway.get('metadata', {}).get('name')}")
+            create_or_update_gateway(kserve_client, gateway)
+            logger.info(f"✓ Created/updated Gateway {gateway_name}")
         except Exception as e:
-            logger.warning(
-                f"Failed to cleanup Gateway {gateway.get('metadata', {}).get('name')}: {e}"
-            )
+            logger.error(f"❌ Failed to create Gateway {gateway_name}: {e}")
+            raise
+
+    for route in routes or []:
+        route_name = route.get("metadata", {}).get("name", "unknown")
+        try:
+            create_or_update_route(kserve_client, route)
+            logger.info(f"✓ Created/updated HTTPRoute {route_name}")
+        except Exception as e:
+            logger.error(f"❌ Failed to create HTTPRoute {route_name}: {e}")
+            raise
 
 
 def _create_or_update_llmisvc_config(kserve_client, llm_config, namespace=None):
@@ -895,43 +976,6 @@ def _create_or_update_llmisvc_config(kserve_client, llm_config, namespace=None):
             raise RuntimeError(
                 f"Failed to get/create LLMInferenceServiceConfig {name}: {e}"
             ) from e
-
-
-def _delete_llmisvc_config(
-    kserve_client, name, namespace, version=constants.KSERVE_V1ALPHA1_VERSION
-):
-    try:
-        print(f"Deleting LLMInferenceServiceConfig {name} in namespace {namespace}")
-        return kserve_client.api_instance.delete_namespaced_custom_object(
-            constants.KSERVE_GROUP,
-            version,
-            namespace,
-            KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
-            name,
-        )
-    except client.rest.ApiException as e:
-        raise RuntimeError(
-            f"Exception when calling CustomObjectsApi->"
-            f"delete_namespaced_custom_object for LLMInferenceServiceConfig: {e}"
-        ) from e
-
-
-def _get_llmisvc_config(
-    kserve_client, name, namespace, version=constants.KSERVE_V1ALPHA1_VERSION
-):
-    try:
-        return kserve_client.api_instance.get_namespaced_custom_object(
-            constants.KSERVE_GROUP,
-            version,
-            namespace,
-            KSERVE_PLURAL_LLMINFERENCESERVICECONFIG,
-            name,
-        )
-    except client.rest.ApiException as e:
-        raise RuntimeError(
-            f"Exception when calling CustomObjectsApi->"
-            f"get_namespaced_custom_object for LLMInferenceServiceConfig: {e}"
-        ) from e
 
 
 def inject_k8s_proxy():

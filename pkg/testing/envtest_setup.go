@@ -18,16 +18,11 @@ package testing
 
 import (
 	"google.golang.org/protobuf/proto"
-	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
-	netv1 "k8s.io/api/networking/v1"
-
-	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	"k8s.io/client-go/kubernetes/scheme"
-	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	kservescheme "github.com/kserve/kserve/pkg/scheme"
 )
 
 var log = logf.Log.WithName("TestingEnvSetup")
@@ -39,26 +34,8 @@ func SetupEnvTest(crdDirectoryPaths []string) *envtest.Environment {
 		UseExistingCluster:    proto.Bool(false),
 	}
 
-	if err := netv1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
-		log.Error(err, "Failed to add networking v1 scheme")
-	}
-
-	if err := knservingv1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
-		log.Error(err, "Failed to add knative serving scheme")
-	}
-
-	if err := istioclientv1beta1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
-		log.Error(err, "Failed to add istio scheme")
-	}
-
-	if err := gwapiv1.Install(scheme.Scheme); err != nil {
-		log.Error(err, "Failed to add gateway scheme")
-	}
-	if err := kedav1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
-		log.Error(err, "Failed to add KEDA scheme")
-	}
-	if err := otelv1beta1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
-		log.Error(err, "Failed to add OpenTelemetry scheme")
+	if err := kservescheme.AddAll(scheme.Scheme); err != nil {
+		log.Error(err, "Failed to register envtest schemes")
 	}
 	return t
 }

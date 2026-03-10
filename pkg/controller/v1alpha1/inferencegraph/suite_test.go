@@ -18,29 +18,18 @@ package inferencegraph
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
@@ -59,55 +48,31 @@ func TestAPIs(t *testing.T) {
 	RunSpecs(t, "InferenceGraph Controller Suite")
 }
 
-var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-	ctx, cancel := context.WithCancel(context.Background())
-	By("bootstrapping test environment")
-	crdDirectoryPaths := []string{
-		filepath.Join(pkgtest.ProjectRoot(), "test", "crds"),
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ctrlFunc := func(restCfg *rest.Config, mgr ctrl.Manager) error {
+		clientset, err := kubernetes.NewForConfig(restCfg)
+		if err != nil {
+			return err
+		}
+
+		deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Knative"}
+
+		return (&InferenceGraphReconciler{
+			Client:    mgr.GetClient(),
+			Clientset: clientset,
+			Scheme:    mgr.GetScheme(),
+			Log:       ctrl.Log.WithName("V1alpha1InferenceGraphController"),
+			Recorder:  mgr.GetEventRecorderFor("V1alpha1InferenceGraphController"),
+		}).SetupWithManager(mgr, deployConfig)
 	}
-	testEnv := pkgtest.SetupEnvTest(crdDirectoryPaths)
-	var err error
-	cfg, err = testEnv.Start()
-	Expect(err).ToNot(HaveOccurred())
-	Expect(cfg).ToNot(BeNil())
 
-	DeferCleanup(func() {
-		By("canceling the context")
-		cancel()
+	envTest := pkgtest.NewEnvTest().
+		WithControllers(ctrlFunc).
+		// The suite manager/webhook must outlive BeforeSuite node context.
+		Start(context.Background())
 
-		By("tearing down the test environment")
-		err := testEnv.Stop()
-		Expect(err).ToNot(HaveOccurred())
-	})
-
-	err = v1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = v1beta1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = knservingv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = netv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = routev1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = kedav1alpha1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	clientset, err := kubernetes.NewForConfig(cfg)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(clientset).ToNot(BeNil())
-
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-		Metrics: metricsserver.Options{
-			BindAddress: "0",
-		},
-	})
-	Expect(err).ToNot(HaveOccurred())
-
-	k8sClient = k8sManager.GetClient()
-	Expect(k8sClient).ToNot(BeNil())
+	cfg = envTest.Config
+	k8sClient = envTest.Client
 
 	// Create namespaces
 	kserveNamespaceObj := &corev1.Namespace{
@@ -120,8 +85,8 @@ var _ = BeforeSuite(func() {
 			Name: constants.DefaultKnServingNamespace,
 		},
 	}
-	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
-	Expect(k8sClient.Create(context.Background(), knativeServingNamespace)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, kserveNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, knativeServingNamespace)).Should(Succeed())
 
 	// Create knative config-autoscaler configmap
 	configAutoscaler := &corev1.ConfigMap{
@@ -130,23 +95,5 @@ var _ = BeforeSuite(func() {
 			Namespace: constants.AutoscalerConfigmapNamespace,
 		},
 	}
-	Expect(k8sClient.Create(context.Background(), configAutoscaler)).Should(Succeed())
-
-	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Knative"}
-
-	err = (&InferenceGraphReconciler{
-		Client:    k8sClient,
-		Clientset: clientset,
-		Scheme:    k8sClient.Scheme(),
-		Log:       ctrl.Log.WithName("V1alpha1InferenceGraphController"),
-		Recorder:  k8sManager.GetEventRecorderFor("V1alpha1InferenceGraphController"),
-	}).SetupWithManager(k8sManager, deployConfig)
-	Expect(err).ToNot(HaveOccurred())
-
-	// Start the manager in a separate goroutine
-	go func() {
-		defer GinkgoRecover()
-		err = k8sManager.Start(ctx)
-		Expect(err).ToNot(HaveOccurred())
-	}()
+	Expect(k8sClient.Create(ctx, configAutoscaler)).Should(Succeed())
 })
