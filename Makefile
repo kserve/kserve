@@ -323,8 +323,12 @@ clean:
 	rm -rf $(LOCALBIN)
 
 # Run tests
+# Override TEST_PKGS to focus on specific packages, e.g.:
+#   make test TEST_PKGS="./pkg/controller/v1alpha2/llmisvc/..."
+TEST_PKGS ?= $$(go list ./pkg/...) ./cmd/...
+TEST_TIMEOUT ?= 30m
 test: fmt vet manifests envtest test-qpext
-	KUBEBUILDER_ASSETS="$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test --timeout 30m $$(go list ./pkg/...) ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
+	KUBEBUILDER_ASSETS="$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test --timeout $(TEST_TIMEOUT) $(TEST_PKGS) -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
 
 test-qpext:
 	cd qpext && go test -v ./... -cover
