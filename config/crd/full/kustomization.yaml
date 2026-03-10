@@ -8,4 +8,4 @@ resources:
   - serving.kserve.io_servingruntimes.yaml
   - serving.kserve.io_inferencegraphs.yaml
   - ./clusterstoragecontainer
-
+  - ./llmisvc
