@@ -82,17 +82,19 @@ async def test_sklearn_kserve_concurrency(rest_v1_client):
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    pods = kserve_client.core_api.list_namespaced_pod(
-        KSERVE_TEST_NAMESPACE,
-        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
-    )
 
-    isvc_annotations = pods.items[0].metadata.annotations
+    # Knative Serving v1.21+ no longer propagates autoscaling annotations to pods.
+    # Check the Knative Service revision template annotations instead.
+    ksvc = kserve_client.api_instance.get_namespaced_custom_object(
+        "serving.knative.dev", "v1", KSERVE_TEST_NAMESPACE, "services",
+        f"{service_name}-predictor",
+    )
+    ksvc_annotations = ksvc["spec"]["template"]["metadata"]["annotations"]
 
     res = await predict_isvc(rest_v1_client, service_name, INPUT)
     assert res["predictions"] == [1, 1]
-    assert isvc_annotations[METRIC] == "concurrency"
-    assert isvc_annotations[TARGET] == "2"
+    assert ksvc_annotations[METRIC] == "concurrency"
+    assert ksvc_annotations[TARGET] == "2"
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
@@ -129,12 +131,14 @@ async def test_sklearn_kserve_rps(rest_v1_client):
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    pods = kserve_client.core_api.list_namespaced_pod(
-        KSERVE_TEST_NAMESPACE,
-        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
-    )
 
-    annotations = pods.items[0].metadata.annotations
+    # Knative Serving v1.21+ no longer propagates autoscaling annotations to pods.
+    # Check the Knative Service revision template annotations instead.
+    ksvc = kserve_client.api_instance.get_namespaced_custom_object(
+        "serving.knative.dev", "v1", KSERVE_TEST_NAMESPACE, "services",
+        f"{service_name}-predictor",
+    )
+    annotations = ksvc["spec"]["template"]["metadata"]["annotations"]
 
     assert annotations[METRIC] == "rps"
     assert annotations[TARGET] == "5"
@@ -176,15 +180,17 @@ async def test_sklearn_kserve_cpu(rest_v1_client):
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    pods = kserve_client.core_api.list_namespaced_pod(
-        KSERVE_TEST_NAMESPACE,
-        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+
+    # Knative Serving v1.21+ no longer propagates autoscaling annotations to pods.
+    # Check the Knative Service revision template annotations instead.
+    ksvc = kserve_client.api_instance.get_namespaced_custom_object(
+        "serving.knative.dev", "v1", KSERVE_TEST_NAMESPACE, "services",
+        f"{service_name}-predictor",
     )
+    ksvc_annotations = ksvc["spec"]["template"]["metadata"]["annotations"]
 
-    isvc_annotations = pods.items[0].metadata.annotations
-
-    assert isvc_annotations[METRIC] == "cpu"
-    assert isvc_annotations[TARGET] == "50"
+    assert ksvc_annotations[METRIC] == "cpu"
+    assert ksvc_annotations[TARGET] == "50"
     res = await predict_isvc(rest_v1_client, service_name, INPUT)
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

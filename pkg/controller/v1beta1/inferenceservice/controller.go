@@ -629,12 +629,14 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		return err
 	}
 
-	vsFound, err := utils.IsCrdAvailable(r.ClientConfig, istioclientv1beta1.SchemeGroupVersion.String(), constants.IstioVirtualServiceKind)
-	if err != nil {
-		return err
+	if !ingressConfig.DisableIstioVirtualHost {
+		vsFound, err := utils.IsCrdAvailable(r.ClientConfig, istioclientv1beta1.SchemeGroupVersion.String(), constants.IstioVirtualServiceKind)
+		if err != nil {
+			return err
+		}
+		// Store the availability so Reconcile can pass it to the IngressReconciler.
+		r.VirtualServiceAvailable = vsFound
 	}
-	// Store the availability so Reconcile can pass it to the IngressReconciler.
-	r.VirtualServiceAvailable = vsFound
 
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1beta1.InferenceService{}, "spec.predictor.model.runtime", func(rawObj client.Object) []string {
 		isvc, ok := rawObj.(*v1beta1.InferenceService)
@@ -709,7 +711,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		r.Log.Info("The InferenceService controller won't watch opentelemetry-collector resources because the CRD is not available.")
 	}
 
-	if vsFound && !ingressConfig.DisableIstioVirtualHost {
+	if r.VirtualServiceAvailable && !ingressConfig.DisableIstioVirtualHost {
 		ctrlBuilder = ctrlBuilder.Owns(&istioclientv1beta1.VirtualService{})
 	} else {
 		r.Log.Info("The InferenceService controller won't watch networking.istio.io/v1beta1/VirtualService resources because the CRD is not available.")
@@ -725,7 +727,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 			ctrlBuilder = ctrlBuilder.Owns(&gwapiv1.HTTPRoute{})
 		} else {
 			r.Log.Info("The InferenceService controller won't watch gateway.networking.k8s.io/v1/HTTPRoute resources because the CRD is not available.")
-			panic("Gateway API CRD not available")
+			return fmt.Errorf("gateway API mode requires gateway.networking.k8s.io/v1 %q CRD", constants.HTTPRouteKind)
 		}
 	} else {
 		ctrlBuilder = ctrlBuilder.Owns(&netv1.Ingress{})
