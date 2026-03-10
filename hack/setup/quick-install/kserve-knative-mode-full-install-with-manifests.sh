@@ -2475,7 +2475,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.5
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -2757,7 +2757,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.5
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3039,7 +3039,7 @@ spec:
         value: /models
       - name: VLLM_RANDOMIZE_DP_DUMMY_INPUTS
         value: "1"
-      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.5
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       name: main
       ports:
@@ -3108,7 +3108,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.5
+        image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
@@ -3341,7 +3341,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.5
+        image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
@@ -3570,7 +3570,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.5
+        image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -3866,7 +3866,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.5
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -4098,7 +4098,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.5
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -4327,7 +4327,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1-rc.5
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       name: main
       ports:
