@@ -350,6 +350,17 @@ func (l *LLMInferenceServiceValidator) validateScaling(llmSvc *LLMInferenceServi
 		allErrs = append(allErrs, l.validateWorkloadScaling(field.NewPath("spec").Child("prefill"), llmSvc.Spec.Prefill)...)
 	}
 
+	// Validate actuator backend consistency across decode and prefill.
+	// Convert to the hub (v1alpha2) type and delegate to its exported validator so
+	// the consistency rules live in exactly one place.
+	decode := convertWorkloadSpecToV1Alpha2(&llmSvc.Spec.WorkloadSpec)
+	var prefill *v1alpha2.WorkloadSpec
+	if llmSvc.Spec.Prefill != nil {
+		p := convertWorkloadSpecToV1Alpha2(llmSvc.Spec.Prefill)
+		prefill = &p
+	}
+	allErrs = append(allErrs, v1alpha2.ValidateActuatorConsistency(&decode, prefill)...)
+
 	return allErrs
 }
 
