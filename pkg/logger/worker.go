@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
@@ -45,8 +46,9 @@ const (
 	ComponentAttr        = "component"
 	MetadataAttr         = "metadata"
 	// endpoint would be either default or canary
-	EndpointAttr   = "endpoint"
-	AnnotationAttr = "annotations"
+	EndpointAttr     = "endpoint"
+	AnnotationAttr   = "annotations"
+	RecordedTimeAttr = "recordedtime"
 
 	LoggerWorkerQueueSize = 100
 	CloudEventsIdHeader   = "Ce-Id"
@@ -113,15 +115,15 @@ func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 		}
 	}
 
-	c, err := cloudevents.NewClient(t,
-		cloudevents.WithTimeNow(),
-	)
+	c, err := cloudevents.NewClient(t)
 	if err != nil {
 		return fmt.Errorf("while creating new cloudevents client: %w", err)
 	}
 	event := cloudevents.NewEvent(cloudevents.VersionV1)
 	event.SetID(logReq.Id)
 	event.SetType(logReq.ReqType)
+	event.SetTime(logReq.OccurrenceTime)
+	event.SetExtension(RecordedTimeAttr, time.Now())
 
 	event.SetExtension(InferenceServiceAttr, logReq.InferenceService)
 	event.SetExtension(NamespaceAttr, logReq.Namespace)
