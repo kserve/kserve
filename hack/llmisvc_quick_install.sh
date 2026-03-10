@@ -210,9 +210,9 @@ spec:
 EOF
 echo "😀 Successfully created GatewayClass for Envoy"
 
-# Install LLMISvc using manage.kserve-helm.sh which handles both local and OCI charts
-# Note: The script checks USE_LOCAL_CHARTS internally and uses appropriate source
-LLMISVC=true ${SCRIPT_DIR}/setup/infra/manage.kserve-helm.sh
+ENABLE_LLMISVC=true ${SCRIPT_DIR}/setup/infra/manage.kserve-helm.sh
+
+echo "😀 Successfully installed LLMISvc"
 
 # Create Gateway resource
 echo "Creating kserve-ingress-gateway ..."

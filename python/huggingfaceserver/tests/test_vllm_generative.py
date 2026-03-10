@@ -25,7 +25,7 @@ import jsonschema
 import torch
 from openai import UnprocessableEntityError
 
-from vllm.transformers_utils.tokenizer import get_tokenizer
+from vllm.tokenizers import get_tokenizer
 
 from server import RemoteOpenAIServer
 

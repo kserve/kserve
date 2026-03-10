@@ -3,9 +3,9 @@ kind: Kustomization
 
 resources:
 - ../../base
-- ../../crd/full/llmisvc
 - ../../llmisvcconfig
 # - ../../crd/full/localmodel
+- ../../crd/full/clusterstoragecontainer
 - user-cluster-roles.yaml
 - network-policies.yaml
 - llm-svc-scc.yaml

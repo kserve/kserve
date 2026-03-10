@@ -10,4 +10,4 @@ configurations:
 images:
 - name: default-storage-initilizer
   newName: kserve/storage-initializer
-  newTag: latest
+  newTag: v0.16.0

@@ -347,6 +347,40 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 
 	r.propagateLeaderWorkerSetMetadata(llmSvc, expected)
 
+	// Propagate prefill-specific labels and annotations
+	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Labels != nil {
+		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			if expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels == nil {
+				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels = make(map[string]string, len(llmSvc.Spec.Prefill.Labels))
+			}
+			for k, v := range llmSvc.Spec.Prefill.Labels {
+				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels[k] = v
+			}
+		}
+		if expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels == nil {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels = make(map[string]string, len(llmSvc.Spec.Prefill.Labels))
+		}
+		for k, v := range llmSvc.Spec.Prefill.Labels {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels[k] = v
+		}
+	}
+	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Annotations != nil {
+		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			if expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations == nil {
+				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations = make(map[string]string, len(llmSvc.Spec.Prefill.Annotations))
+			}
+			for k, v := range llmSvc.Spec.Prefill.Annotations {
+				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations[k] = v
+			}
+		}
+		if expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations == nil {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations = make(map[string]string, len(llmSvc.Spec.Prefill.Annotations))
+		}
+		for k, v := range llmSvc.Spec.Prefill.Annotations {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations[k] = v
+		}
+	}
+
 	log.FromContext(ctx).V(2).Info("Expected prefill LWS", "leaderworkerset", expected)
 
 	return expected, nil
@@ -563,6 +597,7 @@ func (r *LLMISVCReconciler) propagateLeaderWorkerSetMetadata(llmSvc *v1alpha2.LL
 		"leaderworkerset.sigs.k8s.io",
 		"k8s.v1.cni.cncf.io",
 		constants.KueueAPIGroupName,
+		"prometheus.io",
 	}
 	approvedLabelPrefixes := []string{
 		constants.KueueAPIGroupName,
@@ -599,6 +634,42 @@ func (r *LLMISVCReconciler) propagateLeaderWorkerSetMetadata(llmSvc *v1alpha2.LL
 		&expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels,
 		approvedLabelPrefixes...,
 	)
+
+	// Propagate all labels from WorkloadSpec.Labels to Pod templates
+	if llmSvc.Spec.Labels != nil {
+		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			if expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels == nil {
+				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels = make(map[string]string, len(llmSvc.Spec.Labels))
+			}
+			for k, v := range llmSvc.Spec.Labels {
+				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels[k] = v
+			}
+		}
+		if expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels == nil {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels = make(map[string]string, len(llmSvc.Spec.Labels))
+		}
+		for k, v := range llmSvc.Spec.Labels {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels[k] = v
+		}
+	}
+
+	// Propagate all annotations from WorkloadSpec.Annotations to Pod templates
+	if llmSvc.Spec.Annotations != nil {
+		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			if expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations == nil {
+				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations = make(map[string]string, len(llmSvc.Spec.Annotations))
+			}
+			for k, v := range llmSvc.Spec.Annotations {
+				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations[k] = v
+			}
+		}
+		if expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations == nil {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations = make(map[string]string, len(llmSvc.Spec.Annotations))
+		}
+		for k, v := range llmSvc.Spec.Annotations {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations[k] = v
+		}
+	}
 }
 
 func semanticLWSIsEqual(expected *lwsapi.LeaderWorkerSet, curr *lwsapi.LeaderWorkerSet) bool {
