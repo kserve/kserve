@@ -1588,7 +1588,7 @@ main() {
         if [ -n "${SET_KSERVE_VERSION}" ]; then
             KSERVE_VERSION="${SET_KSERVE_VERSION}"
         fi
-        
+
         # Create temporary overlay if version/registry override is needed
         if ! is_positive "$EMBED_MANIFESTS" && [ -z "${KSERVE_OVERLAY_DIR}" ] && ([ -n "${SET_KSERVE_VERSION}" ] || [ -n "${SET_KSERVE_REGISTRY}" ]); then
             TEMP_OVERLAY_DIR="${REPO_ROOT}/config/overlays/temp"
