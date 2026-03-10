@@ -167,6 +167,34 @@ if is_positive "${ENABLE_LOCALMODEL}"; then
 fi
 # INCLUDE_IN_GENERATED_SCRIPT_END
 
+# Adopt pre-existing CRDs into a Helm release so that `helm upgrade -i` can manage them.
+# This handles the case where CRDs were previously installed outside of Helm (e.g. via kubectl apply)
+# and would otherwise cause "invalid ownership metadata" errors.
+adopt_existing_crds_for_release() {
+    local release_name="$1"
+    local namespace="$2"
+    shift 2
+    local crds=("$@")
+
+    for crd in "${crds[@]}"; do
+        if kubectl get crd "$crd" &>/dev/null; then
+            log_info "Adopting existing CRD ${crd} into Helm release ${release_name}"
+            kubectl label crd "$crd" app.kubernetes.io/managed-by=Helm --overwrite
+            kubectl annotate crd "$crd" meta.helm.sh/release-name="${release_name}" --overwrite
+            kubectl annotate crd "$crd" meta.helm.sh/release-namespace="${namespace}" --overwrite
+        fi
+    done
+}
+
+# GIE CRDs that are bundled in the kserve-llmisvc-resources chart
+GIE_CRDS=(
+    "inferencemodelrewrites.inference.networking.x-k8s.io"
+    "inferenceobjectives.inference.networking.x-k8s.io"
+    "inferencepoolimports.inference.networking.x-k8s.io"
+    "inferencepools.inference.networking.k8s.io"
+    "inferencepools.inference.networking.x-k8s.io"
+)
+
 uninstall() {
     log_info "Uninstalling KServe..."
     if helm list -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -q "${RUNTIME_CONFIG_CHART_NAME}"; then
@@ -287,6 +315,11 @@ install() {
 
     # Build configuration arguments for KServe/LLMIsvc
     readarray -t helm_config_args < <(build_helm_config_args)
+
+    # Adopt any pre-existing GIE CRDs into the llmisvc-resources Helm release
+    if is_positive "${ENABLE_LLMISVC}"; then
+        adopt_existing_crds_for_release "kserve-llmisvc-resources" "${KSERVE_NAMESPACE}" "${GIE_CRDS[@]}"
+    fi
 
     # Install resource charts
     for i in "${!RESOURCE_CHARTS[@]}"; do

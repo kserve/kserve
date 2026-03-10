@@ -1449,6 +1449,11 @@ install_kserve_helm() {
     # Build configuration arguments for KServe/LLMIsvc
     readarray -t helm_config_args < <(build_helm_config_args)
 
+    # Adopt any pre-existing GIE CRDs into the llmisvc-resources Helm release
+    if is_positive "${ENABLE_LLMISVC}"; then
+        adopt_existing_crds_for_release "kserve-llmisvc-resources" "${KSERVE_NAMESPACE}" "${GIE_CRDS[@]}"
+    fi
+
     # Install resource charts
     for i in "${!RESOURCE_CHARTS[@]}"; do
         local chart="${RESOURCE_CHARTS[$i]}"
