@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: kserve
 
 resources:
+  - gateway-inference-extension.yaml
   - service.yaml
   - manager.yaml
   - ../crd/full/llmisvc
