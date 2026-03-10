@@ -271,7 +271,7 @@ install() {
     # Build chart version flag (only for remote charts, skip for 'latest')
     local VERSION_FLAG=""
     if ! is_positive "${USE_LOCAL_CHARTS}"; then
-        VERSION_FLAG="--version ${KSERVE_VERSION}"       
+        VERSION_FLAG="--version ${KSERVE_VERSION}"
     fi
 
     # Install CRD charts
@@ -337,6 +337,7 @@ install() {
             --namespace "${KSERVE_NAMESPACE}" \
             --create-namespace \
             --wait \
+            ${VERSION_FLAG} \
             --set kserve.version="${KSERVE_VERSION}" \
             --set kserve.servingruntime.enabled=${INSTALL_RUNTIMES} \
             --set kserve.llmisvcConfigs.enabled=${INSTALL_LLMISVC_CONFIGS}
