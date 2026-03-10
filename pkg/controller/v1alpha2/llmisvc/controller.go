@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
@@ -74,6 +75,7 @@ var childResourcesPredicate, _ = predicate.LabelSelectorPredicate(ChildResources
 // It orchestrates the reconciliation of child resources based on the spec.
 type LLMISVCReconciler struct {
 	client.Client
+	Config *rest.Config
 	record.EventRecorder
 	Clientset kubernetes.Interface
 

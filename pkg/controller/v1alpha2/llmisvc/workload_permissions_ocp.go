@@ -1,3 +1,5 @@
+//go:build distro
+
 /*
 Copyright 2025 The KServe Authors.
 
@@ -30,14 +32,14 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
-// sccDisabled indicates whether SCC role binding reconciliation is globally disabled for LLMInferenceService.
+// sccDisabled indicates whether SCC role binding reconciliation is disabled at runtime.
 // When set to "true", the controller will skip creating SCC RoleBinding resources,
-// useful for non-OpenShift Kubernetes clusters where SecurityContextConstraints don't exist.
+// useful for environments where SecurityContextConstraints are not needed.
 var sccDisabled, _ = env.GetBool("LLMISVC_SCC_DISABLED", false)
 
-func (r *LLMISVCReconciler) reconcileMultiNodeOCPRoleBinding(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+func (r *LLMISVCReconciler) reconcileWorkloadPlatformPermissions(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	if sccDisabled {
-		log.FromContext(ctx).Info("SCC is disabled via LLMISVC_SCC_DISABLED, skipping SCC role binding reconciliation")
+		log.FromContext(ctx).V(2).Info("SCC is disabled via LLMISVC_SCC_DISABLED, skipping SCC role binding reconciliation")
 		return nil
 	}
 	if err := r.reconcileMultiNodeSCCRoleBinding(ctx, llmSvc); err != nil {

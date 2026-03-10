@@ -32,6 +32,13 @@ $(shell perl -pi -e 's/memory:.*/memory: $(KSERVE_CONTROLLER_MEMORY_LIMIT)/' con
 
 export GOFLAGS=-mod=mod
 
+# Go build tags (e.g. "distro" for midstream).
+# Passed to Docker image builds via --build-arg and to all go commands via GOFLAGS.
+GOTAGS ?=
+ifdef GOTAGS
+export GOFLAGS += -tags=$(GOTAGS)
+endif
+
 all: test manager agent router
 
 .PHONY: setup-envtest
@@ -286,8 +293,12 @@ clean:
 	rm -rf $(LOCALBIN)
 
 # Run tests
+# Override TEST_PKGS to focus on specific packages, e.g.:
+#   make test TEST_PKGS="./pkg/controller/v1alpha2/llmisvc/..."
+TEST_PKGS ?= $$(go list ./pkg/...) ./cmd/...
+TEST_TIMEOUT ?= 30m
 test: fmt vet manifests envtest test-qpext
-	KUBEBUILDER_ASSETS="$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test --timeout 30m $$(go list ./pkg/...) ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
+	KUBEBUILDER_ASSETS="$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test --timeout $(TEST_TIMEOUT) $(TEST_PKGS) -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
 
 test-qpext:
 	cd qpext && go test -v ./... -cover
@@ -422,10 +433,10 @@ docker-push:
 	docker push ${KO_DOCKER_REPO}/${CONTROLLER_IMG}
 
 docker-build-llmisvc:
-	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG} -f llmisvc-controller.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG} -f llmisvc-controller.Dockerfile .
 
 docker-push-llmisvc: docker-build-llmisvc
-	${ENGINE} buildx build ${ARCH} --push -t ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG} -f llmisvc-controller.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} --push -t ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG} -f llmisvc-controller.Dockerfile .
 
 docker-build-localmodel:
 	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG} -f localmodel.Dockerfile .

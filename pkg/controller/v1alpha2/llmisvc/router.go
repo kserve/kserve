@@ -19,6 +19,7 @@ package llmisvc
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -49,6 +50,11 @@ import (
 // Once set to "v1", traffic will never fall back to v1alpha2 even during transient failures.
 const AnnotationInferencePoolMigrated = "serving.kserve.io/inference-pool-migrated"
 
+// ErrPreconditionNotMet is a sentinel error returned by ensureGatewayPreconditions
+// when a non-transient precondition is not met (e.g. a required CRD is missing).
+// The caller should mark status but not propagate the error to avoid infinite requeue.
+var ErrPreconditionNotMet = errors.New("precondition not met")
+
 // reconcileRouter handles the networking and routing components for the LLM service
 // This includes schedulers, HTTP routes, and various validation checks
 func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
@@ -61,6 +67,18 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 
 	// Ensure readiness is determined even if errors occur
 	defer llmSvc.DetermineRouterReadiness()
+
+	// Ensure platform-specific preconditions are met before proceeding.
+	// A non-transient precondition failure (e.g. missing CRD) marks status and stops
+	// reconciliation without requeuing — the condition won't resolve by retrying.
+	if err := r.ensureGatewayPreconditions(ctx, llmSvc); err != nil {
+		if errors.Is(err, ErrPreconditionNotMet) {
+			llmSvc.MarkHTTPRoutesNotReady("GatewayPreconditionNotMet", err.Error())
+			return nil
+		}
+		llmSvc.MarkHTTPRoutesNotReady("HTTPRouteReconcileError", err.Error())
+		return fmt.Errorf("failed to ensure gateway preconditions: %w", err)
+	}
 
 	// Validate that referenced resources exist before proceeding
 	if err := r.validateRouterReferences(ctx, llmSvc); err != nil {
