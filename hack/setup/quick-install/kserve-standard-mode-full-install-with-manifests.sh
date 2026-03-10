@@ -2123,7 +2123,7 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
-      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0-rc.1
+      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -2409,7 +2409,7 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
-      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0-rc.1
+      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3313,7 +3313,7 @@ spec:
           - "9003"
           - --kv-cache-usage-percentage-metric
           - vllm:kv_cache_usage_perc
-          image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.6.0-rc.1
+          image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.6.0
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3

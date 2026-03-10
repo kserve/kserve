@@ -506,9 +506,10 @@ plugins:
 - type: queue-scorer
 - type: prefix-cache-scorer
 - type: max-score-picker
+- type: always-disagg-pd-decider
 - type: pd-profile-handler
   parameters:
-    threshold: 0
+    deciderPluginName: always-disagg-pd-decider
 schedulingProfiles:
 - name: prefill
   plugins:
