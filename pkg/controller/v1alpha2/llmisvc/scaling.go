@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
@@ -82,7 +81,7 @@ func (r *LLMISVCReconciler) reconcileMainWorkloadScaling(ctx context.Context, ll
 	vaName := mainVAName(llmSvc)
 	scaling := llmSvc.Spec.Scaling
 
-	if err := r.reconcileVA(ctx, llmSvc, scaling, deploymentName, vaName, llmSvc.Spec.Template); err != nil {
+	if err := r.reconcileVA(ctx, llmSvc, scaling, deploymentName, vaName, llmSvc.Spec.Labels); err != nil {
 		return fmt.Errorf("failed to reconcile main VA: %w", err)
 	}
 
@@ -103,12 +102,12 @@ func (r *LLMISVCReconciler) reconcilePrefillWorkloadScaling(ctx context.Context,
 	deploymentName := prefillDeploymentName(llmSvc)
 	vaName := prefillVAName(llmSvc)
 
-	var prefillPodSpec *corev1.PodSpec
+	var prefillLabels map[string]string
 	if llmSvc.Spec.Prefill != nil {
-		prefillPodSpec = llmSvc.Spec.Prefill.Template
+		prefillLabels = llmSvc.Spec.Prefill.Labels
 	}
 
-	if err := r.reconcileVA(ctx, llmSvc, scaling, deploymentName, vaName, prefillPodSpec); err != nil {
+	if err := r.reconcileVA(ctx, llmSvc, scaling, deploymentName, vaName, prefillLabels); err != nil {
 		return fmt.Errorf("failed to reconcile prefill VA: %w", err)
 	}
 
@@ -323,15 +322,15 @@ func prometheusTrigger(cfg *AutoscalingConfig, query string) kedav1alpha1.ScaleT
 
 // reconcileVA creates, updates, or deletes a VariantAutoscaling CR based on the scaling configuration.
 // The VA tells the WVA controller to compute wva_desired_replicas for this deployment.
-// podSpec is the pod template for the specific workload so accelerator detection is accurate.
-func (r *LLMISVCReconciler) reconcileVA(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, deploymentName, vaName string, podSpec *corev1.PodSpec) error {
+// workloadLabels are the labels from the WorkloadSpec for the specific workload (decode or prefill).
+func (r *LLMISVCReconciler) reconcileVA(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, deploymentName, vaName string, workloadLabels map[string]string) error {
 	isStopped := utils.GetForceStopRuntime(llmSvc)
 
 	if scaling == nil || scaling.WVA == nil || isStopped {
 		return r.deleteVAIfExists(ctx, llmSvc, vaName)
 	}
 
-	expected := expectedVA(llmSvc, scaling, deploymentName, vaName, podSpec)
+	expected := expectedVA(llmSvc, scaling, deploymentName, vaName, workloadLabels)
 	return Reconcile(ctx, r, llmSvc, &wvav1alpha1.VariantAutoscaling{}, expected, semanticVAIsEqual)
 }
 
@@ -347,11 +346,16 @@ func (r *LLMISVCReconciler) deleteVAIfExists(ctx context.Context, llmSvc *v1alph
 }
 
 // expectedVA constructs the desired VariantAutoscaling resource from the LLMISVC spec.
-// podSpec is the pod template for the specific workload (decode or prefill) so that
-// accelerator detection inspects the correct containers.
-func expectedVA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, deploymentName, vaName string, podSpec *corev1.PodSpec) *wvav1alpha1.VariantAutoscaling {
+// workloadLabels are the labels from the WorkloadSpec for the specific workload (decode or prefill).
+// If the workload labels contain inference.optimization/acceleratorName, that value is propagated
+// to the VA label. Otherwise the label is set to "unknown".
+func expectedVA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, deploymentName, vaName string, workloadLabels map[string]string) *wvav1alpha1.VariantAutoscaling {
 	labels := scalingLabels(llmSvc)
-	labels[acceleratorNameLabelKey] = resolveAcceleratorName(llmSvc, podSpec)
+	accelerator := "unknown"
+	if val, ok := workloadLabels[acceleratorNameLabelKey]; ok && val != "" {
+		accelerator = val
+	}
+	labels[acceleratorNameLabelKey] = accelerator
 
 	modelID := llmSvc.Spec.Model.URI.String()
 	if llmSvc.Spec.Model.Name != nil {
@@ -379,56 +383,6 @@ func expectedVA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingS
 	}
 
 	return va
-}
-
-// resolveAcceleratorName determines the accelerator name for the VA label.
-// Priority:
-//  1. User-specified label on the LLMISVC (inference.optimization/acceleratorName)
-//  2. Auto-detected from GPU resource requests on the pod spec
-//  3. Falls back to "cpu" when no GPUs are found
-func resolveAcceleratorName(llmSvc *v1alpha2.LLMInferenceService, podSpec *corev1.PodSpec) string {
-	if val, ok := llmSvc.Labels[acceleratorNameLabelKey]; ok && val != "" {
-		return val
-	}
-	return detectAcceleratorFromResources(podSpec)
-}
-
-// detectAcceleratorFromResources inspects extended resource requests/limits on the pod spec
-// to infer the accelerator vendor from the resource domain (e.g., "nvidia.com/gpu" → "nvidia").
-// This is a best-effort fallback; users needing precise GPU model names (e.g., "A100", "H100")
-// should set the inference.optimization/acceleratorName label on the LLMISVC directly.
-func detectAcceleratorFromResources(podSpec *corev1.PodSpec) string {
-	if podSpec != nil {
-		for i := range podSpec.Containers {
-			for resourceName := range podSpec.Containers[i].Resources.Requests {
-				if vendor := vendorFromExtendedResource(string(resourceName)); vendor != "" {
-					return vendor
-				}
-			}
-			for resourceName := range podSpec.Containers[i].Resources.Limits {
-				if vendor := vendorFromExtendedResource(string(resourceName)); vendor != "" {
-					return vendor
-				}
-			}
-		}
-	}
-	return "cpu"
-}
-
-// vendorFromExtendedResource extracts the vendor name from a Kubernetes extended resource.
-// Extended resources have a domain prefix (e.g., "nvidia.com/gpu" → "nvidia").
-// Standard resources like "cpu" and "memory" have no domain and are ignored.
-func vendorFromExtendedResource(resourceName string) string {
-	slashIdx := strings.Index(resourceName, "/")
-	if slashIdx <= 0 {
-		return ""
-	}
-	domain := resourceName[:slashIdx]
-	dotIdx := strings.Index(domain, ".")
-	if dotIdx <= 0 {
-		return ""
-	}
-	return domain[:dotIdx]
 }
 
 func semanticVAIsEqual(expected, curr *wvav1alpha1.VariantAutoscaling) bool {

@@ -411,6 +411,7 @@ func TestExpectedVA(t *testing.T) {
 		scaling        *v1alpha2.ScalingSpec
 		deploymentName string
 		vaName         string
+		workloadLabels map[string]string
 		validate       func(t *testing.T, va *wvav1alpha1.VariantAutoscaling)
 	}{
 		{
@@ -484,11 +485,54 @@ func TestExpectedVA(t *testing.T) {
 				assert.Equal(t, "LLMInferenceService", va.OwnerReferences[0].Kind)
 			},
 		},
+		{
+			name:   "acceleratorName label taken from workload labels when present",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				WVA: &v1alpha2.WVASpec{VariantCost: "10.0"},
+			},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			workloadLabels: map[string]string{
+				acceleratorNameLabelKey: "H100",
+			},
+			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
+				assert.Equal(t, "H100", va.Labels[acceleratorNameLabelKey])
+			},
+		},
+		{
+			name:   "acceleratorName label is unknown when not present in workload labels",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				WVA: &v1alpha2.WVASpec{VariantCost: "10.0"},
+			},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			workloadLabels: nil,
+			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
+				assert.Equal(t, "unknown", va.Labels[acceleratorNameLabelKey])
+			},
+		},
+		{
+			name:   "acceleratorName label is unknown when present but empty in workload labels",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				WVA: &v1alpha2.WVASpec{VariantCost: "10.0"},
+			},
+			deploymentName: "test-svc-kserve",
+			vaName:         "test-svc-kserve-va",
+			workloadLabels: map[string]string{
+				acceleratorNameLabelKey: "",
+			},
+			validate: func(t *testing.T, va *wvav1alpha1.VariantAutoscaling) {
+				assert.Equal(t, "unknown", va.Labels[acceleratorNameLabelKey])
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			va := expectedVA(tt.llmSvc, tt.scaling, tt.deploymentName, tt.vaName, nil)
+			va := expectedVA(tt.llmSvc, tt.scaling, tt.deploymentName, tt.vaName, tt.workloadLabels)
 			assert.Equal(t, tt.vaName, va.Name)
 			assert.Equal(t, tt.llmSvc.Namespace, va.Namespace)
 			tt.validate(t, va)
