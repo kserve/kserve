@@ -177,6 +177,49 @@ replacements:
     fieldPaths:
     - spec.template.containers.[name=main].image
 
+# Set runAsNonRoot: true for all LLMInferenceServiceConfig templates.
+# NOTE: When adding a new LLMInferenceServiceConfig template, add its container paths here.
+- source:
+    kind: LLMInferenceServiceConfig
+    name: kserve-config-llm-scheduler
+    fieldPath: spec.router.scheduler.template.containers.[name=main].securityContext.runAsNonRoot
+  targets:
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-template
+    fieldPaths:
+    - spec.template.containers.[name=main].securityContext.runAsNonRoot
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-worker-data-parallel
+    fieldPaths:
+    - spec.template.containers.[name=main].securityContext.runAsNonRoot
+    - spec.worker.containers.[name=main].securityContext.runAsNonRoot
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-decode-template
+    fieldPaths:
+    - spec.template.containers.[name=main].securityContext.runAsNonRoot
+    - spec.template.initContainers.[name=llm-d-routing-sidecar].securityContext.runAsNonRoot
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-decode-worker-data-parallel
+    fieldPaths:
+    - spec.template.containers.[name=main].securityContext.runAsNonRoot
+    - spec.template.initContainers.[name=llm-d-routing-sidecar].securityContext.runAsNonRoot
+    - spec.worker.containers.[name=main].securityContext.runAsNonRoot
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-prefill-template
+    fieldPaths:
+    - spec.prefill.template.containers.[name=main].securityContext.runAsNonRoot
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-prefill-worker-data-parallel
+    fieldPaths:
+    - spec.prefill.template.containers.[name=main].securityContext.runAsNonRoot
+    - spec.prefill.worker.containers.[name=main].securityContext.runAsNonRoot
+
 configMapGenerator:
 - envs:
   - params.env
