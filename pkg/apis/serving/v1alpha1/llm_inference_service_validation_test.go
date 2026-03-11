@@ -560,7 +560,7 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 		assert.Contains(t, errs[0].Detail, "scaling and replicas are mutually exclusive")
 	})
 
-	t.Run("both decode and prefill with valid scaling", func(t *testing.T) {
+	t.Run("both decode and prefill with matching HPA backends", func(t *testing.T) {
 		svc := newBaseLLMInferenceService()
 		svc.Spec.WorkloadSpec = WorkloadSpec{
 			Scaling: &ScalingSpec{
@@ -569,6 +569,35 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 				WVA: &WVASpec{
 					ActuatorSpec: ActuatorSpec{
 						HPA: &HPAScalingSpec{},
+					},
+				},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MinReplicas: ptr.To(int32(2)),
+				MaxReplicas: ptr.To(int32(8)),
+				WVA: &WVASpec{
+					ActuatorSpec: ActuatorSpec{
+						HPA: &HPAScalingSpec{},
+					},
+				},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		assert.Empty(t, errs, "expected no errors when both workloads use HPA")
+	})
+
+	t.Run("both decode and prefill with matching KEDA backends", func(t *testing.T) {
+		svc := newBaseLLMInferenceService()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MinReplicas: ptr.To(int32(1)),
+				MaxReplicas: ptr.To(int32(5)),
+				WVA: &WVASpec{
+					ActuatorSpec: ActuatorSpec{
+						KEDA: &KEDAScalingSpec{},
 					},
 				},
 			},
@@ -588,7 +617,7 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 		}
 
 		errs := validator.validateScaling(svc)
-		assert.Empty(t, errs, "expected no errors for valid scaling on both workloads")
+		assert.Empty(t, errs, "expected no errors when both workloads use KEDA")
 	})
 
 	t.Run("scalingModifiers set - rejected", func(t *testing.T) {

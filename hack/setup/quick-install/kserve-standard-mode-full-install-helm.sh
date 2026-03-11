@@ -644,7 +644,7 @@ ENVOY_AI_GATEWAY_VERSION=v0.5.0
 KNATIVE_OPERATOR_VERSION=v1.21.1
 KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
-KSERVE_VERSION=v0.17.0-rc0
+KSERVE_VERSION=v0.17.0-rc1
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.17.3
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
@@ -1041,6 +1041,11 @@ install_kserve_helm() {
     # Build configuration arguments for KServe/LLMIsvc
     readarray -t helm_config_args < <(build_helm_config_args)
 
+    # Adopt any pre-existing GIE CRDs into the llmisvc-resources Helm release
+    if is_positive "${ENABLE_LLMISVC}"; then
+        adopt_existing_crds_for_release "kserve-llmisvc-resources" "${KSERVE_NAMESPACE}" "${GIE_CRDS[@]}"
+    fi
+
     # Install resource charts
     for i in "${!RESOURCE_CHARTS[@]}"; do
         local chart="${RESOURCE_CHARTS[$i]}"
@@ -1090,6 +1095,7 @@ install_kserve_helm() {
             --namespace "${KSERVE_NAMESPACE}" \
             --create-namespace \
             --wait \
+            ${VERSION_FLAG} \
             --set kserve.version="${KSERVE_VERSION}" \
             --set kserve.servingruntime.enabled=${INSTALL_RUNTIMES} \
             --set kserve.llmisvcConfigs.enabled=${INSTALL_LLMISVC_CONFIGS}

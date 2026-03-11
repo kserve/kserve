@@ -17,11 +17,30 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"strings"
+	"crypto/sha256"
+	"encoding/hex"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// GetStorageKey returns a deterministic hash of the sourceModelUri for folder naming.
+// This enables storage deduplication - all models with the same URI share the same folder.
+func GetStorageKey(sourceModelUri string) string {
+	hash := sha256.Sum256([]byte(sourceModelUri))
+	return hex.EncodeToString(hash[:])[:16] // Use first 16 chars of hash
+}
+
+// LocalModelStorageSpec defines credential and storage configuration for model download
+// +k8s:openapi-gen=true
+type LocalModelStorageSpec struct {
+	// The Storage Key in the secret for this object.
+	// +optional
+	StorageKey *string `json:"key,omitempty"`
+	// Parameters to override the default storage credentials and config.
+	// +optional
+	Parameters *map[string]string `json:"parameters,omitempty"`
+}
 
 // LocalModelCacheSpec
 // +k8s:openapi-gen=true
@@ -35,6 +54,11 @@ type LocalModelCacheSpec struct {
 	// Todo: support more than 1 node groups
 	// +kubebuilder:validation:MinItems=1
 	NodeGroups []string `json:"nodeGroups" validate:"required"`
+	// ServiceAccountName specifies the service account to use for credential lookup.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// +optional
+	Storage *LocalModelStorageSpec `json:"storage,omitempty"`
 }
 
 // LocalModelCache
@@ -64,19 +88,7 @@ func init() {
 	SchemeBuilder.Register(&LocalModelCache{}, &LocalModelCacheList{})
 }
 
-// If the storageUri from inference service matches the sourceModelUri of the LocalModelCache or is a subdirectory of the sourceModelUri, return true
+// MatchStorageURI checks if storageUri matches the sourceModelUri or is a subdirectory of it
 func (spec *LocalModelCacheSpec) MatchStorageURI(storageUri string) bool {
-	cachedUri := strings.TrimSuffix(spec.SourceModelUri, "/")
-	isvcStorageUri := strings.TrimSuffix(storageUri, "/")
-	if strings.HasPrefix(isvcStorageUri, cachedUri) {
-		if len(isvcStorageUri) == len(cachedUri) {
-			return true
-		}
-
-		// If the storageUri is a subdirectory of the cachedUri, the next character after the cachedUri should be a "/"
-		if len(cachedUri) < len(isvcStorageUri) && string(isvcStorageUri[len(cachedUri)]) == "/" {
-			return true
-		}
-	}
-	return false
+	return MatchStorageURI(spec.SourceModelUri, storageUri)
 }
