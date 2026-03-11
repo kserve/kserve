@@ -8481,7 +8481,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 
 			inferenceService := &v1beta1.InferenceService{}
@@ -8952,7 +8952,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
@@ -10035,7 +10035,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			},
 		}
 
-		isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+		isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 		Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 		defer k8sClient.Delete(ctx, isvc)
 
@@ -10313,7 +10313,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			Expect(k8sClient.Create(context.TODO(), servingRuntime)).To(Succeed())
 			defer func() { _ = k8sClient.Delete(context.TODO(), servingRuntime) }()
-			serviceName := "modelcar-raw-deployment"
+			serviceName := "modelcar-raw-deploy-pullsecret"
 			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: constants.KServeNamespace}}
 			serviceKey := expectedRequest.NamespacedName
 			storageUri := "oci://test/mnist/export"
