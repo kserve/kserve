@@ -1,4 +1,4 @@
-# KServe Release Process v3
+# KServe Release Process v3 (Automated)
 
 Simplified and automated KServe release process (5~7 weeks) using scripts and GitHub Actions.
 
@@ -31,29 +31,22 @@ Simplified and automated KServe release process (5~7 weeks) using scripts and Gi
 
 ## RC0: Initial Release Candidate
 
-### 0. Set Release Variables
-
-```bash
-# Set these variables for your release (example: 0.17.0)
-export NEW_VERSION=0.17.0
-export PRIOR_VERSION=0.16.0
-```
+> **Note:** This guide uses v0.17.0 as an example. Replace with your actual release version.
 
 ### 1. Prepare and Merge
-
 ```bash
 git clone git@github.com:YOUR_ORG/kserve.git
 cd kserve
 
-git checkout -b release/${NEW_VERSION}-rc0
+git checkout -b release/0.17.0-rc0
 
-# Prepare release (uses variables from step 0)
-make bump-version NEW_VERSION=${NEW_VERSION}-rc0 PRIOR_VERSION=${PRIOR_VERSION}
+# Prepare release
+make bump-version NEW_VERSION=0.17.0-rc0 PRIOR_VERSION=0.16.0
 
 # Push release branch to your repository
 git add .
-git commit -S -s -m "release: prepare release v${NEW_VERSION}-rc0"
-git push -u origin release/${NEW_VERSION}-rc0
+git commit -m "release: prepare release v0.17.0-rc0"
+git push -u origin release/0.17.0-rc0
 
 # Create PR to master in upstream kserve via GitHub UI
 ```
@@ -62,95 +55,80 @@ git push -u origin release/${NEW_VERSION}-rc0
 
 **GitHub Actions:**
 1. Go to **Actions** → **Prepare Release (Branch & Tag)** → **Run workflow**
-2. Set `version: v${NEW_VERSION}-rc0`, `dry_run: true`
+2. Set `version: v0.17.0-rc0`, `dry_run: true`
 3. Review output, then run with `dry_run: false`
 
 **Local Script (only for testing):**
 ```bash
-./hack/release/create-release.sh v${NEW_VERSION}-rc0 --dry-run
+./hack/release/create-release.sh v0.17.0-rc0 --dry-run
 ```
 
 This creates:
-- Branch: `release-${NEW_VERSION%.*}` (e.g., `release-0.17`)
-- Tag: `v${NEW_VERSION}-rc0`
+- Branch: `release-0.17` (new)
+- Tag: `v0.17.0-rc0`
 
-### 3. Review and Publish Draft Release
+### 3. Create GitHub Release (Manual)
 
-The workflow automatically creates a **Draft Release** with:
+> **Note:** Only project leads (Dan Sun, Yuan Tang) can create GitHub Releases. Please ask them to create the release after the branch and tag are prepared.
 
-- ✅ Release notes (auto-generated from commits)
-- ✅ Install files (from `install/v${NEW_VERSION}-rc0/`)
-- ✅ Pre-release flag (for RC versions)
+After the workflow completes, create the GitHub Release manually:
 
-> **Note:** Approvers or above (listed in [OWNERS](../OWNERS)) can publish GitHub Releases.
+1. **Go to Release Creation Page:**
+   - URL: https://github.com/kserve/kserve/releases/new?tag=v0.17.0-rc0
+   - Or: Releases → Draft a new release → Choose tag: `v0.17.0-rc0`
 
-**To publish the release:**
+2. **Fill in Release Information:**
+   - Title: `KServe v0.17.0-rc0`
+   - ✅ Check "Set as a pre-release"
 
-1. **Review the Draft Release:**
-   - Go to: <https://github.com/kserve/kserve/releases>
-   - Find the draft release for `v${NEW_VERSION}-rc0`
+3. **Write Release Notes:**
+   - Installation guide link (https://kserve.github.io/website/docs/next/getting-started/quickstart-guide)
+   - What's changed
+   - Breaking changes (if any)
 
-2. **Edit if needed:**
-   - Update release notes
-   - Add breaking changes
-   - Highlight important features
+4. **Attach Install Files:**
+   - Files are in: `install/v0.17.0-rc0/`
 
-3. **Publish the Release:**
-   - Verify "Set as a pre-release" is checked
-   - Click **"Publish release"** button
+5. **Click "Publish release"**
 
-**Publishing automatically triggers:**
-
-- ✅ **PyPI Publishing:** `python-publish` workflow uploads packages
+**This automatically triggers:**
+- ✅ **PyPI Publishing:** Packages are uploaded to PyPI
   - KServe: <https://pypi.org/project/kserve/>
   - Storage: <https://pypi.org/project/kserve-storage/>
-- ✅ **Helm Publishing:** `helm-publish` workflow pushes charts to GHCR
+- ✅ **Helm Publishing:** Charts are pushed to GHCR and attached to release
   - GHCR: <https://github.com/orgs/kserve/packages>
 
-**Verify workflows:**
-
-- **Actions** → **Upload Python Package**
-- **Actions** → **helm-publish**
+**Verify:**
+- Check workflow: **Actions** → **Upload Python Package**
+- Check workflow: **Actions** → **helm-publish**
 
 ### 4. Announce
-
-```bash
-echo "📢 KServe v${NEW_VERSION}-rc0 is now available!"
-echo "Release: https://github.com/kserve/kserve/releases/tag/v${NEW_VERSION}-rc0"
-echo "Please test and report bugs. Feature freeze is now in effect."
+```
+📢 KServe v0.17.0-rc0 is now available!
+Release: https://github.com/kserve/kserve/releases/tag/v0.17.0-rc0
+Please test and report bugs. Feature freeze is now in effect.
 ```
 
 ---
 
 ## RC1+: Bug Fix Release Candidates
 
-### 0. Set Release Variables
-
-```bash
-# Update these variables for RC1
-export NEW_VERSION=0.17.0
-export PRIOR_VERSION=0.17.0-rc0  # Previous RC version
-```
-
 ### 1. Fix Bugs
-
 - Fix bugs in master
 - Label PR with `cherrypick-approved`
 - Merge to master
 
 ### 2. Cherry-pick
-
 ```bash
 # In merged PR, comment:
-/cherry-pick release-${NEW_VERSION%.*}
+/cherry-pick release-0.17
 ```
 
 ### 3. Prepare and Merge
-
 ```bash
-make bump-version NEW_VERSION=${NEW_VERSION}-rc1 PRIOR_VERSION=${PRIOR_VERSION}
+make bump-version NEW_VERSION=0.17.0-rc1 PRIOR_VERSION=0.17.0-rc0
 # Create PR with cherrypick-approved label, merge to master
-# Cherry-pick: /cherry-pick release-${NEW_VERSION%.*}  ex. /cherry-pick release-0.17
+# Cherry-pick: /cherry-pick release-0.17
 ```
 
 ### 4. Prepare Release (Tag Only)
@@ -158,47 +136,31 @@ make bump-version NEW_VERSION=${NEW_VERSION}-rc1 PRIOR_VERSION=${PRIOR_VERSION}
 **GitHub Actions (Recommended):**
 
 1. Go to **Actions** → **Prepare Release (Branch & Tag)** → **Run workflow**
-2. Set `version: v${NEW_VERSION}-rc1`, `dry_run: true`
+2. Set `version: v0.17.0-rc1`, `dry_run: true`
 3. Review output, then run with `dry_run: false`
 
 **Local Script (only for testing):**
 
 ```bash
-./hack/release/create-release.sh v${NEW_VERSION}-rc1 --dry-run
+./hack/release/create-release.sh v0.17.0-rc1 --dry-run
 ```
 
 
-### 5. Review and Publish Draft Release
+### 5. Create GitHub Release (Manual)
 
-> **Note:** Approvers or above (listed in [OWNERS](../OWNERS)) can publish GitHub Releases.
+> **Note:** Only project leads (Dan Sun, Yuan Tang) can create GitHub Releases. Please ask them to create the release after the branch and tag are prepared.
 
-The workflow automatically creates a Draft Release. Follow the same review and publish process as RC0:
-
-1. Review draft at: <https://github.com/kserve/kserve/releases>
-2. Edit release notes if needed
-3. Verify "Set as a pre-release" is checked
-4. Click **"Publish release"**
-
-Publishing automatically triggers `python-publish` and `helm-publish` workflows.
+Follow the same steps as RC0 to create the release manually, then PyPI and Helm will be automatically published.
 
 ---
 
 ## Final Release
 
-### 0. Set Release Variables
-
-```bash
-# Update these variables for final release
-export NEW_VERSION=0.17.0
-export PRIOR_VERSION=0.17.0-rc1  # Last RC version (or rc0 if no RC1)
-```
-
 ### 1. Prepare and Merge
-
 ```bash
-make bump-version NEW_VERSION=${NEW_VERSION} PRIOR_VERSION=${PRIOR_VERSION}
+make bump-version NEW_VERSION=0.17.0 PRIOR_VERSION=0.17.0-rc1
 # Create PR with cherrypick-approved label, merge to master
-# Cherry-pick: /cherry-pick release-${NEW_VERSION%.*}  ex. /cherry-pick release-0.17
+# Cherry-pick: /cherry-pick release-0.17
 ```
 
 ### 2. Prepare Release (Tag Only)
@@ -206,27 +168,20 @@ make bump-version NEW_VERSION=${NEW_VERSION} PRIOR_VERSION=${PRIOR_VERSION}
 **GitHub Actions (Recommended):**
 
 1. Go to **Actions** → **Prepare Release (Branch & Tag)** → **Run workflow**
-2. Set `version: v${NEW_VERSION}`, `dry_run: true`
+2. Set `version: v0.17.0`, `dry_run: true`
 3. Review output, then run with `dry_run: false`
 
 **Local Script (only for testing):**
 
 ```bash
-./hack/release/create-release.sh v${NEW_VERSION} --dry-run
+./hack/release/create-release.sh v0.17.0 --dry-run
 ```
 
-### 3. Review and Publish Final Release
+### 3. Create GitHub Release (Manual)
 
-> **Note:** Approvers or above (listed in [OWNERS](../OWNERS)) can publish GitHub Releases.
+> **Note:** Only project leads (Dan Sun, Yuan Tang) can create GitHub Releases. Please ask them to create the release after the branch and tag are prepared.
 
-The workflow automatically creates a Draft Release (without pre-release flag). Follow the review process:
-
-1. Review draft at: <https://github.com/kserve/kserve/releases>
-2. Edit release notes if needed
-3. **Ensure "Set as a pre-release" is unchecked** (should already be unchecked)
-4. Click **"Publish release"**
-
-Publishing automatically triggers `python-publish` and `helm-publish` workflows.
+Follow the same steps as RC0 to create the release manually, then PyPI and Helm will be automatically published.
 
 ---
 
