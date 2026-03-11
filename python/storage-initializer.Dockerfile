@@ -4,9 +4,11 @@ ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
 
-# Install all system dependencies first
-RUN apt-get update && apt-get install -y --no-install-recommends python3-dev curl build-essential && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Install all system dependencies first (including Kerberos libs required by krbcontext and requests-kerberos)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-dev curl build-essential \
+    gcc libkrb5-dev krb5-config \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
     ln -s /root/.local/bin/uv /usr/local/bin/uv
@@ -23,20 +25,6 @@ RUN cd storage && uv sync --active --no-cache
 
 COPY storage storage
 RUN cd storage && uv pip install . --no-cache 
-
-ARG DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
-    gcc \
-    libkrb5-dev \
-    krb5-config \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Kerberos-related packages
-RUN uv pip install --no-cache \
-    krbcontext==0.10 \
-    hdfs~=2.6.0 \
-    requests-kerberos==0.14.0
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
