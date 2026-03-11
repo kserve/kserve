@@ -206,7 +206,7 @@ func TestExpectedScaledObject(t *testing.T) {
 				MaxReplicas: ptr.To(int32(5)),
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
-			config:         &Config{AutoscalingConfig: &AutoscalingConfig{PrometheusURL: "http://prom:9090"}},
+			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{PrometheusURL: "http://prom:9090"}},
 			deploymentName: "test-svc-kserve",
 			vaName:         "test-svc-kserve-va",
 			soName:         "test-svc-kserve-keda",
@@ -223,7 +223,7 @@ func TestExpectedScaledObject(t *testing.T) {
 				MaxReplicas: ptr.To(int32(8)),
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
-			config:         &Config{AutoscalingConfig: &AutoscalingConfig{PrometheusURL: "http://prom:9090"}},
+			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{PrometheusURL: "http://prom:9090"}},
 			deploymentName: "test-svc-kserve",
 			vaName:         "test-svc-kserve-va",
 			soName:         "test-svc-kserve-keda",
@@ -240,7 +240,7 @@ func TestExpectedScaledObject(t *testing.T) {
 				MaxReplicas: ptr.To(int32(5)),
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
-			config:         &Config{AutoscalingConfig: &AutoscalingConfig{PrometheusURL: "http://prom:9090"}},
+			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{PrometheusURL: "http://prom:9090"}},
 			deploymentName: "my-model-kserve-prefill",
 			vaName:         "my-model-kserve-prefill-va",
 			soName:         "my-model-kserve-prefill-keda",
@@ -258,7 +258,7 @@ func TestExpectedScaledObject(t *testing.T) {
 				MaxReplicas: ptr.To(int32(5)),
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
-			config:         &Config{AutoscalingConfig: &AutoscalingConfig{PrometheusURL: "https://prom.monitoring:9090", PrometheusTLSInsecureSkipVerify: true}},
+			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{PrometheusURL: "https://prom.monitoring:9090", PrometheusTLSInsecureSkipVerify: true}},
 			deploymentName: "test-svc-kserve",
 			vaName:         "test-svc-kserve-va",
 			soName:         "test-svc-kserve-keda",
@@ -280,7 +280,7 @@ func TestExpectedScaledObject(t *testing.T) {
 				MaxReplicas: ptr.To(int32(5)),
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
-			config:         &Config{AutoscalingConfig: &AutoscalingConfig{PrometheusURL: "http://prom:9090", PrometheusTLSInsecureSkipVerify: false}},
+			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{PrometheusURL: "http://prom:9090", PrometheusTLSInsecureSkipVerify: false}},
 			deploymentName: "test-svc-kserve",
 			vaName:         "test-svc-kserve-va",
 			soName:         "test-svc-kserve-keda",
@@ -298,7 +298,7 @@ func TestExpectedScaledObject(t *testing.T) {
 					CooldownPeriod:  ptr.To(int32(60)),
 				}}},
 			},
-			config:         &Config{AutoscalingConfig: &AutoscalingConfig{PrometheusURL: "http://prom:9090"}},
+			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{PrometheusURL: "http://prom:9090"}},
 			deploymentName: "test-svc-kserve",
 			vaName:         "test-svc-kserve-va",
 			soName:         "test-svc-kserve-keda",
@@ -316,7 +316,7 @@ func TestExpectedScaledObject(t *testing.T) {
 				MaxReplicas: ptr.To(int32(5)),
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
-			config:         &Config{AutoscalingConfig: &AutoscalingConfig{PrometheusURL: "http://prom:9090"}},
+			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{PrometheusURL: "http://prom:9090"}},
 			deploymentName: "test-svc-kserve",
 			vaName:         "test-svc-kserve-va",
 			soName:         "test-svc-kserve-keda",
@@ -334,7 +334,7 @@ func TestExpectedScaledObject(t *testing.T) {
 				MaxReplicas: ptr.To(int32(5)),
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
-			config:         &Config{AutoscalingConfig: &AutoscalingConfig{PrometheusURL: "http://prom:9090"}},
+			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{PrometheusURL: "http://prom:9090"}},
 			deploymentName: "test-svc-kserve",
 			vaName:         "test-svc-kserve-va",
 			soName:         "test-svc-kserve-keda",
@@ -351,7 +351,7 @@ func TestExpectedScaledObject(t *testing.T) {
 				MaxReplicas: ptr.To(int32(5)),
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
-			config: &Config{AutoscalingConfig: &AutoscalingConfig{
+			config: &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{
 				PrometheusURL:             "https://prom.monitoring:9090",
 				PrometheusAuthModes:       "bearer",
 				PrometheusTriggerAuthName: "prom-bearer-auth",
@@ -375,7 +375,7 @@ func TestExpectedScaledObject(t *testing.T) {
 				MaxReplicas: ptr.To(int32(5)),
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
-			config: &Config{AutoscalingConfig: &AutoscalingConfig{
+			config: &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{
 				PrometheusURL:             "https://prom.monitoring:9090",
 				PrometheusAuthModes:       "bearer",
 				PrometheusTriggerAuthName: "cluster-prom-auth",
@@ -543,7 +543,7 @@ func TestExpectedVA(t *testing.T) {
 func TestValidateAutoscalingConfig(t *testing.T) {
 	tests := []struct {
 		name    string
-		cfg     *AutoscalingConfig
+		cfg     *WVAAutoscalingConfig
 		wantErr string
 	}{
 		{
@@ -553,16 +553,16 @@ func TestValidateAutoscalingConfig(t *testing.T) {
 		},
 		{
 			name:    "missing prometheusURL returns error",
-			cfg:     &AutoscalingConfig{},
+			cfg:     &WVAAutoscalingConfig{},
 			wantErr: "autoscaling.prometheusURL is required",
 		},
 		{
 			name: "no auth fields is valid",
-			cfg:  &AutoscalingConfig{PrometheusURL: "http://prom:9090"},
+			cfg:  &WVAAutoscalingConfig{PrometheusURL: "http://prom:9090"},
 		},
 		{
 			name: "both auth fields set is valid",
-			cfg: &AutoscalingConfig{
+			cfg: &WVAAutoscalingConfig{
 				PrometheusURL:             "https://prom:9090",
 				PrometheusAuthModes:       "bearer",
 				PrometheusTriggerAuthName: "prom-auth",
@@ -570,7 +570,7 @@ func TestValidateAutoscalingConfig(t *testing.T) {
 		},
 		{
 			name: "authModes set without triggerAuthName returns error",
-			cfg: &AutoscalingConfig{
+			cfg: &WVAAutoscalingConfig{
 				PrometheusURL:       "https://prom:9090",
 				PrometheusAuthModes: "bearer",
 			},
@@ -578,7 +578,7 @@ func TestValidateAutoscalingConfig(t *testing.T) {
 		},
 		{
 			name: "triggerAuthName set without authModes returns error",
-			cfg: &AutoscalingConfig{
+			cfg: &WVAAutoscalingConfig{
 				PrometheusURL:             "https://prom:9090",
 				PrometheusTriggerAuthName: "prom-auth",
 			},
@@ -586,7 +586,7 @@ func TestValidateAutoscalingConfig(t *testing.T) {
 		},
 		{
 			name: "ClusterTriggerAuthentication kind with both auth fields is valid",
-			cfg: &AutoscalingConfig{
+			cfg: &WVAAutoscalingConfig{
 				PrometheusURL:             "https://prom:9090",
 				PrometheusAuthModes:       "bearer",
 				PrometheusTriggerAuthName: "cluster-prom-auth",

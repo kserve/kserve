@@ -206,11 +206,11 @@ func (r *LLMISVCReconciler) reconcileActuator(ctx context.Context, llmSvc *v1alp
 	return r.reconcileHPA(ctx, llmSvc, scaling, isStopped, deploymentName, vaName, hpaName)
 }
 
-// validateAutoscalingConfig checks that the AutoscalingConfig is valid for use with KEDA.
+// validateAutoscalingConfig checks that the WVAAutoscalingConfig is valid for use with KEDA.
 // It returns an error if the config is nil, if PrometheusURL is missing, or if the auth
 // fields are only partially configured (both prometheusAuthModes and prometheusTriggerAuthName
 // must be set together or both left empty).
-func validateAutoscalingConfig(cfg *AutoscalingConfig) error {
+func validateAutoscalingConfig(cfg *WVAAutoscalingConfig) error {
 	if cfg == nil || cfg.PrometheusURL == "" {
 		return errors.New("autoscaling.prometheusURL is required in inferenceservice-config when using KEDA")
 	}
@@ -226,7 +226,7 @@ func (r *LLMISVCReconciler) reconcileKEDAScaledObject(ctx context.Context, llmSv
 		return r.deleteScaledObjectIfExists(ctx, llmSvc, scaledObjectName)
 	}
 
-	if err := validateAutoscalingConfig(config.AutoscalingConfig); err != nil {
+	if err := validateAutoscalingConfig(config.WVAAutoscalingConfig); err != nil {
 		return err
 	}
 
@@ -282,7 +282,7 @@ func expectedScaledObject(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha
 			Advanced:              keda.Advanced,
 			InitialCooldownPeriod: keda.InitialCooldownPeriod,
 			Triggers: []kedav1alpha1.ScaleTriggers{
-				prometheusTrigger(config.AutoscalingConfig, query),
+				prometheusTrigger(config.WVAAutoscalingConfig, query),
 			},
 		},
 	}
@@ -294,7 +294,7 @@ func expectedScaledObject(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha
 // Authentication is optional: when PrometheusAuthModes and PrometheusTriggerAuthName are
 // set in the config, the trigger will carry authModes metadata and an AuthenticationRef
 // pointing to the pre-existing TriggerAuthentication or ClusterTriggerAuthentication CR.
-func prometheusTrigger(cfg *AutoscalingConfig, query string) kedav1alpha1.ScaleTriggers {
+func prometheusTrigger(cfg *WVAAutoscalingConfig, query string) kedav1alpha1.ScaleTriggers {
 	trigger := kedav1alpha1.ScaleTriggers{
 		Type: "prometheus",
 		Name: "wva-desired-replicas",

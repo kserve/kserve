@@ -105,9 +105,9 @@ type Config struct {
 	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
 	UrlScheme               string `json:"urlScheme,omitempty"`
 
-	// AutoscalingConfig holds Prometheus and monitoring settings for autoscaling.
-	// nil when the "autoscaling" key is not present in inferenceservice-config.
-	AutoscalingConfig *AutoscalingConfig `json:"-"`
+	// WVAAutoscalingConfig holds Prometheus and monitoring settings for WVA autoscaling.
+	// nil when the "autoscaling-wva-controller-config" key is not present in inferenceservice-config.
+	WVAAutoscalingConfig *WVAAutoscalingConfig `json:"-"`
 
 	// Storage and credential configs are excluded from JSON serialization
 	// as they contain sensitive information
@@ -116,9 +116,10 @@ type Config struct {
 	SchedulerConfig  *SchedulerConfig                `json:"-"`
 }
 
-// AutoscalingConfig holds cluster-wide autoscaling settings loaded from the "autoscaling"
-// key in the inferenceservice-config ConfigMap. These are shared across all LLMISVC instances.
-type AutoscalingConfig struct {
+// WVAAutoscalingConfig holds cluster-wide WVA autoscaling settings loaded from the
+// "autoscaling-wva-controller-config" key in the inferenceservice-config ConfigMap.
+// These are shared across all LLMISVC instances.
+type WVAAutoscalingConfig struct {
 	// PrometheusURL is the URL of the Prometheus server (used by KEDA to query wva_desired_replicas).
 	PrometheusURL string `json:"prometheusURL"`
 	// PrometheusTLSInsecureSkipVerify disables TLS certificate verification for the Prometheus connection.
@@ -141,7 +142,9 @@ type AutoscalingConfig struct {
 	PrometheusTriggerAuthKind string `json:"prometheusTriggerAuthKind,omitempty"`
 }
 
-const autoscalingConfigName = "autoscaling"
+// autoscalingConfigName is the key in the inferenceservice-config ConfigMap
+// that holds WVA-specific autoscaling controller configuration.
+const autoscalingConfigName = "autoscaling-wva-controller-config"
 
 // NewConfig creates an instance of llm-specific config based on predefined values
 // in IngressConfig struct
@@ -199,9 +202,9 @@ func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, e
 	config := NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig)
 
 	if autoscalingData, ok := isvcConfigMap.Data[autoscalingConfigName]; ok {
-		asCfg := &AutoscalingConfig{}
+		asCfg := &WVAAutoscalingConfig{}
 		if err := json.Unmarshal([]byte(autoscalingData), asCfg); err == nil {
-			config.AutoscalingConfig = asCfg
+			config.WVAAutoscalingConfig = asCfg
 		}
 	}
 
