@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
@@ -637,6 +638,51 @@ func TestValidateWorkloadScaling(t *testing.T) {
 			wantErrCount:   1,
 			wantErrStrings: []string{"idleReplicaCount (2) must be less than minReplicas (2)"},
 		},
+		{
+			name: "error: scaling and worker both set (multi-node + autoscaling not supported)",
+			workload: &WorkloadSpec{
+				Worker: &corev1.PodSpec{},
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(5)),
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"autoscaling (scaling) is not supported for multi-node deployments"},
+		},
+		{
+			name: "error: scaling and worker both set with KEDA",
+			workload: &WorkloadSpec{
+				Worker: &corev1.PodSpec{},
+				Scaling: &ScalingSpec{
+					MaxReplicas: ptr.To(int32(3)),
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{},
+						},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"autoscaling (scaling) is not supported for multi-node deployments"},
+		},
+		{
+			name: "valid: worker set with replicas (no scaling) - multi-node with static replicas",
+			workload: &WorkloadSpec{
+				Worker:   &corev1.PodSpec{},
+				Replicas: ptr.To(int32(3)),
+			},
+			wantErrCount: 0,
+		},
+		{
+			name:         "valid: worker set with no replicas and no scaling - multi-node defaults",
+			workload:     &WorkloadSpec{Worker: &corev1.PodSpec{}},
+			wantErrCount: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -681,7 +727,7 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 		assert.Contains(t, errs[0].Detail, "scaling and replicas are mutually exclusive")
 	})
 
-	t.Run("both decode and prefill with valid scaling", func(t *testing.T) {
+	t.Run("both decode and prefill with matching HPA backends", func(t *testing.T) {
 		svc := newBaseLLMInferenceServiceV1Alpha2()
 		svc.Spec.WorkloadSpec = WorkloadSpec{
 			Scaling: &ScalingSpec{
@@ -690,6 +736,35 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 				WVA: &WVASpec{
 					ActuatorSpec: ActuatorSpec{
 						HPA: &HPAScalingSpec{},
+					},
+				},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MinReplicas: ptr.To(int32(2)),
+				MaxReplicas: ptr.To(int32(8)),
+				WVA: &WVASpec{
+					ActuatorSpec: ActuatorSpec{
+						HPA: &HPAScalingSpec{},
+					},
+				},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		assert.Empty(t, errs, "expected no errors when both workloads use HPA")
+	})
+
+	t.Run("both decode and prefill with matching KEDA backends", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MinReplicas: ptr.To(int32(1)),
+				MaxReplicas: ptr.To(int32(5)),
+				WVA: &WVASpec{
+					ActuatorSpec: ActuatorSpec{
+						KEDA: &KEDAScalingSpec{},
 					},
 				},
 			},
@@ -709,7 +784,7 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 		}
 
 		errs := validator.validateScaling(svc)
-		assert.Empty(t, errs, "expected no errors for valid scaling on both workloads")
+		assert.Empty(t, errs, "expected no errors when both workloads use KEDA")
 	})
 
 	t.Run("scalingModifiers set - rejected", func(t *testing.T) {
@@ -819,5 +894,135 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 		}
 		assert.True(t, foundDecodeErr, "expected error on spec.scaling path for decode workload")
 		assert.True(t, foundPrefillErr, "expected error on spec.prefill.scaling path for prefill workload")
+	})
+}
+
+func TestValidateActuatorConsistency(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	t.Run("valid: decode HPA, no prefill scaling", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{Replicas: ptr.To(int32(2))}
+		errs := validator.validateScaling(svc)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid: no prefill at all", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
+			},
+		}
+		errs := validator.validateScaling(svc)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid: decode scaling only, prefill has no scaling", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{KEDA: &KEDAScalingSpec{}}},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{Replicas: ptr.To(int32(3))}
+		errs := validator.validateScaling(svc)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid: prefill scaling only, decode has no scaling", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{Replicas: ptr.To(int32(2))}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
+			},
+		}
+		errs := validator.validateScaling(svc)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("error: decode HPA, prefill KEDA", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{KEDA: &KEDAScalingSpec{}}},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.prefill.scaling.wva")
+		assert.Contains(t, errs[0].Detail, "decode uses hpa but prefill uses keda")
+	})
+
+	t.Run("error: decode KEDA, prefill HPA", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{KEDA: &KEDAScalingSpec{}}},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.prefill.scaling.wva")
+		assert.Contains(t, errs[0].Detail, "decode uses keda but prefill uses hpa")
+	})
+
+	t.Run("error: scaling+worker on decode workload", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Worker: &corev1.PodSpec{},
+			Scaling: &ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.scaling")
+		assert.Contains(t, errs[0].Detail, "autoscaling (scaling) is not supported for multi-node deployments")
+	})
+
+	t.Run("error: scaling+worker on prefill workload", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{Replicas: ptr.To(int32(2))}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Worker: &corev1.PodSpec{},
+			Scaling: &ScalingSpec{
+				MaxReplicas: ptr.To(int32(5)),
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{KEDA: &KEDAScalingSpec{}}},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.prefill.scaling")
+		assert.Contains(t, errs[0].Detail, "autoscaling (scaling) is not supported for multi-node deployments")
 	})
 }
