@@ -52,9 +52,7 @@ const AnnotationInferencePoolMigrated = "serving.kserve.io/inference-pool-migrat
 // reconcileRouter handles the networking and routing components for the LLM service
 // This includes schedulers, HTTP routes, and various validation checks
 func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	logger := log.FromContext(ctx).WithName("reconcileRouter").
-		WithValues("InferencePoolV1Alpha2Available", r.InferencePoolV1Alpha2Available,
-			"InferencePoolV1Available", r.InferencePoolV1Available)
+	logger := log.FromContext(ctx).WithName("reconcileRouter")
 	ctx = log.IntoContext(ctx, logger)
 
 	logger.Info("Reconciling Router")
@@ -230,7 +228,7 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 			"httproute.curr.status", curr.Status,
 			"httproute.expected.spec", httpRoute.Spec,
 		)
-	} else if r.InferencePoolV1Alpha2Available {
+	} else {
 		// Not migrated yet, use v1alpha2
 		for i := range httpRoute.Spec.Rules {
 			for j := range httpRoute.Spec.Rules[i].BackendRefs {

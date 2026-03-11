@@ -136,6 +136,7 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 
 	_, localModelDisabledForIsvc := isvc.Annotations[constants.DisableLocalModelKey]
 	var models *v1alpha1.LocalModelCacheList
+	var nsModels *v1alpha1.LocalModelNamespaceCacheList
 	if !localModelDisabledForIsvc && localModelConfig.Enabled {
 		var c client.Client
 		if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
@@ -147,14 +148,19 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 			mutatorLogger.Error(err, "Cannot List local models")
 			return err
 		}
+		// List namespace-scoped LocalModelNamespaceCache in the ISVC's namespace
+		nsModels = &v1alpha1.LocalModelNamespaceCacheList{}
+		if err := c.List(ctx, nsModels, client.InNamespace(isvc.Namespace)); err != nil {
+			mutatorLogger.Error(err, "Cannot List namespace-scoped local models", "namespace", isvc.Namespace)
+			return err
+		}
 	}
 
-	// Pass a list of LocalModelCache resources to set the local model label if there is a match
-	isvc.DefaultInferenceService(isvcConfig, deployConfig, securityConfig, models)
+	isvc.DefaultInferenceService(isvcConfig, deployConfig, securityConfig, models, nsModels)
 	return nil
 }
 
-func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, securityConfig *SecurityConfig, models *v1alpha1.LocalModelCacheList) {
+func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, securityConfig *SecurityConfig, models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList) {
 	deploymentMode, ok := isvc.Annotations[constants.DeploymentMode]
 
 	// Normalize deprecated annotation values
@@ -201,7 +207,7 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 		}
 	}
 
-	isvc.setLocalModelLabel(models)
+	isvc.setLocalModelLabel(models, nsModels)
 	if securityConfig != nil && !securityConfig.AutoMountServiceAccountToken {
 		disableAutomountServiceAccountToken(isvc)
 	}
@@ -486,6 +492,7 @@ func (isvc *InferenceService) SetTritonDefaults() {
 func deleteLocalModelMetadata(isvc *InferenceService) {
 	if isvc.Labels != nil {
 		delete(isvc.Labels, constants.LocalModelLabel)
+		delete(isvc.Labels, constants.LocalModelNamespaceLabel)
 	}
 	if isvc.Annotations != nil {
 		delete(isvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
@@ -493,12 +500,9 @@ func deleteLocalModelMetadata(isvc *InferenceService) {
 	}
 }
 
-// If there is a LocalModelCache resource, add the name of the LocalModelCache and sourceModelUri to the isvc,
-// which is used by the local model controller to manage PV/PVCs.
-func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCacheList) {
-	if models == nil {
-		return
-	}
+// setLocalModelLabel sets local model labels on the ISVC if a matching cache exists.
+// Namespace-scoped LocalModelNamespaceCache takes precedence over cluster-scoped LocalModelCache.
+func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList) {
 	var predictor ComponentImplementation
 	if predictor = isvc.Spec.Predictor.GetImplementation(); predictor == nil {
 		return
@@ -507,9 +511,46 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 		return
 	}
 	isvcStorageUri := *isvc.Spec.Predictor.GetImplementation().GetStorageUri()
+	isvcNodeGroup, isvcNodeGroupExists := isvc.Annotations[constants.NodeGroupAnnotationKey]
+
+	// Check namespace-scoped LocalModelNamespaceCache first (higher priority)
+	if nsModels != nil {
+		for i, nsModel := range nsModels.Items {
+			if nsModel.Spec.MatchStorageURI(isvcStorageUri) {
+				var localModelPVCName string
+				if isvcNodeGroupExists {
+					if slices.Contains(nsModel.Spec.NodeGroups, isvcNodeGroup) {
+						localModelPVCName = nsModel.Name + "-" + isvcNodeGroup
+					} else {
+						continue
+					}
+				} else {
+					localModelPVCName = nsModel.Name + "-" + nsModel.Spec.NodeGroups[0]
+				}
+				if isvc.Labels == nil {
+					isvc.Labels = make(map[string]string)
+				}
+				if isvc.Annotations == nil {
+					isvc.Annotations = make(map[string]string)
+				}
+				isvc.Labels[constants.LocalModelLabel] = nsModels.Items[i].Name
+				isvc.Labels[constants.LocalModelNamespaceLabel] = nsModels.Items[i].Namespace
+				isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = nsModels.Items[i].Spec.SourceModelUri
+				isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModelPVCName
+
+				mutatorLogger.Info("LocalModelNamespaceCache found", "model", nsModels.Items[i].Name, "modelNamespace", nsModels.Items[i].Namespace, "isvcNamespace", isvc.Namespace, "isvc", isvc.Name)
+				return
+			}
+		}
+	}
+
+	// Fall back to cluster-scoped LocalModelCache
+	if models == nil {
+		deleteLocalModelMetadata(isvc)
+		return
+	}
 	var localModel *v1alpha1.LocalModelCache
 	var localModelPVCName string
-	isvcNodeGroup, isvcNodeGroupExists := isvc.Annotations[constants.NodeGroupAnnotationKey]
 	for i, model := range models.Items {
 		// both storage URI and node group have to match for the isvc to be considered cached
 		if model.Spec.MatchStorageURI(isvcStorageUri) {
@@ -542,6 +583,8 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 		isvc.Annotations = make(map[string]string)
 	}
 	isvc.Labels[constants.LocalModelLabel] = localModel.Name
+	// Remove namespace label for cluster-scoped model (in case it was previously set)
+	delete(isvc.Labels, constants.LocalModelNamespaceLabel)
 	isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = localModel.Spec.SourceModelUri
 	isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModelPVCName
 
