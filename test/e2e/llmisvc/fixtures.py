@@ -1969,14 +1969,4 @@ def ensure_pvc_with_model():
     create_model_download_job()
     wait_for_job_completion()
 
-# LLMInferenceService API version for e2e tests (env: LLMISVC_API_VERSION=v1alpha1|v1alpha2)
-_LLMISVC_API_VERSION_ENV = "LLMISVC_API_VERSION"
-
-
-def _llmisvc_api_version() -> str:
-    """Return LLMInferenceService api_version (e.g. serving.kserve.io/v1alpha2) from env or default."""
-    raw = os.environ.get(_LLMISVC_API_VERSION_ENV, "v1alpha1").strip().lower()
-    if raw == "v1alpha2":
-        return constants.KSERVE_V1ALPHA2
-    return constants.KSERVE_V1ALPHA1
 
