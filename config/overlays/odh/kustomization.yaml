@@ -9,6 +9,7 @@ resources:
 - network-policies.yaml
 - llm-svc-scc.yaml
 - accelerators/
+- ../../monitoring/llmisvc
 
 components:
 - ../../components/kserve

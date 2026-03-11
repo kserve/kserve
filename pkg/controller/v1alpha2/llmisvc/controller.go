@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -110,6 +111,7 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 //+kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 //+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=monitoring.coreos.com,resources=podmonitors;servicemonitors,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is the main entry point for the reconciliation loop.
 // It fetches the LLMInferenceService and delegates the reconciliation of its constituent parts.
@@ -216,6 +218,10 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to reconcile networking: %w", err)
 	}
 
+	if err := r.reconcileMonitoringResources(ctx, llmSvc); err != nil {
+		return fmt.Errorf("failed to reconcile monitoring resources: %w", err)
+	}
+
 	return nil
 }
 
@@ -223,6 +229,10 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
 		return fmt.Errorf("failed to finalize scheduler service account: %w", err)
+	}
+
+	if err := r.cleanupMonitoringResources(ctx, llmSvc); err != nil {
+		return fmt.Errorf("failed to cleanup monitoring resources: %w", err)
 	}
 
 	return nil
@@ -301,6 +311,14 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), lwsapi.GroupVersion.String(), "LeaderWorkerSet"); ok && err == nil {
 		b = b.Owns(&lwsapi.LeaderWorkerSet{}, builder.WithPredicates(childResourcesPredicate))
+	}
+
+	monitoringGroup := "monitoring.coreos.com/v1"
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), monitoringGroup, "PodMonitor"); ok && err == nil {
+		b = b.Owns(&monitoringv1.PodMonitor{}, builder.WithPredicates(childResourcesPredicate))
+	}
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), monitoringGroup, "ServiceMonitor"); ok && err == nil {
+		b = b.Owns(&monitoringv1.ServiceMonitor{}, builder.WithPredicates(childResourcesPredicate))
 	}
 
 	return b.Complete(r)
