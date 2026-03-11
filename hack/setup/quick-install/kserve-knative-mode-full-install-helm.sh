@@ -641,10 +641,10 @@ KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
 ENVOY_GATEWAY_VERSION=v1.6.3
 ENVOY_AI_GATEWAY_VERSION=v0.5.0
-KNATIVE_OPERATOR_VERSION=v1.16.0
-KNATIVE_SERVING_VERSION=1.15.2
+KNATIVE_OPERATOR_VERSION=v1.21.1
+KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
-KSERVE_VERSION=v0.16.0
+KSERVE_VERSION=v0.17.0-rc1
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.17.3
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
@@ -717,7 +717,7 @@ metadata:
   name: knative-serving
   namespace: knative-serving
 spec:
-  version: "1.15.2"
+  version: "1.21.1"
   config:
     deployment:
       # Skip tag resolution for certain domains
@@ -814,7 +814,7 @@ metadata:
   name: knative-serving
   namespace: knative-serving
 spec:
-  version: "1.15.2"
+  version: "1.21.1"
   ingress:
     kourier:
       enabled: true
@@ -1291,7 +1291,7 @@ install_knative_operator() {
     log_info "Deploying Knative Serving ${KNATIVE_SERVING_VERSION} with ${NETWORK_LAYER} network layer..."
 
     if [ "$EMBED_TEMPLATES" = "true" ]; then
-        if [[ "${KNATIVE_SERVING_VERSION}" != "1.15.2" ]]; then
+        if [[ "${KNATIVE_SERVING_VERSION}" != "1.21.1" ]]; then
             log_info "Customizing template with version=${KNATIVE_SERVING_VERSION}"
             get_knative_serving_${NETWORK_LAYER} | \
                 sed -e "s/version: \".*\"/version: \"${KNATIVE_SERVING_VERSION}\"/" | \
@@ -1307,7 +1307,7 @@ install_knative_operator() {
             exit 1
         fi
 
-        if [[ "${KNATIVE_SERVING_VERSION}" != "1.15.2" ]]; then
+        if [[ "${KNATIVE_SERVING_VERSION}" != "1.21.1" ]]; then
             log_info "Customizing template with version=${KNATIVE_SERVING_VERSION}"
             sed -e "s/version: \".*\"/version: \"${KNATIVE_SERVING_VERSION}\"/" \
                 "${TEMPLATE_FILE}" | kubectl apply -f -
@@ -1449,6 +1449,11 @@ install_kserve_helm() {
     # Build configuration arguments for KServe/LLMIsvc
     readarray -t helm_config_args < <(build_helm_config_args)
 
+    # Adopt any pre-existing GIE CRDs into the llmisvc-resources Helm release
+    if is_positive "${ENABLE_LLMISVC}"; then
+        adopt_existing_crds_for_release "kserve-llmisvc-resources" "${KSERVE_NAMESPACE}" "${GIE_CRDS[@]}"
+    fi
+
     # Install resource charts
     for i in "${!RESOURCE_CHARTS[@]}"; do
         local chart="${RESOURCE_CHARTS[$i]}"
@@ -1498,6 +1503,7 @@ install_kserve_helm() {
             --namespace "${KSERVE_NAMESPACE}" \
             --create-namespace \
             --wait \
+            ${VERSION_FLAG} \
             --set kserve.version="${KSERVE_VERSION}" \
             --set kserve.servingruntime.enabled=${INSTALL_RUNTIMES} \
             --set kserve.llmisvcConfigs.enabled=${INSTALL_LLMISVC_CONFIGS}

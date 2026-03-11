@@ -99,8 +99,9 @@ manifests: controller-gen yq
 	
 	# DO NOT COPY to helm chart. It needs to be created before the Envoy Gateway or you will need to restart the Envoy Gateway controller.
 	# The llmisvc helm chart needs to be installed after the Envoy Gateway as well, so it needs to be created before the llmisvc helm chart.
-	kubectl kustomize https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > test/crds/gateway-inference-extension.yaml
-		
+	kubectl kustomize https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > config/llmisvc/gateway-inference-extension.yaml
+	cp config/llmisvc/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
+
 	# Move StorageContainer CRD to storagecontainer folder
 	mv config/crd/full/serving.kserve.io_clusterstoragecontainers.yaml config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml
 	
@@ -110,6 +111,7 @@ manifests: controller-gen yq
 	
 	# Move LocalModel CRD to localmodel folder
 	mv config/crd/full/serving.kserve.io_localmodelcaches.yaml config/crd/full/localmodel/serving.kserve.io_localmodelcaches.yaml
+	mv config/crd/full/serving.kserve.io_localmodelnamespacecaches.yaml config/crd/full/localmodel/serving.kserve.io_localmodelnamespacecaches.yaml
 	mv config/crd/full/serving.kserve.io_localmodelnodegroups.yaml config/crd/full/localmodel/serving.kserve.io_localmodelnodegroups.yaml
 	mv config/crd/full/serving.kserve.io_localmodelnodes.yaml config/crd/full/localmodel/serving.kserve.io_localmodelnodes.yaml
 		
@@ -406,7 +408,7 @@ undeploy-dev:
 
 bump-version:
 	@echo "bumping version numbers for this release"
-	@hack/prepare-for-release.sh $(PRIOR_VERSION) $(NEW_VERSION)
+	@hack/release/prepare-for-release.sh $(PRIOR_VERSION) $(NEW_VERSION)
 
 # Build the docker image
 docker-build:
@@ -570,3 +572,5 @@ apidocs:
 check-doc-links:
 	@python3 hack/verify-doc-links.py && echo "$@: OK"
 
+# Optional local/downstream overrides (ignored if absent)
+-include Makefile.overrides.mk

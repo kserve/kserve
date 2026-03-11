@@ -76,7 +76,7 @@ func TestPresetFiles(t *testing.T) {
 									VolumeSource: corev1.VolumeSource{
 										EmptyDir: &corev1.EmptyDirVolumeSource{
 											Medium:    corev1.StorageMediumMemory,
-											SizeLimit: ptr.To(resource.MustParse("1Gi")),
+											SizeLimit: ptr.To(resource.MustParse("8Gi")),
 										},
 									},
 								},
@@ -136,7 +136,7 @@ func TestPresetFiles(t *testing.T) {
 										{
 											Name:      "tls-certs",
 											ReadOnly:  true,
-											MountPath: "/etc/ssl/certs",
+											MountPath: "/var/run/kserve/tls",
 										},
 									},
 									ReadinessProbe: &corev1.Probe{
@@ -208,7 +208,7 @@ func TestPresetFiles(t *testing.T) {
 										{
 											Name:      "tls-certs",
 											ReadOnly:  true,
-											MountPath: "/etc/ssl/certs",
+											MountPath: "/var/run/kserve/tls",
 										},
 									},
 									LivenessProbe: &corev1.Probe{
@@ -284,7 +284,7 @@ func TestPresetFiles(t *testing.T) {
 									VolumeSource: corev1.VolumeSource{
 										EmptyDir: &corev1.EmptyDirVolumeSource{
 											Medium:    corev1.StorageMediumMemory,
-											SizeLimit: ptr.To(resource.MustParse("1Gi")),
+											SizeLimit: ptr.To(resource.MustParse("8Gi")),
 										},
 									},
 								},
@@ -327,7 +327,7 @@ func TestPresetFiles(t *testing.T) {
 										{
 											Name:      "tls-certs",
 											ReadOnly:  true,
-											MountPath: "/etc/ssl/certs",
+											MountPath: "/var/run/kserve/tls",
 										},
 									},
 									SecurityContext: &corev1.SecurityContext{
@@ -417,7 +417,7 @@ func TestPresetFiles(t *testing.T) {
 								{
 									Name:    "main",
 									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.4.0",
-									Command: []string{"vllm", "serve", "/mnt/models"},
+									Command: []string{"vllm", "serve", "/mnt/models", "--served-model-name", "llama", "--port", "8000"},
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8000,
@@ -454,7 +454,7 @@ func TestPresetFiles(t *testing.T) {
 										{
 											Name:      "tls-certs",
 											ReadOnly:  true,
-											MountPath: "/etc/ssl/certs",
+											MountPath: "/var/run/kserve/tls",
 										},
 									},
 									LivenessProbe: &corev1.Probe{
