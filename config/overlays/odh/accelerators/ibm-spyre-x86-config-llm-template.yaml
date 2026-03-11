@@ -1,0 +1,33 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-template-ibm-spyre-x86
+  annotations:
+    openshift.io/display-name: vLLM IBM Spyre x86 LLMInferenceServiceConfig
+    description: vLLM IBM Spyre x86 LLMInferenceServiceConfig for LLMInferenceService.
+spec:
+  template:
+    containers:
+      - name: main
+        image: placeholder
+        env:
+          - name: HF_HOME
+            value: /tmp/hf_home
+          - name: FLEX_COMPUTE
+            value: SENTIENT
+          - name: FLEX_DEVICE
+            value: PF
+          - name: TOKENIZERS_PARALLELISM
+            value: "false"
+          - name: DTLOG_LEVEL
+            value: error
+          - name: TORCH_SENDNN_LOG
+            value: CRITICAL
+          - name: VLLM_SPYRE_WARMUP_BATCH_SIZES
+            value: "4"
+          - name: VLLM_SPYRE_WARMUP_PROMPT_LENS
+            value: "1024"
+          - name: VLLM_SPYRE_WARMUP_NEW_TOKENS
+            value: "256"
+          - name: VLLM_SPYRE_REQUIRE_PRECOMPILED_DECODERS
+            value: "0"

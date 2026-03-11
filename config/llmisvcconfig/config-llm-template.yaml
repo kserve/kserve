@@ -12,13 +12,20 @@ spec:
           - containerPort: 8000
             protocol: TCP
         command:
-          - vllm
-          - serve
-          - /mnt/models
-          - --served-model-name
-          - "{{ .Spec.Model.Name }}"
-          - --port
-          - "8000"
+          - /bin/bash
+          - -c
+          - |
+            set -e
+            if [ -f /etc/profile.d/ibm-aiu-setup.sh ]; then
+              source /etc/profile.d/ibm-aiu-setup.sh
+            fi
+            exec vllm serve \
+              /mnt/models \
+              --served-model-name "{{ .Spec.Model.Name }}" \
+              --port 8000 \
+              "$@"
+          # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve
+          - --
           # BackendTLSPolicy is not implemented yet so disable SSL for now
           # - --enable-ssl-refresh
           # - --ssl-certfile

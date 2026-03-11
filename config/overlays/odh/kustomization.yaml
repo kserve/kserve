@@ -8,6 +8,7 @@ resources:
 - user-cluster-roles.yaml
 - network-policies.yaml
 - llm-svc-scc.yaml
+- accelerators/
 
 components:
 - ../../components/kserve
@@ -132,6 +133,49 @@ replacements:
       name: kserve-config-llm-decode-worker-data-parallel
     fieldPaths:
     - spec.template.initContainers.[name=llm-d-routing-sidecar].image
+
+- source:
+    kind: ConfigMap
+    name: kserve-parameters
+    fieldpath: data.kserve-llm-d-nvidia-cuda
+  targets:
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-template-nvidia-cuda
+    fieldPaths:
+    - spec.template.containers.[name=main].image
+
+- source:
+    kind: ConfigMap
+    name: kserve-parameters
+    fieldpath: data.kserve-llm-d-amd-rocm
+  targets:
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-template-amd-rocm
+    fieldPaths:
+    - spec.template.containers.[name=main].image
+
+- source:
+    kind: ConfigMap
+    name: kserve-parameters
+    fieldpath: data.kserve-llm-d-ibm-spyre
+  targets:
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-template-ibm-spyre-s390x
+    fieldPaths:
+    - spec.template.containers.[name=main].image
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-template-ibm-spyre-x86
+    fieldPaths:
+    - spec.template.containers.[name=main].image
+  - select:
+      kind: LLMInferenceServiceConfig
+      name: kserve-config-llm-template-ibm-spyre-ppc64le
+    fieldPaths:
+    - spec.template.containers.[name=main].image
 
 configMapGenerator:
 - envs:
