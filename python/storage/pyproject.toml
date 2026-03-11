@@ -16,6 +16,10 @@ dependencies = [
     "huggingface-hub[hf-transfer]>=0.32.0",
     "dulwich>=0.21.0",
     "cryptography>=46.0.5", # CVE-2026-26007 cryptography Subgroup Attack Due to Missing Subgroup Validation for SECT Curves
+    # Kerberos/HDFS dependencies - centralizing dependencies, moved from Containerfile
+    "krbcontext==0.10",
+    "hdfs~=2.6.0",
+    "requests-kerberos==0.14.0",
 ]
 name = "kserve-storage"
 version = "0.17.0rc1"
