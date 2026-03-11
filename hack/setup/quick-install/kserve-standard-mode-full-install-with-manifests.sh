@@ -3371,7 +3371,7 @@ spec:
         - env:
           - name: TOKENIZERS_DIR
             value: /mnt/models
-          image: ghcr.io/llm-d/llm-d-uds-tokenizer:v0.5.1-rc1
+          image: ghcr.io/llm-d/llm-d-uds-tokenizer:v0.6.0
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
