@@ -26,9 +26,7 @@ import (
 	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -50,25 +48,18 @@ const (
 // for the LLM workload. When scaling is configured, it creates a VariantAutoscaling CR for WVA to
 // compute desired replicas and an actuator (HPA or KEDA ScaledObject) to enforce them.
 // When scaling is removed (or the workload is stopped), it cleans up any existing autoscaling resources.
+//
+// A missing scaling CRD (NoMatchError) is treated as a hard failure: the LLMInferenceService is
+// misconfigured and reconciliation of remaining resources is blocked until the CRD is installed.
 func (r *LLMISVCReconciler) reconcileScaling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
 	logger := log.FromContext(ctx).WithName("reconcileScaling")
 	ctx = log.IntoContext(ctx, logger)
 
 	if err := r.reconcileMainWorkloadScaling(ctx, llmSvc, config); err != nil {
-		if meta.IsNoMatchError(err) {
-			r.Eventf(llmSvc, corev1.EventTypeWarning, "ScalingCRDNotFound",
-				"Scaling disabled: required CRD not found: %v", err)
-			return nil
-		}
 		return fmt.Errorf("failed to reconcile main workload scaling: %w", err)
 	}
 
 	if err := r.reconcilePrefillWorkloadScaling(ctx, llmSvc, config); err != nil {
-		if meta.IsNoMatchError(err) {
-			r.Eventf(llmSvc, corev1.EventTypeWarning, "ScalingCRDNotFound",
-				"Scaling disabled: required CRD not found: %v", err)
-			return nil
-		}
 		return fmt.Errorf("failed to reconcile prefill workload scaling: %w", err)
 	}
 
