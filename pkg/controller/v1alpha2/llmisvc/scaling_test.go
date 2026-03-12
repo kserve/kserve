@@ -646,6 +646,26 @@ func TestSemanticHPAIsEqual(t *testing.T) {
 		modified.Labels = map[string]string{"app": "other"}
 		assert.False(t, semanticHPAIsEqual(base(), modified))
 	})
+
+	t.Run("removed field in expected is detected", func(t *testing.T) {
+		expected := base()
+		expected.Spec.MinReplicas = nil
+		assert.False(t, semanticHPAIsEqual(expected, base()))
+	})
+
+	t.Run("extra label on curr is detected", func(t *testing.T) {
+		curr := base()
+		curr.Labels["extra"] = "value"
+		assert.False(t, semanticHPAIsEqual(base(), curr))
+	})
+
+	t.Run("removed annotation in expected is detected", func(t *testing.T) {
+		expected := base()
+		expected.Annotations = nil
+		curr := base()
+		curr.Annotations = map[string]string{"note": "old"}
+		assert.False(t, semanticHPAIsEqual(expected, curr))
+	})
 }
 
 func TestSemanticScaledObjectIsEqual(t *testing.T) {
@@ -676,6 +696,18 @@ func TestSemanticScaledObjectIsEqual(t *testing.T) {
 		modified.Labels = map[string]string{"app": "other"}
 		assert.False(t, semanticScaledObjectIsEqual(base(), modified))
 	})
+
+	t.Run("removed optional field in expected is detected", func(t *testing.T) {
+		expected := base()
+		expected.Spec.MaxReplicaCount = nil
+		assert.False(t, semanticScaledObjectIsEqual(expected, base()))
+	})
+
+	t.Run("extra label on curr is detected", func(t *testing.T) {
+		curr := base()
+		curr.Labels["extra"] = "value"
+		assert.False(t, semanticScaledObjectIsEqual(base(), curr))
+	})
 }
 
 func TestSemanticVAIsEqual(t *testing.T) {
@@ -703,6 +735,73 @@ func TestSemanticVAIsEqual(t *testing.T) {
 		modified := base()
 		modified.Labels = map[string]string{"app": "other"}
 		assert.False(t, semanticVAIsEqual(base(), modified))
+	})
+
+	t.Run("removed variantCost in expected is detected", func(t *testing.T) {
+		expected := base()
+		expected.Spec.VariantCost = ""
+		assert.False(t, semanticVAIsEqual(expected, base()))
+	})
+
+	t.Run("extra label on curr is detected", func(t *testing.T) {
+		curr := base()
+		curr.Labels["extra"] = "value"
+		assert.False(t, semanticVAIsEqual(base(), curr))
+	})
+
+	t.Run("removed annotation in expected is detected", func(t *testing.T) {
+		expected := base()
+		expected.Annotations = nil
+		curr := base()
+		curr.Annotations = map[string]string{"note": "old"}
+		assert.False(t, semanticVAIsEqual(expected, curr))
+	})
+}
+
+func TestPreserveKEDAManagedMetadata(t *testing.T) {
+	hook := PreserveKEDAManagedMetadata()
+
+	// Extract the AfterDryRunFunc from the UpdateOption by applying it to updateOptions.
+	opts := &updateOptions[*kedav1alpha1.ScaledObject]{}
+	hook(opts)
+	require.Len(t, opts.afterDryRunFns, 1)
+	fn := opts.afterDryRunFns[0]
+
+	t.Run("copies KEDA label from curr into expected", func(t *testing.T) {
+		expected := &kedav1alpha1.ScaledObject{
+			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "test"}},
+		}
+		curr := &kedav1alpha1.ScaledObject{
+			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
+				"app":                                    "test",
+				kedav1alpha1.ScaledObjectOwnerAnnotation: "my-so",
+			}},
+		}
+		fn(expected, expected.DeepCopy(), curr)
+		assert.Equal(t, "my-so", expected.Labels[kedav1alpha1.ScaledObjectOwnerAnnotation])
+		assert.Equal(t, "test", expected.Labels["app"])
+	})
+
+	t.Run("no-op when curr has no KEDA label", func(t *testing.T) {
+		expected := &kedav1alpha1.ScaledObject{
+			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "test"}},
+		}
+		curr := &kedav1alpha1.ScaledObject{
+			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "test"}},
+		}
+		fn(expected, expected.DeepCopy(), curr)
+		assert.Equal(t, map[string]string{"app": "test"}, expected.Labels)
+	})
+
+	t.Run("initializes nil labels map when KEDA label present on curr", func(t *testing.T) {
+		expected := &kedav1alpha1.ScaledObject{}
+		curr := &kedav1alpha1.ScaledObject{
+			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
+				kedav1alpha1.ScaledObjectOwnerAnnotation: "my-so",
+			}},
+		}
+		fn(expected, expected.DeepCopy(), curr)
+		assert.Equal(t, "my-so", expected.Labels[kedav1alpha1.ScaledObjectOwnerAnnotation])
 	})
 }
 

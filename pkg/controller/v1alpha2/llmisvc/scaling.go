@@ -231,7 +231,9 @@ func (r *LLMISVCReconciler) reconcileKEDAScaledObject(ctx context.Context, llmSv
 	}
 
 	expected := expectedScaledObject(llmSvc, scaling, config, deploymentName, vaName, scaledObjectName)
-	return Reconcile(ctx, r, llmSvc, &kedav1alpha1.ScaledObject{}, expected, semanticScaledObjectIsEqual)
+	return Reconcile(ctx, r, llmSvc, &kedav1alpha1.ScaledObject{}, expected, semanticScaledObjectIsEqual,
+		PreserveKEDAManagedMetadata(),
+	)
 }
 
 // deleteScaledObjectIfExists deletes the ScaledObject if it exists.
@@ -387,21 +389,37 @@ func expectedVA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingS
 }
 
 func semanticVAIsEqual(expected, curr *wvav1alpha1.VariantAutoscaling) bool {
-	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
-		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
-		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
+	return equality.Semantic.DeepEqual(expected.Spec, curr.Spec) &&
+		equality.Semantic.DeepEqual(expected.Labels, curr.Labels) &&
+		equality.Semantic.DeepEqual(expected.Annotations, curr.Annotations)
 }
 
 func semanticHPAIsEqual(expected, curr *autoscalingv2.HorizontalPodAutoscaler) bool {
-	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
-		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
-		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
+	return equality.Semantic.DeepEqual(expected.Spec, curr.Spec) &&
+		equality.Semantic.DeepEqual(expected.Labels, curr.Labels) &&
+		equality.Semantic.DeepEqual(expected.Annotations, curr.Annotations)
 }
 
 func semanticScaledObjectIsEqual(expected, curr *kedav1alpha1.ScaledObject) bool {
-	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
-		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
-		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
+	return equality.Semantic.DeepEqual(expected.Spec, curr.Spec) &&
+		equality.Semantic.DeepEqual(expected.Labels, curr.Labels) &&
+		equality.Semantic.DeepEqual(expected.Annotations, curr.Annotations)
+}
+
+// PreserveKEDAManagedMetadata returns an AfterDryRun hook that copies the
+// KEDA-injected label (scaledobject.keda.sh/name) from the live object into
+// expected so that DeepEqual does not trigger spurious updates.
+// Finalizers are not compared by semanticScaledObjectIsEqual and are preserved
+// by the API server during updates, so they don't need handling here.
+func PreserveKEDAManagedMetadata() UpdateOption[*kedav1alpha1.ScaledObject] {
+	return AfterDryRun(func(expected, _ /* expectedGiven */, curr *kedav1alpha1.ScaledObject) {
+		if v, ok := curr.Labels[kedav1alpha1.ScaledObjectOwnerAnnotation]; ok {
+			if expected.Labels == nil {
+				expected.Labels = make(map[string]string)
+			}
+			expected.Labels[kedav1alpha1.ScaledObjectOwnerAnnotation] = v
+		}
+	})
 }
 
 func scalingLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
