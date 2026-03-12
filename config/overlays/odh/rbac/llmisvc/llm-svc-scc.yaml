@@ -41,4 +41,3 @@ rules:
       - openshift-ai-llminferenceservice-scc
     verbs:
       - use
-
