@@ -1853,8 +1853,6 @@ func TestReplaceVariables(t *testing.T) {
 									Args: []string{
 										"vllm",
 										"serve",
-										"",                              // Expert flag is skipped when Parallelism is nil
-										"",                              // Tensor flag is skipped when Parallelism is nil
 										"--data-parallel-size 1",        // Default to 1 when Parallelism is nil
 										"--data-parallel-size-local 1",  // Default to 1 when Parallelism is nil
 										"--data-parallel-rpc-port 5555", // Default to 5555 when Parallelism is nil
@@ -1911,8 +1909,6 @@ func TestReplaceVariables(t *testing.T) {
 									Args: []string{
 										"vllm",
 										"serve",
-										"",                              // Expert flag is skipped when Prefill.Parallelism is nil
-										"",                              // Tensor flag is skipped when Prefill.Parallelism is nil
 										"--data-parallel-size 1",        // Default to 1 when Prefill.Parallelism is nil
 										"--data-parallel-size-local 1",  // Default to 1 when Prefill.Parallelism is nil
 										"--data-parallel-rpc-port 5555", // Default to 5555 when Prefill.Parallelism is nil
