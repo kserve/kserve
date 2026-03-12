@@ -67,7 +67,7 @@ func TestExpectedHPA(t *testing.T) {
 		{
 			name:           "default minReplicas when nil",
 			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
-			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: ptr.To(int32(5)), WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
 			deploymentName: "test-svc-kserve",
 			vaName:         "test-svc-kserve-va",
 			hpaName:        "test-svc-kserve-hpa",
@@ -81,7 +81,7 @@ func TestExpectedHPA(t *testing.T) {
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
 				MinReplicas: ptr.To(int32(3)),
-				MaxReplicas: ptr.To(int32(10)),
+				MaxReplicas: 10,
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}},
 			},
 			deploymentName: "test-svc-kserve",
@@ -96,7 +96,7 @@ func TestExpectedHPA(t *testing.T) {
 		{
 			name:           "scaleTargetRef points to correct deployment",
 			llmSvc:         newTestLLMISVC("my-model", "prod"),
-			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: ptr.To(int32(5)), WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
 			deploymentName: "my-model-kserve",
 			vaName:         "my-model-kserve-va",
 			hpaName:        "my-model-kserve-hpa",
@@ -109,7 +109,7 @@ func TestExpectedHPA(t *testing.T) {
 		{
 			name:           "metric selector uses variant_name from VA",
 			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
-			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: ptr.To(int32(5)), WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
 			deploymentName: "test-svc-kserve",
 			vaName:         "test-svc-kserve-va",
 			hpaName:        "test-svc-kserve-hpa",
@@ -129,7 +129,7 @@ func TestExpectedHPA(t *testing.T) {
 			name:   "custom HPA behavior is forwarded",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
-				MaxReplicas: ptr.To(int32(5)),
+				MaxReplicas: 5,
 				WVA: &v1alpha2.WVASpec{
 					ActuatorSpec: v1alpha2.ActuatorSpec{
 						HPA: &v1alpha2.HPAScalingSpec{
@@ -154,7 +154,7 @@ func TestExpectedHPA(t *testing.T) {
 		{
 			name:           "nil behavior when not specified",
 			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
-			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: ptr.To(int32(5)), WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
 			deploymentName: "test-svc-kserve",
 			vaName:         "test-svc-kserve-va",
 			hpaName:        "test-svc-kserve-hpa",
@@ -165,7 +165,7 @@ func TestExpectedHPA(t *testing.T) {
 		{
 			name:           "owner reference is set",
 			llmSvc:         newTestLLMISVC("test-svc", "test-ns"),
-			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: ptr.To(int32(5)), WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
+			scaling:        &v1alpha2.ScalingSpec{MaxReplicas: 5, WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}}},
 			deploymentName: "test-svc-kserve",
 			vaName:         "test-svc-kserve-va",
 			hpaName:        "test-svc-kserve-hpa",
@@ -203,7 +203,7 @@ func TestExpectedScaledObject(t *testing.T) {
 			name:   "default minReplicas when nil",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
-				MaxReplicas: ptr.To(int32(5)),
+				MaxReplicas: 5,
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
 			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{PrometheusURL: "http://prom:9090"}},
@@ -220,7 +220,7 @@ func TestExpectedScaledObject(t *testing.T) {
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
 				MinReplicas: ptr.To(int32(2)),
-				MaxReplicas: ptr.To(int32(8)),
+				MaxReplicas: 8,
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
 			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{PrometheusURL: "http://prom:9090"}},
@@ -237,7 +237,7 @@ func TestExpectedScaledObject(t *testing.T) {
 			name:   "scaleTargetRef points to correct deployment",
 			llmSvc: newTestLLMISVC("my-model", "prod"),
 			scaling: &v1alpha2.ScalingSpec{
-				MaxReplicas: ptr.To(int32(5)),
+				MaxReplicas: 5,
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
 			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{PrometheusURL: "http://prom:9090"}},
@@ -255,7 +255,7 @@ func TestExpectedScaledObject(t *testing.T) {
 			name:   "prometheus trigger has correct metadata",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
-				MaxReplicas: ptr.To(int32(5)),
+				MaxReplicas: 5,
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
 			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{PrometheusURL: "https://prom.monitoring:9090", PrometheusTLSInsecureSkipVerify: true}},
@@ -277,7 +277,7 @@ func TestExpectedScaledObject(t *testing.T) {
 			name:   "unsafeSsl is false when TLS verification enabled",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
-				MaxReplicas: ptr.To(int32(5)),
+				MaxReplicas: 5,
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
 			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{PrometheusURL: "http://prom:9090", PrometheusTLSInsecureSkipVerify: false}},
@@ -292,7 +292,7 @@ func TestExpectedScaledObject(t *testing.T) {
 			name:   "optional KEDA fields forwarded",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
-				MaxReplicas: ptr.To(int32(5)),
+				MaxReplicas: 5,
 				WVA: &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{
 					PollingInterval: ptr.To(int32(15)),
 					CooldownPeriod:  ptr.To(int32(60)),
@@ -313,7 +313,7 @@ func TestExpectedScaledObject(t *testing.T) {
 			name:   "owner reference is set",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
-				MaxReplicas: ptr.To(int32(5)),
+				MaxReplicas: 5,
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
 			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{PrometheusURL: "http://prom:9090"}},
@@ -331,7 +331,7 @@ func TestExpectedScaledObject(t *testing.T) {
 			name:   "no auth fields when not configured",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
-				MaxReplicas: ptr.To(int32(5)),
+				MaxReplicas: 5,
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
 			config:         &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{PrometheusURL: "http://prom:9090"}},
@@ -348,7 +348,7 @@ func TestExpectedScaledObject(t *testing.T) {
 			name:   "TriggerAuthentication auth fields are wired into trigger",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
-				MaxReplicas: ptr.To(int32(5)),
+				MaxReplicas: 5,
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
 			config: &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{
@@ -372,7 +372,7 @@ func TestExpectedScaledObject(t *testing.T) {
 			name:   "ClusterTriggerAuthentication auth fields are wired into trigger",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
-				MaxReplicas: ptr.To(int32(5)),
+				MaxReplicas: 5,
 				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 			},
 			config: &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{

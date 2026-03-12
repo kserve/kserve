@@ -165,7 +165,7 @@ func expectedHPA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.Scaling
 				Name:       deploymentName,
 			},
 			MinReplicas: minReplicas,
-			MaxReplicas: *scaling.MaxReplicas,
+			MaxReplicas: scaling.MaxReplicas,
 			Metrics: []autoscalingv2.MetricSpec{
 				{
 					Type: autoscalingv2.ExternalMetricSourceType,
@@ -274,7 +274,7 @@ func expectedScaledObject(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha
 				Name:       deploymentName,
 			},
 			MinReplicaCount:       minReplicas,
-			MaxReplicaCount:       scaling.MaxReplicas,
+			MaxReplicaCount:       &scaling.MaxReplicas,
 			PollingInterval:       keda.PollingInterval,
 			CooldownPeriod:        keda.CooldownPeriod,
 			IdleReplicaCount:      keda.IdleReplicaCount,
