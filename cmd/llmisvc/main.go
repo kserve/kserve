@@ -205,6 +205,7 @@ func main() {
 		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceService")
+		os.Exit(1)
 	}
 
 	v1alpha1ConfigValidator := &v1alpha1.LLMInferenceServiceConfigValidator{
