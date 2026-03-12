@@ -16,6 +16,13 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
