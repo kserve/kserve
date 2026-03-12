@@ -289,7 +289,7 @@ def _build_v2_outputs(
             output_names = _get_proba_output_names(labels)
             outputs: List[InferOutput] = []
             metadata: List[Dict] = []
-            for col, output_name in zip(result.columns, output_names):
+            for col, output_name in zip(result.columns, output_names, strict=False):
                 values = pd.to_numeric(result[col], errors="coerce").to_numpy(dtype=np.float64)
                 output = InferOutput(name=output_name, shape=[len(values)], datatype="FP64")
                 output.set_data_from_numpy(values, binary_data=False)
