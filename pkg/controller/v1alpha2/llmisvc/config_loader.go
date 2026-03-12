@@ -203,9 +203,10 @@ func LoadConfig(ctx context.Context, clientset kubernetes.Interface) (*Config, e
 
 	if autoscalingData, ok := isvcConfigMap.Data[autoscalingConfigName]; ok {
 		asCfg := &WVAAutoscalingConfig{}
-		if err := json.Unmarshal([]byte(autoscalingData), asCfg); err == nil {
-			config.WVAAutoscalingConfig = asCfg
+		if err := json.Unmarshal([]byte(autoscalingData), asCfg); err != nil {
+			return nil, fmt.Errorf("failed to parse %s config json: %w", autoscalingConfigName, err)
 		}
+		config.WVAAutoscalingConfig = asCfg
 	}
 
 	return config, nil
