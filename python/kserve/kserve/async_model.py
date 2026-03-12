@@ -106,4 +106,4 @@ class AsyncModel(Model):
             bound = functools.partial(original_predict, self, *args, **kwargs)
             return await loop.run_in_executor(executor, bound)
 
-        setattr(cls, "predict", async_predict)
+        cls.predict = async_predict
