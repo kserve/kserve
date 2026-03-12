@@ -1810,6 +1810,120 @@ func TestReplaceVariables(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "nil Parallelism should not cause template error",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Args: []string{
+										"vllm",
+										"serve",
+										"{{- if and .Spec.Parallelism .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }}",
+										"{{- if and .Spec.Parallelism .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }}",
+										"--data-parallel-size {{ if and .Spec.Parallelism }}{{ or .Spec.Parallelism.Data 1 }}{{ else }}1{{ end }}",
+										"--data-parallel-size-local {{ if and .Spec.Parallelism }}{{ or .Spec.Parallelism.DataLocal 1 }}{{ else }}1{{ end }}",
+										"--data-parallel-rpc-port {{ if and .Spec.Parallelism .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{ end }}",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm",
+					Namespace: "test-ns",
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					// Parallelism is nil - should not cause template execution error
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Args: []string{
+										"vllm",
+										"serve",
+										"", // Expert flag is skipped when Parallelism is nil
+										"", // Tensor flag is skipped when Parallelism is nil
+										"--data-parallel-size 1",        // Default to 1 when Parallelism is nil
+										"--data-parallel-size-local 1",  // Default to 1 when Parallelism is nil
+										"--data-parallel-rpc-port 5555", // Default to 5555 when Parallelism is nil
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "nil Prefill.Parallelism should not cause template error",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Prefill: &v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Args: []string{
+										"vllm",
+										"serve",
+										"{{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{- end }}",
+										"{{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }}",
+										"--data-parallel-size {{ if and .Spec.Prefill .Spec.Prefill.Parallelism }}{{ or .Spec.Prefill.Parallelism.Data 1 }}{{ else }}1{{ end }}",
+										"--data-parallel-size-local {{ if and .Spec.Prefill .Spec.Prefill.Parallelism }}{{ or .Spec.Prefill.Parallelism.DataLocal 1 }}{{ else }}1{{ end }}",
+										"--data-parallel-rpc-port {{ if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{ end }}",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm",
+					Namespace: "test-ns",
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Prefill: &v1alpha2.WorkloadSpec{
+						// Prefill.Parallelism is nil - should not cause template execution error
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Prefill: &v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: "main",
+									Args: []string{
+										"vllm",
+										"serve",
+										"", // Expert flag is skipped when Prefill.Parallelism is nil
+										"", // Tensor flag is skipped when Prefill.Parallelism is nil
+										"--data-parallel-size 1",        // Default to 1 when Prefill.Parallelism is nil
+										"--data-parallel-size-local 1",  // Default to 1 when Prefill.Parallelism is nil
+										"--data-parallel-rpc-port 5555", // Default to 5555 when Prefill.Parallelism is nil
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
