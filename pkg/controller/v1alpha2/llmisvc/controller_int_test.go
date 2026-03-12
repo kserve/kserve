@@ -164,6 +164,66 @@ var _ = Describe("LLMInferenceService Controller", func() {
 			})).WithContext(ctx).Should(Succeed())
 		})
 
+		It("should preserve pinned config annotations across reconciliations", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-pinning-stable"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - wait for initial reconciliation to populate Status.Annotations.
+			// We check for PresetsCombined=True which indicates config merging completed,
+			// without requiring the full router readiness flow.
+			var pinnedAnnotations map[string]string
+			Eventually(func(g Gomega, ctx context.Context) error {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "True"))
+				g.Expect(current.Status.Annotations).NotTo(BeNil())
+				pinnedAnnotations = make(map[string]string, len(current.Status.Annotations))
+				for k, v := range current.Status.Annotations {
+					pinnedAnnotations[k] = v
+				}
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+
+			// Trigger a new reconciliation by changing a spec field.
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					llmSvc.Spec.Model.Name = ptr.To(*llmSvc.Spec.Model.Name + "-v2")
+					return nil
+				})
+				return errUpdate
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// Verify annotations are stable after re-reconciliation.
+			// Use Consistently to confirm they remain unchanged over a short observation window.
+			Consistently(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status.Annotations).NotTo(BeNil())
+				for key, wantValue := range pinnedAnnotations {
+					g.Expect(current.Status.Annotations).To(
+						HaveKeyWithValue(key, wantValue),
+						fmt.Sprintf("pinned annotation %q should be stable across reconciliations", key),
+					)
+				}
+			}).WithContext(ctx).Should(Succeed())
+		})
+
 		It("should propagate kueue labels and annotations to the deployment", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-kueue"
