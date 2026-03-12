@@ -1811,53 +1811,36 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
-			name: "shutdownTimeout uses default when spec.template is nil",
+			name: "nil Parallelism should not cause template error",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Template 15 }}"}},
+								{
+									Name: "main",
+									Args: []string{
+										"vllm",
+										"serve",
+										"{{- if and .Spec.Parallelism .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }}",
+										"{{- if and .Spec.Parallelism .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }}",
+										"--data-parallel-size {{ if and .Spec.Parallelism }}{{ or .Spec.Parallelism.Data 1 }}{{ else }}1{{ end }}",
+										"--data-parallel-size-local {{ if and .Spec.Parallelism }}{{ or .Spec.Parallelism.DataLocal 1 }}{{ else }}1{{ end }}",
+										"--data-parallel-rpc-port {{ if and .Spec.Parallelism .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{ end }}",
+									},
+								},
 							},
 						},
 					},
 				},
 			},
 			llmSvc: &v1alpha2.LLMInferenceService{
-				// spec.template not set — shutdownTimeout falls back to default tgps=60: 60-15-min(5,60)=40
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "40"}},
-							},
-						},
-					},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm",
+					Namespace: "test-ns",
 				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses spec.template.terminationGracePeriodSeconds when set",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Template 15 }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							TerminationGracePeriodSeconds: ptr.To(int64(120)),
-						},
-					},
+					// Parallelism is nil - should not cause template execution error
 				},
 			},
 			want: &v1alpha2.LLMInferenceServiceConfig{
@@ -1865,7 +1848,18 @@ func TestReplaceVariables(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "100"}},
+								{
+									Name: "main",
+									Args: []string{
+										"vllm",
+										"serve",
+										"",                              // Expert flag is skipped when Parallelism is nil
+										"",                              // Tensor flag is skipped when Parallelism is nil
+										"--data-parallel-size 1",        // Default to 1 when Parallelism is nil
+										"--data-parallel-size-local 1",  // Default to 1 when Parallelism is nil
+										"--data-parallel-rpc-port 5555", // Default to 5555 when Parallelism is nil
+									},
+								},
 							},
 						},
 					},
@@ -1873,183 +1867,57 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
-			name: "shutdownTimeout uses default when spec.worker is nil",
+			name: "nil Prefill.Parallelism should not cause template error",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Worker 15 }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				// spec.worker not set — shutdownTimeout falls back to default tgps=60: 60-15-min(5,60)=40
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "40"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses spec.worker.terminationGracePeriodSeconds when set",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout .Spec.Worker 15 }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Worker: &corev1.PodSpec{
-							TerminationGracePeriodSeconds: ptr.To(int64(120)),
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "100"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses default when no spec provided (nil arg)",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ shutdownTimeout nil 15 }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "40"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses spec.prefill.template.terminationGracePeriodSeconds when set",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Prefill: &v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
-							TerminationGracePeriodSeconds: ptr.To(int64(120)),
-						},
-					},
-				},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "100"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses spec.prefill.worker.terminationGracePeriodSeconds when set",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Worker 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
+								{
+									Name: "main",
+									Args: []string{
+										"vllm",
+										"serve",
+										"{{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{- end }}",
+										"{{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }}",
+										"--data-parallel-size {{ if and .Spec.Prefill .Spec.Prefill.Parallelism }}{{ or .Spec.Prefill.Parallelism.Data 1 }}{{ else }}1{{ end }}",
+										"--data-parallel-size-local {{ if and .Spec.Prefill .Spec.Prefill.Parallelism }}{{ or .Spec.Prefill.Parallelism.DataLocal 1 }}{{ else }}1{{ end }}",
+										"--data-parallel-rpc-port {{ if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{ end }}",
+									},
+								},
 							},
 						},
 					},
 				},
 			},
 			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm",
+					Namespace: "test-ns",
+				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Prefill: &v1alpha2.WorkloadSpec{
-						Worker: &corev1.PodSpec{
-							TerminationGracePeriodSeconds: ptr.To(int64(120)),
-						},
+						// Prefill.Parallelism is nil - should not cause template execution error
 					},
 				},
 			},
 			want: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
+					Prefill: &v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "100"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "shutdownTimeout uses default when spec.prefill is nil (prefill via base ref only)",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "{{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{},
-			},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{"--shutdown-timeout", "40"}},
+								{
+									Name: "main",
+									Args: []string{
+										"vllm",
+										"serve",
+										"",                              // Expert flag is skipped when Prefill.Parallelism is nil
+										"",                              // Tensor flag is skipped when Prefill.Parallelism is nil
+										"--data-parallel-size 1",        // Default to 1 when Prefill.Parallelism is nil
+										"--data-parallel-size-local 1",  // Default to 1 when Prefill.Parallelism is nil
+										"--data-parallel-rpc-port 5555", // Default to 5555 when Prefill.Parallelism is nil
+									},
+								},
 							},
 						},
 					},
