@@ -1,4 +1,26 @@
 
+# find_project_root [start_dir] [marker]
+#   start_dir : directory to begin the search (defaults to this script’s dir)
+#   marker    : filename or directory name to look for (defaults to "go.mod")
+#
+# Prints the first dir containing the marker, or exits 1 if none found.
+find_project_root() {
+  local start_dir="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+  local marker="${2:-go.mod}"
+  local dir="$start_dir"
+
+  while [[ "$dir" != "/" && ! -e "$dir/$marker" ]]; do
+    dir="$(dirname "$dir")"
+  done
+
+  if [[ -e "$dir/$marker" ]]; then
+    printf '%s\n' "$dir"
+  else
+    echo "Error: couldn’t find '$marker' in any parent of '$start_dir'" >&2
+    return 1
+  fi
+}
+
 # Helper function to wait for a pod with a given label to be created
 wait_for_pod_labeled() {
   local ns=${1:?namespace is required}
@@ -123,7 +145,7 @@ wait_for_csv_ready() {
 }
 
 # Define deployment types that skip serverless installation
-MARKERS_SKIP_SERVERLESS=("raw" "graph" "predictor" "path_based_routing" "kserve_on_openshift")
+MARKERS_SKIP_SERVERLESS=("raw" "graph" "predictor" "path_based_routing" "kserve_on_openshift" "llminferenceservice")
 
 # Helper function to check if deployment type should skip serverless
 skip_serverless() {

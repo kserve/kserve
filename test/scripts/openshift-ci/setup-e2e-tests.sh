@@ -83,6 +83,11 @@ if [[ "$INSTALL_ODH_OPERATOR" == "true" ]]; then
   $SCRIPT_DIR/deploy.odh.sh
 fi
 
+# Install LLMISvc required dependencies
+if [[ "$1" =~ "llminferenceservice" ]]; then
+  $SCRIPT_DIR/setup-llm.sh --skip-kserve --deploy-kuadrant
+fi
+
 # Add CA certificate extraction for raw deployments
 if [[ "$1" =~ raw ]]; then
   echo "⏳ Extracting OpenShift CA certificates for raw deployment"
