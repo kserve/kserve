@@ -110,6 +110,10 @@ func (r *LLMISVCReconciler) reconcilePrefillWorkloadScaling(ctx context.Context,
 }
 
 // reconcileHPA creates or updates an HPA for the workload, or deletes it when not needed.
+// The HPA reads wva_desired_replicas via the Kubernetes external metrics API, which requires
+// a Prometheus Adapter to be pre-installed in the cluster. The controller cannot validate
+// whether the Prometheus Adapter is present or correctly configured — if it is missing,
+// the HPA will silently enter an Unknown state and stop scaling.
 func (r *LLMISVCReconciler) reconcileHPA(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, isStopped bool, deploymentName, vaName, hpaName string) error {
 	if scaling == nil || scaling.WVA == nil || isStopped || scaling.WVA.HPA == nil {
 		return r.deleteHPAIfExists(ctx, llmSvc, hpaName)
@@ -132,6 +136,10 @@ func (r *LLMISVCReconciler) deleteHPAIfExists(ctx context.Context, llmSvc *v1alp
 
 // expectedHPA constructs the desired HPA resource from the LLMISVC scaling spec.
 // vaName is used as the metric selector label because WVA emits wva_desired_replicas keyed by VA name.
+//
+// The HPA uses an external metric (wva_desired_replicas) with target=1 so that it acts as a
+// direct actuator for WVA's decisions rather than an independent scaling algorithm.
+// WVA computes and publishes the desired replica count; HPA reads it and enforces it on the Deployment.
 func expectedHPA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.ScalingSpec, deploymentName, vaName, hpaName string) *autoscalingv2.HorizontalPodAutoscaler {
 	labels := scalingLabels(llmSvc)
 
@@ -169,6 +177,11 @@ func expectedHPA(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha2.Scaling
 								},
 							},
 						},
+						// Target is set to 1 with ValueMetricType so HPA computes:
+						//   desired_replicas = ceil(wva_desired_replicas / 1) = wva_desired_replicas
+						// This makes HPA a pass-through: it blindly follows the absolute replica count
+						// emitted by WVA, rather than doing its own scaling arithmetic.
+						// WVA is the sole source of scaling decisions; HPA is purely the enforcement layer.
 						Target: autoscalingv2.MetricTarget{
 							Type:  autoscalingv2.ValueMetricType,
 							Value: resource.NewQuantity(1, resource.DecimalSI),
@@ -249,6 +262,13 @@ func expectedScaledObject(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha
 		minReplicas = scaling.MinReplicas
 	}
 
+	// variant_name matches the VariantAutoscaling CR name, which WVA uses as a label when emitting wva_desired_replicas.
+	// exported_namespace is used instead of namespace because Prometheus renames the namespace label emitted by WVA
+	// to exported_namespace during scraping — this happens because namespace is a Prometheus-reserved label that
+	// Prometheus itself sets to the scrape target's namespace (the WVA controller namespace). WVA's original
+	// namespace label (the workload namespace) is therefore preserved under the exported_namespace name.
+	// The VariantAutoscaling CR always lives in the same namespace as the LLMInferenceService, so llmSvc.GetNamespace()
+	// is the correct value to filter on.
 	query := fmt.Sprintf(`wva_desired_replicas{variant_name="%s",exported_namespace="%s"}`, vaName, llmSvc.GetNamespace())
 
 	so := &kedav1alpha1.ScaledObject{
@@ -397,11 +417,16 @@ func semanticScaledObjectIsEqual(expected, curr *kedav1alpha1.ScaledObject) bool
 		equality.Semantic.DeepEqual(expected.Annotations, curr.Annotations)
 }
 
-// PreserveKEDAManagedMetadata returns an AfterDryRun hook that copies the
-// KEDA-injected label (scaledobject.keda.sh/name) from the live object into
-// expected so that DeepEqual does not trigger spurious updates.
-// Finalizers are not compared by semanticScaledObjectIsEqual and are preserved
-// by the API server during updates, so they don't need handling here.
+// PreserveKEDAManagedMetadata returns an AfterDryRun hook that copies KEDA-managed
+// metadata from the live object into expected before the real update is issued.
+//
+// It preserves two things:
+//  1. The KEDA-injected label (scaledobject.keda.sh/name) — so that DeepEqual does
+//     not trigger spurious updates when KEDA adds this label after creation.
+//  2. Finalizers — because the Update call is a full PUT (not a patch), which would
+//     otherwise wipe any finalizers that KEDA added (e.g. finalizer.keda.sh) whenever
+//     a spec/label change triggers an update. Copying finalizers from curr ensures they
+//     are preserved in the PUT body.
 func PreserveKEDAManagedMetadata() UpdateOption[*kedav1alpha1.ScaledObject] {
 	return AfterDryRun(func(expected, _ /* expectedGiven */, curr *kedav1alpha1.ScaledObject) {
 		if v, ok := curr.Labels[kedav1alpha1.ScaledObjectOwnerAnnotation]; ok {
@@ -409,6 +434,9 @@ func PreserveKEDAManagedMetadata() UpdateOption[*kedav1alpha1.ScaledObject] {
 				expected.Labels = make(map[string]string)
 			}
 			expected.Labels[kedav1alpha1.ScaledObjectOwnerAnnotation] = v
+		}
+		if len(curr.Finalizers) > 0 {
+			expected.Finalizers = curr.Finalizers
 		}
 	})
 }

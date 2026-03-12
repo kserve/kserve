@@ -803,6 +803,35 @@ func TestPreserveKEDAManagedMetadata(t *testing.T) {
 		fn(expected, expected.DeepCopy(), curr)
 		assert.Equal(t, "my-so", expected.Labels[kedav1alpha1.ScaledObjectOwnerAnnotation])
 	})
+
+	t.Run("copies finalizers from curr into expected", func(t *testing.T) {
+		expected := &kedav1alpha1.ScaledObject{}
+		curr := &kedav1alpha1.ScaledObject{
+			ObjectMeta: metav1.ObjectMeta{Finalizers: []string{"finalizer.keda.sh"}},
+		}
+		fn(expected, expected.DeepCopy(), curr)
+		assert.Equal(t, []string{"finalizer.keda.sh"}, expected.Finalizers)
+	})
+
+	t.Run("no-op when curr has no finalizers", func(t *testing.T) {
+		expected := &kedav1alpha1.ScaledObject{}
+		curr := &kedav1alpha1.ScaledObject{}
+		fn(expected, expected.DeepCopy(), curr)
+		assert.Empty(t, expected.Finalizers)
+	})
+
+	t.Run("preserves both KEDA label and finalizers together", func(t *testing.T) {
+		expected := &kedav1alpha1.ScaledObject{}
+		curr := &kedav1alpha1.ScaledObject{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels:     map[string]string{kedav1alpha1.ScaledObjectOwnerAnnotation: "my-so"},
+				Finalizers: []string{"finalizer.keda.sh"},
+			},
+		}
+		fn(expected, expected.DeepCopy(), curr)
+		assert.Equal(t, "my-so", expected.Labels[kedav1alpha1.ScaledObjectOwnerAnnotation])
+		assert.Equal(t, []string{"finalizer.keda.sh"}, expected.Finalizers)
+	})
 }
 
 func TestNamingHelpers(t *testing.T) {
