@@ -337,9 +337,8 @@ type InferencePoolSpec struct {
 // ScalingSpec configures autoscaling for the LLM inference deployment.
 // When scaling is configured, the controller creates and manages autoscaling resources
 // (VariantAutoscaling CR, ServiceMonitor, and the selected actuator — HPA or KEDA ScaledObject).
-// +kubebuilder:validation:XValidation:rule="has(self.maxReplicas)",message="maxReplicas is required when scaling is configured"
 // +kubebuilder:validation:XValidation:rule="has(self.wva)",message="wva is required when scaling is configured; it provides the autoscaling mechanism"
-// +kubebuilder:validation:XValidation:rule="!has(self.minReplicas) || !has(self.maxReplicas) || self.minReplicas <= self.maxReplicas",message="minReplicas cannot exceed maxReplicas"
+// +kubebuilder:validation:XValidation:rule="!has(self.minReplicas) || self.minReplicas <= self.maxReplicas",message="minReplicas cannot exceed maxReplicas"
 // +kubebuilder:validation:XValidation:rule="!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)",message="minReplicas is required when idleReplicaCount is set; idleReplicaCount must be less than minReplicas"
 // +kubebuilder:validation:XValidation:rule="!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || !has(self.minReplicas) || self.wva.keda.idleReplicaCount < self.minReplicas",message="idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active"
 type ScalingSpec struct {
@@ -348,13 +347,13 @@ type ScalingSpec struct {
 	// For idle scale-down, use KEDA's idleReplicaCount instead.
 	// Defaults to 1 if not specified.
 	// +optional
+	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=1
 	MinReplicas *int32 `json:"minReplicas,omitempty"`
 
 	// MaxReplicas is the maximum number of replicas for the deployment.
-	// +optional
 	// +kubebuilder:validation:Minimum=1
-	MaxReplicas *int32 `json:"maxReplicas,omitempty"`
+	MaxReplicas int32 `json:"maxReplicas"`
 
 	// WVA configures the Workload Variant Autoscaler (WVA) for scaling.
 	// WVA scales based on a variety of inference metrics (KV cache utilization, queue depth, etc.)

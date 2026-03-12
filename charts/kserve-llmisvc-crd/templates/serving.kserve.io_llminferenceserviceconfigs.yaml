@@ -148,6 +148,7 @@ spec:
                           minimum: 1
                           type: integer
                         minReplicas:
+                          default: 1
                           format: int32
                           minimum: 1
                           type: integer
@@ -368,14 +369,14 @@ spec:
                               rule: '!(has(self.hpa) && has(self.keda))'
                             - message: either hpa or keda must be specified as the actuator backend
                               rule: has(self.hpa) || has(self.keda)
+                      required:
+                        - maxReplicas
                       type: object
                       x-kubernetes-validations:
-                        - message: maxReplicas is required when scaling is configured
-                          rule: has(self.maxReplicas)
                         - message: wva is required when scaling is configured; it provides the autoscaling mechanism
                           rule: has(self.wva)
                         - message: minReplicas cannot exceed maxReplicas
-                          rule: '!has(self.minReplicas) || !has(self.maxReplicas) || self.minReplicas <= self.maxReplicas'
+                          rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
                         - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount must be less than minReplicas
                           rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)'
                         - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
@@ -13082,6 +13083,7 @@ spec:
                       minimum: 1
                       type: integer
                     minReplicas:
+                      default: 1
                       format: int32
                       minimum: 1
                       type: integer
@@ -13302,14 +13304,14 @@ spec:
                           rule: '!(has(self.hpa) && has(self.keda))'
                         - message: either hpa or keda must be specified as the actuator backend
                           rule: has(self.hpa) || has(self.keda)
+                  required:
+                    - maxReplicas
                   type: object
                   x-kubernetes-validations:
-                    - message: maxReplicas is required when scaling is configured
-                      rule: has(self.maxReplicas)
                     - message: wva is required when scaling is configured; it provides the autoscaling mechanism
                       rule: has(self.wva)
                     - message: minReplicas cannot exceed maxReplicas
-                      rule: '!has(self.minReplicas) || !has(self.maxReplicas) || self.minReplicas <= self.maxReplicas'
+                      rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
                     - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount must be less than minReplicas
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
@@ -20978,6 +20980,7 @@ spec:
                           minimum: 1
                           type: integer
                         minReplicas:
+                          default: 1
                           format: int32
                           minimum: 1
                           type: integer
@@ -21198,14 +21201,14 @@ spec:
                               rule: '!(has(self.hpa) && has(self.keda))'
                             - message: either hpa or keda must be specified as the actuator backend
                               rule: has(self.hpa) || has(self.keda)
+                      required:
+                        - maxReplicas
                       type: object
                       x-kubernetes-validations:
-                        - message: maxReplicas is required when scaling is configured
-                          rule: has(self.maxReplicas)
                         - message: wva is required when scaling is configured; it provides the autoscaling mechanism
                           rule: has(self.wva)
                         - message: minReplicas cannot exceed maxReplicas
-                          rule: '!has(self.minReplicas) || !has(self.maxReplicas) || self.minReplicas <= self.maxReplicas'
+                          rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
                         - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount must be less than minReplicas
                           rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)'
                         - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
@@ -33905,6 +33908,7 @@ spec:
                       minimum: 1
                       type: integer
                     minReplicas:
+                      default: 1
                       format: int32
                       minimum: 1
                       type: integer
@@ -34125,14 +34129,14 @@ spec:
                           rule: '!(has(self.hpa) && has(self.keda))'
                         - message: either hpa or keda must be specified as the actuator backend
                           rule: has(self.hpa) || has(self.keda)
+                  required:
+                    - maxReplicas
                   type: object
                   x-kubernetes-validations:
-                    - message: maxReplicas is required when scaling is configured
-                      rule: has(self.maxReplicas)
                     - message: wva is required when scaling is configured; it provides the autoscaling mechanism
                       rule: has(self.wva)
                     - message: minReplicas cannot exceed maxReplicas
-                      rule: '!has(self.minReplicas) || !has(self.maxReplicas) || self.minReplicas <= self.maxReplicas'
+                      rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
                     - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount must be less than minReplicas
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
