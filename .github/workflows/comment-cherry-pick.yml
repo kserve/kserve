@@ -5,18 +5,47 @@ on:
     types: [created]
 
 jobs:
+  validate:
+    name: Validate Cherry Pick Request
+    if: github.event.issue.pull_request != '' && contains(github.event.comment.body, '/cherry-pick') && (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'COLLABORATOR' || github.event.comment.author_association == 'CONTRIBUTOR')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check if PR is merged
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.issue.number }}"
+          PR_STATE=$(gh pr view "$PR_NUMBER" --json state -q .state)
+          PR_MERGED=$(gh pr view "$PR_NUMBER" --json mergedAt -q .mergedAt)
+
+          if [[ "$PR_STATE" != "MERGED" ]] || [[ "$PR_MERGED" == "null" ]]; then
+            echo "❌ Error: PR #$PR_NUMBER is not merged yet"
+            echo "   Current state: $PR_STATE"
+            echo "   Cherry-pick can only be performed on merged PRs"
+            exit 1
+          fi
+
+          echo "✅ PR #$PR_NUMBER is merged"
+
   cherry-pick:
-    
     name: Cherry Pick
-    if: github.event.issue.pull_request != '' && contains(github.event.comment.body, '/cherry-pick') && github.event.comment.author_association == 'CONTRIBUTOR'
+    needs: validate
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout the latest code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0 # otherwise, you will fail to push refs to dest repo
+          fetch-depth: 0
+
+      - name: Fetch PR commits
+        run: |
+          PR_NUMBER="${{ github.event.issue.number }}"
+          echo "Fetching PR #$PR_NUMBER commits"
+          git fetch origin "pull/$PR_NUMBER/head:pr-$PR_NUMBER"
+
       - name: Automatic Cherry Pick
         uses: hianhianhian/gha-cherry-pick@master
         env:
