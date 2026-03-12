@@ -404,7 +404,64 @@ func (l *LLMInferenceServiceValidator) validateScaling(llmSvc *LLMInferenceServi
 		allErrs = append(allErrs, ValidateWorkloadScaling(field.NewPath("spec").Child("prefill"), llmSvc.Spec.Prefill)...)
 	}
 
+	allErrs = append(allErrs, l.validateActuatorConsistency(llmSvc)...)
+
 	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateActuatorConsistency(llmSvc *LLMInferenceService) field.ErrorList {
+	return ValidateActuatorConsistency(&llmSvc.Spec.WorkloadSpec, llmSvc.Spec.Prefill)
+}
+
+// ValidateActuatorConsistency ensures that when both decode and prefill workloads
+// have autoscaling configured, they use the same actuator backend (both HPA or both KEDA).
+// Mixing backends is not supported because:
+//   - HPA requires a Prometheus Adapter to expose metrics to the Kubernetes Metrics API
+//   - KEDA queries Prometheus directly without an adapter
+//
+// Using different backends forces operators to maintain two different metric pipelines
+// and results in independent, unsynchronised scaling decisions across the two sides
+// of a disaggregated deployment.
+//
+// It is exported so that v1alpha1 can reuse it via conversion.
+func ValidateActuatorConsistency(decode *WorkloadSpec, prefill *WorkloadSpec) field.ErrorList {
+	if prefill == nil {
+		return nil
+	}
+
+	// Both sides must have scaling.wva configured for a mismatch to be possible.
+	decodeScaling := decode.Scaling
+	prefillScaling := prefill.Scaling
+	if decodeScaling == nil || decodeScaling.WVA == nil || prefillScaling == nil || prefillScaling.WVA == nil {
+		return nil
+	}
+
+	decodeUsesHPA := decodeScaling.WVA.HPA != nil
+	prefillUsesHPA := prefillScaling.WVA.HPA != nil
+
+	if decodeUsesHPA == prefillUsesHPA {
+		return nil
+	}
+
+	decodeBackend := "keda"
+	prefillBackend := "hpa"
+	if decodeUsesHPA {
+		decodeBackend = "hpa"
+		prefillBackend = "keda"
+	}
+
+	return field.ErrorList{
+		field.Invalid(
+			field.NewPath("spec").Child("prefill", "scaling", "wva"),
+			prefillScaling.WVA,
+			fmt.Sprintf(
+				"decode and prefill must use the same actuator backend; "+
+					"decode uses %s but prefill uses %s — "+
+					"mixing backends requires two separate metric pipelines and leads to independent, unsynchronised scaling decisions",
+				decodeBackend, prefillBackend,
+			),
+		),
+	}
 }
 
 // ValidateWorkloadScaling validates the scaling configuration of a single workload
@@ -418,6 +475,25 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 	}
 
 	scalingPath := basePath.Child("scaling")
+
+	// Autoscaling is not supported for multi-node deployments (worker is set).
+	// When worker is set, the controller creates a LeaderWorkerSet which does not
+	// integrate with WVA/HPA/KEDA — the scaling block would be silently ignored.
+	//
+	// Note: LWS itself can be targeted by an HPA, so the hardware capability exists.
+	// This is a current limitation of WVA, which only knows how to reconcile against
+	// a Deployment. When WVA gains LWS support, this validation should be revisited.
+	// TODO: remove this restriction once WVA supports LeaderWorkerSet as a scaling target.
+	if workload.Worker != nil {
+		allErrs = append(allErrs, field.Invalid(
+			scalingPath,
+			scaling,
+			"autoscaling (scaling) is not supported for multi-node deployments; "+
+				"worker is set, which uses a LeaderWorkerSet that does not integrate with WVA/HPA/KEDA — "+
+				"remove scaling and use replicas instead to set a fixed replica count",
+		))
+		return allErrs
+	}
 
 	// Replicas and scaling are mutually exclusive
 	if workload.Replicas != nil {

@@ -104,7 +104,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ ${#TYPES[@]} -eq 0 ]] && TYPES=("kserve")
+if ! is_positive "$ENABLE_KEDA" && [[ ${#TYPES[@]} -eq 0 ]]; then
+  [[ ${#TYPES[@]} -eq 0 ]] && TYPES=("kserve")
+fi
 
 # Validate types and auto-enable corresponding configs
 for type in "${TYPES[@]}"; do
@@ -143,7 +145,7 @@ esac
 export DEPLOYMENT_MODE="${NORMALIZED_MODE}"
 
 # Validate dependencies
-[[ $USE_LOCAL_CHARTS == true && $INSTALL_METHOD != "helm" ]] && { log_error "Local chart requires helm mode"; exit 1; }
+is_positive "$USE_LOCAL_CHARTS" && [[ $INSTALL_METHOD != "helm" ]] && { log_error "Local chart requires helm mode"; exit 1; }
 [[ -n "${SET_KSERVE_REGISTRY}" && $INSTALL_METHOD != "kustomize" ]] && { log_error "--kserve-registry requires kustomize mode"; exit 1; }
 
 show_installation_plan() {
@@ -153,7 +155,7 @@ show_installation_plan() {
   echo "========================================"
   echo ""
   echo "📋 Method: ${INSTALL_METHOD}"
-  [[ $USE_LOCAL_CHARTS == true ]] && echo "📦 Chart: Local (${REPO_ROOT}/charts/)"
+  is_positive "$USE_LOCAL_CHARTS" && echo "📦 Chart: Local (${REPO_ROOT}/charts/)"
   echo "📦 Types: ${TYPES[*]}"
   echo ""
   echo "Common Dependencies:"
@@ -168,8 +170,8 @@ show_installation_plan() {
         if [[ $USER_MODE == "serverless" ]]; then
           echo "    - Dependencies: Istio, Knative"
         fi
-        [[ $ENABLE_KEDA == true ]] && echo "    - With KEDA autoscaling"
-        [[ $INSTALL_RUNTIMES == "true" ]] && echo "    - With ClusterServingRuntimes"
+        is_positive "$ENABLE_KEDA" && echo "    - With KEDA autoscaling"
+        ! is_positive "$DEPS_ONLY" && is_positive "$INSTALL_RUNTIMES" && echo "    - With ClusterServingRuntimes"
         ;;
       localmodel)
         echo "  • LocalModel (default settings)"
@@ -177,7 +179,7 @@ show_installation_plan() {
       llmisvc)
         echo "  • LLMIsvc"
         echo "    - Dependencies: Gateway API, LWS Operator, Envoy Gateway"
-        [[ $INSTALL_LLMISVC_CONFIGS == "true" ]] && echo "    - With LLMIsvc Configs"
+        ! is_positive "$DEPS_ONLY" && is_positive "$INSTALL_LLMISVC_CONFIGS" && echo "    - With LLMIsvc Configs"
         ;;
     esac
   done
@@ -211,7 +213,7 @@ uninstall_all() {
   log_success "All components uninstalled"
 }
 
-if [[ $UNINSTALL == true ]]; then
+if is_positive "$UNINSTALL"; then
   uninstall_all
   exit 0
 fi
@@ -220,7 +222,7 @@ show_installation_plan
 
 install_dependencies() {
   log_info "Installing dependencies..."
-  
+
   # Individual installation
   for type in "${TYPES[@]}"; do
     case $type in
@@ -243,37 +245,37 @@ install_dependencies() {
     ${REPO_ROOT}/hack/setup/quick-install/keda-dependency-install.sh
   fi
 
-  
   log_success "Dependencies installed"
 }
 
 install_dependencies
 
-if [[ $DEPS_ONLY == true ]]; then
+if is_positive "$DEPS_ONLY"; then
   echo ""
   echo "✅ Dependencies installation complete!"
   exit 0
 fi
 
 # Install all enabled types together (single execution)
-log_info "Installing: ${TYPES[*]}..."
-if [[ $INSTALL_METHOD == "helm" ]]; then  
-  ${REPO_ROOT}/hack/setup/infra/manage.kserve-helm.sh
-else
-  ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh
+if [[ ${#TYPES[@]} -gt 0 ]]; then
+  log_info "Installing: ${TYPES[*]}..."
+  if [[ $INSTALL_METHOD == "helm" ]]; then
+    ${REPO_ROOT}/hack/setup/infra/manage.kserve-helm.sh
+  else
+    ${REPO_ROOT}/hack/setup/infra/manage.kserve-kustomize.sh
+  fi
+
+  log_success "Installation complete: ${TYPES[*]}"
+  echo ""
+  echo "========================================"
+  echo "  ✅ Installation Complete!"
+  echo "========================================"
+  echo ""
+  echo "📝 Verify installation:"
+  echo "   kubectl get pods -n kserve"
+  echo ""
+  echo "📚 Documentation:"
+  echo "   https://kserve.github.io/website/"
+  echo ""
+  echo "========================================"
 fi
-
-log_success "Installation complete: ${TYPES[*]}"
-
-echo ""
-echo "========================================"
-echo "  ✅ Installation Complete!"
-echo "========================================"
-echo ""
-echo "📝 Verify installation:"
-echo "   kubectl get pods -n kserve"
-echo ""
-echo "📚 Documentation:"
-echo "   https://kserve.github.io/website/"
-echo ""
-echo "========================================"
