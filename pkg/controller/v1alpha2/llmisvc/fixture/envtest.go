@@ -54,6 +54,7 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 
 		llmCtrl := llmisvc.LLMISVCReconciler{
 			Client:    mgr.GetClient(),
+			Config:    cfg,
 			Clientset: clientSet,
 			// TODO fix it to be set up similar to main.go, for now it's stub
 			EventRecorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "v1beta1Controllers"}),
@@ -114,7 +115,7 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 		return v1alpha2ConfigValidator.SetupWithManager(mgr)
 	}
 
-	envTest := pkgtest.NewEnvTest(webhookManifests).
+	envTest := pkgtest.NewEnvTest(append([]pkgtest.Option{webhookManifests}, additionalEnvTestOptions()...)...).
 		WithWebhooks(webhooks).
 		WithControllers(llmCtrlFunc).
 		// The suite manager/webhook must outlive BeforeSuite node context.
