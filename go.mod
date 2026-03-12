@@ -22,6 +22,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/kedacore/keda/v2 v2.17.3
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/llm-d/llm-d-workload-variant-autoscaler v0.5.1
 	github.com/onsi/ginkgo/v2 v2.27.3
 	github.com/onsi/gomega v1.38.3
 	github.com/open-telemetry/opentelemetry-operator v0.113.0
