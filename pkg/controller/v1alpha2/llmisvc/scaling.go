@@ -207,15 +207,15 @@ func (r *LLMISVCReconciler) reconcileActuator(ctx context.Context, llmSvc *v1alp
 }
 
 // validateAutoscalingConfig checks that the WVAAutoscalingConfig is valid for use with KEDA.
-// It returns an error if the config is nil, if PrometheusURL is missing, or if the auth
-// fields are only partially configured (both prometheusAuthModes and prometheusTriggerAuthName
+// It returns an error if the config is nil, if prometheus.url is missing, or if the auth
+// fields are only partially configured (both prometheus.authModes and prometheus.triggerAuthName
 // must be set together or both left empty).
 func validateAutoscalingConfig(cfg *WVAAutoscalingConfig) error {
-	if cfg == nil || cfg.PrometheusURL == "" {
-		return errors.New("autoscaling.prometheusURL is required in inferenceservice-config when using KEDA")
+	if cfg == nil || cfg.Prometheus.URL == "" {
+		return errors.New("autoscaling.prometheus.url is required in inferenceservice-config when using KEDA")
 	}
-	if (cfg.PrometheusTriggerAuthName == "") != (cfg.PrometheusAuthModes == "") {
-		return errors.New("autoscaling.prometheusAuthModes and autoscaling.prometheusTriggerAuthName must both be set or both be empty")
+	if (cfg.Prometheus.TriggerAuthName == "") != (cfg.Prometheus.AuthModes == "") {
+		return errors.New("autoscaling.prometheus.authModes and autoscaling.prometheus.triggerAuthName must both be set or both be empty")
 	}
 	return nil
 }
@@ -291,29 +291,30 @@ func expectedScaledObject(llmSvc *v1alpha2.LLMInferenceService, scaling *v1alpha
 }
 
 // prometheusTrigger builds the KEDA ScaleTriggers entry for the Prometheus scaler.
-// Authentication is optional: when PrometheusAuthModes and PrometheusTriggerAuthName are
+// Authentication is optional: when Prometheus.AuthModes and Prometheus.TriggerAuthName are
 // set in the config, the trigger will carry authModes metadata and an AuthenticationRef
 // pointing to the pre-existing TriggerAuthentication or ClusterTriggerAuthentication CR.
 func prometheusTrigger(cfg *WVAAutoscalingConfig, query string) kedav1alpha1.ScaleTriggers {
+	prom := &cfg.Prometheus
 	trigger := kedav1alpha1.ScaleTriggers{
 		Type: "prometheus",
 		Name: "wva-desired-replicas",
 		Metadata: map[string]string{
-			"serverAddress": cfg.PrometheusURL,
+			"serverAddress": prom.URL,
 			"query":         query,
 			"threshold":     "1",
-			"unsafeSsl":     strconv.FormatBool(cfg.PrometheusTLSInsecureSkipVerify),
+			"unsafeSsl":     strconv.FormatBool(prom.TLSInsecureSkipVerify),
 		},
 	}
 
-	if cfg.PrometheusAuthModes != "" {
-		trigger.Metadata["authModes"] = cfg.PrometheusAuthModes
+	if prom.AuthModes != "" {
+		trigger.Metadata["authModes"] = prom.AuthModes
 	}
 
-	if cfg.PrometheusTriggerAuthName != "" {
+	if prom.TriggerAuthName != "" {
 		trigger.AuthenticationRef = &kedav1alpha1.AuthenticationRef{
-			Name: cfg.PrometheusTriggerAuthName,
-			Kind: cfg.PrometheusTriggerAuthKind,
+			Name: prom.TriggerAuthName,
+			Kind: prom.TriggerAuthKind,
 		}
 	}
 
