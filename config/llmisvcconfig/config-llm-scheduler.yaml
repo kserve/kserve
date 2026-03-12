@@ -71,13 +71,14 @@ spec:
               - "9003"
               - --kv-cache-usage-percentage-metric
               - "vllm:kv_cache_usage_perc"
-              # BackendTLSPolicy is not implemented yet so disable SSL for now
-              # - --secure-serving
-              # - --model-server-metrics-scheme
-              # - "https"
-              # - --model-server-metrics-https-insecure-skip-verify
-              # - --cert-path
-              # - "/var/run/kserve/tls"
+              - --secure-serving
+              - --model-server-metrics-scheme
+              - "https"
+              - --cert-path
+              - "/var/run/kserve/tls"
+            env:
+              - name: SSL_CERT_DIR
+                value: "/var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs"
             resources:
               requests:
                 cpu: 256m

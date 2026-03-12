@@ -99,7 +99,12 @@ func TestPresetFiles(t *testing.T) {
 										"--port=8000",
 										"--vllm-port=8001",
 										"--connector=nixlv2",
-										"--secure-proxy=false",
+										"--secure-proxy=true",
+										"--cert-path=/var/run/kserve/tls",
+										"--decoder-use-tls=true",
+										"--prefiller-use-tls=true",
+										"--enable-ssrf-protection=true",
+										"--pool-group=inference.networking.x-k8s.io",
 									},
 									Env: []corev1.EnvVar{
 										{
@@ -109,6 +114,10 @@ func TestPresetFiles(t *testing.T) {
 													FieldPath: "metadata.namespace",
 												},
 											},
+										},
+										{
+											Name:  "SSL_CERT_DIR",
+											Value: "/var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs",
 										},
 									},
 									Ports: []corev1.ContainerPort{
@@ -144,7 +153,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8000),
-												Scheme: corev1.URISchemeHTTP,
+												Scheme: corev1.URISchemeHTTPS,
 											},
 										},
 										InitialDelaySeconds: 10,
@@ -157,7 +166,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8000),
-												Scheme: corev1.URISchemeHTTP,
+												Scheme: corev1.URISchemeHTTPS,
 											},
 										},
 										InitialDelaySeconds: 10,
@@ -216,7 +225,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8001),
-												Scheme: corev1.URISchemeHTTP,
+												Scheme: corev1.URISchemeHTTPS,
 											},
 										},
 
@@ -229,7 +238,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8001),
-												Scheme: corev1.URISchemeHTTP,
+												Scheme: corev1.URISchemeHTTPS,
 											},
 										},
 
@@ -242,7 +251,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8001),
-												Scheme: corev1.URISchemeHTTP,
+												Scheme: corev1.URISchemeHTTPS,
 											},
 										},
 										FailureThreshold: 60,
@@ -417,7 +426,7 @@ func TestPresetFiles(t *testing.T) {
 								{
 									Name:    "main",
 									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.4.0",
-									Command: []string{"/bin/bash", "-c", "set -e\nif [ -f /etc/profile.d/ibm-aiu-setup.sh ]; then\n  source /etc/profile.d/ibm-aiu-setup.sh\nfi\nexec vllm serve \\\n  /mnt/models \\\n  --served-model-name \"llama\" \\\n  --port 8000 \\\n  \"$@\"\n", "--"},
+									Command: []string{"/bin/bash", "-c", "set -e\nif [ -f /etc/profile.d/ibm-aiu-setup.sh ]; then\n  source /etc/profile.d/ibm-aiu-setup.sh\nfi\nexec vllm serve \\\n  /mnt/models \\\n  --served-model-name \"llama\" \\\n  --enable-ssl-refresh \\\n  --ssl-certfile \\\n  /var/run/kserve/tls/tls.crt \\\n  --ssl-keyfile \\\n  /var/run/kserve/tls/tls.key \\\n  --port 8000 \\\n  \"$@\"\n", "--"},
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8000,
@@ -462,7 +471,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8000),
-												Scheme: corev1.URISchemeHTTP,
+												Scheme: corev1.URISchemeHTTPS,
 											},
 										},
 
@@ -475,7 +484,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8000),
-												Scheme: corev1.URISchemeHTTP,
+												Scheme: corev1.URISchemeHTTPS,
 											},
 										},
 
@@ -488,7 +497,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8000),
-												Scheme: corev1.URISchemeHTTP,
+												Scheme: corev1.URISchemeHTTPS,
 											},
 										},
 										FailureThreshold: 60,

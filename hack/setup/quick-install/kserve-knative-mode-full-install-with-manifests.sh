@@ -2468,6 +2468,11 @@ spec:
       - '{{ .Spec.Model.Name }}'
       - --port
       - "8001"
+      - --enable-ssl-refresh
+      - --ssl-certfile
+      - /var/run/kserve/tls/tls.crt
+      - --ssl-keyfile
+      - /var/run/kserve/tls/tls.key
       env:
       - name: HOME
         value: /home
@@ -2482,7 +2487,7 @@ spec:
         httpGet:
           path: /health
           port: 8001
-          scheme: HTTP
+          scheme: HTTPS
         periodSeconds: 10
         timeoutSeconds: 10
       name: main
@@ -2494,7 +2499,7 @@ spec:
         httpGet:
           path: /health
           port: 8001
-          scheme: HTTP
+          scheme: HTTPS
         periodSeconds: 10
         timeoutSeconds: 5
       securityContext:
@@ -2511,7 +2516,7 @@ spec:
         httpGet:
           path: /health
           port: 8001
-          scheme: HTTP
+          scheme: HTTPS
         periodSeconds: 10
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
@@ -2530,12 +2535,19 @@ spec:
       - --port=8000
       - --vllm-port=8001
       - --connector=nixlv2
-      - --secure-proxy=false
+      - --secure-proxy=true
+      - --cert-path=/var/run/kserve/tls
+      - --decoder-use-tls=true
+      - --prefiller-use-tls=true
+      - --enable-ssrf-protection=true
+      - --pool-group=inference.networking.x-k8s.io
       env:
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
+      - name: SSL_CERT_DIR
+        value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
       image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.4.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
@@ -2543,7 +2555,7 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTP
+          scheme: HTTPS
         initialDelaySeconds: 10
         periodSeconds: 10
         timeoutSeconds: 10
@@ -2556,7 +2568,7 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTP
+          scheme: HTTPS
         initialDelaySeconds: 10
         periodSeconds: 10
         timeoutSeconds: 5
@@ -2742,13 +2754,12 @@ spec:
           --data-parallel-start-rank $START_RANK \
           ${VLLM_ADDITIONAL_ARGS} \
           $@ \
-          --trust-remote-code"
-          # BackendTLSPolicy is not implemented yet so disable SSL for now
-          # --enable-ssl-refresh \
-          # --ssl-certfile \
-          # /var/run/kserve/tls/tls.crt \
-          # --ssl-keyfile \
-          # /var/run/kserve/tls/tls.key"
+          --trust-remote-code \
+          --enable-ssl-refresh \
+          --ssl-certfile \
+          /var/run/kserve/tls/tls.crt \
+          --ssl-keyfile \
+          /var/run/kserve/tls/tls.key"
       - --
       env:
       - name: HOME
@@ -2764,7 +2775,7 @@ spec:
         httpGet:
           path: /health
           port: 8001
-          scheme: HTTP
+          scheme: HTTPS
         periodSeconds: 10
         timeoutSeconds: 10
       name: main
@@ -2776,7 +2787,7 @@ spec:
         httpGet:
           path: /health
           port: 8001
-          scheme: HTTP
+          scheme: HTTPS
         periodSeconds: 30
         timeoutSeconds: 5
       securityContext:
@@ -2797,7 +2808,7 @@ spec:
         httpGet:
           path: /health
           port: 8001
-          scheme: HTTP
+          scheme: HTTPS
         periodSeconds: 10
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
@@ -2816,12 +2827,19 @@ spec:
       - --port=8000
       - --vllm-port=8001
       - --connector=nixlv2
-      - --secure-proxy=false
+      - --secure-proxy=true
+      - --cert-path=/var/run/kserve/tls
+      - --decoder-use-tls=true
+      - --prefiller-use-tls=true
+      - --enable-ssrf-protection=true
+      - --pool-group=inference.networking.x-k8s.io
       env:
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
+      - name: SSL_CERT_DIR
+        value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
       image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.4.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
@@ -2829,7 +2847,7 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTP
+          scheme: HTTPS
         initialDelaySeconds: 10
         periodSeconds: 10
         timeoutSeconds: 10
@@ -2842,7 +2860,7 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTP
+          scheme: HTTPS
         initialDelaySeconds: 10
         periodSeconds: 10
         timeoutSeconds: 5
@@ -3022,13 +3040,12 @@ spec:
           ${VLLM_ADDITIONAL_ARGS} \
           $@ \
           --trust-remote-code \
-          --headless"
-          # BackendTLSPolicy is not implemented yet so disable SSL for now
-          # --enable-ssl-refresh \
-          # --ssl-certfile \
-          # /var/run/kserve/tls/tls.crt \
-          # --ssl-keyfile \
-          # /var/run/kserve/tls/tls.key"
+          --headless \
+          --enable-ssl-refresh \
+          --ssl-certfile \
+          /var/run/kserve/tls/tls.crt \
+          --ssl-keyfile \
+          /var/run/kserve/tls/tls.key"
       - --
       env:
       - name: HOME
@@ -3101,6 +3118,11 @@ spec:
         - '{{ .Spec.Model.Name }}'
         - --port
         - "8000"
+        - --enable-ssl-refresh
+        - --ssl-certfile
+        - /var/run/kserve/tls/tls.crt
+        - --ssl-keyfile
+        - /var/run/kserve/tls/tls.key
         env:
         - name: HOME
           value: /home
@@ -3115,7 +3137,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTP
+            scheme: HTTPS
           periodSeconds: 10
           timeoutSeconds: 10
         name: main
@@ -3127,7 +3149,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTP
+            scheme: HTTPS
           periodSeconds: 10
           timeoutSeconds: 5
         securityContext:
@@ -3144,7 +3166,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTP
+            scheme: HTTPS
           periodSeconds: 10
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
@@ -3326,13 +3348,12 @@ spec:
             --data-parallel-start-rank $START_RANK \
             ${VLLM_ADDITIONAL_ARGS} \
             $@ \
-            --trust-remote-code"
-            # BackendTLSPolicy is not implemented yet so disable SSL for now
-            # --enable-ssl-refresh \
-            # --ssl-certfile \
-            # /var/run/kserve/tls/tls.crt \
-            # --ssl-keyfile \
-            # /var/run/kserve/tls/tls.key"
+            --trust-remote-code \
+            --enable-ssl-refresh \
+            --ssl-certfile \
+            /var/run/kserve/tls/tls.crt \
+            --ssl-keyfile \
+            /var/run/kserve/tls/tls.key"
         - --
         env:
         - name: HOME
@@ -3348,7 +3369,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTP
+            scheme: HTTPS
           periodSeconds: 10
           timeoutSeconds: 10
         name: main
@@ -3360,7 +3381,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTP
+            scheme: HTTPS
           periodSeconds: 30
           timeoutSeconds: 5
         securityContext:
@@ -3381,7 +3402,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTP
+            scheme: HTTPS
           periodSeconds: 10
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: FallbackToLogsOnError
@@ -3555,13 +3576,12 @@ spec:
             ${VLLM_ADDITIONAL_ARGS} \
             $@ \
             --trust-remote-code \
-            --headless"
-            # BackendTLSPolicy is not implemented yet so disable SSL for now
-            # --enable-ssl-refresh \
-            # --ssl-certfile \
-            # /var/run/kserve/tls/tls.crt \
-            # --ssl-keyfile \
-            # /var/run/kserve/tls/tls.key"
+            --headless \
+            --enable-ssl-refresh \
+            --ssl-certfile \
+            /var/run/kserve/tls/tls.crt \
+            --ssl-keyfile \
+            /var/run/kserve/tls/tls.key"
         - --
         env:
         - name: HOME
@@ -3726,6 +3746,14 @@ spec:
           - "9003"
           - --kv-cache-usage-percentage-metric
           - vllm:kv_cache_usage_perc
+          - --secure-serving
+          - --model-server-metrics-scheme
+          - https
+          - --cert-path
+          - /var/run/kserve/tls
+          env:
+          - name: SSL_CERT_DIR
+            value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
           image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.4.0
           imagePullPolicy: IfNotPresent
           livenessProbe:
@@ -3807,6 +3835,11 @@ spec:
         exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" \
+          --enable-ssl-refresh \
+          --ssl-certfile \
+          /var/run/kserve/tls/tls.crt \
+          --ssl-keyfile \
+          /var/run/kserve/tls/tls.key \
           --port 8000 \
           "$@"
       - --
@@ -3824,7 +3857,7 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTP
+          scheme: HTTPS
         periodSeconds: 10
         timeoutSeconds: 10
       name: main
@@ -3836,7 +3869,7 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTP
+          scheme: HTTPS
         periodSeconds: 10
         timeoutSeconds: 5
       securityContext:
@@ -3853,7 +3886,7 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTP
+          scheme: HTTPS
         periodSeconds: 10
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
@@ -4034,13 +4067,12 @@ spec:
           --data-parallel-start-rank $START_RANK \
           ${VLLM_ADDITIONAL_ARGS} \
           $@ \
-          --trust-remote-code"
-          # BackendTLSPolicy is not implemented yet so disable SSL for now
-          # --enable-ssl-refresh \
-          # --ssl-certfile \
-          # /var/run/kserve/tls/tls.crt \
-          # --ssl-keyfile \
-          # /var/run/kserve/tls/tls.key"
+          --trust-remote-code \
+          --enable-ssl-refresh \
+          --ssl-certfile \
+          /var/run/kserve/tls/tls.crt \
+          --ssl-keyfile \
+          /var/run/kserve/tls/tls.key"
       - --
       env:
       - name: HOME
@@ -4056,7 +4088,7 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTP
+          scheme: HTTPS
         periodSeconds: 10
         timeoutSeconds: 10
       name: main
@@ -4068,7 +4100,7 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTP
+          scheme: HTTPS
         periodSeconds: 30
         timeoutSeconds: 5
       securityContext:
@@ -4089,7 +4121,7 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTP
+          scheme: HTTPS
         periodSeconds: 10
       terminationMessagePath: /dev/termination-log
       terminationMessagePolicy: FallbackToLogsOnError
@@ -4263,13 +4295,12 @@ spec:
           ${VLLM_ADDITIONAL_ARGS} \
           $@ \
           --trust-remote-code \
-          --headless"
-          # BackendTLSPolicy is not implemented yet so disable SSL for now
-          # --enable-ssl-refresh \
-          # --ssl-certfile \
-          # /var/run/kserve/tls/tls.crt \
-          # --ssl-keyfile \
-          # /var/run/kserve/tls/tls.key
+          --headless \
+          --enable-ssl-refresh \
+          --ssl-certfile \
+          /var/run/kserve/tls/tls.crt \
+          --ssl-keyfile \
+          /var/run/kserve/tls/tls.key"
       - --
       env:
       - name: HOME

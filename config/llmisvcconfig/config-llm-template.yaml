@@ -22,17 +22,15 @@ spec:
             exec vllm serve \
               /mnt/models \
               --served-model-name "{{ .Spec.Model.Name }}" \
+              --enable-ssl-refresh \
+              --ssl-certfile \
+              /var/run/kserve/tls/tls.crt \
+              --ssl-keyfile \
+              /var/run/kserve/tls/tls.key \
               --port 8000 \
               "$@"
           # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve
           - --
-          # BackendTLSPolicy is not implemented yet so disable SSL for now
-          # - --enable-ssl-refresh
-          # - --ssl-certfile
-          # - /var/run/kserve/tls/tls.crt
-          # - --ssl-keyfile
-          # - /var/run/kserve/tls/tls.key
-
         env:
           - name: HOME
             value: /home
@@ -55,7 +53,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTP
+            scheme: HTTPS
           periodSeconds: 10
           timeoutSeconds: 10
           failureThreshold: 3
@@ -63,7 +61,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTP
+            scheme: HTTPS
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 60
@@ -71,7 +69,7 @@ spec:
           httpGet:
             path: /health
             port: 8000
-            scheme: HTTP
+            scheme: HTTPS
           failureThreshold: 60
           periodSeconds: 10
         volumeMounts:
