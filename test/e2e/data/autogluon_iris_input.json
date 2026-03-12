@@ -1,0 +1,16 @@
+{
+  "instances": [
+    {
+      "sepal_length": 5.1,
+      "sepal_width": 3.5,
+      "petal_length": 1.4,
+      "petal_width": 0.2
+    },
+    {
+      "sepal_length": 6.0,
+      "sepal_width": 3.4,
+      "petal_length": 4.5,
+      "petal_width": 1.6
+    }
+  ]
+}

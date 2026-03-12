@@ -1,0 +1,28 @@
+{
+  "inputs": [
+    {
+      "name": "sepal_length",
+      "shape": [2],
+      "datatype": "FP64",
+      "data": [5.1, 6.0]
+    },
+    {
+      "name": "sepal_width",
+      "shape": [2],
+      "datatype": "FP64",
+      "data": [3.5, 3.4]
+    },
+    {
+      "name": "petal_length",
+      "shape": [2],
+      "datatype": "FP64",
+      "data": [1.4, 4.5]
+    },
+    {
+      "name": "petal_width",
+      "shape": [2],
+      "datatype": "FP64",
+      "data": [0.2, 1.6]
+    }
+  ]
+}
