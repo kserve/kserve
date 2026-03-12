@@ -410,6 +410,32 @@ type templateGlobalConfig struct {
 	EnableTLS               bool
 }
 
+// removeEmptyStringsFromArrays recursively walks a JSON-unmarshaled object and removes
+// empty string elements from arrays. This is used to clean up template output where
+// conditional templates (e.g., {{- if ... -}}...{{- end }}) evaluate to empty strings.
+func removeEmptyStringsFromArrays(v any) any {
+	switch val := v.(type) {
+	case map[string]any:
+		for k, v := range val {
+			val[k] = removeEmptyStringsFromArrays(v)
+		}
+		return val
+	case []any:
+		filtered := make([]any, 0, len(val))
+		for _, item := range val {
+			cleaned := removeEmptyStringsFromArrays(item)
+			// Skip empty strings
+			if s, ok := cleaned.(string); ok && s == "" {
+				continue
+			}
+			filtered = append(filtered, cleaned)
+		}
+		return filtered
+	default:
+		return val
+	}
+}
+
 // ReplaceVariables processes the configuration as a Go template to substitute
 // variables with values from the LLM service and global configuration.
 func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig, reconcilerConfig *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
@@ -447,9 +473,24 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 		return nil, fmt.Errorf("failed to merge config: %w", err)
 	}
 
-	out := &v1alpha2.LLMInferenceServiceConfig{}
-	if err := json.Unmarshal(buf.Bytes(), out); err != nil {
+	// First unmarshal into a generic map to clean up empty strings from arrays
+	var intermediate map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &intermediate); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config from template: %w", err)
+	}
+
+	// Remove empty strings that resulted from conditional templates evaluating to ""
+	cleaned := removeEmptyStringsFromArrays(intermediate)
+
+	// Marshal back to JSON and unmarshal into the final typed struct
+	cleanedBytes, err := json.Marshal(cleaned)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal cleaned config: %w", err)
+	}
+
+	out := &v1alpha2.LLMInferenceServiceConfig{}
+	if err := json.Unmarshal(cleanedBytes, out); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal cleaned config: %w", err)
 	}
 	return out, nil
 }
