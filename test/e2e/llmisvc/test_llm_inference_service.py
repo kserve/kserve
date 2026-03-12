@@ -82,6 +82,7 @@ def create_response_assertion(
 @dataclass
 class TestCase:
     """Test case configuration for LLM inference service tests."""
+
     __test__ = False  # So pytest will not try to execute it.
     base_refs: List[str]
     prompt: str
@@ -354,6 +355,23 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
+        # Precise prefix KV cache routing test
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "scheduler-with-precise-prefix-cache-inline-config",
+                    "workload-llmd-simulator-kvcache",
+                ],
+                prompt="KServe is a",
+                service_name="precise-prefix-cache-test",
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.llmd_simulator,
+            ],
+        ),
     ],
     indirect=["test_case"],
     ids=generate_test_id,
@@ -474,9 +492,7 @@ def wait_for_model_response(
                 "max_tokens": test_case.max_tokens,
             }
 
-        logger.info(
-            f"Calling LLM service at {model_url} with payload {test_payload}"
-        )
+        logger.info(f"Calling LLM service at {model_url} with payload {test_payload}")
         try:
             response = post_with_retry(
                 model_url,

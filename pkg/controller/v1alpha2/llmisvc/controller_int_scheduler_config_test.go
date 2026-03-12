@@ -1082,6 +1082,388 @@ schedulingProfiles:
 			Expect(hasLeasesPermission).To(BeTrue(), "Expected scheduler role to have leases permission for leader election")
 		})
 	})
+
+	Context("UDS tokenizer config injection", func() {
+		It("should inject tokenizersPoolConfig when precise-prefix-cache-scorer has indexerConfig", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-uds-tokenizer-inject"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			precisePrefixConfig := `
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: precise-prefix-cache-scorer
+  parameters:
+    indexerConfig:
+      tokenProcessorConfig:
+        blockSize: 16
+        hashSeed: "42"
+- type: queue-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: precise-prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(precisePrefixConfig),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify the scheduler deployment has injected tokenizersPoolConfig
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-router-scheduler",
+					Namespace: testNs.Name,
+				}, expectedDeployment); err != nil {
+					return err
+				}
+
+				configText, found := getSchedulerConfigText(expectedDeployment)
+				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				g.Expect(configText).To(ContainSubstring("modelName: base"))
+				g.Expect(configText).To(ContainSubstring("socketFile: /tmp/tokenizer/tokenizer-uds.socket"))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should override existing tokenizersPoolConfig values", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-uds-tokenizer-override"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			//nolint:gosec // G101: not a credential, scheduler config YAML
+			configWithExistingTokenizer := `
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: precise-prefix-cache-scorer
+  parameters:
+    indexerConfig:
+      tokenProcessorConfig:
+        blockSize: 16
+        hashSeed: "42"
+      tokenizersPoolConfig:
+        modelName: "wrong-model-name"
+        uds:
+          socketFile: /wrong/path/tokenizer.socket
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: precise-prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(configWithExistingTokenizer),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify the values are overridden with the correct ones
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-router-scheduler",
+					Namespace: testNs.Name,
+				}, expectedDeployment); err != nil {
+					return err
+				}
+
+				configText, found := getSchedulerConfigText(expectedDeployment)
+				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				g.Expect(configText).To(ContainSubstring("modelName: base"))
+				g.Expect(configText).To(ContainSubstring("socketFile: /tmp/tokenizer/tokenizer-uds.socket"))
+				g.Expect(configText).NotTo(ContainSubstring("wrong-model-name"))
+				g.Expect(configText).NotTo(ContainSubstring("/wrong/path"))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should not inject tokenizersPoolConfig when no precise-prefix-cache-scorer plugin", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-uds-no-precise-prefix"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			configWithoutPrecisePrefix := `
+apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: queue-scorer
+- type: prefix-cache-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithSchedulerConfigInline(configWithoutPrecisePrefix),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify no tokenizersPoolConfig is injected
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve-router-scheduler",
+					Namespace: testNs.Name,
+				}, expectedDeployment); err != nil {
+					return err
+				}
+
+				configText, found := getSchedulerConfigText(expectedDeployment)
+				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
+				g.Expect(configText).NotTo(ContainSubstring("tokenizersPoolConfig"))
+				g.Expect(configText).NotTo(ContainSubstring("modelName: base"))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("Scheduler SA credential propagation", func() {
+		It("should propagate annotations and imagePullSecrets from main workload SA to generated scheduler SA", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-sa-propagation"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			// Create a main workload SA with annotations and imagePullSecrets
+			mainSA := &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "main-workload-sa",
+					Namespace: testNs.Name,
+					Annotations: map[string]string{
+						"eks.amazonaws.com/role-arn": "arn:aws:iam::123456789012:role/my-model-role",
+						"custom-annotation":          "custom-value",
+					},
+				},
+				ImagePullSecrets: []corev1.LocalObjectReference{
+					{Name: "my-registry-secret"},
+				},
+			}
+			Expect(envTest.Client.Create(ctx, mainSA)).To(Succeed())
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithTemplate(&corev1.PodSpec{
+					ServiceAccountName: "main-workload-sa",
+					Containers: []corev1.Container{
+						{
+							Name:  "main",
+							Image: "quay.io/test/vllm:latest",
+						},
+					},
+				}),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify the generated scheduler SA has propagated credentials
+			schedulerSA := &corev1.ServiceAccount{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-epp-sa",
+					Namespace: testNs.Name,
+				}, schedulerSA); err != nil {
+					return err
+				}
+
+				g.Expect(schedulerSA.Annotations).To(HaveKeyWithValue(
+					"eks.amazonaws.com/role-arn", "arn:aws:iam::123456789012:role/my-model-role"))
+				g.Expect(schedulerSA.Annotations).To(HaveKeyWithValue(
+					"custom-annotation", "custom-value"))
+				g.Expect(schedulerSA.ImagePullSecrets).To(ContainElement(
+					corev1.LocalObjectReference{Name: "my-registry-secret"}))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should not add extra credentials when no main workload SA is specified", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-sa-no-propagation"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				// No WithTemplate - so no ServiceAccountName set
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify the generated scheduler SA has no extra credentials
+			schedulerSA := &corev1.ServiceAccount{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-epp-sa",
+					Namespace: testNs.Name,
+				}, schedulerSA)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(schedulerSA.ImagePullSecrets).To(BeEmpty())
+			// Annotations should only contain system-managed ones (if any), not credential annotations
+			Expect(schedulerSA.Annotations).ToNot(HaveKey("eks.amazonaws.com/role-arn"))
+		})
+
+		It("should update scheduler SA when main workload SA credentials change", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-sa-update"
+			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(svcName))
+
+			// Create a main workload SA with initial annotations
+			mainSA := &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "updatable-sa",
+					Namespace: testNs.Name,
+					Annotations: map[string]string{
+						"eks.amazonaws.com/role-arn": "arn:aws:iam::123456789012:role/initial-role",
+					},
+				},
+			}
+			Expect(envTest.Client.Create(ctx, mainSA)).To(Succeed())
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithTemplate(&corev1.PodSpec{
+					ServiceAccountName: "updatable-sa",
+					Containers: []corev1.Container{
+						{
+							Name:  "main",
+							Image: "quay.io/test/vllm:latest",
+						},
+					},
+				}),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// Wait for initial scheduler SA creation with initial annotation
+			schedulerSA := &corev1.ServiceAccount{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-epp-sa",
+					Namespace: testNs.Name,
+				}, schedulerSA); err != nil {
+					return err
+				}
+
+				g.Expect(schedulerSA.Annotations).To(HaveKeyWithValue(
+					"eks.amazonaws.com/role-arn", "arn:aws:iam::123456789012:role/initial-role"))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+
+			// when - update main SA annotations
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				updatedSA := &corev1.ServiceAccount{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(mainSA), updatedSA); err != nil {
+					return err
+				}
+				updatedSA.Annotations["eks.amazonaws.com/role-arn"] = "arn:aws:iam::123456789012:role/updated-role"
+				updatedSA.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "new-secret"}}
+				return envTest.Update(ctx, updatedSA)
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// Trigger re-reconciliation by updating the LLMInferenceService
+			errRetry = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				updatedSvc := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), updatedSvc); err != nil {
+					return err
+				}
+				if updatedSvc.Annotations == nil {
+					updatedSvc.Annotations = make(map[string]string)
+				}
+				updatedSvc.Annotations["reconcile-trigger"] = "update-sa"
+				return envTest.Update(ctx, updatedSvc)
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// then - scheduler SA should be updated with new credentials
+			Eventually(func(g Gomega, ctx context.Context) error {
+				updatedSchedulerSA := &corev1.ServiceAccount{}
+				if err := envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-epp-sa",
+					Namespace: testNs.Name,
+				}, updatedSchedulerSA); err != nil {
+					return err
+				}
+
+				g.Expect(updatedSchedulerSA.Annotations).To(HaveKeyWithValue(
+					"eks.amazonaws.com/role-arn", "arn:aws:iam::123456789012:role/updated-role"))
+				g.Expect(updatedSchedulerSA.ImagePullSecrets).To(ContainElement(
+					corev1.LocalObjectReference{Name: "new-secret"}))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
 })
 
 // schedulerContainerName is the expected name of the main container in the scheduler deployment
