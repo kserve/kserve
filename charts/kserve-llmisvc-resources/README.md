@@ -1,6 +1,6 @@
 # kserve-llmisvc-resources
 
-![Version: v0.17.0-rc1](https://img.shields.io/badge/Version-v0.17.0--rc1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.17.0-rc1](https://img.shields.io/badge/AppVersion-v0.17.0--rc1-informational?style=flat-square)
+![Version: v0.17.0](https://img.shields.io/badge/Version-v0.17.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.17.0](https://img.shields.io/badge/AppVersion-v0.17.0-informational?style=flat-square)
 
 Helm chart for deploying KServe LLMInferenceService resources
 
@@ -11,7 +11,7 @@ Helm chart for deploying KServe LLMInferenceService resources
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmisvc-resources --version v0.17.0-rc1
+$ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmisvc-resources --version v0.17.0
 ```
 
 ## Maintainers
@@ -176,4 +176,4 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.storage.tag | string | `""` |  |
 | kserve.storage.uidModelcar | int | `1010` |  |
 | kserve.storagecontainer.enabled | string | `""` |  |
-| kserve.version | string | `"v0.17.0-rc1"` |  |
+| kserve.version | string | `"v0.17.0"` |  |
