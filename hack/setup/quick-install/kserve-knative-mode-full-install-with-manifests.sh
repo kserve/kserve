@@ -651,6 +651,7 @@ OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.7.0
 GATEWAY_API_VERSION=v1.4.1
 GIE_VERSION=v1.3.0
+WVA_VERSION=v0.5.1
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -1441,12 +1442,6 @@ install_kserve_kustomize() {
                 done
             fi
         done
-
-        # Cleanup temporary overlay
-        if [ "${KSERVE_OVERLAY_DIR}" = "temp" ]; then
-            rm -rf "${REPO_ROOT}/config/overlays/temp"
-            log_info "Temporary overlay directory cleaned up"
-        fi
     fi
 
     if ! is_positive "${USE_LOCAL_CONFIGMAP}"; then
@@ -1528,6 +1523,12 @@ install_kserve_kustomize() {
         else
             retry_command 3 5 kubectl apply --server-side=true -k "${REPO_ROOT}/config/llmisvcconfig"
         fi
+    fi
+
+    # Cleanup temporary overlay after all resources are installed
+    if [ "${KSERVE_OVERLAY_DIR}" = "temp" ]; then
+        rm -rf "${REPO_ROOT}/config/overlays/temp"
+        log_info "Temporary overlay directory cleaned up"
     fi
 
 }
