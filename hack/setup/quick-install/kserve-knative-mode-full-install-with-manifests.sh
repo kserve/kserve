@@ -2660,7 +2660,7 @@ spec:
       - --connector=nixlv2
       - --enable-ssrf-protection=true
       - --pool-group=inference.networking.x-k8s.io
-      - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{else}}--secure-serving=false{{-
+      - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{else}}--decoder-use-tls=false{{-
@@ -2968,7 +2968,7 @@ spec:
       - --connector=nixlv2
       - --enable-ssrf-protection=true
       - --pool-group=inference.networking.x-k8s.io
-      - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{else}}--secure-serving=false{{-
+      - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{else}}--decoder-use-tls=false{{-
