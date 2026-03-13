@@ -2544,6 +2544,8 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
+      - name: SSL_CERT_DIR
+        value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
       image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
@@ -2835,6 +2837,8 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
+      - name: SSL_CERT_DIR
+        value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
       image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
@@ -3740,6 +3744,14 @@ spec:
           - "9003"
           - --kv-cache-usage-percentage-metric
           - vllm:kv_cache_usage_perc
+          - --secure-serving
+          - --model-server-metrics-scheme
+          - https
+          - --cert-path
+          - /var/run/kserve/tls
+          env:
+          - name: SSL_CERT_DIR
+            value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
           image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.6.0
           imagePullPolicy: IfNotPresent
           livenessProbe:

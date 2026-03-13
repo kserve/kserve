@@ -47,11 +47,7 @@ endif
 
 export GOFLAGS=-mod=mod
 
-<<<<<<< HEAD
-# Go build tags (e.g. "distro" for midstream).
-=======
 # Go build tags (e.g. "distro" for distribution-specific code).
->>>>>>> c1d24e525
 # Passed to Docker image builds via --build-arg and to all go commands via GOFLAGS.
 GOTAGS ?=
 ifdef GOTAGS

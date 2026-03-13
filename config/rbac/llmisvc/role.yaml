@@ -171,12 +171,22 @@ rules:
   - update
   - watch
 - apiGroups:
+  - llmd.ai
+  resources:
+  - variantautoscalings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - monitoring.coreos.com
   resources:
   - podmonitors
   - servicemonitors
-  - llmd.ai
-  - variantautoscalings
   verbs:
   - create
   - delete
