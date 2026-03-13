@@ -355,12 +355,6 @@ install() {
                 done
             fi
         done
-
-        # Cleanup temporary overlay
-        if [ "${KSERVE_OVERLAY_DIR}" = "temp" ]; then
-            rm -rf "${REPO_ROOT}/config/overlays/temp"
-            log_info "Temporary overlay directory cleaned up"
-        fi
     fi
 
     if ! is_positive "${USE_LOCAL_CONFIGMAP}"; then
@@ -442,6 +436,12 @@ install() {
         else
             retry_command 3 5 kubectl apply --server-side=true -k "${REPO_ROOT}/config/llmisvcconfig"
         fi
+    fi
+
+    # Cleanup temporary overlay after all resources are installed
+    if [ "${KSERVE_OVERLAY_DIR}" = "temp" ]; then
+        rm -rf "${REPO_ROOT}/config/overlays/temp"
+        log_info "Temporary overlay directory cleaned up"
     fi
 
 }
