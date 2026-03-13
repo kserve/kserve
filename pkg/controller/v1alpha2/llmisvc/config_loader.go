@@ -104,6 +104,7 @@ type Config struct {
 	IngressGatewayName      string `json:"ingressGatewayName,omitempty"`
 	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
 	UrlScheme               string `json:"urlScheme,omitempty"`
+	EnableTLS               bool   `json:"enableTLS,omitempty"`
 
 	// WVAAutoscalingConfig holds Prometheus and monitoring settings for WVA autoscaling.
 	// nil when the "autoscaling-wva-controller-config" key is not present in inferenceservice-config.
@@ -171,6 +172,7 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		IngressGatewayNamespace: igwNs,
 		IngressGatewayName:      igwName,
 		UrlScheme:               ingressConfig.UrlScheme,
+		EnableTLS:               ingressConfig.EnableTLS,
 		StorageConfig:           storageConfig,
 		CredentialConfig:        credentialConfig,
 		SchedulerConfig:         schedulerConfig,

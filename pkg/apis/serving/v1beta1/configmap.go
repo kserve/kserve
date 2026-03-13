@@ -122,6 +122,7 @@ type IngressConfig struct {
 	AdditionalIngressDomains   *[]string `json:"additionalIngressDomains,omitempty"`
 	DomainTemplate             string    `json:"domainTemplate,omitempty"`
 	UrlScheme                  string    `json:"urlScheme,omitempty"`
+	EnableTLS                  bool      `json:"enableTLS,omitempty"`
 	DisableIstioVirtualHost    bool      `json:"disableIstioVirtualHost,omitempty"`
 	PathTemplate               string    `json:"pathTemplate,omitempty"`
 	DisableIngressCreation     bool      `json:"disableIngressCreation,omitempty"`

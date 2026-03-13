@@ -386,6 +386,7 @@ type templateGlobalConfig struct {
 	SystemNamespace         string
 	IngressGatewayName      string
 	IngressGatewayNamespace string
+	EnableTLS               bool
 }
 
 // ReplaceVariables processes the configuration as a Go template to substitute
@@ -402,6 +403,7 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 			SystemNamespace:         reconcilerConfig.SystemNamespace,
 			IngressGatewayName:      reconcilerConfig.IngressGatewayName,
 			IngressGatewayNamespace: reconcilerConfig.IngressGatewayNamespace,
+			EnableTLS:               reconcilerConfig.EnableTLS,
 		}
 	}
 	config := struct {
