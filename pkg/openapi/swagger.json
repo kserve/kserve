@@ -3722,6 +3722,9 @@
         "enableGatewayApi": {
           "type": "boolean"
         },
+        "enableLLMInferenceServiceTLS": {
+          "type": "boolean"
+        },
         "ingressClassName": {
           "type": "string"
         },
