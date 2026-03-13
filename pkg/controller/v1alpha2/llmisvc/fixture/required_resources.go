@@ -51,6 +51,8 @@ func RequiredResources(ctx context.Context, c client.Client, ns string) {
 		},
 	})).To(gomega.Succeed())
 
+	additionalRequiredResources(ctx, c)
+
 	gomega.Expect(c.Create(ctx, InferenceServiceCfgMap(ns))).To(gomega.Succeed())
 
 	for _, preset := range SharedConfigPresets(ns) {

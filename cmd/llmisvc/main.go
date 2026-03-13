@@ -25,6 +25,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -158,7 +159,16 @@ func main() {
 		Cache: cache.Options{
 			ByObject: map[client.Object]cache.ByObject{
 				&corev1.Secret{}: {
-					Label: llmSvcCacheSelector,
+					Namespaces: map[string]cache.Config{
+						llmisvc.ServiceCASigningSecretNamespace: {
+							FieldSelector: fields.SelectorFromSet(map[string]string{
+								"metadata.name": llmisvc.ServiceCASigningSecretName,
+							}),
+						},
+						cache.AllNamespaces: {
+							LabelSelector: llmSvcCacheSelector,
+						},
+					},
 				},
 				&corev1.ConfigMap{}: {
 					Label: llmSvcCacheSelector,

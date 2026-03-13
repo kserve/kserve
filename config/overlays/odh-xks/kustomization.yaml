@@ -1,0 +1,138 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Centralized namespace configuration - update params.env to change namespace
+namespace: opendatahub
+
+resources:
+- ../odh
+- cert-manager/
+
+patches:
+# Remove OCP SecurityContextConstraints
+- path: patches/remove-scc.yaml
+
+# Remove all CRDs except LLMInferenceService and LLMInferenceServiceConfig
+- path: patches/remove-non-llm-crds.yaml
+- path: patches/remove-non-llm.yaml
+
+# Restore cert-manager.io/inject-ca-from on CRDs for conversion webhooks
+# (reverse ODH's inline patches that added OCP annotations)
+- target:
+    kind: CustomResourceDefinition
+    name: llminferenceservices.serving.kserve.io
+  patch: |
+    - op: remove
+      path: /metadata/annotations/service.beta.openshift.io~1inject-cabundle
+    - op: add
+      path: /metadata/annotations/cert-manager.io~1inject-ca-from
+      value: "$(NAMESPACE)/llmisvc-webhook-server"
+- target:
+    kind: CustomResourceDefinition
+    name: llminferenceserviceconfigs.serving.kserve.io
+  patch: |
+    - op: remove
+      path: /metadata/annotations/service.beta.openshift.io~1inject-cabundle
+    - op: add
+      path: /metadata/annotations/cert-manager.io~1inject-ca-from
+      value: "$(NAMESPACE)/llmisvc-webhook-server"
+
+# Override inferenceservice-config for Gateway API
+- path: patches/patch-inferenceservice-config.yaml
+
+# Set env vars for cert-manager CA location
+- path: patches/patch-controller-env.yaml
+
+# Remove OCP service signer annotation from llmisvc webhook service
+- target:
+    kind: Service
+    name: llmisvc-webhook-server-service
+  patch: |
+    - op: remove
+      path: /metadata/annotations/service.beta.openshift.io~1serving-cert-secret-name
+
+# Restore cert-manager.io/inject-ca-from annotations on webhooks
+# (reverse ODH's inline patches that added OCP annotations)
+- target:
+    kind: ValidatingWebhookConfiguration
+    name: llminferenceservice.serving.kserve.io
+  patch: |
+    - op: remove
+      path: /metadata/annotations/service.beta.openshift.io~1inject-cabundle
+    - op: add
+      path: /metadata/annotations/cert-manager.io~1inject-ca-from
+      value: "$(NAMESPACE)/llmisvc-webhook-server"
+- target:
+    kind: ValidatingWebhookConfiguration
+    name: llminferenceserviceconfig.serving.kserve.io
+  patch: |
+    - op: remove
+      path: /metadata/annotations/service.beta.openshift.io~1inject-cabundle
+    - op: add
+      path: /metadata/annotations/cert-manager.io~1inject-ca-from
+      value: "$(NAMESPACE)/llmisvc-webhook-server"
+
+# Generate ConfigMap from params.env for variable substitution
+configMapGenerator:
+- envs:
+  - params.env
+  name: odh-xks-kserve-parameters
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+# Define variables for substitution
+vars:
+- name: NAMESPACE
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: odh-xks-kserve-parameters
+  fieldref:
+    fieldpath: data.NAMESPACE
+- name: ISSUER_REF_GROUP
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: odh-xks-kserve-parameters
+  fieldref:
+    fieldpath: data.ISSUER_REF_GROUP
+- name: ISSUER_REF_KIND
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: odh-xks-kserve-parameters
+  fieldref:
+    fieldpath: data.ISSUER_REF_KIND
+- name: ISSUER_REF_NAME
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: odh-xks-kserve-parameters
+  fieldref:
+    fieldpath: data.ISSUER_REF_NAME
+- name: CA_SECRET_NAME
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: odh-xks-kserve-parameters
+  fieldref:
+    fieldpath: data.CA_SECRET_NAME
+- name: CA_SECRET_NAMESPACE
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: odh-xks-kserve-parameters
+  fieldref:
+    fieldpath: data.CA_SECRET_NAMESPACE
+- name: ISTIO_CA_CERTIFICATE_PATH
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: odh-xks-kserve-parameters
+  fieldref:
+    fieldpath: data.ISTIO_CA_CERTIFICATE_PATH
+
+# Configuration for var substitution paths
+configurations:
+- params.yaml

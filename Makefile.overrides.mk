@@ -5,6 +5,7 @@
 # Enable distro build tag for platform-specific code.
 # GOTAGS is picked up by the main Makefile to set GOFLAGS and --build-arg for Docker.
 GOTAGS = distro
+export GOFLAGS += -tags=$(GOTAGS)
 
 .PHONY: deploy-dev-llm deploy-dev-llm-ocp deploy-ci uv-update-lockfiles
 

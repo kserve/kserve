@@ -1,0 +1,95 @@
+# Remove kserve-controller-manager Deployment
+$patch: delete
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kserve-controller-manager
+  namespace: opendatahub
+---
+$patch: delete
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kserve-controller-manager
+  namespace: opendatahub
+---
+# Remove RoleBinding for leader election
+$patch: delete
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kserve-leader-election-rolebinding
+  namespace: opendatahub
+---
+# Remove Role for leader election
+$patch: delete
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kserve-leader-election-role
+  namespace: opendatahub
+---
+# Remove ClusterRoleBindings
+$patch: delete
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kserve-manager-rolebinding
+---
+$patch: delete
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kserve-proxy-rolebinding
+---
+# Remove ClusterRoles
+$patch: delete
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kserve-manager-role
+---
+$patch: delete
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kserve-proxy-role
+---
+# Remove Services
+$patch: delete
+apiVersion: v1
+kind: Service
+metadata:
+  name: kserve-controller-manager-metrics-service
+  namespace: opendatahub
+---
+$patch: delete
+apiVersion: v1
+kind: Service
+metadata:
+  name: kserve-controller-manager-service
+  namespace: opendatahub
+---
+# Remove NetworkPolicy
+$patch: delete
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kserve-controller-manager
+  namespace: opendatahub
+---
+# Remove kserve webhook service (llmisvc has its own)
+$patch: delete
+apiVersion: v1
+kind: Service
+metadata:
+  name: kserve-webhook-server-service
+  namespace: opendatahub
+---
+# Remove kserve webhook server secret
+$patch: delete
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kserve-webhook-server-secret
+  namespace: opendatahub

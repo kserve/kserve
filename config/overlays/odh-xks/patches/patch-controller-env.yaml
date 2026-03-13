@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llmisvc-controller-manager
+  namespace: opendatahub
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: SERVICE_CA_SIGNING_SECRET_NAME
+          value: "$(CA_SECRET_NAME)"
+        - name: SERVICE_CA_SIGNING_SECRET_NAMESPACE
+          value: "$(CA_SECRET_NAMESPACE)"
+        - name: ISTIO_CA_CERTIFICATE_PATH
+          value: "$(ISTIO_CA_CERTIFICATE_PATH)"
+        # Disable auth for xKS overlay (no Kuadrant/RHCL dependency)
+        - name: LLMISVC_AUTH_DISABLED
+          value: "true"
+        # Disable monitoring for xKS overlay (no Prometheus Operator dependency)
+        - name: LLMISVC_MONITORING_DISABLED
+          value: "true"
+        # Disable SCC for xKS overlay (no OpenShift SecurityContextConstraints)
+        - name: LLMISVC_SCC_DISABLED
+          value: "true"

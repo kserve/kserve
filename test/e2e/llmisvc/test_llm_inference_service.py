@@ -82,6 +82,7 @@ def create_response_assertion(
 @dataclass
 class TestCase:
     """Test case configuration for LLM inference service tests."""
+
     __test__ = False  # So pytest will not try to execute it.
     base_refs: List[str]
     prompt: str
@@ -144,6 +145,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 pytest.mark.cluster_cpu,
                 pytest.mark.cluster_single_node,
                 pytest.mark.llmd_simulator,
+                pytest.mark.custom_gateway,
             ],
         ),
         pytest.param(
@@ -189,7 +191,11 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                     )
                 ],
             ),
-            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.custom_gateway,
+            ],
         ),
         pytest.param(
             TestCase(
@@ -237,7 +243,11 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                     )
                 ],
             ),
-            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.custom_gateway,
+            ],
         ),
         pytest.param(
             TestCase(
@@ -474,9 +484,7 @@ def wait_for_model_response(
                 "max_tokens": test_case.max_tokens,
             }
 
-        logger.info(
-            f"Calling LLM service at {model_url} with payload {test_payload}"
-        )
+        logger.info(f"Calling LLM service at {model_url} with payload {test_payload}")
         try:
             response = post_with_retry(
                 model_url,

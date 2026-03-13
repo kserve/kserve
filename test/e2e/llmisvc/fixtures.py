@@ -336,26 +336,25 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--port",
                         "8000",
-                        # SSL disabled to match HTTP-only Gateway setup
-                        # "--enable-ssl-refresh",
-                        # "--ssl-certfile",
-                        # "/var/run/kserve/tls/tls.crt",
-                        # "--ssl-keyfile",
-                        # "/var/run/kserve/tls/tls.key",
+                        "--enable-ssl-refresh",
+                        "--ssl-certfile",
+                        "/var/run/kserve/tls/tls.crt",
+                        "--ssl-keyfile",
+                        "/var/run/kserve/tls/tls.key",
                     ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                     "livenessProbe": {
-                        "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
+                        "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTPS"},
                         "initialDelaySeconds": 180,
                         "periodSeconds": 30,
                         "timeoutSeconds": 30,
                         "failureThreshold": 8,
                     },
                     "readinessProbe": {
-                        "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
+                        "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTPS"},
                         "initialDelaySeconds": 30,
                         "periodSeconds": 10,
                         "timeoutSeconds": 5,
@@ -390,14 +389,14 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
                     "livenessProbe": {
-                        "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
+                        "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTPS"},
                         "initialDelaySeconds": 180,
                         "periodSeconds": 30,
                         "timeoutSeconds": 30,
                         "failureThreshold": 8,
                     },
                     "readinessProbe": {
-                        "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
+                        "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTPS"},
                         "initialDelaySeconds": 30,
                         "periodSeconds": 10,
                         "timeoutSeconds": 5,
@@ -862,7 +861,9 @@ def _get_model_name_from_configs(config_names):
     return "default/model"
 
 
-def generate_k8s_safe_suffix(base_name: str, extra_parts: Optional[List[str]] = None) -> str:
+def generate_k8s_safe_suffix(
+    base_name: str, extra_parts: Optional[List[str]] = None
+) -> str:
     """Generate a Kubernetes-safe name suffix with hash."""
     if extra_parts:
         full_name = f"{base_name}-{'-'.join(sorted(extra_parts))}"

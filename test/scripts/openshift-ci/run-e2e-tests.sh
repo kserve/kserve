@@ -22,6 +22,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+export GATEWAY_CLASS_NAME=${GATEWAY_CLASS_NAME:-"openshift-default"}
+
 MY_PATH=$(dirname "$0")
 PROJECT_ROOT=$MY_PATH/../../../
 export CI_USE_ISVC_HOST="1"
