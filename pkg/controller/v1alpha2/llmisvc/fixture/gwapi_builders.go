@@ -580,34 +580,47 @@ func KuadrantControllerStatus(parentRef gwapiv1.ParentReference, generation int6
 	}
 }
 
-// GatewayAPIControllerStatus creates a RouteParentStatus for Gateway API controller
-func GatewayAPIControllerStatus(parentRef gwapiv1.ParentReference, generation int64) gwapiv1.RouteParentStatus {
-	return gwapiv1.RouteParentStatus{
-		ParentRef:      parentRef,
-		ControllerName: "openshift.io/gateway-controller/v1",
-		Conditions: []metav1.Condition{
-			{
-				Type:               string(gwapiv1.RouteConditionAccepted),
-				Status:             metav1.ConditionTrue,
-				Reason:             "Accepted",
-				Message:            "Route was valid",
-				LastTransitionTime: metav1.Now(),
-				ObservedGeneration: generation,
+// StatusFunc is a function that creates a RouteParentStatus for a given parent ref and generation.
+type StatusFunc func(parentRef gwapiv1.ParentReference, generation int64) gwapiv1.RouteParentStatus
+
+// gatewayAPIControllerStatusWith creates a StatusFunc with the given ResolvedRefs condition.
+func gatewayAPIControllerStatusWith(resolvedRefsStatus metav1.ConditionStatus, reason, message string) StatusFunc {
+	return func(parentRef gwapiv1.ParentReference, generation int64) gwapiv1.RouteParentStatus {
+		return gwapiv1.RouteParentStatus{
+			ParentRef:      parentRef,
+			ControllerName: "gateway-controller/v1",
+			Conditions: []metav1.Condition{
+				{
+					Type:               string(gwapiv1.RouteConditionAccepted),
+					Status:             metav1.ConditionTrue,
+					Reason:             "Accepted",
+					Message:            "Route was valid",
+					LastTransitionTime: metav1.Now(),
+					ObservedGeneration: generation,
+				},
+				{
+					Type:               string(gwapiv1.RouteConditionResolvedRefs),
+					Status:             resolvedRefsStatus,
+					Reason:             reason,
+					Message:            message,
+					LastTransitionTime: metav1.Now(),
+					ObservedGeneration: generation,
+				},
 			},
-			{
-				Type:               string(gwapiv1.RouteConditionResolvedRefs),
-				Status:             metav1.ConditionTrue,
-				Reason:             "ResolvedRefs",
-				Message:            "All references resolved",
-				LastTransitionTime: metav1.Now(),
-				ObservedGeneration: generation,
-			},
-		},
+		}
 	}
 }
 
-// StatusFunc is a function that creates a RouteParentStatus for a given parent ref and generation
-type StatusFunc func(parentRef gwapiv1.ParentReference, generation int64) gwapiv1.RouteParentStatus
+var (
+	// GatewayAPIControllerStatus creates a RouteParentStatus with ResolvedRefs=True.
+	GatewayAPIControllerStatus = gatewayAPIControllerStatusWith(metav1.ConditionTrue, "ResolvedRefs", "All references resolved")
+
+	// GatewayAPIControllerStatusInvalidKind creates a RouteParentStatus with ResolvedRefs=False, Reason=InvalidKind.
+	GatewayAPIControllerStatusInvalidKind = gatewayAPIControllerStatusWith(metav1.ConditionFalse, string(gwapiv1.RouteReasonInvalidKind), "Backend kind InferencePool is not supported")
+
+	// GatewayAPIControllerStatusBackendNotFound creates a RouteParentStatus with ResolvedRefs=False, Reason=BackendNotFound.
+	GatewayAPIControllerStatusBackendNotFound = gatewayAPIControllerStatusWith(metav1.ConditionFalse, string(gwapiv1.RouteReasonBackendNotFound), "Backend not found")
+)
 
 // WithHTTPRouteMultipleControllerStatus sets HTTPRoute status with multiple controllers
 // This simulates real-world scenarios where policy controllers and gateway controllers
