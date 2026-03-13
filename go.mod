@@ -1,6 +1,8 @@
 module github.com/kserve/kserve
 
-go 1.25.4
+go 1.25.0
+
+toolchain go1.25.4
 
 require (
 	cloud.google.com/go/storage v1.51.0
@@ -20,19 +22,21 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/kedacore/keda/v2 v2.17.3
 	github.com/kelseyhightower/envconfig v1.4.0
+	github.com/llm-d/llm-d-workload-variant-autoscaler v0.5.1
 	github.com/onsi/ginkgo/v2 v2.27.3
 	github.com/onsi/gomega v1.38.3
 	github.com/open-telemetry/opentelemetry-operator v0.113.0
 	github.com/openshift/api v0.0.0-20240124164020-e2ce40831f2e
 	github.com/parquet-go/parquet-go v0.27.0
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.76.2
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.78.2
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
 	go.opentelemetry.io/otel/trace v1.39.0
 	go.uber.org/zap v1.27.1
+	golang.org/x/sync v0.19.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	google.golang.org/api v0.250.0
 	google.golang.org/protobuf v1.36.11
@@ -190,7 +194,6 @@ require (
 	golang.org/x/mod v0.32.0 // indirect
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
-	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/term v0.39.0 // indirect
 	golang.org/x/text v0.33.0 // indirect

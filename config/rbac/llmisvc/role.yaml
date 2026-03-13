@@ -40,6 +40,27 @@ rules:
   - update
   - watch
 - apiGroups:
+  - apiextensions.k8s.io
+  resourceNames:
+  - llminferenceserviceconfigs.serving.kserve.io
+  - llminferenceservices.serving.kserve.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resourceNames:
+  - llminferenceserviceconfigs.serving.kserve.io
+  - llminferenceservices.serving.kserve.io
+  resources:
+  - customresourcedefinitions/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
   - apps
   resources:
   - deployments
@@ -64,6 +85,18 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
+- apiGroups:
+  - autoscaling
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - coordination.k8s.io
   resources:
@@ -114,6 +147,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - keda.sh
+  resources:
+  - scaledobjects
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - leaderworkerset.x-k8s.io
   resources:
   - leaderworkersets
@@ -130,6 +175,8 @@ rules:
   resources:
   - podmonitors
   - servicemonitors
+  - llmd.ai
+  - variantautoscalings
   verbs:
   - create
   - delete

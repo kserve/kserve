@@ -651,6 +651,7 @@ OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.7.0
 GATEWAY_API_VERSION=v1.4.1
 GIE_VERSION=v1.3.0
+WVA_VERSION=v0.5.1
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -1032,12 +1033,6 @@ install_kserve_kustomize() {
                 done
             fi
         done
-
-        # Cleanup temporary overlay
-        if [ "${KSERVE_OVERLAY_DIR}" = "temp" ]; then
-            rm -rf "${REPO_ROOT}/config/overlays/temp"
-            log_info "Temporary overlay directory cleaned up"
-        fi
     fi
 
     if ! is_positive "${USE_LOCAL_CONFIGMAP}"; then
@@ -1119,6 +1114,12 @@ install_kserve_kustomize() {
         else
             retry_command 3 5 kubectl apply --server-side=true -k "${REPO_ROOT}/config/llmisvcconfig"
         fi
+    fi
+
+    # Cleanup temporary overlay after all resources are installed
+    if [ "${KSERVE_OVERLAY_DIR}" = "temp" ]; then
+        rm -rf "${REPO_ROOT}/config/overlays/temp"
+        log_info "Temporary overlay directory cleaned up"
     fi
 
 }
@@ -2055,11 +2056,7 @@ spec:
       - '{{ .Spec.Model.Name }}'
       - --port
       - "8001"
-      - --enable-ssl-refresh
-      - --ssl-certfile
-      - /var/run/kserve/tls/tls.crt
-      - --ssl-keyfile
-      - /var/run/kserve/tls/tls.key
+      - --disable-uvicorn-access-log
       env:
       - name: HOME
         value: /home
@@ -2067,7 +2064,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -2133,9 +2130,7 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
-      - name: SSL_CERT_DIR
-        value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.4.0
+      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -2339,6 +2334,7 @@ spec:
           --data-parallel-address ${DP_ADDRESS} \
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
+          --disable-uvicorn-access-log \
           ${VLLM_ADDITIONAL_ARGS} \
           $@ \
           --trust-remote-code \
@@ -2355,7 +2351,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -2425,9 +2421,7 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
-      - name: SSL_CERT_DIR
-        value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.4.0
+      image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -2624,6 +2618,7 @@ spec:
           --data-parallel-address ${DP_ADDRESS} \
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
+          --disable-uvicorn-access-log \
           ${VLLM_ADDITIONAL_ARGS} \
           $@ \
           --trust-remote-code \
@@ -2643,7 +2638,7 @@ spec:
         value: /models
       - name: VLLM_RANDOMIZE_DP_DUMMY_INPUTS
         value: "1"
-      image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       name: main
       ports:
@@ -2705,11 +2700,7 @@ spec:
         - '{{ .Spec.Model.Name }}'
         - --port
         - "8000"
-        - --enable-ssl-refresh
-        - --ssl-certfile
-        - /var/run/kserve/tls/tls.crt
-        - --ssl-keyfile
-        - /var/run/kserve/tls/tls.key
+        - --disable-uvicorn-access-log
         env:
         - name: HOME
           value: /home
@@ -2717,7 +2708,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+        image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
@@ -2933,6 +2924,7 @@ spec:
             --data-parallel-address ${DP_ADDRESS} \
             --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
             --data-parallel-start-rank $START_RANK \
+            --disable-uvicorn-access-log \
             ${VLLM_ADDITIONAL_ARGS} \
             $@ \
             --trust-remote-code \
@@ -2949,7 +2941,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+        image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
@@ -3160,6 +3152,7 @@ spec:
             --data-parallel-address ${DP_ADDRESS} \
             --data-parallel-rpc-port {{ if .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
             --data-parallel-start-rank $START_RANK \
+            --disable-uvicorn-access-log \
             ${VLLM_ADDITIONAL_ARGS} \
             $@ \
             --trust-remote-code \
@@ -3177,7 +3170,7 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+        image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -3333,15 +3326,7 @@ spec:
           - "9003"
           - --kv-cache-usage-percentage-metric
           - vllm:kv_cache_usage_perc
-          - --secure-serving
-          - --model-server-metrics-scheme
-          - https
-          - --cert-path
-          - /var/run/kserve/tls
-          env:
-          - name: SSL_CERT_DIR
-            value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-          image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.4.0
+          image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.6.0
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 3
@@ -3394,6 +3379,59 @@ spec:
           - mountPath: /var/run/kserve/tls
             name: tls-certs
             readOnly: true
+          - mountPath: /tmp/tokenizer
+            name: tokenizer-uds
+        - env:
+          - name: TOKENIZERS_DIR
+            value: /mnt/models
+          image: ghcr.io/llm-d/llm-d-uds-tokenizer:v0.6.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 8082
+            periodSeconds: 15
+            timeoutSeconds: 5
+          name: tokenizer
+          ports:
+          - containerPort: 8082
+            name: health
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 8082
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 256m
+              memory: 500Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          startupProbe:
+            failureThreshold: 60
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: FallbackToLogsOnError
+          volumeMounts:
+          - mountPath: /tmp/tokenizer
+            name: tokenizer-uds
+          workingDir: /mnt/models
         dnsPolicy: ClusterFirst
         restartPolicy: Always
         terminationGracePeriodSeconds: 30
@@ -3402,6 +3440,8 @@ spec:
           secret:
             secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs`
               }}'
+        - emptyDir: {}
+          name: tokenizer-uds
 ---
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
@@ -3412,24 +3452,14 @@ spec:
   template:
     containers:
     - command:
-      - /bin/bash
-      - -c
-      - |
-        set -e
-        if [ -f /etc/profile.d/ibm-aiu-setup.sh ]; then
-          source /etc/profile.d/ibm-aiu-setup.sh
-        fi
-        exec vllm serve \
-          /mnt/models \
-          --served-model-name "{{ .Spec.Model.Name }}" \
-          --enable-ssl-refresh \
-          --ssl-certfile \
-          /var/run/kserve/tls/tls.crt \
-          --ssl-keyfile \
-          /var/run/kserve/tls/tls.key \
-          --port 8000 \
-          "$@"
-      - --
+      - vllm
+      - serve
+      - /mnt/models
+      - --served-model-name
+      - '{{ .Spec.Model.Name }}'
+      - --port
+      - "8000"
+      - --disable-uvicorn-access-log
       env:
       - name: HOME
         value: /home
@@ -3437,7 +3467,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3652,6 +3682,7 @@ spec:
           --data-parallel-address ${DP_ADDRESS} \
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
+          --disable-uvicorn-access-log \
           ${VLLM_ADDITIONAL_ARGS} \
           $@ \
           --trust-remote-code \
@@ -3668,7 +3699,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3879,6 +3910,7 @@ spec:
           --data-parallel-address ${DP_ADDRESS} \
           --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
+          --disable-uvicorn-access-log \
           ${VLLM_ADDITIONAL_ARGS} \
           $@ \
           --trust-remote-code \
@@ -3896,7 +3928,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
       imagePullPolicy: IfNotPresent
       name: main
       ports:

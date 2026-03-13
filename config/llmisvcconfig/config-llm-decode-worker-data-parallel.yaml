@@ -7,7 +7,7 @@ spec:
     initContainers:
       - name: llm-d-routing-sidecar
         imagePullPolicy: IfNotPresent
-        image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.4.0
+        image: ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0
         restartPolicy: Always
         ports:
           - containerPort: 8000
@@ -63,7 +63,7 @@ spec:
           - name: SSL_CERT_DIR
             value: "/var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs"
     containers:
-      - image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -212,6 +212,7 @@ spec:
               --data-parallel-address ${DP_ADDRESS} \
               --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
               --data-parallel-start-rank $START_RANK \
+              --disable-uvicorn-access-log \
               ${VLLM_ADDITIONAL_ARGS} \
               $@ \
               --trust-remote-code \
@@ -293,7 +294,7 @@ spec:
           secretName: "{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}"
   worker:
     containers:
-      - image: ghcr.io/llm-d/llm-d-cuda:v0.4.0
+      - image: ghcr.io/llm-d/llm-d-cuda:v0.5.1
         imagePullPolicy: IfNotPresent
         name: main
         ports:
@@ -441,6 +442,7 @@ spec:
               --data-parallel-address ${DP_ADDRESS} \
               --data-parallel-rpc-port {{ if .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
               --data-parallel-start-rank $START_RANK \
+              --disable-uvicorn-access-log \
               ${VLLM_ADDITIONAL_ARGS} \
               $@ \
               --trust-remote-code \

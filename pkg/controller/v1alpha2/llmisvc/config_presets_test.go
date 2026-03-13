@@ -94,7 +94,7 @@ func TestPresetFiles(t *testing.T) {
 							InitContainers: []corev1.Container{
 								{
 									Name:  "llm-d-routing-sidecar",
-									Image: "ghcr.io/llm-d/llm-d-routing-sidecar:v0.4.0",
+									Image: "ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0",
 									Args: []string{
 										"--port=8000",
 										"--vllm-port=8001",
@@ -179,7 +179,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:    "main",
-									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.4.0",
+									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
 									Command: []string{"/bin/bash", "-c"},
 									Ports: []corev1.ContainerPort{
 										{
@@ -312,7 +312,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:    "main",
-									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.4.0",
+									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
 									Command: []string{"/bin/bash", "-c"},
 									Ports: []corev1.ContainerPort{
 										{
@@ -425,8 +425,8 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:    "main",
-									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.4.0",
-									Command: []string{"/bin/bash", "-c", "set -e\nif [ -f /etc/profile.d/ibm-aiu-setup.sh ]; then\n  source /etc/profile.d/ibm-aiu-setup.sh\nfi\nexec vllm serve \\\n  /mnt/models \\\n  --served-model-name \"llama\" \\\n  --enable-ssl-refresh \\\n  --ssl-certfile \\\n  /var/run/kserve/tls/tls.crt \\\n  --ssl-keyfile \\\n  /var/run/kserve/tls/tls.key \\\n  --port 8000 \\\n  \"$@\"\n", "--"},
+									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
+									Command: []string{"vllm", "serve", "/mnt/models", "--served-model-name", "llama", "--port", "8000"},
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8000,

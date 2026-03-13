@@ -37,6 +37,7 @@ import (
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 
@@ -54,6 +55,9 @@ import (
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
 
 	"github.com/kserve/kserve/pkg/utils"
 
@@ -104,7 +108,12 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:urls=/metrics,verbs=get
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
+//+kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,resourceNames=llminferenceservices.serving.kserve.io;llminferenceserviceconfigs.serving.kserve.io,verbs=get;list;watch
+//+kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions/status,resourceNames=llminferenceservices.serving.kserve.io;llminferenceserviceconfigs.serving.kserve.io,verbs=update;patch
 //+kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
+//+kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=llmd.ai,resources=variantautoscalings,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=monitoring.coreos.com,resources=podmonitors;servicemonitors,verbs=get;list;watch;create;update;patch;delete
 
@@ -271,6 +280,7 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Secret{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Service{}, builder.WithPredicates(childResourcesPredicate)).
+		Owns(&autoscalingv2.HorizontalPodAutoscaler{}, builder.WithPredicates(childResourcesPredicate)).
 		Watches(&corev1.ConfigMap{}, r.enqueueOnConfigMapChange(logger)).
 		Watches(&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.EnqueueOnLLMInferenceServicePods),
@@ -298,6 +308,14 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapiv1alpha2.GroupVersion.String(), "InferencePool"); ok && err == nil {
 		b = b.Owns(&igwapiv1alpha2.InferencePool{}, builder.WithPredicates(childResourcesPredicate))
+	}
+
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), wvav1alpha1.GroupVersion.String(), "VariantAutoscaling"); ok && err == nil {
+		b = b.Owns(&wvav1alpha1.VariantAutoscaling{}, builder.WithPredicates(childResourcesPredicate))
+	}
+
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), kedav1alpha1.SchemeGroupVersion.String(), "ScaledObject"); ok && err == nil {
+		b = b.Owns(&kedav1alpha1.ScaledObject{}, builder.WithPredicates(childResourcesPredicate))
 	}
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), lwsapi.GroupVersion.String(), "LeaderWorkerSet"); ok && err == nil {

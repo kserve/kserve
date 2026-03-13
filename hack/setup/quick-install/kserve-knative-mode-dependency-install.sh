@@ -651,6 +651,7 @@ OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.7.0
 GATEWAY_API_VERSION=v1.4.1
 GIE_VERSION=v1.3.0
+WVA_VERSION=v0.5.1
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -1148,6 +1149,7 @@ install_istio() {
         --namespace "${ISTIO_NAMESPACE}" \
         --version "${ISTIO_VERSION}" \
         --set proxy.autoInject=disabled \
+        --set pilot.env.ENABLE_GATEWAY_API_INFERENCE_EXTENSION=true \
         --set-string pilot.podAnnotations."cluster-autoscaler\.kubernetes\.io/safe-to-evict"=true \
         --wait \
         ${ISTIOD_EXTRA_ARGS:-}

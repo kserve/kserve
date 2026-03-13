@@ -23,6 +23,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
@@ -95,6 +96,19 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	if err := r.reconcileWorkloadService(ctx, llmSvc); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileWorkloadServiceError", err.Error())
 		return fmt.Errorf("failed to reconcile workload service: %w", err)
+	}
+
+	// Reconcile autoscaling resources (VariantAutoscaling + HPA or KEDA ScaledObject) when scaling is configured.
+	// A missing CRD is a hard error: the LLMISVC is misconfigured and deployment is blocked.
+	if err := r.reconcileScaling(ctx, llmSvc, config); err != nil {
+		if meta.IsNoMatchError(err) {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "ScalingCRDNotFound",
+				"Required scaling CRD not installed: %v", err)
+			llmSvc.MarkMainWorkloadNotReady("ScalingCRDNotFound", err.Error())
+		} else {
+			llmSvc.MarkMainWorkloadNotReady("ReconcileScalingError", err.Error())
+		}
+		return fmt.Errorf("failed to reconcile scaling: %w", err)
 	}
 
 	return nil
