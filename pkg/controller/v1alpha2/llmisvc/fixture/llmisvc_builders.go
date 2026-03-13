@@ -19,6 +19,7 @@ package fixture
 import (
 	"maps"
 
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -169,6 +170,70 @@ func WithPrefillParallelism(parallelism *v1alpha2.ParallelismSpec) LLMInferenceS
 			llmSvc.Spec.Prefill = &v1alpha2.WorkloadSpec{}
 		}
 		llmSvc.Spec.Prefill.Parallelism = parallelism
+	}
+}
+
+func WithScaling(scaling *v1alpha2.ScalingSpec) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		llmSvc.Spec.Scaling = scaling
+	}
+}
+
+func WithPrefillScaling(scaling *v1alpha2.ScalingSpec) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		if llmSvc.Spec.Prefill == nil {
+			llmSvc.Spec.Prefill = &v1alpha2.WorkloadSpec{}
+		}
+		llmSvc.Spec.Prefill.Scaling = scaling
+	}
+}
+
+func HPAScaling(minReplicas int32, maxReplicas int32) *v1alpha2.ScalingSpec {
+	return &v1alpha2.ScalingSpec{
+		MinReplicas: &minReplicas,
+		MaxReplicas: maxReplicas,
+		WVA: &v1alpha2.WVASpec{
+			ActuatorSpec: v1alpha2.ActuatorSpec{
+				HPA: &v1alpha2.HPAScalingSpec{},
+			},
+		},
+	}
+}
+
+func KEDAScaling(minReplicas int32, maxReplicas int32) *v1alpha2.ScalingSpec {
+	return &v1alpha2.ScalingSpec{
+		MinReplicas: &minReplicas,
+		MaxReplicas: maxReplicas,
+		WVA: &v1alpha2.WVASpec{
+			ActuatorSpec: v1alpha2.ActuatorSpec{
+				KEDA: &v1alpha2.KEDAScalingSpec{},
+			},
+		},
+	}
+}
+
+func HPAScalingWithBehavior(minReplicas int32, maxReplicas int32, behavior *autoscalingv2.HorizontalPodAutoscalerBehavior) *v1alpha2.ScalingSpec {
+	return &v1alpha2.ScalingSpec{
+		MinReplicas: &minReplicas,
+		MaxReplicas: maxReplicas,
+		WVA: &v1alpha2.WVASpec{
+			ActuatorSpec: v1alpha2.ActuatorSpec{
+				HPA: &v1alpha2.HPAScalingSpec{
+					Behavior: behavior,
+				},
+			},
+		},
+	}
+}
+
+func ScalingWithVariantCost(base *v1alpha2.ScalingSpec, variantCost string) *v1alpha2.ScalingSpec {
+	base.WVA.VariantCost = variantCost
+	return base
+}
+
+func WithWorkloadLabels(labels map[string]string) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		llmSvc.Spec.Labels = labels
 	}
 }
 
