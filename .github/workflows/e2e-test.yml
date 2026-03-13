@@ -40,6 +40,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
       - uses: dorny/paths-filter@v3
         id: filter
@@ -74,6 +76,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
@@ -154,6 +158,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
@@ -266,6 +272,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
@@ -303,6 +311,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
@@ -356,6 +366,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
@@ -434,6 +446,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
@@ -541,6 +555,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
@@ -637,6 +653,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
@@ -754,6 +772,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
@@ -841,6 +861,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
@@ -909,6 +931,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
@@ -1051,6 +1075,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
@@ -1152,6 +1178,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
@@ -1258,6 +1286,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
@@ -1333,6 +1363,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
@@ -1408,6 +1440,8 @@ jobs:
         run: |
           git fetch --unshallow origin
           git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
           git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
