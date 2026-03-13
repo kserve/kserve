@@ -4,6 +4,10 @@
 name: "Prow remove lgtm label"
 on: pull_request
 
+# This workflow is not applicable to merge queue
+# merge_group:
+#   types: [ checks_requested ]
+
 jobs:
   remove-lgtm:
     runs-on: ubuntu-latest
