@@ -1,0 +1,3 @@
+- op: remove
+  path: /spec/template/spec/containers/0/securityContext/runAsUser
+  value: 1000

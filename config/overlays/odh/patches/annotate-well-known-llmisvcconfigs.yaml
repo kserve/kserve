@@ -1,0 +1,3 @@
+- op: add
+  path: /metadata/annotations/serving.kserve.io~1well-known-config
+  value: "true"

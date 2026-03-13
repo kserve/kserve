@@ -7,6 +7,7 @@ metadata:
     description: vLLM IBM Spyre s390x LLMInferenceServiceConfig for LLMInferenceService.
 spec:
   template:
+    schedulerName: spyre-scheduler
     containers:
       - name: main
         image: placeholder
