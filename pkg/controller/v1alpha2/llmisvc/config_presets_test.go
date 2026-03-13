@@ -426,7 +426,7 @@ func TestPresetFiles(t *testing.T) {
 								{
 									Name:    "main",
 									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.4.0",
-									Command: []string{"/bin/bash", "-c", "set -e\nif [ -f /etc/profile.d/ibm-aiu-setup.sh ]; then\n  source /etc/profile.d/ibm-aiu-setup.sh\nfi\nexec vllm serve \\\n  /mnt/models \\\n  --served-model-name \"llama\" \\\n  --enable-ssl-refresh \\\n  --ssl-certfile \\\n  /var/run/kserve/tls/tls.crt \\\n  --ssl-keyfile \\\n  /var/run/kserve/tls/tls.key \\\n  --port 8000 \\\n  \"$@\"\n", "--"},
+									Command: []string{"/bin/bash", "-c", "exec vllm serve \\\n  /mnt/models \\\n  --served-model-name \"llama\" \\\n  --enable-ssl-refresh \\\n  --ssl-certfile \\\n  /var/run/kserve/tls/tls.crt \\\n  --ssl-keyfile \\\n  /var/run/kserve/tls/tls.key \\\n  --port 8000 \\\n  \"$@\"\n", "--"},
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8000,
