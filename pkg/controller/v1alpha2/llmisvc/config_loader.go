@@ -172,7 +172,7 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		IngressGatewayNamespace: igwNs,
 		IngressGatewayName:      igwName,
 		UrlScheme:               ingressConfig.UrlScheme,
-		EnableTLS:               ingressConfig.EnableTLS,
+		EnableTLS:               ingressConfig.EnableLLMInferenceServiceTLS,
 		StorageConfig:           storageConfig,
 		CredentialConfig:        credentialConfig,
 		SchedulerConfig:         schedulerConfig,
