@@ -2664,10 +2664,8 @@ spec:
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
-      - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{else}}--decoder-use-tls=false{{-
-        end }}'
-      - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{else}}--prefiller-use-tls=false{{-
-        end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{- end }}'
       env:
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
@@ -2972,10 +2970,8 @@ spec:
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
-      - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{else}}--decoder-use-tls=false{{-
-        end }}'
-      - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{else}}--prefiller-use-tls=false{{-
-        end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--decoder-use-tls=true{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--prefiller-use-tls=true{{- end }}'
       env:
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
@@ -4047,9 +4043,8 @@ spec:
           - "9003"
           - --kv-cache-usage-percentage-metric
           - vllm:kv_cache_usage_perc
-          - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{else}}--secure-serving=false{{-
-            end }}'
-          - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{else}}--model-server-metrics-scheme=http{{-
+          - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- end }}'
+          - '{{ if .GlobalConfig.EnableTLS }}--model-server-metrics-scheme=https{{-
             end }}'
           - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end
             }}'

@@ -44,19 +44,6 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
-                    "livenessProbe": {
-                        "initialDelaySeconds": 180,
-                        "periodSeconds": 30,
-                        "timeoutSeconds": 30,
-                        "failureThreshold": 8,
-                    },
-                    "readinessProbe": {
-                        "httpGet": {"path": "/health", "port": 8000},
-                        "initialDelaySeconds": 30,
-                        "periodSeconds": 10,
-                        "timeoutSeconds": 5,
-                        "failureThreshold": 3,
-                    },
                     "securityContext": {
                         "runAsNonRoot": False,
                         "runAsUser": 0,
@@ -341,20 +328,6 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
                     },
-                    "livenessProbe": {
-                        "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
-                        "initialDelaySeconds": 180,
-                        "periodSeconds": 30,
-                        "timeoutSeconds": 30,
-                        "failureThreshold": 8,
-                    },
-                    "readinessProbe": {
-                        "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
-                        "initialDelaySeconds": 30,
-                        "periodSeconds": 10,
-                        "timeoutSeconds": 5,
-                        "failureThreshold": 3,
-                    },
                     "securityContext": {
                         "runAsNonRoot": False,
                         "runAsUser": 0,
@@ -377,20 +350,6 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
-                    },
-                    "livenessProbe": {
-                        "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
-                        "initialDelaySeconds": 180,
-                        "periodSeconds": 30,
-                        "timeoutSeconds": 30,
-                        "failureThreshold": 8,
-                    },
-                    "readinessProbe": {
-                        "httpGet": {"path": "/health", "port": 8000, "scheme": "HTTP"},
-                        "initialDelaySeconds": 30,
-                        "periodSeconds": 10,
-                        "timeoutSeconds": 5,
-                        "failureThreshold": 3,
                     },
                     "securityContext": {
                         "runAsNonRoot": False,

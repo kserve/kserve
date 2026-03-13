@@ -102,10 +102,10 @@ func TestPresetFiles(t *testing.T) {
 										"--connector=nixlv2",
 										"--enable-ssrf-protection=true",
 										"--pool-group=inference.networking.x-k8s.io",
-										"--secure-proxy=false",
 										"",
-										"--decoder-use-tls=false",
-										"--prefiller-use-tls=false",
+										"",
+										"",
+										"",
 									},
 									Env: []corev1.EnvVar{
 										{
