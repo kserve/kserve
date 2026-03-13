@@ -37,6 +37,8 @@ jobs:
               run: |
                 git fetch --unshallow origin
                 git fetch origin ${{ github.event.pull_request.base.ref }}
+                git config user.email "ci@kserve.io"
+                git config user.name "CI Bot"
                 git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
             - name: Set up Go 1.x
@@ -84,6 +86,8 @@ jobs:
               run: |
                 git fetch --unshallow origin
                 git fetch origin ${{ github.event.pull_request.base.ref }}
+                git config user.email "ci@kserve.io"
+                git config user.name "CI Bot"
                 git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
             - name: Download cover profile artifact

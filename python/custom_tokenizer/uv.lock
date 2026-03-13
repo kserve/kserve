@@ -378,7 +378,7 @@ wheels = [
 
 [[package]]
 name = "custom-tokenizer"
-version = "0.17.0rc1"
+version = "0.17.0"
 source = { virtual = "." }
 dependencies = [
     { name = "kserve" },
@@ -691,7 +691,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.17.0rc1"
+version = "0.17.0"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "aiohttp" },

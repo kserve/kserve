@@ -1,5 +1,5 @@
 kserve:
-  version: v0.17.0-rc1
+  version: v0.17.0
   llmisvcConfigs:
     enabled: false
   servingruntime:

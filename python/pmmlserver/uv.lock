@@ -1056,7 +1056,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.17.0rc1"
+version = "0.17.0"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "aiohttp" },
@@ -1145,7 +1145,7 @@ test = [
 
 [[package]]
 name = "kserve-storage"
-version = "0.17.0rc1"
+version = "0.17.0"
 source = { directory = "../storage" }
 dependencies = [
     { name = "aiohttp" },
@@ -1562,7 +1562,7 @@ wheels = [
 
 [[package]]
 name = "pmmlserver"
-version = "0.17.0rc1"
+version = "0.17.0"
 source = { virtual = "." }
 dependencies = [
     { name = "jpmml-evaluator" },
