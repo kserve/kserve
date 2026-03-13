@@ -1,6 +1,6 @@
 # kserve-runtime-configs
 
-![Version: v0.17.0-rc1](https://img.shields.io/badge/Version-v0.17.0--rc1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.17.0-rc1](https://img.shields.io/badge/AppVersion-v0.17.0--rc1-informational?style=flat-square)
+![Version: v0.17.0](https://img.shields.io/badge/Version-v0.17.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.17.0](https://img.shields.io/badge/AppVersion-v0.17.0-informational?style=flat-square)
 
 KServe Runtime Configurations - ClusterServingRuntimes and LLM Inference Configs
 
@@ -11,7 +11,7 @@ KServe Runtime Configurations - ClusterServingRuntimes and LLM Inference Configs
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime-configs --set kserve.servingruntime.enabled=true --set kserve.llmisvcConfigs.enabled=true --version v0.17.0-rc1
+$ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime-configs --set kserve.servingruntime.enabled=true --set kserve.llmisvcConfigs.enabled=true --version v0.17.0
 ```
 
 ## Maintainers
@@ -164,4 +164,4 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.xgbserver.securityContext.privileged | bool | `false` |  |
 | kserve.servingruntime.xgbserver.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.servingruntime.xgbserver.tag | string | `""` |  |
-| kserve.version | string | `"v0.17.0-rc1"` |  |
+| kserve.version | string | `"v0.17.0"` |  |
