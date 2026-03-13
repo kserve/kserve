@@ -239,7 +239,7 @@ func (r *LLMISVCReconciler) updateStatus(ctx context.Context, desired *v1alpha2.
 		// Always fetch the latest version to avoid conflicts
 		latest := &v1alpha2.LLMInferenceService{}
 		if err := r.Get(ctx, client.ObjectKeyFromObject(desired), latest); err != nil {
-			return err
+			return client.IgnoreNotFound(err)
 		}
 
 		// Skip update if status hasn't changed
