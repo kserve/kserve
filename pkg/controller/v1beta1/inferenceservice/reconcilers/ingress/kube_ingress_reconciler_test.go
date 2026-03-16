@@ -365,7 +365,7 @@ func TestCreateRawIngressWithPathTemplate(t *testing.T) {
 			},
 			shouldFail: false,
 		},
-		"Transformer and Explainer{ ready": {
+		"Transformer and Explainer ready": {
 			isvc: &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-isvc",
@@ -472,15 +472,6 @@ func TestCreateRawIngressWithPathTemplate(t *testing.T) {
 			shouldFail: false,
 		},
 	}
-
-	// tests := []struct {
-	// 	name          string
-	// 	isvc          *v1beta1.InferenceService
-	// 	expectedRules []netv1.IngressRule
-	// 	shouldFail    bool
-	// }{
-
-	// }
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {

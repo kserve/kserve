@@ -233,7 +233,7 @@ func generateIngressHost(ingressConfig *v1beta1.IngressConfig,
 	}
 }
 
-// generateIngressHost return the path to be used when an configmap.IngressPathTemplate is set
+// generateIngressPath return the path to be used when an configmap.IngressPathTemplate is set
 func generateIngressPath(ingressConfig *v1beta1.IngressConfig,
 	isvc *v1beta1.InferenceService,
 	isvcConfig *v1beta1.InferenceServicesConfig,
