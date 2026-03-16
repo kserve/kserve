@@ -15,92 +15,120 @@ from kserve import (
 )
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
 
-AUTOGLOUON_STORAGE_URI = (
-    "gs://test-project-frog-ml-artifacts/predictor/"
+AUTOGLOUON_STORAGE_URI = os.getenv(
+    "AUTOGLOUON_STORAGE_URI", "gs://test-project-frog-ml-artifacts/predictor/"
+)
+AUTOGLOUON_RESOURCES = V1ResourceRequirements(
+    requests={"cpu": "100m", "memory": "1Gi"},
+    limits={"cpu": "1", "memory": "2Gi"},
 )
 
-@pytest.mark.predictor
-@pytest.mark.asyncio(scope="session")
-async def test_autogluon_runtime_kserve_v1(rest_v1_client):
-    service_name = "isvc-autogluon-v1"
 
-    predictor = V1beta1PredictorSpec(
-        min_replicas=1,
-        model=V1beta1ModelSpec(
-            model_format=V1beta1ModelFormat(name="autogluon"),
-            runtime="kserve-autogluonserver",
-            storage_uri=AUTOGLOUON_STORAGE_URI,
-            resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "1Gi"},
-                limits={"cpu": "1", "memory": "2Gi"},
-            ),
-        ),
-    )
-
-    isvc = V1beta1InferenceService(
+def _create_isvc(service_name: str, predictor: V1beta1PredictorSpec):
+    return V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+
+def _create_predictor(service_name: str, protocol_version: str = None, storage_uri: str = None):
+    model = V1beta1ModelSpec(
+        model_format=V1beta1ModelFormat(name="autogluon"),
+        runtime="kserve-autogluonserver",
+        storage_uri=storage_uri or AUTOGLOUON_STORAGE_URI,
+        resources=AUTOGLOUON_RESOURCES,
     )
+    if protocol_version:
+        model.protocol_version = protocol_version
+        model.readiness_probe = client.V1Probe(
+            http_get=client.V1HTTPGetAction(path=f"/v2/models/{service_name}/ready", port=8080),
+            initial_delay_seconds=30,
+        )
+    return V1beta1PredictorSpec(min_replicas=1, model=model)
+
+
+async def _deploy_and_predict(
+    service_name: str,
+    predictor: V1beta1PredictorSpec,
+    rest_client,
+    input_path: str,
+):
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    isvc = _create_isvc(service_name, predictor)
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    try:
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        return await predict_isvc(rest_client, service_name, input_path)
+    finally:
+        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
-    res = await predict_isvc(
-        rest_v1_client, service_name, "./data/autogluon_titanic_input.json"
+
+@pytest.mark.predictor
+@pytest.mark.asyncio(scope="session")
+async def test_autogluon_runtime_kserve_v1(rest_v1_client):
+    service_name = "isvc-autogluon-v1"
+    predictor = _create_predictor(service_name)
+    response = await _deploy_and_predict(
+        service_name,
+        predictor,
+        rest_v1_client,
+        "./data/autogluon_titanic_input.json",
     )
-    assert "predictions" in res
-    assert len(res["predictions"]) > 0
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    assert "predictions" in response
+    assert len(response["predictions"]) > 0
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
 async def test_autogluon_runtime_kserve_v2(rest_v2_client):
     service_name = "isvc-autogluon-v2"
-
-    predictor = V1beta1PredictorSpec(
-        min_replicas=1,
-        model=V1beta1ModelSpec(
-            model_format=V1beta1ModelFormat(name="autogluon"),
-            runtime="kserve-autogluonserver",
-            protocol_version="v2",
-            storage_uri=AUTOGLOUON_STORAGE_URI,
-            resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "1Gi"},
-                limits={"cpu": "1", "memory": "2Gi"},
-            ),
-            readiness_probe=client.V1Probe(
-                http_get=client.V1HTTPGetAction(
-                    path=f"/v2/models/{service_name}/ready", port=8080
-                ),
-                initial_delay_seconds=30,
-            ),
-        ),
+    predictor = _create_predictor(service_name, protocol_version="v2")
+    response = await _deploy_and_predict(
+        service_name,
+        predictor,
+        rest_v2_client,
+        "./data/autogluon_titanic_input_v2.json",
     )
+    assert len(response.outputs) > 0
+    assert len(response.outputs[0].data) > 0
 
-    isvc = V1beta1InferenceService(
-        api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
-        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+
+@pytest.mark.predictor
+@pytest.mark.asyncio(scope="session")
+async def test_autogluon_runtime_kserve_v2_input_variants(rest_v2_client):
+    service_name = "isvc-autogluon-v2-variants"
+    predictor = _create_predictor(service_name, protocol_version="v2")
+    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client.create(_create_isvc(service_name, predictor))
+    try:
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        for input_path in [
+            "./data/autogluon_titanic_input_v2.json",
+            "./data/autogluon_titanic_input_v2_binary.json",
+            "./data/autogluon_titanic_input_v2_all_binary.json",
+        ]:
+            response = await predict_isvc(rest_v2_client, service_name, input_path)
+            assert len(response.outputs) > 0
+            assert len(response.outputs[0].data) > 0
+    finally:
+        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.predictor
+@pytest.mark.asyncio(scope="session")
+async def test_autogluon_runtime_kserve_v2_storage_uri_without_trailing_slash(rest_v2_client):
+    service_name = "isvc-autogluon-v2-noslash"
+    storage_uri = AUTOGLOUON_STORAGE_URI.rstrip("/")
+    predictor = _create_predictor(
+        service_name, protocol_version="v2", storage_uri=storage_uri
     )
-
-    kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    response = await _deploy_and_predict(
+        service_name,
+        predictor,
+        rest_v2_client,
+        "./data/autogluon_titanic_input_v2.json",
     )
-    kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-
-    res = await predict_isvc(
-        rest_v2_client, service_name, "./data/autogluon_titanic_input_v2.json"
-    )
-    assert len(res.outputs) > 0
-    assert len(res.outputs[0].data) > 0
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    assert len(response.outputs) > 0
+    assert len(response.outputs[0].data) > 0
