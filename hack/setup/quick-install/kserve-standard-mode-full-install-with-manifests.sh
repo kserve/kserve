@@ -3766,10 +3766,6 @@ spec:
       - /bin/bash
       - -c
       - |-
-        if [ -f /etc/profile.d/ibm-aiu-setup.sh ]; then
-          source /etc/profile.d/ibm-aiu-setup.sh
-        fi
-
         if [ "$KSERVE_INFER_ROCE" = "true" ]; then
           echo "Trying to infer RoCE configs ... "
           grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null
