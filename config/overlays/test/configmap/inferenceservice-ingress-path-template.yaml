@@ -15,5 +15,5 @@ data:
         "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
         "urlScheme": "http",
         "ingressPathTemplate": "/endpoints/{{ .Namespace }}/{{ .Name }}/",
-        "ingressDomain": "mydomain.com",
+        "ingressDomain": "mydomain.com"
     }
