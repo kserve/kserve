@@ -19,7 +19,6 @@ package ingress
 import (
 	"bytes"
 	"fmt"
-	"net/url"
 	"strings"
 	"text/template"
 
@@ -88,12 +87,12 @@ func GenerateIngressPath(name string, obj metav1.ObjectMeta, ingressConfig *v1be
 		return "", fmt.Errorf("error rendering the ingress path template: %w", err)
 	}
 
-	url, err := url.ParseRequestURI(buf.String())
-	if err != nil {
-		return "", fmt.Errorf("invalid url %q: %w", buf.String(), err)
+	path := buf.String()
+	if !strings.HasPrefix(path, "/") {
+		return "", fmt.Errorf("invalid rendered ingress path %s, should start with a forward slash", path)
 	}
 
-	return url.Path, nil
+	return path, nil
 }
 
 func GenerateInternalDomainName(name string, obj metav1.ObjectMeta, ingressConfig *v1beta1.IngressConfig) (string, error) {

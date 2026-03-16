@@ -199,6 +199,17 @@ func TestGenerateIngressPath(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "invalid template",
+			args: args{
+				name: "model",
+				obj:  obj,
+				ingressConfig: &v1beta1.IngressConfig{
+					IngressPathTemplate: "this/should-not/work",
+				},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
