@@ -5099,3 +5099,155 @@ func createTestPodForModelcarWithWorkerAndTransformer() *corev1.Pod {
 		},
 	}
 }
+
+// TestCommonStorageInitializationWithOciURI tests the fix for issue #5200:
+// storageUris with oci:// should inject modelcar and model volume mounts.
+func TestCommonStorageInitializationWithOciURI(t *testing.T) {
+	t.Run("OCI URI via storageUris injects modelcar", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: "oci://rhuss/kserving-example-sklearn:1.0", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			IsReadOnly:      true,
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{EnableOciImageSource: true},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     false,
+		}
+
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+
+		// Modelcar sidecar container should be injected
+		modelcarContainer := utils.GetContainerWithName(&podSpec, constants.ModelcarContainerName)
+		assert.NotNil(t, modelcarContainer, "modelcar sidecar container should be injected")
+
+		// Modelcar init container should be injected for pre-fetching
+		assert.Len(t, podSpec.InitContainers, 1, "modelcar init container should be injected")
+		assert.Equal(t, constants.ModelcarInitContainerName, podSpec.InitContainers[0].Name)
+
+		// ShareProcessNamespace should be enabled
+		assert.NotNil(t, podSpec.ShareProcessNamespace)
+		assert.True(t, *podSpec.ShareProcessNamespace, "ShareProcessNamespace should be true")
+
+		// User container should have async model init mode env var
+		userContainer := utils.GetContainerWithName(&podSpec, constants.InferenceServiceContainerName)
+		assert.NotNil(t, userContainer)
+		found := false
+		for _, env := range userContainer.Env {
+			if env.Name == constants.ModelInitModeEnvVarKey && env.Value == "async" {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "user container should have MODEL_INIT_MODE=async env var")
+
+		// Volume should exist
+		assert.NotEmpty(t, podSpec.Volumes, "shared volume should be added")
+	})
+
+	t.Run("OCI URI via storageUris with transformer injects modelcar for both", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+				{Name: constants.TransformerContainerName},
+			},
+		}
+
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: "oci://rhuss/kserving-example-sklearn:1.0", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			IsReadOnly:      true,
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{EnableOciImageSource: true},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     false,
+		}
+
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+
+		// Both user container and transformer container should have volume mounts
+		userContainer := utils.GetContainerWithName(&podSpec, constants.InferenceServiceContainerName)
+		transformerContainer := utils.GetContainerWithName(&podSpec, constants.TransformerContainerName)
+		assert.NotNil(t, userContainer)
+		assert.NotNil(t, transformerContainer)
+		assert.NotEmpty(t, userContainer.VolumeMounts, "user container should have volume mounts")
+		assert.NotEmpty(t, transformerContainer.VolumeMounts, "transformer container should have volume mounts")
+	})
+
+	t.Run("Legacy OCI URI path still returns nil (handled by webhook)", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: "oci://rhuss/kserving-example-sklearn:1.0", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			IsReadOnly:      true,
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{EnableOciImageSource: true},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     true,
+		}
+
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+
+		// Should NOT inject modelcar — legacy path is handled by InjectModelcar webhook
+		modelcarContainer := utils.GetContainerWithName(&podSpec, constants.ModelcarContainerName)
+		assert.Nil(t, modelcarContainer, "legacy path should not inject modelcar directly")
+	})
+
+	t.Run("OCI URI via storageUris with worker container only", func(t *testing.T) {
+		podSpec := corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.WorkerContainerName},
+			},
+		}
+
+		params := &StorageInitializerParams{
+			Namespace: "default",
+			StorageURIs: []v1beta1.StorageUri{
+				{Uri: "oci://myrepo/mymodel:latest", MountPath: constants.DefaultModelLocalMountPath},
+			},
+			IsReadOnly:      true,
+			PodSpec:         &podSpec,
+			Config:          &kserveTypes.StorageInitializerConfig{EnableOciImageSource: true},
+			IsvcAnnotations: map[string]string{},
+			IsLegacyURI:     false,
+		}
+
+		err := CommonStorageInitialization(t.Context(), params)
+		require.NoError(t, err)
+
+		// Modelcar sidecar should be injected, targeting the worker container
+		modelcarContainer := utils.GetContainerWithName(&podSpec, constants.ModelcarContainerName)
+		assert.NotNil(t, modelcarContainer, "modelcar sidecar should be injected for worker container")
+
+		// Worker container should have the async env var
+		workerContainer := utils.GetContainerWithName(&podSpec, constants.WorkerContainerName)
+		assert.NotNil(t, workerContainer)
+		found := false
+		for _, env := range workerContainer.Env {
+			if env.Name == constants.ModelInitModeEnvVarKey && env.Value == "async" {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "worker container should have MODEL_INIT_MODE=async env var")
+	})
+}
