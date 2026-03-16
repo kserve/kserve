@@ -17,7 +17,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
 
 AUTOGLOUON_STORAGE_URI = (
     "https://minio-api-automl-project.apps.rosa.auto-ml-cracow.mxjd.p3.openshiftapps.com/"
-    "kserve-model-artifacts/predictor/model.pkl"
+    "kserve-model-artifacts/predictor"
 )
 
 
