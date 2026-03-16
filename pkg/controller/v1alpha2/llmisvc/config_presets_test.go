@@ -95,16 +95,17 @@ func TestPresetFiles(t *testing.T) {
 								{
 									Name:  "llm-d-routing-sidecar",
 									Image: "ghcr.io/llm-d/llm-d-routing-sidecar:v0.6.0",
-									Args: []string{
+									Command: []string{
+										"/app/pd-sidecar",
 										"--port=8000",
 										"--vllm-port=8001",
 										"--connector=nixlv2",
-										"--secure-proxy=true",
-										"--cert-path=/var/run/kserve/tls",
-										"--decoder-use-tls=true",
-										"--prefiller-use-tls=true",
 										"--enable-ssrf-protection=true",
 										"--pool-group=inference.networking.x-k8s.io",
+										"",
+										"",
+										"",
+										"",
 									},
 									Env: []corev1.EnvVar{
 										{
@@ -178,9 +179,8 @@ func TestPresetFiles(t *testing.T) {
 							},
 							Containers: []corev1.Container{
 								{
-									Name:    "main",
-									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
-									Command: []string{"/bin/bash", "-c"},
+									Name:  "main",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8001,
@@ -311,9 +311,8 @@ func TestPresetFiles(t *testing.T) {
 							TerminationGracePeriodSeconds: ptr.To(int64(30)),
 							Containers: []corev1.Container{
 								{
-									Name:    "main",
-									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
-									Command: []string{"/bin/bash", "-c"},
+									Name:  "main",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8001,
@@ -424,9 +423,8 @@ func TestPresetFiles(t *testing.T) {
 							},
 							Containers: []corev1.Container{
 								{
-									Name:    "main",
-									Image:   "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
-									Command: []string{"vllm", "serve", "/mnt/models", "--served-model-name", "llama", "--port", "8000"},
+									Name:  "main",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.5.1",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8000,
