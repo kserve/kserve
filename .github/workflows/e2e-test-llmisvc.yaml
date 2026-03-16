@@ -3,12 +3,11 @@ name: LLMInferenceService E2E Tests
 on:
   pull_request:
     paths:
-      - "pkg/apis/serving/v1alpha1/llm*"
-      - "pkg/apis/serving/v1alpha2/llm*"
-      - "pkg/controller/v1alpha1/llmisvc/**"
-      - "pkg/controller/v1alpha2/llmisvc/**"
-      - "charts/kserve-llmisvc-resources/**"
+      - "pkg/apis/serving/**/llm*"
+      - "pkg/controller/**/llmisvc/**"
+      - "charts/kserve-llmisvc-*"
       - "config/llmisvc/**"
+      - "config/llmisvcconfig/**"
       - "config/rbac/llmisvc/**"
       - "cmd/llmisvc/**"
       - "test/e2e/llmisvc/**"
