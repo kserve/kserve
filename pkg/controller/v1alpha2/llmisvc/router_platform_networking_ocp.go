@@ -299,7 +299,7 @@ func (r *LLMISVCReconciler) getIstioShadowInferencePoolService(ctx context.Conte
 	}
 
 	svcs := &corev1.ServiceList{}
-	err := r.Client.List(ctx, svcs, client.InNamespace(llmSvc.GetNamespace()), client.MatchingLabels{
+	err := r.List(ctx, svcs, client.InNamespace(llmSvc.GetNamespace()), client.MatchingLabels{
 		istioInferencePoolLabelName: llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc),
 	})
 	if err != nil {
@@ -316,7 +316,7 @@ func (r *LLMISVCReconciler) getInferencePool(ctx context.Context, llmSvc *v1alph
 		return nil, nil
 	}
 	pool := &igwapi.InferencePool{}
-	if err := r.Client.Get(ctx, client.ObjectKey{Name: llmSvc.Spec.Router.Scheduler.Pool.Ref.Name, Namespace: llmSvc.GetNamespace()}, pool); err != nil {
+	if err := r.Get(ctx, client.ObjectKey{Name: llmSvc.Spec.Router.Scheduler.Pool.Ref.Name, Namespace: llmSvc.GetNamespace()}, pool); err != nil {
 		return nil, fmt.Errorf("failed to get inference pool %s/%s: %w", llmSvc.GetNamespace(), llmSvc.Spec.Router.Scheduler.Pool.Ref.Name, err)
 	}
 	return pool, nil

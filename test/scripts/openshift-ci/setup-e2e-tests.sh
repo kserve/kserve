@@ -198,8 +198,34 @@ fi
 
 # Wait for/Install ODH Model Controller based on method
 if [[ "$INSTALL_ODH_OPERATOR" == "false" ]]; then
+  # TODO can be moved to odh-test overlays
   echo "Installing ODH Model Controller manually with PR images"
-  kustomize build $PROJECT_ROOT/test/scripts/openshift-ci |
+
+  # ODH_MC_MANIFEST_SOURCE is injected by the odh-model-controller OpenShift CI
+  # job definition (openshift/release) which points to the local path.
+  # If ODH_MC_MANIFEST_SOURCE is set, override the kustomization will point to the
+  # provided local path (e.g. export ODH_MC_MANIFEST_SOURCE="$(pwd)/config/base").
+  # This solves the chicken-and-egg problem in CI where a PR changes manifests
+  # but the tests would otherwise deploy the already-merged version.
+  ODH_MC_KUSTOMIZE_DIR="$PROJECT_ROOT/test/scripts/openshift-ci"
+  if [[ -n "${ODH_MC_MANIFEST_SOURCE:-}" ]]; then
+    echo "Overriding odh-model-controller manifests source to: ${ODH_MC_MANIFEST_SOURCE}"
+    # Copy the kustomization to the bin directory so the original file is never modified.
+    ODH_MC_KUSTOMIZE_DIR="$PROJECT_ROOT/bin/odh-mc-kustomize"
+    mkdir -p "${ODH_MC_KUSTOMIZE_DIR}"
+    cp "$PROJECT_ROOT/test/scripts/openshift-ci/kustomization.yaml" "${ODH_MC_KUSTOMIZE_DIR}/kustomization.yaml"
+    cat > "${ODH_MC_KUSTOMIZE_DIR}/kustomization.yaml" <<EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ${ODH_MC_MANIFEST_SOURCE}
+
+namespace: opendatahub
+EOF
+  fi
+
+  kustomize build "${ODH_MC_KUSTOMIZE_DIR}" |
       sed "s|quay.io/opendatahub/odh-model-controller:fast|${ODH_MODEL_CONTROLLER_IMAGE}|" |
       oc apply -n ${KSERVE_NAMESPACE} -f -
   oc rollout status deployment/odh-model-controller -n ${KSERVE_NAMESPACE} --timeout=300s

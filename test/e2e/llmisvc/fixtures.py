@@ -323,6 +323,11 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--port",
                         "8000",
+                        "--enable-ssl-refresh",
+                        "--ssl-certfile",
+                        "/var/run/kserve/tls/tls.crt",
+                        "--ssl-keyfile",
+                        "/var/run/kserve/tls/tls.key",
                     ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
@@ -346,6 +351,11 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--port",
                         "8000",
+                        "--enable-ssl-refresh",
+                        "--ssl-certfile",
+                        "/var/run/kserve/tls/tls.crt",
+                        "--ssl-keyfile",
+                        "/var/run/kserve/tls/tls.key",
                     ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},

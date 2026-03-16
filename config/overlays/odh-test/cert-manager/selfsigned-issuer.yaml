@@ -1,0 +1,9 @@
+# This is the root ClusterIssuer to bootstrap the OpenDataHub CA.
+# It can be replaced with a different ClusterIssuer (e.g., Vault)
+# for production deployments.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: opendatahub-selfsigned-issuer
+spec:
+  selfSigned: { }

@@ -1,0 +1,129 @@
+name: xKS E2E Tests (KinD odh-xks)
+
+on:
+  pull_request:
+    branches: [master, release*]
+    paths:
+      - "pkg/apis/**"
+      - "pkg/controller/**"
+      - "config/**"
+      - "test/e2e/llmisvc/**"
+      - "!.github/**"
+      - "!docs/**"
+      - "!**.md"
+      - ".github/workflows/e2e-test-odh-xks-kind.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-odh-xks-kind:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        istio-version: ["1.27.5", "1.28.3"]
+    name: test-odh-xks-kind (istio-${{ matrix.istio-version }})
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Merge target branch
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          git merge origin/${{ github.base_ref }} --no-edit
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install KinD
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+          kind version
+
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/v1.32.0/bin/linux/amd64/kubectl"
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
+          kubectl version --client
+
+      - name: Install kustomize
+        run: |
+          curl -LO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.7.1/kustomize_v5.7.1_linux_amd64.tar.gz"
+          tar xzf kustomize_v5.7.1_linux_amd64.tar.gz
+          chmod +x kustomize
+          sudo mv kustomize /usr/local/bin/
+          kustomize version
+
+      - name: Install cloud-provider-kind
+        run: |
+          go install sigs.k8s.io/cloud-provider-kind@latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Start cloud-provider-kind
+        run: |
+          # Start in background before cluster creation
+          nohup cloud-provider-kind > /tmp/cloud-provider-kind.log 2>&1 &
+          echo "cloud-provider-kind started in background (PID: $!)"
+
+      - name: Run setup-odh-xks.sh
+        env:
+          ISTIO_VERSION: ${{ matrix.istio-version }}
+        run: |
+          # Script creates KinD cluster, installs deps, builds & loads controller, deploys overlay
+          ./test/scripts/kind/setup-odh-xks.sh
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install Python SDK
+        run: |
+          pushd python/kserve
+          uv sync --group test
+          popd
+
+      - name: Run E2E tests
+        timeout-minutes: 40
+        env:
+          SKIP_DELETION_ON_FAILURE: "true"
+          TOKEN_AUDIENCES: "https://kubernetes.default.svc"
+          GATEWAY_CLASS_NAME: "istio"
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and cluster_cpu and not auth and not custom_gateway" 1 "istio-gatewayapi-ext"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== LLMISVC Controller logs ==="
+          kubectl logs -n opendatahub -l control-plane=llmisvc-controller-manager --tail=500 2>/dev/null || echo "No controller logs"
+          echo ""
+          echo "=== Istio logs ==="
+          kubectl logs -n istio-system -l app=istiod --tail=200 2>/dev/null || echo "No istiod logs"
+          echo ""
+          echo "=== Gateway pod logs ==="
+          kubectl logs -n opendatahub -l gateway.networking.k8s.io/gateway-name=inference-gateway --tail=200 2>/dev/null || echo "No gateway logs"
+          echo ""
+          echo "=== cloud-provider-kind logs ==="
+          cat /tmp/cloud-provider-kind.log 2>/dev/null || echo "No cloud-provider-kind logs"
