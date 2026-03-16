@@ -62,7 +62,6 @@ def _get_and_verify_max_len(
     # If sliding window is manually disabled, max_length should be less
     # than the sliding window length in the model config.
     if disable_sliding_window and sliding_window_len is not None:
-
         sliding_window_len_min = get_min_sliding_window(sliding_window_len)
         max_len_key = (
             "sliding_window"

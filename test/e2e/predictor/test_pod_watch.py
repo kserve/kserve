@@ -496,9 +496,9 @@ async def test_quick_reconciliation_on_init_container_failure():
 
             # Validate failure info contains expected fields
             last_failure = failure_status.get("lastFailureInfo", {})
-            assert (
-                last_failure.get("reason") is not None
-            ), "lastFailureInfo.reason should be populated"
+            assert last_failure.get("reason") is not None, (
+                "lastFailureInfo.reason should be populated"
+            )
 
             # The transition status should indicate blocked by failed load
             transition_status = failure_status.get("transitionStatus")
@@ -513,9 +513,9 @@ async def test_quick_reconciliation_on_init_container_failure():
             if ready_condition:
                 logger.info("Ready condition: %s", ready_condition)
                 # The service should not be ready due to init container failure
-                assert (
-                    ready_condition.get("status") != "True"
-                ), "ISVC should not be Ready when init container fails"
+                assert ready_condition.get("status") != "True", (
+                    "ISVC should not be Ready when init container fails"
+                )
 
             # Validate reasonable time to failure detection
             # The pod watch should trigger reconciliation quickly when init container status changes

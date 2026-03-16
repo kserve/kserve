@@ -11,7 +11,6 @@ CONTROLLER_GEN = $(LOCALBIN)/controller-gen
 ENVTEST = $(LOCALBIN)/setup-envtest
 YQ = $(LOCALBIN)/yq
 HELM_DOCS = $(LOCALBIN)/helm-docs
-BLACK_FMT = $(PYTHON_BIN)/black
 UV = $(PYTHON_BIN)/uv
 RUFF = $(PYTHON_BIN)/ruff
 
@@ -53,9 +52,6 @@ $(HELM_DOCS): $(LOCALBIN)
 $(PYTHON_VENV): | $(LOCALBIN)
 	python3 -m venv $(PYTHON_VENV)
 	$(PYTHON_BIN)/pip install --upgrade pip
-
-$(BLACK_FMT): $(PYTHON_VENV)
-	$(PYTHON_BIN)/pip install black==$(BLACK_FMT_VERSION)
 
 $(UV): $(PYTHON_VENV)
 	$(PYTHON_BIN)/pip install uv==$(UV_VERSION)

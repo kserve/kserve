@@ -63,7 +63,7 @@ def rename_bash_function(func_code: str, old_name: str, new_name: str) -> str:
     if not func_code:
         return func_code
 
-    lines = func_code.split('\n')
+    lines = func_code.split("\n")
 
     # Rename function definition
     if lines and lines[0].startswith(f"{old_name}() {{"):
@@ -76,7 +76,7 @@ def rename_bash_function(func_code: str, old_name: str, new_name: str) -> str:
     # But NOT after other commands (like 'helm install' or 'kubectl apply')
     # The pattern captures the prefix separately to preserve it
     pattern = re.compile(
-        r'(^[ \t]*|[;|&(][ \t]*)(' + re.escape(old_name) + r')\b(?=\s|$|;|\||&|\))'
+        r"(^[ \t]*|[;|&(][ \t]*)(" + re.escape(old_name) + r")\b(?=\s|$|;|\||&|\))"
     )
 
     def replace_func(match):
@@ -86,7 +86,7 @@ def rename_bash_function(func_code: str, old_name: str, new_name: str) -> str:
     for i in range(1, len(lines)):  # Skip first line (function definition)
         lines[i] = pattern.sub(replace_func, lines[i])
 
-    return '\n'.join(lines)
+    return "\n".join(lines)
 
 
 def deduplicate_variables(variables: list[str]) -> list[str]:
@@ -115,7 +115,7 @@ def deduplicate_variables(variables: list[str]) -> list[str]:
                 seen.add(var_name)
                 result.append(var)
                 # Check if this starts an array declaration
-                if '=(' in var and ')' not in var:
+                if "=(" in var and ")" not in var:
                     in_array = var_name
             elif in_array == var_name:
                 # Skip duplicate array declaration start
@@ -124,7 +124,7 @@ def deduplicate_variables(variables: list[str]) -> list[str]:
             # This is a continuation of an array (indented lines or closing paren)
             result.append(var)
             # Check if array ends
-            if ')' in var:
+            if ")" in var:
                 in_array = None
 
     return result
@@ -143,12 +143,12 @@ def inject_code_into_function(func_code: str, code_to_inject: str) -> str:
     if not func_code or not code_to_inject:
         return func_code
 
-    lines = func_code.split('\n')
+    lines = func_code.split("\n")
     if not lines:
         return func_code
 
     # Find the opening brace line (e.g., "install_kserve_helm() {")
-    if not lines[0].endswith('{'):
+    if not lines[0].endswith("{"):
         return func_code
 
     # Insert code after the opening brace
@@ -156,18 +156,19 @@ def inject_code_into_function(func_code: str, code_to_inject: str) -> str:
     indent = "    "  # Default 4 spaces
     if len(lines) > 1 and lines[1]:
         # Extract indentation from first line
-        match = re.match(r'^(\s*)', lines[1])
+        match = re.match(r"^(\s*)", lines[1])
         if match:
             indent = match.group(1)
 
     # Indent the injected code
-    injected_lines = code_to_inject.split('\n')
-    indented_injection = '\n'.join(indent + line if line.strip() else line
-                                   for line in injected_lines)
+    injected_lines = code_to_inject.split("\n")
+    indented_injection = "\n".join(
+        indent + line if line.strip() else line for line in injected_lines
+    )
 
     # Insert after opening brace
     result = [lines[0], indented_injection] + lines[1:]
-    return '\n'.join(result)
+    return "\n".join(result)
 
 
 def extract_common_functions(content: str) -> str:
@@ -181,14 +182,16 @@ def extract_common_functions(content: str) -> str:
     Returns:
         Extracted utility functions section
     """
-    lines = content.split('\n')
+    lines = content.split("\n")
 
-    start_idx = next((i for i, line in enumerate(lines)
-                     if '# Utility Functions' in line), None)
-    end_idx = next((i for i, line in enumerate(lines)
-                   if '# Auto-initialization' in line), None)
+    start_idx = next(
+        (i for i, line in enumerate(lines) if "# Utility Functions" in line), None
+    )
+    end_idx = next(
+        (i for i, line in enumerate(lines) if "# Auto-initialization" in line), None
+    )
 
     if start_idx is not None:
-        return '\n'.join(lines[start_idx:end_idx] if end_idx else lines[start_idx:])
+        return "\n".join(lines[start_idx:end_idx] if end_idx else lines[start_idx:])
 
     return content

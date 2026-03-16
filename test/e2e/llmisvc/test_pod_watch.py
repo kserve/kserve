@@ -462,7 +462,9 @@ async def test_event_storm_prevention_init_container_isolation():
                     timeout_seconds=180,
                 )
                 if failure_condition:
-                    logger.info("Secondary LLMISVC failure detected: %s", failure_condition)
+                    logger.info(
+                        "Secondary LLMISVC failure detected: %s", failure_condition
+                    )
 
                 # Give time for any potential event storms to propagate
                 await asyncio.sleep(10)
@@ -494,7 +496,9 @@ async def test_event_storm_prevention_init_container_isolation():
         delete_service_account(KSERVE_TEST_NAMESPACE, invalid_sa_name)
         delete_secret(KSERVE_TEST_NAMESPACE, invalid_secret_name)
         delete_llmisvc_config(kserve_client, model_config_name, KSERVE_TEST_NAMESPACE)
-        delete_llmisvc_config(kserve_client, workload_config_name, KSERVE_TEST_NAMESPACE)
+        delete_llmisvc_config(
+            kserve_client, workload_config_name, KSERVE_TEST_NAMESPACE
+        )
         delete_llmisvc_config(kserve_client, router_config_name, KSERVE_TEST_NAMESPACE)
         delete_llmisvc_config(
             kserve_client, invalid_model_config_name, KSERVE_TEST_NAMESPACE
@@ -633,9 +637,9 @@ async def test_quick_reconciliation_on_init_container_failure():
             if ready_condition:
                 logger.info("Ready condition: %s", ready_condition)
                 # The service should not be ready due to workload failure
-                assert (
-                    ready_condition.get("status") != "True"
-                ), "LLMISVC should not be Ready when init container fails"
+                assert ready_condition.get("status") != "True", (
+                    "LLMISVC should not be Ready when init container fails"
+                )
 
             # Validate reasonable time to failure detection
             assert time_to_failure < 180, (
@@ -655,5 +659,7 @@ async def test_quick_reconciliation_on_init_container_failure():
         delete_llmisvc_config(
             kserve_client, invalid_model_config_name, KSERVE_TEST_NAMESPACE
         )
-        delete_llmisvc_config(kserve_client, workload_config_name, KSERVE_TEST_NAMESPACE)
+        delete_llmisvc_config(
+            kserve_client, workload_config_name, KSERVE_TEST_NAMESPACE
+        )
         delete_llmisvc_config(kserve_client, router_config_name, KSERVE_TEST_NAMESPACE)
