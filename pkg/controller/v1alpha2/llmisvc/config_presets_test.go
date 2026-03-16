@@ -102,7 +102,7 @@ func TestPresetFiles(t *testing.T) {
 										"--connector=nixlv2",
 										"--enable-ssrf-protection=true",
 										"--pool-group=inference.networking.x-k8s.io",
-										"",
+										"--secure-proxy=false",
 										"",
 										"",
 										"",
@@ -154,7 +154,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8000),
-												Scheme: corev1.URISchemeHTTPS,
+												Scheme: corev1.URISchemeHTTP,
 											},
 										},
 										InitialDelaySeconds: 10,
@@ -167,7 +167,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8000),
-												Scheme: corev1.URISchemeHTTPS,
+												Scheme: corev1.URISchemeHTTP,
 											},
 										},
 										InitialDelaySeconds: 10,
@@ -225,7 +225,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8001),
-												Scheme: corev1.URISchemeHTTPS,
+												Scheme: corev1.URISchemeHTTP,
 											},
 										},
 
@@ -238,7 +238,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8001),
-												Scheme: corev1.URISchemeHTTPS,
+												Scheme: corev1.URISchemeHTTP,
 											},
 										},
 
@@ -251,7 +251,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8001),
-												Scheme: corev1.URISchemeHTTPS,
+												Scheme: corev1.URISchemeHTTP,
 											},
 										},
 										FailureThreshold: 60,
@@ -469,7 +469,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8000),
-												Scheme: corev1.URISchemeHTTPS,
+												Scheme: corev1.URISchemeHTTP,
 											},
 										},
 
@@ -482,7 +482,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8000),
-												Scheme: corev1.URISchemeHTTPS,
+												Scheme: corev1.URISchemeHTTP,
 											},
 										},
 
@@ -495,7 +495,7 @@ func TestPresetFiles(t *testing.T) {
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
 												Port:   intstr.FromInt32(8000),
-												Scheme: corev1.URISchemeHTTPS,
+												Scheme: corev1.URISchemeHTTP,
 											},
 										},
 										FailureThreshold: 60,
