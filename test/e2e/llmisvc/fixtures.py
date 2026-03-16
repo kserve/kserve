@@ -804,6 +804,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "42",
                         "--event-batch-size",
                         "1",
+                        "--ssl-certfile",
+                        "/var/run/kserve/tls/tls.crt",
+                        "--ssl-keyfile",
+                        "/var/run/kserve/tls/tls.key",
                     ],
                     "env": [
                         {
