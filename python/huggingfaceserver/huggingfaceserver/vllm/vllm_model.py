@@ -52,9 +52,7 @@ from kserve.protocol.rest.openai.types import (
 from .utils import build_async_engine_client_from_engine_args, build_vllm_engine_args
 
 
-class VLLMModel(
-    OpenAIEncoderModel, OpenAIGenerativeModel
-):  # pylint:disable=c-extension-no-member
+class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-extension-no-member
     engine_client: EngineClient
     vllm_engine_args: AsyncEngineArgs = None
     args: Namespace = None

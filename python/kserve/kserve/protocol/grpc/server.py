@@ -80,7 +80,6 @@ class GRPCServer:
 
 
 class GRPCProcess(multiprocessing.Process):
-
     def __init__(
         self,
         port: int,

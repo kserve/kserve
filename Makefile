@@ -68,8 +68,8 @@ setup-envtest: envtest
 fmt:
 	go fmt ./pkg/... ./cmd/... && cd qpext && go fmt ./...
 
-py-fmt: $(BLACK_FMT)
-	$(BLACK_FMT) --config python/pyproject.toml ./python ./docs
+py-fmt: $(RUFF)
+	$(RUFF) format --config ruff.toml ./python ./docs ./test ./hack
 
 # Run go vet against code
 vet:
