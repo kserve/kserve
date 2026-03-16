@@ -15,31 +15,23 @@ from kserve import (
 )
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
 
-AUTOGLOUON_STORAGE_URI_ENV = "KSERVE_TEST_AUTOGLOUON_STORAGE_URI"
-AUTOGLOUON_V1_INPUT_ENV = "KSERVE_TEST_AUTOGLOUON_V1_INPUT"
-AUTOGLOUON_V2_INPUT_ENV = "KSERVE_TEST_AUTOGLOUON_V2_INPUT"
-
-
-def _get_autogluon_storage_uri() -> str:
-    storage_uri = os.getenv(AUTOGLOUON_STORAGE_URI_ENV, "")
-    if not storage_uri:
-        pytest.skip(f"{AUTOGLOUON_STORAGE_URI_ENV} is not set")
-    return storage_uri
+AUTOGLOUON_STORAGE_URI = (
+    "https://minio-api-automl-project.apps.rosa.auto-ml-cracow.mxjd.p3.openshiftapps.com/"
+    "kserve-model-artifacts/predictor/model.pkl"
+)
 
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
 async def test_autogluon_runtime_kserve_v1(rest_v1_client):
     service_name = "isvc-autogluon-v1"
-    storage_uri = _get_autogluon_storage_uri()
-    payload_path = os.getenv(AUTOGLOUON_V1_INPUT_ENV, "./data/autogluon_iris_input.json")
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(name="autogluon"),
             runtime="kserve-autogluonserver",
-            storage_uri=storage_uri,
+            storage_uri=AUTOGLOUON_STORAGE_URI,
             resources=V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "1Gi"},
                 limits={"cpu": "1", "memory": "2Gi"},
@@ -60,7 +52,9 @@ async def test_autogluon_runtime_kserve_v1(rest_v1_client):
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = await predict_isvc(rest_v1_client, service_name, payload_path)
+    res = await predict_isvc(
+        rest_v1_client, service_name, "./data/autogluon_titanic_input.json"
+    )
     assert "predictions" in res
     assert len(res["predictions"]) > 0
 
@@ -71,10 +65,6 @@ async def test_autogluon_runtime_kserve_v1(rest_v1_client):
 @pytest.mark.asyncio(scope="session")
 async def test_autogluon_runtime_kserve_v2(rest_v2_client):
     service_name = "isvc-autogluon-v2"
-    storage_uri = _get_autogluon_storage_uri()
-    payload_path = os.getenv(
-        AUTOGLOUON_V2_INPUT_ENV, "./data/autogluon_iris_input_v2.json"
-    )
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -82,7 +72,7 @@ async def test_autogluon_runtime_kserve_v2(rest_v2_client):
             model_format=V1beta1ModelFormat(name="autogluon"),
             runtime="kserve-autogluonserver",
             protocol_version="v2",
-            storage_uri=storage_uri,
+            storage_uri=AUTOGLOUON_STORAGE_URI,
             resources=V1ResourceRequirements(
                 requests={"cpu": "100m", "memory": "1Gi"},
                 limits={"cpu": "1", "memory": "2Gi"},
@@ -109,7 +99,9 @@ async def test_autogluon_runtime_kserve_v2(rest_v2_client):
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = await predict_isvc(rest_v2_client, service_name, payload_path)
+    res = await predict_isvc(
+        rest_v2_client, service_name, "./data/autogluon_titanic_input_v2.json"
+    )
     assert len(res.outputs) > 0
     assert len(res.outputs[0].data) > 0
 
