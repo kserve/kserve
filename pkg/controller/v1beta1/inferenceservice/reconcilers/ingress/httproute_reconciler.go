@@ -81,10 +81,6 @@ func createRawURL(isvc *v1beta1.InferenceService,
 	if err != nil {
 		return nil, err
 	}
-	url.Path, err = GenerateIngressPath(isvc.Name, isvc.ObjectMeta, ingressConfig)
-	if err != nil {
-		return nil, err
-	}
 
 	return url, nil
 }
