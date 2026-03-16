@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import time
 
 import os
@@ -38,10 +39,12 @@ from .test_resources import (
     ROUTER_GATEWAYS,
     ROUTER_ROUTES,
 )
-from .logging import log_execution, logger
+from .logging import log_execution
 from ..common.http_retry import post_with_retry
 
 KSERVE_PLURAL_LLMINFERENCESERVICE = "llminferenceservices"
+
+logger = logging.getLogger(__name__)
 
 
 def assert_200(response: requests.Response) -> None:
@@ -504,7 +507,7 @@ def wait_for_model_response(
             logger.error(f"❌ Failed to call model: {e}")
             raise AssertionError(f"❌ Failed to call model: {e}") from e
 
-        logger.info(f"Model response is {response.status_code}")
+        logger.info(f"Model response is {response.status_code}: {response.text[:500]}")
 
         test_case.response_assertion(response)
         return response.text[: test_case.max_tokens]
@@ -603,9 +606,10 @@ def wait_for(
     while True:
         try:
             return assertion_fn()
-        except AssertionError:
+        except AssertionError as e:
             if time.time() >= deadline:
                 raise
+            logger.info("Waiting: %s", e)
             time.sleep(interval)
 
 
