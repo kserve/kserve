@@ -16,9 +16,9 @@ from kserve import (
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
 
 AUTOGLOUON_STORAGE_URI = (
-    "s3://kserve-model-artifacts/predictor"
-)
+    "s3://kserve-autogluon-tests/predictor"
 
+)
 
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
