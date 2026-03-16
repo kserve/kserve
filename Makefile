@@ -112,7 +112,7 @@ verify-helm-helpers-consistency:
 	@bash hack/setup/scripts/verify-helm-helpers.sh
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen yq
+manifests: controller-gen kustomize yq
 	@$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full	
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths={./pkg/controller/v1alpha1/inferencegraph,./pkg/controller/v1alpha1/trainedmodel,./pkg/controller/v1beta1/...} output:rbac:artifacts:config=config/rbac
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-llmisvc-manager-role paths=./pkg/controller/v1alpha2/llmisvc output:rbac:artifacts:config=config/rbac/llmisvc
@@ -123,7 +123,7 @@ manifests: controller-gen yq
 
 	# DO NOT COPY to helm chart. It needs to be created before the Envoy Gateway or you will need to restart the Envoy Gateway controller.
 	# The llmisvc helm chart needs to be installed after the Envoy Gateway as well, so it needs to be created before the llmisvc helm chart.
-	kubectl kustomize https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > config/llmisvc/gateway-inference-extension.yaml
+	$(KUSTOMIZE) build https://github.com/kubernetes-sigs/gateway-api-inference-extension.git/config/crd?ref=$(GIE_VERSION) > config/llmisvc/gateway-inference-extension.yaml
 	cp config/llmisvc/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
 
 	# Move StorageContainer CRD to storagecontainer folder
@@ -202,20 +202,20 @@ manifests: controller-gen yq
 	rm charts/kserve-localmodel-crd/templates/kustomization.yaml
 	
 	# Copy llmisvc crd (with conversion webhook patches applied via kustomize)
-	kubectl kustomize config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceservices.yaml
-	kubectl kustomize config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
+	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceservices.yaml
+	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
 	
 	# Copy the WVA VariantAutoscaling CRD for envtest
 	kubectl kustomize https://github.com/llm-d/llm-d-workload-variant-autoscaler.git/config/crd?ref=$(WVA_VERSION) > test/crds/wva_variantautoscalings.yaml
 
 	# Copy the full crd to the test folder
-	kubectl kustomize config/crd/full > test/crds/serving.kserve.io_all_crds.yaml
+	$(KUSTOMIZE) build config/crd/full > test/crds/serving.kserve.io_all_crds.yaml
 	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
-	kubectl kustomize config/crd/full/clusterstoragecontainer >> test/crds/serving.kserve.io_all_crds.yaml
+	$(KUSTOMIZE) build config/crd/full/clusterstoragecontainer >> test/crds/serving.kserve.io_all_crds.yaml
 	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
-	kubectl kustomize config/crd/full/llmisvc >> test/crds/serving.kserve.io_all_crds.yaml
+	$(KUSTOMIZE) build config/crd/full/llmisvc >> test/crds/serving.kserve.io_all_crds.yaml
 	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
-	kubectl kustomize config/crd/full/localmodel >> test/crds/serving.kserve.io_all_crds.yaml
+	$(KUSTOMIZE) build config/crd/full/localmodel >> test/crds/serving.kserve.io_all_crds.yaml
 	
 	# Generate minimal crd
 	./hack/minimal-crdgen.sh

@@ -9,6 +9,7 @@ PYTHON_BIN = $(PYTHON_VENV)/bin
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 CONTROLLER_GEN = $(LOCALBIN)/controller-gen
 ENVTEST = $(LOCALBIN)/setup-envtest
+KUSTOMIZE = $(LOCALBIN)/kustomize
 YQ = $(LOCALBIN)/yq
 HELM_DOCS = $(LOCALBIN)/helm-docs
 UV = $(PYTHON_BIN)/uv
@@ -32,6 +33,16 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 envtest: $(ENVTEST)
 $(ENVTEST): $(LOCALBIN)
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
+
+## Download kustomize locally if necessary.
+.PHONY: kustomize
+kustomize: $(KUSTOMIZE)
+$(KUSTOMIZE): $(LOCALBIN)
+	@[ -f "$(KUSTOMIZE)-$(KUSTOMIZE_VERSION)" ] || { \
+	BIN_DIR=$(LOCALBIN) hack/setup/cli/install-kustomize.sh && \
+	mv $(LOCALBIN)/kustomize $(KUSTOMIZE)-$(KUSTOMIZE_VERSION) ; \
+	} ; \
+	ln -sf "$$(basename $(KUSTOMIZE)-$(KUSTOMIZE_VERSION))" "$(KUSTOMIZE)"
 
 ## Download yq locally if necessary.
 .PHONY: yq
