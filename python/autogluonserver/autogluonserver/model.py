@@ -104,7 +104,17 @@ def _get_type_map_raw(predictor) -> Dict[str, str]:
 def _feature_to_v2_datatype(raw_type: Optional[str]) -> str:
     """Map AutoGluon raw feature types to v2 tensor datatypes."""
     t = (raw_type or "").lower()
-    if t in {"int", "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64"}:
+    if t in {
+        "int",
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "uint8",
+        "uint16",
+        "uint32",
+        "uint64",
+    }:
         return "INT64"
     if t in {"float", "float16", "float32", "float64"}:
         return "FP64"
@@ -202,7 +212,7 @@ def _infer_request_to_dataframe(payload: InferRequest, predictor) -> pd.DataFram
     """Parse v2 InferRequest into DataFrame in a protocol-compliant way.
 
     Supports tabular payloads:
-    - one tensor per feature 
+    - one tensor per feature
     - tensor name == feature name
     - shape [batch] or [batch,1]
     """
@@ -258,29 +268,35 @@ def _build_v2_outputs(
     if isinstance(result, pd.Series):
         if problem_type in {PROBLEM_TYPE_REGRESSION, PROBLEM_TYPE_QUANTILE}:
             values = pd.to_numeric(result, errors="coerce").to_numpy(dtype=np.float64)
-            output = InferOutput(name="predictions", shape=[len(values)], datatype="FP64")
+            output = InferOutput(
+                name="predictions", shape=[len(values)], datatype="FP64"
+            )
             output.set_data_from_numpy(values, binary_data=False)
-            return [output], [{"name": "predictions", "datatype": "FP64", "shape": [-1]}]
+            return [output], [
+                {"name": "predictions", "datatype": "FP64", "shape": [-1]}
+            ]
         values = _series_to_prediction_numpy(result, prediction_datatype)
         output = InferOutput(
             name="predictions", shape=[len(values)], datatype=prediction_datatype
         )
         output.set_data_from_numpy(values, binary_data=False)
-        return [
-            output
-        ], [{"name": "predictions", "datatype": prediction_datatype, "shape": [-1]}]
+        return [output], [
+            {"name": "predictions", "datatype": prediction_datatype, "shape": [-1]}
+        ]
 
     if isinstance(result, pd.DataFrame):
         if problem_type == PROBLEM_TYPE_QUANTILE:
-            values = result.apply(pd.to_numeric, errors="coerce").to_numpy(dtype=np.float64)
+            values = result.apply(pd.to_numeric, errors="coerce").to_numpy(
+                dtype=np.float64
+            )
             output = InferOutput(
                 name="predictions", shape=list(values.shape), datatype="FP64"
             )
             output.set_data_from_numpy(values, binary_data=False)
             width = values.shape[1] if values.ndim == 2 else -1
-            return [
-                output
-            ], [{"name": "predictions", "datatype": "FP64", "shape": [-1, width]}]
+            return [output], [
+                {"name": "predictions", "datatype": "FP64", "shape": [-1, width]}
+            ]
 
         if _is_predict_proba_enabled():
             labels = list(getattr(predictor, "class_labels", None) or [])
@@ -290,18 +306,26 @@ def _build_v2_outputs(
             outputs: List[InferOutput] = []
             metadata: List[Dict] = []
             for col, output_name in zip(result.columns, output_names, strict=False):
-                values = pd.to_numeric(result[col], errors="coerce").to_numpy(dtype=np.float64)
-                output = InferOutput(name=output_name, shape=[len(values)], datatype="FP64")
+                values = pd.to_numeric(result[col], errors="coerce").to_numpy(
+                    dtype=np.float64
+                )
+                output = InferOutput(
+                    name=output_name, shape=[len(values)], datatype="FP64"
+                )
                 output.set_data_from_numpy(values, binary_data=False)
                 outputs.append(output)
-                metadata.append({"name": output_name, "datatype": "FP64", "shape": [-1]})
+                metadata.append(
+                    {"name": output_name, "datatype": "FP64", "shape": [-1]}
+                )
             return outputs, metadata
 
         outputs: List[InferOutput] = []
         metadata: List[Dict] = []
         for col in result.columns:
             col_name = str(col)
-            values = pd.to_numeric(result[col], errors="coerce").to_numpy(dtype=np.float64)
+            values = pd.to_numeric(result[col], errors="coerce").to_numpy(
+                dtype=np.float64
+            )
             output = InferOutput(name=col_name, shape=[len(values)], datatype="FP64")
             output.set_data_from_numpy(values, binary_data=False)
             outputs.append(output)
@@ -323,7 +347,9 @@ def _build_v2_outputs(
                 name="predictions", shape=list(values.shape), datatype="FP64"
             )
             output.set_data_from_numpy(values, binary_data=False)
-            return [output], [{"name": "predictions", "datatype": "FP64", "shape": [-1]}]
+            return [output], [
+                {"name": "predictions", "datatype": "FP64", "shape": [-1]}
+            ]
         if prediction_datatype == "INT64":
             values = arr.astype(np.float64)
             if not np.all(np.equal(values, np.floor(values))):
@@ -335,14 +361,18 @@ def _build_v2_outputs(
                 name="predictions", shape=list(values.shape), datatype="INT64"
             )
             output.set_data_from_numpy(values, binary_data=False)
-            return [output], [{"name": "predictions", "datatype": "INT64", "shape": [-1]}]
+            return [output], [
+                {"name": "predictions", "datatype": "INT64", "shape": [-1]}
+            ]
         if prediction_datatype == "FP64":
             values = arr.astype(np.float64)
             output = InferOutput(
                 name="predictions", shape=list(values.shape), datatype="FP64"
             )
             output.set_data_from_numpy(values, binary_data=False)
-            return [output], [{"name": "predictions", "datatype": "FP64", "shape": [-1]}]
+            return [output], [
+                {"name": "predictions", "datatype": "FP64", "shape": [-1]}
+            ]
 
     values = arr.astype(str).astype(np.object_)
     output = InferOutput(name="predictions", shape=list(values.shape), datatype="BYTES")
@@ -432,7 +462,9 @@ class AutoGluonModel(Model):
                 else:
                     df = pd.DataFrame(instances)
 
-            if _is_predict_proba_enabled() and hasattr(self._predictor, "predict_proba"):
+            if _is_predict_proba_enabled() and hasattr(
+                self._predictor, "predict_proba"
+            ):
                 result = self._predictor.predict_proba(df)
             else:
                 result = self._predictor.predict(df)

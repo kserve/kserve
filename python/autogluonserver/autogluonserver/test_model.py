@@ -64,9 +64,15 @@ def _make_v2_request(columns):
 
 
 def test_load_success_sets_ready_and_output_datatype(monkeypatch, tmp_path):
-    predictor = DummyPredictor(features=["f1"], class_labels=[0, 1], problem_type="binary")
-    monkeypatch.setattr("autogluonserver.model.Storage.download", lambda _: str(tmp_path))
-    monkeypatch.setattr("autogluonserver.model.TabularPredictor.load", lambda _: predictor)
+    predictor = DummyPredictor(
+        features=["f1"], class_labels=[0, 1], problem_type="binary"
+    )
+    monkeypatch.setattr(
+        "autogluonserver.model.Storage.download", lambda _: str(tmp_path)
+    )
+    monkeypatch.setattr(
+        "autogluonserver.model.TabularPredictor.load", lambda _: predictor
+    )
 
     model = AutoGluonModel("model", "s3://bucket/path")
     assert model.load()
@@ -202,9 +208,16 @@ def test_get_output_types_for_predict_proba(monkeypatch):
 
 
 def test_determine_prediction_datatype_variants():
-    assert _determine_prediction_datatype(DummyPredictor(class_labels=[0, 1])) == "INT64"
     assert (
-        _determine_prediction_datatype(DummyPredictor(class_labels=[0.1, np.float64(2)]))
+        _determine_prediction_datatype(DummyPredictor(class_labels=[0, 1])) == "INT64"
+    )
+    assert (
+        _determine_prediction_datatype(
+            DummyPredictor(class_labels=[0.1, np.float64(2)])
+        )
         == "FP64"
     )
-    assert _determine_prediction_datatype(DummyPredictor(class_labels=["no", "yes"])) == "BYTES"
+    assert (
+        _determine_prediction_datatype(DummyPredictor(class_labels=["no", "yes"]))
+        == "BYTES"
+    )
