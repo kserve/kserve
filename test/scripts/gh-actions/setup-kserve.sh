@@ -70,6 +70,9 @@ if [[ $ENABLE_LLMISVC == "false" ]]; then
 
   kubectl get events -A
 
+  echo "Waiting for seaweedfs to be ready ..."
+  kubectl rollout status deployment/seaweedfs -n kserve --timeout=120s
+
   echo "Add testing models to s3 storage ..."
   kubectl apply -f config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml -n kserve
   kubectl wait --for=condition=complete --timeout=90s job/s3-init -n kserve
