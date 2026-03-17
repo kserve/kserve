@@ -149,3 +149,23 @@ func TestFileSystemHelper_ensureModelRootFolderExists(t *testing.T) {
 		t.Errorf("expected error due to permission denied, got nil")
 	}
 }
+
+func TestFileSystemHelper_isWritable(t *testing.T) {
+	// Case 1: Writable directory returns true
+	tempDir := t.TempDir()
+	helper := NewFileSystemHelper(tempDir)
+	if !helper.isWritable() {
+		t.Errorf("expected writable temp dir to return true")
+	}
+
+	// Case 2: Read-only directory returns false
+	readOnlyDir := t.TempDir()
+	if err := os.Chmod(readOnlyDir, 0o555); err != nil { //nolint:gosec // intentionally restrictive permissions for test
+		t.Fatalf("failed to chmod: %v", err)
+	}
+	defer os.Chmod(readOnlyDir, 0o755) //nolint
+	helper2 := NewFileSystemHelper(readOnlyDir)
+	if helper2.isWritable() {
+		t.Errorf("expected read-only dir to return false")
+	}
+}

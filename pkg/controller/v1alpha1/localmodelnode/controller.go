@@ -67,7 +67,6 @@ type LocalModelNodeReconciler struct {
 }
 
 const (
-	MountPath             = "/mnt/models" // Volume mount path for models, must be the same as the value in the DaemonSet spec
 	DownloadContainerName = "kserve-localmodel-download"
 	PvcSourceMountName    = "kserve-pvc-source"
 )
@@ -204,6 +203,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 			},
 		},
 	}
+	enhanceDownloadJob(job, storageKey)
 	if err := controllerutil.SetControllerReference(&localModelNode, job, c.Scheme); err != nil {
 		c.Log.Error(err, "Failed to set controller reference", "name", modelInfo.ModelName)
 		return nil, err
@@ -526,10 +526,8 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// fsHelper is a global variable to allow mocking in tests
 	if fsHelper == nil {
 		fsHelper = NewFileSystemHelper(modelsRootFolder)
-		// TODO we need a way to ensure that the local path on persistent volume is the same as the local path of the node agent DaemonSet.
-		err := fsHelper.ensureModelRootFolderExists()
-		if err != nil {
-			panic("Failed to ensure model root folder exists: " + err.Error())
+		if err := fsHelper.ensureModelRootFolderExists(); err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to ensure model root folder: %w", err)
 		}
 	}
 
@@ -575,6 +573,11 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if c.CredentialBuilder == nil {
 		c.CredentialBuilder = credentials.NewCredentialBuilder(c.Client, c.Clientset, isvcConfigMap)
+	}
+
+	result, cont, err := ensureVolumePermissions(ctx, c, localModelConfig)
+	if !cont || err != nil {
+		return result, err
 	}
 
 	if err := c.downloadModels(ctx, &localModelNode); err != nil {
