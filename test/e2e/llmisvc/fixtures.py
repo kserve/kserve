@@ -38,15 +38,11 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "quay.io/pierdipi/vllm-cpu:latest",
+                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
                     "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
-                    },
-                    "securityContext": {
-                        "runAsNonRoot": False,
-                        "runAsUser": 0,
                     },
                 }
             ]
@@ -57,7 +53,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "quay.io/pierdipi/vllm-cpu:latest",
+                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
                     "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
@@ -77,10 +73,6 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "timeoutSeconds": 5,
                         "failureThreshold": 3,
                     },
-                    "securityContext": {
-                        "runAsNonRoot": False,
-                        "runAsUser": 0,
-                    },
                 }
             ]
         },
@@ -89,7 +81,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                 "containers": [
                     {
                         "name": "main",
-                        "image": "quay.io/pierdipi/vllm-cpu:latest",
+                        "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
                         "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
                         "resources": {
                             "limits": {"cpu": "2", "memory": "7Gi"},
@@ -316,7 +308,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "quay.io/pierdipi/vllm-cpu:latest",
+                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
                     "command": ["vllm", "serve", "/mnt/models"],
                     "args": [
                         "--served-model-name",
@@ -339,7 +331,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "containers": [
                 {
                     "name": "main",
-                    "image": "quay.io/pierdipi/vllm-cpu:latest",
+                    "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
                     "command": ["vllm", "serve", "/mnt/models"],
                     "args": [
                         "--served-model-name",
