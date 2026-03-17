@@ -2115,3 +2115,155 @@ func TestValidateBlockedEnvVars(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateConfidential(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	validResourceId := "kbs:///default/key/model-key"
+
+	scenarios := map[string]struct {
+		isvc             InferenceService
+		expectedErr      gomega.OmegaMatcher
+		expectedWarnings gomega.OmegaMatcher
+	}{
+		"confidential nil": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("s3://bucket/model"),
+							},
+						},
+					},
+				},
+			},
+			expectedErr:      gomega.BeNil(),
+			expectedWarnings: gomega.BeEmpty(),
+		},
+		"confidential disabled": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("s3://bucket/model"),
+								Confidential: &ConfidentialSpec{
+									Enabled: false,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr:      gomega.BeNil(),
+			expectedWarnings: gomega.BeEmpty(),
+		},
+		"confidential enabled with storageUri and resourceId": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("s3://bucket/model"),
+								Confidential: &ConfidentialSpec{
+									Enabled:    true,
+									ResourceId: &validResourceId,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr:      gomega.BeNil(),
+			expectedWarnings: gomega.BeEmpty(),
+		},
+		"confidential enabled with storageUri no resourceId": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("s3://bucket/model"),
+								Confidential: &ConfidentialSpec{
+									Enabled: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr:      gomega.BeNil(),
+			expectedWarnings: gomega.BeEmpty(),
+		},
+		"confidential enabled without storageUri": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Confidential: &ConfidentialSpec{
+									Enabled: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr:      gomega.MatchError("confidential model serving requires storageUri to be set"),
+			expectedWarnings: gomega.BeEmpty(),
+		},
+		"confidential enabled with OCI URI warns": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("oci://registry/model:latest"),
+								Confidential: &ConfidentialSpec{
+									Enabled: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr:      gomega.BeNil(),
+			expectedWarnings: gomega.ContainElement(gomega.ContainSubstring("OCI URIs")),
+		},
+		"confidential with malformed resourceId": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("s3://bucket/model"),
+								Confidential: &ConfidentialSpec{
+									Enabled:    true,
+									ResourceId: proto.String("invalid-resource-id"),
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr:      gomega.MatchError(gomega.ContainSubstring("invalid confidential resourceId format")),
+			expectedWarnings: gomega.BeEmpty(),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			validator := InferenceServiceValidator{}
+			warnings, err := validator.ValidateCreate(t.Context(), &scenario.isvc)
+			g.Expect(err).To(scenario.expectedErr)
+			g.Expect(warnings).To(scenario.expectedWarnings)
+		})
+	}
+}

@@ -1056,3 +1056,94 @@ func TestValidateActuatorConsistency(t *testing.T) {
 		require.Empty(t, errs)
 	})
 }
+
+func TestValidateConfidential(t *testing.T) {
+	tests := []struct {
+		name           string
+		confidential   *ConfidentialSpec
+		modelURI       apis.URL
+		wantErrCount   int
+		wantErrStrings []string
+		wantWarnings   []string
+	}{
+		{
+			name:         "nil confidential spec",
+			confidential: nil,
+			modelURI:     apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+			wantErrCount: 0,
+		},
+		{
+			name:         "confidential disabled",
+			confidential: &ConfidentialSpec{Enabled: false},
+			modelURI:     apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+			wantErrCount: 0,
+		},
+		{
+			name:         "confidential enabled with valid resourceId",
+			confidential: &ConfidentialSpec{Enabled: true, ResourceId: ptr.To("kbs:///default/key/model-key")},
+			modelURI:     apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+			wantErrCount: 0,
+		},
+		{
+			name:         "confidential enabled without resourceId",
+			confidential: &ConfidentialSpec{Enabled: true},
+			modelURI:     apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+			wantErrCount: 0,
+		},
+		{
+			name:         "confidential enabled with OCI URI warns",
+			confidential: &ConfidentialSpec{Enabled: true},
+			modelURI:     apis.URL{Scheme: "oci", Host: "registry/model:latest"},
+			wantErrCount: 0,
+			wantWarnings: []string{"OCI URIs"},
+		},
+		{
+			name:           "confidential with malformed resourceId",
+			confidential:   &ConfidentialSpec{Enabled: true, ResourceId: ptr.To("invalid-id")},
+			modelURI:       apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+			wantErrCount:   1,
+			wantErrStrings: []string{"kbs:///<repo>/<type>/<tag>"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validator := &LLMInferenceServiceValidator{}
+			llmSvc := &LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm-isvc",
+					Namespace: "default",
+				},
+				Spec: LLMInferenceServiceSpec{
+					Model: LLMModelSpec{
+						URI:          tt.modelURI,
+						Confidential: tt.confidential,
+					},
+				},
+			}
+			warnings, errs := validator.validateConfidential(llmSvc)
+
+			assert.Len(t, errs, tt.wantErrCount, "expected %d errors, got %d: %v", tt.wantErrCount, len(errs), errs)
+			for _, wantStr := range tt.wantErrStrings {
+				found := false
+				for _, e := range errs {
+					if strings.Contains(e.Error(), wantStr) {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "expected error containing %q, got: %v", wantStr, errs)
+			}
+			for _, wantWarning := range tt.wantWarnings {
+				found := false
+				for _, w := range warnings {
+					if strings.Contains(w, wantWarning) {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "expected warning containing %q, got: %v", wantWarning, warnings)
+			}
+		})
+	}
+}
