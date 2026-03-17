@@ -113,7 +113,7 @@ def test_predict_v1_instances(monkeypatch):
     model._predictor = predictor
     model.ready = True
 
-    response = model.predict({"instances": [{"a": 1, "b": "x"}, {"a": 2, "b": "y"}]})
+    response = model.predict({"instances": [[1, "x"], [2, "y"]]})
     assert response["predictions"] == ["yes", "no"]
     assert predictor.last_df.columns.tolist() == ["a", "b"]
 
@@ -138,6 +138,56 @@ def test_predict_v2_success_decodes_bytes_and_returns_int64():
     assert infer_dict["outputs"][0]["datatype"] == "INT64"
     assert infer_dict["outputs"][0]["data"] == [1, 0]
     assert predictor.last_df["f2"].tolist() == ["x", "y"]
+
+
+def test_predict_v2_uses_predict_proba_when_enabled(monkeypatch):
+    predictor = DummyPredictor(
+        features=["f1", "f2"],
+        class_labels=["yes", "no"],
+        problem_type="binary",
+        predict_result=pd.Series(["yes", "no"]),
+        predict_proba_result=pd.DataFrame({"yes": [0.7, 0.2], "no": [0.3, 0.8]}),
+    )
+    model = AutoGluonModel("model", "/tmp/model")
+    model._predictor = predictor
+    model._prediction_datatype = "BYTES"
+    model.ready = True
+
+    monkeypatch.setenv("PREDICT_PROBA", "true")
+    request = _make_v2_request({"f1": [1.0, 2.0], "f2": [b"x", b"y"]})
+    infer_response = model.predict(request)
+    infer_dict, _ = infer_response.to_rest()
+
+    assert [output["name"] for output in infer_dict["outputs"]] == [
+        "proba_yes",
+        "proba_no",
+    ]
+    assert all(output["datatype"] == "FP64" for output in infer_dict["outputs"])
+    assert infer_dict["outputs"][0]["data"] == pytest.approx([0.7, 0.2])
+    assert infer_dict["outputs"][1]["data"] == pytest.approx([0.3, 0.8])
+    assert predictor.last_df["f2"].tolist() == ["x", "y"]
+
+
+def test_predict_v1_uses_predict_proba_when_enabled(monkeypatch):
+    predictor = DummyPredictor(
+        features=["f1", "f2"],
+        class_labels=["yes", "no"],
+        problem_type="binary",
+        predict_result=pd.Series(["yes", "no"]),
+        predict_proba_result=pd.DataFrame({"yes": [0.61, 0.42], "no": [0.39, 0.58]}),
+    )
+    model = AutoGluonModel("model", "/tmp/model")
+    model._predictor = predictor
+    model.ready = True
+
+    monkeypatch.setenv("PREDICT_PROBA", "true")
+    response = model.predict({"instances": [[1.0, "x"], [2.0, "y"]]})
+
+    assert response["predictions"] == [
+        {"yes": 0.61, "no": 0.39},
+        {"yes": 0.42, "no": 0.58},
+    ]
+    assert predictor.last_df.columns.tolist() == ["f1", "f2"]
 
 
 def test_predict_v2_missing_feature_raises_inference_error():
