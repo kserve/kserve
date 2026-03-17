@@ -626,7 +626,6 @@ export RELEASE
 # Version Dependencies (from kserve-deps.env)
 #================================================
 
-OVERRIDE_KEDA_VERSION=2.17.3 # CVE-2025-68476 fix (CVSS 8.2, HIGH) - Helm chart only has 2.17.1
 GOLANGCI_LINT_VERSION=v2.9.0
 CONTROLLER_TOOLS_VERSION=v0.19.0
 ENVTEST_VERSION=latest
