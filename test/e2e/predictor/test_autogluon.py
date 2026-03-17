@@ -29,10 +29,10 @@ from kserve import (
 )
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
 
-AUTOGLOUON_STORAGE_URI = os.getenv(
-    "AUTOGLOUON_STORAGE_URI", "gs://test-project-frog-ml-artifacts/predictor/"
+AUTOGLUON_STORAGE_URI = os.getenv(
+    "AUTOGLUON_STORAGE_URI", "gs://test-project-frog-ml-artifacts/predictor/"
 )
-AUTOGLOUON_RESOURCES = V1ResourceRequirements(
+AUTOGLUON_RESOURCES = V1ResourceRequirements(
     requests={"cpu": "100m", "memory": "1Gi"},
     limits={"cpu": "1", "memory": "2Gi"},
 )
@@ -55,8 +55,8 @@ def _create_predictor(
     model = V1beta1ModelSpec(
         model_format=V1beta1ModelFormat(name="autogluon"),
         runtime="kserve-autogluonserver",
-        storage_uri=storage_uri or AUTOGLOUON_STORAGE_URI,
-        resources=AUTOGLOUON_RESOURCES,
+        storage_uri=storage_uri or AUTOGLUON_STORAGE_URI,
+        resources=AUTOGLUON_RESOURCES,
     )
     if protocol_version:
         model.protocol_version = protocol_version
@@ -146,7 +146,7 @@ async def test_autogluon_runtime_kserve_v2_storage_uri_without_trailing_slash(
     rest_v2_client,
 ):
     service_name = "isvc-autogluon-v2-noslash"
-    storage_uri = AUTOGLOUON_STORAGE_URI.rstrip("/")
+    storage_uri = AUTOGLUON_STORAGE_URI.rstrip("/")
     predictor = _create_predictor(
         service_name, protocol_version="v2", storage_uri=storage_uri
     )
