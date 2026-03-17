@@ -81,6 +81,7 @@ from kserve.models.v1beta1_autoscaler_config import V1beta1AutoscalerConfig
 from kserve.models.v1beta1_batcher import V1beta1Batcher
 from kserve.models.v1beta1_component_extension_spec import V1beta1ComponentExtensionSpec
 from kserve.models.v1beta1_component_status_spec import V1beta1ComponentStatusSpec
+from kserve.models.v1beta1_confidential_spec import V1beta1ConfidentialSpec
 from kserve.models.v1beta1_custom_explainer import V1beta1CustomExplainer
 from kserve.models.v1beta1_custom_predictor import V1beta1CustomPredictor
 from kserve.models.v1beta1_custom_transformer import V1beta1CustomTransformer
