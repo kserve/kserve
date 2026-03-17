@@ -1,0 +1,146 @@
+name: Prepare Release (Branch & Tag)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v0.17.0-rc0, v0.17.0-rc1, v0.17.0)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry-run mode (validate only, no changes)'
+        required: false
+        type: boolean
+        default: true
+
+# Prevent concurrent releases
+concurrency:
+  group: release-workflow
+  cancel-in-progress: false
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          # Install yq for OWNERS file parsing
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Check OWNERS permissions
+        run: |
+          echo "Checking permissions for user: ${{ github.actor }}"
+
+          # Extract allowed users from OWNERS file
+          ALLOWED_USERS=$(yq eval '.project-leads[], .approvers[], .reviewers[]' OWNERS)
+
+          # Check if current user is in the allowed list
+          if ! echo "$ALLOWED_USERS" | grep -q "^${{ github.actor }}$"; then
+            echo ""
+            echo "❌ Permission denied!"
+            echo "   Only users listed in OWNERS (reviewer+) can run this workflow."
+            echo "   Current user: ${{ github.actor }}"
+            echo ""
+            echo "Allowed users:"
+            echo "$ALLOWED_USERS"
+            exit 1
+          fi
+
+          echo "✅ Permission granted for ${{ github.actor }}"
+
+      - name: Check if release already exists
+        if: ${{ inputs.dry_run == false }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ inputs.version }}"
+
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo ""
+            echo "❌ Release $VERSION already exists!"
+            echo ""
+            gh release view "$VERSION" --json url,createdAt -q '"URL: " + .url + "\nCreated: " + .createdAt'
+            exit 1
+          fi
+
+          echo "✅ Release $VERSION does not exist yet"
+
+      - name: Create Branch and Tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            ./hack/release/create-release.sh "${{ inputs.version }}" --dry-run --github-actions
+          else
+            ./hack/release/create-release.sh "${{ inputs.version }}" --github-actions
+          fi
+
+      - name: Create Draft GitHub Release
+        if: ${{ inputs.dry_run == false }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ inputs.version }}"
+
+          # Check if version contains rc (pre-release)
+          if [[ "$VERSION" == *"-rc"* ]]; then
+            PRERELEASE="--prerelease"
+            echo "Creating draft pre-release for $VERSION"
+          else
+            PRERELEASE=""
+            echo "Creating draft final release for $VERSION"
+          fi
+
+          # Get previous tag for changelog
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          # Generate auto-generated notes from GitHub
+          echo "Generating release notes..."
+          AUTO_NOTES=$(gh api repos/:owner/:repo/releases/generate-notes \
+            -F tag_name="$VERSION" \
+            -F target_commitish="$(git rev-parse HEAD)" \
+            ${PREV_TAG:+-F previous_tag_name="$PREV_TAG"} \
+            --jq .body)
+
+          # Create release notes
+          RELEASE_NOTES=$(cat <<EOF
+          ## Installation
+
+          - [Installation Guide](https://kserve.github.io/website/docs/next/getting-started/quickstart-guide)
+
+          ${AUTO_NOTES}
+          EOF
+          )
+
+          # Create GitHub Release with install files
+          gh release create "$VERSION" \
+            --title "KServe $VERSION" \
+            --notes "$RELEASE_NOTES" \
+            --draft \
+            $PRERELEASE \
+            install/${VERSION}/*
+
+          echo ""
+          echo "✅ GitHub Draft Release created successfully!"
+          echo ""
+          echo "Release details:"
+          echo "  Version: $VERSION"
+          echo "  Type: ${PRERELEASE:+Pre-release}${PRERELEASE:-Final release}"
+          echo "  Status: Draft (requires manual publish)"
+          echo ""
+          echo "Next steps:"
+          echo "  1. Review the draft release at:"
+          gh release view "$VERSION" --json url -q .url
+          echo ""
+          echo "  2. When ready, publish the release to trigger:"
+          echo "     - Helm charts publication (helm-publish workflow)"
+          echo "     - Python packages publication (python-publish workflow)"

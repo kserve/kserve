@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,23 +35,48 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 )
 
+// expectURLs returns an assert function that expects no error and exact URL match
+func expectURLs(expected ...string) func(g Gomega, urls []string, err error) {
+	return func(g Gomega, urls []string, err error) {
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(urls).To(Equal(expected))
+	}
+}
+
+// expectURLsContain returns an assert function that expects no error and URLs containing the expected elements
+func expectURLsContain(expected ...string) func(g Gomega, urls []string, err error) {
+	return func(g Gomega, urls []string, err error) {
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(urls).To(ContainElements(expected))
+	}
+}
+
+// expectError returns an assert function that expects an error matching the predicate
+func expectError(check func(error) bool) func(g Gomega, urls []string, err error) {
+	return func(g Gomega, urls []string, err error) {
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(check(err)).To(BeTrue(), "Error check failed for: %v", err)
+	}
+}
+
 func TestDiscoverURLs(t *testing.T) {
 	tests := []struct {
 		name               string
 		route              *gwapiv1.HTTPRoute
-		gateway            *gwapiv1.Gateway
-		additionalGateways []*gwapiv1.Gateway // Additional gateways for multiple parent refs test
-		expectedURLs       []string           // Always expect multiple URLs, single URL cases will have length 1
-		expectedErrorCheck func(error) bool
+		gateways           []*gwapiv1.Gateway
+		services           []*corev1.Service
+		preferredUrlScheme string
+		assert             func(g Gomega, urls []string, err error)
 	}{
+		// ===== Basic address resolution =====
 		{
 			name: "basic external address resolution",
 			route: HTTPRoute("test-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
 				WithParentRef(GatewayRef("test-gateway", RefInNamespace("test-ns"))),
 			),
-			gateway:      HTTPGateway("test-gateway", "test-ns", "203.0.113.1"),
-			expectedURLs: []string{"http://203.0.113.1/"},
+			gateways: []*gwapiv1.Gateway{HTTPGateway("test-gateway", "test-ns", "203.0.113.1")},
+			assert:   expectURLs("http://203.0.113.1/"),
 		},
 		{
 			name: "address ordering consistency - same addresses different order",
@@ -58,47 +84,35 @@ func TestDiscoverURLs(t *testing.T) {
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
 				WithParentRef(GatewayRef("consistency-gateway", RefInNamespace("test-ns"))),
 			),
-			gateway: Gateway("consistency-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListener(gwapiv1.HTTPProtocolType),
-				WithAddresses([]string{"203.0.113.200", "203.0.113.100"}...),
-			),
-			expectedURLs: []string{
-				"http://203.0.113.100/",
-				"http://203.0.113.200/",
+			gateways: []*gwapiv1.Gateway{
+				Gateway("consistency-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListener(gwapiv1.HTTPProtocolType),
+					WithAddresses("203.0.113.200", "203.0.113.100"),
+				),
 			},
+			assert: expectURLs("http://203.0.113.100/", "http://203.0.113.200/"),
 		},
+		// ===== Hostname handling =====
 		{
-			name: "mixed internal and external addresses - deterministic selection",
-			route: HTTPRoute("mixed-route",
-				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
-				WithParentRef(GatewayRef("mixed-gateway", RefInNamespace("test-ns"))),
-			),
-			gateway: Gateway("mixed-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListener(gwapiv1.HTTPProtocolType),
-				WithAddresses("192.168.1.10", "203.0.113.50", "10.0.0.20", "203.0.113.25"),
-			),
-			expectedURLs: []string{
-				"http://10.0.0.20/",
-				"http://192.168.1.10/",
-				"http://203.0.113.25/",
-				"http://203.0.113.50/",
-			},
-		},
-		{
-			name: "route hostname override",
+			name: "route hostname within listener wildcard",
 			route: HTTPRoute("hostname-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
 				WithParentRef(GatewayRef("hostname-gateway", RefInNamespace("test-ns"))),
 				WithHostnames("api.example.com"),
 			),
-			gateway: Gateway("hostname-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListener(gwapiv1.HTTPProtocolType),
-				WithAddresses([]string{"203.0.113.1"}...),
-			),
-			expectedURLs: []string{"http://api.example.com/"},
+			gateways: []*gwapiv1.Gateway{
+				Gateway("hostname-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+						Hostname: ptr.To(gwapiv1.Hostname("*.example.com")),
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("http://api.example.com/"),
 		},
 		{
 			name: "route wildcard hostname - use gateway address",
@@ -107,53 +121,207 @@ func TestDiscoverURLs(t *testing.T) {
 				WithParentRef(GatewayRef("wildcard-gateway", RefInNamespace("test-ns"))),
 				WithHostnames("*"),
 			),
-			gateway: Gateway("wildcard-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListener(gwapiv1.HTTPProtocolType),
-				WithAddresses("203.0.113.100"),
-			),
-			expectedURLs: []string{"http://203.0.113.100/"},
+			gateways: []*gwapiv1.Gateway{
+				Gateway("wildcard-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListener(gwapiv1.HTTPProtocolType),
+					WithAddresses("203.0.113.100"),
+				),
+			},
+			assert: expectURLs("http://203.0.113.100/"),
 		},
 		{
 			name: "multiple hostnames - generates multiple URLs",
 			route: HTTPRoute("multi-hostname-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
 				WithParentRef(GatewayRef("multi-hostname-gateway", RefInNamespace("test-ns"))),
-				WithHostnames("*", "", "api.example.com", "alt.example.com"),
+				WithHostnames("api.example.com", "alt.example.com"),
 			),
-			gateway: Gateway("multi-hostname-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListener(gwapiv1.HTTPProtocolType),
-				WithAddresses("203.0.113.1"),
-			),
-			expectedURLs: []string{
-				"http://alt.example.com/",
-				"http://api.example.com/",
+			gateways: []*gwapiv1.Gateway{
+				Gateway("multi-hostname-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+						Hostname: ptr.To(gwapiv1.Hostname("*.example.com")),
+					}),
+					WithAddresses("203.0.113.1"),
+				),
 			},
+			assert: expectURLs("http://alt.example.com/", "http://api.example.com/"),
 		},
+
+		// ===== Path handling =====
 		{
 			name: "custom path extraction",
 			route: HTTPRoute("path-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
 				WithParentRef(GatewayRef("path-gateway", RefInNamespace("test-ns"))),
-				WithPath("/api/v1/models"),
+				WithPath("/api/v1"),
 			),
-			gateway: Gateway("path-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListener(gwapiv1.HTTPProtocolType),
-				WithAddresses("203.0.113.1"),
-			),
-			expectedURLs: []string{"http://203.0.113.1/api/v1/models"},
+			gateways: []*gwapiv1.Gateway{HTTPGateway("path-gateway", "test-ns", "203.0.113.1")},
+			assert:   expectURLs("http://203.0.113.1/api/v1"),
 		},
+		{
+			name: "multi-rule path extraction - prefers Service-backed rule path",
+			route: HTTPRoute("multi-rule-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("multi-rule-gateway", RefInNamespace("test-ns"))),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name/v1/completions")),
+					WithBackendRefs(BackendRefInferencePool("pool")),
+				),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name/v1/chat/completions")),
+					WithBackendRefs(BackendRefInferencePool("pool")),
+				),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name")),
+					WithBackendRefs(BackendRefService("svc")),
+				),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("multi-rule-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListener(gwapiv1.HTTPProtocolType),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("http://203.0.113.1/ns/name"),
+		},
+		{
+			name: "multi-rule path extraction - falls back to shortest when no Service backend",
+			route: HTTPRoute("no-svc-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("no-svc-gateway", RefInNamespace("test-ns"))),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name/v1/completions")),
+					WithBackendRefs(BackendRefInferencePool("pool")),
+				),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name/v1/chat/completions")),
+					WithBackendRefs(BackendRefInferencePool("pool")),
+				),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("no-svc-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListener(gwapiv1.HTTPProtocolType),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("http://203.0.113.1/ns/name/v1/completions"),
+		},
+		{
+			name: "multi-rule path extraction - Service with default Kind (nil)",
+			route: HTTPRoute("default-kind-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("default-kind-gateway", RefInNamespace("test-ns"))),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name/v1/completions")),
+					WithBackendRefs(BackendRefInferencePool("pool")),
+				),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name")),
+					WithBackendRefs(gwapiv1.HTTPBackendRef{
+						BackendRef: gwapiv1.BackendRef{
+							BackendObjectReference: gwapiv1.BackendObjectReference{
+								// Kind nil defaults to "Service" per Gateway API spec
+								Name: "svc",
+								Port: ptr.To(gwapiv1.PortNumber(8000)),
+							},
+						},
+					}),
+				),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("default-kind-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListener(gwapiv1.HTTPProtocolType),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("http://203.0.113.1/ns/name"),
+		},
+		{
+			name: "multi-rule path extraction - nil match.Path is skipped",
+			route: HTTPRoute("nil-path-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("nil-path-gateway", RefInNamespace("test-ns"))),
+				WithHTTPRule(
+					Matches(gwapiv1.HTTPRouteMatch{
+						// No Path set - header-only match
+						Headers: []gwapiv1.HTTPHeaderMatch{{
+							Name:  "x-custom",
+							Value: "val",
+						}},
+					}),
+					WithBackendRefs(BackendRefService("svc")),
+				),
+				WithHTTPRule(
+					Matches(PathPrefixMatch("/ns/name")),
+					WithBackendRefs(BackendRefService("svc")),
+				),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("nil-path-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListener(gwapiv1.HTTPProtocolType),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("http://203.0.113.1/ns/name"),
+		},
+		{
+			name: "empty route rules - default path",
+			route: HTTPRoute("empty-rules-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("empty-rules-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{HTTPGateway("empty-rules-gateway", "test-ns", "203.0.113.1")},
+			assert:   expectURLs("http://203.0.113.1/"),
+		},
+
+		// ===== Scheme from listener =====
 		{
 			name: "HTTPS scheme from gateway listener",
 			route: HTTPRoute("https-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
 				WithParentRef(GatewayRef("https-gateway", RefInNamespace("test-ns"))),
 			),
-			gateway:      HTTPSGateway("https-gateway", "test-ns", "203.0.113.1"),
-			expectedURLs: []string{"https://203.0.113.1/"},
+			gateways: []*gwapiv1.Gateway{HTTPSGateway("https-gateway", "test-ns", "203.0.113.1")},
+			assert:   expectURLs("https://203.0.113.1/"),
 		},
+		{
+			name: "TLS protocol listener uses HTTPS scheme",
+			route: HTTPRoute("tls-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("tls-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("tls-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "tls",
+						Protocol: gwapiv1.TLSProtocolType,
+						Port:     443,
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("https://203.0.113.1/"),
+		},
+		{
+			name: "IPv6 gateway address - brackets in URL",
+			route: HTTPRoute("ipv6-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("ipv6-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{HTTPGateway("ipv6-gateway", "test-ns", "2001:db8::1")},
+			assert:   expectURLs("http://[2001:db8::1]/"),
+		},
+
+		// ===== Multiple parent refs =====
 		{
 			name: "multiple parent refs - sorted selection",
 			route: HTTPRoute("multi-parent-route",
@@ -164,12 +332,12 @@ func TestDiscoverURLs(t *testing.T) {
 					GatewayRef("b-gateway", RefInNamespace("a-namespace")),
 				),
 			),
-			gateway: Gateway("a-gateway",
-				InNamespace[*gwapiv1.Gateway]("a-namespace"),
-				WithListener(gwapiv1.HTTPProtocolType),
-				WithAddresses([]string{"203.0.113.1"}...),
-			),
-			additionalGateways: []*gwapiv1.Gateway{
+			gateways: []*gwapiv1.Gateway{
+				Gateway("a-gateway",
+					InNamespace[*gwapiv1.Gateway]("a-namespace"),
+					WithListener(gwapiv1.HTTPProtocolType),
+					WithAddresses("203.0.113.1"),
+				),
 				Gateway("z-gateway",
 					InNamespace[*gwapiv1.Gateway]("z-namespace"),
 					WithListener(gwapiv1.HTTPProtocolType),
@@ -181,191 +349,182 @@ func TestDiscoverURLs(t *testing.T) {
 					WithAddresses("203.0.113.3"),
 				),
 			},
-			expectedURLs: []string{
+			assert: expectURLs(
 				"http://203.0.113.2/",
 				"http://203.0.113.1/",
 				"http://203.0.113.3/",
+			),
+		},
+		{
+			name: "route with multiple parent refs to different gateways",
+			route: HTTPRoute("multi-gateway-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRefs(
+					gwapiv1.ParentReference{
+						Name:      "gateway-a",
+						Namespace: ptr.To(gwapiv1.Namespace("gw-ns")),
+						Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+						Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+					},
+					gwapiv1.ParentReference{
+						Name:      "gateway-b",
+						Namespace: ptr.To(gwapiv1.Namespace("gw-ns")),
+						Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+						Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+					},
+				),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("gateway-a",
+					InNamespace[*gwapiv1.Gateway]("gw-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "https",
+						Protocol: gwapiv1.HTTPSProtocolType,
+						Port:     443,
+					}),
+					WithAddresses("gateway-a.example.com"),
+				),
+				Gateway("gateway-b",
+					InNamespace[*gwapiv1.Gateway]("gw-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "http",
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     8080,
+					}),
+					WithAddresses("gateway-b.example.com"),
+				),
 			},
+			assert: expectURLsContain(
+				"https://gateway-a.example.com/",
+				"http://gateway-b.example.com:8080/",
+			),
 		},
 		{
 			name: "parent ref without namespace - use route namespace",
 			route: HTTPRoute("no-ns-route",
 				InNamespace[*gwapiv1.HTTPRoute]("route-ns"),
-				WithParentRef(GatewayRefWithoutNamespace("no-ns-gateway")),
+				WithParentRef(GatewayRef("same-ns-gateway")),
 			),
-			gateway: Gateway("no-ns-gateway",
-				InNamespace[*gwapiv1.Gateway]("route-ns"),
-				WithListener(gwapiv1.HTTPProtocolType),
-				WithAddresses("203.0.113.1"),
-			),
-			expectedURLs: []string{"http://203.0.113.1/"},
+			gateways: []*gwapiv1.Gateway{HTTPGateway("same-ns-gateway", "route-ns", "203.0.113.1")},
+			assert:   expectURLs("http://203.0.113.1/"),
 		},
+
+		// ===== Address types =====
 		{
-			name: "no external addresses - custom ExternalAddressNotFoundError",
-			route: HTTPRoute("no-external-route",
+			name: "private addresses only - still returns URLs",
+			route: HTTPRoute("private-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
-				WithParentRef(GatewayRef("no-external-addresses-gateway", RefInNamespace("test-ns"))),
+				WithParentRef(GatewayRef("private-gateway", RefInNamespace("test-ns"))),
 			),
-			gateway: Gateway("no-external-addresses-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListener(gwapiv1.HTTPProtocolType),
-				WithAddresses("192.168.1.10", "10.0.0.20"),
-			),
-			expectedURLs: []string{
-				"http://10.0.0.20/",
-				"http://192.168.1.10/",
+			gateways: []*gwapiv1.Gateway{
+				Gateway("private-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListener(gwapiv1.HTTPProtocolType),
+					WithAddresses("192.168.1.100", "10.0.0.50"),
+				),
 			},
+			assert: expectURLs("http://10.0.0.50/", "http://192.168.1.100/"),
 		},
-		{
-			name: "gateway not found should cause not found error",
-			route: HTTPRoute("missing-gw-route",
-				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
-				WithParentRef(GatewayRef("missing-gateway", RefInNamespace("test-ns"))),
-			),
-			expectedErrorCheck: apierrors.IsNotFound,
-		},
-		{
-			name: "empty route rules - default path",
-			route: HTTPRoute("empty-rules-route",
-				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
-				WithParentRef(GatewayRef("empty-rules-gateway", RefInNamespace("test-ns"))),
-				WithRules(), // Empty rules
-			),
-			gateway: Gateway("empty-rules-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListener(gwapiv1.HTTPProtocolType),
-				WithAddresses("203.0.113.1"),
-			),
-			expectedURLs: []string{"http://203.0.113.1/"},
-		},
-		// Hostname address type tests
 		{
 			name: "hostname addresses - basic resolution",
-			route: HTTPRoute("hostname-route",
+			route: HTTPRoute("hostname-addr-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
-				WithParentRef(GatewayRef("hostname-gateway", RefInNamespace("test-ns"))),
+				WithParentRef(GatewayRef("hostname-addr-gateway", RefInNamespace("test-ns"))),
 			),
-			gateway: Gateway("hostname-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListener(gwapiv1.HTTPProtocolType),
-				WithHostnameAddresses("api.example.com"),
-			),
-			expectedURLs: []string{"http://api.example.com/"},
+			gateways: []*gwapiv1.Gateway{
+				Gateway("hostname-addr-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListener(gwapiv1.HTTPProtocolType),
+					WithHostnameAddresses("api.example.com", "lb.example.com"),
+				),
+			},
+			assert: expectURLs("http://api.example.com/", "http://lb.example.com/"),
 		},
 		{
 			name: "mixed hostname and IP addresses - deterministic selection",
-			route: HTTPRoute("mixed-types-route",
+			route: HTTPRoute("mixed-addr-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
-				WithParentRef(GatewayRef("mixed-types-gateway", RefInNamespace("test-ns"))),
+				WithParentRef(GatewayRef("mixed-addr-gateway", RefInNamespace("test-ns"))),
 			),
-			gateway: Gateway("mixed-types-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListener(gwapiv1.HTTPProtocolType),
-				WithMixedAddresses(
-					HostnameAddress("z.example.com"),
-					IPAddress("203.0.113.1"),
-					HostnameAddress("api.example.com"),
-					IPAddress("198.51.100.1"),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("mixed-addr-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListener(gwapiv1.HTTPProtocolType),
+					WithMixedAddresses(
+						IPAddress("203.0.113.1"),
+						HostnameAddress("api.example.com"),
+						HostnameAddress("lb.example.com"),
+					),
 				),
-			),
-			expectedURLs: []string{
-				"http://198.51.100.1/",
+			},
+			assert: expectURLs(
 				"http://203.0.113.1/",
 				"http://api.example.com/",
-				"http://z.example.com/",
-			},
+				"http://lb.example.com/",
+			),
+		},
+		// ===== Error cases =====
+		{
+			name: "gateway not found should cause not found error",
+			route: HTTPRoute("nonexistent-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("nonexistent-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: nil,
+			assert:   expectError(apierrors.IsNotFound),
 		},
 		{
-			name: "hostname addresses with internal hostnames filtered",
-			route: HTTPRoute("internal-hostname-route",
+			name: "no addresses at all - NoURLsDiscoveredError",
+			route: HTTPRoute("no-addr-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
-				WithParentRef(GatewayRef("internal-hostname-gateway", RefInNamespace("test-ns"))),
+				WithParentRef(GatewayRef("no-addr-gateway", RefInNamespace("test-ns"))),
 			),
-			gateway: Gateway("internal-hostname-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListener(gwapiv1.HTTPProtocolType),
-				WithMixedAddresses(
-					HostnameAddress("localhost"),
-					HostnameAddress("service.local"),
-					HostnameAddress("app.internal"),
-					HostnameAddress("api.example.com"),
-					HostnameAddress("backup.example.com"),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("no-addr-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListener(gwapiv1.HTTPProtocolType),
 				),
-			),
-			expectedURLs: []string{
-				"http://api.example.com/",
-				"http://app.internal/",
-				"http://backup.example.com/",
-				"http://localhost/",
-				"http://service.local/",
 			},
+			assert: expectError(llmisvc.IsNoURLsDiscovered),
 		},
 		{
-			name: "only internal addresses (IP + hostnames) - ExternalAddressNotFoundError",
-			route: HTTPRoute("only-internal-route",
+			name: "gateway with only TCP listeners returns error",
+			route: HTTPRoute("test-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
-				WithParentRef(GatewayRef("only-internal-gateway", RefInNamespace("test-ns"))),
+				WithParentRef(GatewayRef("test-gateway", RefInNamespace("test-ns"))),
 			),
-			gateway: Gateway("only-internal-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListener(gwapiv1.HTTPProtocolType),
-				WithMixedAddresses(
-					IPAddress("192.168.1.10"),
-					IPAddress("10.0.0.20"),
-					HostnameAddress("localhost"),
-					HostnameAddress("app.local"),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("test-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "tcp-listener",
+						Protocol: gwapiv1.TCPProtocolType,
+						Port:     9000,
+					}),
+					WithAddresses("203.0.113.1"),
 				),
-			),
-			expectedURLs: []string{
-				"http://10.0.0.20/",
-				"http://192.168.1.10/",
-				"http://app.local/",
-				"http://localhost/",
 			},
+			assert: expectError(func(err error) bool { return err != nil }),
 		},
-		{
-			name: "backwards compatibility - nil Type defaults to IP behavior",
-			route: HTTPRoute("nil-type-route",
-				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
-				WithParentRef(GatewayRef("nil-type-gateway", RefInNamespace("test-ns"))),
-			),
-			gateway: Gateway("nil-type-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListener(gwapiv1.HTTPProtocolType),
-				WithAddresses("203.0.113.1", "192.168.1.10"),
-			),
-			expectedURLs: []string{
-				"http://192.168.1.10/",
-				"http://203.0.113.1/",
-			},
-		},
-		{
-			name: "no addresses at all - ExternalAddressNotFoundError",
-			route: HTTPRoute("no-addresses-route",
-				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
-				WithParentRef(GatewayRef("no-addresses-gateway", RefInNamespace("test-ns"))),
-			),
-			gateway: Gateway("no-addresses-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListener(gwapiv1.HTTPProtocolType),
-			),
-			expectedErrorCheck: llmisvc.IsExternalAddressNotFound,
-		},
+
+		// ===== Port handling =====
 		{
 			name: "custom port handling - non-standard HTTP port",
 			route: HTTPRoute("custom-port-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
 				WithParentRef(GatewayRef("custom-port-gateway", RefInNamespace("test-ns"))),
 			),
-			gateway: Gateway("custom-port-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListeners(gwapiv1.Listener{
-					Protocol: gwapiv1.HTTPProtocolType,
-					Port:     8080,
-				}),
-				WithAddresses("203.0.113.1"),
-			),
-			expectedURLs: []string{"http://203.0.113.1:8080/"},
+			gateways: []*gwapiv1.Gateway{
+				Gateway("custom-port-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     8080,
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("http://203.0.113.1:8080/"),
 		},
 		{
 			name: "custom port handling - non-standard HTTPS port",
@@ -374,15 +533,17 @@ func TestDiscoverURLs(t *testing.T) {
 				WithParentRef(GatewayRef("custom-https-port-gateway", RefInNamespace("test-ns"))),
 				WithHostnames("secure.example.com"),
 			),
-			gateway: Gateway("custom-https-port-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListeners(gwapiv1.Listener{
-					Protocol: gwapiv1.HTTPSProtocolType,
-					Port:     8443,
-				}),
-				WithAddresses("203.0.113.1"),
-			),
-			expectedURLs: []string{"https://secure.example.com:8443/"},
+			gateways: []*gwapiv1.Gateway{
+				Gateway("custom-https-port-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Protocol: gwapiv1.HTTPSProtocolType,
+						Port:     8443,
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("https://secure.example.com:8443/"),
 		},
 		{
 			name: "standard ports omitted - HTTP port 80",
@@ -390,102 +551,803 @@ func TestDiscoverURLs(t *testing.T) {
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
 				WithParentRef(GatewayRef("standard-http-gateway", RefInNamespace("test-ns"))),
 			),
-			gateway: Gateway("standard-http-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListeners(gwapiv1.Listener{
-					Protocol: gwapiv1.HTTPProtocolType,
-					Port:     80,
-				}),
-				WithAddresses("203.0.113.1"),
-			),
-			expectedURLs: []string{"http://203.0.113.1/"},
+			gateways: []*gwapiv1.Gateway{
+				Gateway("standard-http-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("http://203.0.113.1/"),
 		},
 		{
 			name: "standard ports omitted - HTTPS port 443",
 			route: HTTPRoute("standard-https-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
 				WithParentRef(GatewayRef("standard-https-gateway", RefInNamespace("test-ns"))),
-				WithHostnames("secure.example.com"),
 			),
-			gateway: Gateway("standard-https-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListeners(gwapiv1.Listener{
-					Protocol: gwapiv1.HTTPSProtocolType,
-					Port:     443,
-				}),
-				WithAddresses("203.0.113.1"),
-			),
-			expectedURLs: []string{"https://secure.example.com/"},
+			gateways: []*gwapiv1.Gateway{
+				Gateway("standard-https-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Protocol: gwapiv1.HTTPSProtocolType,
+						Port:     443,
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("https://203.0.113.1/"),
 		},
+
+		// ===== sectionName listener selection =====
 		{
-			name: "sectionName selects specific listener",
-			route: HTTPRoute("section-route",
+			name: "sectionName isolates to specific listener - no leakage from other listeners",
+			route: HTTPRoute("test-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
 				WithParentRef(gwapiv1.ParentReference{
 					Name:        "multi-listener-gateway",
-					Namespace:   ptr.To(gwapiv1.Namespace("test-ns")),
-					SectionName: ptr.To(gwapiv1.SectionName("https-listener")),
+					Namespace:   ptr.To(gwapiv1.Namespace("gw-ns")),
+					SectionName: ptr.To(gwapiv1.SectionName("http")),
 					Group:       ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
 					Kind:        ptr.To(gwapiv1.Kind("Gateway")),
 				}),
-				WithHostnames("secure.example.com"),
 			),
-			gateway: Gateway("multi-listener-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListeners(
-					gwapiv1.Listener{
-						Name:     "http-listener",
-						Protocol: gwapiv1.HTTPProtocolType,
-						Port:     80,
-					},
-					gwapiv1.Listener{
-						Name:     "https-listener",
-						Protocol: gwapiv1.HTTPSProtocolType,
-						Port:     443,
-					},
+			gateways: []*gwapiv1.Gateway{
+				Gateway("multi-listener-gateway",
+					InNamespace[*gwapiv1.Gateway]("gw-ns"),
+					WithListeners(
+						gwapiv1.Listener{
+							Name:     "http",
+							Protocol: gwapiv1.HTTPProtocolType,
+							Port:     80,
+							Hostname: ptr.To(gwapiv1.Hostname("http.example.com")),
+						},
+						gwapiv1.Listener{
+							Name:     "https",
+							Protocol: gwapiv1.HTTPSProtocolType,
+							Port:     443,
+							Hostname: ptr.To(gwapiv1.Hostname("https.example.com")),
+						},
+						gwapiv1.Listener{
+							Name:     "internal",
+							Protocol: gwapiv1.HTTPProtocolType,
+							Port:     8080,
+							Hostname: ptr.To(gwapiv1.Hostname("internal.example.com")),
+						},
+					),
+					WithAddresses("203.0.113.1"),
 				),
-				WithAddresses("203.0.113.1"),
+			},
+			assert: func(g Gomega, urls []string, err error) {
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(urls).To(Equal([]string{"http://http.example.com/"}))
+				g.Expect(urls).ToNot(ContainElement(ContainSubstring("https.example.com")))
+				g.Expect(urls).ToNot(ContainElement(ContainSubstring("internal.example.com")))
+			},
+		},
+
+		// ===== Comprehensive URL generation =====
+		{
+			name: "sectionName does not match any listener - should error, not silently use wrong listener",
+			route: HTTPRoute("mismatched-section-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(gwapiv1.ParentReference{
+					Name:        "mismatched-section-gateway",
+					Namespace:   ptr.To(gwapiv1.Namespace("test-ns")),
+					SectionName: ptr.To(gwapiv1.SectionName("nonexistent-listener")),
+					Group:       ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:        ptr.To(gwapiv1.Kind("Gateway")),
+				}),
+				WithHostnames("api.example.com"),
 			),
-			expectedURLs: []string{"https://secure.example.com/"},
+			gateways: []*gwapiv1.Gateway{
+				Gateway("mismatched-section-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(
+						gwapiv1.Listener{
+							Name:     "http-listener",
+							Protocol: gwapiv1.HTTPProtocolType,
+							Port:     80,
+						},
+						gwapiv1.Listener{
+							Name:     "https-listener",
+							Protocol: gwapiv1.HTTPSProtocolType,
+							Port:     443,
+						},
+					),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: func(g Gomega, urls []string, err error) {
+				g.Expect(err).To(HaveOccurred())
+			},
+		},
+		{
+			name: "gateway with no listeners - should error, not panic",
+			route: HTTPRoute("no-listener-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("no-listener-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("no-listener-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					// No WithListener — Gateway has empty Listeners slice
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: func(g Gomega, urls []string, err error) {
+				g.Expect(err).To(HaveOccurred())
+			},
 		},
 		{
 			name: "multiple hostnames and addresses - comprehensive URL generation",
 			route: HTTPRoute("comprehensive-route",
 				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
 				WithParentRef(GatewayRef("comprehensive-gateway", RefInNamespace("test-ns"))),
-				WithHostnames("api.example.com", "backup.example.com", "primary.example.com"),
+				WithHostnames("api.example.com", "v2.example.com"),
 			),
-			gateway: Gateway("comprehensive-gateway",
-				InNamespace[*gwapiv1.Gateway]("test-ns"),
-				WithListener(gwapiv1.HTTPProtocolType),
-				WithAddresses("203.0.113.1", "198.51.100.1"),
-			),
-			expectedURLs: []string{
-				"http://api.example.com/",
-				"http://backup.example.com/",
-				"http://primary.example.com/",
+			gateways: []*gwapiv1.Gateway{
+				Gateway("comprehensive-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListener(gwapiv1.HTTPProtocolType),
+					WithAddresses("203.0.113.1", "203.0.113.2"),
+				),
 			},
+			assert: expectURLs("http://api.example.com/", "http://v2.example.com/"),
+		},
+
+		// ===== Listener hostname fallback =====
+		{
+			name: "listener hostname fallback - no route hostnames",
+			route: HTTPRoute("listener-hostname-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("listener-hostname-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("listener-hostname-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+						Hostname: ptr.To(gwapiv1.Hostname("listener.example.com")),
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("http://listener.example.com/"),
+		},
+		{
+			name: "listener hostname fallback - route has wildcard hostname",
+			route: HTTPRoute("wildcard-listener-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("wildcard-listener-gateway", RefInNamespace("test-ns"))),
+				WithHostnames("*"),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("wildcard-listener-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+						Hostname: ptr.To(gwapiv1.Hostname("listener.example.com")),
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("http://listener.example.com/"),
+		},
+		{
+			name: "listener hostname fallback - route hostname takes precedence",
+			route: HTTPRoute("precedence-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("precedence-gateway", RefInNamespace("test-ns"))),
+				WithHostnames("route.example.com"),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("precedence-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+						Hostname: ptr.To(gwapiv1.Hostname("listener.example.com")),
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("http://route.example.com/"),
+		},
+		{
+			name: "listener hostname fallback - empty listener hostname uses addresses",
+			route: HTTPRoute("empty-listener-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("empty-listener-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("empty-listener-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("http://203.0.113.1/"),
+		},
+
+		// ===== Listener wildcard hostname =====
+		{
+			name: "listener wildcard hostname - basic wildcard expansion",
+			route: HTTPRoute("wildcard-expansion-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("wildcard-expansion-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("wildcard-expansion-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+						Hostname: ptr.To(gwapiv1.Hostname("*.example.com")),
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			// Wildcards are expanded to inference.example.com
+			assert: expectURLs("http://inference.example.com/"),
+		},
+		{
+			name: "listener wildcard hostname - wildcard with subdomain",
+			route: HTTPRoute("subdomain-wildcard-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("subdomain-wildcard-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("subdomain-wildcard-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+						Hostname: ptr.To(gwapiv1.Hostname("*.api.example.com")),
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			// Wildcards are expanded to inference.api.example.com
+			assert: expectURLs("http://inference.api.example.com/"),
+		},
+		{
+			name: "listener wildcard hostname - route hostname takes precedence over wildcard",
+			route: HTTPRoute("wildcard-precedence-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("wildcard-precedence-gateway", RefInNamespace("test-ns"))),
+				WithHostnames("specific.example.com"),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("wildcard-precedence-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+						Hostname: ptr.To(gwapiv1.Hostname("*.example.com")),
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("http://specific.example.com/"),
+		},
+		{
+			name: "listener wildcard hostname - HTTPS with wildcard",
+			route: HTTPRoute("https-wildcard-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("https-wildcard-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("https-wildcard-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Protocol: gwapiv1.HTTPSProtocolType,
+						Port:     443,
+						Hostname: ptr.To(gwapiv1.Hostname("*.secure.example.com")),
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			// HTTPS with wildcard expanded to inference.secure.example.com
+			assert: expectURLs("https://inference.secure.example.com/"),
+		},
+		{
+			name: "listener wildcard hostname - custom port with wildcard",
+			route: HTTPRoute("custom-port-wildcard-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("custom-port-wildcard-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("custom-port-wildcard-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     8080,
+						Hostname: ptr.To(gwapiv1.Hostname("*.example.com")),
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			// Custom port with wildcard expanded
+			assert: expectURLs("http://inference.example.com:8080/"),
+		},
+
+		// ===== preferredUrlScheme =====
+		{
+			name: "preferredUrlScheme=https prioritizes HTTPS listener",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("test-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("test-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(
+						gwapiv1.Listener{
+							Name:     "http-listener",
+							Protocol: gwapiv1.HTTPProtocolType,
+							Port:     80,
+						},
+						gwapiv1.Listener{
+							Name:     "https-listener",
+							Protocol: gwapiv1.HTTPSProtocolType,
+							Port:     443,
+						},
+					),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			preferredUrlScheme: "https",
+			assert:             expectURLs("https://203.0.113.1/", "http://203.0.113.1/"),
+		},
+		{
+			name: "preferredUrlScheme=http prioritizes HTTP listener",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("test-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("test-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(
+						gwapiv1.Listener{
+							Name:     "http-listener",
+							Protocol: gwapiv1.HTTPProtocolType,
+							Port:     80,
+						},
+						gwapiv1.Listener{
+							Name:     "https-listener",
+							Protocol: gwapiv1.HTTPSProtocolType,
+							Port:     443,
+						},
+					),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			preferredUrlScheme: "http",
+			assert:             expectURLs("http://203.0.113.1/", "https://203.0.113.1/"),
+		},
+		{
+			name: "preferredUrlScheme mismatch falls back to available listener",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("test-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("test-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "http-listener",
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			preferredUrlScheme: "https",
+			assert:             expectURLs("http://203.0.113.1/"),
+		},
+		{
+			name: "preferredUrlScheme matching listener preserves non-standard port",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("test-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("test-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "https-listener",
+						Protocol: gwapiv1.HTTPSProtocolType,
+						Port:     8443,
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			preferredUrlScheme: "https",
+			assert:             expectURLs("https://203.0.113.1:8443/"),
+		},
+		{
+			name: "empty preferredUrlScheme returns ALL listeners (HTTPS first)",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("test-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("test-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(
+						gwapiv1.Listener{
+							Name:     "http-listener",
+							Protocol: gwapiv1.HTTPProtocolType,
+							Port:     80,
+						},
+						gwapiv1.Listener{
+							Name:     "https-listener",
+							Protocol: gwapiv1.HTTPSProtocolType,
+							Port:     443,
+						},
+					),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			preferredUrlScheme: "",
+			assert:             expectURLs("https://203.0.113.1/", "http://203.0.113.1/"),
+		},
+		{
+			name: "empty preferredUrlScheme falls back to HTTP if no HTTPS",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("test-gateway", RefInNamespace("test-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("test-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "http-listener",
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     8080,
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			preferredUrlScheme: "",
+			assert:             expectURLs("http://203.0.113.1:8080/"),
+		},
+		{
+			name: "sectionName takes precedence over preferredUrlScheme",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(gwapiv1.ParentReference{
+					Name:        "test-gateway",
+					Namespace:   ptr.To(gwapiv1.Namespace("test-ns")),
+					SectionName: ptr.To(gwapiv1.SectionName("http-listener")),
+					Group:       ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:        ptr.To(gwapiv1.Kind("Gateway")),
+				}),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("test-gateway",
+					InNamespace[*gwapiv1.Gateway]("test-ns"),
+					WithListeners(
+						gwapiv1.Listener{
+							Name:     "http-listener",
+							Protocol: gwapiv1.HTTPProtocolType,
+							Port:     80,
+						},
+						gwapiv1.Listener{
+							Name:     "https-listener",
+							Protocol: gwapiv1.HTTPSProtocolType,
+							Port:     443,
+						},
+					),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			preferredUrlScheme: "https", // ignored because sectionName is set
+			assert:             expectURLs("http://203.0.113.1/"),
+		},
+		{
+			name: "gateway with multiple HTTP-capable listeners - all listeners advertised",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("multi-listener-gateway", RefInNamespace("gw-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("multi-listener-gateway",
+					InNamespace[*gwapiv1.Gateway]("gw-ns"),
+					WithListeners(
+						gwapiv1.Listener{
+							Name:     "http",
+							Protocol: gwapiv1.HTTPProtocolType,
+							Port:     80,
+							Hostname: ptr.To(gwapiv1.Hostname("api.example.com")),
+						},
+						gwapiv1.Listener{
+							Name:     "https",
+							Protocol: gwapiv1.HTTPSProtocolType,
+							Port:     443,
+							Hostname: ptr.To(gwapiv1.Hostname("api.example.com")),
+						},
+					),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			assert: expectURLs("https://api.example.com/", "http://api.example.com/"),
+		},
+
+		// ===== Internal service discovery =====
+		{
+			name: "discovers internal URL via gateway label",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("my-gateway", RefInNamespace("gateway-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("my-gateway",
+					InNamespace[*gwapiv1.Gateway]("gateway-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "http",
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			services: []*corev1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "gateway-service",
+						Namespace: "gateway-ns",
+						Labels: map[string]string{
+							"gateway.networking.k8s.io/gateway-name": "my-gateway",
+						},
+					},
+				},
+			},
+			assert: expectURLs(
+				"http://203.0.113.1/",
+				"http://gateway-service.gateway-ns.svc.cluster.local/",
+			),
+		},
+		{
+			name: "discovers internal URL via same-name service fallback",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("my-gateway", RefInNamespace("gateway-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("my-gateway",
+					InNamespace[*gwapiv1.Gateway]("gateway-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "http",
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			services: []*corev1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-gateway", // Same name as gateway
+						Namespace: "gateway-ns",
+					},
+				},
+			},
+			assert: expectURLs(
+				"http://203.0.113.1/",
+				"http://my-gateway.gateway-ns.svc.cluster.local/",
+			),
+		},
+		{
+			name: "internal URL includes non-standard port",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("my-gateway", RefInNamespace("gateway-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("my-gateway",
+					InNamespace[*gwapiv1.Gateway]("gateway-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "http-alt",
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     8080,
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			services: []*corev1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "gateway-service",
+						Namespace: "gateway-ns",
+						Labels: map[string]string{
+							"gateway.networking.k8s.io/gateway-name": "my-gateway",
+						},
+					},
+				},
+			},
+			assert: expectURLs(
+				"http://203.0.113.1:8080/",
+				"http://gateway-service.gateway-ns.svc.cluster.local:8080/",
+			),
+		},
+		{
+			name: "internal URL uses same scheme as gateway listener",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("my-gateway", RefInNamespace("gateway-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("my-gateway",
+					InNamespace[*gwapiv1.Gateway]("gateway-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "https",
+						Protocol: gwapiv1.HTTPSProtocolType,
+						Port:     443,
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			services: []*corev1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "gateway-service",
+						Namespace: "gateway-ns",
+						Labels: map[string]string{
+							"gateway.networking.k8s.io/gateway-name": "my-gateway",
+						},
+					},
+				},
+			},
+			// Internal URL matches the listener's scheme and port
+			assert: expectURLs(
+				"https://203.0.113.1/",
+				"https://gateway-service.gateway-ns.svc.cluster.local/",
+			),
+		},
+		{
+			name: "no internal URL without backing service",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("my-gateway", RefInNamespace("gateway-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("my-gateway",
+					InNamespace[*gwapiv1.Gateway]("gateway-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "http",
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+					}),
+					WithAddresses("203.0.113.1"),
+				),
+			},
+			services: nil,
+			assert:   expectURLs("http://203.0.113.1/"),
+		},
+		{
+			name: "no external addresses but backing service exists - returns internal URL only",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRef(GatewayRef("my-gateway", RefInNamespace("gateway-ns"))),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("my-gateway",
+					InNamespace[*gwapiv1.Gateway]("gateway-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "http",
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     8080,
+					}),
+					// No addresses - LoadBalancer pending
+				),
+			},
+			services: []*corev1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "gateway-service",
+						Namespace: "gateway-ns",
+						Labels: map[string]string{
+							"gateway.networking.k8s.io/gateway-name": "my-gateway",
+						},
+					},
+				},
+			},
+			assert: expectURLs("http://gateway-service.gateway-ns.svc.cluster.local:8080/"),
+		},
+		{
+			name: "multiple gateways with backing services - each gets internal URL",
+			route: HTTPRoute("test-route",
+				InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+				WithParentRefs(
+					gwapiv1.ParentReference{
+						Name:      "gateway-a",
+						Namespace: ptr.To(gwapiv1.Namespace("gw-ns")),
+						Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+						Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+					},
+					gwapiv1.ParentReference{
+						Name:      "gateway-b",
+						Namespace: ptr.To(gwapiv1.Namespace("gw-ns")),
+						Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+						Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+					},
+				),
+			),
+			gateways: []*gwapiv1.Gateway{
+				Gateway("gateway-a",
+					InNamespace[*gwapiv1.Gateway]("gw-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "https",
+						Protocol: gwapiv1.HTTPSProtocolType,
+						Port:     443,
+					}),
+					WithAddresses("gw-a.example.com"),
+				),
+				Gateway("gateway-b",
+					InNamespace[*gwapiv1.Gateway]("gw-ns"),
+					WithListeners(gwapiv1.Listener{
+						Name:     "http",
+						Protocol: gwapiv1.HTTPProtocolType,
+						Port:     80,
+					}),
+					WithAddresses("gw-b.example.com"),
+				),
+			},
+			services: []*corev1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "gateway-a",
+						Namespace: "gw-ns",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "gateway-b-svc",
+						Namespace: "gw-ns",
+						Labels: map[string]string{
+							"gateway.networking.k8s.io/gateway-name": "gateway-b",
+						},
+					},
+				},
+			},
+			assert: expectURLsContain(
+				"https://gw-a.example.com/",
+				"https://gateway-a.gw-ns.svc.cluster.local/",
+				"http://gw-b.example.com/",
+				"http://gateway-b-svc.gw-ns.svc.cluster.local/",
+			),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
+			g := NewWithT(t)
 			ctx := t.Context()
 
 			scheme := runtime.NewScheme()
-			err := gwapiv1.Install(scheme)
-			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(gwapiv1.Install(scheme)).To(Succeed())
+			g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
 
 			var objects []client.Object
-			if tt.gateway != nil {
-				objects = append(objects, tt.gateway)
-			}
 			if tt.route != nil {
 				objects = append(objects, tt.route)
 			}
-			for _, gw := range tt.additionalGateways {
+			for _, gw := range tt.gateways {
 				objects = append(objects, gw)
+			}
+			for _, svc := range tt.services {
+				objects = append(objects, svc)
 			}
 			objects = append(objects, DefaultGatewayClass())
 
@@ -494,23 +1356,14 @@ func TestDiscoverURLs(t *testing.T) {
 				WithObjects(objects...).
 				Build()
 
-			urls, err := llmisvc.DiscoverURLs(ctx, fakeClient, tt.route)
+			urls, err := llmisvc.DiscoverURLs(ctx, fakeClient, tt.route, tt.preferredUrlScheme)
 
-			if tt.expectedErrorCheck != nil {
-				g.Expect(err).To(HaveOccurred())
-				g.Expect(tt.expectedErrorCheck(err)).To(BeTrue(), "Error check function failed for error: %v", err)
-			} else {
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(urls).To(HaveLen(len(tt.expectedURLs)))
-
-				// Convert to strings for easier comparison
-				var actualURLs []string
-				for _, url := range urls {
-					actualURLs = append(actualURLs, url.String())
-				}
-
-				g.Expect(actualURLs).To(Equal(tt.expectedURLs))
+			var actualURLs []string
+			for _, url := range urls {
+				actualURLs = append(actualURLs, url.String())
 			}
+
+			tt.assert(g, actualURLs, err)
 		})
 	}
 }
@@ -777,6 +1630,56 @@ func TestFilterURLs(t *testing.T) {
 			isExternal := llmisvc.IsExternalURL(url)
 
 			g.Expect(isInternal).To(Equal(!isExternal), "URL %s should be either internal or external, not both", urlStr)
+		}
+	})
+
+	t.Run("AddressTypeName", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			url      string
+			expected string
+		}{
+			{
+				name:     "external hostname",
+				url:      "https://api.example.com/",
+				expected: "gateway-external",
+			},
+			{
+				name:     "external IP",
+				url:      "http://203.0.113.1/",
+				expected: "gateway-external",
+			},
+			{
+				name:     "private IP",
+				url:      "http://192.168.1.100/",
+				expected: "internal",
+			},
+			{
+				name:     "localhost",
+				url:      "http://localhost/",
+				expected: "internal",
+			},
+			{
+				name:     "cluster-local service",
+				url:      "http://my-service.default.svc.cluster.local/",
+				expected: "gateway-internal",
+			},
+			{
+				name:     "cluster-local with port",
+				url:      "http://gateway.ns.svc.cluster.local:8080/",
+				expected: "gateway-internal",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				g := NewGomegaWithT(t)
+				parsedURL, err := apis.ParseURL(tt.url)
+				g.Expect(err).ToNot(HaveOccurred())
+
+				result := llmisvc.AddressTypeName(parsedURL)
+				g.Expect(result).To(Equal(tt.expected))
+			})
 		}
 	})
 }

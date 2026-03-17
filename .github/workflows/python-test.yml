@@ -6,9 +6,13 @@ on:
     paths-ignore:
       - "**.md"
   pull_request:
-    branches: []
-    paths-ignore:
-      - "**.md"
+    paths:
+      - "python/**"
+      - "!.github/**"
+      - "!docs/**"
+      - "!**.md"
+      - ".github/workflows/python-test.yml"
+      - ".github/actions/free-up-disk-space/**"
   workflow_dispatch:
 
 concurrency:
@@ -25,6 +29,15 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space

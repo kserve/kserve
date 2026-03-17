@@ -21,10 +21,13 @@ import (
 	"fmt"
 
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
@@ -33,17 +36,17 @@ import (
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -52,32 +55,35 @@ import (
 	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
+
 	"github.com/kserve/kserve/pkg/utils"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
+// ChildResourcesLabelSelector matches resources belonging to LLMInferenceService.
+// Used by the controller predicate below and by the manager cache (cmd/llmisvc/main.go).
+var ChildResourcesLabelSelector = metav1.LabelSelector{
+	MatchLabels: map[string]string{
+		constants.KubernetesPartOfLabelKey: constants.LLMInferenceServicePartOfValue,
+	},
+}
+
 // childResourcesPredicate filters events to only those from resources owned by LLMInferenceService
 // This prevents unnecessary reconciliation triggers from unrelated resources
-var childResourcesPredicate, _ = predicate.LabelSelectorPredicate(metav1.LabelSelector{
-	MatchLabels: map[string]string{
-		"app.kubernetes.io/part-of": "llminferenceservice",
-	},
-})
+var childResourcesPredicate, _ = predicate.LabelSelectorPredicate(ChildResourcesLabelSelector)
 
 // LLMISVCReconciler reconciles an LLMInferenceService object.
 // It orchestrates the reconciliation of child resources based on the spec.
 type LLMISVCReconciler struct {
 	client.Client
+	Config *rest.Config
 	record.EventRecorder
 	Clientset kubernetes.Interface
 
 	Validator func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error
-
-	// InferencePool CRD availability flags (set during SetupWithManager)
-	// These determine which pool versions can be created/managed
-	InferencePoolV1Available       bool
-	InferencePoolV1Alpha2Available bool
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -91,8 +97,8 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes;gateways;gatewayclasses,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=inference.networking.x-k8s.io,resources=inferencepools;inferenceobjectives,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=inference.networking.k8s.io,resources=inferencepools;inferenceobjectives,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=inference.networking.x-k8s.io,resources=inferencepools;inferenceobjectives;inferencemodels,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=inference.networking.k8s.io,resources=inferencepools;inferenceobjectives;inferencemodels,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings;clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
@@ -101,7 +107,13 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:urls=/metrics,verbs=get
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
+//+kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,resourceNames=llminferenceservices.serving.kserve.io;llminferenceserviceconfigs.serving.kserve.io,verbs=get;list;watch
+//+kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions/status,resourceNames=llminferenceservices.serving.kserve.io;llminferenceserviceconfigs.serving.kserve.io,verbs=update;patch
 //+kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
+//+kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=llmd.ai,resources=variantautoscalings,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is the main entry point for the reconciliation loop.
 // It fetches the LLMInferenceService and delegates the reconciliation of its constituent parts.
@@ -204,7 +216,7 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to reconcile workload: %w", err)
 	}
 
-	if err := r.reconcileRouter(ctx, llmSvc); err != nil {
+	if err := r.reconcileRouter(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile networking: %w", err)
 	}
 
@@ -226,7 +238,7 @@ func (r *LLMISVCReconciler) updateStatus(ctx context.Context, desired *v1alpha2.
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Always fetch the latest version to avoid conflicts
 		latest := &v1alpha2.LLMInferenceService{}
-		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(desired), latest); err != nil {
+		if err := r.Get(ctx, client.ObjectKeyFromObject(desired), latest); err != nil {
 			return err
 		}
 
@@ -258,11 +270,12 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Secret{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Service{}, builder.WithPredicates(childResourcesPredicate)).
-		Watches(&corev1.ConfigMap{}, r.enqueueOnConfigMapChange(logger))
+		Owns(&autoscalingv2.HorizontalPodAutoscaler{}, builder.WithPredicates(childResourcesPredicate)).
+		Watches(&corev1.ConfigMap{}, r.enqueueOnConfigMapChange(logger)).
+		Watches(&corev1.Pod{},
+			handler.EnqueueRequestsFromMapFunc(r.EnqueueOnLLMInferenceServicePods),
+			builder.WithPredicates(PodStatusPredicate()))
 
-	if err := gwapiv1.Install(mgr.GetScheme()); err != nil {
-		return fmt.Errorf("failed to add GIE APIs to scheme: %w", err)
-	}
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), gwapiv1.GroupVersion.String(), "HTTPRoute"); ok && err == nil {
 		b = b.Owns(&gwapiv1.HTTPRoute{}, builder.WithPredicates(childResourcesPredicate)).
 			Watches(&gwapiv1.HTTPRoute{}, r.enqueueOnHttpRouteChange(logger))
@@ -271,29 +284,22 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		b = b.Watches(&gwapiv1.Gateway{}, r.enqueueOnGatewayChange(logger))
 	}
 
-	// Install GIE v1 API and check availability
-	if err := igwapi.Install(mgr.GetScheme()); err != nil {
-		return fmt.Errorf("failed to add GIE v1 APIs to scheme: %w", err)
-	}
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapi.GroupVersion.String(), "InferencePool"); ok && err == nil {
-		r.InferencePoolV1Available = true
 		b = b.Owns(&igwapi.InferencePool{}, builder.WithPredicates(childResourcesPredicate))
 	}
 
-	// Install GIE v1alpha2 API and check availability (for backwards compatibility during migration)
-	if err := igwapiv1alpha2.Install(mgr.GetScheme()); err != nil {
-		return fmt.Errorf("failed to add GIE v1alpha2 APIs to scheme: %w", err)
-	}
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapiv1alpha2.GroupVersion.String(), "InferencePool"); ok && err == nil {
-		r.InferencePoolV1Alpha2Available = true
 		b = b.Owns(&igwapiv1alpha2.InferencePool{}, builder.WithPredicates(childResourcesPredicate))
 	}
 
-	logger.Info("InferencePool CRD availability", "v1", r.InferencePoolV1Available, "v1alpha2", r.InferencePoolV1Alpha2Available)
-
-	if err := lwsapi.AddToScheme(mgr.GetScheme()); err != nil {
-		return fmt.Errorf("failed to add LeaderWorkerSet APIs to scheme: %w", err)
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), wvav1alpha1.GroupVersion.String(), "VariantAutoscaling"); ok && err == nil {
+		b = b.Owns(&wvav1alpha1.VariantAutoscaling{}, builder.WithPredicates(childResourcesPredicate))
 	}
+
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), kedav1alpha1.SchemeGroupVersion.String(), "ScaledObject"); ok && err == nil {
+		b = b.Owns(&kedav1alpha1.ScaledObject{}, builder.WithPredicates(childResourcesPredicate))
+	}
+
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), lwsapi.GroupVersion.String(), "LeaderWorkerSet"); ok && err == nil {
 		b = b.Owns(&lwsapi.LeaderWorkerSet{}, builder.WithPredicates(childResourcesPredicate))
 	}
@@ -323,7 +329,7 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 		continueToken := ""
 		for {
 			llmSvcList := &v1alpha2.LLMInferenceServiceList{}
-			if err := r.Client.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
+			if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
 				logger.Error(err, "Failed to list LLMInferenceService")
 				return reqs
 			}
@@ -393,7 +399,7 @@ func (r *LLMISVCReconciler) enqueueOnHttpRouteChange(logger logr.Logger) handler
 		continueToken := ""
 		for {
 			llmSvcList := &v1alpha2.LLMInferenceServiceList{}
-			if err := r.Client.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
+			if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
 				logger.Error(err, "Failed to list LLMInferenceService")
 				return reqs
 			}
@@ -453,7 +459,7 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 		continueToken := ""
 		for {
 			llmSvcList := &v1alpha2.LLMInferenceServiceList{}
-			if err := r.Client.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
+			if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace, Continue: continueToken}); err != nil {
 				logger.Error(err, "Failed to list LLMInferenceService")
 				return reqs
 			}
@@ -467,14 +473,13 @@ func (r *LLMISVCReconciler) enqueueOnLLMInferenceServiceConfigChange(logger logr
 					continue
 				}
 
-				// Check if service explicitly references this config
-				for _, ref := range llmSvc.Spec.BaseRefs {
-					if ref.Name == sub.Name {
-						reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
-							Namespace: llmSvc.Namespace,
-							Name:      llmSvc.Name,
-						}})
-					}
+				// Check if service explicitly references this config or uses it via versioned config resolution
+				if llmSvc.IsUsingLLMInferenceServiceConfig(sub.Name) {
+					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{
+						Namespace: llmSvc.Namespace,
+						Name:      llmSvc.Name,
+					}})
+					continue
 				}
 			}
 
@@ -510,7 +515,7 @@ func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler
 		// When a ConfigMap is modified, we need to find all LLMInferenceService instances that might
 		// depend on it and trigger their reconciliation.
 		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
-		if err := r.Client.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
+		if err := r.List(ctx, llmSvcList, &client.ListOptions{Namespace: listNamespace}); err != nil {
 			logger.Error(err, "Failed to list LLMInferenceService")
 			return reqs
 		}
@@ -539,4 +544,50 @@ func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler
 
 		return reqs
 	})
+}
+
+// EnqueueOnLLMInferenceServicePods maps pod events to LLMInferenceService reconcile requests.
+// It extracts the owning LLMInferenceService name from pod labels.
+func (r *LLMISVCReconciler) EnqueueOnLLMInferenceServicePods(ctx context.Context, obj client.Object) []reconcile.Request {
+	pod, ok := obj.(*corev1.Pod)
+	if !ok || pod == nil {
+		return nil
+	}
+	// Cache is already restricted to pods with part-of label (see cmd/llmisvc main.go).
+	// Get the LLMInferenceService name from the name label.
+	if llmSvcName, found := pod.Labels[constants.KubernetesAppNameLabelKey]; found && llmSvcName != "" {
+		return []reconcile.Request{{
+			NamespacedName: types.NamespacedName{
+				Namespace: pod.Namespace,
+				Name:      llmSvcName,
+			},
+		}}
+	}
+	return nil
+}
+
+// PodStatusPredicate filters pod updates to those where InitContainerStatuses or PodIPs changed.
+// Pod identity (part-of/name labels) is enforced by the cache (cmd/llmisvc) and EnqueueOnLLMInferenceServicePods.
+func PodStatusPredicate() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			newPod, ok := e.ObjectNew.(*corev1.Pod)
+			if !ok || newPod == nil {
+				return false
+			}
+			oldPod := e.ObjectOld.(*corev1.Pod)
+			initContainersChanged := !equality.Semantic.DeepEqual(
+				oldPod.Status.InitContainerStatuses,
+				newPod.Status.InitContainerStatuses,
+			)
+			podIPsChanged := !equality.Semantic.DeepEqual(
+				oldPod.Status.PodIPs,
+				newPod.Status.PodIPs,
+			)
+			return initContainersChanged || podIPsChanged
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
 }

@@ -21,7 +21,24 @@ from pathlib import Path
 from typing import Any
 
 
-YAML_SEPARATOR = '---\n'
+YAML_SEPARATOR = "---\n"
+
+
+def to_bool_string(value: Any) -> str:
+    """Convert boolean or string value to normalized boolean string.
+
+    Args:
+        value: Value to convert (can be bool, str, or other types)
+
+    Returns:
+        "true" or "false" string
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return "true" if value.lower() in ["true", "1", "yes"] else "false"
+    # For other types (int, None, etc.), convert to string and check
+    return "true" if str(value).lower() in ["true", "1", "yes"] else "false"
 
 
 def run_kustomize_build(kustomize_dir: Path) -> str:
@@ -43,16 +60,17 @@ def run_kustomize_build(kustomize_dir: Path) -> str:
             capture_output=True,
             text=True,
             check=True,
-            cwd=kustomize_dir.parent
+            cwd=kustomize_dir.parent,
         )
         return result.stdout
     except subprocess.CalledProcessError as e:
         raise RuntimeError(
-            f"Failed to run kustomize build on {kustomize_dir}: {e}\n"
-            f"stderr: {e.stderr}"
+            f"Failed to run kustomize build on {kustomize_dir}: {e}\nstderr: {e.stderr}"
         )
     except FileNotFoundError:
-        raise FileNotFoundError("kustomize command not found. Please install kustomize.")
+        raise FileNotFoundError(
+            "kustomize command not found. Please install kustomize."
+        )
 
 
 def filter_out_crds(manifest: str) -> str:
@@ -71,8 +89,10 @@ def filter_out_crds(manifest: str) -> str:
         if not doc.strip():
             continue
 
-        is_crd = any('kind:' in line and 'CustomResourceDefinition' in line
-                     for line in doc.split('\n'))
+        is_crd = any(
+            "kind:" in line and "CustomResourceDefinition" in line
+            for line in doc.split("\n")
+        )
 
         if not is_crd:
             filtered_documents.append(doc)
@@ -81,7 +101,7 @@ def filter_out_crds(manifest: str) -> str:
 
 
 def get_llmisvc_value(config: dict[str, Any], components: list[dict[str, Any]]) -> str:
-    """Extract LLMISVC value from definition config.
+    """Extract ENABLE_LLMISVC value from definition config.
 
     Priority:
     1. kserve-helm component env
@@ -94,53 +114,55 @@ def get_llmisvc_value(config: dict[str, Any], components: list[dict[str, Any]]) 
         components: List of component configs
 
     Returns:
-        LLMISVC value ("true" or "false")
+        ENABLE_LLMISVC value ("true" or "false")
     """
-    llmisvc = "false"
-
-    # Check kserve-helm or kserve-kustomize component env first
+    # Check kserve-helm or kserve-kustomize component env first (priority order)
     for comp in components:
         comp_name = comp.get("name", "")
         if comp_name in ["kserve-helm", "kserve-kustomize"]:
-            llmisvc = comp.get("env", {}).get("LLMISVC", llmisvc)
-            if llmisvc == "true":
-                break
+            comp_env = comp.get("env", {})
+            if "ENABLE_LLMISVC" in comp_env:
+                # Found in component env - use it and stop (first match wins)
+                return to_bool_string(comp_env["ENABLE_LLMISVC"])
 
-    # If not found in component, check GLOBAL_ENV
-    if llmisvc == "false":
-        llmisvc = config.get("global_env", {}).get("LLMISVC", "false")
+    # If not found in any component, check GLOBAL_ENV
+    global_env = config.get("global_env", {})
+    if "ENABLE_LLMISVC" in global_env:
+        return to_bool_string(global_env["ENABLE_LLMISVC"])
 
-    return llmisvc
+    # Default
+    return "false"
 
 
-def select_kserve_directories(repo_root: Path, llmisvc: str) -> tuple[list[Path], list[Path]]:
-    """Select KServe CRD and config directories based on LLMISVC.
+def select_kserve_directories(
+    repo_root: Path, llmisvc: str
+) -> tuple[list[Path], list[Path]]:
+    """Select KServe CRD and config directories based on ENABLE_LLMISVC.
 
     Args:
         repo_root: Repository root path
-        llmisvc: LLMISVC value ("true" or "false")
+        llmisvc: ENABLE_LLMISVC value ("true" or "false")
 
     Returns:
         Tuple of (crd_dirs, config_dirs)
     """
     if llmisvc == "true":
-        crd_dirs = [repo_root / "config/crd/full/llmisvc"]
+        crd_dirs = [
+            repo_root / "config/crd/full/clusterstoragecontainer",
+            repo_root / "config/crd/full/llmisvc",
+        ]
         config_dirs = [repo_root / "config/overlays/standalone/llmisvc"]
     else:
-        crd_dirs = [
-            repo_root / "config/crd/full",
-            repo_root / "config/crd/full/llmisvc",
-            repo_root / "config/crd/full/localmodel",
-        ]
-        config_dirs = [repo_root / "config/overlays/all"]
+        crd_dirs = [repo_root / "config/crd/full"]
+        config_dirs = [repo_root / "config/overlays/standalone/kserve"]
 
     return crd_dirs, config_dirs
 
 
-def build_kserve_manifests(repo_root: Path,
-                           config: dict[str, Any],
-                           components: list[dict[str, Any]]) -> tuple[str, str]:
-    """Build KServe CRD and core manifests.
+def build_kserve_manifests(
+    repo_root: Path, config: dict[str, Any], components: list[dict[str, Any]]
+) -> tuple[str, str, str, str]:
+    """Build KServe CRD, core, runtime, and llmisvcconfig manifests.
 
     Args:
         repo_root: Repository root path
@@ -148,7 +170,7 @@ def build_kserve_manifests(repo_root: Path,
         components: List of component configs
 
     Returns:
-        Tuple of (crd_manifest, core_manifest)
+        Tuple of (crd_manifest, core_manifest, runtime_manifest, llmisvcconfig_manifest)
     """
     llmisvc = get_llmisvc_value(config, components)
     crd_dirs, config_dirs = select_kserve_directories(repo_root, llmisvc)
@@ -172,20 +194,105 @@ def build_kserve_manifests(repo_root: Path,
     # Combine all core manifests
     core_manifest = YAML_SEPARATOR.join(core_manifests)
 
-    return crd_manifest, core_manifest
+    # Build runtime and llmisvcconfig manifests
+    runtime_manifest = build_kserve_runtime_manifests(repo_root)
+    llmisvcconfig_manifest = build_kserve_llmisvcconfig_manifests(repo_root)
+
+    return crd_manifest, core_manifest, runtime_manifest, llmisvcconfig_manifest
 
 
-def generate_manifest_functions(crd_manifest: str, core_manifest: str) -> str:
+def build_kserve_runtime_manifests(repo_root: Path) -> str:
+    """Build KServe runtime manifests.
+
+    Args:
+        repo_root: Repository root path
+
+    Returns:
+        Combined runtime manifest as string
+
+    Raises:
+        RuntimeError: If kustomize build fails
+    """
+    runtime_dir = repo_root / "config/runtimes"
+    if not runtime_dir.exists():
+        return ""
+
+    manifest = run_kustomize_build(runtime_dir)
+    return manifest
+
+
+def build_kserve_llmisvcconfig_manifests(repo_root: Path) -> str:
+    """Build KServe LLMISvcConfig manifests.
+
+    Args:
+        repo_root: Repository root path
+
+    Returns:
+        Combined LLMISvcConfig manifest as string
+
+    Raises:
+        RuntimeError: If kustomize build fails
+    """
+    llmisvcconfig_dir = repo_root / "config/llmisvcconfig"
+    if not llmisvcconfig_dir.exists():
+        return ""
+
+    manifest = run_kustomize_build(llmisvcconfig_dir)
+    return manifest
+
+
+def generate_manifest_functions(
+    crd_manifest: str,
+    core_manifest: str,
+    runtime_manifest: str = "",
+    llmisvcconfig_manifest: str = "",
+) -> str:
     """Generate bash functions for embedded manifests.
 
     Args:
         crd_manifest: CRD manifest content
         core_manifest: Core manifest content
+        runtime_manifest: Runtime manifest content (optional)
+        llmisvcconfig_manifest: LLMISvcConfig manifest content (optional)
 
     Returns:
         Bash function definitions as string
     """
-    return f'''# ============================================================================
+
+    # Generate runtime getter function (only if manifest exists)
+    runtime_getter = ""
+    if runtime_manifest:
+        runtime_getter = f"""get_kserve_runtime_manifests() {{
+    cat <<'KSERVE_RUNTIME_MANIFEST_EOF'
+{runtime_manifest}KSERVE_RUNTIME_MANIFEST_EOF
+}}
+
+"""
+
+    # Generate llmisvcconfig getter function (only if manifest exists)
+    llmisvcconfig_getter = ""
+    if llmisvcconfig_manifest:
+        llmisvcconfig_getter = f"""get_kserve_llmisvcconfig_manifests() {{
+    cat <<'KSERVE_LLMISVCCONFIG_MANIFEST_EOF'
+{llmisvcconfig_manifest}KSERVE_LLMISVCCONFIG_MANIFEST_EOF
+}}
+
+"""
+
+    # Generate create functions (always generate)
+    runtime_create = """create_kserve_runtime_manifests() {
+    get_kserve_runtime_manifests | kubectl apply --server-side -f -
+}
+
+"""
+
+    llmisvcconfig_create = """create_kserve_llmisvcconfig_manifests() {
+    get_kserve_llmisvcconfig_manifests | kubectl apply --server-side -f -
+}
+
+"""
+
+    return f"""# ============================================================================
 # KServe Manifest Functions (EMBED_MANIFESTS MODE)
 # ============================================================================
 
@@ -196,10 +303,21 @@ install_kserve_manifest() {{
     log_info "Installing KServe core components..."
     get_kserve_core_manifest | kubectl apply --server-side -f -
 
-    log_success "KServe manifests installed successfully!"
+    log_success "KServe CRD and core components installed successfully!"
 }}
 
 uninstall_kserve_manifest() {{
+    # Uninstall in reverse order of dependencies
+    log_info "Uninstalling KServe LLMISvcConfig manifests..."
+    if [ "${{LLMISVC:-false}}" = "true" ] && type get_kserve_llmisvcconfig_manifests &>/dev/null; then
+        get_kserve_llmisvcconfig_manifests | kubectl delete -f - || true
+    fi
+
+    log_info "Uninstalling KServe runtime manifests..."
+    if [ "${{INSTALL_RUNTIMES:-false}}" = "true" ] && type get_kserve_runtime_manifests &>/dev/null; then
+        get_kserve_runtime_manifests | kubectl delete -f - || true
+    fi
+
     log_info "Uninstalling KServe core components..."
     get_kserve_core_manifest | kubectl delete -f - || true
 
@@ -209,7 +327,7 @@ uninstall_kserve_manifest() {{
     log_success "KServe manifests uninstalled successfully!"
 }}
 
-get_kserve_crd_manifest() {{
+{runtime_getter}{llmisvcconfig_getter}{runtime_create}{llmisvcconfig_create}get_kserve_crd_manifest() {{
     cat <<'KSERVE_CRD_MANIFEST_EOF'
 {crd_manifest}KSERVE_CRD_MANIFEST_EOF
 }}
@@ -219,4 +337,4 @@ get_kserve_core_manifest() {{
 {core_manifest}KSERVE_CORE_MANIFEST_EOF
 }}
 
-'''
+"""

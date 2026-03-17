@@ -40,7 +40,7 @@ find_repo_root() {
     local skip="${2:-false}"
 
     while [[ "$current_dir" != "/" ]]; do
-        if [[ -d "${current_dir}/.git" ]]; then
+        if [[ -e "${current_dir}/.git" ]]; then
             echo "$current_dir"
             return 0
         fi
@@ -133,6 +133,22 @@ log_success() {
 
 log_warning() {
     echo -e "${YELLOW}[WARNING]${RESET} $*" >&2
+}
+
+is_positive() {
+  local input_val="${1:-no}"
+
+  case "${input_val}" in
+    0|true|True|yes|Yes|y|Y)
+      return 0  # Success - truthy
+      ;;
+    1|false|False|no|No|n|N)
+      return 1  # Failure - falsy
+      ;;
+    *)
+      return 2  # Invalid input
+      ;;
+  esac
 }
 
 
@@ -371,7 +387,11 @@ update_isvc_config() {
             # Apply each update
             reduce $updates[] as $item (.;
                 if .data[$item.data_key] == null or .data[$item.data_key] == "" then
-                    .
+                    .data[$item.data_key] = (
+                        {}
+                        | setpath_safe($item.path | split("."); $item.value)
+                        | tojson
+                    )
                 else
                     .data[$item.data_key] |= (
                         fromjson
@@ -421,11 +441,117 @@ command_exists() {
     command -v "$1" &>/dev/null
 }
 
+# Retry a command with delay between attempts
+# Usage: retry_command <max_attempts> <delay_seconds> <command...>
+# Example: retry_command 3 5 kubectl apply -k "${RUNTIMES_DIR}"
+# Returns: 0 on success, 1 on failure after all attempts
+retry_command() {
+    local max_attempts="$1"
+    local delay="$2"
+    shift 2
+    local attempt=1
+
+    while [ $attempt -le $max_attempts ]; do
+        if "$@" 2>&1; then
+            return 0
+        fi
+
+        if [ $attempt -lt $max_attempts ]; then
+            log_warning "Command failed, retrying in ${delay} seconds... (attempt $attempt/$max_attempts)"
+            sleep "$delay"
+        else
+            log_error "Command failed after $max_attempts attempts"
+            return 1
+        fi
+        attempt=$((attempt + 1))
+    done
+}
+
 # Compare semantic versions (returns 0 if v1 >= v2, 1 otherwise)
 # Usage: version_gte "v3.17.3" "v3.16.0"
 # Example: version_gte "$current_version" "$required_version" && echo "OK"
 version_gte() {
     [ "$1" = "$(printf '%s\n' "$1" "$2" | sort -V | tail -1)" ]
+}
+
+# ============================================================================
+# Shared Resources Configuration (for dual KServe + LLMISVC installation)
+# ============================================================================
+
+determine_shared_resources_config() {
+    local install_mode="${1}"
+    local enable_kserve="${2}"
+    local enable_llmisvc="${3}"
+
+    if ! is_positive "${enable_kserve}" && ! is_positive "${enable_llmisvc}"; then
+        return
+    fi
+
+    log_info "Determining shared resources configuration (KSERVE=${enable_kserve}, LLMISVC=${enable_llmisvc})..."
+
+    if [ "${install_mode}" = "helm" ]; then
+        determine_shared_resources_helm "${enable_kserve}" "${enable_llmisvc}"
+    elif [ "${install_mode}" = "kustomize" ]; then
+        determine_shared_resources_kustomize
+    else
+        log_error "INSTALL_MODE not set. Must be 'helm' or 'kustomize'"
+        exit 1
+    fi
+}
+
+determine_shared_resources_helm() {
+    local enable_kserve="${1}"
+    local enable_llmisvc="${2}"
+
+    local kserve_installed=$(helm list -n "${KSERVE_NAMESPACE}" -q 2>/dev/null | grep -c "^kserve-resources$" || true)
+    local llmisvc_installed=$(helm list -n "${KSERVE_NAMESPACE}" -q 2>/dev/null | grep -c "^kserve-llmisvc-resources$" || true)
+
+    if [ "${kserve_installed}" = "0" ] && [ "${llmisvc_installed}" = "0" ]; then
+        # First installation - check which components are being enabled
+        if is_positive "${enable_kserve}" && is_positive "${enable_llmisvc}"; then
+            # Both enabled: kserve-resources installs first and creates shared resources
+            log_info "[Helm] First install (both) - kserve-resources creates shared resources, llmisvc-resources does not"
+            LLMISVC_EXTRA_ARGS="${LLMISVC_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+        elif is_positive "${enable_kserve}" && ! is_positive "${enable_llmisvc}"; then
+            # Only kserve enabled: kserve-resources creates shared resources
+            log_info "[Helm] First install (kserve only) - kserve-resources will create shared resources"
+            # Use default value (true) - no extra args needed
+        elif ! is_positive "${enable_kserve}" && is_positive "${enable_llmisvc}"; then
+            # Only llmisvc enabled: llmisvc-resources creates shared resources
+            log_info "[Helm] First install (llmisvc only) - llmisvc-resources will create shared resources"
+            # Use default value (true) - no extra args needed
+        else
+            # Neither enabled - shouldn't reach here
+            log_error "[Helm] No components enabled"
+            return 1
+        fi
+    elif [ "${kserve_installed}" = "1" ] && [ "${llmisvc_installed}" = "0" ]; then
+        log_info "[Helm] Only kserve-resources installed - setting createSharedResources=false for LLMISVC"
+        LLMISVC_EXTRA_ARGS="${LLMISVC_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+    elif [ "${kserve_installed}" = "0" ] && [ "${llmisvc_installed}" = "1" ]; then
+        log_info "[Helm] Only kserve-llmisvc-resources installed - setting createSharedResources=false for KSERVE"
+        KSERVE_EXTRA_ARGS="${KSERVE_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+    else
+        local kserve_has_false=$(helm get values kserve-resources -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -c "createSharedResources: false" || true)
+
+        if [ "${kserve_has_false}" = "1" ]; then
+            log_info "[Helm] Maintaining createSharedResources=false for KSERVE"
+            KSERVE_EXTRA_ARGS="${KSERVE_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+        else
+            log_info "[Helm] Setting createSharedResources=false for LLMISVC"
+            LLMISVC_EXTRA_ARGS="${LLMISVC_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+        fi
+    fi
+}
+
+determine_shared_resources_kustomize() {
+    KSERVE_INSTALLED=$(kubectl get deployment kserve-controller-manager -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -c "kserve-controller-manager" || true)
+    LLMISVC_INSTALLED=$(kubectl get deployment llmisvc-controller-manager -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -c "llmisvc-controller-manager" || true)
+    
+    export KSERVE_INSTALLED
+    export LLMISVC_INSTALLED
+
+    log_info "[Kustomize] Installation status(0: not installed, 1: installed): KSERVE=${KSERVE_INSTALLED}, LLMISVC=${LLMISVC_INSTALLED}"
 }
 
 # ============================================================================
@@ -443,18 +569,17 @@ set_env_with_priority() {
     local current_value
     eval "current_value=\${${var_name}}"
 
-    # If current value differs from default/component/global, it must be runtime - keep it
-    if [ -n "$current_value" ] && [ "$current_value" != "$default_value" ] &&
-       [ "$current_value" != "$component_value" ] && [ "$current_value" != "$global_value" ]; then
+    # If current value exists and differs from default, it's a runtime value - keep it
+    if [ -n "$current_value" ] && [ -n "$default_value" ] && [ "$current_value" != "$default_value" ]; then
         # This is a runtime value, keep it
         return
     fi
 
     # Apply priority: component env > global env > default
     if [ -n "$component_value" ]; then
-        export "$var_name=$component_value"
+        eval "export $var_name=\"$component_value\""
     elif [ -n "$global_value" ]; then
-        export "$var_name=$global_value"
+        eval "export $var_name=\"$global_value\""
     fi
     # If both are empty, variable keeps its default value
 }
@@ -477,17 +602,21 @@ fi
 
 export PATH="${BIN_DIR}:${PATH}"
 
-UNINSTALL="${UNINSTALL:-false}"
 REINSTALL="${REINSTALL:-false}"
+UNINSTALL="${UNINSTALL:-false}"
+FORCE_UPGRADE="${FORCE_UPGRADE:-false}"
 
 if [[ "$*" == *"--uninstall"* ]]; then
     UNINSTALL=true
 elif [[ "$*" == *"--reinstall"* ]]; then
     REINSTALL=true
+elif [[ "$*" == *"--force-upgrade"* ]]; then
+    FORCE_UPGRADE=true
 fi
 
 export REINSTALL
 export UNINSTALL
+export FORCE_UPGRADE
 
 # RELEASE mode (from definition file)
 RELEASE="true"
@@ -497,31 +626,31 @@ export RELEASE
 # Version Dependencies (from kserve-deps.env)
 #================================================
 
-GOLANGCI_LINT_VERSION=v1.64.8
+GOLANGCI_LINT_VERSION=v2.9.0
 CONTROLLER_TOOLS_VERSION=v0.19.0
 ENVTEST_VERSION=latest
 YQ_VERSION=v4.52.1
 HELM_VERSION=v3.16.3
-KUSTOMIZE_VERSION=v5.5.0
+KUSTOMIZE_VERSION=v5.8.0
 HELM_DOCS_VERSION=v1.12.0
-BLACK_FMT_VERSION=24.3
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
 RUFF_VERSION=0.14.13
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
-ENVOY_GATEWAY_VERSION=v1.5.0
-ENVOY_AI_GATEWAY_VERSION=v0.4.0
-KNATIVE_OPERATOR_VERSION=v1.16.0
-KNATIVE_SERVING_VERSION=1.15.2
+ENVOY_GATEWAY_VERSION=v1.6.3
+ENVOY_AI_GATEWAY_VERSION=v0.5.0
+KNATIVE_OPERATOR_VERSION=v1.21.1
+KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
-KSERVE_VERSION=v0.16.0
+KSERVE_VERSION=v0.17.0
 ISTIO_VERSION=1.27.1
-KEDA_VERSION=2.17.2
+KEDA_VERSION=2.17.3
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.7.0
-GATEWAY_API_VERSION=v1.3.0
-GIE_VERSION=v1.2.0
+GATEWAY_API_VERSION=v1.4.1
+GIE_VERSION=v1.3.0
+WVA_VERSION=v0.5.1
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -538,26 +667,243 @@ ISTIO_NAMESPACE="${ISTIO_NAMESPACE:-istio-system}"
 GATEWAY_NAMESPACE="${GATEWAY_NAMESPACE:-kserve}"
 DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-Knative}"
 GATEWAY_NETWORK_LAYER="${GATEWAY_NETWORK_LAYER:-false}"
-LLMISVC="${LLMISVC:-false}"
+ENABLE_KSERVE="${ENABLE_KSERVE:-true}"
+ENABLE_LLMISVC="${ENABLE_LLMISVC:-false}"
+ENABLE_LOCALMODEL="${ENABLE_LOCALMODEL:-false}"
 EMBED_MANIFESTS="${EMBED_MANIFESTS:-false}"
+EMBED_TEMPLATES="${EMBED_TEMPLATES:-false}"
 KSERVE_CUSTOM_ISVC_CONFIGS="${KSERVE_CUSTOM_ISVC_CONFIGS:-}"
 
 #================================================
 # Component-Specific Variables
 #================================================
 
-ADDON_RELEASE_NAME="keda-otel-scaler"
-OTEL_RELEASE_NAME="my-opentelemetry-operator"
-KSERVE_CRD_RELEASE_NAME="kserve-crd"
-KSERVE_RELEASE_NAME="kserve"
-CRD_DIR_NAME="kserve-crd"
-CORE_DIR_NAME="kserve-resources"
-TARGET_DEPLOYMENT_NAMES=(
-"kserve-controller-manager"
-)
+NETWORK_LAYER="${NETWORK_LAYER:-istio}"
+TEMPLATE_DIR="${SCRIPT_DIR}/templates"
+INSTALL_MODE="helm"
 USE_LOCAL_CHARTS="${USE_LOCAL_CHARTS:-false}"
 CHARTS_DIR="${REPO_ROOT}/charts"
 SET_KSERVE_VERSION="${SET_KSERVE_VERSION:-}"
+SHARED_EXTRA_ARGS="${SHARED_EXTRA_ARGS:-}"
+ENABLE_KSERVE="${ENABLE_KSERVE:-true}"
+ENABLE_LLMISVC="${ENABLE_LLMISVC:-${LLMISVC:-false}}"
+ENABLE_LOCALMODEL="${ENABLE_LOCALMODEL:-${LOCALMODEL:-false}}"
+CRD_CHARTS=()
+RESOURCE_CHARTS=()
+RESOURCE_EXTRA_ARGS_LIST=()
+TARGET_DEPLOYMENT_NAMES=()
+INSTALL_RUNTIMES="${INSTALL_RUNTIMES:-${ENABLE_KSERVE:-false}}"
+INSTALL_LLMISVC_CONFIGS="${INSTALL_LLMISVC_CONFIGS:-${ENABLE_LLMISVC:-false}}"
+RUNTIME_CONFIG_CHART_NAME="kserve-runtime-configs"
+
+#================================================
+# Template Functions (EMBED_TEMPLATES MODE)
+#================================================
+
+# ============================================================================
+# Template Functions: knative-operator
+# ============================================================================
+
+get_knative_serving_istio() {
+    cat <<'KNATIVE_SERVING_ISTIO_EOF'
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: knative-serving
+---
+apiVersion: operator.knative.dev/v1beta1
+kind: KnativeServing
+metadata:
+  name: knative-serving
+  namespace: knative-serving
+spec:
+  version: "1.21.1"
+  config:
+    deployment:
+      # Skip tag resolution for certain domains
+      registries-skipping-tag-resolving: "nvcr.io,index.docker.io"
+    domain:
+      # Patch the external domain as the default domain svc.cluster.local is not exposed on ingress (from knative 1.8)
+      example.com: ""
+  workloads:
+    - name: controller
+      resources:
+        - container: controller
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+    - name: activator
+      resources:
+        - container: activator
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+    - name: autoscaler
+      resources:
+        - container: autoscaler
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+    - name: domain-mapping
+      resources:
+        - container: domain-mapping
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+    - name: webhook
+      resources:
+        - container: webhook
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+    - name: domainmapping-webhook
+      resources:
+        - container: domainmapping-webhook
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+    - name: net-istio-controller
+      resources:
+        - container: controller
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+    - name: net-istio-webhook
+      resources:
+        - container: webhook
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+KNATIVE_SERVING_ISTIO_EOF
+}
+
+get_knative_serving_kourier() {
+    cat <<'KNATIVE_SERVING_KOURIER_EOF'
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: knative-serving
+---
+apiVersion: operator.knative.dev/v1beta1
+kind: KnativeServing
+metadata:
+  name: knative-serving
+  namespace: knative-serving
+spec:
+  version: "1.21.1"
+  ingress:
+    kourier:
+      enabled: true
+  config:
+    network:
+      ingress-class: "kourier.ingress.networking.knative.dev"
+    deployment:
+      # Skip tag resolution for certain domains
+      registries-skipping-tag-resolving: "nvcr.io,index.docker.io"
+    domain:
+      # Patch the external domain as the default domain svc.cluster.local is not exposed on ingress (from knative 1.8)
+      example.com: ""
+  workloads:
+    - name: controller
+      resources:
+        - container: controller
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+    - name: activator
+      resources:
+        - container: activator
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+    - name: autoscaler
+      resources:
+        - container: autoscaler
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+    - name: domain-mapping
+      resources:
+        - container: domain-mapping
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+    - name: webhook
+      resources:
+        - container: webhook
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+    - name: domainmapping-webhook
+      resources:
+        - container: domainmapping-webhook
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+    - name: net-kourier-controller
+      resources:
+        - container: controller
+          requests:
+            cpu: 5m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+    - name: 3scale-kourier-gateway
+      resources:
+        - container: kourier-gateway
+          requests:
+            cpu: 200m
+            memory: 200Mi
+          limits:
+            cpu: 300m
+            memory: 500Mi
+KNATIVE_SERVING_KOURIER_EOF
+}
+
+
 
 #================================================
 # Component Functions
@@ -817,6 +1163,7 @@ install_istio() {
         --namespace "${ISTIO_NAMESPACE}" \
         --version "${ISTIO_VERSION}" \
         --set proxy.autoInject=disabled \
+        --set pilot.env.ENABLE_GATEWAY_API_INFERENCE_EXTENSION=true \
         --set-string pilot.podAnnotations."cluster-autoscaler\.kubernetes\.io/safe-to-evict"=true \
         --wait \
         ${ISTIOD_EXTRA_ARGS:-}
@@ -871,293 +1218,273 @@ EOF
 }
 
 # ----------------------------------------
-# CLI/Component: keda
+# CLI/Component: knative-operator
 # ----------------------------------------
 
-uninstall_keda() {
-    log_info "Uninstalling KEDA..."
+uninstall_knative_operator() {
+    log_info "Uninstalling Knative Serving..."
 
-    helm uninstall keda-otel-scaler -n "${KEDA_NAMESPACE}" 2>/dev/null || true
-    helm uninstall keda -n "${KEDA_NAMESPACE}" 2>/dev/null || true
-    kubectl delete all --all -n "${KEDA_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
-    kubectl delete namespace "${KEDA_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
+    if [ "$EMBED_TEMPLATES" = "true" ]; then
+        get_knative_serving_${NETWORK_LAYER} | \
+            kubectl delete -f - --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
+    else
+        kubectl delete -f "${TEMPLATE_DIR}/knative-serving-${NETWORK_LAYER}.yaml" --ignore-not-found=true --force --grace-period=0 2>/dev/null || true
+    fi
 
-    log_success "KEDA uninstalled"
+    kubectl delete all --all -n "${SERVING_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
+    kubectl delete namespace "${SERVING_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
+
+    log_info "Uninstalling Knative Operator..."
+    helm uninstall knative-operator -n "${OPERATOR_NAMESPACE}" 2>/dev/null || true
+    kubectl delete all --all -n "${OPERATOR_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
+    kubectl delete namespace "${OPERATOR_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
+
+    log_success "Knative uninstalled"
 }
 
-install_keda() {
-    if helm list -n "${KEDA_NAMESPACE}" 2>/dev/null | grep -q "keda"; then
+install_knative_operator() {
+    log_info "Network layer: ${NETWORK_LAYER}"
+
+    if helm list -n "${OPERATOR_NAMESPACE}" 2>/dev/null | grep -q "knative-operator"; then
         if [ "$REINSTALL" = false ]; then
-            log_info "KEDA is already installed. Use --reinstall to reinstall."
-            return 0
+            log_info "Knative Operator is already installed. Checking Knative Serving..."
+
+            if kubectl get knativeserving knative-serving -n "${SERVING_NAMESPACE}" &>/dev/null; then
+                log_info "Knative Serving is already deployed. Use --reinstall to reinstall."
+                return 0
+            fi
         else
-            log_info "Reinstalling KEDA..."
-            uninstall_keda
+            log_info "Reinstalling Knative..."
+            uninstall_knative_operator
         fi
     fi
 
-    log_info "Adding KEDA Helm repository..."
-    helm repo add kedacore https://kedacore.github.io/charts --force-update
+    log_info "Installing Knative Operator ${KNATIVE_OPERATOR_VERSION}..."
 
-    log_info "Installing KEDA ${KEDA_VERSION}..."
-    helm install keda kedacore/keda \
-        --namespace "${KEDA_NAMESPACE}" \
-        --create-namespace \
-        --version "${KEDA_VERSION}" \
-        --wait \
-        ${KEDA_EXTRA_ARGS:-}
+    if [[ "${KNATIVE_OPERATOR_VERSION}" == v* ]]; then
+        OPERATOR_CHART_URL="https://github.com/knative/operator/releases/download/knative-${KNATIVE_OPERATOR_VERSION}/knative-operator-${KNATIVE_OPERATOR_VERSION}.tgz"
+        log_info "Using GitHub release: ${OPERATOR_CHART_URL}"
 
-    log_success "Successfully installed KEDA ${KEDA_VERSION} via Helm"
+        # shellcheck disable=SC2086
+        helm install knative-operator \
+            --namespace "${OPERATOR_NAMESPACE}" \
+            --create-namespace \
+            --wait \
+            ${KNATIVE_OPERATOR_EXTRA_ARGS:-} \
+            "${OPERATOR_CHART_URL}"
+    else
+        log_info "Adding Knative Operator Helm repository..."
+        helm repo add knative-operator https://knative.github.io/operator --force-update
 
-    wait_for_pods "${KEDA_NAMESPACE}" "app.kubernetes.io/name=keda-operator" "300s"
+        # shellcheck disable=SC2086
+        helm install knative-operator knative-operator/knative-operator \
+            --namespace "${OPERATOR_NAMESPACE}" \
+            --create-namespace \
+            --version "${KNATIVE_OPERATOR_VERSION}" \
+            --wait \
+            ${KNATIVE_OPERATOR_EXTRA_ARGS:-}
+    fi
 
-    log_success "KEDA is ready!"
+    log_success "Successfully installed Knative Operator ${KNATIVE_OPERATOR_VERSION}"
+
+    wait_for_pods "${OPERATOR_NAMESPACE}" "name=knative-operator" "300s"
+
+    log_info "Deploying Knative Serving ${KNATIVE_SERVING_VERSION} with ${NETWORK_LAYER} network layer..."
+
+    if [ "$EMBED_TEMPLATES" = "true" ]; then
+        if [[ "${KNATIVE_SERVING_VERSION}" != "1.21.1" ]]; then
+            log_info "Customizing template with version=${KNATIVE_SERVING_VERSION}"
+            get_knative_serving_${NETWORK_LAYER} | \
+                sed -e "s/version: \".*\"/version: \"${KNATIVE_SERVING_VERSION}\"/" | \
+                kubectl apply --server-side -f -
+        else
+            get_knative_serving_${NETWORK_LAYER} | kubectl apply --server-side -f -
+        fi
+    else
+        TEMPLATE_FILE="${TEMPLATE_DIR}/knative-serving-${NETWORK_LAYER}.yaml"
+
+        if [[ ! -f "${TEMPLATE_FILE}" ]]; then
+            log_error "Template file not found: ${TEMPLATE_FILE}"
+            exit 1
+        fi
+
+        if [[ "${KNATIVE_SERVING_VERSION}" != "1.21.1" ]]; then
+            log_info "Customizing template with version=${KNATIVE_SERVING_VERSION}"
+            sed -e "s/version: \".*\"/version: \"${KNATIVE_SERVING_VERSION}\"/" \
+                "${TEMPLATE_FILE}" | kubectl apply -f -
+        else
+            kubectl apply -f "${TEMPLATE_FILE}"
+        fi
+    fi
+
+    log_success "Knative Serving CR applied"
+
+    log_info "Waiting for Knative Serving to be ready..."
+    kubectl wait --for=condition=Ready -n "${SERVING_NAMESPACE}" KnativeServing knative-serving --timeout=300s
+
+    log_success "Knative Operator and Serving are ready!"
 }
 
 # ----------------------------------------
-# CLI/Component: keda-otel-addon
+# CLI/Component: kserve-helm
 # ----------------------------------------
 
-uninstall_keda_otel_addon() {
-    log_info "Uninstalling KEDA OTel add-on..."
-    helm uninstall "${ADDON_RELEASE_NAME}" -n "${KEDA_NAMESPACE}" 2>/dev/null || true
-    log_success "KEDA OTel add-on uninstalled"
+uninstall_kserve_helm() {
+    log_info "Uninstalling KServe..."
+    if helm list -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -q "${RUNTIME_CONFIG_CHART_NAME}"; then
+        helm uninstall "${RUNTIME_CONFIG_CHART_NAME}" -n "${KSERVE_NAMESPACE}"
+        log_success "Successfully uninstalled Runtimes/LLMISVC configs"
+    fi
+
+    local all_charts=("${RESOURCE_CHARTS[@]}" "${CRD_CHARTS[@]}")
+    if [ ${#all_charts[@]} -gt 0 ]; then
+        log_info "Uninstalling charts: ${all_charts[*]}"
+    else
+        log_info "No charts to uninstall"
+        return 0
+    fi
+
+    for ((i=${#RESOURCE_CHARTS[@]}-1; i>=0; i--)); do
+        local chart="${RESOURCE_CHARTS[$i]}"
+        log_info "Uninstalling ${chart}..."
+        helm uninstall "${chart}" -n "${KSERVE_NAMESPACE}" 2>/dev/null || true
+    done
+
+    # Then uninstall CRD charts (reverse order)
+    for ((i=${#CRD_CHARTS[@]}-1; i>=0; i--)); do
+        local chart="${CRD_CHARTS[$i]}"
+        log_info "Uninstalling ${chart}..."
+        helm uninstall "${chart}" -n "${KSERVE_NAMESPACE}" 2>/dev/null || true
+    done
+
+    log_success "KServe charts uninstalled"
 }
 
-install_keda_otel_addon() {
-    if ! kubectl get namespace "${KEDA_NAMESPACE}" &>/dev/null; then
-        log_error "KEDA namespace '${KEDA_NAMESPACE}' does not exist. Please install KEDA first."
+install_kserve_helm() {
+    build_helm_config_args() {
+        local -a config_args=()
+
+        # Update deployment mode if needed
+        if [ "${DEPLOYMENT_MODE}" = "Standard" ] || [ "${DEPLOYMENT_MODE}" = "RawDeployment" ]; then
+            log_info "Adding deployment mode configuration: ${DEPLOYMENT_MODE}"
+            config_args+=(--set "kserve.controller.deploymentMode=${DEPLOYMENT_MODE}")
+        fi
+
+        # Enable Gateway API for KServe(ISVC) if needed
+        if [ "${GATEWAY_NETWORK_LAYER}" != "false" ] && ! is_positive "${ENABLE_LLMISVC}"; then
+            log_info "Adding Gateway API configuration: enableGatewayApi=true, ingressClassName=${GATEWAY_NETWORK_LAYER}"
+            config_args+=(--set "kserve.controller.gateway.ingressGateway.enableGatewayApi=true")
+            config_args+=(--set "kserve.controller.gateway.ingressGateway.className=${GATEWAY_NETWORK_LAYER}")
+        fi
+
+        if is_positive "${ENABLE_LOCALMODEL}"; then
+            config_args+=(--set "kserve.localModel.enabled=true")
+            config_args+=(--set "kserve.localModel.defaultJobImage=kserve/storage-initializer")
+            config_args+=(--set "kserve.localModel.defaultJobImageTag=${KSERVE_VERSION}")
+        fi
+        # Add custom configurations if provided
+        if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
+            log_info "Adding custom configurations: ${KSERVE_CUSTOM_ISVC_CONFIGS}"
+            IFS='|' read -ra custom_configs <<< "${KSERVE_CUSTOM_ISVC_CONFIGS}"
+            for config in "${custom_configs[@]}"; do
+                config_args+=(--set "${config}")
+            done
+        fi
+
+        # Only print if array has elements
+        if [ ${#config_args[@]} -gt 0 ]; then
+            printf '%s\n' "${config_args[@]}"
+        fi
+    }
+
+    if [ ${#RESOURCE_CHARTS[@]} -eq 0 ] && [ ${#CRD_CHARTS[@]} -eq 0 ]; then
+        log_error "No charts selected for installation. Please enable at least one component (ENABLE_KSERVE, ENABLE_LLMISVC, or ENABLE_LOCALMODEL)."
         exit 1
     fi
 
-    if helm list -n "${KEDA_NAMESPACE}" 2>/dev/null | grep -q "${ADDON_RELEASE_NAME}"; then
-        if [ "$REINSTALL" = false ]; then
-            log_info "KEDA OTel add-on is already installed. Use --reinstall to reinstall."
-            return 0
-        else
-            log_info "Reinstalling KEDA OTel add-on..."
-            uninstall_keda_otel_addon
-        fi
-    fi
-
-    log_info "Installing KEDA OTel add-on ${KEDA_OTEL_ADDON_VERSION} from kedify/otel-add-on..."
-    helm upgrade -i "${ADDON_RELEASE_NAME}" \
-        oci://ghcr.io/kedify/charts/otel-add-on \
-        --namespace "${KEDA_NAMESPACE}" \
-        --version="${KEDA_OTEL_ADDON_VERSION}" \
-        --wait \
-        ${KEDA_OTEL_ADDON_EXTRA_ARGS:-}
-
-    log_success "Successfully installed KEDA OTel add-on ${KEDA_OTEL_ADDON_VERSION} via Helm"
-
-    wait_for_pods "${KEDA_NAMESPACE}" "app.kubernetes.io/instance=${ADDON_RELEASE_NAME}" "300s"
-
-    log_success "KEDA OTel add-on is ready!"
-}
-
-# ----------------------------------------
-# CLI/Component: opentelemetry
-# ----------------------------------------
-
-uninstall_opentelemetry() {
-    log_info "Uninstalling OpenTelemetry Operator..."
-    helm uninstall "${OTEL_RELEASE_NAME}" -n "${OTEL_NAMESPACE}" 2>/dev/null || true
-    kubectl delete all --all -n "${OTEL_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
-    kubectl delete namespace "${OTEL_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
-    log_success "OpenTelemetry Operator uninstalled"
-}
-
-install_opentelemetry() {
-    if helm list -n "${OTEL_NAMESPACE}" 2>/dev/null | grep -q "${OTEL_RELEASE_NAME}"; then
-        if [ "$REINSTALL" = false ]; then
-            log_info "OpenTelemetry Operator is already installed. Use --reinstall to reinstall."
-            return 0
-        else
-            log_info "Reinstalling OpenTelemetry Operator..."
-            uninstall_opentelemetry
-        fi
-    fi
-
-    log_info "Adding OpenTelemetry Helm repository..."
-    helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts --force-update
-
-    log_info "Installing OpenTelemetry Operator ${OPENTELEMETRY_OPERATOR_VERSION}..."
-    helm install "${OTEL_RELEASE_NAME}" open-telemetry/opentelemetry-operator \
-        --namespace "${OTEL_NAMESPACE}" \
-        --create-namespace \
-        --version "${OPENTELEMETRY_OPERATOR_VERSION}" \
-        --wait \
-        --set "manager.collectorImage.repository=otel/opentelemetry-collector-contrib" \
-        ${OTEL_OPERATOR_EXTRA_ARGS:-}
-
-    log_success "Successfully installed OpenTelemetry Operator via Helm"
-
-    wait_for_pods "${OTEL_NAMESPACE}" "app.kubernetes.io/name=opentelemetry-operator" "300s"
-
-    log_success "OpenTelemetry Operator is ready!"
-}
-
-# ----------------------------------------
-# CLI/Component: kserve
-# ----------------------------------------
-
-uninstall_kserve() {
-    log_info "Uninstalling KServe..."
-
-    # EMBED_MANIFESTS: use embedded manifests
-    if [ "$EMBED_MANIFESTS" = "true" ]; then
-        if type uninstall_kserve_manifest &>/dev/null; then
-            uninstall_kserve_manifest
-        else
-            log_error "EMBED_MANIFESTS enabled but uninstall_kserve_manifest function not found"
-            log_error "This script should be called from a generated installation script"
-            exit 1
-        fi
-    else
-        # Development/Helm mode
-        helm uninstall "${KSERVE_RELEASE_NAME}" -n "${KSERVE_NAMESPACE}" 2>/dev/null || true
-        helm uninstall "${KSERVE_CRD_RELEASE_NAME}" -n "${KSERVE_NAMESPACE}" --namespace "${KSERVE_NAMESPACE}" 2>/dev/null || true
-    fi
-
-    kubectl delete all --all -n "${KSERVE_NAMESPACE}" --force --grace-period=0 2>/dev/null || true
-    kubectl delete namespace "${KSERVE_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
-    log_success "KServe uninstalled"
-}
-
-install_kserve() {
-    if helm list -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -q "${KSERVE_RELEASE_NAME}"; then
-        if [ "$REINSTALL" = false ]; then
-            log_info "KServe is already installed. Use --reinstall to reinstall."
-            return 0
-        else
-            log_info "Reinstalling KServe..."
-            uninstall_kserve
-        fi
-    fi
-
-    # EMBED_MANIFESTS: use embedded manifests from generated script
-    if [ "$EMBED_MANIFESTS" = "true" ]; then
-        log_info "Installing KServe using embedded manifests ..."
-
-        # Call manifest functions (these should be available in generated script)
-        if type install_kserve_manifest &>/dev/null; then
-            install_kserve_manifest
-        else
-            log_error "EMBED_MANIFESTS enabled but install_kserve_manifest function not found"
-            log_error "This script should be called from a generated installation script"
-            exit 1
-        fi
-    elif [ "${USE_LOCAL_CHARTS}" = true ]; then
-        # Install KServe using local charts (for development)
-        log_info "Installing KServe using local charts..."
-        log_info "📍 Using local charts from ${CHARTS_DIR}/"
-
-        # Update default version in values.yaml
-        log_info "Updating default version in values.yaml to ${KSERVE_VERSION}"
-        sed -i -e "s/*defaultVersion*/${KSERVE_VERSION}/g" ${CHARTS_DIR}/${CORE_DIR_NAME}/values.yaml
-
-        # Install KServe CRDs from local chart
-        log_info "Installing KServe CRDs..."
-        helm upgrade --install "${KSERVE_CRD_RELEASE_NAME}" "${CHARTS_DIR}/${CRD_DIR_NAME}" \
-            --namespace "${KSERVE_NAMESPACE}" \
-            --create-namespace \
-            --wait \
-            ${KSERVE_CRD_EXTRA_ARGS:-}
-
-        # Install KServe resources from local chart
-        log_info "Installing KServe resources..."
-        helm upgrade --install "${KSERVE_RELEASE_NAME}" "${CHARTS_DIR}/${CORE_DIR_NAME}" \
-            --namespace "${KSERVE_NAMESPACE}" \
-            --create-namespace \
-            --wait \
-            ${KSERVE_EXTRA_ARGS:-}
-
-        log_success "Successfully installed KServe using local charts"
-    else
-        # Install KServe from OCI registry
-        log_info "Installing KServe ${KSERVE_VERSION} from OCI registry..."
-
-        # Install KServe CRDs
-        log_info "Installing KServe CRDs..."
-        helm upgrade --install "${KSERVE_CRD_RELEASE_NAME}" \
-            oci://ghcr.io/kserve/charts/${CRD_DIR_NAME} \
-            --version "${KSERVE_VERSION}" \
-            --namespace "${KSERVE_NAMESPACE}" \
-            --create-namespace \
-            --wait \
-            ${KSERVE_CRD_EXTRA_ARGS:-}
-
-        # Install KServe resources
-        log_info "Installing KServe resources..."
-        if ! helm upgrade --install "${KSERVE_RELEASE_NAME}" \
-            oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
-            --version "${KSERVE_VERSION}" \
-            --namespace "${KSERVE_NAMESPACE}" \
-            --create-namespace \
-            --wait \
-            ${KSERVE_EXTRA_ARGS:-}; then
-
-            # If installation fails, try using helm upgrade after kserve controller is Ready
-            log_info "Install failed, attempting upgrade instead..."
-
-            for deploy in "${TARGET_DEPLOYMENT_NAMES[@]}"; do
-                    wait_for_deployment "${KSERVE_NAMESPACE}" "${deploy}" "120s"
-            done
-            if ! helm upgrade "${KSERVE_RELEASE_NAME}" \
-                oci://ghcr.io/kserve/charts/${KSERVE_RELEASE_NAME} \
-                --version "${KSERVE_VERSION}" \
-                --namespace "${KSERVE_NAMESPACE}" \
-                --wait \
-                ${KSERVE_EXTRA_ARGS:-}; then
-
-                log_error "Failed to install/upgrade KServe ${KSERVE_VERSION}"
-                exit 1
+    if [ ${#RESOURCE_CHARTS[@]} -gt 0 ]; then
+        local main_chart="${RESOURCE_CHARTS[0]}"
+        # Use exact match for helm release name to avoid partial matches
+        if helm list -n "${KSERVE_NAMESPACE}" -q 2>/dev/null | grep -x "${main_chart}" &>/dev/null; then
+            if ! is_positive "$REINSTALL"; then
+                if is_positive "$FORCE_UPGRADE"; then
+                    log_info "Force upgrading KServe..."
+                else
+                    log_info "KServe is already installed. Use --reinstall to reinstall or --force-upgrade to upgrade."
+                    return 0
+                fi
+            else
+                log_info "Reinstalling KServe..."
+                uninstall_kserve_helm
             fi
         fi
-
-        log_success "Successfully installed KServe ${KSERVE_VERSION}"
     fi
 
-    # Build list of config updates
-    local config_updates=()
-
-    # Update deployment mode if needed
-    if [ "${DEPLOYMENT_MODE}" = "Standard" ] || [ "${DEPLOYMENT_MODE}" = "RawDeployment" ]; then
-        log_info "Adding deployment mode update: ${DEPLOYMENT_MODE}"
-        config_updates+=("deploy.defaultDeploymentMode=\"${DEPLOYMENT_MODE}\"")
-    fi
-
-    # Enable Gateway API for KServe(ISVC) if needed
-    if [ "${GATEWAY_NETWORK_LAYER}" != "false" ] && [ "${LLMISVC}" != "true" ]; then
-        log_info "Adding Gateway API updates: enableGatewayApi=true, ingressClassName=${GATEWAY_NETWORK_LAYER}"
-        config_updates+=("ingress.enableGatewayApi=true")
-        config_updates+=("ingress.ingressClassName=\"${GATEWAY_NETWORK_LAYER}\"")
-    fi
-
-    # Add custom configurations if provided
-    if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
-        log_info "Adding custom configurations: ${KSERVE_CUSTOM_ISVC_CONFIGS}"
-        IFS='|' read -ra custom_configs <<< "${KSERVE_CUSTOM_ISVC_CONFIGS}"
-        config_updates+=("${custom_configs[@]}")
-    fi
-
-    # Apply all config updates at once if there are any
-    if [ ${#config_updates[@]} -gt 0 ]; then
-        log_info "Applying ${#config_updates[@]} configuration update(s):"
-        for update in "${config_updates[@]}"; do
-            log_info "  - ${update}"
-        done
-        update_isvc_config "${config_updates[@]}"
-        if [ "${LLMISVC}" != "true" ]; then
-            kubectl rollout restart deployment kserve-controller-manager -n ${KSERVE_NAMESPACE}
-        fi
+    # Determine chart repository
+    local CHART_REPO="oci://ghcr.io/kserve/charts"
+    if is_positive "${USE_LOCAL_CHARTS}"; then
+        CHART_REPO="${CHARTS_DIR}"
+        log_info "Installing KServe using local charts..."
+        log_info "📍 Using local charts from ${CHARTS_DIR}/"
     else
-        if [ "${LLMISVC}" = "true" ]; then
-            log_info "No configuration updates needed for LLMISVC (GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
-        else
-            log_info "No configuration updates needed (DEPLOYMENT_MODE=${DEPLOYMENT_MODE}, GATEWAY_NETWORK_LAYER=${GATEWAY_NETWORK_LAYER})"
-        fi
+        log_info "Installing KServe ${KSERVE_VERSION} from OCI registry..."
     fi
+
+    # Build chart version flag (only for remote charts, skip for 'latest')
+    local VERSION_FLAG=""
+    if ! is_positive "${USE_LOCAL_CHARTS}"; then
+        VERSION_FLAG="--version ${KSERVE_VERSION}"
+    fi
+
+    # Install CRD charts
+    for chart in "${CRD_CHARTS[@]}"; do
+        log_info "Installing ${chart}..."
+        helm upgrade -i "${chart}" "${CHART_REPO}/${chart}" \
+            --namespace "${KSERVE_NAMESPACE}" \
+            --create-namespace \
+            --wait \
+            ${VERSION_FLAG} \
+            ${SHARED_EXTRA_ARGS}
+    done
+
+    # Build configuration arguments for KServe/LLMIsvc
+    readarray -t helm_config_args < <(build_helm_config_args)
+
+    # Adopt any pre-existing GIE CRDs into the llmisvc-resources Helm release
+    if is_positive "${ENABLE_LLMISVC}"; then
+        adopt_existing_crds_for_release "kserve-llmisvc-resources" "${KSERVE_NAMESPACE}" "${GIE_CRDS[@]}"
+    fi
+
+    # Install resource charts
+    for i in "${!RESOURCE_CHARTS[@]}"; do
+        local chart="${RESOURCE_CHARTS[$i]}"
+        local extra_args="${RESOURCE_EXTRA_ARGS_LIST[$i]}"
+
+        # Apply config args only to kserve-resources chart (InferenceService configs)
+        local -a extra_helm_args=()
+        if [[ "${chart}" == "kserve-resources" ]]; then
+            extra_helm_args=("${helm_config_args[@]}")
+        fi
+
+        log_info "Installing ${chart}..."
+        for attempt in 1 2; do
+            if helm upgrade -i "${chart}" "${CHART_REPO}/${chart}" \
+                --namespace "${KSERVE_NAMESPACE}" \
+                --create-namespace \
+                --wait \
+                ${VERSION_FLAG} \
+                --set kserve.version="${KSERVE_VERSION}" \
+                ${SHARED_EXTRA_ARGS} \
+                ${extra_args} \
+                "${extra_helm_args[@]}"; then
+                break
+            elif [ $attempt -eq 2 ]; then
+                log_error "Failed to install/upgrade ${chart} ${KSERVE_VERSION} after 2 attempts"
+                exit 1
+            fi
+            sleep 5
+        done
+    done
 
     log_success "Successfully installed KServe"
 
@@ -1168,6 +1495,21 @@ install_kserve() {
     done
 
     log_success "KServe is ready!"
+
+    # Install Runtimes and LLMISVC configs if needed
+    if is_positive "${INSTALL_RUNTIMES}" || is_positive "${INSTALL_LLMISVC_CONFIGS}"; then
+        log_info "Installing Runtimes(${INSTALL_RUNTIMES}) and LLMISVC configs(${INSTALL_LLMISVC_CONFIGS})..."
+        helm upgrade -i ${RUNTIME_CONFIG_CHART_NAME} \
+            ${CHART_REPO}/${RUNTIME_CONFIG_CHART_NAME} \
+            --namespace "${KSERVE_NAMESPACE}" \
+            --create-namespace \
+            --wait \
+            ${VERSION_FLAG} \
+            --set kserve.version="${KSERVE_VERSION}" \
+            --set kserve.servingruntime.enabled=${INSTALL_RUNTIMES} \
+            --set kserve.llmisvcConfigs.enabled=${INSTALL_LLMISVC_CONFIGS}
+        log_success "Successfully installed Runtimes/LLMISVC configs"
+    fi
 }
 
 
@@ -1181,10 +1523,8 @@ main() {
         echo "=========================================="
         echo "Uninstalling components..."
         echo "=========================================="
-        uninstall_kserve
-        uninstall_opentelemetry
-        uninstall_keda_otel_addon
-        uninstall_keda
+        uninstall_kserve_helm
+        uninstall_knative_operator
         uninstall_istio_ingress_class
         uninstall_istio
         uninstall_cert_manager
@@ -1201,7 +1541,7 @@ main() {
     echo "Install KServe Knative Mode and all related dependencies using helm."
     echo "=========================================="
 
-
+    export EMBED_TEMPLATES="true"
 
     install_helm
     install_kustomize
@@ -1209,25 +1549,45 @@ main() {
     install_cert_manager
     install_istio
     install_istio_ingress_class
-    install_keda
-    install_keda_otel_addon
-    install_opentelemetry
+    install_knative_operator
     (
-        # Set Helm release names and target pod labels based on LLMISVC
-        if [ "${LLMISVC}" = "true" ]; then
-            log_info "LLMISVC is enabled"
-            CRD_DIR_NAME="kserve-llmisvc-crd"
-            CORE_DIR_NAME="kserve-llmisvc-resources"
-            KSERVE_CRD_RELEASE_NAME="kserve-llmisvc-crd"
-            KSERVE_RELEASE_NAME="kserve-llmisvc-resources"
-            TARGET_DEPLOYMENT_NAMES=("kserve-llmisvc-controller-manager")
-        fi
+        set_env_with_priority "ENABLE_LLMISVC" "False" "" ""
+        set_env_with_priority "ENABLE_KSERVE" "True" "" "true"
+        set_env_with_priority "INSTALL_RUNTIMES" "True" "" ""
+        set_env_with_priority "INSTALL_LLMISVC_CONFIGS" "False" "" ""
+        determine_shared_resources_config "${INSTALL_MODE}" "${ENABLE_KSERVE}" "${ENABLE_LLMISVC}"
         
         if [ "${SET_KSERVE_VERSION}" != "" ]; then
             log_info "Setting KServe version to ${SET_KSERVE_VERSION}"
             KSERVE_VERSION="${SET_KSERVE_VERSION}"
         fi
-        install_kserve
+        
+        # Build chart arrays based on ENABLE_* flags
+        if is_positive "${ENABLE_KSERVE}"; then
+            log_info "KServe is enabled"
+            CRD_CHARTS+=("kserve-crd")
+            RESOURCE_CHARTS+=("kserve-resources")
+            RESOURCE_EXTRA_ARGS_LIST+=("${KSERVE_EXTRA_ARGS:-}")
+            TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager")
+        fi
+        
+        if is_positive "${ENABLE_LLMISVC}"; then
+            log_info "LLMIsvc is enabled"
+            CRD_CHARTS+=("kserve-llmisvc-crd")
+            RESOURCE_CHARTS+=("kserve-llmisvc-resources")
+            RESOURCE_EXTRA_ARGS_LIST+=("${LLMISVC_EXTRA_ARGS:-}")
+            TARGET_DEPLOYMENT_NAMES+=("llmisvc-controller-manager")
+        fi
+        
+        if is_positive "${ENABLE_LOCALMODEL}"; then
+            log_info "LocalModel is enabled"
+            CRD_CHARTS+=("kserve-localmodel-crd")
+            RESOURCE_CHARTS+=("kserve-localmodel-resources")
+            RESOURCE_EXTRA_ARGS_LIST+=("${LOCALMODEL_EXTRA_ARGS:-}")
+            TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
+        fi
+
+        install_kserve_helm
     )
 
     echo "=========================================="

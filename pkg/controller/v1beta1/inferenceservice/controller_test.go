@@ -475,7 +475,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Disabled: ptr.To(false),
 				},
 			}
-			k8sClient.Create(context.TODO(), servingRuntime)
+			_ = k8sClient.Create(context.TODO(), servingRuntime)
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			// Create InferenceService
 			serviceName := "foo"
@@ -522,7 +522,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 			inferenceService := &v1beta1.InferenceService{}
@@ -585,6 +585,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 												"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
 												"--model_base_path=" + constants.DefaultModelLocalMountPath,
 												"--rest_api_timeout_in_ms=60000",
+											},
+											Env: []corev1.EnvVar{
+												{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 											},
 											Resources: defaultResource,
 										},
@@ -770,7 +773,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
@@ -1903,11 +1906,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			// Create the InferenceService object and expect the Reconcile and knative service to be created
-			transformer.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			transformer.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 			instance := transformer.DeepCopy()
 			Expect(k8sClient.Create(context.TODO(), instance)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), instance)
@@ -1961,7 +1964,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 												constants.ArgumentHttpPort,
 												constants.InferenceServiceDefaultHttpPort,
 											},
-											Name:      constants.InferenceServiceContainerName,
+											Name: constants.InferenceServiceContainerName,
+											Env: []corev1.EnvVar{
+												{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+											},
 											Resources: defaultResource,
 										},
 									},
@@ -2226,7 +2232,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 
 				//  Create the InferenceService object and expect the Reconcile and knative service to be created
-				isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+				isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 				Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 				defer k8sClient.Delete(ctx, isvc)
 				inferenceService := &v1beta1.InferenceService{}
@@ -2281,11 +2287,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 													"--model_base_path=" + constants.DefaultModelLocalMountPath,
 													"--rest_api_timeout_in_ms=60000",
 												},
+												Env: []corev1.EnvVar{
+													{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+												},
 												Resources: defaultResource,
 											},
 											{
-												Name:      constants.TransformerContainerName,
-												Image:     "transformer:v1",
+												Name:  constants.TransformerContainerName,
+												Image: "transformer:v1",
+												Env: []corev1.EnvVar{
+													{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+												},
 												Resources: defaultResource,
 												Ports: []corev1.ContainerPort{
 													{
@@ -2532,7 +2544,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 
 				//  Create the InferenceService object and expect the Reconcile and knative service to be created
-				isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+				isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 				Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 				defer k8sClient.Delete(ctx, isvc)
 				inferenceService := &v1beta1.InferenceService{}
@@ -2587,12 +2599,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 													"--model_base_path=" + constants.DefaultModelLocalMountPath,
 													"--rest_api_timeout_in_ms=60000",
 												},
+												Env: []corev1.EnvVar{
+													{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+												},
 												Resources: defaultResource,
 											},
 											{
-												Name:      constants.TransformerContainerName,
-												Image:     "transformer:v1",
-												Args:      []string{"--model_name=" + serviceName},
+												Name:  constants.TransformerContainerName,
+												Image: "transformer:v1",
+												Args:  []string{"--model_name=" + serviceName},
+												Env: []corev1.EnvVar{
+													{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+												},
 												Resources: defaultResource,
 												Ports: []corev1.ContainerPort{
 													{
@@ -2855,7 +2873,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 
 				//  Create the InferenceService object and expect the Reconcile and knative service to be created
-				isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+				isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 				Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 				defer k8sClient.Delete(ctx, isvc)
 				inferenceService := &v1beta1.InferenceService{}
@@ -2910,6 +2928,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 													"--model_base_path=" + constants.DefaultModelLocalMountPath,
 													"--rest_api_timeout_in_ms=60000",
 												},
+												Env: []corev1.EnvVar{
+													{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+												},
 												Resources: defaultResource,
 											},
 											{
@@ -2918,7 +2939,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 												Command: []string{
 													"transformer",
 												},
-												Args:      []string{"--model_name=" + serviceName, "--http-port", strconv.Itoa(int(httpPort))},
+												Args: []string{"--model_name=" + serviceName, "--http-port", strconv.Itoa(int(httpPort))},
+												Env: []corev1.EnvVar{
+													{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+												},
 												Resources: defaultResource,
 												Ports: []corev1.ContainerPort{
 													{
@@ -3134,7 +3158,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 
 				//  Create the InferenceService object and expect the Reconcile and knative service to be created
-				isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+				isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 				Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 				defer k8sClient.Delete(ctx, isvc)
 				inferenceService := &v1beta1.InferenceService{}
@@ -3186,11 +3210,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 													"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
 													"--model_base_path=" + constants.DefaultModelLocalMountPath,
 												},
+												Env: []corev1.EnvVar{
+													{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+												},
 												Resources: defaultResource,
 											},
 											{
-												Name:      constants.TransformerContainerName,
-												Image:     "transformer:v1",
+												Name:  constants.TransformerContainerName,
+												Image: "transformer:v1",
+												Env: []corev1.EnvVar{
+													{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
+												},
 												Resources: defaultResource,
 												Ports: []corev1.ContainerPort{
 													{
@@ -3348,7 +3378,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 
 			// Create Canary InferenceService
@@ -3382,7 +3412,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			inferenceService := &v1beta1.InferenceService{}
 
@@ -3449,7 +3479,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// update predictor status
 			canaryService := &knservingv1.Service{}
 			Eventually(func() string {
-				k8sClient.Get(context.TODO(), predictorServiceKey, canaryService)
+				_ = k8sClient.Get(context.TODO(), predictorServiceKey, canaryService)
 				return canaryService.Spec.Template.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
 			}, timeout, interval).Should(Equal(storageUri2))
 
@@ -3518,7 +3548,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// update predictor knative service status
 			serviceRevision2 := &knservingv1.Service{}
 			Eventually(func() string {
-				k8sClient.Get(context.TODO(), predictorServiceKey, serviceRevision2)
+				_ = k8sClient.Get(context.TODO(), predictorServiceKey, serviceRevision2)
 				return serviceRevision2.Spec.Template.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
 			}, timeout, interval).Should(Equal(storageUri2))
 
@@ -3761,6 +3791,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 												"--rest_api_port=8080",
 												"--model_base_path=/mnt/models",
 												"--rest_api_timeout_in_ms=60000",
+											},
+											Env: []corev1.EnvVar{
+												{Name: constants.InferenceServiceNameEnvVarKey, Value: serviceName},
 											},
 											Resources: defaultResource,
 										},
@@ -4728,7 +4761,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Create ServingRuntime
 			servingRuntime := getServingRuntime("tf-serving", "default")
-			k8sClient.Create(context.TODO(), &servingRuntime)
+			_ = k8sClient.Create(context.TODO(), &servingRuntime)
 			defer k8sClient.Delete(context.TODO(), &servingRuntime)
 			serviceName := "test-err-msg"
 			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}

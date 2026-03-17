@@ -2,6 +2,8 @@ apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
   name: kserve-mlserver
+  annotations:
+    serving.kserve.io/server-type: mlserver
 spec:
   annotations:
     # mlserver version 1.1.0 uses port 8082 as default instead of 8080.
@@ -11,27 +13,27 @@ spec:
     - name: sklearn
       version: "0"
       autoSelect: true
-      priority: 3
+      priority: 2
     - name: sklearn
       version: "1"
       autoSelect: true
-      priority: 3
+      priority: 2
     - name: xgboost
       version: "1"
       autoSelect: true
-      priority: 3
+      priority: 2
     - name: xgboost
       version: "2"
       autoSelect: true
-      priority: 3
+      priority: 2
     - name: lightgbm
       version: "3"
       autoSelect: true
-      priority: 3
+      priority: 2
     - name: lightgbm
       version: "4"
       autoSelect: true
-      priority: 3
+      priority: 2
     - name: mlflow
       version: "1"
       autoSelect: true
@@ -52,8 +54,6 @@ spec:
           value: "8080"
         - name: "MLSERVER_GRPC_PORT"
           value: "9000"
-        - name: "MODELS_DIR"
-          value: "/mnt/models"
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false

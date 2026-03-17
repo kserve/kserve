@@ -134,8 +134,9 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 		return err
 	}
 
-	_, localModelDisabledForIsvc := isvc.ObjectMeta.Annotations[constants.DisableLocalModelKey]
+	_, localModelDisabledForIsvc := isvc.Annotations[constants.DisableLocalModelKey]
 	var models *v1alpha1.LocalModelCacheList
+	var nsModels *v1alpha1.LocalModelNamespaceCacheList
 	if !localModelDisabledForIsvc && localModelConfig.Enabled {
 		var c client.Client
 		if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
@@ -147,23 +148,40 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 			mutatorLogger.Error(err, "Cannot List local models")
 			return err
 		}
+		// List namespace-scoped LocalModelNamespaceCache in the ISVC's namespace
+		nsModels = &v1alpha1.LocalModelNamespaceCacheList{}
+		if err := c.List(ctx, nsModels, client.InNamespace(isvc.Namespace)); err != nil {
+			mutatorLogger.Error(err, "Cannot List namespace-scoped local models", "namespace", isvc.Namespace)
+			return err
+		}
 	}
 
-	// Pass a list of LocalModelCache resources to set the local model label if there is a match
-	isvc.DefaultInferenceService(isvcConfig, deployConfig, securityConfig, models)
+	isvc.DefaultInferenceService(isvcConfig, deployConfig, securityConfig, models, nsModels)
 	return nil
 }
 
-func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, securityConfig *SecurityConfig, models *v1alpha1.LocalModelCacheList) {
-	deploymentMode, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]
+func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, securityConfig *SecurityConfig, models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList) {
+	deploymentMode, ok := isvc.Annotations[constants.DeploymentMode]
+
+	// Normalize deprecated annotation values
+	if ok {
+		if deploymentMode == string(constants.LegacyRawDeployment) {
+			isvc.Annotations[constants.DeploymentMode] = string(constants.Standard)
+			deploymentMode = string(constants.Standard)
+		}
+		if deploymentMode == string(constants.LegacyServerless) {
+			isvc.Annotations[constants.DeploymentMode] = string(constants.Knative)
+			deploymentMode = string(constants.Knative)
+		}
+	}
 
 	if !ok && deployConfig != nil {
 		if deployConfig.DefaultDeploymentMode == string(constants.ModelMeshDeployment) ||
 			deployConfig.DefaultDeploymentMode == string(constants.Standard) {
-			if isvc.ObjectMeta.Annotations == nil {
-				isvc.ObjectMeta.Annotations = map[string]string{}
+			if isvc.Annotations == nil {
+				isvc.Annotations = map[string]string{}
 			}
-			isvc.ObjectMeta.Annotations[constants.DeploymentMode] = deployConfig.DefaultDeploymentMode
+			isvc.Annotations[constants.DeploymentMode] = deployConfig.DefaultDeploymentMode
 		}
 	}
 	components := []Component{isvc.Spec.Transformer, isvc.Spec.Explainer}
@@ -189,7 +207,7 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 		}
 	}
 
-	isvc.setLocalModelLabel(models)
+	isvc.setLocalModelLabel(models, nsModels)
 	if securityConfig != nil && !securityConfig.AutoMountServiceAccountToken {
 		disableAutomountServiceAccountToken(isvc)
 	}
@@ -254,12 +272,12 @@ func (isvc *InferenceService) setPredictorModelDefaults() {
 		// Add framework annotation from modelFormat
 		if isvc.Spec.Predictor.Model.ModelFormat.Name != "" {
 			modelFormat := isvc.Spec.Predictor.Model.ModelFormat.Name
-			if isvc.ObjectMeta.Annotations == nil {
-				isvc.ObjectMeta.Annotations = make(map[string]string)
+			if isvc.Annotations == nil {
+				isvc.Annotations = make(map[string]string)
 			}
 			// Only set if not already present (allow user override)
-			if _, exists := isvc.ObjectMeta.Annotations[constants.ModelFormatAnnotationKey]; !exists {
-				isvc.ObjectMeta.Annotations[constants.ModelFormatAnnotationKey] = modelFormat
+			if _, exists := isvc.Annotations[constants.ModelFormatAnnotationKey]; !exists {
+				isvc.Annotations[constants.ModelFormatAnnotationKey] = modelFormat
 			}
 		}
 	}
@@ -370,18 +388,23 @@ func (isvc *InferenceService) assignPaddleRuntime() {
 	isvc.Spec.Predictor.Paddle = nil
 }
 
-func (isvc *InferenceService) SetRuntimeDefaults() {
-	// add mlserver specific default values
-	if *isvc.Spec.Predictor.Model.Runtime == constants.MLServer {
+func (isvc *InferenceService) SetRuntimeDefaults(runtimeAnnotations map[string]string) {
+	// Try annotation-based approach first (new way)
+	serverType, exists := runtimeAnnotations[constants.ServerTypeAnnotationKey]
+
+	// Fallback to runtime name-based approach for backward compatibility (old way)
+	if !exists && isvc.Spec.Predictor.Model.Runtime != nil {
+		serverType = constants.GetServerTypeFromRuntimeName(*isvc.Spec.Predictor.Model.Runtime)
+	}
+
+	// Apply server-specific defaults based on server type
+	switch serverType {
+	case constants.ServerTypeMLServer:
 		isvc.SetMlServerDefaults()
-	}
-	// add torchserve specific default values
-	if *isvc.Spec.Predictor.Model.Runtime == constants.TorchServe {
-		isvc.SetTorchServeDefaults()
-	}
-	// add triton specific default values
-	if *isvc.Spec.Predictor.Model.Runtime == constants.TritonServer {
+	case constants.ServerTypeTritonServer:
 		isvc.SetTritonDefaults()
+	case constants.ServerTypeTorchServe:
+		isvc.SetTorchServeDefaults()
 	}
 }
 
@@ -411,7 +434,7 @@ func (isvc *InferenceService) SetMlServerDefaults() {
 			},
 		)
 	}
-	// set model class
+	// set model class as label (used by runtime template for MLSERVER_MODEL_IMPLEMENTATION)
 	modelClass := constants.MLServerModelClassSKLearn
 	switch isvc.Spec.Predictor.Model.ModelFormat.Name {
 	case constants.SupportedModelXGBoost:
@@ -421,10 +444,10 @@ func (isvc *InferenceService) SetMlServerDefaults() {
 	case constants.SupportedModelMLFlow:
 		modelClass = constants.MLServerModelClassMLFlow
 	}
-	if isvc.ObjectMeta.Labels == nil {
-		isvc.ObjectMeta.Labels = map[string]string{constants.ModelClassLabel: modelClass}
+	if isvc.Labels == nil {
+		isvc.Labels = map[string]string{constants.ModelClassLabel: modelClass}
 	} else {
-		isvc.ObjectMeta.Labels[constants.ModelClassLabel] = modelClass
+		isvc.Labels[constants.ModelClassLabel] = modelClass
 	}
 }
 
@@ -435,13 +458,13 @@ func (isvc *InferenceService) SetTorchServeDefaults() {
 		isvc.Spec.Predictor.Model.ProtocolVersion = &protocolV1
 	}
 	// set torchserve service envelope based on protocol version
-	if isvc.ObjectMeta.Labels == nil {
-		isvc.ObjectMeta.Labels = map[string]string{constants.ServiceEnvelope: constants.ServiceEnvelopeKServe}
+	if isvc.Labels == nil {
+		isvc.Labels = map[string]string{constants.ServiceEnvelope: constants.ServiceEnvelopeKServe}
 	} else {
-		isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServe
+		isvc.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServe
 	}
 	if (constants.ProtocolV2 == *isvc.Spec.Predictor.Model.ProtocolVersion) || (constants.ProtocolGRPCV2 == *isvc.Spec.Predictor.Model.ProtocolVersion) {
-		isvc.ObjectMeta.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServeV2
+		isvc.Labels[constants.ServiceEnvelope] = constants.ServiceEnvelopeKServeV2
 	}
 
 	// set torchserve env variable "PROTOCOL_VERSION" based on ProtocolVersion
@@ -469,6 +492,7 @@ func (isvc *InferenceService) SetTritonDefaults() {
 func deleteLocalModelMetadata(isvc *InferenceService) {
 	if isvc.Labels != nil {
 		delete(isvc.Labels, constants.LocalModelLabel)
+		delete(isvc.Labels, constants.LocalModelNamespaceLabel)
 	}
 	if isvc.Annotations != nil {
 		delete(isvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
@@ -476,12 +500,9 @@ func deleteLocalModelMetadata(isvc *InferenceService) {
 	}
 }
 
-// If there is a LocalModelCache resource, add the name of the LocalModelCache and sourceModelUri to the isvc,
-// which is used by the local model controller to manage PV/PVCs.
-func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCacheList) {
-	if models == nil {
-		return
-	}
+// setLocalModelLabel sets local model labels on the ISVC if a matching cache exists.
+// Namespace-scoped LocalModelNamespaceCache takes precedence over cluster-scoped LocalModelCache.
+func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList) {
 	var predictor ComponentImplementation
 	if predictor = isvc.Spec.Predictor.GetImplementation(); predictor == nil {
 		return
@@ -490,9 +511,46 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 		return
 	}
 	isvcStorageUri := *isvc.Spec.Predictor.GetImplementation().GetStorageUri()
+	isvcNodeGroup, isvcNodeGroupExists := isvc.Annotations[constants.NodeGroupAnnotationKey]
+
+	// Check namespace-scoped LocalModelNamespaceCache first (higher priority)
+	if nsModels != nil {
+		for i, nsModel := range nsModels.Items {
+			if nsModel.Spec.MatchStorageURI(isvcStorageUri) {
+				var localModelPVCName string
+				if isvcNodeGroupExists {
+					if slices.Contains(nsModel.Spec.NodeGroups, isvcNodeGroup) {
+						localModelPVCName = nsModel.Name + "-" + isvcNodeGroup
+					} else {
+						continue
+					}
+				} else {
+					localModelPVCName = nsModel.Name + "-" + nsModel.Spec.NodeGroups[0]
+				}
+				if isvc.Labels == nil {
+					isvc.Labels = make(map[string]string)
+				}
+				if isvc.Annotations == nil {
+					isvc.Annotations = make(map[string]string)
+				}
+				isvc.Labels[constants.LocalModelLabel] = nsModels.Items[i].Name
+				isvc.Labels[constants.LocalModelNamespaceLabel] = nsModels.Items[i].Namespace
+				isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = nsModels.Items[i].Spec.SourceModelUri
+				isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModelPVCName
+
+				mutatorLogger.Info("LocalModelNamespaceCache found", "model", nsModels.Items[i].Name, "modelNamespace", nsModels.Items[i].Namespace, "isvcNamespace", isvc.Namespace, "isvc", isvc.Name)
+				return
+			}
+		}
+	}
+
+	// Fall back to cluster-scoped LocalModelCache
+	if models == nil {
+		deleteLocalModelMetadata(isvc)
+		return
+	}
 	var localModel *v1alpha1.LocalModelCache
 	var localModelPVCName string
-	isvcNodeGroup, isvcNodeGroupExists := isvc.Annotations[constants.NodeGroupAnnotationKey]
 	for i, model := range models.Items {
 		// both storage URI and node group have to match for the isvc to be considered cached
 		if model.Spec.MatchStorageURI(isvcStorageUri) {
@@ -525,6 +583,8 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 		isvc.Annotations = make(map[string]string)
 	}
 	isvc.Labels[constants.LocalModelLabel] = localModel.Name
+	// Remove namespace label for cluster-scoped model (in case it was previously set)
+	delete(isvc.Labels, constants.LocalModelNamespaceLabel)
 	isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = localModel.Spec.SourceModelUri
 	isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModelPVCName
 

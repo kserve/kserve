@@ -6,9 +6,13 @@ on:
         paths-ignore:
             - "**.md"
     pull_request:
-        branches: []
-        paths-ignore:
-            - "**.md"
+        paths:
+          - "**"
+          - "!python/**"
+          - "!.github/**"
+          - "!docs/**"
+          - "!**.md"
+          - ".github/workflows/go.yml"
     workflow_dispatch:
 
 concurrency:
@@ -27,6 +31,15 @@ jobs:
 
             - name: Check out code into the Go module directory
               uses: actions/checkout@v4
+
+            - name: Merge target branch
+              if: github.event_name == 'pull_request'
+              run: |
+                git fetch --unshallow origin
+                git fetch origin ${{ github.event.pull_request.base.ref }}
+                git config user.email "ci@kserve.io"
+                git config user.name "CI Bot"
+                git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
             - name: Set up Go 1.x
               uses: actions/setup-go@v5
@@ -67,6 +80,15 @@ jobs:
         steps:
             - name: checkout
               uses: actions/checkout@v4
+
+            - name: Merge target branch
+              if: github.event_name == 'pull_request'
+              run: |
+                git fetch --unshallow origin
+                git fetch origin ${{ github.event.pull_request.base.ref }}
+                git config user.email "ci@kserve.io"
+                git config user.name "CI Bot"
+                git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
             - name: Download cover profile artifact
               id: download-coverage

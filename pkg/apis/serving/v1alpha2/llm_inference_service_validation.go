@@ -17,8 +17,11 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"regexp"
+	"slices"
 
 	"k8s.io/utils/ptr"
 
@@ -29,9 +32,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/utils"
 )
+
+// variantCostPattern is compiled once at package init to avoid recompilation on every webhook call.
+var variantCostPattern = regexp.MustCompile(`^\d+(\.\d+)?$`)
 
 // +kubebuilder:webhook:path=/validate-serving-kserve-io-v1alpha2-llminferenceservice,mutating=false,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha2,name=llminferenceservice.kserve-webhook-server.v1alpha2.validator,admissionReviewVersions=v1
 
@@ -50,27 +57,25 @@ func (l *LLMInferenceServiceValidator) SetupWithManager(mgr ctrl.Manager) error 
 }
 
 func (l *LLMInferenceServiceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	warnings := admission.Warnings{}
 	llmSvc, err := utils.Convert[*LLMInferenceService](obj)
 	if err != nil {
-		return warnings, err
+		return nil, err
 	}
 
-	return warnings, l.validate(ctx, nil, llmSvc)
+	return l.validate(ctx, nil, llmSvc)
 }
 
 func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	warnings := admission.Warnings{}
 	llmSvc, err := utils.Convert[*LLMInferenceService](newObj)
 	if err != nil {
-		return warnings, err
+		return nil, err
 	}
 	prev, err := utils.Convert[*LLMInferenceService](oldObj)
 	if err != nil {
-		return warnings, err
+		return nil, err
 	}
 
-	return warnings, l.validate(ctx, prev, llmSvc)
+	return l.validate(ctx, prev, llmSvc)
 }
 
 func (l *LLMInferenceServiceValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
@@ -78,31 +83,37 @@ func (l *LLMInferenceServiceValidator) ValidateDelete(_ context.Context, _ runti
 	return admission.Warnings{}, nil
 }
 
-func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMInferenceService, llmSvc *LLMInferenceService) error {
+func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMInferenceService, llmSvc *LLMInferenceService) (admission.Warnings, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("Validating LLMInferenceService v1alpha2", "name", llmSvc.Name, "namespace", llmSvc.Namespace)
 
 	var allErrs field.ErrorList
+	var warnings admission.Warnings
 
-	allErrs = append(allErrs, l.validateRouterCrossFieldConstraints(llmSvc)...)
+	routerWarnings, routerErrs := l.validateRouterCrossFieldConstraints(llmSvc)
+	warnings = append(warnings, routerWarnings...)
+	allErrs = append(allErrs, routerErrs...)
 	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
+
+	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
+
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
 	if len(allErrs) == 0 {
 		logger.V(2).Info("LLMInferenceService v1alpha2 is valid", "llmisvc", llmSvc)
-		return nil
+		return warnings, nil
 	}
 
-	return apierrors.NewInvalid(
+	return warnings, apierrors.NewInvalid(
 		LLMInferenceServiceGVK.GroupKind(),
 		llmSvc.Name, allErrs)
 }
 
-func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSvc *LLMInferenceService) field.ErrorList {
+func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSvc *LLMInferenceService) (admission.Warnings, field.ErrorList) {
 	router := llmSvc.Spec.Router
 	if router == nil || router.Route == nil {
-		return field.ErrorList{}
+		return nil, nil
 	}
 
 	routerPath := field.NewPath("spec").Child("router")
@@ -113,29 +124,13 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 	httpRouteRefs := httpRoutePath.Child("refs")
 	httpRouteSpec := httpRoutePath.Child("spec")
 
-	zero := GatewayRoutesSpec{}
-	if ptr.Deref(router.Route, zero) == zero && router.Gateway != nil && router.Gateway.Refs != nil {
-		return field.ErrorList{
-			field.Invalid(
-				gwRefsPath,
-				router.Gateway.Refs,
-				fmt.Sprintf("unsupported configuration: custom gateway ('%s') cannot be used with managed route ('%s: {}'); "+
-					"either provide your own HTTP routes ('%s') or remove '%s' to use the managed gateway",
-					gwRefsPath,
-					routePath,
-					httpRouteRefs,
-					gwRefsPath,
-				),
-			),
-		}
-	}
-
 	httpRoute := router.Route.HTTP
 	if httpRoute == nil {
-		return field.ErrorList{}
+		return nil, nil
 	}
 
 	var allErrs field.ErrorList
+	var warnings admission.Warnings
 
 	// Both refs and spec cannot be used together
 	if len(httpRoute.Refs) > 0 && httpRoute.Spec != nil {
@@ -162,19 +157,64 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 		))
 	}
 
-	// Managed route spec cannot be used with user-defined gateway refs
-	if httpRoute.Spec != nil && router.Gateway != nil && len(router.Gateway.Refs) > 0 {
-		allErrs = append(allErrs, field.Invalid(
-			httpRoutePath.Child("spec"),
-			httpRoute.Spec,
-			fmt.Sprintf("unsupported configuration: managed HTTP route spec ('%s') cannot be used with custom gateway refs ('%s'); "+
-				"either remove '%s' or '%s'",
-				httpRouteSpec, gwRefsPath, gwRefsPath, httpRouteSpec,
-			),
-		))
+	// When both parentRefs and gateway refs are set, check for consistency.
+	// If they match, it's redundant but valid — the controller derives parentRefs from gateway.refs automatically.
+	// If they conflict, reject.
+	if httpRoute.Spec != nil && len(httpRoute.Spec.ParentRefs) > 0 &&
+		router.Gateway != nil && len(router.Gateway.Refs) > 0 {
+		if parentRefsMatchGatewayRefs(httpRoute.Spec.ParentRefs, router.Gateway.Refs) {
+			warnings = append(warnings,
+				fmt.Sprintf("%s.parentRefs can be omitted when %s is set; parentRefs will be derived automatically from gateway refs",
+					httpRouteSpec, gwRefsPath))
+		} else {
+			allErrs = append(allErrs, field.Invalid(
+				httpRoutePath.Child("spec"),
+				httpRoute.Spec,
+				fmt.Sprintf("unsupported configuration: managed HTTP route spec ('%s') has parentRefs that conflict with custom gateway refs ('%s'); "+
+					"either remove '%s' or '%s.parentRefs'",
+					httpRouteSpec, gwRefsPath, gwRefsPath, httpRouteSpec,
+				),
+			))
+		}
 	}
 
-	return allErrs
+	return warnings, allErrs
+}
+
+// parentRefsMatchGatewayRefs checks whether the parentRefs on an HTTPRoute are
+// consistent with the gateway refs. A parentRef matches a gateway ref if the
+// name and namespace are equal (Group and Kind are always Gateway).
+// Both slices are sorted before comparison so order does not matter.
+func parentRefsMatchGatewayRefs(parentRefs []gwapiv1.ParentReference, gatewayRefs []UntypedObjectReference) bool {
+	if len(parentRefs) != len(gatewayRefs) {
+		return false
+	}
+
+	// Build comparable keys and sort so that order-independent matching works.
+	type key struct{ ns, name string }
+	toKey := func(name gwapiv1.ObjectName, ns gwapiv1.Namespace) key {
+		return key{ns: string(ns), name: string(name)}
+	}
+	cmpKey := func(a, b key) int {
+		if c := cmp.Compare(a.ns, b.ns); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.name, b.name)
+	}
+
+	pKeys := make([]key, len(parentRefs))
+	for i, ref := range parentRefs {
+		pKeys[i] = toKey(ref.Name, ptr.Deref(ref.Namespace, ""))
+	}
+	gKeys := make([]key, len(gatewayRefs))
+	for i, ref := range gatewayRefs {
+		gKeys[i] = toKey(ref.Name, ref.Namespace)
+	}
+
+	slices.SortFunc(pKeys, cmpKey)
+	slices.SortFunc(gKeys, cmpKey)
+
+	return slices.Equal(pKeys, gKeys)
 }
 
 func (l *LLMInferenceServiceValidator) validateParallelismConstraints(llmSvc *LLMInferenceService) field.ErrorList {
@@ -300,13 +340,21 @@ func (l *LLMInferenceServiceValidator) validateImmutableParallelism(basePath *fi
 func (l *LLMInferenceServiceValidator) validateSchedulerConfig(svc *LLMInferenceService) field.ErrorList {
 	var allErrs field.ErrorList
 
-	if svc.Spec.Router == nil ||
-		svc.Spec.Router.Scheduler == nil ||
-		svc.Spec.Router.Scheduler.Config == nil {
+	if svc.Spec.Router == nil || svc.Spec.Router.Scheduler == nil {
 		return allErrs
 	}
 
-	configPath := field.NewPath("spec", "router", "scheduler", "config")
+	schedulerPath := field.NewPath("spec", "router", "scheduler")
+
+	if svc.Spec.Router.Scheduler.Replicas != nil && *svc.Spec.Router.Scheduler.Replicas <= 0 {
+		allErrs = append(allErrs, field.Invalid(schedulerPath.Child("replicas"), *svc.Spec.Router.Scheduler.Replicas, "scheduler replicas must be greater than zero"))
+	}
+
+	if svc.Spec.Router.Scheduler.Config == nil {
+		return allErrs
+	}
+
+	configPath := schedulerPath.Child("config")
 
 	if svc.Spec.Router.Scheduler.Config.Ref == nil && svc.Spec.Router.Scheduler.Config.Inline == nil {
 		allErrs = append(allErrs, field.Invalid(
@@ -338,6 +386,208 @@ func (l *LLMInferenceServiceValidator) validateSchedulerConfig(svc *LLMInference
 				configPath.Child("ref", "name"),
 				svc.Spec.Router.Scheduler.Config.Ref,
 				"name is empty",
+			))
+		}
+	}
+
+	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateScaling(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// Validate scaling on the main (decode) workload
+	allErrs = append(allErrs, ValidateWorkloadScaling(field.NewPath("spec"), &llmSvc.Spec.WorkloadSpec)...)
+
+	// Validate scaling on the prefill workload, if present
+	if llmSvc.Spec.Prefill != nil {
+		allErrs = append(allErrs, ValidateWorkloadScaling(field.NewPath("spec").Child("prefill"), llmSvc.Spec.Prefill)...)
+	}
+
+	allErrs = append(allErrs, l.validateActuatorConsistency(llmSvc)...)
+
+	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateActuatorConsistency(llmSvc *LLMInferenceService) field.ErrorList {
+	return ValidateActuatorConsistency(&llmSvc.Spec.WorkloadSpec, llmSvc.Spec.Prefill)
+}
+
+// ValidateActuatorConsistency ensures that when both decode and prefill workloads
+// have autoscaling configured, they use the same actuator backend (both HPA or both KEDA).
+// Mixing backends is not supported because:
+//   - HPA requires a Prometheus Adapter to expose metrics to the Kubernetes Metrics API
+//   - KEDA queries Prometheus directly without an adapter
+//
+// Using different backends forces operators to maintain two different metric pipelines
+// and results in independent, unsynchronised scaling decisions across the two sides
+// of a disaggregated deployment.
+//
+// It is exported so that v1alpha1 can reuse it via conversion.
+func ValidateActuatorConsistency(decode *WorkloadSpec, prefill *WorkloadSpec) field.ErrorList {
+	if prefill == nil {
+		return nil
+	}
+
+	// Both sides must have scaling.wva configured for a mismatch to be possible.
+	decodeScaling := decode.Scaling
+	prefillScaling := prefill.Scaling
+	if decodeScaling == nil || decodeScaling.WVA == nil || prefillScaling == nil || prefillScaling.WVA == nil {
+		return nil
+	}
+
+	decodeUsesHPA := decodeScaling.WVA.HPA != nil
+	prefillUsesHPA := prefillScaling.WVA.HPA != nil
+
+	if decodeUsesHPA == prefillUsesHPA {
+		return nil
+	}
+
+	decodeBackend := "keda"
+	prefillBackend := "hpa"
+	if decodeUsesHPA {
+		decodeBackend = "hpa"
+		prefillBackend = "keda"
+	}
+
+	return field.ErrorList{
+		field.Invalid(
+			field.NewPath("spec").Child("prefill", "scaling", "wva"),
+			prefillScaling.WVA,
+			fmt.Sprintf(
+				"decode and prefill must use the same actuator backend; "+
+					"decode uses %s but prefill uses %s — "+
+					"mixing backends requires two separate metric pipelines and leads to independent, unsynchronised scaling decisions",
+				decodeBackend, prefillBackend,
+			),
+		),
+	}
+}
+
+// ValidateWorkloadScaling validates the scaling configuration of a single workload
+// (decode or prefill). It is exported so that v1alpha1 can reuse it via conversion.
+func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field.ErrorList {
+	var allErrs field.ErrorList
+
+	scaling := workload.Scaling
+	if scaling == nil {
+		return allErrs
+	}
+
+	scalingPath := basePath.Child("scaling")
+
+	// Autoscaling is not supported for multi-node deployments (worker is set).
+	// When worker is set, the controller creates a LeaderWorkerSet which does not
+	// integrate with WVA/HPA/KEDA — the scaling block would be silently ignored.
+	//
+	// Note: LWS itself can be targeted by an HPA, so the hardware capability exists.
+	// This is a current limitation of WVA, which only knows how to reconcile against
+	// a Deployment. When WVA gains LWS support, this validation should be revisited.
+	// TODO: remove this restriction once WVA supports LeaderWorkerSet as a scaling target.
+	if workload.Worker != nil {
+		allErrs = append(allErrs, field.Invalid(
+			scalingPath,
+			scaling,
+			"autoscaling (scaling) is not supported for multi-node deployments; "+
+				"worker is set, which uses a LeaderWorkerSet that does not integrate with WVA/HPA/KEDA — "+
+				"remove scaling and use replicas instead to set a fixed replica count",
+		))
+		return allErrs
+	}
+
+	// Replicas and scaling are mutually exclusive
+	if workload.Replicas != nil {
+		allErrs = append(allErrs, field.Invalid(
+			scalingPath,
+			scaling,
+			"scaling and replicas are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments",
+		))
+	}
+
+	// Validate replica bounds
+	if scaling.MinReplicas != nil && *scaling.MinReplicas > scaling.MaxReplicas {
+		allErrs = append(allErrs, field.Invalid(
+			scalingPath.Child("minReplicas"),
+			*scaling.MinReplicas,
+			fmt.Sprintf("minReplicas (%d) cannot exceed maxReplicas (%d)", *scaling.MinReplicas, scaling.MaxReplicas),
+		))
+	}
+
+	// WVA is required when scaling is configured — it provides the scaling mechanism
+	if scaling.WVA == nil {
+		allErrs = append(allErrs, field.Required(
+			scalingPath.Child("wva"),
+			"wva is required when scaling is configured; it provides the autoscaling mechanism",
+		))
+		return allErrs
+	}
+
+	// Validate WVA configuration
+	wvaPath := scalingPath.Child("wva")
+
+	// HPA and KEDA are mutually exclusive
+	if scaling.WVA.HPA != nil && scaling.WVA.KEDA != nil {
+		allErrs = append(allErrs, field.Invalid(
+			wvaPath,
+			scaling.WVA,
+			"hpa and keda are mutually exclusive; choose one actuator backend",
+		))
+	}
+
+	// Must specify at least one actuator
+	if scaling.WVA.HPA == nil && scaling.WVA.KEDA == nil {
+		allErrs = append(allErrs, field.Required(
+			wvaPath,
+			"either hpa or keda must be specified as the actuator backend",
+		))
+	}
+
+	// Validate variantCost format (must be a non-negative numeric string, e.g., "10", "10.0", "0.5")
+	if scaling.WVA.VariantCost != "" {
+		if !variantCostPattern.MatchString(scaling.WVA.VariantCost) {
+			allErrs = append(allErrs, field.Invalid(
+				wvaPath.Child("variantCost"),
+				scaling.WVA.VariantCost,
+				"variantCost must be a non-negative numeric string (e.g., \"10\", \"10.0\", \"0.5\")",
+			))
+		}
+	}
+
+	// Validate KEDA advanced fields that are controller-owned and must not be set by users
+	if scaling.WVA.KEDA != nil && scaling.WVA.KEDA.Advanced != nil {
+		kedaPath := wvaPath.Child("keda")
+		sm := scaling.WVA.KEDA.Advanced.ScalingModifiers
+		if sm.Formula != "" || sm.Target != "" || sm.ActivationTarget != "" || string(sm.MetricType) != "" {
+			allErrs = append(allErrs, field.Forbidden(
+				kedaPath.Child("advanced", "scalingModifiers"),
+				"scalingModifiers must not be set; WVA controls the scaling metric formula and logic",
+			))
+		}
+		if scaling.WVA.KEDA.Advanced.HorizontalPodAutoscalerConfig != nil &&
+			scaling.WVA.KEDA.Advanced.HorizontalPodAutoscalerConfig.Name != "" {
+			allErrs = append(allErrs, field.Forbidden(
+				kedaPath.Child("advanced", "horizontalPodAutoscalerConfig", "name"),
+				"horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name",
+			))
+		}
+	}
+
+	// Validate KEDA idleReplicaCount requires minReplicas and must be less than it
+	if scaling.WVA.KEDA != nil && scaling.WVA.KEDA.IdleReplicaCount != nil {
+		if scaling.MinReplicas == nil {
+			allErrs = append(allErrs, field.Required(
+				scalingPath.Child("minReplicas"),
+				fmt.Sprintf("minReplicas is required when idleReplicaCount is set; "+
+					"idleReplicaCount (%d) must be less than minReplicas",
+					*scaling.WVA.KEDA.IdleReplicaCount),
+			))
+		} else if *scaling.WVA.KEDA.IdleReplicaCount >= *scaling.MinReplicas {
+			allErrs = append(allErrs, field.Invalid(
+				wvaPath.Child("keda").Child("idleReplicaCount"),
+				*scaling.WVA.KEDA.IdleReplicaCount,
+				fmt.Sprintf("idleReplicaCount (%d) must be less than minReplicas (%d); "+
+					"idleReplicaCount defines the replica floor when no triggers are active",
+					*scaling.WVA.KEDA.IdleReplicaCount, *scaling.MinReplicas),
 			))
 		}
 	}

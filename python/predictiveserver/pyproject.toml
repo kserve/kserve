@@ -13,7 +13,7 @@ dependencies = [
     "lgbserver>=0.16.0",
 ]
 name = "predictiveserver"
-version = "0.16.0"
+version = "0.17.0"
 description = "Unified Predictive Model Server supporting scikit-learn, LightGBM, and XGBoost for KServe."
 readme = "README.md"
 

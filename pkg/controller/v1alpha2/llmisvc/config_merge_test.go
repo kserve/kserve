@@ -17,6 +17,7 @@ limitations under the License.
 package llmisvc_test
 
 import (
+	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -26,6 +27,7 @@ import (
 	ktesting "github.com/kserve/kserve/pkg/testing"
 
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
+	"github.com/kserve/kserve/pkg/credentials"
 
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -33,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -1757,6 +1760,464 @@ spec:
 			}
 
 			tt.want(got, NewGomegaWithT(t))
+		})
+	}
+}
+
+func TestToParentRefs(t *testing.T) {
+	tests := []struct {
+		name string
+		refs []v1alpha2.UntypedObjectReference
+		want []gwapiv1.ParentReference
+	}{
+		{
+			name: "single gateway ref",
+			refs: []v1alpha2.UntypedObjectReference{
+				{Name: "my-gateway", Namespace: "my-ns"},
+			},
+			want: []gwapiv1.ParentReference{
+				{
+					Name:      "my-gateway",
+					Namespace: ptr.To(gwapiv1.Namespace("my-ns")),
+					Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+				},
+			},
+		},
+		{
+			name: "multiple gateway refs",
+			refs: []v1alpha2.UntypedObjectReference{
+				{Name: "gw-1", Namespace: "ns-1"},
+				{Name: "gw-2", Namespace: "ns-2"},
+			},
+			want: []gwapiv1.ParentReference{
+				{
+					Name:      "gw-1",
+					Namespace: ptr.To(gwapiv1.Namespace("ns-1")),
+					Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+				},
+				{
+					Name:      "gw-2",
+					Namespace: ptr.To(gwapiv1.Namespace("ns-2")),
+					Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+				},
+			},
+		},
+		{
+			name: "gateway ref with empty namespace",
+			refs: []v1alpha2.UntypedObjectReference{
+				{Name: "my-gateway", Namespace: ""},
+			},
+			want: []gwapiv1.ParentReference{
+				{
+					Name:      "my-gateway",
+					Namespace: ptr.To(gwapiv1.Namespace("")),
+					Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+					Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+				},
+			},
+		},
+		{
+			name: "empty refs returns empty slice",
+			refs: []v1alpha2.UntypedObjectReference{},
+			want: []gwapiv1.ParentReference{},
+		},
+		{
+			name: "nil refs returns empty slice",
+			refs: nil,
+			want: []gwapiv1.ParentReference{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := llmisvc.ToParentRefs(tt.refs)
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("ToParentRefs() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestParentRefRewritingGuard(t *testing.T) {
+	tests := []struct {
+		name             string
+		gatewayHasRefs   bool
+		httpRouteHasSpec bool
+		wantRewrite      bool
+	}{
+		{
+			name:             "gateway refs + route spec -> rewrite",
+			gatewayHasRefs:   true,
+			httpRouteHasSpec: true,
+			wantRewrite:      true,
+		},
+		{
+			name:             "gateway refs + route refs (no spec) -> skip rewrite",
+			gatewayHasRefs:   true,
+			httpRouteHasSpec: false,
+			wantRewrite:      false,
+		},
+		{
+			name:             "no gateway refs + route spec -> skip rewrite",
+			gatewayHasRefs:   false,
+			httpRouteHasSpec: true,
+			wantRewrite:      false,
+		},
+		{
+			name:             "no gateway refs + no route spec -> skip rewrite",
+			gatewayHasRefs:   false,
+			httpRouteHasSpec: false,
+			wantRewrite:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gateway := &v1alpha2.GatewaySpec{}
+			if tt.gatewayHasRefs {
+				gateway.Refs = []v1alpha2.UntypedObjectReference{
+					{Name: "my-gw", Namespace: "my-ns"},
+				}
+			}
+
+			httpRoute := &v1alpha2.HTTPRouteSpec{}
+			if tt.httpRouteHasSpec {
+				httpRoute.Spec = &gwapiv1.HTTPRouteSpec{
+					CommonRouteSpec: gwapiv1.CommonRouteSpec{
+						ParentRefs: []gwapiv1.ParentReference{
+							{Name: "old-default-gateway"},
+						},
+					},
+				}
+			} else {
+				httpRoute.Refs = []corev1.LocalObjectReference{{Name: "my-route"}}
+			}
+
+			shouldRewrite := httpRoute.HasSpec() && gateway.HasRefs()
+			if shouldRewrite != tt.wantRewrite {
+				t.Errorf("expected rewrite=%v, got %v", tt.wantRewrite, shouldRewrite)
+			}
+
+			if shouldRewrite {
+				parentRefs := llmisvc.ToParentRefs(gateway.Refs)
+				if len(parentRefs) != len(gateway.Refs) {
+					t.Errorf("expected %d parent refs, got %d", len(gateway.Refs), len(parentRefs))
+				}
+			}
+		})
+	}
+}
+
+func TestReplaceVariables_TemplateInjection(t *testing.T) {
+	tests := []struct {
+		name   string
+		config string
+	}{
+		{
+			name: "access CredentialConfig via template injection",
+			config: `apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: "{{ .GlobalConfig.CredentialConfig.StorageSpecSecretName }}"
+spec:
+  model:
+    name: "safe-model"`,
+		},
+		{
+			name: "access StorageConfig via template injection",
+			config: `apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: injected
+spec:
+  model:
+    name: "{{ .GlobalConfig.StorageConfig }}"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			preset := &v1alpha2.LLMInferenceServiceConfig{}
+			if err := yaml.Unmarshal([]byte(tt.config), preset); err != nil {
+				t.Fatalf("Failed to unmarshal YAML: %v", err)
+			}
+
+			reconcilerConfig := &llmisvc.Config{
+				SystemNamespace:         "kserve",
+				IngressGatewayName:      "kserve-gateway",
+				IngressGatewayNamespace: "kserve",
+				CredentialConfig:        &credentials.CredentialConfig{StorageSpecSecretName: "super-secret"},
+			}
+
+			llmSvc := &v1alpha2.LLMInferenceService{}
+			_, err := llmisvc.ReplaceVariables(llmSvc, preset, reconcilerConfig)
+			if err == nil {
+				t.Errorf("ReplaceVariables() should reject template accessing sensitive GlobalConfig fields, but succeeded")
+			}
+		})
+	}
+}
+
+func TestWellKnownConfigResolver_Attach(t *testing.T) {
+	tests := []struct {
+		name              string
+		disableVersioning bool
+		llmSvc            *v1alpha2.LLMInferenceService
+		wantAnnotations   func(t *testing.T, annotations map[string]string)
+	}{
+		{
+			name:              "versioning disabled is a no-op",
+			disableVersioning: true,
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Status: v1alpha2.LLMInferenceServiceStatus{},
+			},
+			wantAnnotations: func(t *testing.T, annotations map[string]string) {
+				if annotations != nil {
+					t.Errorf("expected nil annotations when versioning disabled, got %v", annotations)
+				}
+			},
+		},
+		{
+			name: "pins all well-known configs on first call",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Status: v1alpha2.LLMInferenceServiceStatus{},
+			},
+			wantAnnotations: func(t *testing.T, annotations map[string]string) {
+				if annotations == nil {
+					t.Fatal("expected annotations to be set")
+				}
+				for _, name := range llmisvc.WellKnownDefaultConfigs.UnsortedList() {
+					suffix := strings.TrimPrefix(name, "kserve-")
+					key := llmisvc.StaticWellKnownConfigResolverPrefix + suffix
+					if got, ok := annotations[key]; !ok {
+						t.Errorf("missing annotation key %q", key)
+					} else if got != name {
+						t.Errorf("annotation %q = %q, want %q", key, got, name)
+					}
+				}
+			},
+		},
+		{
+			name: "idempotent: calling Attach twice does not change annotations",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Status: v1alpha2.LLMInferenceServiceStatus{},
+			},
+			wantAnnotations: func(t *testing.T, annotations map[string]string) {
+				// This test calls Attach twice (handled in the test body below);
+				// the check ensures values didn't change.
+				if annotations == nil {
+					t.Fatal("expected annotations to be set")
+				}
+				for _, name := range llmisvc.WellKnownDefaultConfigs.UnsortedList() {
+					suffix := strings.TrimPrefix(name, "kserve-")
+					key := llmisvc.StaticWellKnownConfigResolverPrefix + suffix
+					if got := annotations[key]; got != name {
+						t.Errorf("annotation %q = %q, want %q after second Attach", key, got, name)
+					}
+				}
+			},
+		},
+		{
+			name: "preserves pre-populated annotations",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Status: v1alpha2.LLMInferenceServiceStatus{
+					Status: duckv1.Status{
+						Annotations: map[string]string{
+							llmisvc.StaticWellKnownConfigResolverPrefix + "config-llm-template": "custom-prefix-config-llm-template",
+							"unrelated-key": "unrelated-value",
+						},
+					},
+				},
+			},
+			wantAnnotations: func(t *testing.T, annotations map[string]string) {
+				if annotations == nil {
+					t.Fatal("expected annotations to be set")
+				}
+				// The pre-populated annotation should be preserved, not overwritten.
+				if got := annotations[llmisvc.StaticWellKnownConfigResolverPrefix+"config-llm-template"]; got != "custom-prefix-config-llm-template" {
+					t.Errorf("pre-populated annotation was overwritten: got %q, want %q", got, "custom-prefix-config-llm-template")
+				}
+				// Unrelated annotations should be preserved.
+				if got := annotations["unrelated-key"]; got != "unrelated-value" {
+					t.Errorf("unrelated annotation was lost: got %q, want %q", got, "unrelated-value")
+				}
+				// Other well-known configs should still be populated.
+				suffix := "config-llm-scheduler"
+				key := llmisvc.StaticWellKnownConfigResolverPrefix + suffix
+				if got, ok := annotations[key]; !ok {
+					t.Errorf("missing annotation key %q", key)
+				} else if got != "kserve-"+suffix {
+					t.Errorf("annotation %q = %q, want %q", key, got, "kserve-"+suffix)
+				}
+			},
+		},
+		{
+			name: "annotations pinned with old prefix survive new Attach",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Status: v1alpha2.LLMInferenceServiceStatus{
+					Status: duckv1.Status{
+						Annotations: func() map[string]string {
+							// Simulate annotations pinned with an old prefix (e.g., "old-prefix-").
+							m := map[string]string{}
+							for _, name := range llmisvc.WellKnownDefaultConfigs.UnsortedList() {
+								suffix := strings.TrimPrefix(name, "kserve-")
+								key := llmisvc.StaticWellKnownConfigResolverPrefix + suffix
+								m[key] = "old-prefix-" + suffix
+							}
+							return m
+						}(),
+					},
+				},
+			},
+			wantAnnotations: func(t *testing.T, annotations map[string]string) {
+				if annotations == nil {
+					t.Fatal("expected annotations to be set")
+				}
+				// All annotations should retain the old prefix values.
+				for _, name := range llmisvc.WellKnownDefaultConfigs.UnsortedList() {
+					suffix := strings.TrimPrefix(name, "kserve-")
+					key := llmisvc.StaticWellKnownConfigResolverPrefix + suffix
+					want := "old-prefix-" + suffix
+					if got := annotations[key]; got != want {
+						t.Errorf("annotation %q = %q, want %q (old-prefix value should survive)", key, got, want)
+					}
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.disableVersioning {
+				cleanup := llmisvc.SetUseVersionedConfigForTest(false)
+				defer cleanup()
+			}
+
+			wr := &llmisvc.WellKnownConfigResolver{}
+			wr.Attach(tt.llmSvc)
+
+			// For the idempotency test, call Attach a second time.
+			if tt.name == "idempotent: calling Attach twice does not change annotations" {
+				// Snapshot after first call.
+				firstCallAnnotations := make(map[string]string, len(tt.llmSvc.Status.Annotations))
+				for k, v := range tt.llmSvc.Status.Annotations {
+					firstCallAnnotations[k] = v
+				}
+				wr.Attach(tt.llmSvc)
+				// Verify annotations didn't change.
+				if diff := cmp.Diff(firstCallAnnotations, tt.llmSvc.Status.Annotations); diff != "" {
+					t.Errorf("Attach() second call changed annotations (-first +second):\n%s", diff)
+				}
+			}
+
+			tt.wantAnnotations(t, tt.llmSvc.Status.Annotations)
+		})
+	}
+}
+
+func TestWellKnownConfigResolver_Resolve(t *testing.T) {
+	tests := []struct {
+		name              string
+		disableVersioning bool
+		llmSvc            *v1alpha2.LLMInferenceService
+		inputName         string
+		want              string
+	}{
+		{
+			name:              "versioning disabled returns name as-is",
+			disableVersioning: true,
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Status: v1alpha2.LLMInferenceServiceStatus{
+					Status: duckv1.Status{
+						Annotations: map[string]string{
+							llmisvc.StaticWellKnownConfigResolverPrefix + "config-llm-template": "kserve-config-llm-template",
+						},
+					},
+				},
+			},
+			inputName: "kserve-config-llm-template",
+			want:      "kserve-config-llm-template",
+		},
+		{
+			name: "nil annotations returns name as-is",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Status: v1alpha2.LLMInferenceServiceStatus{},
+			},
+			inputName: "kserve-config-llm-template",
+			want:      "kserve-config-llm-template",
+		},
+		{
+			name: "returns pinned name from annotations",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Status: v1alpha2.LLMInferenceServiceStatus{
+					Status: duckv1.Status{
+						Annotations: map[string]string{
+							llmisvc.StaticWellKnownConfigResolverPrefix + "config-llm-template": "kserve-config-llm-template",
+						},
+					},
+				},
+			},
+			inputName: "kserve-config-llm-template",
+			want:      "kserve-config-llm-template",
+		},
+		{
+			name: "returns pinned name even when current prefix differs",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Status: v1alpha2.LLMInferenceServiceStatus{
+					Status: duckv1.Status{
+						Annotations: map[string]string{
+							llmisvc.StaticWellKnownConfigResolverPrefix + "config-llm-template": "old-prefix-config-llm-template",
+						},
+					},
+				},
+			},
+			inputName: "kserve-config-llm-template",
+			want:      "old-prefix-config-llm-template",
+		},
+		{
+			name: "suffix not found in annotations returns name as-is",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Status: v1alpha2.LLMInferenceServiceStatus{
+					Status: duckv1.Status{
+						Annotations: map[string]string{
+							llmisvc.StaticWellKnownConfigResolverPrefix + "config-llm-scheduler": "kserve-config-llm-scheduler",
+						},
+					},
+				},
+			},
+			inputName: "kserve-config-llm-template",
+			want:      "kserve-config-llm-template",
+		},
+		{
+			name: "name without known prefix strips nothing and looks up full suffix",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Status: v1alpha2.LLMInferenceServiceStatus{
+					Status: duckv1.Status{
+						Annotations: map[string]string{
+							llmisvc.StaticWellKnownConfigResolverPrefix + "custom-config": "pinned-custom-config",
+						},
+					},
+				},
+			},
+			inputName: "custom-config",
+			want:      "pinned-custom-config",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.disableVersioning {
+				cleanup := llmisvc.SetUseVersionedConfigForTest(false)
+				defer cleanup()
+			}
+
+			wr := &llmisvc.WellKnownConfigResolver{}
+			got := wr.Resolve(tt.llmSvc, tt.inputName)
+			if got != tt.want {
+				t.Errorf("Resolve(%q) = %q, want %q", tt.inputName, got, tt.want)
+			}
 		})
 	}
 }

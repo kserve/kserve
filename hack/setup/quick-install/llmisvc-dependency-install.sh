@@ -40,7 +40,7 @@ find_repo_root() {
     local skip="${2:-false}"
 
     while [[ "$current_dir" != "/" ]]; do
-        if [[ -d "${current_dir}/.git" ]]; then
+        if [[ -e "${current_dir}/.git" ]]; then
             echo "$current_dir"
             return 0
         fi
@@ -133,6 +133,22 @@ log_success() {
 
 log_warning() {
     echo -e "${YELLOW}[WARNING]${RESET} $*" >&2
+}
+
+is_positive() {
+  local input_val="${1:-no}"
+
+  case "${input_val}" in
+    0|true|True|yes|Yes|y|Y)
+      return 0  # Success - truthy
+      ;;
+    1|false|False|no|No|n|N)
+      return 1  # Failure - falsy
+      ;;
+    *)
+      return 2  # Invalid input
+      ;;
+  esac
 }
 
 
@@ -371,7 +387,11 @@ update_isvc_config() {
             # Apply each update
             reduce $updates[] as $item (.;
                 if .data[$item.data_key] == null or .data[$item.data_key] == "" then
-                    .
+                    .data[$item.data_key] = (
+                        {}
+                        | setpath_safe($item.path | split("."); $item.value)
+                        | tojson
+                    )
                 else
                     .data[$item.data_key] |= (
                         fromjson
@@ -421,11 +441,117 @@ command_exists() {
     command -v "$1" &>/dev/null
 }
 
+# Retry a command with delay between attempts
+# Usage: retry_command <max_attempts> <delay_seconds> <command...>
+# Example: retry_command 3 5 kubectl apply -k "${RUNTIMES_DIR}"
+# Returns: 0 on success, 1 on failure after all attempts
+retry_command() {
+    local max_attempts="$1"
+    local delay="$2"
+    shift 2
+    local attempt=1
+
+    while [ $attempt -le $max_attempts ]; do
+        if "$@" 2>&1; then
+            return 0
+        fi
+
+        if [ $attempt -lt $max_attempts ]; then
+            log_warning "Command failed, retrying in ${delay} seconds... (attempt $attempt/$max_attempts)"
+            sleep "$delay"
+        else
+            log_error "Command failed after $max_attempts attempts"
+            return 1
+        fi
+        attempt=$((attempt + 1))
+    done
+}
+
 # Compare semantic versions (returns 0 if v1 >= v2, 1 otherwise)
 # Usage: version_gte "v3.17.3" "v3.16.0"
 # Example: version_gte "$current_version" "$required_version" && echo "OK"
 version_gte() {
     [ "$1" = "$(printf '%s\n' "$1" "$2" | sort -V | tail -1)" ]
+}
+
+# ============================================================================
+# Shared Resources Configuration (for dual KServe + LLMISVC installation)
+# ============================================================================
+
+determine_shared_resources_config() {
+    local install_mode="${1}"
+    local enable_kserve="${2}"
+    local enable_llmisvc="${3}"
+
+    if ! is_positive "${enable_kserve}" && ! is_positive "${enable_llmisvc}"; then
+        return
+    fi
+
+    log_info "Determining shared resources configuration (KSERVE=${enable_kserve}, LLMISVC=${enable_llmisvc})..."
+
+    if [ "${install_mode}" = "helm" ]; then
+        determine_shared_resources_helm "${enable_kserve}" "${enable_llmisvc}"
+    elif [ "${install_mode}" = "kustomize" ]; then
+        determine_shared_resources_kustomize
+    else
+        log_error "INSTALL_MODE not set. Must be 'helm' or 'kustomize'"
+        exit 1
+    fi
+}
+
+determine_shared_resources_helm() {
+    local enable_kserve="${1}"
+    local enable_llmisvc="${2}"
+
+    local kserve_installed=$(helm list -n "${KSERVE_NAMESPACE}" -q 2>/dev/null | grep -c "^kserve-resources$" || true)
+    local llmisvc_installed=$(helm list -n "${KSERVE_NAMESPACE}" -q 2>/dev/null | grep -c "^kserve-llmisvc-resources$" || true)
+
+    if [ "${kserve_installed}" = "0" ] && [ "${llmisvc_installed}" = "0" ]; then
+        # First installation - check which components are being enabled
+        if is_positive "${enable_kserve}" && is_positive "${enable_llmisvc}"; then
+            # Both enabled: kserve-resources installs first and creates shared resources
+            log_info "[Helm] First install (both) - kserve-resources creates shared resources, llmisvc-resources does not"
+            LLMISVC_EXTRA_ARGS="${LLMISVC_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+        elif is_positive "${enable_kserve}" && ! is_positive "${enable_llmisvc}"; then
+            # Only kserve enabled: kserve-resources creates shared resources
+            log_info "[Helm] First install (kserve only) - kserve-resources will create shared resources"
+            # Use default value (true) - no extra args needed
+        elif ! is_positive "${enable_kserve}" && is_positive "${enable_llmisvc}"; then
+            # Only llmisvc enabled: llmisvc-resources creates shared resources
+            log_info "[Helm] First install (llmisvc only) - llmisvc-resources will create shared resources"
+            # Use default value (true) - no extra args needed
+        else
+            # Neither enabled - shouldn't reach here
+            log_error "[Helm] No components enabled"
+            return 1
+        fi
+    elif [ "${kserve_installed}" = "1" ] && [ "${llmisvc_installed}" = "0" ]; then
+        log_info "[Helm] Only kserve-resources installed - setting createSharedResources=false for LLMISVC"
+        LLMISVC_EXTRA_ARGS="${LLMISVC_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+    elif [ "${kserve_installed}" = "0" ] && [ "${llmisvc_installed}" = "1" ]; then
+        log_info "[Helm] Only kserve-llmisvc-resources installed - setting createSharedResources=false for KSERVE"
+        KSERVE_EXTRA_ARGS="${KSERVE_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+    else
+        local kserve_has_false=$(helm get values kserve-resources -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -c "createSharedResources: false" || true)
+
+        if [ "${kserve_has_false}" = "1" ]; then
+            log_info "[Helm] Maintaining createSharedResources=false for KSERVE"
+            KSERVE_EXTRA_ARGS="${KSERVE_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+        else
+            log_info "[Helm] Setting createSharedResources=false for LLMISVC"
+            LLMISVC_EXTRA_ARGS="${LLMISVC_EXTRA_ARGS:-} --set kserve.createSharedResources=false"
+        fi
+    fi
+}
+
+determine_shared_resources_kustomize() {
+    KSERVE_INSTALLED=$(kubectl get deployment kserve-controller-manager -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -c "kserve-controller-manager" || true)
+    LLMISVC_INSTALLED=$(kubectl get deployment llmisvc-controller-manager -n "${KSERVE_NAMESPACE}" 2>/dev/null | grep -c "llmisvc-controller-manager" || true)
+    
+    export KSERVE_INSTALLED
+    export LLMISVC_INSTALLED
+
+    log_info "[Kustomize] Installation status(0: not installed, 1: installed): KSERVE=${KSERVE_INSTALLED}, LLMISVC=${LLMISVC_INSTALLED}"
 }
 
 # ============================================================================
@@ -443,18 +569,17 @@ set_env_with_priority() {
     local current_value
     eval "current_value=\${${var_name}}"
 
-    # If current value differs from default/component/global, it must be runtime - keep it
-    if [ -n "$current_value" ] && [ "$current_value" != "$default_value" ] &&
-       [ "$current_value" != "$component_value" ] && [ "$current_value" != "$global_value" ]; then
+    # If current value exists and differs from default, it's a runtime value - keep it
+    if [ -n "$current_value" ] && [ -n "$default_value" ] && [ "$current_value" != "$default_value" ]; then
         # This is a runtime value, keep it
         return
     fi
 
     # Apply priority: component env > global env > default
     if [ -n "$component_value" ]; then
-        export "$var_name=$component_value"
+        eval "export $var_name=\"$component_value\""
     elif [ -n "$global_value" ]; then
-        export "$var_name=$global_value"
+        eval "export $var_name=\"$global_value\""
     fi
     # If both are empty, variable keeps its default value
 }
@@ -477,17 +602,21 @@ fi
 
 export PATH="${BIN_DIR}:${PATH}"
 
-UNINSTALL="${UNINSTALL:-false}"
 REINSTALL="${REINSTALL:-false}"
+UNINSTALL="${UNINSTALL:-false}"
+FORCE_UPGRADE="${FORCE_UPGRADE:-false}"
 
 if [[ "$*" == *"--uninstall"* ]]; then
     UNINSTALL=true
 elif [[ "$*" == *"--reinstall"* ]]; then
     REINSTALL=true
+elif [[ "$*" == *"--force-upgrade"* ]]; then
+    FORCE_UPGRADE=true
 fi
 
 export REINSTALL
 export UNINSTALL
+export FORCE_UPGRADE
 
 # RELEASE mode (from definition file)
 RELEASE="false"
@@ -497,31 +626,31 @@ export RELEASE
 # Version Dependencies (from kserve-deps.env)
 #================================================
 
-GOLANGCI_LINT_VERSION=v1.64.8
+GOLANGCI_LINT_VERSION=v2.9.0
 CONTROLLER_TOOLS_VERSION=v0.19.0
 ENVTEST_VERSION=latest
 YQ_VERSION=v4.52.1
 HELM_VERSION=v3.16.3
-KUSTOMIZE_VERSION=v5.5.0
+KUSTOMIZE_VERSION=v5.8.0
 HELM_DOCS_VERSION=v1.12.0
-BLACK_FMT_VERSION=24.3
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
 RUFF_VERSION=0.14.13
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
-ENVOY_GATEWAY_VERSION=v1.5.0
-ENVOY_AI_GATEWAY_VERSION=v0.4.0
-KNATIVE_OPERATOR_VERSION=v1.16.0
-KNATIVE_SERVING_VERSION=1.15.2
+ENVOY_GATEWAY_VERSION=v1.6.3
+ENVOY_AI_GATEWAY_VERSION=v0.5.0
+KNATIVE_OPERATOR_VERSION=v1.21.1
+KNATIVE_SERVING_VERSION=1.21.1
 KEDA_OTEL_ADDON_VERSION=v0.0.6
-KSERVE_VERSION=v0.16.0
+KSERVE_VERSION=v0.17.0
 ISTIO_VERSION=1.27.1
-KEDA_VERSION=2.17.2
+KEDA_VERSION=2.17.3
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.7.0
-GATEWAY_API_VERSION=v1.3.0
-GIE_VERSION=v1.2.0
+GATEWAY_API_VERSION=v1.4.1
+GIE_VERSION=v1.3.0
+WVA_VERSION=v0.5.1
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -538,8 +667,11 @@ ISTIO_NAMESPACE="${ISTIO_NAMESPACE:-istio-system}"
 GATEWAY_NAMESPACE="${GATEWAY_NAMESPACE:-kserve}"
 DEPLOYMENT_MODE="${DEPLOYMENT_MODE:-Knative}"
 GATEWAY_NETWORK_LAYER="${GATEWAY_NETWORK_LAYER:-false}"
-LLMISVC="${LLMISVC:-false}"
+ENABLE_KSERVE="${ENABLE_KSERVE:-true}"
+ENABLE_LLMISVC="${ENABLE_LLMISVC:-false}"
+ENABLE_LOCALMODEL="${ENABLE_LOCALMODEL:-false}"
 EMBED_MANIFESTS="${EMBED_MANIFESTS:-false}"
+EMBED_TEMPLATES="${EMBED_TEMPLATES:-false}"
 KSERVE_CUSTOM_ISVC_CONFIGS="${KSERVE_CUSTOM_ISVC_CONFIGS:-}"
 
 #================================================
@@ -551,6 +683,33 @@ TEMPLATE_DIR="${REPO_ROOT}/hack/setup/infra/external-lb/templates"
 GATEWAYCLASS_NAME="${GATEWAYCLASS_NAME:-envoy}"
 CONTROLLER_NAME="${CONTROLLER_NAME:-gateway.envoyproxy.io/gatewayclass-controller}"
 GATEWAY_NAME="kserve-ingress-gateway"
+
+#================================================
+# Template Functions (EMBED_TEMPLATES MODE)
+#================================================
+
+# ============================================================================
+# Template Functions: external-lb
+# ============================================================================
+
+get_metallb_config() {
+    cat <<'METALLB_CONFIG_EOF'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: metallb-system
+  name: config
+data:
+  config: |
+    address-pools:
+    - name: default
+      protocol: layer2
+      addresses:
+      - {{START}}-{{END}}
+METALLB_CONFIG_EOF
+}
+
+
 
 #================================================
 # Component Functions
@@ -757,8 +916,14 @@ install_external_lb() {
 
             log_info "Configuring MetalLB IP range: ${START}-${END}"
 
-            sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" \
-                "${TEMPLATE_DIR}/metallb-config.yaml.tmpl" | kubectl apply -f -
+            if [ "$EMBED_TEMPLATES" = "true" ]; then
+                get_metallb_config | \
+                    sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" | \
+                    kubectl apply -f -
+            else
+                sed -e "s/{{START}}/${START}/g" -e "s/{{END}}/${END}/g" \
+                    "${TEMPLATE_DIR}/metallb-config.yaml.tmpl" | kubectl apply -f -
+            fi
 
             kubectl rollout restart deployment controller -n metallb-system
             kubectl rollout status deployment controller -n metallb-system --timeout=60s
@@ -1089,7 +1254,7 @@ main() {
     echo "Install KServe LLM InferenceService dependencies only"
     echo "=========================================="
 
-
+    export EMBED_TEMPLATES="true"
 
     install_helm
     install_yq

@@ -157,7 +157,7 @@ func GetContainerSpecForStorageUri(ctx context.Context, storageUri string, clien
 // This method is idempotent so can be called multiple times like it happens when the
 // webhook is configured with `reinvocationPolicy: IfNeeded`
 func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
-	srcURI, ok := pod.ObjectMeta.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
+	srcURI, ok := pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
 	if !ok {
 		return nil
 	}
@@ -176,19 +176,19 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 			return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
 		} else {
 			// Use worker container for multi-node scenarios
-			if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.WorkerContainerName, mi.config); err != nil {
+			if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.WorkerContainerName, constants.DefaultModelLocalMountPath, mi.config); err != nil {
 				return err
 			}
 		}
 	} else {
-		if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.InferenceServiceContainerName, mi.config); err != nil {
+		if err := utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.InferenceServiceContainerName, constants.DefaultModelLocalMountPath, mi.config); err != nil {
 			return err
 		}
 	}
 
 	// Configure modelcar for transformer container if it exists
 	if utils.GetContainerWithName(&pod.Spec, constants.TransformerContainerName) != nil {
-		return utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.TransformerContainerName, mi.config)
+		return utils.ConfigureModelcarToContainer(srcURI, &pod.Spec, constants.TransformerContainerName, constants.DefaultModelLocalMountPath, mi.config)
 	}
 
 	return nil
@@ -548,42 +548,44 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 // in the controller for new multiple storage URI scenarios.
 func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Context, pod *corev1.Pod) error {
 	// Only inject if the required annotations are set
-	srcURI, ok := pod.ObjectMeta.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
+	srcURI, ok := pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
 	if !ok {
 		return nil
 	}
 
 	// Mount pvc directly if local model label exists
 	// Not supported with multiple storage URIs
-	if modelName, ok := pod.ObjectMeta.Labels[constants.LocalModelLabel]; ok {
-		subPath, _ := strings.CutPrefix(srcURI, pod.ObjectMeta.Annotations[constants.LocalModelSourceUriAnnotationKey])
+	if _, ok := pod.Labels[constants.LocalModelLabel]; ok {
+		sourceUri := pod.Annotations[constants.LocalModelSourceUriAnnotationKey]
+		subPath, _ := strings.CutPrefix(srcURI, sourceUri)
 		if !strings.HasPrefix(subPath, "/") {
 			subPath = "/" + subPath
 		}
-		if pvcName, ok := pod.ObjectMeta.Annotations[constants.LocalModelPVCNameAnnotationKey]; ok {
-			srcURI = "pvc://" + pvcName + "/models/" + modelName + subPath
+		if pvcName, ok := pod.Annotations[constants.LocalModelPVCNameAnnotationKey]; ok {
+			storageKey := v1alpha1.GetStorageKey(sourceUri)
+			srcURI = "pvc://" + pvcName + "/models/" + storageKey + subPath
 		} else {
 			return fmt.Errorf("Annotation %s not found", constants.LocalModelPVCNameAnnotationKey)
 		}
 	}
 
-	hasStorageSpec := pod.ObjectMeta.Annotations[constants.StorageSpecAnnotationKey]
-	var storageSpec v1beta1.StorageSpec = v1beta1.StorageSpec{}
+	hasStorageSpec := pod.Annotations[constants.StorageSpecAnnotationKey]
+	storageSpec := v1beta1.StorageSpec{}
 
 	if hasStorageSpec == "true" {
 		var overrideParams map[string]string
-		if storageSpecParam, ok := pod.ObjectMeta.Annotations[constants.StorageSpecParamAnnotationKey]; ok {
+		if storageSpecParam, ok := pod.Annotations[constants.StorageSpecParamAnnotationKey]; ok {
 			if err := json.Unmarshal([]byte(storageSpecParam), &overrideParams); err != nil {
 				return err
 			}
 		}
-		storageKey := pod.ObjectMeta.Annotations[constants.StorageSpecKeyAnnotationKey]
+		storageKey := pod.Annotations[constants.StorageSpecKeyAnnotationKey]
 
 		storageSpec.StorageKey = &storageKey
 		storageSpec.Parameters = &overrideParams
 	}
 
-	isvcReadonlyStringFlag := GetStorageInitializerReadOnlyFlag(pod.ObjectMeta.Annotations)
+	isvcReadonlyStringFlag := GetStorageInitializerReadOnlyFlag(pod.Annotations)
 
 	storageURIs := []v1beta1.StorageUri{{Uri: srcURI, MountPath: constants.DefaultModelLocalMountPath}}
 
@@ -601,7 +603,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 		CredentialBuilder:    mi.credentialBuilder,
 		Client:               mi.client,
 		Config:               mi.config,
-		IsvcAnnotations:      pod.ObjectMeta.Annotations,
+		IsvcAnnotations:      pod.Annotations,
 		StorageSpec:          &storageSpec,
 		StorageContainerSpec: storageContainerSpec,
 		IsLegacyURI:          true,
@@ -765,10 +767,8 @@ func mergeContainerSpecs(targetContainer *corev1.Container, crdContainer *corev1
 }
 
 func needCaBundleMount(caBundleConfigMapName string, initContainer *corev1.Container) bool {
-	result := false
-	if caBundleConfigMapName != "" {
-		result = true
-	}
+	result := caBundleConfigMapName != ""
+
 	for _, envVar := range initContainer.Env {
 		if envVar.Name == s3.AWSCABundleConfigMap {
 			result = true

@@ -37,7 +37,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func SetupTestEnv() *pkgtest.Client {
+func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 	duration, err := time.ParseDuration(constants.GetEnvOrDefault("ENVTEST_DEFAULT_TIMEOUT", "30s"))
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	gomega.SetDefaultEventuallyTimeout(duration)
@@ -47,8 +47,6 @@ func SetupTestEnv() *pkgtest.Client {
 	ginkgo.By("Setting up the test environment")
 	systemNs := constants.KServeNamespace
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	llmCtrlFunc := func(cfg *rest.Config, mgr ctrl.Manager) error {
 		eventBroadcaster := record.NewBroadcaster()
 		clientSet, err := kubernetes.NewForConfig(cfg)
@@ -56,6 +54,7 @@ func SetupTestEnv() *pkgtest.Client {
 
 		llmCtrl := llmisvc.LLMISVCReconciler{
 			Client:    mgr.GetClient(),
+			Config:    cfg,
 			Clientset: clientSet,
 			// TODO fix it to be set up similar to main.go, for now it's stub
 			EventRecorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "v1beta1Controllers"}),
@@ -116,17 +115,13 @@ func SetupTestEnv() *pkgtest.Client {
 		return v1alpha2ConfigValidator.SetupWithManager(mgr)
 	}
 
-	envTest := pkgtest.NewEnvTest(webhookManifests).
+	envTest := pkgtest.NewEnvTest(append([]pkgtest.Option{webhookManifests}, additionalEnvTestOptions()...)...).
 		WithWebhooks(webhooks).
 		WithControllers(llmCtrlFunc).
-		Start(ctx)
+		// The suite manager/webhook must outlive BeforeSuite node context.
+		Start(context.Background()) //nolint:contextcheck // intentional: manager context must not be tied to BeforeSuite
 
-	ginkgo.DeferCleanup(func() {
-		cancel()
-		gomega.Expect(envTest.Stop()).To(gomega.Succeed())
-	})
-
-	RequiredResources(context.Background(), envTest.Client, systemNs)
+	RequiredResources(ctx, envTest.Client, systemNs)
 
 	return envTest
 }

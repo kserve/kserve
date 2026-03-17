@@ -66,9 +66,7 @@ from kserve.protocol.rest.openai.types import (
 from kserve import context as kserve_context
 
 
-class HuggingfaceEncoderModel(
-    Model, OpenAIEncoderModel
-):  # pylint:disable=c-extension-no-member
+class HuggingfaceEncoderModel(Model, OpenAIEncoderModel):  # pylint:disable=c-extension-no-member
     task: MLTask
     model_config: PretrainedConfig
     model_id_or_path: Union[pathlib.Path, str]

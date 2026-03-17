@@ -67,7 +67,6 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
     def chat_completion_params_to_completion_params(
         cls, request: ChatCompletionRequest, prompt: str
     ) -> CompletionRequest:
-
         return CompletionRequest(
             prompt=prompt,
             model=request.model,
@@ -200,7 +199,6 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
         raw_request: Optional[Request] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
-
         if request.n != 1:
             raise InvalidInput("n != 1 is not supported")
 
@@ -224,7 +222,6 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
             )
 
             def mapper(completion_str: str) -> ChatCompletionChunk:
-
                 chunk = completion_str.removeprefix("data: ")
                 if chunk == "[DONE]\n\n":
                     return

@@ -78,17 +78,22 @@ async def test_sklearn_kserve_concurrency(rest_v1_client):
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    pods = kserve_client.core_api.list_namespaced_pod(
-        KSERVE_TEST_NAMESPACE,
-        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
-    )
 
-    isvc_annotations = pods.items[0].metadata.annotations
+    # Knative Serving v1.21+ no longer propagates autoscaling annotations to pods.
+    # Check the Knative Service revision template annotations instead.
+    ksvc = kserve_client.api_instance.get_namespaced_custom_object(
+        "serving.knative.dev",
+        "v1",
+        KSERVE_TEST_NAMESPACE,
+        "services",
+        f"{service_name}-predictor",
+    )
+    ksvc_annotations = ksvc["spec"]["template"]["metadata"]["annotations"]
 
     res = await predict_isvc(rest_v1_client, service_name, INPUT)
     assert res["predictions"] == [1, 1]
-    assert isvc_annotations[METRIC] == "concurrency"
-    assert isvc_annotations[TARGET] == "2"
+    assert ksvc_annotations[METRIC] == "concurrency"
+    assert ksvc_annotations[TARGET] == "2"
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
@@ -123,12 +128,17 @@ async def test_sklearn_kserve_rps(rest_v1_client):
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    pods = kserve_client.core_api.list_namespaced_pod(
-        KSERVE_TEST_NAMESPACE,
-        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
-    )
 
-    annotations = pods.items[0].metadata.annotations
+    # Knative Serving v1.21+ no longer propagates autoscaling annotations to pods.
+    # Check the Knative Service revision template annotations instead.
+    ksvc = kserve_client.api_instance.get_namespaced_custom_object(
+        "serving.knative.dev",
+        "v1",
+        KSERVE_TEST_NAMESPACE,
+        "services",
+        f"{service_name}-predictor",
+    )
+    annotations = ksvc["spec"]["template"]["metadata"]["annotations"]
 
     assert annotations[METRIC] == "rps"
     assert annotations[TARGET] == "5"
@@ -170,15 +180,20 @@ async def test_sklearn_kserve_cpu(rest_v1_client):
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    pods = kserve_client.core_api.list_namespaced_pod(
+
+    # Knative Serving v1.21+ no longer propagates autoscaling annotations to pods.
+    # Check the Knative Service revision template annotations instead.
+    ksvc = kserve_client.api_instance.get_namespaced_custom_object(
+        "serving.knative.dev",
+        "v1",
         KSERVE_TEST_NAMESPACE,
-        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+        "services",
+        f"{service_name}-predictor",
     )
+    ksvc_annotations = ksvc["spec"]["template"]["metadata"]["annotations"]
 
-    isvc_annotations = pods.items[0].metadata.annotations
-
-    assert isvc_annotations[METRIC] == "cpu"
-    assert isvc_annotations[TARGET] == "50"
+    assert ksvc_annotations[METRIC] == "cpu"
+    assert ksvc_annotations[TARGET] == "50"
     res = await predict_isvc(rest_v1_client, service_name, INPUT)
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -223,7 +238,7 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
         group="autoscaling",
         version="v1",
         namespace=KSERVE_TEST_NAMESPACE,
-        label_selector=f"serving.kserve.io/inferenceservice=" f"{service_name}",
+        label_selector=f"serving.kserve.io/inferenceservice={service_name}",
         plural="horizontalpodautoscalers",
     )
 
@@ -291,12 +306,16 @@ async def test_sklearn_rolling_update():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    kserve_client.patch(service_name, updated_isvc)
+    patch_response = kserve_client.patch(service_name, updated_isvc)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        expected_generation=patch_response["metadata"]["generation"],
+    )
     deployment = kserve_client.app_api.list_namespaced_deployment(
         namespace=KSERVE_TEST_NAMESPACE,
         label_selector="serving.kserve.io/test=rolling-update",
     )
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     # Check if the deployment replicas still remain the same as min_replicas
     assert deployment.items[0].spec.replicas == min_replicas
@@ -309,7 +328,7 @@ async def test_sklearn_env_update():
     suffix = str(uuid.uuid4())[1:6]
     service_name = "isvc-sklearn-env-update-" + suffix
     min_replicas = 4
-    envs = [
+    initial_envs = [
         {
             "name": "TEST_ENV",
             "value": "TEST_ENV_VALUE",
@@ -323,7 +342,7 @@ async def test_sklearn_env_update():
             "value": "TEST_ENV_VALUE_3",
         },
     ]
-    predictor = V1beta1PredictorSpec(
+    initial_predictor = V1beta1PredictorSpec(
         min_replicas=min_replicas,
         scale_metric="cpu",
         scale_target=50,
@@ -333,7 +352,7 @@ async def test_sklearn_env_update():
                 requests={"cpu": "25m", "memory": "128Mi"},
                 limits={"cpu": "50m", "memory": "256Mi"},
             ),
-            env=envs,
+            env=initial_envs,
         ),
     )
 
@@ -348,10 +367,10 @@ async def test_sklearn_env_update():
             annotations=annotations,
             labels={"serving.kserve.io/test": "env-update"},
         ),
-        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+        spec=V1beta1InferenceServiceSpec(predictor=initial_predictor),
     )
 
-    predictor.sklearn.env = [
+    updated_envs = [
         {
             "name": "TEST_ENV",
             "value": "TEST_ENV_VALUE",
@@ -361,6 +380,19 @@ async def test_sklearn_env_update():
             "value": "TEST_ENV_VALUE_2",
         },
     ]
+    updated_predictor = V1beta1PredictorSpec(
+        min_replicas=min_replicas,
+        scale_metric="cpu",
+        scale_target=50,
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri=MODEL,
+            resources=V1ResourceRequirements(
+                requests={"cpu": "25m", "memory": "128Mi"},
+                limits={"cpu": "50m", "memory": "256Mi"},
+            ),
+            env=updated_envs,
+        ),
+    )
 
     updated_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -371,7 +403,7 @@ async def test_sklearn_env_update():
             annotations=annotations,
             labels={"serving.kserve.io/test": "env-update"},
         ),
-        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+        spec=V1beta1InferenceServiceSpec(predictor=updated_predictor),
     )
 
     kserve_client = KServeClient(
@@ -380,12 +412,16 @@ async def test_sklearn_env_update():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    kserve_client.patch(service_name, updated_isvc)
+    patch_response = kserve_client.patch(service_name, updated_isvc)
+    kserve_client.wait_isvc_ready(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        expected_generation=patch_response["metadata"]["generation"],
+    )
     deployment = kserve_client.app_api.list_namespaced_deployment(
         namespace=KSERVE_TEST_NAMESPACE,
         label_selector="serving.kserve.io/test=env-update",
     )
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     # Check if the deployment replicas still remain the same as min_replicas
     assert deployment.items[0].spec.replicas == min_replicas

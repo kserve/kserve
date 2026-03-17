@@ -26,6 +26,10 @@ spec:
               type: object
             spec:
               properties:
+                annotations:
+                  additionalProperties:
+                    type: string
+                  type: object
                 baseRefs:
                   items:
                     properties:
@@ -35,6 +39,10 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   type: array
+                labels:
+                  additionalProperties:
+                    type: string
+                  type: object
                 model:
                   properties:
                     criticality:
@@ -83,6 +91,14 @@ spec:
                   type: object
                 prefill:
                   properties:
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    labels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     parallelism:
                       properties:
                         data:
@@ -113,6 +129,246 @@ spec:
                       format: int32
                       minimum: 0
                       type: integer
+                    scaling:
+                      properties:
+                        maxReplicas:
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        minReplicas:
+                          default: 1
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        wva:
+                          properties:
+                            hpa:
+                              properties:
+                                behavior:
+                                  properties:
+                                    scaleDown:
+                                      properties:
+                                        policies:
+                                          items:
+                                            properties:
+                                              periodSeconds:
+                                                format: int32
+                                                type: integer
+                                              type:
+                                                type: string
+                                              value:
+                                                format: int32
+                                                type: integer
+                                            required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                            type: object
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                        selectPolicy:
+                                          type: string
+                                        stabilizationWindowSeconds:
+                                          format: int32
+                                          type: integer
+                                        tolerance:
+                                          anyOf:
+                                            - type: integer
+                                            - type: string
+                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                          x-kubernetes-int-or-string: true
+                                      type: object
+                                    scaleUp:
+                                      properties:
+                                        policies:
+                                          items:
+                                            properties:
+                                              periodSeconds:
+                                                format: int32
+                                                type: integer
+                                              type:
+                                                type: string
+                                              value:
+                                                format: int32
+                                                type: integer
+                                            required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                            type: object
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                        selectPolicy:
+                                          type: string
+                                        stabilizationWindowSeconds:
+                                          format: int32
+                                          type: integer
+                                        tolerance:
+                                          anyOf:
+                                            - type: integer
+                                            - type: string
+                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                          x-kubernetes-int-or-string: true
+                                      type: object
+                                  type: object
+                              type: object
+                            keda:
+                              properties:
+                                advanced:
+                                  properties:
+                                    horizontalPodAutoscalerConfig:
+                                      properties:
+                                        behavior:
+                                          properties:
+                                            scaleDown:
+                                              properties:
+                                                policies:
+                                                  items:
+                                                    properties:
+                                                      periodSeconds:
+                                                        format: int32
+                                                        type: integer
+                                                      type:
+                                                        type: string
+                                                      value:
+                                                        format: int32
+                                                        type: integer
+                                                    required:
+                                                      - periodSeconds
+                                                      - type
+                                                      - value
+                                                    type: object
+                                                  type: array
+                                                  x-kubernetes-list-type: atomic
+                                                selectPolicy:
+                                                  type: string
+                                                stabilizationWindowSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                tolerance:
+                                                  anyOf:
+                                                    - type: integer
+                                                    - type: string
+                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                  x-kubernetes-int-or-string: true
+                                              type: object
+                                            scaleUp:
+                                              properties:
+                                                policies:
+                                                  items:
+                                                    properties:
+                                                      periodSeconds:
+                                                        format: int32
+                                                        type: integer
+                                                      type:
+                                                        type: string
+                                                      value:
+                                                        format: int32
+                                                        type: integer
+                                                    required:
+                                                      - periodSeconds
+                                                      - type
+                                                      - value
+                                                    type: object
+                                                  type: array
+                                                  x-kubernetes-list-type: atomic
+                                                selectPolicy:
+                                                  type: string
+                                                stabilizationWindowSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                tolerance:
+                                                  anyOf:
+                                                    - type: integer
+                                                    - type: string
+                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                  x-kubernetes-int-or-string: true
+                                              type: object
+                                          type: object
+                                        name:
+                                          type: string
+                                      type: object
+                                    restoreToOriginalReplicaCount:
+                                      type: boolean
+                                    scalingModifiers:
+                                      properties:
+                                        activationTarget:
+                                          type: string
+                                        formula:
+                                          type: string
+                                        metricType:
+                                          enum:
+                                            - AverageValue
+                                            - Value
+                                          type: string
+                                        target:
+                                          type: string
+                                      type: object
+                                  type: object
+                                cooldownPeriod:
+                                  format: int32
+                                  minimum: 0
+                                  type: integer
+                                fallback:
+                                  properties:
+                                    behavior:
+                                      default: static
+                                      enum:
+                                        - static
+                                        - currentReplicas
+                                        - currentReplicasIfHigher
+                                        - currentReplicasIfLower
+                                      type: string
+                                    failureThreshold:
+                                      format: int32
+                                      type: integer
+                                    replicas:
+                                      format: int32
+                                      type: integer
+                                  required:
+                                    - failureThreshold
+                                    - replicas
+                                  type: object
+                                idleReplicaCount:
+                                  format: int32
+                                  minimum: 1
+                                  type: integer
+                                initialCooldownPeriod:
+                                  format: int32
+                                  minimum: 0
+                                  type: integer
+                                pollingInterval:
+                                  format: int32
+                                  minimum: 1
+                                  type: integer
+                              type: object
+                              x-kubernetes-validations:
+                                - message: scalingModifiers must not be set; WVA controls the scaling metric formula and logic
+                                  rule: '!has(self.advanced) || (size(self.advanced.scalingModifiers.formula) == 0 && size(self.advanced.scalingModifiers.target) == 0 && size(self.advanced.scalingModifiers.activationTarget) == 0 && size(self.advanced.scalingModifiers.metricType) == 0)'
+                                - message: horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name
+                                  rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
+                            variantCost:
+                              default: "10.0"
+                              pattern: ^\d+(\.\d+)?$
+                              type: string
+                          type: object
+                          x-kubernetes-validations:
+                            - message: hpa and keda are mutually exclusive; choose one actuator backend
+                              rule: '!(has(self.hpa) && has(self.keda))'
+                            - message: either hpa or keda must be specified as the actuator backend
+                              rule: has(self.hpa) || has(self.keda)
+                      required:
+                        - maxReplicas
+                      type: object
+                      x-kubernetes-validations:
+                        - message: wva is required when scaling is configured; it provides the autoscaling mechanism
+                          rule: has(self.wva)
+                        - message: minReplicas cannot exceed maxReplicas
+                          rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
+                        - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount must be less than minReplicas
+                          rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)'
+                        - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
+                          rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || !has(self.minReplicas) || self.wva.keda.idleReplicaCount < self.minReplicas'
                     template:
                       properties:
                         activeDeadlineSeconds:
@@ -7650,6 +7906,9 @@ spec:
                           x-kubernetes-list-type: map
                       type: object
                   type: object
+                  x-kubernetes-validations:
+                    - message: replicas and scaling are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments
+                      rule: '!(has(self.replicas) && has(self.scaling))'
                 replicas:
                   format: int32
                   minimum: 0
@@ -8094,9 +8353,6 @@ spec:
                                                         enum:
                                                           - 301
                                                           - 302
-                                                          - 303
-                                                          - 307
-                                                          - 308
                                                         type: integer
                                                     type: object
                                                   responseHeaderModifier:
@@ -8604,9 +8860,6 @@ spec:
                                                   enum:
                                                     - 301
                                                     - 302
-                                                    - 303
-                                                    - 307
-                                                    - 308
                                                   type: integer
                                               type: object
                                             responseHeaderModifier:
@@ -8951,6 +9204,10 @@ spec:
                       type: object
                     scheduler:
                       properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          type: object
                         config:
                           properties:
                             inline:
@@ -8969,6 +9226,10 @@ spec:
                                 - key
                               type: object
                               x-kubernetes-map-type: atomic
+                          type: object
+                        labels:
+                          additionalProperties:
+                            type: string
                           type: object
                         pool:
                           properties:
@@ -9030,6 +9291,9 @@ spec:
                                 - targetPortNumber
                               type: object
                           type: object
+                        replicas:
+                          format: int32
+                          type: integer
                         template:
                           properties:
                             activeDeadlineSeconds:
@@ -12800,6 +13064,246 @@ spec:
                           type: object
                       type: object
                   type: object
+                scaling:
+                  properties:
+                    maxReplicas:
+                      format: int32
+                      minimum: 1
+                      type: integer
+                    minReplicas:
+                      default: 1
+                      format: int32
+                      minimum: 1
+                      type: integer
+                    wva:
+                      properties:
+                        hpa:
+                          properties:
+                            behavior:
+                              properties:
+                                scaleDown:
+                                  properties:
+                                    policies:
+                                      items:
+                                        properties:
+                                          periodSeconds:
+                                            format: int32
+                                            type: integer
+                                          type:
+                                            type: string
+                                          value:
+                                            format: int32
+                                            type: integer
+                                        required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                        type: object
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    selectPolicy:
+                                      type: string
+                                    stabilizationWindowSeconds:
+                                      format: int32
+                                      type: integer
+                                    tolerance:
+                                      anyOf:
+                                        - type: integer
+                                        - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  type: object
+                                scaleUp:
+                                  properties:
+                                    policies:
+                                      items:
+                                        properties:
+                                          periodSeconds:
+                                            format: int32
+                                            type: integer
+                                          type:
+                                            type: string
+                                          value:
+                                            format: int32
+                                            type: integer
+                                        required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                        type: object
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    selectPolicy:
+                                      type: string
+                                    stabilizationWindowSeconds:
+                                      format: int32
+                                      type: integer
+                                    tolerance:
+                                      anyOf:
+                                        - type: integer
+                                        - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  type: object
+                              type: object
+                          type: object
+                        keda:
+                          properties:
+                            advanced:
+                              properties:
+                                horizontalPodAutoscalerConfig:
+                                  properties:
+                                    behavior:
+                                      properties:
+                                        scaleDown:
+                                          properties:
+                                            policies:
+                                              items:
+                                                properties:
+                                                  periodSeconds:
+                                                    format: int32
+                                                    type: integer
+                                                  type:
+                                                    type: string
+                                                  value:
+                                                    format: int32
+                                                    type: integer
+                                                required:
+                                                  - periodSeconds
+                                                  - type
+                                                  - value
+                                                type: object
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                            selectPolicy:
+                                              type: string
+                                            stabilizationWindowSeconds:
+                                              format: int32
+                                              type: integer
+                                            tolerance:
+                                              anyOf:
+                                                - type: integer
+                                                - type: string
+                                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                              x-kubernetes-int-or-string: true
+                                          type: object
+                                        scaleUp:
+                                          properties:
+                                            policies:
+                                              items:
+                                                properties:
+                                                  periodSeconds:
+                                                    format: int32
+                                                    type: integer
+                                                  type:
+                                                    type: string
+                                                  value:
+                                                    format: int32
+                                                    type: integer
+                                                required:
+                                                  - periodSeconds
+                                                  - type
+                                                  - value
+                                                type: object
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                            selectPolicy:
+                                              type: string
+                                            stabilizationWindowSeconds:
+                                              format: int32
+                                              type: integer
+                                            tolerance:
+                                              anyOf:
+                                                - type: integer
+                                                - type: string
+                                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                              x-kubernetes-int-or-string: true
+                                          type: object
+                                      type: object
+                                    name:
+                                      type: string
+                                  type: object
+                                restoreToOriginalReplicaCount:
+                                  type: boolean
+                                scalingModifiers:
+                                  properties:
+                                    activationTarget:
+                                      type: string
+                                    formula:
+                                      type: string
+                                    metricType:
+                                      enum:
+                                        - AverageValue
+                                        - Value
+                                      type: string
+                                    target:
+                                      type: string
+                                  type: object
+                              type: object
+                            cooldownPeriod:
+                              format: int32
+                              minimum: 0
+                              type: integer
+                            fallback:
+                              properties:
+                                behavior:
+                                  default: static
+                                  enum:
+                                    - static
+                                    - currentReplicas
+                                    - currentReplicasIfHigher
+                                    - currentReplicasIfLower
+                                  type: string
+                                failureThreshold:
+                                  format: int32
+                                  type: integer
+                                replicas:
+                                  format: int32
+                                  type: integer
+                              required:
+                                - failureThreshold
+                                - replicas
+                              type: object
+                            idleReplicaCount:
+                              format: int32
+                              minimum: 1
+                              type: integer
+                            initialCooldownPeriod:
+                              format: int32
+                              minimum: 0
+                              type: integer
+                            pollingInterval:
+                              format: int32
+                              minimum: 1
+                              type: integer
+                          type: object
+                          x-kubernetes-validations:
+                            - message: scalingModifiers must not be set; WVA controls the scaling metric formula and logic
+                              rule: '!has(self.advanced) || (size(self.advanced.scalingModifiers.formula) == 0 && size(self.advanced.scalingModifiers.target) == 0 && size(self.advanced.scalingModifiers.activationTarget) == 0 && size(self.advanced.scalingModifiers.metricType) == 0)'
+                            - message: horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name
+                              rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
+                        variantCost:
+                          default: "10.0"
+                          pattern: ^\d+(\.\d+)?$
+                          type: string
+                      type: object
+                      x-kubernetes-validations:
+                        - message: hpa and keda are mutually exclusive; choose one actuator backend
+                          rule: '!(has(self.hpa) && has(self.keda))'
+                        - message: either hpa or keda must be specified as the actuator backend
+                          rule: has(self.hpa) || has(self.keda)
+                  required:
+                    - maxReplicas
+                  type: object
+                  x-kubernetes-validations:
+                    - message: wva is required when scaling is configured; it provides the autoscaling mechanism
+                      rule: has(self.wva)
+                    - message: minReplicas cannot exceed maxReplicas
+                      rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
+                    - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount must be less than minReplicas
+                      rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)'
+                    - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
+                      rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || !has(self.minReplicas) || self.wva.keda.idleReplicaCount < self.minReplicas'
                 storageInitializer:
                   properties:
                     enabled:
@@ -20342,6 +20846,9 @@ spec:
                       x-kubernetes-list-type: map
                   type: object
               type: object
+              x-kubernetes-validations:
+                - message: replicas and scaling are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments
+                  rule: '!(has(self.replicas) && has(self.scaling))'
           type: object
       served: true
       storage: false
@@ -20357,6 +20864,10 @@ spec:
               type: object
             spec:
               properties:
+                annotations:
+                  additionalProperties:
+                    type: string
+                  type: object
                 baseRefs:
                   items:
                     properties:
@@ -20366,6 +20877,10 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   type: array
+                labels:
+                  additionalProperties:
+                    type: string
+                  type: object
                 model:
                   properties:
                     lora:
@@ -20408,6 +20923,14 @@ spec:
                   type: object
                 prefill:
                   properties:
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    labels:
+                      additionalProperties:
+                        type: string
+                      type: object
                     parallelism:
                       properties:
                         data:
@@ -20438,6 +20961,246 @@ spec:
                       format: int32
                       minimum: 0
                       type: integer
+                    scaling:
+                      properties:
+                        maxReplicas:
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        minReplicas:
+                          default: 1
+                          format: int32
+                          minimum: 1
+                          type: integer
+                        wva:
+                          properties:
+                            hpa:
+                              properties:
+                                behavior:
+                                  properties:
+                                    scaleDown:
+                                      properties:
+                                        policies:
+                                          items:
+                                            properties:
+                                              periodSeconds:
+                                                format: int32
+                                                type: integer
+                                              type:
+                                                type: string
+                                              value:
+                                                format: int32
+                                                type: integer
+                                            required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                            type: object
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                        selectPolicy:
+                                          type: string
+                                        stabilizationWindowSeconds:
+                                          format: int32
+                                          type: integer
+                                        tolerance:
+                                          anyOf:
+                                            - type: integer
+                                            - type: string
+                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                          x-kubernetes-int-or-string: true
+                                      type: object
+                                    scaleUp:
+                                      properties:
+                                        policies:
+                                          items:
+                                            properties:
+                                              periodSeconds:
+                                                format: int32
+                                                type: integer
+                                              type:
+                                                type: string
+                                              value:
+                                                format: int32
+                                                type: integer
+                                            required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                            type: object
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                        selectPolicy:
+                                          type: string
+                                        stabilizationWindowSeconds:
+                                          format: int32
+                                          type: integer
+                                        tolerance:
+                                          anyOf:
+                                            - type: integer
+                                            - type: string
+                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                          x-kubernetes-int-or-string: true
+                                      type: object
+                                  type: object
+                              type: object
+                            keda:
+                              properties:
+                                advanced:
+                                  properties:
+                                    horizontalPodAutoscalerConfig:
+                                      properties:
+                                        behavior:
+                                          properties:
+                                            scaleDown:
+                                              properties:
+                                                policies:
+                                                  items:
+                                                    properties:
+                                                      periodSeconds:
+                                                        format: int32
+                                                        type: integer
+                                                      type:
+                                                        type: string
+                                                      value:
+                                                        format: int32
+                                                        type: integer
+                                                    required:
+                                                      - periodSeconds
+                                                      - type
+                                                      - value
+                                                    type: object
+                                                  type: array
+                                                  x-kubernetes-list-type: atomic
+                                                selectPolicy:
+                                                  type: string
+                                                stabilizationWindowSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                tolerance:
+                                                  anyOf:
+                                                    - type: integer
+                                                    - type: string
+                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                  x-kubernetes-int-or-string: true
+                                              type: object
+                                            scaleUp:
+                                              properties:
+                                                policies:
+                                                  items:
+                                                    properties:
+                                                      periodSeconds:
+                                                        format: int32
+                                                        type: integer
+                                                      type:
+                                                        type: string
+                                                      value:
+                                                        format: int32
+                                                        type: integer
+                                                    required:
+                                                      - periodSeconds
+                                                      - type
+                                                      - value
+                                                    type: object
+                                                  type: array
+                                                  x-kubernetes-list-type: atomic
+                                                selectPolicy:
+                                                  type: string
+                                                stabilizationWindowSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                tolerance:
+                                                  anyOf:
+                                                    - type: integer
+                                                    - type: string
+                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                  x-kubernetes-int-or-string: true
+                                              type: object
+                                          type: object
+                                        name:
+                                          type: string
+                                      type: object
+                                    restoreToOriginalReplicaCount:
+                                      type: boolean
+                                    scalingModifiers:
+                                      properties:
+                                        activationTarget:
+                                          type: string
+                                        formula:
+                                          type: string
+                                        metricType:
+                                          enum:
+                                            - AverageValue
+                                            - Value
+                                          type: string
+                                        target:
+                                          type: string
+                                      type: object
+                                  type: object
+                                cooldownPeriod:
+                                  format: int32
+                                  minimum: 0
+                                  type: integer
+                                fallback:
+                                  properties:
+                                    behavior:
+                                      default: static
+                                      enum:
+                                        - static
+                                        - currentReplicas
+                                        - currentReplicasIfHigher
+                                        - currentReplicasIfLower
+                                      type: string
+                                    failureThreshold:
+                                      format: int32
+                                      type: integer
+                                    replicas:
+                                      format: int32
+                                      type: integer
+                                  required:
+                                    - failureThreshold
+                                    - replicas
+                                  type: object
+                                idleReplicaCount:
+                                  format: int32
+                                  minimum: 1
+                                  type: integer
+                                initialCooldownPeriod:
+                                  format: int32
+                                  minimum: 0
+                                  type: integer
+                                pollingInterval:
+                                  format: int32
+                                  minimum: 1
+                                  type: integer
+                              type: object
+                              x-kubernetes-validations:
+                                - message: scalingModifiers must not be set; WVA controls the scaling metric formula and logic
+                                  rule: '!has(self.advanced) || (size(self.advanced.scalingModifiers.formula) == 0 && size(self.advanced.scalingModifiers.target) == 0 && size(self.advanced.scalingModifiers.activationTarget) == 0 && size(self.advanced.scalingModifiers.metricType) == 0)'
+                                - message: horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name
+                                  rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
+                            variantCost:
+                              default: "10.0"
+                              pattern: ^\d+(\.\d+)?$
+                              type: string
+                          type: object
+                          x-kubernetes-validations:
+                            - message: hpa and keda are mutually exclusive; choose one actuator backend
+                              rule: '!(has(self.hpa) && has(self.keda))'
+                            - message: either hpa or keda must be specified as the actuator backend
+                              rule: has(self.hpa) || has(self.keda)
+                      required:
+                        - maxReplicas
+                      type: object
+                      x-kubernetes-validations:
+                        - message: wva is required when scaling is configured; it provides the autoscaling mechanism
+                          rule: has(self.wva)
+                        - message: minReplicas cannot exceed maxReplicas
+                          rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
+                        - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount must be less than minReplicas
+                          rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)'
+                        - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
+                          rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || !has(self.minReplicas) || self.wva.keda.idleReplicaCount < self.minReplicas'
                     template:
                       properties:
                         activeDeadlineSeconds:
@@ -27975,6 +28738,11 @@ spec:
                           x-kubernetes-list-type: map
                       type: object
                   type: object
+                  x-kubernetes-validations:
+                    - message: replicas and scaling are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments
+                      rule: '!(has(self.replicas) && has(self.scaling))'
+                    - message: autoscaling (scaling) is not supported for multi-node deployments (worker is set); remove scaling and use replicas instead to set a fixed replica count
+                      rule: '!(has(self.worker) && has(self.scaling))'
                 replicas:
                   format: int32
                   minimum: 0
@@ -28418,9 +29186,6 @@ spec:
                                                         enum:
                                                           - 301
                                                           - 302
-                                                          - 303
-                                                          - 307
-                                                          - 308
                                                         type: integer
                                                     type: object
                                                   responseHeaderModifier:
@@ -28928,9 +29693,6 @@ spec:
                                                   enum:
                                                     - 301
                                                     - 302
-                                                    - 303
-                                                    - 307
-                                                    - 308
                                                   type: integer
                                               type: object
                                             responseHeaderModifier:
@@ -29243,6 +30005,10 @@ spec:
                       type: object
                     scheduler:
                       properties:
+                        annotations:
+                          additionalProperties:
+                            type: string
+                          type: object
                         config:
                           properties:
                             inline:
@@ -29261,6 +30027,10 @@ spec:
                                 - key
                               type: object
                               x-kubernetes-map-type: atomic
+                          type: object
+                        labels:
+                          additionalProperties:
+                            type: string
                           type: object
                         pool:
                           properties:
@@ -29346,6 +30116,9 @@ spec:
                                 - targetPorts
                               type: object
                           type: object
+                        replicas:
+                          format: int32
+                          type: integer
                         template:
                           properties:
                             activeDeadlineSeconds:
@@ -33116,6 +33889,246 @@ spec:
                           type: object
                       type: object
                   type: object
+                scaling:
+                  properties:
+                    maxReplicas:
+                      format: int32
+                      minimum: 1
+                      type: integer
+                    minReplicas:
+                      default: 1
+                      format: int32
+                      minimum: 1
+                      type: integer
+                    wva:
+                      properties:
+                        hpa:
+                          properties:
+                            behavior:
+                              properties:
+                                scaleDown:
+                                  properties:
+                                    policies:
+                                      items:
+                                        properties:
+                                          periodSeconds:
+                                            format: int32
+                                            type: integer
+                                          type:
+                                            type: string
+                                          value:
+                                            format: int32
+                                            type: integer
+                                        required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                        type: object
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    selectPolicy:
+                                      type: string
+                                    stabilizationWindowSeconds:
+                                      format: int32
+                                      type: integer
+                                    tolerance:
+                                      anyOf:
+                                        - type: integer
+                                        - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  type: object
+                                scaleUp:
+                                  properties:
+                                    policies:
+                                      items:
+                                        properties:
+                                          periodSeconds:
+                                            format: int32
+                                            type: integer
+                                          type:
+                                            type: string
+                                          value:
+                                            format: int32
+                                            type: integer
+                                        required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                        type: object
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    selectPolicy:
+                                      type: string
+                                    stabilizationWindowSeconds:
+                                      format: int32
+                                      type: integer
+                                    tolerance:
+                                      anyOf:
+                                        - type: integer
+                                        - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  type: object
+                              type: object
+                          type: object
+                        keda:
+                          properties:
+                            advanced:
+                              properties:
+                                horizontalPodAutoscalerConfig:
+                                  properties:
+                                    behavior:
+                                      properties:
+                                        scaleDown:
+                                          properties:
+                                            policies:
+                                              items:
+                                                properties:
+                                                  periodSeconds:
+                                                    format: int32
+                                                    type: integer
+                                                  type:
+                                                    type: string
+                                                  value:
+                                                    format: int32
+                                                    type: integer
+                                                required:
+                                                  - periodSeconds
+                                                  - type
+                                                  - value
+                                                type: object
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                            selectPolicy:
+                                              type: string
+                                            stabilizationWindowSeconds:
+                                              format: int32
+                                              type: integer
+                                            tolerance:
+                                              anyOf:
+                                                - type: integer
+                                                - type: string
+                                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                              x-kubernetes-int-or-string: true
+                                          type: object
+                                        scaleUp:
+                                          properties:
+                                            policies:
+                                              items:
+                                                properties:
+                                                  periodSeconds:
+                                                    format: int32
+                                                    type: integer
+                                                  type:
+                                                    type: string
+                                                  value:
+                                                    format: int32
+                                                    type: integer
+                                                required:
+                                                  - periodSeconds
+                                                  - type
+                                                  - value
+                                                type: object
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                            selectPolicy:
+                                              type: string
+                                            stabilizationWindowSeconds:
+                                              format: int32
+                                              type: integer
+                                            tolerance:
+                                              anyOf:
+                                                - type: integer
+                                                - type: string
+                                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                              x-kubernetes-int-or-string: true
+                                          type: object
+                                      type: object
+                                    name:
+                                      type: string
+                                  type: object
+                                restoreToOriginalReplicaCount:
+                                  type: boolean
+                                scalingModifiers:
+                                  properties:
+                                    activationTarget:
+                                      type: string
+                                    formula:
+                                      type: string
+                                    metricType:
+                                      enum:
+                                        - AverageValue
+                                        - Value
+                                      type: string
+                                    target:
+                                      type: string
+                                  type: object
+                              type: object
+                            cooldownPeriod:
+                              format: int32
+                              minimum: 0
+                              type: integer
+                            fallback:
+                              properties:
+                                behavior:
+                                  default: static
+                                  enum:
+                                    - static
+                                    - currentReplicas
+                                    - currentReplicasIfHigher
+                                    - currentReplicasIfLower
+                                  type: string
+                                failureThreshold:
+                                  format: int32
+                                  type: integer
+                                replicas:
+                                  format: int32
+                                  type: integer
+                              required:
+                                - failureThreshold
+                                - replicas
+                              type: object
+                            idleReplicaCount:
+                              format: int32
+                              minimum: 1
+                              type: integer
+                            initialCooldownPeriod:
+                              format: int32
+                              minimum: 0
+                              type: integer
+                            pollingInterval:
+                              format: int32
+                              minimum: 1
+                              type: integer
+                          type: object
+                          x-kubernetes-validations:
+                            - message: scalingModifiers must not be set; WVA controls the scaling metric formula and logic
+                              rule: '!has(self.advanced) || (size(self.advanced.scalingModifiers.formula) == 0 && size(self.advanced.scalingModifiers.target) == 0 && size(self.advanced.scalingModifiers.activationTarget) == 0 && size(self.advanced.scalingModifiers.metricType) == 0)'
+                            - message: horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name
+                              rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
+                        variantCost:
+                          default: "10.0"
+                          pattern: ^\d+(\.\d+)?$
+                          type: string
+                      type: object
+                      x-kubernetes-validations:
+                        - message: hpa and keda are mutually exclusive; choose one actuator backend
+                          rule: '!(has(self.hpa) && has(self.keda))'
+                        - message: either hpa or keda must be specified as the actuator backend
+                          rule: has(self.hpa) || has(self.keda)
+                  required:
+                    - maxReplicas
+                  type: object
+                  x-kubernetes-validations:
+                    - message: wva is required when scaling is configured; it provides the autoscaling mechanism
+                      rule: has(self.wva)
+                    - message: minReplicas cannot exceed maxReplicas
+                      rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
+                    - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount must be less than minReplicas
+                      rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)'
+                    - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
+                      rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || !has(self.minReplicas) || self.wva.keda.idleReplicaCount < self.minReplicas'
                 storageInitializer:
                   properties:
                     enabled:
@@ -40658,6 +41671,11 @@ spec:
                       x-kubernetes-list-type: map
                   type: object
               type: object
+              x-kubernetes-validations:
+                - message: replicas and scaling are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments
+                  rule: '!(has(self.replicas) && has(self.scaling))'
+                - message: autoscaling (scaling) is not supported for multi-node deployments (worker is set); remove scaling and use replicas instead to set a fixed replica count
+                  rule: '!(has(self.worker) && has(self.scaling))'
           type: object
       served: true
       storage: true

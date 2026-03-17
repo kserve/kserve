@@ -45,7 +45,7 @@ class MockPool:
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    def map(self, func, iterable):
+    def imap_unordered(self, func, iterable, chunksize=1):
         """Execute tasks synchronously instead of in parallel processes"""
         return [func(item) for item in iterable]
 
@@ -82,7 +82,7 @@ def get_call_args(call_args_list):
 
 
 def expected_call_args_list_single_obj(dest, path):
-    return [(f"{path}".strip("/"), f'{dest}/{path.rsplit("/", 1)[-1]}'.strip("/"))]
+    return [(f"{path}".strip("/"), f"{dest}/{path.rsplit('/', 1)[-1]}".strip("/"))]
 
 
 def expected_call_args_list(parent_key, dest, paths):
@@ -222,7 +222,6 @@ def test_multikey(mock_storage):
 
 @mock.patch("boto3.resource")
 def test_files_with_no_extension(mock_storage):
-
     # given
     bucket_name = "foo"
     paths = ["churn-pickle", "churn-pickle-logs", "churn-pickle-report"]
@@ -407,14 +406,14 @@ def test_file_name_preservation(mock_storage):
     downloaded_source, downloaded_target = arg_list[0]
 
     # Check if the source S3 key matches the original object key
-    assert (
-        downloaded_source == object_paths[0]
-    ), f"Expected {object_paths[0]}, got {downloaded_source}"
+    assert downloaded_source == object_paths[0], (
+        f"Expected {object_paths[0]}, got {downloaded_source}"
+    )
 
     # Check if the target file path ends with the expected file name
-    assert downloaded_target.endswith(
-        expected_file_name
-    ), f"Expected file name to end with {expected_file_name}, got {downloaded_target}"
+    assert downloaded_target.endswith(expected_file_name), (
+        f"Expected file name to end with {expected_file_name}, got {downloaded_target}"
+    )
 
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix="model")
 
@@ -792,3 +791,83 @@ def test_s3_invalid_endpoint_error(mock_resource):
     with pytest.raises(RuntimeError) as exc_info:
         Storage._download_s3("s3://test-bucket/model", "/tmp/dest")
     assert "S3" in str(exc_info.value)
+
+
+@mock.patch("boto3.resource")
+def test_s3_allow_patterns(mock_storage):
+    bucket_name = "foo"
+    object_paths = [
+        "model/weights.safetensors",
+        "model/weights.bin",
+        "model/config.json",
+    ]
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
+
+    Storage._download_s3(
+        f"s3://{bucket_name}/model",
+        "dest_path",
+        allow_patterns=["*.safetensors", "*.json"],
+    )
+
+    arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
+    downloaded_keys = [a[0] for a in arg_list]
+    assert "model/weights.safetensors" in downloaded_keys
+    assert "model/config.json" in downloaded_keys
+    assert "model/weights.bin" not in downloaded_keys
+
+
+@mock.patch("boto3.resource")
+def test_s3_ignore_patterns(mock_storage):
+    bucket_name = "foo"
+    object_paths = [
+        "model/weights.safetensors",
+        "model/weights.bin",
+        "model/config.json",
+    ]
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
+
+    Storage._download_s3(
+        f"s3://{bucket_name}/model",
+        "dest_path",
+        ignore_patterns=["*.bin"],
+    )
+
+    arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
+    downloaded_keys = [a[0] for a in arg_list]
+    assert "model/weights.bin" not in downloaded_keys
+    assert len(downloaded_keys) == 2
+
+
+@mock.patch("boto3.resource")
+def test_s3_exact_object_bypasses_filter(mock_storage):
+    """When a URI points to an exact object, filtering should not apply."""
+    bucket_name = "foo"
+    object_key = "model/weights.bin"
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, [object_key])
+
+    # Even with allow_patterns that exclude .bin, exact object should still download
+    Storage._download_s3(
+        f"s3://{bucket_name}/{object_key}",
+        "dest_path",
+        allow_patterns=["*.safetensors"],
+    )
+
+    arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
+    assert len(arg_list) == 1
+    assert arg_list[0][0] == object_key
+
+
+@mock.patch("boto3.resource")
+def test_s3_no_patterns_downloads_all(mock_storage):
+    bucket_name = "foo"
+    object_paths = [
+        "model/weights.safetensors",
+        "model/weights.bin",
+        "model/config.json",
+    ]
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
+
+    Storage._download_s3(f"s3://{bucket_name}/model", "dest_path")
+
+    arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
+    assert len(arg_list) == 3

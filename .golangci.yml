@@ -1,3 +1,5 @@
+version: "2"
+
 run:
   timeout: 6m
   go: "1.25"
@@ -7,24 +9,18 @@ issues:
   max-same-issues: 0
   max-issues-per-linter: 0
   uniq-by-line: true
-  exclude-dirs: # skip auto gen folders
-    - "client/*"
-    - "tools/tf2openapi/generated/*"
-    - "openapi/"
-  exclude-files:
-    - "zz_generated.*.go"
 
 output:
   formats:
-    - format: "colored-line-number"
-  print-issued-lines: true
-  print-linter-name: true
+    text:
+      colors: true
+      print-issued-lines: true
+      print-linter-name: true
   path-prefix: ""
-  sort-results: true
 
-# REF: https://golangci-lint.run/usage/linters/
+# REF: https://golangci-lint.run/docs/linters/
 linters:
-  disable-all: true
+  default: none
   enable:
     # Check for pass []any as any in variadic func(...any).
     - asasalint
@@ -83,22 +79,8 @@ linters:
     # report message and optional suggestion.
     - gocritic
 
-    # Gofmt checks whether code was gofmt-ed. By default this tool runs
-    # with -s option to check for code simplification.
-    - gofmt
-
-    # Gofumpt checks whether code was gofumpt-ed.
-    - gofumpt
-
-    # Check import statements are formatted according to the 'goimport'
-    # command. Reformat imports in autofix mode.
-    - goimports
-
     # Inspects source code for security problems.
     - gosec
-
-    # Linter that specializes in simplifying code.
-    - gosimple
 
     # Vet examines Go source code and reports suspicious constructs.
     # It is roughly the same as 'go vet' and uses its passes.
@@ -164,12 +146,8 @@ linters:
     # - stylecheck
 
     # It's a set of rules from staticcheck. It's not the same thing as the staticcheck binary.
+    # In v2, gosimple and stylecheck are merged into staticcheck.
     - staticcheck
-
-    # Checks usage of github.com/stretchr/testify.
-    - testifylint
-
-    - typecheck
 
     # Remove unnecessary type conversions.
     - unconvert
@@ -191,30 +169,68 @@ linters:
     # and end of functions, if, for, etc.
     - whitespace
 
-linters-settings:
-  goimports:
-    local-prefixes: "github.com/kserve/kserve"
-  gosec:
-    # specify configuration of gosec rules: https://github.com/securego/gosec#available-rules
-    config:
-      # maximum allowed permissions for os.OpenFile and os.Chmod
-      # default: "0600"
-      G302: "0640"
-      # maximum allowed permissions for os.WriteFile and ioutil.WriteFile
-      G306: "0640"
-  importas:
-    alias:
-      - pkg: "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-        alias: ""
-      - pkg: "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-        alias: ""
-      - pkg: "k8s.io/api/core/v1"
-        alias: "corev1"
-      - pkg: "k8s.io/apimachinery/pkg/apis/meta/v1"
-        alias: "metav1"
-      - pkg: "sigs.k8s.io/controller-runtime"
-        alias: "ctrl"
-      - pkg: "sigs.k8s.io/controller-runtime/runtime"
-        alias: "runtime"
-      - pkg: "sigs.k8s.io/gateway-api/apis/v1"
-        alias: "gwapiv1"
+  settings:
+    staticcheck:
+      # In v2, gosimple and stylecheck are merged into staticcheck.
+      # Stylecheck (ST*) was disabled in v1, so exclude those checks.
+      checks:
+        - "all"
+        - "-ST*"
+    gosec:
+      # specify configuration of gosec rules: https://github.com/securego/gosec#available-rules
+      config:
+        # maximum allowed permissions for os.OpenFile and os.Chmod
+        # default: "0600"
+        G302: "0640"
+        # maximum allowed permissions for os.WriteFile and ioutil.WriteFile
+        G306: "0640"
+    importas:
+      alias:
+        - pkg: "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+          alias: ""
+        - pkg: "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+          alias: ""
+        - pkg: "k8s.io/api/core/v1"
+          alias: "corev1"
+        - pkg: "k8s.io/apimachinery/pkg/apis/meta/v1"
+          alias: "metav1"
+        - pkg: "sigs.k8s.io/controller-runtime"
+          alias: "ctrl"
+        - pkg: "sigs.k8s.io/controller-runtime/runtime"
+          alias: "runtime"
+        - pkg: "sigs.k8s.io/gateway-api/apis/v1"
+          alias: "gwapiv1"
+
+  exclusions:
+    generated: lax
+    paths:
+      # skip auto gen folders
+      - "client/"
+      - "tools/tf2openapi/generated/"
+      - "openapi/"
+      - "zz_generated\\..*\\.go$"
+
+formatters:
+  enable:
+    # Gofmt checks whether code was gofmt-ed. By default this tool runs
+    # with -s option to check for code simplification.
+    - gofmt
+
+    # Gofumpt checks whether code was gofumpt-ed.
+    - gofumpt
+
+    # Check import statements are formatted according to the 'goimport'
+    # command. Reformat imports in autofix mode.
+    - goimports
+
+  settings:
+    goimports:
+      local-prefixes: "github.com/kserve/kserve"
+
+  exclusions:
+    generated: lax
+    paths:
+      - "client/"
+      - "tools/tf2openapi/generated/"
+      - "openapi/"
+      - "zz_generated\\..*\\.go$"

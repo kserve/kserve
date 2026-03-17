@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -87,6 +88,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateRouterCrossFieldConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
+	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
 	if len(allErrs) == 0 {
@@ -112,23 +114,6 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 	httpRoutePath := routePath.Child("http")
 	httpRouteRefs := httpRoutePath.Child("refs")
 	httpRouteSpec := httpRoutePath.Child("spec")
-
-	zero := GatewayRoutesSpec{}
-	if ptr.Deref(router.Route, zero) == zero && router.Gateway != nil && router.Gateway.Refs != nil {
-		return field.ErrorList{
-			field.Invalid(
-				gwRefsPath,
-				router.Gateway.Refs,
-				fmt.Sprintf("unsupported configuration: custom gateway ('%s') cannot be used with managed route ('%s: {}'); "+
-					"either provide your own HTTP routes ('%s') or remove '%s' to use the managed gateway",
-					gwRefsPath,
-					routePath,
-					httpRouteRefs,
-					gwRefsPath,
-				),
-			),
-		}
-	}
 
 	httpRoute := router.Route.HTTP
 	if httpRoute == nil {
@@ -162,13 +147,14 @@ func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSv
 		))
 	}
 
-	// Managed route spec cannot be used with user-defined gateway refs
-	if httpRoute.Spec != nil && router.Gateway != nil && len(router.Gateway.Refs) > 0 {
+	// Managed route spec referring to the gateway cannot be used with user-defined gateway refs
+	if httpRoute.Spec != nil && len(httpRoute.Spec.ParentRefs) > 0 &&
+		router.Gateway != nil && len(router.Gateway.Refs) > 0 {
 		allErrs = append(allErrs, field.Invalid(
 			httpRoutePath.Child("spec"),
 			httpRoute.Spec,
 			fmt.Sprintf("unsupported configuration: managed HTTP route spec ('%s') cannot be used with custom gateway refs ('%s'); "+
-				"either remove '%s' or '%s'",
+				"either remove '%s' or '%s.parentRefs'",
 				httpRouteSpec, gwRefsPath, gwRefsPath, httpRouteSpec,
 			),
 		))
@@ -300,13 +286,21 @@ func (l *LLMInferenceServiceValidator) validateImmutableParallelism(basePath *fi
 func (l *LLMInferenceServiceValidator) validateSchedulerConfig(svc *LLMInferenceService) field.ErrorList {
 	var allErrs field.ErrorList
 
-	if svc.Spec.Router == nil ||
-		svc.Spec.Router.Scheduler == nil ||
-		svc.Spec.Router.Scheduler.Config == nil {
+	if svc.Spec.Router == nil || svc.Spec.Router.Scheduler == nil {
 		return allErrs
 	}
 
-	configPath := field.NewPath("spec", "router", "scheduler", "config")
+	schedulerPath := field.NewPath("spec", "router", "scheduler")
+
+	if svc.Spec.Router.Scheduler.Replicas != nil && *svc.Spec.Router.Scheduler.Replicas <= 0 {
+		allErrs = append(allErrs, field.Invalid(schedulerPath.Child("replicas"), *svc.Spec.Router.Scheduler.Replicas, "scheduler replicas must be greater than zero"))
+	}
+
+	if svc.Spec.Router.Scheduler.Config == nil {
+		return allErrs
+	}
+
+	configPath := schedulerPath.Child("config")
 
 	if svc.Spec.Router.Scheduler.Config.Ref == nil && svc.Spec.Router.Scheduler.Config.Inline == nil {
 		allErrs = append(allErrs, field.Invalid(
@@ -343,6 +337,38 @@ func (l *LLMInferenceServiceValidator) validateSchedulerConfig(svc *LLMInference
 	}
 
 	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateScaling(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// Validate scaling on the main (decode) workload
+	allErrs = append(allErrs, l.validateWorkloadScaling(field.NewPath("spec"), &llmSvc.Spec.WorkloadSpec)...)
+
+	// Validate scaling on the prefill workload, if present
+	if llmSvc.Spec.Prefill != nil {
+		allErrs = append(allErrs, l.validateWorkloadScaling(field.NewPath("spec").Child("prefill"), llmSvc.Spec.Prefill)...)
+	}
+
+	// Validate actuator backend consistency across decode and prefill.
+	// Convert to the hub (v1alpha2) type and delegate to its exported validator so
+	// the consistency rules live in exactly one place.
+	decode := convertWorkloadSpecToV1Alpha2(&llmSvc.Spec.WorkloadSpec)
+	var prefill *v1alpha2.WorkloadSpec
+	if llmSvc.Spec.Prefill != nil {
+		p := convertWorkloadSpecToV1Alpha2(llmSvc.Spec.Prefill)
+		prefill = &p
+	}
+	allErrs = append(allErrs, v1alpha2.ValidateActuatorConsistency(&decode, prefill)...)
+
+	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field.ErrorList {
+	// Convert to the hub (v1alpha2) type and delegate to its exported validator so
+	// the scaling rules live in exactly one place.
+	w := convertWorkloadSpecToV1Alpha2(workload)
+	return v1alpha2.ValidateWorkloadScaling(basePath, &w)
 }
 
 // immutable returns a *Error indicating "unsupported mutation".

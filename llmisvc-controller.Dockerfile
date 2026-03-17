@@ -12,7 +12,8 @@ COPY cmd/    cmd/
 COPY pkg/    pkg/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux go build -a -o manager ./cmd/llmisvc
+ARG GOTAGS=""
+RUN CGO_ENABLED=0 GOOS=linux go build -tags "${GOTAGS}" -a -o manager ./cmd/llmisvc
 
 # Generate third-party licenses
 COPY LICENSE LICENSE

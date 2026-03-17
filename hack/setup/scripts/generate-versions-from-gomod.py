@@ -5,6 +5,7 @@
 import os
 import re
 import subprocess
+import sys
 import json
 import urllib.request
 from urllib.request import Request
@@ -39,6 +40,12 @@ DEPENDENCIES = {
         None,
         ("kubernetes-sigs/gateway-api-inference-extension", "manifests.yaml"),
     ),
+    "WVA_VERSION": (
+        "github.com/llm-d/llm-d-workload-variant-autoscaler",
+        None,
+        None,
+        None,
+    ),
 }
 
 HELM_REPOS = {
@@ -49,7 +56,9 @@ HELM_REPOS = {
 
 
 def run(cmd):
-    return subprocess.run(cmd, shell=True, capture_output=True, text=True, check=True).stdout
+    return subprocess.run(
+        cmd, shell=True, capture_output=True, text=True, check=True
+    ).stdout
 
 
 def extract_all_versions_from_gomod(go_mod_path, packages):
@@ -67,6 +76,11 @@ def extract_all_versions_from_gomod(go_mod_path, packages):
 
 def get_helm_versions(repo, chart):
     cache_file = f"/tmp/{repo.replace('/', '_')}__{chart.replace('/', '_')}.json"
+
+    # Delete cache file if --no-cache flag is provided
+    if "--no-cache" in sys.argv and os.path.exists(cache_file):
+        os.remove(cache_file)
+
     if os.path.exists(cache_file):
         with open(cache_file, "r") as f:
             return json.load(f)
@@ -80,7 +94,7 @@ def get_helm_versions(repo, chart):
 
 def strip_pseudo_version(version):
     """Strip pseudo-version to base version (v1.3.1-0.xxx -> v1.3.1)"""
-    match = re.match(r'^(v[0-9]+\.[0-9]+\.[0-9]+)-0\.[0-9]{14}-', version)
+    match = re.match(r"^(v[0-9]+\.[0-9]+\.[0-9]+)-0\.[0-9]{14}-", version)
     if match:
         return match.group(1)
     return version
@@ -89,7 +103,7 @@ def strip_pseudo_version(version):
 def check_url_exists(url, timeout=5):
     """Check if URL exists via HEAD request"""
     try:
-        req = Request(url, method='HEAD')
+        req = Request(url, method="HEAD")
         with urllib.request.urlopen(req, timeout=timeout) as response:
             return 200 <= response.status < 400
     except Exception:
@@ -173,7 +187,9 @@ def find_best_chart_version(versions, requested_app_version):
                 return float("inf")
 
         closest = min(valid, key=version_distance)
-        print(f"⚠️  Using {closest['version']} (app: {closest['app_version']}) for requested {requested_app_version}")
+        print(
+            f"⚠️  Using {closest['version']} (app: {closest['app_version']}) for requested {requested_app_version}"
+        )
         return closest["version"]
     except Exception:
         return valid[0]["version"]
@@ -187,12 +203,26 @@ def ensure_helm_repo(name, url):
     run(f"helm repo add {name} {url}")
 
 
+def parse_existing_versions(env_file):
+    """Parse existing VAR=value pairs from kserve-deps.env"""
+    existing = {}
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                existing[key] = value
+    return existing
+
+
 def main():
     repo_root = Path(__file__).resolve().parent.parent.parent.parent
     go_mod = repo_root / "go.mod"
     output_file = repo_root / "kserve-deps.env"
 
     print("📦 Extracting versions from go.mod...")
+
+    existing_versions = parse_existing_versions(output_file)
 
     packages = [item[0] for item in DEPENDENCIES.values()]
     gomod_versions = extract_all_versions_from_gomod(go_mod, packages)
@@ -226,9 +256,20 @@ def main():
                     if final_version == base_version:
                         print(f"✅ {var_name}: {final_version} (URL verified)")
                     else:
-                        print(f"⚠️  {var_name}: Using {final_version} for requested {base_version}")
+                        print(
+                            f"⚠️  {var_name}: Using {final_version} for requested {base_version}"
+                        )
                 else:
-                    print(f"⚠️  {var_name}: No available URL found, using {base_version}")
+                    fallback = existing_versions.get(var_name)
+                    if fallback:
+                        final_version = fallback
+                        print(
+                            f"⚠️  {var_name}: No available URL found for {base_version}, keeping existing {fallback}"
+                        )
+                    else:
+                        print(
+                            f"⚠️  {var_name}: No available URL found, using {base_version}"
+                        )
                 versions[var_name] = final_version
             else:
                 versions[var_name] = base_version
@@ -250,14 +291,22 @@ def main():
         f"LWS_VERSION={versions['LWS_VERSION']}\n",
         f"GATEWAY_API_VERSION={versions['GATEWAY_API_VERSION']}\n",
         f"GIE_VERSION={versions['GIE_VERSION']}\n",
+        f"WVA_VERSION={versions['WVA_VERSION']}\n",
         "# END\n",
     ]
 
     output_file.write_text("".join(lines[:start] + new_section + lines[end + 1 :]))
 
     print(f"\n✅ Updated {output_file.name}\n")
-    for var in ["ISTIO_VERSION", "KEDA_VERSION", "GATEWAY_API_VERSION",
-                "GIE_VERSION", "LWS_VERSION", "OPENTELEMETRY_OPERATOR_VERSION"]:
+    for var in [
+        "ISTIO_VERSION",
+        "KEDA_VERSION",
+        "GATEWAY_API_VERSION",
+        "GIE_VERSION",
+        "LWS_VERSION",
+        "OPENTELEMETRY_OPERATOR_VERSION",
+        "WVA_VERSION",
+    ]:
         print(f"  {var}={versions[var]}")
 
 

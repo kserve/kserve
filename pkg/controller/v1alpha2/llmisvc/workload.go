@@ -23,6 +23,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
@@ -31,6 +32,7 @@ import (
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -63,9 +65,16 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	}
 
 	// Set up TLS certificates for secure communication
-	if err := r.reconcileSelfSignedCertsSecret(ctx, llmSvc); err != nil {
+	if err := r.reconcileSelfSignedCertsSecret(ctx, llmSvc, config.SchedulerConfig); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileCertsError", err.Error())
 		return fmt.Errorf("failed to reconcile self-signed certificates secret: %w", err)
+	}
+
+	// Reconcile platform-specific workload permissions (e.g. SCC RoleBindings)
+	// before creating workloads so pods can start with the correct permissions.
+	if err := r.reconcileWorkloadPlatformPermissions(ctx, llmSvc); err != nil {
+		llmSvc.MarkMainWorkloadNotReady("ReconcileWorkloadPermissionsError", err.Error())
+		return fmt.Errorf("failed to reconcile workload platform permissions: %w", err)
 	}
 
 	// We need to always reconcile every type of workload to handle transitions from P/D to another topology (meaning
@@ -89,6 +98,19 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		return fmt.Errorf("failed to reconcile workload service: %w", err)
 	}
 
+	// Reconcile autoscaling resources (VariantAutoscaling + HPA or KEDA ScaledObject) when scaling is configured.
+	// A missing CRD is a hard error: the LLMISVC is misconfigured and deployment is blocked.
+	if err := r.reconcileScaling(ctx, llmSvc, config); err != nil {
+		if meta.IsNoMatchError(err) {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "ScalingCRDNotFound",
+				"Required scaling CRD not installed: %v", err)
+			llmSvc.MarkMainWorkloadNotReady("ScalingCRDNotFound", err.Error())
+		} else {
+			llmSvc.MarkMainWorkloadNotReady("ReconcileScalingError", err.Error())
+		}
+		return fmt.Errorf("failed to reconcile scaling: %w", err)
+	}
+
 	return nil
 }
 
@@ -98,9 +120,9 @@ func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc"),
 			Namespace: llmSvc.GetNamespace(),
 			Labels: map[string]string{
-				"app.kubernetes.io/component": "llminferenceservice-workload",
-				"app.kubernetes.io/name":      llmSvc.GetName(),
-				"app.kubernetes.io/part-of":   "llminferenceservice",
+				constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload,
+				constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+				constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -141,9 +163,9 @@ func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc
 
 func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceServiceSpec) map[string]string {
 	s := map[string]string{
-		"app.kubernetes.io/part-of": "llminferenceservice",
-		"app.kubernetes.io/name":    meta.GetName(),
-		"kserve.io/component":       "workload",
+		constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+		constants.KubernetesAppNameLabelKey: meta.GetName(),
+		constants.KServeComponentLabelKey:   constants.KServeComponentWorkload,
 	}
 
 	// TODO https://github.com/llm-d/llm-d-inference-scheduler/issues/220 and DP template

@@ -950,7 +950,7 @@ func TestServerTimeout(t *testing.T) {
 				time.Sleep(testCase.serviceStepDuration)
 				response := map[string]interface{}{"predictions": "1"}
 				responseBytes, _ := json.Marshal(response)
-				rw.Write(responseBytes)
+				_, _ = rw.Write(responseBytes)
 			}))
 			model1Url, err := apis.ParseURL(model1.URL)
 			if err != nil {
@@ -966,7 +966,7 @@ func TestServerTimeout(t *testing.T) {
 				time.Sleep(testCase.serviceStepDuration)
 				response := map[string]interface{}{"predictions": "2"}
 				responseBytes, _ := json.Marshal(response)
-				rw.Write(responseBytes)
+				_, _ = rw.Write(responseBytes)
 			}))
 			model2Url, err := apis.ParseURL(model2.URL)
 			if err != nil {

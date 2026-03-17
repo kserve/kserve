@@ -16,10 +16,10 @@ dependencies = [
     "python-dateutil<3.0.0,>=2.8.0",
     "numpy<3.0.0,>=1.26.0",
     "psutil<6.0.0,>=5.9.6",
-    "grpcio<2.0.0,>=1.64.1",
-    "grpcio-tools<2.0.0,>=1.64.1",
+    "grpcio<2.0.0,>=1.73.0",
+    "grpcio-tools<2.0.0,>=1.73.0",
     "grpc-interceptor<1.0.0,>=0.15.4",
-    "protobuf<6.0.0,>=5.27.1",
+    "protobuf<7.0.0,>=6.33.5",
     "prometheus-client<1.0.0,>=0.20.0",
     "orjson<4.0.0,>=3.10.15",
     "httpx<1.0.0,>=0.27.2",
@@ -31,9 +31,11 @@ dependencies = [
     "urllib3>=2.6.0", # CVE-2025-66418 https://github.com/urllib3/urllib3/security/advisories/GHSA-gm62-xv2j-4w53
     "aiohttp>=3.13.3", # CVE-2025-69223 AIOHTTP's HTTP Parser auto_decompress feature is vulnerable to zip bomb
     "h11>=0.16.0", # CVE-2025-43859 h11 accepts some malformed Chunked-Encoding bodies
+    "cryptography>=46.0.5", # CVE-2026-26007 cryptography Subgroup Attack Due to Missing Subgroup Validation for SECT Curves
+    "python-multipart>=0.0.22", # CVE-2026-24486 Python-Multipart has Arbitrary File Write via Non-Default Configuration
 ]
 name = "kserve"
-version = "0.16.0"
+version = "0.17.0"
 description = "KServe Python SDK"
 readme = "README.md"
 classifiers = [
@@ -58,7 +60,7 @@ repository = "https://github.com/kserve/kserve/tree/master/python/kserve"
 
 [project.optional-dependencies]
 storage = [
-    "kserve-storage==0.16.0"
+    "kserve-storage==0.17.0"
 ]
 logging = [
     "asgi-logger<1.0.0,>=0.1.0",
@@ -67,7 +69,7 @@ ray = [
     "ray[serve]>=2.43.0",
 ]
 llm = [
-    "vllm==0.11.2",
+    "vllm==0.15.1",
 ]
 
 [dependency-groups]
@@ -82,8 +84,10 @@ test = [
     "avro<2.0.0,>=1.11.0",
     "tomlkit<1.0.0,>=0.12.0",
     "jinja2<4.0.0,>=3.1.4",
-    "grpcio-testing<2.0.0,>=1.60.0",
+    "grpcio-testing<2.0.0,>=1.73.0",
     "httpx-retries>=0.4.5,<1.0.0",
+    "boto3>=1.35.0,<2.0.0",
+    "pyarrow>=18.0.0,<20.0.0",
 ]
 dev = [
     "black[colorama]~=24.3.0",
@@ -98,3 +102,7 @@ index-strategy = "unsafe-best-match"
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+# UV workspace source for local dependency resolution
+[tool.uv.sources]
+kserve-storage = { path = "../storage", editable = true }

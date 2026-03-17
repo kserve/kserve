@@ -2,7 +2,243 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    inference.networking.k8s.io/bundle-version: v1.2.0
+    inference.networking.k8s.io/bundle-version: v1.3.0
+  name: inferencemodelrewrites.inference.networking.x-k8s.io
+spec:
+  group: inference.networking.x-k8s.io
+  names:
+    kind: InferenceModelRewrite
+    listKind: InferenceModelRewriteList
+    plural: inferencemodelrewrites
+    singular: inferencemodelrewrite
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.poolRef.name
+      name: Inference Pool
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha2
+    schema:
+      openAPIV3Schema:
+        description: InferenceModelRewrite is the Schema for the InferenceModelRewrite
+          API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: InferenceModelRewriteSpec defines the desired state of InferenceModelRewrite.
+            properties:
+              poolRef:
+                description: PoolRef is a reference to the inference pool.
+                properties:
+                  group:
+                    default: inference.networking.k8s.io
+                    description: Group is the group of the referent.
+                    maxLength: 253
+                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                  kind:
+                    default: InferencePool
+                    description: Kind is kind of the referent. For example "InferencePool".
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: Name is the name of the referent.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              rules:
+                items:
+                  description: |-
+                    InferenceModelRewriteRule defines the match criteria and corresponding action.
+                    For details on how precedence is determined across multiple rules and
+                    InferenceModelRewrite resources, see the "Precedence and Conflict Resolution"
+                    section in InferenceModelRewriteSpec.
+                  properties:
+                    matches:
+                      items:
+                        description: Match defines the criteria for matching the LLM
+                          requests.
+                        properties:
+                          model:
+                            description: |-
+                              Model specifies the criteria for matching the 'model' field
+                              within the JSON request body.
+                            properties:
+                              type:
+                                default: Exact
+                                description: |-
+                                  Type specifies the kind of string matching to use.
+                                  Supported value is "Exact". Defaults to "Exact".
+                                enum:
+                                - Exact
+                                type: string
+                              value:
+                                description: Value is the model name string to match
+                                  against.
+                                minLength: 1
+                                type: string
+                            required:
+                            - value
+                            type: object
+                        required:
+                        - model
+                        type: object
+                      type: array
+                    targets:
+                      items:
+                        description: TargetModel defines a weighted model destination
+                          for traffic distribution.
+                        properties:
+                          modelRewrite:
+                            type: string
+                          weight:
+                            description: |-
+                              (The following comment is copied from the original targetModel)
+                              Weight is used to determine the proportion of traffic that should be
+                              sent to this model when multiple target models are specified.
+
+                              Weight defines the proportion of requests forwarded to the specified
+                              model. This is computed as weight/(sum of all weights in this
+                              TargetModels list). For non-zero values, there may be some epsilon from
+                              the exact proportion defined here depending on the precision an
+                              implementation supports. Weight is not a percentage and the sum of
+                              weights does not need to equal 100.
+
+                              If a weight is set for any targetModel, it must be set for all targetModels.
+                              Conversely weights are optional, so long as ALL targetModels do not specify a weight.
+                            format: int32
+                            maximum: 1000000
+                            minimum: 1
+                            type: integer
+                        required:
+                        - modelRewrite
+                        type: object
+                      minItems: 1
+                      type: array
+                  type: object
+                type: array
+            required:
+            - poolRef
+            - rules
+            type: object
+          status:
+            description: InferenceModelRewriteStatus defines the observed state of
+              InferenceModelRewrite.
+            properties:
+              conditions:
+                default:
+                - lastTransitionTime: "1970-01-01T00:00:00Z"
+                  message: Waiting for controller
+                  reason: Pending
+                  status: Unknown
+                  type: Accepted
+                description: |-
+                  Conditions track the state of the InferenceModelRewrite.
+
+                  Known condition types are:
+
+                  * "Accepted"
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 8
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    inference.networking.k8s.io/bundle-version: v1.3.0
   name: inferenceobjectives.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
@@ -193,7 +429,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    inference.networking.k8s.io/bundle-version: v1.2.0
+    inference.networking.k8s.io/bundle-version: v1.3.0
   name: inferencepoolimports.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
@@ -525,7 +761,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api-inference-extension/pull/1173
-    inference.networking.k8s.io/bundle-version: v1.2.0
+    inference.networking.k8s.io/bundle-version: v1.3.0
   name: inferencepools.inference.networking.k8s.io
 spec:
   group: inference.networking.k8s.io
@@ -885,7 +1121,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: unapproved, experimental-only
-    inference.networking.k8s.io/bundle-version: v1.2.0
+    inference.networking.k8s.io/bundle-version: v1.3.0
   name: inferencepools.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io

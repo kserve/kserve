@@ -24,7 +24,6 @@ from ...utils.utils import to_headers
 
 
 class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
-
     def __init__(
         self,
         data_plane: DataPlane,

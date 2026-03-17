@@ -24,6 +24,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -106,7 +107,7 @@ func (r *LLMISVCReconciler) propagateLeaderWorkerSetStatus(ctx context.Context, 
 
 	curr := &lwsapi.LeaderWorkerSet{}
 	err := retry.OnError(retry.DefaultRetry, apierrors.IsNotFound, func() error {
-		return r.Client.Get(ctx, client.ObjectKeyFromObject(expected), curr)
+		return r.Get(ctx, client.ObjectKeyFromObject(expected), curr)
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get current leaderworkerset %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
@@ -122,31 +123,31 @@ func (r *LLMISVCReconciler) propagateLeaderWorkerSetStatus(ctx context.Context, 
 		}
 	}
 	logger.Info("LeaderWorkerSet processed")
-	notReady(string(lwsapi.LeaderWorkerSetProgressing), "")
+	notReady(string(lwsapi.LeaderWorkerSetProgressing), "LWS is progressing")
 	return nil
 }
 
 func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*lwsapi.LeaderWorkerSet, error) {
 	workerLabels := map[string]string{
-		"app.kubernetes.io/component": "llminferenceservice-workload-worker",
-		"app.kubernetes.io/name":      llmSvc.GetName(),
-		"app.kubernetes.io/part-of":   "llminferenceservice",
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadWorker,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
 	if llmSvc.Spec.Template == nil {
 		// When there is no leader template, workers become part of the InferencePool selector.
-		workerLabels["kserve.io/component"] = "workload"
-		workerLabels["llm-d.ai/role"] = "decode"
+		workerLabels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
+		workerLabels[constants.LLMDRoleLabelKey] = constants.LLMDRoleDecode
 	}
-	role := "decode"
+	role := constants.LLMDRoleDecode
 	if llmSvc.Spec.Prefill == nil {
-		role = "both"
+		role = constants.LLMDRoleBoth
 	}
 	leaderLabels := map[string]string{
-		"app.kubernetes.io/component": "llminferenceservice-workload-leader",
-		"app.kubernetes.io/name":      llmSvc.GetName(),
-		"app.kubernetes.io/part-of":   "llminferenceservice",
-		"kserve.io/component":         "workload",
-		"llm-d.ai/role":               role,
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadLeader,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		constants.KServeComponentLabelKey:     constants.KServeComponentWorkload,
+		constants.LLMDRoleLabelKey:            role,
 	}
 
 	expected := &lwsapi.LeaderWorkerSet{
@@ -176,6 +177,12 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		},
 	}
 
+	// Fetch the current LWS once to preserve storage-init images across upgrades.
+	currLWS := &lwsapi.LeaderWorkerSet{}
+	if err := r.Get(ctx, client.ObjectKeyFromObject(expected), currLWS); err != nil && !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
+		return nil, fmt.Errorf("failed to get current leader worker set %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
+	}
+
 	if llmSvc.Spec.Template != nil {
 		expected.Spec.LeaderWorkerTemplate.LeaderTemplate = &corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
@@ -190,7 +197,12 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		}
 		expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config); err != nil {
+		var currLeaderSpec corev1.PodSpec
+		if currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			currLeaderSpec = currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec
+		}
+
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to leader template: %w", err)
 		}
 
@@ -215,7 +227,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		}
 		expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config); err != nil {
+		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to worker template: %w", err)
 		}
 
@@ -241,21 +253,21 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 
 func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*lwsapi.LeaderWorkerSet, error) {
 	workerLabels := map[string]string{
-		"app.kubernetes.io/component": "llminferenceservice-workload-worker-prefill",
-		"app.kubernetes.io/name":      llmSvc.GetName(),
-		"app.kubernetes.io/part-of":   "llminferenceservice",
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadWorkerPrefill,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template == nil {
 		// When there is no leader template, workers become part of the InferencePool selector.
-		workerLabels["kserve.io/component"] = "workload"
-		workerLabels["llm-d.ai/role"] = "prefill"
+		workerLabels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
+		workerLabels[constants.LLMDRoleLabelKey] = constants.LLMDRolePrefill
 	}
 	leaderLabels := map[string]string{
-		"app.kubernetes.io/component": "llminferenceservice-workload-leader-prefill",
-		"app.kubernetes.io/name":      llmSvc.GetName(),
-		"app.kubernetes.io/part-of":   "llminferenceservice",
-		"kserve.io/component":         "workload",
-		"llm-d.ai/role":               "prefill",
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadLeaderPrefill,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		constants.KServeComponentLabelKey:     constants.KServeComponentWorkload,
+		constants.LLMDRoleLabelKey:            constants.LLMDRolePrefill,
 	}
 
 	expected := &lwsapi.LeaderWorkerSet{
@@ -292,6 +304,11 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 			return nil, fmt.Errorf("failed to create exptected multi node service account: %w", err)
 		}
 
+		currLWS := &lwsapi.LeaderWorkerSet{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(expected), currLWS); err != nil && !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
+			return nil, fmt.Errorf("failed to get current prefill leader worker set %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
+		}
+
 		if llmSvc.Spec.Prefill.Template != nil {
 			expected.Spec.LeaderWorkerTemplate.LeaderTemplate = &corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -301,7 +318,12 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 			}
 			expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config); err != nil {
+			var currLeaderSpec corev1.PodSpec
+			if currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+				currLeaderSpec = currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec
+			}
+
+			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill leader template: %w", err)
 			}
 		}
@@ -309,7 +331,7 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec = *llmSvc.Spec.Prefill.Worker.DeepCopy()
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
-			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config); err != nil {
+			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath); err != nil {
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill worker template: %w", err)
 			}
 		}
@@ -322,6 +344,40 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 	}
 
 	r.propagateLeaderWorkerSetMetadata(llmSvc, expected)
+
+	// Propagate prefill-specific labels and annotations
+	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Labels != nil {
+		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			if expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels == nil {
+				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels = make(map[string]string, len(llmSvc.Spec.Prefill.Labels))
+			}
+			for k, v := range llmSvc.Spec.Prefill.Labels {
+				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels[k] = v
+			}
+		}
+		if expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels == nil {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels = make(map[string]string, len(llmSvc.Spec.Prefill.Labels))
+		}
+		for k, v := range llmSvc.Spec.Prefill.Labels {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels[k] = v
+		}
+	}
+	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Annotations != nil {
+		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			if expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations == nil {
+				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations = make(map[string]string, len(llmSvc.Spec.Prefill.Annotations))
+			}
+			for k, v := range llmSvc.Spec.Prefill.Annotations {
+				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations[k] = v
+			}
+		}
+		if expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations == nil {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations = make(map[string]string, len(llmSvc.Spec.Prefill.Annotations))
+		}
+		for k, v := range llmSvc.Spec.Prefill.Annotations {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations[k] = v
+		}
+	}
 
 	log.FromContext(ctx).V(2).Info("Expected prefill LWS", "leaderworkerset", expected)
 
@@ -419,7 +475,7 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Cont
 		useExistingServiceAccount = true
 		log.FromContext(ctx).V(2).Info("Using existing service account for multi node main workload", "serviceAccountName", existingServiceAccountName)
 		existingServiceAccount := &corev1.ServiceAccount{}
-		err := r.Client.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+		err := r.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
 		if err != nil {
 			return nil, useExistingServiceAccount, fmt.Errorf("failed to fetch existing multi node main service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
 		}
@@ -440,8 +496,8 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainServiceAccount(ctx context.Cont
 	if expectedServiceAccount.Labels == nil {
 		expectedServiceAccount.Labels = make(map[string]string)
 	}
-	expectedServiceAccount.Labels["app.kubernetes.io/name"] = llmSvc.GetName()
-	expectedServiceAccount.Labels["app.kubernetes.io/part-of"] = "llminferenceservice"
+	expectedServiceAccount.Labels[constants.KubernetesAppNameLabelKey] = llmSvc.GetName()
+	expectedServiceAccount.Labels[constants.KubernetesPartOfLabelKey] = constants.LLMInferenceServicePartOfValue
 
 	return expectedServiceAccount, useExistingServiceAccount, nil
 }
@@ -462,7 +518,7 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.C
 		useExistingServiceAccount = true
 		log.FromContext(ctx).V(2).Info("Using existing service account for multi node prefill workload", "serviceAccountName", existingServiceAccountName)
 		existingServiceAccount := &corev1.ServiceAccount{}
-		err := r.Client.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+		err := r.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
 		if err != nil {
 			return nil, useExistingServiceAccount, fmt.Errorf("failed to fetch existing multi node prefill service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
 		}
@@ -483,8 +539,8 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.C
 	if expectedServiceAccount.Labels == nil {
 		expectedServiceAccount.Labels = make(map[string]string)
 	}
-	expectedServiceAccount.Labels["app.kubernetes.io/name"] = llmSvc.GetName()
-	expectedServiceAccount.Labels["app.kubernetes.io/part-of"] = "llminferenceservice"
+	expectedServiceAccount.Labels[constants.KubernetesAppNameLabelKey] = llmSvc.GetName()
+	expectedServiceAccount.Labels[constants.KubernetesPartOfLabelKey] = constants.LLMInferenceServicePartOfValue
 
 	return expectedServiceAccount, useExistingServiceAccount, nil
 }
@@ -498,8 +554,8 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainRole(llmSvc *v1alpha2.LLMInfere
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
 			},
 			Labels: map[string]string{
-				"app.kubernetes.io/name":    llmSvc.GetName(),
-				"app.kubernetes.io/part-of": "llminferenceservice",
+				constants.KubernetesAppNameLabelKey: llmSvc.GetName(),
+				constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
 			},
 		},
 	}
@@ -516,8 +572,8 @@ func (r *LLMISVCReconciler) expectedMultiNodeRoleBinding(llmSvc *v1alpha2.LLMInf
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
 			},
 			Labels: map[string]string{
-				"app.kubernetes.io/name":    llmSvc.GetName(),
-				"app.kubernetes.io/part-of": "llminferenceservice",
+				constants.KubernetesAppNameLabelKey: llmSvc.GetName(),
+				constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
 			},
 		},
 		Subjects: []rbacv1.Subject{{
@@ -539,6 +595,7 @@ func (r *LLMISVCReconciler) propagateLeaderWorkerSetMetadata(llmSvc *v1alpha2.LL
 		"leaderworkerset.sigs.k8s.io",
 		"k8s.v1.cni.cncf.io",
 		constants.KueueAPIGroupName,
+		"prometheus.io",
 	}
 	approvedLabelPrefixes := []string{
 		constants.KueueAPIGroupName,
@@ -575,13 +632,47 @@ func (r *LLMISVCReconciler) propagateLeaderWorkerSetMetadata(llmSvc *v1alpha2.LL
 		&expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels,
 		approvedLabelPrefixes...,
 	)
+
+	// Propagate all labels from WorkloadSpec.Labels to Pod templates
+	if llmSvc.Spec.Labels != nil {
+		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			if expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels == nil {
+				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels = make(map[string]string, len(llmSvc.Spec.Labels))
+			}
+			for k, v := range llmSvc.Spec.Labels {
+				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels[k] = v
+			}
+		}
+		if expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels == nil {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels = make(map[string]string, len(llmSvc.Spec.Labels))
+		}
+		for k, v := range llmSvc.Spec.Labels {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels[k] = v
+		}
+	}
+
+	// Propagate all annotations from WorkloadSpec.Annotations to Pod templates
+	if llmSvc.Spec.Annotations != nil {
+		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			if expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations == nil {
+				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations = make(map[string]string, len(llmSvc.Spec.Annotations))
+			}
+			for k, v := range llmSvc.Spec.Annotations {
+				expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations[k] = v
+			}
+		}
+		if expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations == nil {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations = make(map[string]string, len(llmSvc.Spec.Annotations))
+		}
+		for k, v := range llmSvc.Spec.Annotations {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations[k] = v
+		}
+	}
 }
 
 func semanticLWSIsEqual(expected *lwsapi.LeaderWorkerSet, curr *lwsapi.LeaderWorkerSet) bool {
-	isLeaderEqual := true
-	if (expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil) != (curr.Spec.LeaderWorkerTemplate.LeaderTemplate != nil) {
-		isLeaderEqual = false
-	}
+	isLeaderEqual := (expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil) == (curr.Spec.LeaderWorkerTemplate.LeaderTemplate != nil)
+
 	if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil && curr.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
 		// Use DeepEqual for the Pod Spec so that when fields are removed (like resource requirements, we push them down
 		// to the child resource)

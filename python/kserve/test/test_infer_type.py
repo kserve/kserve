@@ -537,7 +537,6 @@ class TestInferRequest:
             )
 
     def test_infer_request_from_bytes_fp16_data_via_json(self):
-
         infer_request_bytes = b'{"id": "1", "inputs": [{"name": "input1", "shape": [1], "datatype": "FP16", "data": [1]}'
         with pytest.raises(InvalidInput):
             InferRequest.from_bytes(

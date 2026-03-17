@@ -9,6 +9,7 @@ on:
       - "!docs/**"
       - "!**.md"
       - ".github/workflows/e2e-test.yml"
+      - ".github/actions/**"
   workflow_dispatch:
 
 env:
@@ -28,11 +29,56 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      install_methods: ${{ steps.set-matrix.outputs.install_methods }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            charts:
+              - 'charts/**'
+            non_charts:
+              - '**'
+              - '!charts/**'
+      - id: set-matrix
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo 'install_methods=["kustomize","helm"]' >> $GITHUB_OUTPUT
+          elif [[ "${{ steps.filter.outputs.charts }}" == "true" && \
+                  "${{ steps.filter.outputs.non_charts }}" == "true" ]]; then
+            echo 'install_methods=["kustomize","helm"]' >> $GITHUB_OUTPUT
+          elif [[ "${{ steps.filter.outputs.charts }}" == "true" ]]; then
+            echo 'install_methods=["helm"]' >> $GITHUB_OUTPUT
+          else
+            echo 'install_methods=["kustomize"]' >> $GITHUB_OUTPUT
+          fi
+
   kserve-image-build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
         run: ./kserve-images.sh --ci
@@ -107,6 +153,15 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
       - name: Load KServe environment variables
         run: ./kserve-images.sh --ci
 
@@ -166,6 +221,14 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+      - name: Upload predictiveserver image
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
       - name: Upload image transformer image
         uses: actions/upload-artifact@v4
         with:
@@ -204,6 +267,15 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
       - name: Load KServe environment variables
         run: ./kserve-images.sh --ci
 
@@ -233,6 +305,15 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
         run: ./kserve-images.sh --ci
@@ -271,10 +352,23 @@ jobs:
 
   test-predictor:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, predictor-runtime-build]
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
         run: ./kserve-images.sh --ci
@@ -318,6 +412,8 @@ jobs:
 
       - name: Install KServe
         run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
@@ -336,10 +432,23 @@ jobs:
   test-transformer-explainer-mms:
     runs-on: ubuntu-latest
     needs:
-      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
         run: ./kserve-images.sh --ci
@@ -391,6 +500,12 @@ jobs:
           name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
           path: ./tmp
 
+      - name: Download predictiveserver image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
       - name: Load docker images
         uses: ./.github/actions/load-docker-images
         with:
@@ -401,6 +516,8 @@ jobs:
 
       - name: Install KServe
         run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
@@ -424,10 +541,23 @@ jobs:
   test-graph:
     runs-on: ubuntu-latest
     needs:
-      [kserve-image-build, predictor-runtime-build, graph-tests-images-build]
+      [detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
         run: ./kserve-images.sh --ci
@@ -473,6 +603,12 @@ jobs:
           name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
           path: ./tmp
 
+      - name: Download predictiveserver image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
       - name: Load docker images
         uses: ./.github/actions/load-docker-images
         with:
@@ -483,6 +619,8 @@ jobs:
 
       - name: Install KServe
         run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
@@ -501,10 +639,23 @@ jobs:
   test-path-based-routing:
     runs-on: ubuntu-latest
     needs:
-      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
         run: ./kserve-images.sh --ci
@@ -549,6 +700,12 @@ jobs:
           name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.LGB_IMG }}-${{ env.TAG }}
           path: ./tmp
 
+      - name: Download predictiveserver image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
       - name: Download transformer image
         uses: actions/download-artifact@v4
         with:
@@ -571,7 +728,13 @@ jobs:
 
       - name: Install KServe
         run: |
-          export KSERVE_CUSTOM_ISVC_CONFIGS='ingress.pathTemplate=/serving/{{ .Namespace }}/{{ .Name }}|ingress.ingressDomain=mydomain.com'
+          if [ "${{ matrix.install-method }}" == "helm" ]; then
+            export INSTALL_METHOD="helm"
+            export SET_KSERVE_VERSION=${{ env.TAG }}
+            export KSERVE_CUSTOM_ISVC_CONFIGS='kserve.controller.gateway.pathTemplate=/serving/{{ .Namespace }}/{{ .Name }}|kserve.controller.gateway.domain=mydomain.com'
+          else
+            export KSERVE_CUSTOM_ISVC_CONFIGS='ingress.pathTemplate=/serving/{{ .Namespace }}/{{ .Name }}|ingress.ingressDomain=mydomain.com'
+          fi
           export NETWORK_LAYER='istio-ingress'
           ./test/scripts/gh-actions/setup-kserve.sh
 
@@ -595,10 +758,23 @@ jobs:
 
   test-qpext:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, predictor-runtime-build]
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
         run: ./kserve-images.sh --ci
@@ -635,6 +811,12 @@ jobs:
           name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
           path: ./tmp
 
+      - name: Download predictiveserver image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
       - name: Load docker images
         uses: ./.github/actions/load-docker-images
         with:
@@ -645,13 +827,18 @@ jobs:
 
       - name: Install KServe
         run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
           ./test/scripts/gh-actions/setup-kserve.sh
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
       - name: Patch qpext image
         run: |
-          kubectl patch configmaps -n knative-serving config-deployment --patch '{"data": {"queue-sidecar-image": "kserve/qpext:${{ env.TAG }}"}}'
-          kubectl describe configmaps -n knative-serving config-deployment
+          kubectl patch knativeserving knative-serving -n knative-serving --type=merge \
+            --patch '{"spec":{"config":{"deployment":{"queue-sidecar-image":"kserve/qpext:${{ env.TAG }}"},"observability":{"request-metrics-protocol":"prometheus"}}}}'
+          kubectl wait --for=condition=Ready -n knative-serving knativeserving knative-serving --timeout=120s
+          kubectl get configmap config-deployment -n knative-serving -o jsonpath='{.data.queue-sidecar-image}'
+          echo
       - name: Run queue proxy extension E2E tests
         timeout-minutes: 30
         run: |
@@ -668,6 +855,15 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
         run: ./kserve-images.sh --ci
@@ -699,7 +895,8 @@ jobs:
 
       - name: Install Kserve from helm
         run: |
-          ./test/scripts/gh-actions/setup-kserve-helm.sh
+          export INSTALL_METHOD="helm"
+          ./test/scripts/gh-actions/setup-kserve.sh
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
 
@@ -722,11 +919,21 @@ jobs:
       matrix:
         # Test with Ingress and Gateway API
         network-layer: ["istio-ingress", "envoy-gatewayapi", "istio-gatewayapi"]
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     needs:
-      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
         run: ./kserve-images.sh --ci
@@ -756,7 +963,7 @@ jobs:
       - name: Check Metrics Server Logs
         run: |
           kubectl logs -n kube-system deploy/metrics-server
-      
+
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
         with:
@@ -777,6 +984,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download predictiveserver image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
           path: ./tmp
 
       - name: Download custom model grpc image
@@ -802,6 +1015,8 @@ jobs:
 
       - name: Install KServe
         run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
           ./test/scripts/gh-actions/setup-kserve.sh "Standard" ${{ matrix.network-layer }}
 
           kubectl get pods -n kserve
@@ -846,10 +1061,23 @@ jobs:
   test-autoscaling:
     runs-on: ubuntu-latest
     needs:
-      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
         run: ./kserve-images.sh --ci
@@ -879,7 +1107,7 @@ jobs:
       - name: Check Metrics Server Logs
         run: |
           kubectl logs -n kube-system deploy/metrics-server
-      
+
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
         with:
@@ -896,6 +1124,12 @@ jobs:
           name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
           path: ./tmp
 
+      - name: Download predictiveserver image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
       - name: Load docker images
         uses: ./.github/actions/load-docker-images
         with:
@@ -906,6 +1140,8 @@ jobs:
 
       - name: Install KServe
         run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
           ./test/scripts/gh-actions/setup-kserve.sh "Standard" "istio-ingress"
 
           kubectl get pods -n kserve
@@ -928,10 +1164,23 @@ jobs:
   test-kourier:
     runs-on: ubuntu-latest
     needs:
-      [kserve-image-build, predictor-runtime-build, graph-tests-images-build]
+      [detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
         run: ./kserve-images.sh --ci
@@ -979,6 +1228,12 @@ jobs:
           name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
           path: ./tmp
 
+      - name: Download predictiveserver image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
       - name: Load docker images
         uses: ./.github/actions/load-docker-images
         with:
@@ -989,7 +1244,13 @@ jobs:
 
       - name: Install KServe
         run: |
-          export KSERVE_CUSTOM_ISVC_CONFIGS='ingress.disableIstioVirtualHost=true'
+          if [ "${{ matrix.install-method }}" == "helm" ]; then
+            export INSTALL_METHOD="helm"
+            export SET_KSERVE_VERSION=${{ env.TAG }}
+            export KSERVE_CUSTOM_ISVC_CONFIGS='kserve.controller.gateway.disableIstioVirtualHost=true'
+          else
+            export KSERVE_CUSTOM_ISVC_CONFIGS='ingress.disableIstioVirtualHost=true'
+          fi
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
@@ -1011,10 +1272,23 @@ jobs:
 
   test-llm:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, predictor-runtime-build]
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
         run: ./kserve-images.sh --ci
@@ -1056,6 +1330,8 @@ jobs:
 
       - name: Install KServe
         run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
@@ -1073,10 +1349,23 @@ jobs:
 
   test-huggingface-server-vllm:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, predictor-runtime-build]
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
         run: ./kserve-images.sh --ci
@@ -1118,6 +1407,8 @@ jobs:
 
       - name: Install KServe
         run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
@@ -1135,10 +1426,23 @@ jobs:
 
   test-modelcache:
     runs-on: ubuntu-latest
-    needs: [kserve-image-build, predictor-runtime-build]
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
 
       - name: Load KServe environment variables
         run: ./kserve-images.sh --ci
@@ -1204,6 +1508,12 @@ jobs:
           name: ${{ env.HUGGINGFACE_IMG }}-${{ env.TAG }}
           path: /tmp-images
 
+      - name: Download sklearn server image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
+          path: /tmp-images
+
       - name: Load runtime docker images
         run: |
           files=$(find /tmp-images -maxdepth 1 -type f)
@@ -1224,7 +1534,8 @@ jobs:
 
       - name: Install KServe
         run: |
-          export KSERVE_CUSTOM_ISVC_CONFIGS="localModel.enabled=true|localModel.defaultJobImage=kserve/storage-initializer:${GITHUB_SHA}"
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          export SET_KSERVE_VERSION=${{ env.TAG }}
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve

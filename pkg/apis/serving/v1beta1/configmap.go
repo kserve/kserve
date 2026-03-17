@@ -111,20 +111,21 @@ type MultiNodeConfig struct {
 
 // +kubebuilder:object:generate=false
 type IngressConfig struct {
-	EnableGatewayAPI           bool      `json:"enableGatewayApi,omitempty"`
-	KserveIngressGateway       string    `json:"kserveIngressGateway,omitempty"`
-	IngressGateway             string    `json:"ingressGateway,omitempty"`
-	KnativeLocalGatewayService string    `json:"knativeLocalGatewayService,omitempty"`
-	LocalGateway               string    `json:"localGateway,omitempty"`
-	LocalGatewayServiceName    string    `json:"localGatewayService,omitempty"`
-	IngressDomain              string    `json:"ingressDomain,omitempty"`
-	IngressClassName           *string   `json:"ingressClassName,omitempty"`
-	AdditionalIngressDomains   *[]string `json:"additionalIngressDomains,omitempty"`
-	DomainTemplate             string    `json:"domainTemplate,omitempty"`
-	UrlScheme                  string    `json:"urlScheme,omitempty"`
-	DisableIstioVirtualHost    bool      `json:"disableIstioVirtualHost,omitempty"`
-	PathTemplate               string    `json:"pathTemplate,omitempty"`
-	DisableIngressCreation     bool      `json:"disableIngressCreation,omitempty"`
+	EnableGatewayAPI             bool      `json:"enableGatewayApi,omitempty"`
+	KserveIngressGateway         string    `json:"kserveIngressGateway,omitempty"`
+	IngressGateway               string    `json:"ingressGateway,omitempty"`
+	KnativeLocalGatewayService   string    `json:"knativeLocalGatewayService,omitempty"`
+	LocalGateway                 string    `json:"localGateway,omitempty"`
+	LocalGatewayServiceName      string    `json:"localGatewayService,omitempty"`
+	IngressDomain                string    `json:"ingressDomain,omitempty"`
+	IngressClassName             *string   `json:"ingressClassName,omitempty"`
+	AdditionalIngressDomains     *[]string `json:"additionalIngressDomains,omitempty"`
+	DomainTemplate               string    `json:"domainTemplate,omitempty"`
+	UrlScheme                    string    `json:"urlScheme,omitempty"`
+	EnableLLMInferenceServiceTLS bool      `json:"enableLLMInferenceServiceTLS,omitempty"`
+	DisableIstioVirtualHost      bool      `json:"disableIstioVirtualHost,omitempty"`
+	PathTemplate                 string    `json:"pathTemplate,omitempty"`
+	DisableIngressCreation       bool      `json:"disableIngressCreation,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -261,7 +262,7 @@ func NewMultiNodeConfig(isvcConfigMap *corev1.ConfigMap) (*MultiNodeConfig, erro
 	}
 
 	// update global GPU resource type list
-	utils.UpdateGlobalGPUResourceTypeList(append(mncfg.CustomGPUResourceTypeList, constants.DefaultGPUResourceTypeList...))
+	_ = utils.UpdateGlobalGPUResourceTypeList(append(mncfg.CustomGPUResourceTypeList, constants.DefaultGPUResourceTypeList...))
 	return mncfg, nil
 }
 
@@ -432,13 +433,20 @@ func GetStorageInitializerConfigs(configMap *corev1.ConfigMap) (*types.StorageIn
 	}
 	// Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := map[string]string{
-		"memoryRequest":  storageInitializerConfig.MemoryRequest,
-		"memoryLimit":    storageInitializerConfig.MemoryLimit,
-		"cpuRequest":     storageInitializerConfig.CpuRequest,
-		"cpuLimit":       storageInitializerConfig.CpuLimit,
-		"cpuModelcar":    storageInitializerConfig.CpuModelcar,
-		"memoryModelcar": storageInitializerConfig.MemoryModelcar,
+		"memoryRequest": storageInitializerConfig.MemoryRequest,
+		"memoryLimit":   storageInitializerConfig.MemoryLimit,
+		"cpuRequest":    storageInitializerConfig.CpuRequest,
+		"cpuLimit":      storageInitializerConfig.CpuLimit,
 	}
+
+	// Only validate optional modelcar fields if they're set
+	if storageInitializerConfig.CpuModelcar != "" {
+		resourceDefaults["cpuModelcar"] = storageInitializerConfig.CpuModelcar
+	}
+	if storageInitializerConfig.MemoryModelcar != "" {
+		resourceDefaults["memoryModelcar"] = storageInitializerConfig.MemoryModelcar
+	}
+
 	for key, value := range resourceDefaults {
 		_, err := resource.ParseQuantity(value)
 		if err != nil {

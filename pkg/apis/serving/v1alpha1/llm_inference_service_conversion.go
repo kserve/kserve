@@ -178,6 +178,74 @@ func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInference
 	return dst
 }
 
+func convertScalingSpecToV1Alpha2(src *ScalingSpec) *v1alpha2.ScalingSpec {
+	if src == nil {
+		return nil
+	}
+
+	dst := &v1alpha2.ScalingSpec{
+		MinReplicas: src.MinReplicas,
+		MaxReplicas: src.MaxReplicas,
+	}
+
+	if src.WVA != nil {
+		dst.WVA = &v1alpha2.WVASpec{
+			VariantCost: src.WVA.VariantCost,
+		}
+		if src.WVA.HPA != nil {
+			dst.WVA.HPA = &v1alpha2.HPAScalingSpec{
+				Behavior: src.WVA.HPA.Behavior,
+			}
+		}
+		if src.WVA.KEDA != nil {
+			dst.WVA.KEDA = &v1alpha2.KEDAScalingSpec{
+				PollingInterval:       src.WVA.KEDA.PollingInterval,
+				CooldownPeriod:        src.WVA.KEDA.CooldownPeriod,
+				InitialCooldownPeriod: src.WVA.KEDA.InitialCooldownPeriod,
+				IdleReplicaCount:      src.WVA.KEDA.IdleReplicaCount,
+				Fallback:              src.WVA.KEDA.Fallback,
+				Advanced:              src.WVA.KEDA.Advanced,
+			}
+		}
+	}
+
+	return dst
+}
+
+func convertScalingSpecFromV1Alpha2(src *v1alpha2.ScalingSpec) *ScalingSpec {
+	if src == nil {
+		return nil
+	}
+
+	dst := &ScalingSpec{
+		MinReplicas: src.MinReplicas,
+		MaxReplicas: src.MaxReplicas,
+	}
+
+	if src.WVA != nil {
+		dst.WVA = &WVASpec{
+			VariantCost: src.WVA.VariantCost,
+		}
+		if src.WVA.HPA != nil {
+			dst.WVA.HPA = &HPAScalingSpec{
+				Behavior: src.WVA.HPA.Behavior,
+			}
+		}
+		if src.WVA.KEDA != nil {
+			dst.WVA.KEDA = &KEDAScalingSpec{
+				PollingInterval:       src.WVA.KEDA.PollingInterval,
+				CooldownPeriod:        src.WVA.KEDA.CooldownPeriod,
+				InitialCooldownPeriod: src.WVA.KEDA.InitialCooldownPeriod,
+				IdleReplicaCount:      src.WVA.KEDA.IdleReplicaCount,
+				Fallback:              src.WVA.KEDA.Fallback,
+				Advanced:              src.WVA.KEDA.Advanced,
+			}
+		}
+	}
+
+	return dst
+}
+
 func convertModelSpecToV1Alpha2(src *LLMModelSpec) v1alpha2.LLMModelSpec {
 	dst := v1alpha2.LLMModelSpec{
 		URI:  src.URI,
@@ -234,9 +302,11 @@ func convertLoRASpecFromV1Alpha2(src *v1alpha2.LoRASpec) *LoRASpec {
 
 func convertWorkloadSpecToV1Alpha2(src *WorkloadSpec) v1alpha2.WorkloadSpec {
 	dst := v1alpha2.WorkloadSpec{
-		Replicas: src.Replicas,
-		Template: src.Template,
-		Worker:   src.Worker,
+		Replicas:    src.Replicas,
+		Labels:      src.Labels,
+		Annotations: src.Annotations,
+		Template:    src.Template,
+		Worker:      src.Worker,
 	}
 
 	if src.Parallelism != nil {
@@ -250,14 +320,20 @@ func convertWorkloadSpecToV1Alpha2(src *WorkloadSpec) v1alpha2.WorkloadSpec {
 		}
 	}
 
+	if src.Scaling != nil {
+		dst.Scaling = convertScalingSpecToV1Alpha2(src.Scaling)
+	}
+
 	return dst
 }
 
 func convertWorkloadSpecFromV1Alpha2(src *v1alpha2.WorkloadSpec) WorkloadSpec {
 	dst := WorkloadSpec{
-		Replicas: src.Replicas,
-		Template: src.Template,
-		Worker:   src.Worker,
+		Replicas:    src.Replicas,
+		Labels:      src.Labels,
+		Annotations: src.Annotations,
+		Template:    src.Template,
+		Worker:      src.Worker,
 	}
 
 	if src.Parallelism != nil {
@@ -269,6 +345,10 @@ func convertWorkloadSpecFromV1Alpha2(src *v1alpha2.WorkloadSpec) WorkloadSpec {
 			DataRPCPort: src.Parallelism.DataRPCPort,
 			Expert:      src.Parallelism.Expert,
 		}
+	}
+
+	if src.Scaling != nil {
+		dst.Scaling = convertScalingSpecFromV1Alpha2(src.Scaling)
 	}
 
 	return dst
@@ -313,12 +393,21 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 
 	if src.Scheduler != nil {
 		dst.Scheduler = &v1alpha2.SchedulerSpec{
-			Template: src.Scheduler.Template,
+			Labels:      src.Scheduler.Labels,
+			Annotations: src.Scheduler.Annotations,
+			Template:    src.Scheduler.Template,
+			Replicas:    src.Scheduler.Replicas,
 		}
 		if src.Scheduler.Pool != nil {
 			dst.Scheduler.Pool = &v1alpha2.InferencePoolSpec{
 				Ref:  src.Scheduler.Pool.Ref,
 				Spec: convertInferencePoolSpecToV1(src.Scheduler.Pool.Spec),
+			}
+		}
+		if src.Scheduler.Config != nil {
+			dst.Scheduler.Config = &v1alpha2.SchedulerConfigSpec{
+				Inline: src.Scheduler.Config.Inline,
+				Ref:    src.Scheduler.Config.Ref,
 			}
 		}
 	}
@@ -338,8 +427,9 @@ func convertInferencePoolSpecToV1(src *igwapiv1alpha2.InferencePoolSpec) *igwapi
 	dstPool := &igwapiv1.InferencePool{}
 
 	if err := srcPool.ConvertTo(dstPool); err != nil {
-		// Fallback: return empty spec on error (should not happen in practice)
-		return &igwapiv1.InferencePoolSpec{}
+		// Return nil rather than an empty spec — callers nil-check Pool.Spec, and an
+		// empty spec would bypass those guards with invalid zero-value fields.
+		return nil
 	}
 
 	return &dstPool.Spec
@@ -384,12 +474,21 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 
 	if src.Scheduler != nil {
 		dst.Scheduler = &SchedulerSpec{
-			Template: src.Scheduler.Template,
+			Labels:      src.Scheduler.Labels,
+			Annotations: src.Scheduler.Annotations,
+			Template:    src.Scheduler.Template,
+			Replicas:    src.Scheduler.Replicas,
 		}
 		if src.Scheduler.Pool != nil {
 			dst.Scheduler.Pool = &InferencePoolSpec{
 				Ref:  src.Scheduler.Pool.Ref,
 				Spec: convertInferencePoolSpecFromV1(src.Scheduler.Pool.Spec),
+			}
+		}
+		if src.Scheduler.Config != nil {
+			dst.Scheduler.Config = &SchedulerConfigSpec{
+				Inline: src.Scheduler.Config.Inline,
+				Ref:    src.Scheduler.Config.Ref,
 			}
 		}
 	}
@@ -409,8 +508,9 @@ func convertInferencePoolSpecFromV1(src *igwapiv1.InferencePoolSpec) *igwapiv1al
 	dstPool := &igwapiv1alpha2.InferencePool{}
 
 	if err := dstPool.ConvertFrom(srcPool); err != nil {
-		// Fallback: return empty spec on error (should not happen in practice)
-		return &igwapiv1alpha2.InferencePoolSpec{}
+		// Return nil rather than an empty spec — callers nil-check Pool.Spec, and an
+		// empty spec would bypass those guards with invalid zero-value fields.
+		return nil
 	}
 
 	return &dstPool.Spec
