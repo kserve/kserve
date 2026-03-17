@@ -16,6 +16,8 @@ spec:
         env:
           - name: VLLM_LOGGING_LEVEL
             value: DEBUG
+          - name: VLLM_CPU_KVCACHE_SPACE
+            value: "1"
         resources:
           limits:
             cpu: '1'

@@ -39,7 +39,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                 {
                     "name": "main",
                     "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
-                    "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
+                    "env": [
+                        {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
+                        {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                    ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
@@ -54,7 +57,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                 {
                     "name": "main",
                     "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
-                    "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
+                    "env": [
+                        {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
+                        {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                    ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
@@ -82,7 +88,10 @@ LLMINFERENCESERVICE_CONFIGS = {
                     {
                         "name": "main",
                         "image": "public.ecr.aws/q9t5s3a7/vllm-cpu-release-repo:v0.17.1",
-                        "env": [{"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"}],
+                        "env": [
+                            {"name": "VLLM_LOGGING_LEVEL", "value": "DEBUG"},
+                            {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                        ],
                         "resources": {
                             "limits": {"cpu": "2", "memory": "7Gi"},
                             "requests": {"cpu": "200m", "memory": "2Gi"},
@@ -316,6 +325,9 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "--port",
                         "8000",
                     ],
+                    "env": [
+                        {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
+                    ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
                         "requests": {"cpu": "200m", "memory": "2Gi"},
@@ -338,6 +350,9 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "{{ .Spec.Model.Name }}",
                         "--port",
                         "8000",
+                    ],
+                    "env": [
+                        {"name": "VLLM_CPU_KVCACHE_SPACE", "value": "1"},
                     ],
                     "resources": {
                         "limits": {"cpu": "2", "memory": "7Gi"},
